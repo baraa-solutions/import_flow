@@ -444,7 +444,7 @@ class TestFreightBookingBackend:
         assert fetched.cost_charges_data[1]["charge_type"] == "Marine Insurance"
 
         # list_bookings_service also reads without validation
-        all_bookings = list_bookings_service(db_session)
+        all_bookings, _ = list_bookings_service(db_session)
         assert any(b.booking_code == "BKG-LEGACY-001" for b in all_bookings)
 
     def test_charge_category_inferred_and_persisted(self, db_session):

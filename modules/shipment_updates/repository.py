@@ -2,7 +2,7 @@
 Database Repository for Shipment Update Engine
 """
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -18,7 +18,8 @@ def generate_update_code(db: Session) -> str:
 
 
 def create_update_log(db: Session, schema: ShipmentUpdateLogCreate, created_by: str = "System",
-                      import_file_code: Optional[str] = None, assigned_user: Optional[str] = None) -> ShipmentUpdateLog:
+                      import_file_code: Optional[str] = None, assigned_user: Optional[str] = None,
+                      previous_cost: Optional[float] = None) -> ShipmentUpdateLog:
     """Adds and flushes the log row (the service commits)."""
     code = generate_update_code(db)
     db_obj = ShipmentUpdateLog(
@@ -31,7 +32,7 @@ def create_update_log(db: Session, schema: ShipmentUpdateLogCreate, created_by: 
         log_date=schema.log_date,
         note=schema.note,
         adjusted_cost_item=schema.adjusted_cost_item,
-        previous_cost=schema.previous_cost or 0.0,
+        previous_cost=previous_cost if previous_cost is not None else (schema.previous_cost or 0.0),
         new_cost=schema.new_cost or 0.0,
         alert_priority=schema.alert_priority,
         assigned_user=assigned_user or schema.assigned_user or created_by,
@@ -56,7 +57,9 @@ def get_all_update_logs(
     update_category: Optional[str] = None,
     target_phase: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[ShipmentUpdateLog]:
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[ShipmentUpdateLog], int]:
     query = db.query(ShipmentUpdateLog).filter(ShipmentUpdateLog.is_active == True)
 
     if import_file_id:
@@ -79,7 +82,9 @@ def get_all_update_logs(
             )
         )
 
-    return query.order_by(ShipmentUpdateLog.update_id.desc()).all()
+    total = query.count()
+    items = query.order_by(ShipmentUpdateLog.update_id.desc()).offset(skip).limit(limit).all()
+    return items, total
 
 
 def update_log_record(db: Session, update_id: int, update_data: dict, updated_by: str = "System") -> Optional[ShipmentUpdateLog]:
@@ -93,8 +98,7 @@ def update_log_record(db: Session, update_id: int, update_data: dict, updated_by
 
     db_obj.updated_at = datetime.now(timezone.utc)
     db_obj.updated_by = updated_by
-    db.commit()
-    db.refresh(db_obj)
+    db.flush()
     return db_obj
 
 
@@ -106,5 +110,5 @@ def soft_delete_update_log(db: Session, update_id: int, deleted_by: str = "Syste
     db_obj.is_active = False
     db_obj.updated_at = datetime.now(timezone.utc)
     db_obj.updated_by = deleted_by
-    db.commit()
+    db.flush()
     return True

@@ -45,6 +45,8 @@ class ShipmentUpdateLogCreate(ShipmentUpdateLogBase):
     phase_status: PhaseStatus = "Current"
     alert_priority: AlertPriority = "Normal"
     assigned_user: Optional[str] = Field(None, description="Defaults to the logged-in user")
+    previous_cost: Optional[float] = Field(None, description="Deprecated and ignored on create: the server reads it from the import file")
+    new_cost: Optional[float] = Field(None, description="New cost (required and > 0 for Phase Cost Adjustment)")
 
     _log_date = field_validator("log_date")(_check_log_date)
 

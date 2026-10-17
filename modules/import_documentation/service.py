@@ -26,12 +26,17 @@ from modules.import_documentation.model import (
 from modules.import_documentation.schemas import *
 
 from modules.import_documentation.validators import (
+    acid_flags,
     validate_acid_number,
     validate_acid_expiry,
     validate_no_duplicate_acid_session,
     validate_no_duplicate_form4_session,
+    validate_no_duplicate_declaration_draft,
+    validate_currency_code,
     validate_unique_po_lines,
+    validate_status,
 )
+_validate_currency_code = validate_currency_code
 import modules.import_documentation.repository as repo
 from modules.customs_tariff.model import CustomsTariff
 from modules.common.system_messages import coded_text, msg, render_en
@@ -89,9 +94,10 @@ LABEL_INVOICE_BL_SESSION = "جلسة مطابقة الفاتورة والبول�
 DRAFT_BL_TERMINAL_STATUSES = frozenset({"FINAL", "APPROVED"})
 DRAFT_BL_APPROVAL_ROLES = frozenset({"importer", "customs_broker"})
 DRAFT_BL_APPROVAL_ACTIONS = frozenset({"Approved", "Rejected"})
-# Client-sent fields the server owns on a draft B/L review (DOC-04 / C2).
+# Client-sent fields the server owns on a draft B/L review (DOC-04 / C2 / BE03-T07).
 _DRAFT_BL_SERVER_OWNED = (
     "status", "stage",
+    "has_blocking_mismatch", "open_discrepancies_count", "revision_report_data",
     "importer_approval_status", "importer_approved_by", "importer_approval_date", "importer_approval_notes",
     "broker_approval_status", "broker_approved_by", "broker_approval_date", "broker_approval_notes",
     "approved_by", "approved_at", "reviewed_by", "reviewed_at",
@@ -125,6 +131,31 @@ def _get_active_import_file(db: Session, import_file_id: Any) -> Optional[Import
     if not import_file_id:
         return None
     return db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id, ImportFile.is_active == True).first()
+
+
+def _check_acid_conflict(db: Session, import_file_id: Optional[int], acid_number: Optional[str]) -> None:
+    """Rejects linking or updating an ACID session with a different 19-digit number than the file has (BE03-T06)."""
+    if not import_file_id or not acid_number:
+        return
+    acid_clean = acid_number.strip()
+    if len(acid_clean) != 19 or not acid_clean.isdigit():
+        return
+    imp = _get_active_import_file(db, import_file_id)
+    if not imp:
+        return
+    current_acid = (imp.acid_number or "").strip()
+    if len(current_acid) == 19 and current_acid.isdigit() and current_acid != acid_clean:
+        file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{imp.import_file_id}"
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "DOC_ACID_CONFLICT",
+                "message": f"رقم الـ ACID ({acid_clean}) يختلف عن الرقم المسجل على الملف ({current_acid}).",
+                "acid_number": acid_clean,
+                "current_acid_number": current_acid,
+                "import_file_code": file_code,
+            },
+        )
 
 
 def _require_active_po(db: Session, po_id: Any) -> None:
@@ -255,6 +286,96 @@ def enrich_acid_response(db: Session, item: AcidRegistrationSession, import_file
     )
 
 
+def get_swift_coverage_for_file(db: Session, import_file_id: Optional[int]) -> Optional[Any]:
+    if not import_file_id:
+        return None
+    from modules.import_documentation.schemas import SwiftCoverageSummary
+    from modules.import_files.model import ImportFile
+    from modules.financial_approval.model import PaymentRequestSession
+    from modules.external_service_providers.model import ExternalServiceProvider
+
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not imp:
+        return None
+
+    # Calculate total invoice amount
+    invoice_amount = 0.0
+    invoice_currency = "USD"
+    if imp.invoices_data and isinstance(imp.invoices_data, list):
+        for inv in imp.invoices_data:
+            if isinstance(inv, dict):
+                invoice_amount += float(inv.get("amount", 0.0) or 0.0)
+                if inv.get("currency"):
+                    invoice_currency = inv.get("currency")
+    if invoice_amount == 0.0 and imp.estimated_cost:
+        invoice_amount = float(imp.estimated_cost)
+        invoice_currency = imp.estimated_cost_currency or "USD"
+
+    # Query payment requests
+    payments = (
+        db.query(PaymentRequestSession)
+        .filter(
+            PaymentRequestSession.import_file_id == import_file_id,
+            PaymentRequestSession.is_active == True,
+        )
+        .all()
+    )
+
+    total_transferred = 0.0
+    swift_refs: List[str] = []
+    exec_bank_id: Optional[int] = None
+    exec_bank_name: Optional[str] = None
+
+    for p in payments:
+        if p.swift_transferred_amount:
+            total_transferred += float(p.swift_transferred_amount)
+        elif p.status == "Paid":
+            total_transferred += float(p.requested_amount)
+
+        if p.swift_reference_no and p.swift_reference_no not in swift_refs:
+            swift_refs.append(p.swift_reference_no)
+
+        # Detect executing bank from swift reconciliation notes
+        if not exec_bank_name and p.swift_reconciliation_notes:
+            import re
+            m = re.search(r"Executing bank in Egypt:\s*([^\(]+)", p.swift_reconciliation_notes, re.IGNORECASE)
+            if m:
+                exec_bank_name = m.group(1).strip()
+
+    # Fallback to imp.swift_no
+    if imp.swift_no and imp.swift_no not in swift_refs:
+        swift_refs.append(imp.swift_no)
+
+    # If executing bank found by name, resolve its ID from external_service_providers
+    if exec_bank_name:
+        bank_p = (
+            db.query(ExternalServiceProvider)
+            .filter(
+                ExternalServiceProvider.partner_type == "Bank",
+                ExternalServiceProvider.partner_name.ilike(f"%{exec_bank_name}%"),
+                ExternalServiceProvider.is_active == True,
+            )
+            .first()
+        )
+        if bank_p:
+            exec_bank_id = bank_p.provider_id
+            exec_bank_name = bank_p.partner_name
+
+    coverage_pct = round((total_transferred / invoice_amount) * 100, 2) if invoice_amount > 0 else (100.0 if total_transferred > 0 else 0.0)
+    is_fully_covered = coverage_pct >= 99.0 or (total_transferred > 0 and invoice_amount == 0.0)
+
+    return SwiftCoverageSummary(
+        invoice_amount=invoice_amount,
+        invoice_currency=invoice_currency,
+        total_swift_transferred_amount=total_transferred,
+        coverage_percent=coverage_pct,
+        is_fully_covered=is_fully_covered,
+        executing_bank_id=exec_bank_id,
+        executing_bank_name=exec_bank_name,
+        swift_references=swift_refs,
+    )
+
+
 def enrich_banking_response(db: Session, item: BankingDocumentSession, import_file: Optional[Any] = None):
     import_file_code = None
     importer_name = None
@@ -269,12 +390,29 @@ def enrich_banking_response(db: Session, item: BankingDocumentSession, import_fi
             supplier_name = imp.supplier_name
             po_number = imp.po_number
 
+    swift_cov = get_swift_coverage_for_file(db, item.import_file_id)
+
+    blockers: List[str] = []
+    if (item.tax_coding_sheet_status or "NOT_STARTED") != "UPLOADED_BY_ACCOUNTANT":
+        blockers.append("شيت التكويد الضريبي لم يتم رفعه وتكويده على منصة نافذة بواسطة محاسب الشركة بعد.")
+    if not item.items_pulled_verified:
+        blockers.append("لم يقم المستخلص الجمركي بسحب الأصناف على نافذة للتحقق من نجاح التكويد.")
+    if (item.nafeza_bank_link_status or "PENDING") != "LINKED_TO_BANK":
+        blockers.append("لم يتم ربط الشحنة على البنك في منصة نافذة بواسطة المستخلص الجمركي.")
+    if not item.is_bank_matching_swift:
+        blockers.append("البنك المربوط عليه في نافذة لا يطابق البنك المنفذ لسويفت التحويل.")
+
+    can_submit = len(blockers) == 0
+
     from modules.import_documentation.schemas import BankingDocumentResponse
     res = BankingDocumentResponse.model_validate(item)
     res.import_file_code = import_file_code
     res.importer_name = importer_name
     res.supplier_name = supplier_name
     res.po_number = po_number
+    res.swift_coverage = swift_cov
+    res.can_submit_form4 = can_submit
+    res.blockers = blockers
     return res
 
 
@@ -295,6 +433,8 @@ def enrich_shipment_doc_response(db: Session, item: ShipmentDocumentItem, import
 def _handle_acid_verification_workflow(
     db: Session,
     db_item: AcidRegistrationSession,
+    previous_status: Optional[str] = None,
+    previous_ref: Optional[str] = None,
 ) -> None:
     """
     Central business engine workflow triggered whenever an ACID Registration Session
@@ -306,6 +446,7 @@ def _handle_acid_verification_workflow(
     5. Emits SystemNotification for LOGISTICS_OFFICER & ALL.
 
     Runs after the session commit: every step is a best-effort follow-up that commits its own work (DOC-11).
+    BE03-T09: Follow-ups 2-5 only fire on transition into the issued state (was not issued before, or reference number changed).
     """
     if not db_item.import_file_id:
         return
@@ -320,6 +461,8 @@ def _handle_acid_verification_workflow(
 
     # 1. Synchronize to ImportFile
     if is_issued_acid:
+        _check_acid_conflict(db, db_item.import_file_id, acid_num)
+
         def _sync_file() -> None:
             imp.acid_number = acid_num
             if db_item.requested_date:
@@ -335,8 +478,15 @@ def _handle_acid_verification_workflow(
 
         _commit_follow_up(db, _sync_file, "ACID import file sync")
 
-    # Only advance lifecycle and dispatch next tasks if it's verified/issued
-    if not (is_issued_acid and db_item.status in ["Verified", "Discrepancy_Accepted", "Generated", "Issued", "ACID Issued"]):
+    # Only advance lifecycle and dispatch next tasks if it's verified/issued (BE03-T06)
+    if not (is_issued_acid and db_item.status in ["Verified", "Discrepancy_Accepted"]):
+        return
+
+    # BE03-T09: Only fire lifecycle advance, smart tasks, and notifications on transition into issued state
+    prev_num = (previous_ref or "").strip()
+    prev_is_issued_acid = len(prev_num) == 19 and prev_num.isdigit() and prev_num.upper() != "PENDING"
+    prev_was_issued = prev_is_issued_acid and (previous_status in ["Verified", "Discrepancy_Accepted", "Generated", "Issued", "ACID Issued"])
+    if prev_was_issued and prev_num == acid_num:
         return
 
     imp = _get_active_import_file(db, file_id)
@@ -380,10 +530,26 @@ def _handle_acid_verification_workflow(
 
     # 4. Dispatch new SmartTask for Logistics Officer for Freight Booking (BK-01 / STEP_06)
     def _create_booking_task() -> None:
+        from modules.smart_tasks.model import SmartTask
         from modules.smart_tasks.repository import create_task as create_smart_task
         from modules.smart_tasks.schemas import SmartTaskCreate
 
         booking_task_msg = msg("DOC_TASK_FREIGHT_BOOKING", import_file_code=file_code, acid_number=acid_num)
+
+        # BE03-T09: Skip if an active non-completed task already exists for this file and message
+        existing_task = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == file_id,
+                SmartTask.msg_code == booking_task_msg.code,
+                SmartTask.is_active == True,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .first()
+        )
+        if existing_task:
+            return
+
         task_title = render_en(booking_task_msg.code, booking_task_msg.params, "title")
         task_desc = render_en(booking_task_msg.code, booking_task_msg.params, "body")
         booking_due = date.today() + timedelta(days=3)
@@ -438,17 +604,50 @@ def _acid_number_is_pending(acid_number: Optional[str]) -> bool:
 
 
 def _apply_acid_derived_fields(item: AcidRegistrationSession) -> bool:
-    """Server-derived ACID fields (DOC-15): execution days from the dates, and a pending/empty number can never
-    carry an issued status. Returns True when something changed."""
+    """Server-derived ACID fields (DOC-15 / BE03-T06): execution days from the dates,
+    match flags from discrepancies_data, and server-owned verification status.
+    Returns True when something changed."""
     changed = False
     if item.generated_date and item.requested_date:
         days = max(0, (item.generated_date - item.requested_date).days)
         if item.execution_days != days:
             item.execution_days = days
             changed = True
-    if _acid_number_is_pending(item.acid_number) and item.status in _ACID_ISSUED_STATUSES:
-        item.status = "Requested"
+
+    # 1. Server-derived match flags from discrepancies_data
+    imp_m, exp_m, inv_m, port_m, has_disc = acid_flags(item.discrepancies_data)
+    if (
+        item.is_importer_matched != imp_m
+        or item.is_exporter_matched != exp_m
+        or item.is_invoice_matched != inv_m
+        or item.is_ports_matched != port_m
+        or item.has_discrepancies != has_disc
+    ):
+        item.is_importer_matched = imp_m
+        item.is_exporter_matched = exp_m
+        item.is_invoice_matched = inv_m
+        item.is_ports_matched = port_m
+        item.has_discrepancies = has_disc
         changed = True
+
+    # 2. Server-derived status
+    target_status: str
+    if _acid_number_is_pending(item.acid_number) or not item.generated_date:
+        target_status = "Requested"
+    elif not item.has_discrepancies:
+        target_status = "Verified"
+    elif item.discrepancy_override_reason and item.discrepancy_override_reason.strip():
+        target_status = "Discrepancy_Accepted"
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="يوجد اختلافات في بيانات الـ ACID: يجب كتابة مبرر قبول الاختلافات.",
+        )
+
+    if item.status != target_status:
+        item.status = target_status
+        changed = True
+
     return changed
 
 
@@ -459,6 +658,7 @@ def create_acid_session_service(
     validate_acid_expiry(schema.expiry_date, schema.requested_date)
     if schema.import_file_id is not None:
         _active_import_file(db, schema.import_file_id)
+        _check_acid_conflict(db, schema.import_file_id, schema.acid_number)
     _require_active_po(db, schema.po_id)
 
     # Check if an active session already exists for this import file - if so, seamlessly update it (Upsert)
@@ -472,7 +672,11 @@ def create_acid_session_service(
             .first()
         )
         if existing:
+            prev_status = existing.status
+            prev_ref = existing.acid_number
             update_data = schema.model_dump(exclude_unset=True)
+            for f in repo._SERVER_OWNED_ACID_FIELDS:
+                update_data.pop(f, None)
             for k, v in update_data.items():
                 if hasattr(existing, k) and v is not None:
                     setattr(existing, k, v)
@@ -484,26 +688,24 @@ def create_acid_session_service(
             db.refresh(existing)
 
             # Trigger ACID verification and synchronization workflow
-            _handle_acid_verification_workflow(db, existing)
+            _handle_acid_verification_workflow(db, existing, previous_status=prev_status, previous_ref=prev_ref)
             return enrich_acid_response(db, existing)
 
-    db_item = repo.create_acid_session(db, schema)
+    db_item = repo.create_acid_session(db, schema, commit=False)
 
     # DOC-15: no expiry sent -> issue (or request) date + ACID_DEFAULT_VALIDITY_DAYS, the same default the tracker
     # uses. The column is NOT NULL, so "leave it null" needs a schema change (deferred); never "today" any more.
-    changed = False
     if schema.expiry_date is None:
         base = db_item.generated_date or db_item.requested_date or date.today()
         default_expiry = base + timedelta(days=ACID_DEFAULT_VALIDITY_DAYS)
         if db_item.expiry_date != default_expiry:
             db_item.expiry_date = default_expiry
-            changed = True
-    if _apply_acid_derived_fields(db_item) or changed:
-        db.commit()
-        db.refresh(db_item)
+    _apply_acid_derived_fields(db_item)
+    db.commit()
+    db.refresh(db_item)
 
     # Trigger ACID verification and synchronization workflow
-    _handle_acid_verification_workflow(db, db_item)
+    _handle_acid_verification_workflow(db, db_item, previous_status=None, previous_ref=None)
 
     return enrich_acid_response(db, db_item)
 
@@ -511,6 +713,7 @@ def create_acid_session_service(
 def update_acid_session_service(
     db: Session, acid_id: int, schema: AcidRegistrationUpdate, user: Optional[str] = None
 ) -> AcidRegistrationResponse:
+    validate_status("acid", schema.status)
     db_item = repo.get_acid_session_by_id(db, acid_id)
     if not db_item:
         raise not_found(LABEL_ACID_SESSION, acid_id)
@@ -518,6 +721,11 @@ def update_acid_session_service(
     if schema.import_file_id is not None:
         _active_import_file(db, schema.import_file_id)
         validate_no_duplicate_acid_session(db, schema.import_file_id, current_acid_id=acid_id)
+
+    # BE03-T06: the duplicate-session rule (400) is checked before the file ACID conflict (409).
+    target_file_id = schema.import_file_id if schema.import_file_id is not None else db_item.import_file_id
+    target_acid_num = schema.acid_number if schema.acid_number else db_item.acid_number
+    _check_acid_conflict(db, target_file_id, target_acid_num)
     if "po_id" in schema.model_fields_set:
         _require_active_po(db, schema.po_id)
 
@@ -530,14 +738,21 @@ def update_acid_session_service(
         new_requested = schema.requested_date if "requested_date" in schema.model_fields_set else db_item.requested_date
         validate_acid_expiry(new_expiry, new_requested)
 
-    updated = repo.update_acid_session(db, db_item, schema)
+    prev_status = db_item.status
+    prev_ref = db_item.acid_number
+    # BE03-T06: Drop status and match flags before repo update
+    payload_data = schema.model_dump(exclude_unset=True)
+    for f in repo._SERVER_OWNED_ACID_FIELDS:
+        payload_data.pop(f, None)
 
-    if _apply_acid_derived_fields(updated):
-        db.commit()
-        db.refresh(updated)
+    updated = repo.update_acid_session(db, db_item, payload_data, commit=False)
+
+    _apply_acid_derived_fields(updated)
+    db.commit()
+    db.refresh(updated)
 
     # Trigger ACID verification and synchronization workflow
-    _handle_acid_verification_workflow(db, updated)
+    _handle_acid_verification_workflow(db, updated, previous_status=prev_status, previous_ref=prev_ref)
 
     return enrich_acid_response(db, updated)
 
@@ -548,15 +763,31 @@ def list_acid_sessions_service(
     search: Optional[str] = None,
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
-) -> List[AcidRegistrationResponse]:
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[AcidRegistrationResponse], Tuple[List[AcidRegistrationResponse], int]]:
     """ACID sessions with the import file code, one bulk file query (DOC-17 / DOC-24)."""
-    items = repo.get_all_acid_sessions(
-        db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, status=status
+    res = repo.get_all_acid_sessions(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        status=status,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
     )
+    if return_total:
+        items, total = res
+    else:
+        items, total = res, len(res)
+
     if not items:
-        return []
+        return ([], total) if return_total else []
     import_files_map = get_import_files_map(db, [item.import_file_id for item in items])
-    return [enrich_acid_response(db, item, import_files_map=import_files_map) for item in items]
+    enriched = [enrich_acid_response(db, item, import_files_map=import_files_map) for item in items]
+    return (enriched, total) if return_total else enriched
 
 
 def get_acid_session_service(db: Session, acid_id: int) -> AcidRegistrationResponse:
@@ -807,6 +1038,8 @@ def soft_delete_acid_session_service(db: Session, acid_id: int, user: Optional[s
 def _handle_banking_document_verification_workflow(
     db: Session,
     db_item: BankingDocumentSession,
+    previous_status: Optional[str] = None,
+    previous_ref: Optional[str] = None,
 ) -> None:
     """
     Central business engine workflow triggered whenever a Banking Document
@@ -819,6 +1052,7 @@ def _handle_banking_document_verification_workflow(
     5. Emits SystemNotification for CUSTOMS_BROKER & FINANCIAL_CONTROLLER & ALL.
 
     Runs after the document commit: every step is a best-effort follow-up that commits its own work (DOC-11).
+    BE03-T09: Follow-ups 2-5 only fire on transition into the issued state (was not issued before, or reference number changed).
     """
     if not db_item.import_file_id:
         return
@@ -848,6 +1082,13 @@ def _handle_banking_document_verification_workflow(
 
     # Only advance lifecycle and dispatch next tasks if it's verified / received / approved by bank
     if not (is_valid_ref and db_item.status in ["Received", "Approved by Bank", "Form Issued", "Verified", "Endorsed"]):
+        return
+
+    # BE03-T09: Only fire lifecycle advance, smart tasks, and notifications on transition into issued state
+    prev_ref = (previous_ref or "").strip()
+    prev_is_valid_ref = bool(prev_ref and prev_ref.upper() != "PENDING")
+    prev_was_issued = prev_is_valid_ref and (previous_status in ["Received", "Approved by Bank", "Form Issued", "Verified", "Endorsed"])
+    if prev_was_issued and prev_ref == ref_num:
         return
 
     imp = _get_active_import_file(db, file_id)
@@ -895,6 +1136,7 @@ def _handle_banking_document_verification_workflow(
 
     # 4. Dispatch new SmartTask for Customs Broker / Specialist (CS-03 / STEP_13)
     def _create_declaration_task() -> None:
+        from modules.smart_tasks.model import SmartTask
         from modules.smart_tasks.repository import create_task as create_smart_task
         from modules.smart_tasks.schemas import SmartTaskCreate
 
@@ -905,6 +1147,21 @@ def _handle_banking_document_verification_workflow(
             reference_no=ref_num,
             bank_name=bank_name,
         )
+
+        # BE03-T09: Skip if an active non-completed task already exists for this file and message
+        existing_task = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == file_id,
+                SmartTask.msg_code == decl_task_msg.code,
+                SmartTask.is_active == True,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .first()
+        )
+        if existing_task:
+            return
+
         task_title = render_en(decl_task_msg.code, decl_task_msg.params, "title")
         task_desc = render_en(decl_task_msg.code, decl_task_msg.params, "body")
         decl_due = date.today() + timedelta(days=2)
@@ -960,13 +1217,53 @@ def create_banking_document_service(
     if schema.import_file_id is not None:
         _active_import_file(db, schema.import_file_id)
     _require_active_po(db, schema.po_id)
+    _validate_currency_code(db, schema.currency_code)
     if schema.doc_type == "Form 4":
         validate_no_duplicate_form4_session(db, schema.import_file_id)
 
+    # Auto-resolve SWIFT executing bank if not explicitly provided
+    if schema.import_file_id and (not schema.swift_executing_bank_name or not schema.swift_reference_no):
+        swift_cov = get_swift_coverage_for_file(db, schema.import_file_id)
+        if swift_cov:
+            if not schema.swift_executing_bank_name and swift_cov.executing_bank_name:
+                schema.swift_executing_bank_id = swift_cov.executing_bank_id
+                schema.swift_executing_bank_name = swift_cov.executing_bank_name
+            if not schema.swift_reference_no and swift_cov.swift_references:
+                schema.swift_reference_no = swift_cov.swift_references[0]
+            if (not schema.bank_id or schema.bank_name in ["", "PENDING"]) and swift_cov.executing_bank_name:
+                schema.bank_id = swift_cov.executing_bank_id
+                schema.bank_name = swift_cov.executing_bank_name
+
     item = repo.create_banking_document(db, schema)
 
+    # Dispatch initial SmartTask for Broker to pull Tax Coding Sheet
+    if item.import_file_id and item.tax_coding_sheet_status == "NOT_STARTED":
+        def _dispatch_pull_task():
+            from modules.smart_tasks.repository import create_task as create_smart_task
+            from modules.smart_tasks.schemas import SmartTaskCreate
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+            f_code = imp.import_file_code if imp else f"IMP-{item.import_file_id}"
+            task_schema = SmartTaskCreate(
+                title=f"سحب شيت التكويد الضريبي من نافذة - {f_code}",
+                description=f"مطلوب من المستخلص الجمركي سحب شيت التكويد الضريبي من منصة نافذة تمهيداً لرفعه للمحاسب لشحنة {f_code}.",
+                task_type="System Generated",
+                import_file_id=item.import_file_id,
+                import_file_code=f_code,
+                phase_name="Phase 4: Digital & Banking",
+                assigned_user="Customs Broker",
+                priority="High",
+                reminder_type="Tax Coding Sheet",
+                due_date=str(date.today() + timedelta(days=2)),
+                status="Pending",
+                notes=f"ACTION:TAX_CODING_PULL | BankDoc: {item.bank_doc_code}",
+            )
+            create_smart_task(db, task_schema, created_by="Banking Documents Engine", commit=False)
+
+        _commit_follow_up(db, _dispatch_pull_task, "Dispatch tax coding sheet pull task")
+
     # Sync and trigger workflow
-    _handle_banking_document_verification_workflow(db, item)
+    _handle_banking_document_verification_workflow(db, item, previous_status=None, previous_ref=None)
 
     return enrich_banking_response(db, item)
 
@@ -981,7 +1278,11 @@ def _get_banking_document_or_404(db: Session, bank_doc_id: int) -> BankingDocume
 def update_banking_document_service(
     db: Session, bank_doc_id: int, schema: BankingDocumentUpdate, user: Optional[str] = None
 ):
+    validate_status("banking", schema.status)
     item = _get_banking_document_or_404(db, bank_doc_id)
+
+    if schema.currency_code is not None:
+        _validate_currency_code(db, schema.currency_code)
 
     if schema.import_file_id is not None:
         _active_import_file(db, schema.import_file_id)
@@ -989,10 +1290,12 @@ def update_banking_document_service(
     if getattr(schema, "po_id", None) is not None:
         _require_active_po(db, schema.po_id)
 
+    prev_status = item.status
+    prev_ref = item.doc_reference_number
     updated = repo.update_banking_document(db, item, schema)
 
     # Sync and trigger workflow
-    _handle_banking_document_verification_workflow(db, updated)
+    _handle_banking_document_verification_workflow(db, updated, previous_status=prev_status, previous_ref=prev_ref)
 
     return enrich_banking_response(db, updated)
 
@@ -1003,8 +1306,15 @@ def receive_banking_document_service(
 ):
     item = _get_banking_document_or_404(db, bank_doc_id)
 
-    req_date = item.request_date or item.issue_date or date.today()
-    exec_days = max(0, (received_date - req_date).days)
+    prev_status = item.status
+    prev_ref = item.doc_reference_number
+
+    req_date = item.request_date or item.issue_date
+    if req_date and received_date < req_date:
+        raise _bad_request(
+            f"تاريخ الاستلام ({received_date}) لا يمكن أن يكون قبل تاريخ الطلب ({req_date})."
+        )
+    exec_days = max(0, (received_date - (req_date or date.today())).days)
 
     item.doc_reference_number = form4_number.strip()
     item.received_date = received_date
@@ -1018,7 +1328,7 @@ def receive_banking_document_service(
     db.refresh(item)
 
     # Sync and trigger workflow
-    _handle_banking_document_verification_workflow(db, item)
+    _handle_banking_document_verification_workflow(db, item, previous_status=prev_status, previous_ref=prev_ref)
 
     return enrich_banking_response(db, item)
 
@@ -1030,15 +1340,295 @@ def delete_banking_document_service(db: Session, bank_doc_id: int, user: Optiona
     return {"status": "success", "message": f"Banking Document {bank_doc_id} deleted"}
 
 
-def list_banking_documents_service(db: Session, import_file_id: Optional[int] = None) -> List[Any]:
+def list_banking_documents_service(
+    db: Session,
+    import_file_id: Optional[int] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[Any], Tuple[List[Any], int]]:
     """Banking documents with import file details, one bulk file query (DOC-17 / DOC-24)."""
-    items = repo.get_all_banking_documents(db, import_file_id=import_file_id)
+    res = repo.get_all_banking_documents(
+        db, import_file_id=import_file_id, skip=skip, limit=limit, return_total=return_total
+    )
+    if return_total:
+        items, total = res
+    else:
+        items, total = res, len(res)
+
     import_files_map = get_import_files_map(db, [item.import_file_id for item in items])
-    return [enrich_banking_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
+    enriched = [enrich_banking_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
+    return (enriched, total) if return_total else enriched
 
 
 def get_banking_document_service(db: Session, bank_doc_id: int):
     return enrich_banking_response(db, _get_banking_document_or_404(db, bank_doc_id))
+
+
+def record_tax_coding_sheet_pull_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    item.tax_coding_sheet_status = "PULLED_BY_BROKER"
+    item.tax_coding_pulled_date = schema.pulled_date
+    if schema.broker_id:
+        item.tax_coding_broker_id = schema.broker_id
+    if schema.broker_name:
+        item.tax_coding_broker_name = schema.broker_name
+    if schema.file_url:
+        item.tax_coding_sheet_file_url = schema.file_url
+    if schema.notes:
+        item.notes = f"{item.notes}\n[شيت التكويد] سحب المستخلص: {schema.notes}" if item.notes else f"[شيت التكويد] سحب المستخلص: {schema.notes}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # Smart Tasks: close broker pull task, dispatch accountant upload task
+    def _handle_pull_tasks():
+        from modules.smart_tasks.model import SmartTask
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+        from modules.import_files.model import ImportFile
+
+        f_id = item.import_file_id
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == f_id).first() if f_id else None
+        f_code = imp.import_file_code if imp else f"IMP-{f_id}"
+
+        # Close pending broker pull tasks
+        pending = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == f_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .all()
+        )
+        for t in pending:
+            if "سحب شيت التكويد" in (t.title or "") or (t.notes and "ACTION:TAX_CODING_PULL" in t.notes):
+                t.status = "Completed"
+                t.completion_notes = f"تم سحب شيت التكويد الضريبي بواسطة المستخلص في {schema.pulled_date}."
+
+        # Create task for Company Accountant
+        acc_task = SmartTaskCreate(
+            title=f"رفع وتكويد شيت الأصناف الضريبي على منصة نافذة - {f_code}",
+            description=f"قام المستخلص بسحب شيت التكويد الضريبي. مطلوب من المحاسب استكمال التكويد ورفعه بحساب الشركة على نافذة لملف {f_code}.",
+            task_type="System Generated",
+            import_file_id=f_id,
+            import_file_code=f_code,
+            phase_name="Phase 4: Digital & Banking",
+            assigned_user="Company Accountant",
+            priority="High",
+            reminder_type="Tax Coding Upload",
+            due_date=str(date.today() + timedelta(days=2)),
+            status="Pending",
+            notes=f"ACTION:TAX_CODING_UPLOAD | BankDoc: {item.bank_doc_code}",
+        )
+        create_smart_task(db, acc_task, created_by="Banking Documents Engine", commit=False)
+
+    _commit_follow_up(db, _handle_pull_tasks, "Tax coding pull smart tasks")
+    return enrich_banking_response(db, item)
+
+
+def record_tax_coding_sheet_upload_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    item.tax_coding_sheet_status = "UPLOADED_BY_ACCOUNTANT"
+    item.tax_coding_uploaded_date = schema.uploaded_date
+    item.tax_coding_accountant_name = schema.accountant_name
+    if schema.items_count_coded is not None:
+        item.items_count_coded = schema.items_count_coded
+    if schema.items_count_total is not None:
+        item.items_count_total = schema.items_count_total
+    if schema.file_url:
+        item.tax_coding_sheet_file_url = schema.file_url
+    if schema.notes:
+        item.notes = f"{item.notes}\n[شيت التكويد] رفع المحاسب: {schema.notes}" if item.notes else f"[شيت التكويد] رفع المحاسب: {schema.notes}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # Smart Tasks: close accountant upload task, dispatch broker verify & link task
+    def _handle_upload_tasks():
+        from modules.smart_tasks.model import SmartTask
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+        from modules.import_files.model import ImportFile
+
+        f_id = item.import_file_id
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == f_id).first() if f_id else None
+        f_code = imp.import_file_code if imp else f"IMP-{f_id}"
+
+        # Close pending accountant upload tasks
+        pending = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == f_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .all()
+        )
+        for t in pending:
+            if "رفع وتكويد شيت" in (t.title or "") or (t.notes and "ACTION:TAX_CODING_UPLOAD" in t.notes):
+                t.status = "Completed"
+                t.completion_notes = f"تم رفع وتكويد شيت الأصناف على نافذة بواسطة المحاسب {schema.accountant_name} في {schema.uploaded_date}."
+
+        target_bank = item.swift_executing_bank_name or item.bank_name or "البنك المنفذ للسويفت"
+        # Create task for Customs Broker to pull items & link bank
+        broker_task = SmartTaskCreate(
+            title=f"سحب الأصناف للتأكد من التكويد والربط على بنك: {target_bank} - {f_code}",
+            description=f"تم رفع وتكويد شيت الأصناف بنجاح. مطلوب من المستخلص سحب الأصناف للتأكد من تمام التكويد، ثم ربط الشحنة على نافذة على {target_bank} لشحنة {f_code}.",
+            task_type="System Generated",
+            import_file_id=f_id,
+            import_file_code=f_code,
+            phase_name="Phase 4: Digital & Banking",
+            assigned_user="Customs Broker",
+            priority="High",
+            reminder_type="Items Verification & Bank Linkage",
+            due_date=str(date.today() + timedelta(days=1)),
+            status="Pending",
+            notes=f"ACTION:ITEMS_VERIFY_AND_BANK_LINK | BankDoc: {item.bank_doc_code}",
+        )
+        create_smart_task(db, broker_task, created_by="Banking Documents Engine", commit=False)
+
+    _commit_follow_up(db, _handle_upload_tasks, "Tax coding upload smart tasks")
+    return enrich_banking_response(db, item)
+
+
+def record_items_verification_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    item.items_pulled_verified = schema.verified
+    item.items_pulled_date = schema.verified_date
+    if schema.items_count_total is not None:
+        item.items_count_total = schema.items_count_total
+    if schema.items_count_coded is not None:
+        item.items_count_coded = schema.items_count_coded
+    if schema.regulatory_bodies_detected is not None:
+        item.regulatory_bodies_detected = schema.regulatory_bodies_detected
+    if schema.notes:
+        item.notes = f"{item.notes}\n[سحب الأصناف] تأكيد المستخلص: {schema.notes}" if item.notes else f"[سحب الأصناف] تأكيد المستخلص: {schema.notes}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # If regulatory bodies detected (e.g. GOEIC, NFSA, etc.), emit notification / alert
+    if schema.regulatory_bodies_detected:
+        def _regulatory_alert():
+            from modules.notifications.model import SystemNotification
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first() if item.import_file_id else None
+            f_code = imp.import_file_code if imp else f"IMP-{item.import_file_id}"
+            bodies_str = "، ".join(schema.regulatory_bodies_detected)
+            db.add(SystemNotification(
+                title=f"عروض رقابية مكتشفة لشحنة {f_code}",
+                message=f"أظهر سحب الأصناف على نافذة وجود جهات عرض رقابية: {bodies_str}. يرجى تجهيز ملف الفحص وسحب العينات مبكراً.",
+                target_role="Customs Broker",
+            ))
+
+        _commit_follow_up(db, _regulatory_alert, "Regulatory screening alert")
+
+    return enrich_banking_response(db, item)
+
+
+def record_nafeza_bank_link_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    from fastapi import HTTPException
+    from modules.external_service_providers.model import ExternalServiceProvider
+
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    bank_p = db.query(ExternalServiceProvider).filter(
+        ExternalServiceProvider.provider_id == schema.bank_id,
+        ExternalServiceProvider.is_active == True,
+    ).first()
+    if not bank_p:
+        raise not_found("Bank", schema.bank_id)
+
+    bank_name = bank_p.partner_name
+
+    # Check match against SWIFT executing bank
+    is_matching = True
+    if item.swift_executing_bank_name:
+        clean_target = (item.swift_executing_bank_name or "").strip().lower()
+        clean_selected = bank_name.strip().lower()
+        is_matching = (clean_target in clean_selected) or (clean_selected in clean_target)
+
+    if not is_matching and not getattr(schema, "override_swift_mismatch", False):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"عدم تطابق بنكي: البنك المختار للربط ({bank_name}) لا يطابق البنك المنفذ لسويفت التحويل "
+                f"({item.swift_executing_bank_name}). يجب الربط على نفس بنك السويفت، أو تفعيل خيار التخطي بمبرر."
+            ),
+        )
+
+    item.nafeza_bank_link_status = "LINKED_TO_BANK"
+    item.nafeza_bank_link_date = schema.link_date
+    item.nafeza_linked_bank_id = schema.bank_id
+    item.nafeza_linked_bank_name = bank_name
+    item.is_bank_matching_swift = is_matching
+
+    # Lock session bank_id and bank_name to the linked bank
+    item.bank_id = schema.bank_id
+    item.bank_name = bank_name
+    if schema.notes:
+        item.notes = f"{item.notes}\n[الربط البنكي نافذة] {schema.notes}" if item.notes else f"[الربط البنكي نافذة] {schema.notes}"
+    if getattr(schema, "override_reason", None):
+        item.notes = f"{item.notes}\n[تخطي عدم تطابق بنك السويفت]: {schema.override_reason}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # Smart Tasks: close items verify & link task, dispatch Bank Form 4 application task
+    def _handle_link_tasks():
+        from modules.smart_tasks.model import SmartTask
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+        from modules.import_files.model import ImportFile
+
+        f_id = item.import_file_id
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == f_id).first() if f_id else None
+        f_code = imp.import_file_code if imp else f"IMP-{f_id}"
+
+        # Close broker items verify and link task
+        pending = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == f_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .all()
+        )
+        for t in pending:
+            if "سحب الأصناف" in (t.title or "") or (t.notes and "ACTION:ITEMS_VERIFY_AND_BANK_LINK" in t.notes):
+                t.status = "Completed"
+                t.completion_notes = f"تم التحقق من الأصناف والربط على بنك {bank_name} على نافذة في {schema.link_date}."
+
+        # Create task for Import / Banking Officer to submit Form 4 to bank
+        bank_task = SmartTaskCreate(
+            title=f"تقديم ملف نموذج 4 لفرع بنك: {bank_name} - {f_code}",
+            description=f"تم استكمال التكويد الضريبي والربط على بنك {bank_name} على نافذة. جاهز لتقديم طلب نموذج 4 رسمياً للبنك ومتابعة الاعتماد لشحنة {f_code}.",
+            task_type="System Generated",
+            import_file_id=f_id,
+            import_file_code=f_code,
+            phase_name="Phase 4: Digital & Banking",
+            assigned_user="Bank Specialist",
+            priority="High",
+            reminder_type="Bank Form 4 Application",
+            due_date=str(date.today() + timedelta(days=2)),
+            status="Pending",
+            notes=f"ACTION:FORM4_SUBMIT | BankDoc: {item.bank_doc_code}",
+        )
+        create_smart_task(db, bank_task, created_by="Banking Documents Engine", commit=False)
+
+    _commit_follow_up(db, _handle_link_tasks, "Nafeza bank link smart tasks")
+    return enrich_banking_response(db, item)
 
 
 # --- SHIPMENT DOCUMENTS SERVICE ---
@@ -1052,10 +1642,24 @@ def create_shipment_document_service(
     return enrich_shipment_doc_response(db, item)
 
 
-def list_shipment_documents_service(db: Session, import_file_id: Optional[int] = None) -> List[Any]:
-    items = repo.get_all_shipment_documents(db, import_file_id=import_file_id)
+def list_shipment_documents_service(
+    db: Session,
+    import_file_id: Optional[int] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[Any], Tuple[List[Any], int]]:
+    res = repo.get_all_shipment_documents(
+        db, import_file_id=import_file_id, skip=skip, limit=limit, return_total=return_total
+    )
+    if return_total:
+        items, total = res
+    else:
+        items, total = res, len(res)
+
     import_files_map = get_import_files_map(db, [item.import_file_id for item in items])
-    return [enrich_shipment_doc_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
+    enriched = [enrich_shipment_doc_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
+    return (enriched, total) if return_total else enriched
 
 
 def update_cargox_and_bl_endorsement_service(
@@ -1089,11 +1693,53 @@ def update_cargox_and_bl_endorsement_service(
 # --- CUSTOMS DECLARATION SERVICE ---
 def create_customs_declaration_service(
     db: Session, schema: CustomsDeclarationCreate, user: Optional[str] = None
-) -> CustomsDeclarationDraft:
+) -> CustomsDeclarationResponse:
+    validate_acid_number(schema.acid_number, allow_pending=False)
+
+    imp_file = None
     if schema.import_file_id is not None:
-        _active_import_file(db, schema.import_file_id)
+        imp_file = _active_import_file(db, schema.import_file_id)
+        validate_no_duplicate_declaration_draft(db, schema.import_file_id)
+        if imp_file.acid_number:
+            clean_file_acid = imp_file.acid_number.strip()
+            if clean_file_acid and clean_file_acid.upper() not in ["PENDING", "REQUESTED", "DRAFT", ""]:
+                if schema.acid_number.strip() != clean_file_acid:
+                    raise _conflict(
+                        f"رقم ACID في الإقرار ({schema.acid_number}) لا يطابق رقم ACID المسجل للملف ({clean_file_acid})."
+                    )
+
     _require_active_po(db, schema.po_id)
-    return repo.create_customs_declaration(db, schema)
+    item = repo.create_customs_declaration(db, schema)
+
+    amounts_entered = any(
+        v is not None
+        for v in (schema.total_cif_val_egp, schema.total_customs_duties_egp, schema.total_vat_egp)
+    )
+
+    import_file_code = None
+    if imp_file:
+        import_file_code = imp_file.import_file_code or imp_file.custom_file_number
+    elif item.import_file_id:
+        import_file_code = codes_by_ids(db, [item.import_file_id]).get(item.import_file_id)
+
+    return CustomsDeclarationResponse(
+        declaration_id=item.declaration_id,
+        declaration_code=item.declaration_code,
+        import_file_id=item.import_file_id,
+        import_file_code=import_file_code,
+        po_id=item.po_id,
+        acid_number=item.acid_number,
+        form4_number=item.form4_number,
+        bl_number=item.bl_number,
+        total_cif_val_egp=schema.total_cif_val_egp,
+        total_customs_duties_egp=schema.total_customs_duties_egp,
+        total_vat_egp=schema.total_vat_egp,
+        amounts_entered=amounts_entered,
+        declaration_status=item.declaration_status,
+        is_active=item.is_active,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
 
 
 # ==============================================================================
@@ -1616,22 +2262,16 @@ def _group_ocr_boxes_into_lines(ocr_res, y_threshold: float = 15.0) -> List[str]
     return lines
 
 
-def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
+def _ocr_pdf_or_image(filename: str, content_bytes: bytes, two_column_table: bool = False) -> str:
     """
     High-accuracy optical character recognition (OCR) for scanned PDFs and images.
-    Uses ArabicRapidOCREngine (with Arabic ONNX model + RTL support) with default RapidOCR and pytesseract fallbacks.
+    Uses multilingual RapidOCR with natural reading order line grouping,
+    with ArabicRapidOCREngine and pytesseract fallbacks.
     """
-    try:
-        from modules.import_documentation.arabic_ocr_engine import extract_arabic_ocr_text
-        arabic_text = extract_arabic_ocr_text(filename, content_bytes)
-        if arabic_text and len(arabic_text.strip()) > 30:
-            return arabic_text
-    except Exception as e:
-        logger.warning(f"Arabic OCR engine failed for '{filename}': {e}. Falling back to default RapidOCR.")
-
     lower = filename.lower()
     extracted_lines: List[str] = []
 
+    # 1. Primary Engine: Multilingual RapidOCR with natural line grouping
     try:
         from rapidocr_onnxruntime import RapidOCR
         import numpy as np
@@ -1643,10 +2283,10 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
             max_pages = min(len(pdf), 8)
             for i in range(max_pages):
                 page = pdf.get_page(i)
-                pil_img = page.render(scale=1.5).to_pil()
+                pil_img = page.render(scale=2.0).to_pil()
                 ocr_res, _ = engine(np.array(pil_img))
                 if ocr_res:
-                    page_lines = _group_ocr_boxes_into_lines(ocr_res)
+                    page_lines = _group_ocr_boxes_into_lines(ocr_res, y_threshold=15.0)
                     extracted_lines.append(f"--- PAGE {i+1} ---")
                     extracted_lines.extend(page_lines)
 
@@ -1655,7 +2295,7 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
             pil_img = Image.open(io.BytesIO(content_bytes)).convert("RGB")
             ocr_res, _ = engine(np.array(pil_img))
             if ocr_res:
-                image_lines = _group_ocr_boxes_into_lines(ocr_res)
+                image_lines = _group_ocr_boxes_into_lines(ocr_res, y_threshold=15.0)
                 extracted_lines.extend(image_lines)
 
     except Exception as e:
@@ -1663,7 +2303,18 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
 
     result_text = "\n".join(extracted_lines)
 
-    # Fallback to pytesseract if RapidOCR produced insufficient output for images
+    # 2. If RapidOCR produced insufficient output or document is Arabic-heavy, try ArabicRapidOCR
+    has_arabic = bool(re.search(r"[\u0600-\u06FF]", result_text))
+    if len(result_text.strip()) < 30 or (has_arabic and len(result_text.strip()) < 80):
+        try:
+            from modules.import_documentation.arabic_ocr_engine import extract_arabic_ocr_text
+            arabic_text = extract_arabic_ocr_text(filename, content_bytes, two_column_table=two_column_table)
+            if arabic_text and len(arabic_text.strip()) > len(result_text.strip()):
+                result_text = arabic_text
+        except Exception as e:
+            logger.warning(f"Arabic OCR engine fallback note for '{filename}': {e}")
+
+    # 3. Fallback to pytesseract if RapidOCR produced insufficient output for images
     if len(result_text.strip()) < 15 and lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
         try:
             import pytesseract
@@ -2204,6 +2855,9 @@ def _reset_server_owned_draft_bl_fields(schema: DraftBLReviewCreate) -> None:
                   "broker_approved_by", "broker_approval_date", "broker_approval_notes",
                   "approved_by", "approved_at", "reviewed_by", "reviewed_at"):
         setattr(schema, field, None)
+    schema.has_blocking_mismatch = False
+    schema.open_discrepancies_count = 0
+    schema.revision_report_data = None
 
 
 # Critical fields of the draft B/L comparison (is_critical in compare_draft_bl_service's field list).
@@ -2281,7 +2935,7 @@ def create_draft_bl_review_service(
         schema.open_discrepancies_count = open_count
         # Server-computed: an open item on a critical B/L field blocks approval (client flag ignored).
         schema.has_blocking_mismatch = _checklist_has_blocking(raw_checklist)
-    elif not schema.comparison_matrix:
+    elif not is_draft or not schema.comparison_matrix:
         comp_req = DraftBLComparisonRequest(
             import_file_id=schema.import_file_id,
             draft_source=schema.draft_source,
@@ -2375,16 +3029,27 @@ def update_draft_bl_review_service(
         data.pop(field, None)
     clean = DraftBLReviewUpdate(**data)
 
-    review_inputs = {"checklist_data", "open_discrepancies_count", "has_blocking_mismatch", "is_draft"}
-    if review_inputs & clean.model_fields_set:
+    review_inputs = {"checklist_data", "open_discrepancies_count", "has_blocking_mismatch", "is_draft", "revision_report_data"}
+    if (review_inputs & clean.model_fields_set) or (review_inputs & schema.model_fields_set):
         is_draft = bool(clean.is_draft if "is_draft" in clean.model_fields_set else review.is_draft)
+        merged_checklist = clean.checklist_data if "checklist_data" in clean.model_fields_set and clean.checklist_data is not None else review.checklist_data
+        open_count = sum(1 for c in (merged_checklist or []) if isinstance(c, dict) and c.get("status") in ("Incorrect", "Missing"))
+        has_blocking = _checklist_has_blocking(merged_checklist or [])
+        clean.open_discrepancies_count = open_count
+        clean.has_blocking_mismatch = has_blocking
         if "checklist_data" in clean.model_fields_set and clean.checklist_data is not None:
-            open_count = sum(1 for c in clean.checklist_data if isinstance(c, dict) and c.get("status") == "Incorrect")
-            clean.open_discrepancies_count = open_count
-        else:
-            open_count = clean.open_discrepancies_count if "open_discrepancies_count" in clean.model_fields_set else review.open_discrepancies_count
-        has_blocking = clean.has_blocking_mismatch if "has_blocking_mismatch" in clean.model_fields_set else review.has_blocking_mismatch
-        clean.stage, clean.status = _draft_bl_stage_and_status(is_draft, open_count or 0, bool(has_blocking))
+            clean.revision_report_data = [
+                {
+                    "item": c.get("field_label_en") or c.get("field_label_ar", ""),
+                    "required_action": c.get("required_correction", ""),
+                    "responsible": c.get("responsible_party") or "Shipping Provider",
+                    "reason": c.get("reason", ""),
+                    "notes": c.get("notes"),
+                }
+                for c in (clean.checklist_data or [])
+                if isinstance(c, dict) and c.get("status") == "Incorrect"
+            ]
+        clean.stage, clean.status = _draft_bl_stage_and_status(is_draft, open_count, has_blocking)
     if clean.model_fields_set:
         # Content changed: earlier approvals no longer cover it.
         for field, value in _DRAFT_BL_APPROVAL_RESET.items():
@@ -2536,7 +3201,7 @@ def _draft_bl_version_chain(db: Session, parent: DraftBLReviewSession) -> Tuple[
 def create_new_draft_version_service(
     db: Session, request: NewDraftVersionRequest, user: Optional[str] = None
 ) -> DraftBLReviewSession:
-    parent = repo.get_draft_bl_review_by_id(db, request.parent_session_id)
+    parent = repo.get_draft_bl_review_by_id(db, request.parent_session_id, include_inactive=True)
     if not parent:
         raise not_found(LABEL_DRAFT_BL_REVIEW, request.parent_session_id)
     _active_import_file(db, parent.import_file_id)
@@ -2576,7 +3241,9 @@ def create_new_draft_version_service(
             itm["previous_status"] = prev_itm.get("status") if prev_itm else None
         new_checklist.append(itm)
 
-    open_count = len([c for c in new_checklist if c["status"] == "Incorrect"])
+    open_count = len([c for c in new_checklist if isinstance(c, dict) and c.get("status") in ("Incorrect", "Missing")])
+    has_blocking = _checklist_has_blocking(new_checklist)
+    stage_val, status_val = _draft_bl_stage_and_status(False, open_count, has_blocking)
     new_session = DraftBLReviewSession(
         bl_review_code=f"{root_code}-v{new_version_num}",
         import_file_id=parent.import_file_id,
@@ -2601,21 +3268,23 @@ def create_new_draft_version_service(
         draft_source=request.draft_source,
         version_number=new_version_num,
         parent_session_id=parent.bl_review_id,
-        stage="Stage 3: Reviewed",
+        stage=stage_val,
         system_snapshot_data=comp_res["system_snapshot_data"],
         draft_input_data=request.draft_fields,
         comparison_matrix=comp_res["comparison_matrix"],
         checklist_data=new_checklist,
         revision_report_data=comp_res["revision_report_data"],
-        has_blocking_mismatch=comp_res["has_blocking_mismatch"],
+        has_blocking_mismatch=has_blocking,
         open_discrepancies_count=open_count,
         blocking_reasons=comp_res["blocking_reasons"],
         blocking_reasons_coded=comp_res["blocking_reasons_coded"],
         correction_request_letter=comp_res["correction_request_letter"],
-        status=_draft_bl_stage_and_status(False, open_count, bool(comp_res["has_blocking_mismatch"]))[1],
+        status=status_val,
         reviewed_by=_actor(user),
         reviewed_at=datetime.now(timezone.utc),
     )
+    if parent.status not in DRAFT_BL_TERMINAL_STATUSES:
+        parent.is_active = False
     db.add(new_session)
     db.commit()
     db.refresh(new_session)
@@ -2911,6 +3580,7 @@ def _coo_certified_follow_ups(db: Session, file_id: int, certificate_type: Optio
 def create_coo_review_service(
     db: Session, schema: CertificateOfOriginReviewCreate, user: Optional[str] = None
 ) -> CertificateOfOriginReviewSession:
+    validate_status("coo", schema.status)
     _active_import_file(db, schema.import_file_id)
     _require_active_po(db, schema.po_id)
     actor = _actor(user, schema.reviewed_by)
@@ -2982,6 +3652,7 @@ def create_coo_review_service(
 def update_coo_review_service(
     db: Session, review_id: int, schema: CertificateOfOriginReviewUpdate, user: Optional[str] = None
 ) -> CertificateOfOriginReviewSession:
+    validate_status("coo", schema.status)
     review = repo.get_coo_review_by_id(db, review_id)
     if not review:
         raise not_found(LABEL_COO_REVIEW, review_id)
@@ -3207,6 +3878,7 @@ def _inspection_status(has_disc: bool, has_crit: bool, override_reason: Optional
 def create_inspection_review_service(
     db: Session, schema: InspectionCertificateReviewCreate, user: Optional[str] = None
 ) -> InspectionCertificateReviewSession:
+    validate_status("inspection", schema.status)
     _active_import_file(db, schema.import_file_id)
     _require_active_po(db, schema.po_id)
     actor = _actor(user, schema.reviewed_by)
@@ -3257,6 +3929,7 @@ def create_inspection_review_service(
 def update_inspection_review_service(
     db: Session, review_id: int, schema: InspectionCertificateReviewUpdate, user: Optional[str] = None
 ) -> InspectionCertificateReviewSession:
+    validate_status("inspection", schema.status)
     review = repo.get_inspection_review_by_id(db, review_id)
     if not review:
         raise not_found(LABEL_INSPECTION_REVIEW, review_id)
@@ -4915,15 +5588,6 @@ def extract_and_match_invoice_bl_service(
 
 
 
-def _validate_currency_code(db: Session, value: Any) -> str:
-    """Active ISO currency code or 400 (DOC-13). (D1 may later move this to validators.validate_currency_code.)"""
-    from modules.currencies.model import Currency
-    from modules.common import enum_codes
-    code = str(enum_codes.normalize_currency(value) or "").strip().upper()
-    found = db.query(Currency.currency_id).filter(Currency.currency_code == code, Currency.is_active == True).first() if code else None
-    if not found:
-        raise _bad_request(f"رمز العملة '{value}' غير معروف أو غير نشط في جدول العملات.")
-    return code
 
 
 def _validate_incoterm_code(db: Session, value: Any) -> str:
@@ -4971,9 +5635,39 @@ def _apply_invoice_bl_sync(
             CargoShippingRecord.is_active == True
         ).first()
         # Only containers_loading_data is a real column; B/L number, vessel and gross weight have no cargo column
-        # (deferred: schema change) and are kept on the import file / session data.
         if cargo_shp and bl.get("containers"):
-            cargo_shp.containers_loading_data = bl["containers"]
+            raw_containers = bl["containers"]
+            merged = [dict(c) for c in (cargo_shp.containers_loading_data or []) if isinstance(c, dict)]
+            index = {str(c.get("container_no") or "").strip().upper(): c for c in merged if c.get("container_no")}
+            for item in raw_containers:
+                if isinstance(item, dict):
+                    key = str(item.get("container_no") or "").strip().upper()
+                    item_dict = dict(item)
+                elif hasattr(item, "model_dump"):
+                    item_dict = item.model_dump()
+                    key = str(item_dict.get("container_no") or "").strip().upper()
+                elif hasattr(item, "__dict__"):
+                    item_dict = dict(item.__dict__)
+                    key = str(item_dict.get("container_no") or "").strip().upper()
+                else:
+                    continue
+                if not key:
+                    continue
+                row = index.get(key)
+                if row is None:
+                    new_row = dict(item_dict)
+                    new_row["container_no"] = key
+                    merged.append(new_row)
+                    index[key] = new_row
+                else:
+                    for k, v in item_dict.items():
+                        if k in ("vgm_status", "tracking_status"):
+                            if v is not None:
+                                row[k] = v
+                        elif v is not None:
+                            row[k] = v
+            cargo_shp.containers_loading_data = list(merged)
+            cargo_shp.updated_by = actor
 
     currency_mismatch = currency is not None and currency != imp_file.estimated_cost_currency
     return currency_mismatch
@@ -5054,8 +5748,21 @@ def sync_certified_invoice_bl_to_file_service(
 ) -> dict:
     imp_file = _active_import_file(db, request.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
     actor = _actor(user)
-    inv = request.invoice_data or {}
-    bl = request.bl_data or {}
+
+    session = repo.get_invoice_bl_match_session_by_file_id(db, request.import_file_id, include_drafts=False)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "DOC_INVOICE_BL_NOT_CERTIFIED",
+                "message": f"لا توجد جلسة مطابقة معتمدة للفاتورة والبوليصة لملف الاستيراد {imp_file.import_file_code}: يجب اعتماد جلسة المطابقة أولاً قبل المزامنة.",
+                "import_file_id": imp_file.import_file_id,
+            },
+        )
+
+    # Use certified session's invoice_data and bl_data (ignoring client request body)
+    inv = session.invoice_data or {}
+    bl = session.bl_data or {}
 
     currency_mismatch = _apply_invoice_bl_sync(db, imp_file, inv, bl, request.sync_to_shipping, actor)
     db.commit()
@@ -5080,16 +5787,43 @@ def sync_certified_invoice_bl_to_file_service(
         "total_amount": None,
         "currency": validated_currency or imp_file.estimated_cost_currency,
         "currency_mismatch": currency_mismatch,
+        "session_code": session.session_code,
     }
 
 
 def create_invoice_bl_match_session_service(
     db: Session, payload: InvoiceBLMatchSessionCreate, user: Optional[str] = None
 ) -> InvoiceBLMatchSession:
+    validate_status("invoice_bl", payload.overall_status)
     imp_file = _active_import_file(db, payload.import_file_id)
     actor = _actor(user, payload.certified_by)
     if not payload.import_file_code:
         payload.import_file_code = imp_file.custom_file_number or imp_file.import_file_code
+
+    # Server-owned gate fields (BE03-T05)
+    if payload.invoice_data and payload.bl_data:
+        from modules.import_documentation.ai_document_parser import match_invoice_with_bl
+        sys_snap = _build_system_bl_snapshot(db, payload.import_file_id)
+        match_result = match_invoice_with_bl(
+            payload.invoice_data,
+            payload.bl_data,
+            sys_snap,
+            payload.packing_list_data,
+        )
+        payload.overall_status = match_result["overall_status"]
+        payload.is_safe_for_certification = match_result["is_safe_for_certification"]
+        payload.match_score_percentage = match_result["match_score_percentage"]
+        payload.critical_discrepancies_count = match_result["critical_discrepancies_count"]
+        payload.warning_discrepancies_count = match_result["warning_discrepancies_count"]
+        payload.comparison_matrix = match_result["comparison_matrix"]
+        if match_result.get("correction_letter") and not payload.correction_letter:
+            payload.correction_letter = match_result["correction_letter"]
+    else:
+        payload.is_safe_for_certification = False
+        payload.overall_status = "DISCREPANCY_DETECTED"
+        payload.match_score_percentage = 0.0
+        payload.critical_discrepancies_count = 0
+        payload.warning_discrepancies_count = 0
 
     existing = repo.get_invoice_bl_match_session_by_file_id(db, payload.import_file_id, include_drafts=True)
     certify = not payload.is_draft
@@ -5135,11 +5869,23 @@ def list_invoice_bl_match_sessions_service(
     import_file_id: Optional[int] = None,
     is_draft: Optional[bool] = None,
     search: Optional[str] = None,
-) -> List[InvoiceBLMatchSession]:
-    sessions = repo.list_invoice_bl_match_sessions(db, import_file_id, is_draft, search)
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[InvoiceBLMatchSession], Tuple[List[InvoiceBLMatchSession], int]]:
+    res = repo.list_invoice_bl_match_sessions(
+        db,
+        import_file_id=import_file_id,
+        is_draft=is_draft,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
+    sessions, total = res if return_total else (res, None)
     for s in sessions:
         _attach_session_currency_mismatch(db, s)
-    return sessions
+    return (sessions, total) if return_total else sessions
 
 
 def get_invoice_bl_match_session_service(
@@ -5152,43 +5898,22 @@ def get_invoice_bl_match_session_service(
     return session
 
 
-def extract_and_compare_po_documents_service(
-    db: Session, request: POExtractAndCompareRequest
-) -> POExtractAndCompareResponse:
-    from modules.import_documentation.ai_document_parser import (
-        extract_commercial_invoice_data,
-        extract_packing_list_data,
-        reconcile_po_documents_with_system,
-    )
-    from modules.import_files.model import ImportFile
-
-    # 1. Extract Invoice Data
-    inv_data = dict(request.invoice_data or {})
-    if request.invoice_raw_text and request.invoice_raw_text.strip():
-        extracted_inv = extract_commercial_invoice_data(request.invoice_raw_text)
-        for k, v in extracted_inv.items():
-            if k not in inv_data or not inv_data[k]:
-                inv_data[k] = v
-
-    # 2. Extract Packing List Data
-    pl_data = dict(request.packing_data or {})
-    if request.packing_list_raw_text and request.packing_list_raw_text.strip():
-        extracted_pl = extract_packing_list_data(request.packing_list_raw_text)
-        for k, v in extracted_pl.items():
-            if k not in pl_data or not pl_data[k]:
-                pl_data[k] = v
-
-    # 3. Fetch System PO Items and File Metadata if import_file_id is provided
-    system_items = list(request.system_items or [])
+def _build_po_recon_system_inputs(
+    db: Session,
+    import_file_id: Optional[int],
+    inv_data: dict,
+    initial_system_items: Optional[List[dict]] = None,
+) -> Tuple[List[dict], dict, List[dict]]:
+    system_items = list(initial_system_items or [])
     system_packing_items = []
     file_metadata = {}
-    if request.import_file_id:
+    if import_file_id:
         imp_file = db.query(ImportFile).filter(
-            ImportFile.import_file_id == request.import_file_id,
+            ImportFile.import_file_id == import_file_id,
             ImportFile.is_active == True,
         ).first()
         if imp_file:
-            active_pos = repo.get_active_purchase_orders_for_file(db, request.import_file_id, imp_file.po_number)
+            active_pos = repo.get_active_purchase_orders_for_file(db, import_file_id, imp_file.po_number)
             po = active_pos[0] if active_pos else None
             company = imp_file.company
 
@@ -5296,11 +6021,78 @@ def extract_and_compare_po_documents_service(
                         "initial_cbm": cbm_val,
                     })
 
-    system_items_missing = not bool(system_items)
-
     # Use system_items as packing fallback if no dedicated packing items found
     if not system_packing_items:
         system_packing_items = system_items
+
+    return system_items, file_metadata, system_packing_items
+
+
+def _compute_po_reconciliation_gate_fields(
+    db: Session,
+    import_file_id: int,
+    extracted_inv_data: Optional[Dict[str, Any]],
+    extracted_pl_data: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    if extracted_inv_data:
+        from modules.import_documentation.ai_document_parser import reconcile_po_documents_with_system
+        system_items, file_metadata, system_packing_items = _build_po_recon_system_inputs(
+            db, import_file_id, extracted_inv_data
+        )
+        reconciled = reconcile_po_documents_with_system(
+            extracted_inv_data,
+            extracted_pl_data or {},
+            system_items,
+            file_metadata,
+            system_packing_items=system_packing_items,
+        )
+        return {
+            "overall_status": reconciled["overall_status"],
+            "is_safe_for_certification": reconciled["is_safe_for_certification"],
+            "critical_discrepancies_count": reconciled["critical_discrepancies_count"],
+            "warning_discrepancies_count": reconciled["warning_discrepancies_count"],
+            "header_discrepancies": reconciled.get("header_discrepancies"),
+            "reconciled_invoice_items": reconciled.get("reconciled_invoice_items"),
+            "reconciled_packing_items": reconciled.get("reconciled_packing_items"),
+        }
+    return {
+        "overall_status": "DRAFT",
+        "is_safe_for_certification": False,
+        "critical_discrepancies_count": 0,
+        "warning_discrepancies_count": 0,
+    }
+
+
+def extract_and_compare_po_documents_service(
+    db: Session, request: POExtractAndCompareRequest
+) -> POExtractAndCompareResponse:
+    from modules.import_documentation.ai_document_parser import (
+        extract_commercial_invoice_data,
+        extract_packing_list_data,
+        reconcile_po_documents_with_system,
+    )
+
+    # 1. Extract Invoice Data
+    inv_data = dict(request.invoice_data or {})
+    if request.invoice_raw_text and request.invoice_raw_text.strip():
+        extracted_inv = extract_commercial_invoice_data(request.invoice_raw_text)
+        for k, v in extracted_inv.items():
+            if k not in inv_data or not inv_data[k]:
+                inv_data[k] = v
+
+    # 2. Extract Packing List Data
+    pl_data = dict(request.packing_data or {})
+    if request.packing_list_raw_text and request.packing_list_raw_text.strip():
+        extracted_pl = extract_packing_list_data(request.packing_list_raw_text)
+        for k, v in extracted_pl.items():
+            if k not in pl_data or not pl_data[k]:
+                pl_data[k] = v
+
+    # 3. Fetch System PO Items and File Metadata if import_file_id is provided
+    system_items, file_metadata, system_packing_items = _build_po_recon_system_inputs(
+        db, request.import_file_id, inv_data, initial_system_items=request.system_items
+    )
+    system_items_missing = not bool(system_items)
 
     # 4. Perform 4-Way Reconciliation
     reconciled = reconcile_po_documents_with_system(
@@ -5412,16 +6204,44 @@ def _po_recon_lifecycle(db: Session, session: POPackingReconciliationSession, ms
             notes_msg=msg(msg_code, session_code=code),
             assigned_user=actor,
         )
+
+        def _close_po_recon_tasks() -> None:
+            from modules.smart_tasks.model import SmartTask
+            tasks = db.query(SmartTask).filter(
+                SmartTask.import_file_id == file_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+                SmartTask.is_active == True,
+            ).all()
+            for t in tasks:
+                title_s = (t.title or "").lower()
+                step_s = (t.step_code or "").lower()
+                if "step_08_po" in title_s or "step_08_po" in step_s or "مطابقة الفاتورة" in (t.title or ""):
+                    t.status = "Completed"
+                    t.is_auto_closed = True
+            db.commit()
+
+        best_effort(db, _close_po_recon_tasks, "Auto-close STEP_08_PO smart tasks")
         db.refresh(session)
 
 
 def create_po_reconciliation_session_service(
     db: Session, schema: POReconciliationSessionCreate, user: Optional[str] = None
 ) -> POReconciliationSessionResponse:
+    validate_status("reconciliation", schema.overall_status)
     # 1. Validate import file exists and is active
     _active_import_file(db, schema.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
     actor = _actor(user, schema.certified_by)
     schema.certified_by = actor
+
+    # Currency validation: required 3-letter active currency
+    schema.currency = _validate_currency_code(db, schema.currency)
+
+    # Server-owned gate fields (BE03-T05)
+    gates = _compute_po_reconciliation_gate_fields(
+        db, schema.import_file_id, schema.extracted_invoice_data, schema.extracted_packing_data
+    )
+    for k, v in gates.items():
+        setattr(schema, k, v)
 
     # 2. Strict Rule: Prevent duplicate session for the same import file!
     existing = repo.get_po_reconciliation_session_by_file_id(db, schema.import_file_id, include_inactive=True)
@@ -5458,12 +6278,27 @@ def get_po_reconciliation_sessions_service(
     import_file_id: int | None = None,
     overall_status: str | None = None,
     search: str | None = None,
-) -> list[POReconciliationSessionResponse]:
-    sessions = repo.get_po_reconciliation_sessions(
-        db, import_file_id=import_file_id, overall_status=overall_status, search=search
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+) -> list[POReconciliationSessionResponse] | tuple[list[POReconciliationSessionResponse], int]:
+    res = repo.get_po_reconciliation_sessions(
+        db,
+        import_file_id=import_file_id,
+        overall_status=overall_status,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
     )
+    if return_total:
+        sessions, total = res
+    else:
+        sessions, total = res, len(res)
+
     files_map = get_import_files_map(db, [s.import_file_id for s in sessions])
-    return [enrich_po_reconciliation_session_response(db, s, import_files_map=files_map) for s in sessions]
+    enriched = [enrich_po_reconciliation_session_response(db, s, import_files_map=files_map) for s in sessions]
+    return (enriched, total) if return_total else enriched
 
 
 def get_po_reconciliation_session_by_id_service(
@@ -5478,11 +6313,41 @@ def get_po_reconciliation_session_by_id_service(
 def update_po_reconciliation_session_service(
     db: Session, session_id: int, schema: POReconciliationSessionUpdate, user: Optional[str] = None
 ) -> POReconciliationSessionResponse:
+    validate_status("reconciliation", schema.overall_status)
     session = repo.get_po_reconciliation_session_by_id(db, session_id)
     if not session:
         raise not_found(LABEL_PO_RECON_SESSION, session_id)
     actor = _actor(user, schema.certified_by)
     schema.certified_by = actor
+
+    if schema.currency is not None:
+        schema.currency = _validate_currency_code(db, schema.currency)
+
+    # Server-owned gate fields (BE03-T05)
+    if schema.extracted_invoice_data is not None:
+        gates = _compute_po_reconciliation_gate_fields(
+            db,
+            session.import_file_id,
+            schema.extracted_invoice_data,
+            schema.extracted_packing_data if schema.extracted_packing_data is not None else session.extracted_packing_data,
+        )
+        for k, v in gates.items():
+            setattr(schema, k, v)
+    elif schema.extracted_packing_data is not None and session.extracted_invoice_data:
+        gates = _compute_po_reconciliation_gate_fields(
+            db,
+            session.import_file_id,
+            session.extracted_invoice_data,
+            schema.extracted_packing_data,
+        )
+        for k, v in gates.items():
+            setattr(schema, k, v)
+    else:
+        # Keep existing server-owned gate fields from session, ignoring client tampering
+        schema.overall_status = session.overall_status
+        schema.is_safe_for_certification = session.is_safe_for_certification
+        schema.critical_discrepancies_count = session.critical_discrepancies_count
+        schema.warning_discrepancies_count = session.warning_discrepancies_count
 
     update_data = schema.model_dump(mode="json", exclude_unset=True, exclude_none=True)
     old_data = {k: getattr(session, k, None) for k in update_data.keys()}
@@ -5508,23 +6373,85 @@ def delete_po_reconciliation_session_service(db: Session, session_id: int, user:
     return {"message": f"تم حذف جلسة المطابقة رقم {session_id} بنجاح", "deleted": True}
 
 
-def get_all_acid_sessions_service(db: Session, include_inactive: bool = False, search: str = None, import_file_id: int = None, status: str = None):
-    return repo.get_all_acid_sessions(db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, status=status)
+def get_all_acid_sessions_service(
+    db: Session,
+    include_inactive: bool = False,
+    search: str = None,
+    import_file_id: int = None,
+    status: str = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_all_acid_sessions(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        status=status,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 def get_acid_session_by_id_service(db: Session, acid_id: int):
     return repo.get_acid_session_by_id(db, acid_id)
 
-def get_all_banking_documents_service(db: Session, import_file_id: int = None):
-    return repo.get_all_banking_documents(db, import_file_id=import_file_id)
+def get_all_banking_documents_service(
+    db: Session,
+    import_file_id: int = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_all_banking_documents(
+        db,
+        import_file_id=import_file_id,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 def get_banking_document_by_id_service(db: Session, bank_doc_id: int):
     return repo.get_banking_document_by_id(db, bank_doc_id)
 
-def get_all_shipment_documents_service(db: Session, import_file_id: int = None):
-    return repo.get_all_shipment_documents(db, import_file_id=import_file_id)
+def get_all_shipment_documents_service(
+    db: Session,
+    import_file_id: int = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_all_shipment_documents(
+        db,
+        import_file_id=import_file_id,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
-def get_draft_bl_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None, is_draft: bool = None):
-    return repo.get_draft_bl_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search, is_draft=is_draft)
+def get_draft_bl_reviews_service(
+    db: Session,
+    include_inactive: bool = False,
+    import_file_id: int = None,
+    status: str = None,
+    search: str = None,
+    is_draft: bool = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_draft_bl_reviews(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        is_draft=is_draft,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 def get_draft_bl_review_by_id_service(db: Session, review_id: int, include_inactive: bool = True):
     return repo.get_draft_bl_review_by_id(db, review_id, include_inactive=include_inactive)
@@ -5543,8 +6470,28 @@ def delete_draft_bl_review_service(db: Session, review_id: int, user: Optional[s
     db.commit()
     return {"message": f"تم حذف جلسة مراجعة مسودة البوليصة رقم {review_id} بنجاح", "deleted": True}
 
-def get_coo_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None, is_draft: bool = None):
-    return repo.get_coo_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search, is_draft=is_draft)
+def get_coo_reviews_service(
+    db: Session,
+    include_inactive: bool = False,
+    import_file_id: int = None,
+    status: str = None,
+    search: str = None,
+    is_draft: bool = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_coo_reviews(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        is_draft=is_draft,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 def delete_coo_review_service(db: Session, review_id: int, user: Optional[str] = None) -> dict:
     review = repo.get_coo_review_by_id(db, review_id)
@@ -5566,8 +6513,26 @@ def delete_coo_review_service(db: Session, review_id: int, user: Optional[str] =
     db.commit()
     return {"message": f"تم حذف جلسة مراجعة المنشأ رقم {review_id} بنجاح", "deleted": True}
 
-def get_inspection_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
-    return repo.get_inspection_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search)
+def get_inspection_reviews_service(
+    db: Session,
+    include_inactive: bool = False,
+    import_file_id: int = None,
+    status: str = None,
+    search: str = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_inspection_reviews(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 def delete_inspection_review_service(db: Session, review_id: int, user: Optional[str] = None) -> dict:
     ok = repo.delete_inspection_review(db, review_id)
@@ -5741,7 +6706,7 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         details={
             "invoice_number": (po_reconciliation.final_invoice_number if po_reconciliation else None) or imp_file.pi_number,
             "total_amount": float(po_reconciliation.total_invoice_amount) if po_reconciliation else float(getattr(imp_file, 'estimated_cost', 0.0) or 0.0),
-            "currency": (po_reconciliation.currency if po_reconciliation else None) or getattr(imp_file, 'estimated_cost_currency', 'EUR'),
+            "currency": (po_reconciliation.currency if po_reconciliation else None) or (getattr(imp_file, 'estimated_cost_currency', None) or None),
             "shipper_name": (po_reconciliation.shipper_name if po_reconciliation else None) or (supplier.company_name if supplier else imp_file.supplier_name),
             "reconciled_items_count": len(po_reconciliation.reconciled_invoice_items or []) if po_reconciliation else 0,
             "certified_by": po_reconciliation.certified_by if po_reconciliation else None,
@@ -6019,7 +6984,7 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         port_of_discharge=getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None),
         total_packages=int(po_reconciliation.total_packages) if po_reconciliation else (booking.packages_count if booking else 0),
         total_gross_weight_kg=float(po_reconciliation.total_gross_weight_kg) if po_reconciliation else (booking.gross_weight if booking else 0.0),
-        currency=po_reconciliation.currency if po_reconciliation else (getattr(imp_file, 'estimated_cost_currency', None) or "EUR"),
+        currency=po_reconciliation.currency if po_reconciliation else (getattr(imp_file, 'estimated_cost_currency', None) or None),
         fob_or_cif_amount=float(po_reconciliation.total_invoice_amount) if po_reconciliation else float(getattr(imp_file, 'estimated_cost', 0.0) or 0.0),
         readiness_status=readiness_status,
         readiness_score=round(final_score, 1),

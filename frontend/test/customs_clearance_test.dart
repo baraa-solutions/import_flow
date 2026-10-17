@@ -20,8 +20,7 @@ class _MockClearanceNotifier extends CustomsClearanceNotifier {
     bool includeInactive = false,
     int? importFileId,
     String? status,
-    String? search,
-  }) async {
+    String? search, int skip = 0, int limit = 200}) async {
     state = AsyncValue.data(initialRecords);
   }
 }
@@ -201,6 +200,191 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('سداد الرسوم والضرائب'), findsWidgets);
       expect(find.textContaining('سجل أذون سداد نافذة'), findsOneWidget);
+    });
+
+    testWidgets('FE07-T04: Card for a released record gates pay, release, and under-bond buttons', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final releasedRecord = CustomsClearanceModel(
+        customsClearanceId: 20,
+        clearanceCode: 'CLR-2026-0020',
+        importFileId: 101,
+        declaration46No: '46-ALX-2026-992',
+        customsOfficeName: 'Alexandria Sea Port',
+        channelType: 'Green Channel',
+        nafezaClaimNumber: 'CLM-2026-0020',
+        totalDutyPayable: 63000.0,
+        actualDutyTotal: 63000.0,
+        paymentStatus: 'Paid & Verified',
+        status: 'Final Release Granted',
+        releasePermitNo: 'REL-2026-0020',
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+        owner: 'Admin',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            customsClearanceProvider.overrideWith((ref) => _MockClearanceNotifier([releasedRecord])),
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier()),
+            partnersProvider.overrideWith((ref) => _MockPartnersNotifier()),
+          ],
+          child: const MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: CustomsClearanceScreen(initialSubTab: 0),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Pay button must be disabled (onPressed == null)
+      final payBtnFinder = find.byKey(const Key('payDutyBtn_CLR-2026-0020'));
+      expect(payBtnFinder, findsOneWidget);
+      final IconButton payBtn = tester.widget(payBtnFinder);
+      expect(payBtn.onPressed, isNull);
+      expect(payBtn.tooltip, equals('تم الإفراج الجمركي النهائي بالفعل'));
+
+      // Final release button must be disabled (onPressed == null)
+      final releaseBtnFinder = find.byKey(const Key('finalReleaseBtn_CLR-2026-0020'));
+      expect(releaseBtnFinder, findsOneWidget);
+      final IconButton releaseBtn = tester.widget(releaseBtnFinder);
+      expect(releaseBtn.onPressed, isNull);
+      expect(releaseBtn.tooltip, equals('تم الإفراج الجمركي النهائي بالفعل'));
+
+      // Under-bond button must be disabled (onPressed == null)
+      final underBondBtnFinder = find.byKey(const Key('underBondBtn_CLR-2026-0020'));
+      expect(underBondBtnFinder, findsOneWidget);
+      final IconButton underBondBtn = tester.widget(underBondBtnFinder);
+      expect(underBondBtn.onPressed, isNull);
+      expect(underBondBtn.tooltip, equals('تم الإفراج الجمركي النهائي بالفعل'));
+
+      // View button exists and opens read-only details dialog
+      final viewBtnFinder = find.byKey(const Key('viewClearanceBtn_CLR-2026-0020'));
+      expect(viewBtnFinder, findsOneWidget);
+      final IconButton viewBtn = tester.widget(viewBtnFinder);
+      expect(viewBtn.onPressed, isNotNull);
+
+      await tester.tap(viewBtnFinder);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('CLR-2026-0020'), findsWidgets);
+      expect(find.textContaining('46-ALX-2026-992'), findsWidgets);
+    });
+
+    testWidgets('FE07-T04: Card for unassessed record disables Pay button with assessment tooltip', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final unassessedRecord = CustomsClearanceModel(
+        customsClearanceId: 21,
+        clearanceCode: 'CLR-2026-0021',
+        importFileId: 101,
+        nafezaClaimNumber: null,
+        actualDutyTotal: 0.0,
+        totalDutyPayable: 0.0,
+        paymentStatus: 'Pending Payment',
+        status: 'Under Customs Clearance',
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+        owner: 'Admin',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            customsClearanceProvider.overrideWith((ref) => _MockClearanceNotifier([unassessedRecord])),
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier()),
+            partnersProvider.overrideWith((ref) => _MockPartnersNotifier()),
+          ],
+          child: const MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: CustomsClearanceScreen(initialSubTab: 0),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final payBtnFinder = find.byKey(const Key('payDutyBtn_CLR-2026-0021'));
+      expect(payBtnFinder, findsOneWidget);
+      final IconButton payBtn = tester.widget(payBtnFinder);
+      expect(payBtn.onPressed, isNull);
+      expect(payBtn.tooltip, equals('يجب تقييم الرسوم الجمركية أولاً'));
+    });
+
+    testWidgets('FE07-T04: Card for quarantine-locked record disables Final Release button', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final quarantineRecord = CustomsClearanceModel(
+        customsClearanceId: 22,
+        clearanceCode: 'CLR-2026-0022',
+        importFileId: 101,
+        nafezaClaimNumber: 'CLM-2026-0022',
+        actualDutyTotal: 50000.0,
+        totalDutyPayable: 50000.0,
+        paymentStatus: 'Paid & Verified',
+        status: 'Under Bond Released',
+        isUnderBondRelease: true,
+        quarantineLock: true,
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+        owner: 'Admin',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            customsClearanceProvider.overrideWith((ref) => _MockClearanceNotifier([quarantineRecord])),
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier()),
+            partnersProvider.overrideWith((ref) => _MockPartnersNotifier()),
+          ],
+          child: const MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Scaffold(
+                body: CustomsClearanceScreen(initialSubTab: 0),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final releaseBtnFinder = find.byKey(const Key('finalReleaseBtn_CLR-2026-0022'));
+      expect(releaseBtnFinder, findsOneWidget);
+      final IconButton releaseBtn = tester.widget(releaseBtnFinder);
+      expect(releaseBtn.onPressed, isNull);
+      expect(releaseBtn.tooltip, equals('الشحنة تحت التحفظ الرقابي — يلزم رفع التحفظ أولاً'));
+
+      // Under-bond button should be enabled in lab mode
+      final underBondBtnFinder = find.byKey(const Key('underBondBtn_CLR-2026-0022'));
+      expect(underBondBtnFinder, findsOneWidget);
+      final IconButton underBondBtn = tester.widget(underBondBtnFinder);
+      expect(underBondBtn.onPressed, isNotNull);
     });
   });
 }

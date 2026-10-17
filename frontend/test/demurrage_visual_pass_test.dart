@@ -22,7 +22,7 @@ class _FakeDemurrage extends DemurrageNotifier {
   Future<void> loadInitialData() async {}
 
   @override
-  Future<void> fetchTrackings({int? importFileId, String? carrierName, String? status}) async {}
+  Future<void> fetchTrackings({int? importFileId, String? carrierName, String? status, int skip = 0, int limit = 200}) async {}
 
   @override
   Future<DemurrageSimulationResultModel?> simulateCalculation(Map<String, dynamic> requestPayload) async =>

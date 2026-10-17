@@ -117,9 +117,50 @@ def test_auto_populate_from_central_archive(db_session):
     assert "Final Master Bill of Lading" in doc_names
     assert "E.Invoice" in doc_names
     assert len(res.default_couriers) == 2
+    assert all(c.courier_company is None for c in res.default_couriers)
 
 
-def test_save_or_upsert_collection_session(db_session):
+def test_courier_no_dhl_defaults(db_session):
+    # Verify build_carrier_tracking_url returns None when company or awb is missing
+    assert OriginalDocumentsCollectionService.build_carrier_tracking_url(None, "12345") is None
+    assert OriginalDocumentsCollectionService.build_carrier_tracking_url("", "12345") is None
+    assert OriginalDocumentsCollectionService.build_carrier_tracking_url("DHL", None) is None
+    assert OriginalDocumentsCollectionService.build_carrier_tracking_url("DHL", "  ") is None
+
+    # Verify courier with courier_company=None generates no DHL fallback in flat list or alerts
+    file = ImportFile(
+        import_file_code="IMP-2026-NO-COMP",
+        company_name="No DHL Importer",
+        supplier_name="No DHL Supplier",
+    )
+    db_session.add(file)
+    db_session.commit()
+
+    payload = OriginalDocumentsCollectionCreate(
+        import_file_id=file.import_file_id,
+        import_file_code=file.import_file_code,
+        couriers_list=[
+            CourierEntry(
+                courier_no="AWB-NO-COMP",
+                courier_company=None,
+                dispatch_date="2026-09-01",
+                is_received=False,
+            ),
+        ],
+        documents_list=[],
+    )
+    OriginalDocumentsCollectionService.save_or_upsert_collection_session(db_session, payload)
+
+    flat = OriginalDocumentsCollectionService.get_all_couriers_flat(db_session)
+    no_comp_item = next(x for x in flat if x.courier_no == "AWB-NO-COMP")
+    assert no_comp_item.courier_company == ""
+    assert no_comp_item.tracking_url is None
+
+    alerts = OriginalDocumentsCollectionService.get_courier_alerts(db_session)
+    alert = next(x for x in alerts.alerts if x.courier_no == "AWB-NO-COMP")
+    assert alert.courier_company == ""
+    assert "DHL" not in alert.alert_message_ar
+    assert "DHL" not in alert.alert_message_en
     payload = OriginalDocumentsCollectionCreate(
         import_file_id=1,
         import_file_code="IMP-2026-0001",

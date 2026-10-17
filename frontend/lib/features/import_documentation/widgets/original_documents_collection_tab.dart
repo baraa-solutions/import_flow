@@ -143,7 +143,7 @@ class _OriginalDocumentsCollectionTabState
       _couriers.add(
         CourierEntryModel(
           courierNo: '',
-          courierCompany: 'DHL',
+          courierCompany: '',
           dispatchDate: DateTime.now().toIso8601String().substring(0, 10),
           isReceived: false,
         ),
@@ -478,7 +478,6 @@ class _OriginalDocumentsCollectionTabState
   }
 
   Widget _buildFileSelector(AppLocalizations l, AsyncValue<List<ImportFileModel>> filesAsync) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final acidLabel = context.l10n.idocAACID;
 
     return Container(
@@ -638,7 +637,7 @@ class _OriginalDocumentsCollectionTabState
                       child: SearchableDropdownField<String>(
                         value: ['DHL', 'FedEx', 'Aramex', 'UPS', 'Naqel', 'SMSA', 'Hand Delivery', 'Other'].contains(c.courierCompany)
                             ? c.courierCompany
-                            : 'DHL',
+                            : null,
                         labelText: l.courierCompanyField,
                         decoration: InputDecoration(
                           labelText: l.courierCompanyField,
@@ -1469,7 +1468,7 @@ class _OriginalDocumentsCollectionTabState
     final timeCtrl = TextEditingController(
       text: '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
     );
-    final receiverCtrl = TextEditingController(text: 'مكتب الاستقبال والتخليص');
+    final receiverCtrl = TextEditingController();
     final podCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
     bool markDocsReceived = true;

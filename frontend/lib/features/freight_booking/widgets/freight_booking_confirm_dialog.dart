@@ -37,7 +37,7 @@ class _FreightBookingConfirmDialogState extends ConsumerState<FreightBookingConf
     _bookingNoController = TextEditingController(text: widget.booking.bookingConfirmationNo ?? '');
     _vesselNameController = TextEditingController(text: widget.booking.vesselName ?? '');
     _voyageNumberController = TextEditingController(text: widget.booking.voyageNumber ?? '');
-    _freeDaysController = TextEditingController(text: widget.booking.freeDemurrageDays.toString());
+    _freeDaysController = TextEditingController(text: widget.booking.freeDemurrageDays?.toString() ?? '');
     _notesController = TextEditingController(text: widget.booking.notes ?? '');
 
     if (widget.booking.etd != null) {
@@ -89,7 +89,8 @@ class _FreightBookingConfirmDialogState extends ConsumerState<FreightBookingConf
         'voyage_number': _voyageNumberController.text.trim().isNotEmpty ? _voyageNumberController.text.trim() : null,
         if (_selectedEtd != null) 'etd': _selectedEtd!.toIso8601String(),
         if (_selectedEta != null) 'eta': _selectedEta!.toIso8601String(),
-        'free_demurrage_days': int.tryParse(_freeDaysController.text.trim()) ?? 14,
+        if (_freeDaysController.text.trim().isNotEmpty && int.tryParse(_freeDaysController.text.trim()) != null)
+          'free_demurrage_days': int.parse(_freeDaysController.text.trim()),
         'notes': _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
       };
 
@@ -209,7 +210,7 @@ class _FreightBookingConfirmDialogState extends ConsumerState<FreightBookingConf
                       keyboardType: TextInputType.number,
                       decoration: ccInputDecoration(prefix: Icons.timelapse_outlined, suffixText: l.fbkDaysSuffix),
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return l.fbkConfirmFreeDaysRequired;
+                        if (v == null || v.trim().isEmpty) return null;
                         final parsed = int.tryParse(v.trim());
                         if (parsed == null || parsed < 0) return l.fbkValidatorFreeDays;
                         return null;

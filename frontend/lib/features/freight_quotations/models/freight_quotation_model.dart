@@ -5,7 +5,7 @@ class FreightQuotationItemModel {
   final String providerName;
   final String? vesselName;
   final String? voyageNumber;
-  final String currencyCode;
+  final String? currencyCode;
   final double oceanFreightCost;
   final double localChargesCost;
   final double inlandCost;
@@ -25,7 +25,7 @@ class FreightQuotationItemModel {
     required this.providerName,
     this.vesselName,
     this.voyageNumber,
-    this.currencyCode = 'USD',
+    this.currencyCode,
     required this.oceanFreightCost,
     this.localChargesCost = 0.0,
     this.inlandCost = 0.0,
@@ -47,7 +47,7 @@ class FreightQuotationItemModel {
       providerName: json['provider_name'] ?? '',
       vesselName: json['vessel_name'],
       voyageNumber: json['voyage_number'],
-      currencyCode: json['currency_code'] ?? 'USD',
+      currencyCode: json['currency_code'] as String?,
       oceanFreightCost: (json['ocean_freight_cost'] as num?)?.toDouble() ?? 0.0,
       localChargesCost: (json['local_charges_cost'] as num?)?.toDouble() ?? 0.0,
       inlandCost: (json['inland_cost'] as num?)?.toDouble() ?? 0.0,

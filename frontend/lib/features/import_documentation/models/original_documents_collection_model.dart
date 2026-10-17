@@ -15,7 +15,7 @@ class CourierEntryModel {
 
   CourierEntryModel({
     required this.courierNo,
-    this.courierCompany = 'DHL',
+    this.courierCompany = '',
     this.dispatchDate,
     this.isReceived = false,
     this.receivedDate,
@@ -30,7 +30,7 @@ class CourierEntryModel {
   factory CourierEntryModel.fromJson(Map<String, dynamic> json) {
     return CourierEntryModel(
       courierNo: json['courier_no']?.toString() ?? '',
-      courierCompany: json['courier_company']?.toString() ?? 'DHL',
+      courierCompany: json['courier_company']?.toString() ?? '',
       dispatchDate: json['dispatch_date']?.toString(),
       isReceived: json['is_received'] == true,
       receivedDate: json['received_date']?.toString(),
@@ -46,7 +46,7 @@ class CourierEntryModel {
   Map<String, dynamic> toJson() {
     return {
       'courier_no': courierNo,
-      'courier_company': courierCompany,
+      'courier_company': courierCompany.isEmpty ? null : courierCompany,
       'dispatch_date': dispatchDate,
       'is_received': isReceived,
       'received_date': receivedDate,
@@ -398,7 +398,7 @@ class CourierAlertItemModel {
   factory CourierAlertItemModel.fromJson(Map<String, dynamic> json) {
     return CourierAlertItemModel(
       courierNo: json['courier_no']?.toString() ?? '',
-      courierCompany: json['courier_company']?.toString() ?? 'DHL',
+      courierCompany: json['courier_company']?.toString() ?? '',
       importFileId: json['import_file_id'] ?? 0,
       importFileCode: json['import_file_code']?.toString() ?? '',
       acidNumber: json['acid_number']?.toString(),
@@ -483,7 +483,7 @@ class CourierFlatItemModel {
   factory CourierFlatItemModel.fromJson(Map<String, dynamic> json) {
     return CourierFlatItemModel(
       courierNo: json['courier_no']?.toString() ?? '',
-      courierCompany: json['courier_company']?.toString() ?? 'DHL',
+      courierCompany: json['courier_company']?.toString() ?? '',
       importFileId: json['import_file_id'] ?? 0,
       importFileCode: json['import_file_code']?.toString() ?? '',
       importerName: json['importer_name']?.toString(),

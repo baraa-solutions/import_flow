@@ -3,7 +3,7 @@ Business Logic & Workflows for Operational & Daily Shipment Update Engine
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -18,10 +18,12 @@ import modules.shipment_updates.repository as repo
 import modules.shipment_updates.validators as val
 from modules.common.errors import best_effort
 from modules.common.file_tracking import set_file_tracking
-from modules.common.validators import not_null_columns, require_active
+from modules.common.validators import not_null_columns, not_found, require_active
 from modules.import_files.model import ImportFile
 
 logger = logging.getLogger(__name__)
+
+RECORD_LABEL_AR = "تحديث الشحنة"
 
 
 # phase_name is deprecated (single-language rule): Flutter renders the label from phase_number.
@@ -62,9 +64,12 @@ def create_update_log_service(db: Session, schema: ShipmentUpdateLogCreate, user
     file_code = import_file.import_file_code or import_file.custom_file_number
 
     old_stage = import_file.current_stage
+    server_prev_cost: Optional[float] = None
     # Cost Adjustment (Type B)
-    if schema.update_category == "Phase Cost Adjustment" and schema.new_cost and schema.new_cost > 0:
+    if schema.update_category == "Phase Cost Adjustment":
+        server_prev_cost = float(import_file.estimated_cost or 0.0)
         import_file.estimated_cost = schema.new_cost
+        import_file.updated_at = datetime.now(timezone.utc)
     # Milestone progression: target_phase is validated as "Phase 1".."Phase 10" by the schema. Only the board
     # phase moves (through the shared tracking writer), never backwards, and never the GP-002 step.
     if schema.update_category == MILESTONE_CATEGORY:
@@ -78,7 +83,14 @@ def create_update_log_service(db: Session, schema: ShipmentUpdateLogCreate, user
     import_file.updated_at = datetime.now(timezone.utc)
 
     assigned = schema.assigned_user if "assigned_user" in schema.model_fields_set and schema.assigned_user else user_name
-    log_record = repo.create_update_log(db, schema, created_by=user_name, import_file_code=file_code, assigned_user=assigned)
+    log_record = repo.create_update_log(
+        db,
+        schema,
+        created_by=user_name,
+        import_file_code=file_code,
+        assigned_user=assigned,
+        previous_cost=server_prev_cost,
+    )
     db.commit()
     db.refresh(log_record)
 
@@ -96,16 +108,19 @@ def create_update_log_service(db: Session, schema: ShipmentUpdateLogCreate, user
 
 
 def update_log_record_service(db: Session, update_id: int, schema: ShipmentUpdateLogUpdate, user_name: str = "System") -> ShipmentUpdateLog:
+    record = repo.get_update_log_by_id(db, update_id)
+    if not record:
+        raise not_found(RECORD_LABEL_AR, update_id)
+
+    val.validate_update_log_record(schema)
+
     required = not_null_columns(ShipmentUpdateLog)
     # an explicit null on a NOT NULL column (note, log_date, assigned_user...) keeps the stored value
     update_data = {k: v for k, v in schema.model_dump(exclude_unset=True).items() if v is not None or k not in required}
-    record = repo.update_log_record(db, update_id, update_data, updated_by=user_name)
-    if not record:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"تحديث الشحنة رقم '{update_id}' غير موجود.",
-        )
-    return record
+    updated = repo.update_log_record(db, update_id, update_data, updated_by=user_name)
+    db.commit()
+    db.refresh(updated)
+    return updated
 
 
 def inspect_shipment_phases_service(db: Session, import_file_id: int) -> List[PhaseStatusInspection]:
@@ -116,7 +131,7 @@ def inspect_shipment_phases_service(db: Session, import_file_id: int) -> List[Ph
             detail=f"ملف الاستيراد رقم '{import_file_id}' غير موجود.",
         )
 
-    logs = repo.get_all_update_logs(db, import_file_id=import_file_id)  # newest first
+    logs, _ = repo.get_all_update_logs(db, import_file_id=import_file_id, limit=500)  # newest first
 
     # Current phase index (0-based)
     current_idx = min(max(_current_business_phase(import_file, logs), 1), len(ALL_PHASES_DEFS)) - 1
@@ -153,13 +168,56 @@ def inspect_shipment_phases_service(db: Session, import_file_id: int) -> List[Ph
     return inspections
 
 
-def get_all_update_logs_service(db: Session, import_file_id: int = None, update_category: str = None, target_phase: str = None, search: str = None):
-    return repo.get_all_update_logs(db, import_file_id=import_file_id, update_category=update_category, target_phase=target_phase, search=search)
+def get_all_update_logs_service(
+    db: Session,
+    import_file_id: Optional[int] = None,
+    update_category: Optional[str] = None,
+    target_phase: Optional[str] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[ShipmentUpdateLog], int]:
+    return repo.get_all_update_logs(
+        db,
+        import_file_id=import_file_id,
+        update_category=update_category,
+        target_phase=target_phase,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
 
 
-def get_update_log_by_id_service(db: Session, update_id: int):
-    return repo.get_update_log_by_id(db, update_id)
+def get_update_log_by_id_service(db: Session, update_id: int) -> ShipmentUpdateLog:
+    record = repo.get_update_log_by_id(db, update_id)
+    if not record:
+        raise not_found(RECORD_LABEL_AR, update_id)
+    return record
 
 
-def soft_delete_update_log_service(db: Session, update_id: int, user_name: str = "System"):
-    return repo.soft_delete_update_log(db, update_id, deleted_by=user_name)
+def soft_delete_update_log_service(db: Session, update_id: int, user_name: str = "System") -> bool:
+    record = repo.get_update_log_by_id(db, update_id)
+    if not record:
+        raise not_found(RECORD_LABEL_AR, update_id)
+
+    if record.update_category == "Phase Cost Adjustment":
+        # Check if it is the latest active cost adjustment log for this file
+        latest_cost_log = (
+            db.query(ShipmentUpdateLog)
+            .filter(
+                ShipmentUpdateLog.import_file_id == record.import_file_id,
+                ShipmentUpdateLog.is_active == True,
+                ShipmentUpdateLog.update_category == "Phase Cost Adjustment",
+            )
+            .order_by(ShipmentUpdateLog.update_id.desc())
+            .first()
+        )
+        if latest_cost_log and latest_cost_log.update_id == record.update_id:
+            import_file = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
+            if import_file and abs((import_file.estimated_cost or 0.0) - (record.new_cost or 0.0)) < 1e-6:
+                import_file.estimated_cost = record.previous_cost or 0.0
+                import_file.updated_at = datetime.now(timezone.utc)
+
+    repo.soft_delete_update_log(db, update_id, deleted_by=user_name)
+    db.commit()
+    return True

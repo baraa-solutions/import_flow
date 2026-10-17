@@ -164,6 +164,38 @@ abstract class AppLocalizations {
   String get systemInfoTooltip;
   String get backToDashboardTooltip;
   String get languageToggleTooltip;
+  String get confirmDeleteTitle;
+  String confirmDeleteMessage(String code);
+  String get deletedSuccessfully;
+  String get copyCode;
+  String get moreActionsTooltip;
+  String get deactivateRecord;
+  String get restoreRecord;
+  String get viewActivityLog;
+  String get editRecord;
+  String get genericErrorMessage;
+  String get tableSearchHint;
+  String get tableNoData;
+  String get tableNoResults;
+  String get tableClearFilters;
+  String get tableCustomizeColumns;
+  String get tableExportCsv;
+  String get tableExportExcel;
+  String get tableRowCopied;
+  String get tableRetry;
+  String get tableActions;
+  String tableTotalCount(int count);
+  String tableSelectedCount(int count);
+  String get resetToDefaults;
+  String get apply;
+  String get recordNotFoundOrDeleted;
+  String get entityNotFoundOrDeleted => recordNotFoundOrDeleted;
+  String get entityDetailsTitle;
+  String get importFilePickerSelectFile;
+  String get importFilePickerNoFilesFound;
+  String get importFilePickerFileRequired;
+  String get importFilePickerContinue;
+  String get importFilePickerSearchHint;
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   String get switchAsAdmin;
@@ -734,6 +766,8 @@ abstract class AppLocalizations {
   String get quoteDetails;
   String get hideQuote;
   String get totalQuoteValue;
+  String rateMissingWarning(String codes);
+  String scenarioSaveRateMissingError(int index, String provider, String codes);
   String get container40ftItem;
   String get container20ftItem;
   String get lclCbmItem;
@@ -2616,6 +2650,12 @@ abstract class AppLocalizations {
   String get customsClearanceFilterDutyRequested;
   String get customsClearanceFilterDutyPaid;
   String get customsClearanceFilterFinalRelease;
+  String get customsClearanceStatusInspectionRecorded;
+  String get customsClearanceStatusDutiesAssessed;
+  String get customsClearanceStatusDutyPaidReady;
+  String get customsClearanceStatusUnderBondReleased;
+  String get customsClearanceStatusLabRejected;
+  String get customsClearanceStatusInvoicesVerified;
   String get customsClearanceNewRecordButton;
   String get customsClearanceEmptyRecords;
   String get customsClearanceDeclaration46Label;
@@ -2760,6 +2800,18 @@ abstract class AppLocalizations {
   String get underBondLabApprovedSuccess;
   String get underBondLabRejectedAlert;
   String underBondLabResultError(String error);
+  String get underBondConfirmLiftTitle;
+  String get underBondConfirmLiftBody;
+  String get underBondConfirmLiftConfirm;
+  String get underBondConfirmLiftCancel;
+  String get underBondLabVerdictRequired;
+  String get underBondRefRequired;
+  String get underBondRefMinLength;
+  String get underBondRefInvalid;
+  String get underBondLocationRequired;
+  String get underBondCertRequired;
+  String get underBondCertMinLength;
+  String get underBondCertInvalid;
   String get customsClearanceExportTsvBtn;
   String get customsClearanceExportTsvSuccess;
   String get customsClearanceCopyFieldTooltip;
@@ -2789,6 +2841,20 @@ abstract class AppLocalizations {
   String get drawingSamplesFilterPending;
   String get drawingSamplesEmptySamples;
   String get drawingSamplesEmptyShortage;
+  String get drawingSamplesColFileCode;
+  String get drawingSamplesColSampledBodies;
+  String get drawingSamplesColSamplingDate;
+  String get drawingSamplesColGoeicCert;
+  String get drawingSamplesColTestStatus;
+  String get drawingSamplesColLabResult;
+  String get ccShortageNotAvailable;
+  String get importFilePickerTitle;
+  String get importFilePickerSelectPrompt;
+  String get ccActionNeedsAssessment;
+  String get ccActionNeedsPayment;
+  String get ccActionQuarantineLocked;
+  String get ccActionAlreadyReleased;
+  String get customsClearanceViewTooltip;
   String get drawingSamplesShortageSectionTitle;
   String get drawingSamplesShortageSectionDesc;
   String get drawingSamplesAddShortageBtn;
@@ -2884,6 +2950,7 @@ abstract class AppLocalizations {
   String get finalDutyScreenSubtitle;
   String get finalDutySummaryHeader;
   String get finalDutyKpiTotalPayable;
+  String get finalDutyKpiOutstanding;
   String get finalDutyKpiTotalPaid;
   String get finalDutyKpiPendingPayment;
   String get finalDutyKpiNetVariance;
@@ -3700,6 +3767,8 @@ abstract class AppLocalizations {
   String get categoryAirFreight;
   String get categoryBulkCargo;
   String get categoryMultimodal;
+  String get categoryCourier;
+  String get budgetCurrencyLabel;
   String get projectsCopyFieldTooltip;
   String get projectsExportTsvBtn;
   String get projectsExportTsvSuccess;
@@ -3819,6 +3888,21 @@ abstract class AppLocalizations {
   String get importerCardIdLabelShort;
   String get vatTaxIdLabelShort;
   String get commercialRegLabelShort;
+  String get importCompaniesMobileLabel;
+  String get importCompaniesFaxLabel;
+  String get importCompaniesPrimaryEmailLabel;
+  String get importCompaniesSecondaryEmailLabel;
+  String get importCompaniesWebsiteLabel;
+  String get importCompaniesNafezaTokenSection;
+  String get importCompaniesNafezaTokenLabel;
+  String get importCompaniesShowTokenTooltip;
+  String get importCompaniesHideTokenTooltip;
+  String get importCompaniesCertificatesSection;
+  String get importCompaniesWipoTitle;
+  String get importCompaniesWipoRegLabel;
+  String get importCompaniesEuipoTitle;
+  String get importCompaniesEuipoRegLabel;
+  String get importCompaniesIsoTitle;
 
   // ── Screen 33: Foreign Suppliers ──
   String get suppliersScreenTitle;
@@ -4224,13 +4308,22 @@ abstract class AppLocalizations {
   String get ledgerTypeCol;
   String get ledgerRefCol;
   String get ledgerImportFileCol;
+  String get ledgerProjectCol;
+  String get ledgerBlCol;
+  String get ledgerImporterCol;
   String get ledgerDescriptionCol;
   String get ledgerCurrencyCol;
   String get ledgerDebitCol;
   String get ledgerCreditCol;
+  String get ledgerRunningBalanceCol;
   String get ledgerStatusCol;
   String get ledgerInvoiceBadge;
   String get ledgerPaymentBadge;
+  String get partnerSoaRecordInvoiceBtn;
+  String get partnerSoaRecordPaymentBtn;
+  String get partnerSoaExportExcelBtn;
+  String get partnerSoaExportPdfBtn;
+  String get partnerSoaPrintBtn;
   String get soaFooterText;
   String get closeBtn;
 
@@ -6791,6 +6884,7 @@ abstract class AppLocalizations {
   String get swiftEnterSwiftRefError;
   String get swiftEnterAmountError;
   String get swiftAmountGreaterThanZeroError;
+  String get swiftCurrencyRequiredError;
 
   String get swiftFileReadErrorSnack;
   String swiftExtractSuccessSnack(String filename, String type);
@@ -6801,6 +6895,12 @@ abstract class AppLocalizations {
   String swiftConnectionErrorSnack(String error);
   String swiftReconcileSuccessSnack(String swiftRef, String paymentCode);
   String swiftReconcileErrorSnack(String error);
+  String swiftReconcileMissingFields(String fields);
+  String get swiftBatchNotConfirmed;
+  String get swiftFieldRef;
+  String get swiftFieldValueDate;
+  String get swiftFieldAmount;
+  String get swiftFieldCurrency;
 
   String get swiftExportTsvBtn;
   String get swiftExportTsvSuccess;
@@ -8618,6 +8718,9 @@ abstract class AppLocalizations {
   String get poProjectCostCenter;
   String get poIncoterms;
   String get poFXRate;
+  String get poExchangeRateRequired;
+  String get poExchangeRateHelper;
+  String poNoExchangeRateForDate(String code, String date);
   String get poPaymentTerms;
   String get poTotalCBM;
   String get poGrossNetWeight;
@@ -9623,6 +9726,7 @@ abstract class AppLocalizations {
   String get ccStageRelease;
   String get ccStageInvoices;
   String get ccNoImportFiles;
+  String get ccRecordFileNotFound;
   String get ccExpensesTooltip;
   String get ccMetricAssessed;
   String get ccMetricPaid;
@@ -9673,6 +9777,7 @@ abstract class AppLocalizations {
   String get ccDutySadadHint;
   String get ccDutyAutoGenerate;
   String get ccDutySadadRequired;
+  String get ccDutySadadTooShort;
   String get ccDutyReceiptLabel;
   String get ccDutyReceiptHint;
   String get ccDutyReceiptRequired;
@@ -9682,6 +9787,7 @@ abstract class AppLocalizations {
   String get ccDutyDateLabel;
   String get ccDutyMethodLabel;
   String get ccDutyBankLabel;
+  String get ccDutyBankRequired;
   String get ccDutyAttachmentsSection;
   String get ccDutyReceiptFileLabel;
   String get ccDutyReceiptFileHint;
@@ -9720,6 +9826,8 @@ abstract class AppLocalizations {
   String get ccAssessLabFees;
   String get ccAssessNotesSection;
   String get ccAssessNotesHint;
+  String get ccPreviousNotesLabel;
+  String get ccStepNotesLabel;
   String ccAssessTotalDue(String amount);
   String get ccAssessConfirm;
   String ccAssessSuccess(String claim, String total);
@@ -9783,6 +9891,9 @@ abstract class AppLocalizations {
   String get ccInsYardLabel;
   String get ccInsYardHint;
   String get ccInsYardRequired;
+  String get ccInsResultRequired;
+  String get ccInsBodiesRequired;
+  String get ccInsSamplingNoRequired;
   String get ccInsDateLabel;
   String get ccInsTypeLabel;
   String get ccInsType1;
@@ -10006,6 +10117,16 @@ abstract class AppLocalizations {
   String get ccCloneYellow;
   String get ccCloneDuties;
   String get ccCloneBtn;
+  String get customsDeclMinLength;
+  String get customsDeclChannelLabel;
+  String get customsDeclPickDateTooltip;
+  String get customsDeclMetricEstimatedDuties;
+  String get customsDeclColTariffEstimate;
+  String get customsDeclRegistryEmptyMessage;
+  String get customsDeclExportSubtitle;
+  String get customsDeclExportMetaTotal;
+  String get customsDeclExportMetaGeneratedAt;
+  String customsDeclExportSubtitleWithFile(String declNo, String fileCode);
   // === end review phase06_07 keys ===
 
   // === review phase08_10 keys (append below this line) ===
@@ -10156,8 +10277,18 @@ abstract class AppLocalizations {
   String get inlandFareRequired;
   String get inlandFareInvalid;
   String get inlandDepartureDate;
+  String get inlandDepartureTime;
   String get inlandEtaDate;
+  String get inlandEtaTime;
   String get inlandEtaBeforeDeparture;
+  String get inlandSelectCarrierHint;
+  String get inlandSelectPickupLocationHint;
+  String get inlandGatePassNoLabel;
+  String get inlandGatePassNoHint;
+  String get inlandSealIntactSwitch;
+  String get inlandSealNumberLabel;
+  String get inlandSealNumberHint;
+  String get inlandSealNumberRequiredWhenBroken;
   String get inlandNotesLabel;
   String get inlandNotesHint;
   String get inlandSubmitBtn;
@@ -10459,6 +10590,10 @@ abstract class AppLocalizations {
   String get fbkQuoteEquipmentMismatch40ft;
   String get fbkQuoteEquipmentMismatch20ft;
   String get fbkQuoteEquipmentMismatchBoth;
+  String get customsFxRateRequired;
+  String get addPoLinesWithHsToEstimateDuties;
+  String get customsMissingTariffBlockSave;
+  String get missingTariffLinesWarning;
   // === end review phase08_10 keys ===
 }
 

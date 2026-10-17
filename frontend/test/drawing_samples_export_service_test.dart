@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/features/customs_clearance/models/customs_clearance_model.dart';
 import 'package:frontend/features/customs_clearance/services/drawing_samples_export_service.dart';
 
 void main() {
@@ -8,24 +9,34 @@ void main() {
 
   group('DrawingSamplesExportService Tests', () {
     final mockSamples = [
-      {
-        'sample_id': 'SMP-001',
-        'authority': 'الهيئة العامة للرقابة على الصادرات والواردات',
-        'drawing_date': '2026-09-01',
-        'receipt_no': 'RCP-9821',
-        'test_type': 'فحص كيميائي ومطابقة مواصفات',
-        'status': 'PASSED',
-        'notes': 'مطابق تماماً للمواصفة القياسية المصرية',
-      },
-      {
-        'sample_id': 'SMP-002',
-        'authority': 'الهيئة القومية لسلامة الغذاء',
-        'drawing_date': '2026-09-02',
-        'receipt_no': 'RCP-9822',
-        'test_type': 'تحليل ميكروبيولوجي',
-        'status': 'PENDING',
-        'notes': 'بانتظار ظهور نتيجة الزرع',
-      },
+      CustomsClearanceModel(
+        customsClearanceId: 1,
+        clearanceCode: 'CC-001',
+        importFileId: 101,
+        samplingRecordNo: 'SMP-001',
+        sampledRegulatoryBodies: ['GOEIC'],
+        samplingDate: '2026-09-01',
+        goeicCertificateNo: 'RCP-9821',
+        sampleTestStatus: 'Approved',
+        labTestResult: 'PASSED',
+        inspectionNotes: 'مطابق تماماً للمواصفة القياسية المصرية',
+        createdAt: '2026-09-01T10:00:00',
+        updatedAt: '2026-09-01T10:00:00',
+      ),
+      CustomsClearanceModel(
+        customsClearanceId: 2,
+        clearanceCode: 'CC-002',
+        importFileId: 102,
+        samplingRecordNo: 'SMP-002',
+        sampledRegulatoryBodies: ['NFSA'],
+        samplingDate: '2026-09-02',
+        goeicCertificateNo: 'RCP-9822',
+        sampleTestStatus: 'Pending',
+        labTestResult: 'PENDING',
+        inspectionNotes: 'بانتظار ظهور نتيجة الزرع',
+        createdAt: '2026-09-02T10:00:00',
+        updatedAt: '2026-09-02T10:00:00',
+      ),
     ];
 
     final mockShortages = [

@@ -6,9 +6,14 @@ class SupplierModel {
   final String registrationType;
   final String foreignExporterId;
   final String? cargoxPlatformId;
+  final String? taxId;
+  final String currency;
   final String foreignExporterCountry;
   final String foreignExporterCountryCode;
+  final String? city;
+  final String? postalCode;
   final String address;
+  final String? contactPerson;
   final String? phone;
   final String? mobile;
   final String? fax;
@@ -23,8 +28,19 @@ class SupplierModel {
   final bool registeredDecree43;
   final bool whiteListRegistered;
   final String? brands;
+  final String? paymentTerms;
+  final double creditLimit;
+  final double rating;
   final String? notes;
   final bool isActive;
+  final bool hasWipo;
+  final String? wipoNumber;
+  final bool hasEuipo;
+  final String? euipoNumber;
+  final bool hasGlobalBrand;
+  final String? globalBrandNumber;
+  final bool hasIso9001;
+  final String? iso9001Number;
 
   String get country => foreignExporterCountry;
 
@@ -36,9 +52,14 @@ class SupplierModel {
     required this.registrationType,
     required this.foreignExporterId,
     this.cargoxPlatformId,
+    this.taxId,
+    this.currency = 'USD',
     required this.foreignExporterCountry,
     required this.foreignExporterCountryCode,
+    this.city,
+    this.postalCode,
     required this.address,
+    this.contactPerson,
     this.phone,
     this.mobile,
     this.fax,
@@ -53,8 +74,19 @@ class SupplierModel {
     this.registeredDecree43 = false,
     this.whiteListRegistered = false,
     this.brands,
+    this.paymentTerms,
+    this.creditLimit = 0.0,
+    this.rating = 5.0,
     this.notes,
     this.isActive = true,
+    this.hasWipo = false,
+    this.wipoNumber,
+    this.hasEuipo = false,
+    this.euipoNumber,
+    this.hasGlobalBrand = false,
+    this.globalBrandNumber,
+    this.hasIso9001 = false,
+    this.iso9001Number,
   });
 
   factory SupplierModel.fromJson(Map<String, dynamic> json) {
@@ -77,9 +109,14 @@ class SupplierModel {
       registrationType: json['registration_type']?.toString() ?? 'Factory Registration',
       foreignExporterId: json['foreign_exporter_id']?.toString() ?? '',
       cargoxPlatformId: json['cargox_platform_id']?.toString(),
+      taxId: json['tax_id']?.toString(),
+      currency: json['currency']?.toString() ?? 'USD',
       foreignExporterCountry: json['foreign_exporter_country']?.toString() ?? '',
       foreignExporterCountryCode: json['foreign_exporter_country_code']?.toString() ?? '',
+      city: json['city']?.toString(),
+      postalCode: json['postal_code']?.toString(),
       address: json['address']?.toString() ?? '',
+      contactPerson: json['contact_person']?.toString(),
       phone: json['phone']?.toString(),
       mobile: json['mobile']?.toString(),
       fax: json['fax']?.toString(),
@@ -94,8 +131,19 @@ class SupplierModel {
       registeredDecree43: parseBool(json['registered_decree_43']),
       whiteListRegistered: parseBool(json['white_list_registered']),
       brands: json['brands']?.toString(),
+      paymentTerms: json['payment_terms']?.toString(),
+      creditLimit: (json['credit_limit'] as num?)?.toDouble() ?? 0.0,
+      rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
       notes: json['notes']?.toString(),
       isActive: parseBool(json['is_active'], defaultValue: true),
+      hasWipo: parseBool(json['has_wipo']),
+      wipoNumber: json['wipo_number']?.toString(),
+      hasEuipo: parseBool(json['has_euipo']),
+      euipoNumber: json['euipo_number']?.toString(),
+      hasGlobalBrand: parseBool(json['has_global_brand']),
+      globalBrandNumber: json['global_brand_number']?.toString(),
+      hasIso9001: parseBool(json['has_iso_9001']),
+      iso9001Number: json['iso_9001_number']?.toString(),
     );
   }
 
@@ -108,9 +156,14 @@ class SupplierModel {
       'registration_type': registrationType,
       'foreign_exporter_id': foreignExporterId,
       if (cargoxPlatformId != null) 'cargox_platform_id': cargoxPlatformId,
+      if (taxId != null) 'tax_id': taxId,
+      'currency': currency,
       'foreign_exporter_country': foreignExporterCountry,
       'foreign_exporter_country_code': foreignExporterCountryCode,
+      if (city != null) 'city': city,
+      if (postalCode != null) 'postal_code': postalCode,
       'address': address,
+      if (contactPerson != null) 'contact_person': contactPerson,
       'phone': phone,
       'mobile': mobile,
       'fax': fax,
@@ -125,8 +178,19 @@ class SupplierModel {
       'registered_decree_43': registeredDecree43,
       'white_list_registered': whiteListRegistered,
       'brands': brands,
+      if (paymentTerms != null) 'payment_terms': paymentTerms,
+      'credit_limit': creditLimit,
+      'rating': rating,
       'notes': notes,
       'is_active': isActive,
+      'has_wipo': hasWipo,
+      'wipo_number': wipoNumber,
+      'has_euipo': hasEuipo,
+      'euipo_number': euipoNumber,
+      'has_global_brand': hasGlobalBrand,
+      'global_brand_number': globalBrandNumber,
+      'has_iso_9001': hasIso9001,
+      'iso_9001_number': iso9001Number,
     };
   }
 }

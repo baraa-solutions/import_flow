@@ -23,8 +23,7 @@ class _CapturingNotifier extends CustomsClearanceNotifier {
     bool includeInactive = false,
     int? importFileId,
     String? status,
-    String? search,
-  }) async {
+    String? search, int skip = 0, int limit = 200}) async {
     state = const AsyncValue.data([]);
   }
 
@@ -98,11 +97,20 @@ void main() {
     expect((p['payment_date'] as String).substring(0, 10), CcFormat.date(DateTime.now()));
   });
 
-  testWidgets('complete-release dialog sends the release date (default today)', (tester) async {
+  testWidgets('complete-release dialog requires permit and sends the release date', (tester) async {
     final notifier = _CapturingNotifier();
     await _pump(tester, notifier, ClearanceFinalReleaseFallbackDialog(record: _record()));
 
     expect(find.byKey(const Key('ccReleaseDateField')), findsOneWidget);
+
+    // Initial permit is empty, tap confirm triggers validator
+    await tester.tap(find.byType(AppButton).last);
+    await tester.pumpAndSettle();
+    expect(notifier.releasePayload, isNull);
+
+    // Enter valid permit number
+    final permitField = find.byType(TextFormField).first;
+    await tester.enterText(permitField, 'REL-CLR-2026-0007');
     await tester.tap(find.byType(AppButton).last);
     await tester.pumpAndSettle();
 

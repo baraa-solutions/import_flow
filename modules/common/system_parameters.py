@@ -68,6 +68,10 @@ DEFAULT_PARAMETERS: Dict[str, Tuple[str, str]] = {
         "250",
         "Default port storage rate (EGP per container per day) when no carrier policy matches",
     ),
+    "DD_DEFAULT_TARIFF_CURRENCY": (
+        "USD",
+        "Default currency for demurrage and detention tariffs when no carrier policy matches",
+    ),
     "DD_STANDARD_FREE_DAYS": ("14", "Standard free days used for the BK-02 cost-avoidance comparison"),
     "DD_AVOIDANCE_RATE_USD": ("70", "USD per day per container used for the BK-02 estimated cost avoidance"),
     # ── Financial settlement PL-08 estimate constants (09 shared needs) ──
