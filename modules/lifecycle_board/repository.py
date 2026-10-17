@@ -73,8 +73,7 @@ def save_or_update_activity(
             rec.notes = notes
             rec.msg_code = msg_code
             rec.msg_params = msg_params
-    db.commit()
-    db.refresh(rec)
+    db.flush()
     return rec
 
 
@@ -136,15 +135,13 @@ def get_step_config(db: Session, step_code: str) -> Optional[StepConfig]:
 
 def save_step_config(db: Session, config: StepConfig) -> StepConfig:
     db.add(config)
-    db.commit()
-    db.refresh(config)
+    db.flush()
     return config
 
 
 def save_step_config_audit_log(db: Session, log: StepConfigAuditLog) -> StepConfigAuditLog:
     db.add(log)
-    db.commit()
-    db.refresh(log)
+    db.flush()
     return log
 
 
@@ -157,8 +154,7 @@ def get_step_config_audit_logs(db: Session, step_code: Optional[str] = None) -> 
 
 def save_pending_reference(db: Session, rec: PendingReferenceRecord) -> PendingReferenceRecord:
     db.add(rec)
-    db.commit()
-    db.refresh(rec)
+    db.flush()
     return rec
 
 

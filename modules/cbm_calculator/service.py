@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from modules.cbm_calculator.model import CBMCalculation
@@ -207,7 +208,8 @@ class CBMService:
     def update_calculation_service(
         db: Session, calc_id: int, payload: CBMCalculationUpdate, user: Optional[str] = None
     ) -> CBMCalculationResponse:
-        calc = get_or_404(db, CBMCalculation, calc_id, "حساب الحجم")
+        calc = get_or_404(db, CBMCalculation, calc_id, "حساب الحجم", active_only=True)
+        old_po_id = calc.po_id
         CBMValidator.validate_fk_references(
             db, project_id=payload.project_id, po_id=payload.po_id, import_file_id=payload.import_file_id, stored=calc
         )
@@ -224,6 +226,8 @@ class CBMService:
             calc_data.update(summary)
 
         updated_calc = CBMRepository.update(db, calc, calc_data, computed_items)
+        if updated_calc.po_id and (payload.items is not None or updated_calc.po_id != old_po_id):
+            CBMService._push_to_po(db, updated_calc, user)
         return CBMService._commit_and_respond(db, updated_calc)
 
     @staticmethod
@@ -235,7 +239,7 @@ class CBMService:
         user: Optional[str] = None,
         import_file_id: Optional[int] = None,
     ) -> CBMCalculationResponse:
-        calc = get_or_404(db, CBMCalculation, calc_id, "حساب الحجم")
+        calc = get_or_404(db, CBMCalculation, calc_id, "حساب الحجم", active_only=True)
         CBMValidator.validate_fk_references(db, project_id=project_id, po_id=po_id, import_file_id=import_file_id)
 
         calc_data: dict = {"updated_by": user}
@@ -243,7 +247,7 @@ class CBMService:
             calc_data["import_file_id"] = import_file_id
         if po_id is not None:
             calc_data["po_id"] = po_id
-            po = db.get(PurchaseOrder, po_id)
+            po = CBMRepository.get_po(db, po_id)
             if po is not None and po.project_id:
                 calc_data["project_id"] = po.project_id
         if project_id is not None:
@@ -276,7 +280,7 @@ class CBMService:
         payload: CloneCBMCalculationRequest,
         user: Optional[str] = None,
     ) -> CBMCalculationResponse:
-        calc = get_or_404(db, CBMCalculation, calc_id, "حساب الحجم")
+        calc = get_or_404(db, CBMCalculation, calc_id, "حساب الحجم", active_only=True)
 
         new_code = (
             payload.new_code.strip()
@@ -302,19 +306,25 @@ class CBMService:
             "recommended_container_count": 0,
         }
         if payload.copy_items and calc.items:
-            item_objs = [
-                CBMItemCreate(
-                    package_type=item.package_type,
-                    quantity=item.quantity,
-                    length=item.length_cm,
-                    width=item.width_cm,
-                    height=item.height_cm,
-                    unit="cm",
-                    gross_weight_per_unit_kg=item.gross_weight_per_unit_kg,
-                    is_stackable=item.is_stackable,
+            try:
+                item_objs = [
+                    CBMItemCreate(
+                        package_type=item.package_type,
+                        quantity=item.quantity,
+                        length=item.length_cm,
+                        width=item.width_cm,
+                        height=item.height_cm,
+                        unit="cm",
+                        gross_weight_per_unit_kg=item.gross_weight_per_unit_kg,
+                        is_stackable=item.is_stackable,
+                    )
+                    for item in calc.items
+                ]
+            except (ValidationError, ValueError):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="لا يمكن نسخ بند بأبعاد صفرية.",
                 )
-                for item in calc.items
-            ]
             computed_items, summary = CBMService.compute_items_and_totals(item_objs, air_volumetric_kg_per_cbm(db))
 
         calc_data = {

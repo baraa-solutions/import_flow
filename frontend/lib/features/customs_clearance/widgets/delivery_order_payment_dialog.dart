@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,10 +48,11 @@ class _DeliveryOrderPaymentDialogState
   late TextEditingController _paymentRefController;
   late TextEditingController _fileUrlController;
   late TextEditingController _notesController;
+  late TextEditingController _freeDaysController;
 
   DateTime _doDate = DateTime.now();
-  late DateTime _doExpiryDate;
-  int _freeDaysAllowed = 14;
+  DateTime? _doExpiryDate;
+  int? _freeDaysAllowed;
   String _selectedCurrency = 'EGP';
   bool _isSubmitting = false;
 
@@ -62,23 +61,34 @@ class _DeliveryOrderPaymentDialogState
   @override
   void initState() {
     super.initState();
-    _doExpiryDate = DateTime.now().add(const Duration(days: 14));
+    if (widget.file.deliveryOrderDate != null && widget.file.deliveryOrderDate!.isNotEmpty) {
+      final parsedDate = DateTime.tryParse(widget.file.deliveryOrderDate!);
+      if (parsedDate != null) _doDate = parsedDate;
+    }
+
+    if (widget.file.deliveryOrderExpiryDate != null && widget.file.deliveryOrderExpiryDate!.isNotEmpty) {
+      final parsedExpiry = DateTime.tryParse(widget.file.deliveryOrderExpiryDate!);
+      if (parsedExpiry != null) _doExpiryDate = parsedExpiry;
+    }
+
+    final initialDays = (widget.file.targetFreeDays != null && widget.file.targetFreeDays! > 0)
+        ? widget.file.targetFreeDays!
+        : null;
+    _freeDaysAllowed = initialDays;
+    _freeDaysController = TextEditingController(
+      text: initialDays != null ? initialDays.toString() : '',
+    );
+    if (_doExpiryDate == null && initialDays != null) {
+      _doExpiryDate = _doDate.add(Duration(days: initialDays));
+    }
+
     _doNumberController = TextEditingController(
       text: widget.file.deliveryOrderNo ?? '',
     );
-    _feesController = TextEditingController(text: '12500');
+    _feesController = TextEditingController();
     _paymentRefController = TextEditingController();
     _fileUrlController = TextEditingController();
     _notesController = TextEditingController();
-
-    if (_doNumberController.text.trim().isEmpty) {
-      _generateDONumber();
-    }
-
-    if (widget.file.targetFreeDays != null && widget.file.targetFreeDays! > 0) {
-      _freeDaysAllowed = widget.file.targetFreeDays!;
-      _doExpiryDate = _doDate.add(Duration(days: _freeDaysAllowed));
-    }
 
     Future.microtask(() {
       ref.read(allPartnersProvider.notifier).fetchPartners();
@@ -92,28 +102,17 @@ class _DeliveryOrderPaymentDialogState
     _paymentRefController.dispose();
     _fileUrlController.dispose();
     _notesController.dispose();
+    _freeDaysController.dispose();
     super.dispose();
   }
 
-  void _generateDONumber() {
-    final year = DateTime.now().year;
-    final randNum = 1000 + Random().nextInt(9000);
-    String linePrefix = 'LINE';
-    if (widget.file.customFileNumber != null && widget.file.customFileNumber!.isNotEmpty) {
-      final clean = widget.file.customFileNumber!.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
-      if (clean.length >= 4) {
-        linePrefix = clean.substring(0, 4).toUpperCase();
-      }
-    }
-    setState(() {
-      _doNumberController.text = 'DO-$linePrefix-$year-$randNum';
-    });
-  }
-
   void _updateFreeDays() {
-    final diff = _doExpiryDate.difference(_doDate).inDays;
+    if (_doExpiryDate == null) return;
+    final diff = _doExpiryDate!.difference(_doDate).inDays;
+    final val = diff > 0 ? diff : 0;
     setState(() {
-      _freeDaysAllowed = diff > 0 ? diff : 0;
+      _freeDaysAllowed = val;
+      _freeDaysController.text = val.toString();
     });
   }
 
@@ -122,6 +121,13 @@ class _DeliveryOrderPaymentDialogState
     final l = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+
+    if (_doExpiryDate == null) {
+      messenger.showSnackBar(
+        AppTheme.snackBar(context, l.requiredField, severity: AppSeverity.danger),
+      );
+      return;
+    }
 
     final fees = double.tryParse(_feesController.text.trim());
     if (fees == null || fees < 0) {
@@ -138,8 +144,8 @@ class _DeliveryOrderPaymentDialogState
         'import_file_id': widget.file.importFileId,
         'delivery_order_number': _doNumberController.text.trim(),
         'delivery_order_date': _doDate.toIso8601String(),
-        'delivery_order_expiry': _doExpiryDate.toIso8601String(),
-        'free_days_allowed': _freeDaysAllowed,
+        'delivery_order_expiry': _doExpiryDate!.toIso8601String(),
+        'free_days_allowed': int.tryParse(_freeDaysController.text.trim()) ?? _freeDaysAllowed,
         'shipping_agent_id': _selectedShippingAgentId,
         'shipping_agent_name': _selectedShippingAgentName,
         'delivery_order_fees': fees,
@@ -191,14 +197,17 @@ class _DeliveryOrderPaymentDialogState
   Widget _datePicker({
     required String label,
     required IconData icon,
-    required DateTime value,
+    required DateTime? value,
     required VoidCallback onTap,
   }) =>
       InkWell(
         onTap: onTap,
         child: InputDecorator(
           decoration: _dec(label, icon: icon),
-          child: LtrText(CcFormat.date(value), style: const TextStyle(fontWeight: FontWeight.bold)),
+          child: LtrText(
+            value != null ? CcFormat.date(value) : '—',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
       );
 
@@ -276,12 +285,13 @@ class _DeliveryOrderPaymentDialogState
                   _buildInfoChip(Icons.business_rounded, l.ccDoSupplierChip, file.supplierName),
                 if (file.portOfDischarge != null && file.portOfDischarge!.isNotEmpty)
                   _buildInfoChip(Icons.anchor_rounded, l.ccDoPortChip, file.portOfDischarge!),
-                _buildInfoChip(
-                  Icons.timelapse_rounded,
-                  l.ccDoFreeDaysChip,
-                  l.ccDoDays(_freeDaysAllowed),
-                  color: _freeDaysAllowed <= 3 ? AppTheme.crimson : AppTheme.emerald,
-                ),
+                if (_freeDaysAllowed != null)
+                  _buildInfoChip(
+                    Icons.timelapse_rounded,
+                    l.ccDoFreeDaysChip,
+                    l.ccDoDays(_freeDaysAllowed!),
+                    color: _freeDaysAllowed! <= 3 ? AppTheme.crimson : AppTheme.emerald,
+                  ),
               ],
             ),
             const SizedBox(height: 20),
@@ -343,35 +353,18 @@ class _DeliveryOrderPaymentDialogState
                   ),
                   const SizedBox(height: 16),
 
-                  // DO number with generator
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          key: const Key('doNumberField'),
-                          controller: _doNumberController,
-                          textDirection: TextDirection.ltr,
-                          decoration: _dec(l.ccDoNumberLabel,
-                              hint: l.ccDoNumberHint, icon: Icons.confirmation_number_rounded),
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) return l.ccDoNumberRequired;
-                            if (val.trim().length < 3) return l.ccDoNumberTooShort;
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Padding(
-                        padding: const EdgeInsetsDirectional.only(top: 4),
-                        child: AppButton(
-                          label: l.ccDoGenerate,
-                          icon: Icons.refresh_rounded,
-                          tooltip: l.ccDoGenerateTooltip,
-                          onPressed: _generateDONumber,
-                        ),
-                      ),
-                    ],
+                  // DO number
+                  TextFormField(
+                    key: const Key('doNumberField'),
+                    controller: _doNumberController,
+                    textDirection: TextDirection.ltr,
+                    decoration: _dec(l.ccDoNumberLabel,
+                        hint: l.ccDoNumberHint, icon: Icons.confirmation_number_rounded),
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) return l.ccDoNumberRequired;
+                      if (val.trim().length < 3) return l.ccDoNumberTooShort;
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -389,7 +382,7 @@ class _DeliveryOrderPaymentDialogState
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
                           ],
-                          decoration: _dec(l.ccDoFeesLabel, hint: '12500', icon: Icons.payments_rounded),
+                          decoration: _dec(l.ccDoFeesLabel, hint: '0.00', icon: Icons.payments_rounded),
                           validator: (val) {
                             if (val == null || val.trim().isEmpty) return l.ccDoFeesRequired;
                             final numVal = double.tryParse(val.trim());
@@ -433,7 +426,7 @@ class _DeliveryOrderPaymentDialogState
                   ),
                   const SizedBox(height: 16),
 
-                  // Dates: issue date & expiry date
+                  // Dates: issue date & expiry date & free days
                   CcFieldRow(
                     gap: 12,
                     children: [
@@ -463,7 +456,7 @@ class _DeliveryOrderPaymentDialogState
                         onTap: () async {
                           final picked = await showDatePicker(
                             context: context,
-                            initialDate: _doExpiryDate,
+                            initialDate: _doExpiryDate ?? _doDate,
                             firstDate: _doDate,
                             lastDate: DateTime(2035),
                           );
@@ -471,6 +464,34 @@ class _DeliveryOrderPaymentDialogState
                             setState(() {
                               _doExpiryDate = picked;
                               _updateFreeDays();
+                            });
+                          }
+                        },
+                      ),
+                      TextFormField(
+                        key: const Key('freeDaysField'),
+                        controller: _freeDaysController,
+                        textDirection: TextDirection.ltr,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: _dec(l.ccDoFreeDaysChip, hint: '14', icon: Icons.timelapse_rounded),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return l.fbkConfirmFreeDaysRequired;
+                          final numVal = int.tryParse(val.trim());
+                          if (numVal == null || numVal < 0) return l.fbkValidatorFreeDays;
+                          return null;
+                        },
+                        onChanged: (val) {
+                          final parsed = int.tryParse(val.trim());
+                          if (parsed != null && parsed >= 0) {
+                            setState(() {
+                              _freeDaysAllowed = parsed;
+                              _doExpiryDate = _doDate.add(Duration(days: parsed));
+                            });
+                          } else {
+                            setState(() {
+                              _freeDaysAllowed = null;
+                              _doExpiryDate = null;
                             });
                           }
                         },

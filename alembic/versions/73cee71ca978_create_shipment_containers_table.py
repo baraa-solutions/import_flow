@@ -1,7 +1,7 @@
 """create_shipment_containers_table
 
 Revision ID: 73cee71ca978
-Revises: b2c3d4e5f6a7
+Revises: f3a4b5c6d7e8
 Create Date: 2026-10-16 01:39:23.284482
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '73cee71ca978'
-down_revision: Union[str, Sequence[str], None] = 'b2c3d4e5f6a7'
+down_revision: Union[str, Sequence[str], None] = 'f3a4b5c6d7e8'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

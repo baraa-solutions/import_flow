@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -17,6 +17,7 @@ class ProjectBase(BaseModel):
     allow_multi_shipment: bool = Field(True, description="يسمح بالشحن على أكثر من شحنة")
     allow_multi_company: bool = Field(True, description="يسمح بالربط مع أكثر من شركة أو خط شحن")
     total_budget_usd: Optional[float] = Field(None, ge=0)
+    budget_currency: str = Field("USD", max_length=10)
     target_end_date: Optional[str] = Field(None, max_length=50, description="تاريخ الانتهاء المستهدف (YYYY-MM-DD)")
     notes: Optional[str] = None
 
@@ -38,6 +39,7 @@ class ProjectUpdate(BaseModel):
     allow_multi_shipment: Optional[bool] = None
     allow_multi_company: Optional[bool] = None
     total_budget_usd: Optional[float] = Field(None, ge=0)
+    budget_currency: Optional[str] = Field(None, max_length=10)
     target_end_date: Optional[str] = Field(None, max_length=50)
     status: Optional[str] = Field(None, max_length=50)  # Open, Closed, On Hold
     notes: Optional[str] = None
@@ -54,8 +56,11 @@ class ProjectResponse(ProjectBase):
     company_name: Optional[str] = None
     supplier_name: Optional[str] = None
     incoterm_code: Optional[str] = None
-    total_committed_usd: Optional[float] = 0.0
+    total_committed_usd: Optional[float] = None
     po_count: Optional[int] = 0
     remaining_budget_usd: Optional[float] = None
+    budget_utilization_percent: Optional[float] = None
+    missing_rate_currencies: List[str] = Field(default_factory=list)
+    committed_by_currency: Dict[str, float] = Field(default_factory=dict)
 
     model_config = ConfigDict(from_attributes=True)

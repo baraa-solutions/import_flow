@@ -16,6 +16,7 @@ from sqlalchemy import (
     JSON,
     Text,
     Index,
+    text,
 )
 from sqlalchemy.orm import relationship
 
@@ -197,10 +198,24 @@ class ImportFile(Base):
     cloned_from_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=True)
     cloned_from_code = Column(String(50), nullable=True)
 
+    # Partial Shipments Linkage (DEV-OPS-04)
+    parent_import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=True)
+    parent_file_code = Column(String(50), nullable=True)
+    is_partial_shipment = Column(Boolean, default=False, server_default=text("0"), nullable=False)
+
     __table_args__ = (
         Index("idx_import_files_current_phase_id", "current_phase_id"),
+        Index("idx_import_files_parent_id", "parent_import_file_id"),
     )
+
 
     # Relationships
     company = relationship("ImportCompany", foreign_keys=[company_id])
     supplier = relationship("Supplier", foreign_keys=[supplier_id])
+    parent_file = relationship(
+        "ImportFile",
+        remote_side=[import_file_id],
+        backref="child_partial_files",
+        foreign_keys=[parent_import_file_id],
+    )
+

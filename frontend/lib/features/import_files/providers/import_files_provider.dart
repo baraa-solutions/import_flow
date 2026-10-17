@@ -314,5 +314,32 @@ class ImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>
       rethrow;
     }
   }
+
+  Future<ImportFileModel?> createPartialBatch(int parentFileId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-files/$parentFileId/create-partial-batch',
+        data: payload,
+      );
+      final batch = ImportFileModel.fromJson(response.data);
+      await fetchImportFiles();
+      return batch;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<ImportFileModel>> getPartialBatches(int importFileId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/import-files/$importFileId/partial-batches',
+      );
+      final List<dynamic> data = response.data;
+      return data.map((json) => ImportFileModel.fromJson(json)).toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
+
 
