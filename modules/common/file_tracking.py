@@ -23,6 +23,22 @@ from modules.common.system_messages import SysMsg, render_en
 
 _PHASE_NUM_RE = re.compile(r"(\d{1,2})")
 _TITLE_PREFIX_RE = re.compile(r"^\s*\d+\.\s*")
+_STEP_NUMBER_RE = re.compile(r"^STEP_(\d+)")
+
+
+def file_past_step(file_rec: Any, step_code: str) -> bool:
+    """True when the file's GP-002 step is beyond ``step_code`` (e.g. STEP_21 is past STEP_20):
+    prevents moving a file backwards on the lifecycle board."""
+    if file_rec is None or not getattr(file_rec, "current_step_code", None):
+        return False
+    current = _STEP_NUMBER_RE.match(file_rec.current_step_code)
+    target = _STEP_NUMBER_RE.match(step_code)
+    if not current or not target:
+        return False
+    return int(current.group(1)) > int(target.group(1))
+
+
+_file_past_step = file_past_step
 
 
 def _step_catalog() -> Tuple[dict, dict, list]:

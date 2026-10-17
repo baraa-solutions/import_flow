@@ -401,7 +401,29 @@ class EntityDetailsDialog<T> extends ConsumerWidget {
           );
           if (!confirmed) return;
         }
-        await action.run(data);
+
+        try {
+          await action.run(data);
+          if (context.mounted && (action.isDestructive || action.kind == RowActionKind.delete)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(l.deletedSuccessfully),
+                backgroundColor: AppTheme.emerald,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(ApiError.message(e, fallback: l.operationFailed)),
+                backgroundColor: AppTheme.crimson,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        }
       };
     }
 
@@ -409,7 +431,7 @@ class EntityDetailsDialog<T> extends ConsumerWidget {
     if (action.kind == RowActionKind.edit) {
       button = FilledButton.icon(
         style: FilledButton.styleFrom(
-          backgroundColor: action.backgroundColor ?? AppTheme.orange,
+          backgroundColor: action.color ?? AppTheme.orange,
           foregroundColor: Colors.white,
         ),
         onPressed: onPressed,

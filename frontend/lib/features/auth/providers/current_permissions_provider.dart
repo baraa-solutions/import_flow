@@ -62,47 +62,42 @@ final currentPermissionsProvider = FutureProvider<PermissionSet>((ref) async {
   }
 
   final dio = ref.read(dioProvider);
-  try {
-    final response = await dio.get(
-      ApiConstants.myPermissions,
-      options: Options(
-        headers: {'Authorization': 'Bearer ${authState.token}'},
-      ),
-    );
+  final response = await dio.get(
+    ApiConstants.myPermissions,
+    options: Options(
+      headers: {'Authorization': 'Bearer ${authState.token}'},
+    ),
+  );
 
-    final data = response.data;
-    if (data == null) {
-      return const PermissionSet();
-    }
-
-    final Map<String, dynamic> jsonMap;
-    if (data is Map<String, dynamic>) {
-      jsonMap = data;
-    } else if (data is Map) {
-      jsonMap = Map<String, dynamic>.from(data);
-    } else {
-      return const PermissionSet();
-    }
-
-    final rawList = jsonMap['effective_permissions'];
-    if (rawList is List) {
-      final set = rawList
-          .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
-          .toSet();
-
-      // If user has ADMIN role, grant wildcard '*' as well
-      final roleCode = jsonMap['role_code']?.toString();
-      if (roleCode == 'ADMIN') {
-        set.add('*');
-      }
-
-      return PermissionSet(set);
-    }
-
-    return const PermissionSet();
-  } catch (e) {
-    // Return empty set on network or parse failure (safe deny by default)
+  final data = response.data;
+  if (data == null) {
     return const PermissionSet();
   }
+
+  final Map<String, dynamic> jsonMap;
+  if (data is Map<String, dynamic>) {
+    jsonMap = data;
+  } else if (data is Map) {
+    jsonMap = Map<String, dynamic>.from(data);
+  } else {
+    return const PermissionSet();
+  }
+
+  final rawList = jsonMap['effective_permissions'];
+  if (rawList is List) {
+    final set = rawList
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+
+    // If user has ADMIN role, grant wildcard '*' as well
+    final roleCode = jsonMap['role_code']?.toString();
+    if (roleCode == 'ADMIN') {
+      set.add('*');
+    }
+
+    return PermissionSet(set);
+  }
+
+  return const PermissionSet();
 });

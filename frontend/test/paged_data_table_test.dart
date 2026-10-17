@@ -12,6 +12,7 @@ import 'package:frontend/core/widgets/paged_data_table/paged_list_notifier.dart'
 import 'package:frontend/core/widgets/paged_data_table/paged_table_column.dart';
 import 'package:frontend/core/widgets/paged_data_table/row_action.dart';
 import 'package:frontend/core/widgets/enterprise_data_table/widgets/enterprise_table_shimmer_skeleton.dart';
+import 'package:frontend/features/auth/providers/current_permissions_provider.dart';
 import 'helpers/localized_app.dart';
 
 class _TestRow {
@@ -611,6 +612,348 @@ void main() {
       // Dialog opens
       expect(find.text('Customize Columns'), findsOneWidget);
       expect(find.text('Reset to Defaults'), findsOneWidget);
+    });
+
+    testWidgets('Delete key shows confirm dialog when user has permission, and runs delete on confirm', (tester) async {
+      _TestRow? deletedRow;
+      final items = [
+        const _TestRow(id: 1, code: 'ROW-1', name: 'Item 1', amount: 100),
+      ];
+
+      final state = PagedListState<_TestRow>(
+        query: const ListQuery(page: 1, pageSize: 50),
+        data: PageResult<_TestRow>(
+          items: items,
+          total: 1,
+          page: 1,
+          pageSize: 50,
+          totalPages: 1,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentPermissionsProvider.overrideWith((ref) async => const PermissionSet({'items.manage'})),
+          ],
+          child: localizedApp(
+            locale: AppLocales.english,
+            home: Scaffold(
+              body: PagedDataTable<_TestRow>(
+                storageKey: 'test_table_delete_permitted',
+                columns: createColumns(),
+                state: state,
+                onQueryChanged: (_) {},
+                rowActions: (row) => [
+                  RowAction<_TestRow>.delete(
+                    permission: 'items.manage',
+                    run: (r) async => deletedRow = r,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Row 0 is focused by default. Press Delete key
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pumpAndSettle();
+
+      // Confirm dialog appears
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(deletedRow, isNull);
+
+      // Tap confirm button in dialog
+      final confirmButton = find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(ElevatedButton),
+      );
+      expect(confirmButton, findsOneWidget);
+      await tester.tap(confirmButton);
+      await tester.pumpAndSettle();
+
+      expect(deletedRow?.id, equals(1));
+    });
+
+    testWidgets('Delete key does nothing when user lacks permission', (tester) async {
+      _TestRow? deletedRow;
+      final items = [
+        const _TestRow(id: 1, code: 'ROW-1', name: 'Item 1', amount: 100),
+      ];
+
+      final state = PagedListState<_TestRow>(
+        query: const ListQuery(page: 1, pageSize: 50),
+        data: PageResult<_TestRow>(
+          items: items,
+          total: 1,
+          page: 1,
+          pageSize: 50,
+          totalPages: 1,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentPermissionsProvider.overrideWith((ref) async => const PermissionSet({'items.view'})),
+          ],
+          child: localizedApp(
+            locale: AppLocales.english,
+            home: Scaffold(
+              body: PagedDataTable<_TestRow>(
+                storageKey: 'test_table_delete_unpermitted',
+                columns: createColumns(),
+                state: state,
+                onQueryChanged: (_) {},
+                rowActions: (row) => [
+                  RowAction<_TestRow>.delete(
+                    permission: 'items.manage',
+                    run: (r) async => deletedRow = r,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Press Delete key
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pumpAndSettle();
+
+      // No confirm dialog and no delete executed
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(deletedRow, isNull);
+    });
+
+    testWidgets('export button renders and invokes onExport with all items', (tester) async {
+      List<_TestRow>? exportedItems;
+      final items = [
+        const _TestRow(id: 1, code: 'EXP-1', name: 'Export 1', amount: 10),
+        const _TestRow(id: 2, code: 'EXP-2', name: 'Export 2', amount: 20),
+      ];
+
+      final state = PagedListState<_TestRow>(
+        query: const ListQuery(page: 1, pageSize: 50),
+        data: PageResult<_TestRow>(
+          items: items,
+          total: 2,
+          page: 1,
+          pageSize: 50,
+          totalPages: 1,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: localizedApp(
+            locale: AppLocales.english,
+            home: Scaffold(
+              body: PagedDataTable<_TestRow>(
+                storageKey: 'test_table_export',
+                columns: createColumns(),
+                state: state,
+                onQueryChanged: (_) {},
+                exportStageName: 'Test Stage',
+                onExport: (rows) async {
+                  exportedItems = rows;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final exportButton = find.byKey(const Key('paged_data_table_export_button'));
+      expect(exportButton, findsOneWidget);
+
+      await tester.tap(exportButton);
+      await tester.pumpAndSettle();
+
+      // Tap CSV export item
+      final csvItem = find.byKey(const Key('paged_data_table_export_csv_item'));
+      expect(csvItem, findsOneWidget);
+      await tester.tap(csvItem);
+      await tester.pumpAndSettle();
+
+      expect(exportedItems, isNotNull);
+      expect(exportedItems!.length, equals(2));
+      expect(exportedItems![0].code, equals('EXP-1'));
+    });
+
+    testWidgets('Ctrl+F focuses the search field', (tester) async {
+      final items = [
+        const _TestRow(id: 1, code: 'SEARCH-1', name: 'Searchable', amount: 10),
+      ];
+
+      final state = PagedListState<_TestRow>(
+        query: const ListQuery(page: 1, pageSize: 50),
+        data: PageResult<_TestRow>(
+          items: items,
+          total: 1,
+          page: 1,
+          pageSize: 50,
+          totalPages: 1,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: localizedApp(
+            locale: AppLocales.english,
+            home: Scaffold(
+              body: PagedDataTable<_TestRow>(
+                storageKey: 'test_table_ctrl_f',
+                columns: createColumns(),
+                state: state,
+                onQueryChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Press Ctrl+F
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+      await tester.pump();
+
+      final searchTextField = tester.widget<TextField>(find.byType(TextField));
+      expect(searchTextField.focusNode?.hasFocus, isTrue);
+    });
+
+    testWidgets('focus index is clamped on page change and Enter does not throw RangeError', (tester) async {
+      _TestRow? openedRow;
+      final page1Items = List.generate(
+        10,
+        (i) => _TestRow(id: i, code: 'P1-$i', name: 'Row $i', amount: 100),
+      );
+      final page2Items = [
+        const _TestRow(id: 100, code: 'P2-0', name: 'Page 2 item 0', amount: 50),
+        const _TestRow(id: 101, code: 'P2-1', name: 'Page 2 item 1', amount: 60),
+      ];
+
+      var currentState = PagedListState<_TestRow>(
+        query: const ListQuery(page: 1, pageSize: 10),
+        data: PageResult<_TestRow>(
+          items: page1Items,
+          total: 12,
+          page: 1,
+          pageSize: 10,
+          totalPages: 2,
+        ),
+      );
+
+      late StateSetter setStateCallback;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: localizedApp(
+            locale: AppLocales.english,
+            home: StatefulBuilder(
+              builder: (context, setState) {
+                setStateCallback = setState;
+                return Scaffold(
+                  body: PagedDataTable<_TestRow>(
+                    storageKey: 'test_table_focus_clamp',
+                    columns: createColumns(),
+                    state: currentState,
+                    onOpen: (row) => openedRow = row,
+                    onQueryChanged: (_) {},
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Move focus down to index 8
+      for (int i = 0; i < 8; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+      }
+
+      // Now switch state to page 2 (which only has 2 items: indices 0 and 1)
+      setStateCallback(() {
+        currentState = PagedListState<_TestRow>(
+          query: const ListQuery(page: 2, pageSize: 10),
+          data: PageResult<_TestRow>(
+            items: page2Items,
+            total: 12,
+            page: 2,
+            pageSize: 10,
+            totalPages: 2,
+          ),
+        );
+      });
+      await tester.pumpAndSettle();
+
+      // Press Enter. Must not throw RangeError and should target clamped index (item 1)
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(openedRow, isNotNull);
+      expect(openedRow?.id, equals(101));
+    });
+
+    testWidgets('shows inline error banner and retry button when data and error are both set', (tester) async {
+      bool retryCalled = false;
+      final items = [
+        const _TestRow(id: 1, code: 'ERR-1', name: 'Old Page Data', amount: 100),
+      ];
+
+      final state = PagedListState<_TestRow>(
+        query: const ListQuery(page: 2, pageSize: 10),
+        data: PageResult<_TestRow>(
+          items: items,
+          total: 10,
+          page: 1,
+          pageSize: 10,
+          totalPages: 1,
+        ),
+        error: 'Failed to fetch page 2',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: localizedApp(
+            locale: AppLocales.english,
+            home: Scaffold(
+              body: PagedDataTable<_TestRow>(
+                storageKey: 'test_table_inline_error',
+                columns: createColumns(),
+                state: state,
+                onRefresh: () => retryCalled = true,
+                onQueryChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Old rows are still displayed
+      expect(find.text('ERR-1'), findsOneWidget);
+
+      // Inline error banner is visible
+      expect(find.byKey(const Key('paged_data_table_inline_error_banner')), findsOneWidget);
+      expect(find.text('Failed to fetch page 2'), findsOneWidget);
+
+      // Tap Retry button
+      final retryBtn = find.byKey(const Key('paged_data_table_inline_retry_button'));
+      expect(retryBtn, findsOneWidget);
+      await tester.tap(retryBtn);
+      await tester.pumpAndSettle();
+
+      expect(retryCalled, isTrue);
     });
   });
 }

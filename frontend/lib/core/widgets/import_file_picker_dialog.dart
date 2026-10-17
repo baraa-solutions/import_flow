@@ -349,6 +349,7 @@ class _ImportFilePickerDialogState extends ConsumerState<ImportFilePickerDialog>
   }
 
   List<ImportFileModel> _filterFiles(List<ImportFileModel> files) {
+    const closedStatuses = {'closed', 'archived'};
     return files.where((f) {
       if (widget.excludeId != null && f.importFileId == widget.excludeId) {
         return false;
@@ -356,8 +357,8 @@ class _ImportFilePickerDialogState extends ConsumerState<ImportFilePickerDialog>
       if (widget.where != null) {
         return widget.where!(f);
       }
-      // Default: active files (isActive == true and status != 'Closed')
-      return f.isActive && f.status.trim().toLowerCase() != 'closed';
+      // Default: active files (isActive == true and status is neither 'Closed' nor 'Archived')
+      return f.isActive && !closedStatuses.contains(f.status.trim().toLowerCase());
     }).toList();
   }
 }

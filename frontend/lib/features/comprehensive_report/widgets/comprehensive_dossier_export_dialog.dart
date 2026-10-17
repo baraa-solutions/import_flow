@@ -8,6 +8,8 @@ import '../models/comprehensive_dossier_model.dart';
 import '../services/comprehensive_dossier_service.dart';
 import '../services/comprehensive_report_export_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
 
 /// Desktop-oriented interactive modal dialog for CLO-03 Comprehensive Shipment Dossier Export.
 /// Provides 10-phase readiness KPIs, multi-format export buttons (PDF, Excel, TSV, Clipboard),
@@ -135,9 +137,11 @@ class _ComprehensiveDossierExportDialogState
         setState(() {
           _isSubmitting = false;
         });
+        final l10n = AppLocalizations.of(context);
+        final msg = ApiErrorText.of(l10n, e, fallback: 'خطأ أثناء تأكيد التصدير: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطأ أثناء تأكيد التصدير: $e'),
+            content: Text(msg),
             backgroundColor: AppTheme.flatCrimson,
           ),
         );

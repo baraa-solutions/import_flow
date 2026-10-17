@@ -2924,6 +2924,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get freightBookingItemVgmNotif => '7. VGM Notification Fee';
   @override String get freightBookingItemTelex => '8. Telex Release';
   @override String get freightBookingItemInsurance => '9. Marine Insurance';
+  @override String get freightBookingInsuranceHint => 'Record marine insurance in the Cargo Insurance screen; it is not part of the booking charges.';
   @override String get freightBookingItemCancellation => '10. Booking Cancellation';
   @override String get freightBookingItemIcs2 => '11. ICS2 Filing Fee';
   @override String get freightBookingItemOther => '12. Other Freight Fees';
@@ -3556,6 +3557,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String projectCompanyFallback(int id) => 'Company #$id';
   @override String projectSupplierFallback(int id) => 'Supplier #$id';
   @override String projectSupplierLabel(String supplier) => 'Supplier: $supplier';
+  @override String get projectCommitmentsLabel => 'Commitments';
+  @override String get projectRemainingBudgetLabel => 'Remaining Budget';
+  @override String projectMissingRateCurrencies(String currencies) => 'Missing exchange rates for: $currencies';
+  @override String get projectUtilizationLabel => 'Utilization';
   @override String get capMultiShipment => 'Multi-Shipment';
   @override String get capMultiCompany => 'Multi-Company';
   @override String projectPrintSnack(String name, String code) => 'Printing project & cost center details: $name ($code)';
@@ -12338,6 +12343,17 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String fbkDepSuccess(String bl) => 'Actual sailing confirmed and B/L ($bl) recorded; the shipment is now In-Transit';
   @override String fbkDepError(String error) => 'Could not confirm the sailing: $error';
   @override String get fbkStatusCancelled => 'Cancelled';
+  @override String get fbkMixedCurrencyError => 'All charges must use one currency until currency conversion is available';
+  @override String get demPushNeedsLinkedFile => 'Cannot push to financial settlement: link an import file first';
+  @override String get demPushConfirmTitle => 'Confirm Settlement Posting';
+  @override String get demPushConfirmMessage => 'Are you sure you want to push these demurrage charges to the financial settlement?';
+  @override String get demPushConfirmFileCode => 'Import File';
+  @override String get demPushConfirmDemurrageFx => 'Total Demurrage';
+  @override String get demPushConfirmDetentionFx => 'Total Detention';
+  @override String get demPushConfirmStorageEgp => 'Total Storage';
+  @override String get demPushConfirmRate => 'Exchange Rate';
+  @override String get demPushConfirmTotalEgp => 'Total Settlement Cost';
+  @override String get demPushConfirmBtn => 'Confirm & Push';
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===
@@ -13190,6 +13206,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String settlementReconciliationNote(String amount) => 'Reconciliation difference between the total and the item sum: $amount';
   @override String get settlementEstKpiDuty => 'Customs Duty';
   @override String get settlementEstKpiVatFees => 'VAT & Fees';
+  @override String get fbkQuoteEquipmentMismatch40ft =>
+      'The allocated equipment does not match the quoted container sizes (quoted 40ft, but no 40ft/45ft container is allocated). Please adjust equipment or re-apply quote.';
+  @override String get fbkQuoteEquipmentMismatch20ft =>
+      'The allocated equipment does not match the quoted container sizes (quoted 20ft, but no 20ft container is allocated). Please adjust equipment or re-apply quote.';
+  @override String get fbkQuoteEquipmentMismatchBoth =>
+      'The allocated equipment does not match the quoted container sizes (quoted 40ft and 20ft, but matching containers are missing). Please adjust equipment or re-apply quote.';
   // === end review phase08_10 keys ===
 }
 

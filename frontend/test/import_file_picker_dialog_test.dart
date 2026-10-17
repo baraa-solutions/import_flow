@@ -102,10 +102,18 @@ void main() {
     isActive: false,
     status: 'Closed',
   );
+  final file4Archived = _createFakeFile(
+    id: 104,
+    code: 'IMP-2026-0004',
+    customNumber: 'Archived Cargo',
+    supplier: 'Archive Supplier',
+    isActive: true,
+    status: 'Archived',
+  );
 
   group('ImportFilePickerDialog & showImportFilePickerDialog Tests', () {
-    testWidgets('pumping with 3 fake files (one closed): default shows 2 active items', (tester) async {
-      final fakeNotifier = _FakeImportFilesNotifier([file1, file2, file3Closed]);
+    testWidgets('pumping with 4 fake files (one closed, one archived): default shows 2 active items', (tester) async {
+      final fakeNotifier = _FakeImportFilesNotifier([file1, file2, file3Closed, file4Archived]);
 
       await tester.pumpWidget(
         _wrapTestWidget(
@@ -140,11 +148,12 @@ void main() {
       expect(dropdownFinder, findsOneWidget);
 
       final dropdownWidget = tester.widget<SearchableDropdownField<int>>(dropdownFinder);
-      // Default should have only 2 active items (file1 and file2), excluding closed file3
+      // Default should have only 2 active items (file1 and file2), excluding closed file3 and archived file4
       expect(dropdownWidget.items.length, 2);
       expect(dropdownWidget.items.any((item) => item.value == 101), isTrue);
       expect(dropdownWidget.items.any((item) => item.value == 102), isTrue);
       expect(dropdownWidget.items.any((item) => item.value == 103), isFalse);
+      expect(dropdownWidget.items.any((item) => item.value == 104), isFalse);
 
       // Verify label formatting: primaryNameWithCode — supplier
       final item1 = dropdownWidget.items.firstWhere((item) => item.value == 101);
