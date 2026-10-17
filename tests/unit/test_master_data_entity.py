@@ -208,3 +208,120 @@ def test_craft_logistics_freight_forwarder_extraction():
     assert extracted["website"] == "www.craft-logistics.com"
     assert "Zahraa El-Maadi" in extracted["address"]
     assert extracted["country_code"] == "EG"
+
+
+def test_importer_with_nafeza_token_and_dates():
+    raw_text = """
+    شركة النيل للتجارة والاستيراد ش.م.م
+    العنوان: 45 شارع مصدق، الدقي، الجيزة
+    البطاقة الاستيرادية: 830869911
+    البطاقة الضريبية: 200-183-044
+    السجل التجاري: 184520991
+    Importer Card Expiry: 2028-12-31
+    Tax Card Expiry: 2030-05-15
+    Commercial Reg Expiry: 2029-08-20
+    Nafeza Token: NFT-88921-EG
+    Email: operations@nile-trade.com
+    Secondary Email: info@nile-trade.com
+    Manager: م. أحمد عبد السلام
+    """
+    extractor = MasterDataEntityExtractor()
+    extracted = extractor.extract(raw_text, {}, module_name="import-company-entity")
+
+    assert extracted["importer_id"] == "830869911"
+    assert extracted["importer_card_number"] == "830869911"
+    assert extracted["importer_id_expiry"] == "2028-12-31"
+    assert extracted["vat_id_expiry"] == "2030-05-15"
+    assert extracted["registration_expiry"] == "2029-08-20"
+    assert extracted["nafeza_token_id"] == "NFT-88921-EG"
+    assert extracted["email"] == "operations@nile-trade.com"
+    assert extracted["secondary_email"] == "info@nile-trade.com"
+    assert "أحمد عبد السلام" in (extracted["contact_person"] or "")
+
+
+def test_supplier_with_compliance_flags_and_secondary_email():
+    raw_text = """
+    Hangzhou Global Machinery Co., Ltd.
+    Factory Address: 88 Science Avenue, Hangzhou, Zhejiang, China
+    VAT Number: 91330100MA27XXXX98
+    CargoX ID: 0x1234567890123456789012345678901234567890
+    Email: export@hzmachinery.com
+    Secondary Email: sales@hzmachinery.com
+    ISO 9001 Certified Quality
+    Decree 43 Registered Factory
+    White List Approved Exporter
+    Bank: Industrial and Commercial Bank of China
+    SWIFT: ICBCCNBS
+    Account Number: 6222021001002345678
+    Credit Limit: 150000.0
+    Rating: 4.8
+    """
+    extractor = MasterDataEntityExtractor()
+    extracted = extractor.extract(raw_text, {}, module_name="supplier-entity")
+
+    assert extracted["company_name"] == "Hangzhou Global Machinery Co., Ltd."
+    assert extracted["country_code"] == "CN"
+    assert extracted["email"] == "export@hzmachinery.com"
+    assert extracted["secondary_email"] == "sales@hzmachinery.com"
+    assert extracted["has_iso"] is True
+    assert extracted["registered_decree_43"] is True
+    assert extracted["white_list_registered"] is True
+    assert extracted["bank_name"] == "Industrial and Commercial Bank of China"
+    assert extracted["swift_code"] == "ICBCCNBS"
+    assert extracted["account_number"] == "6222021001002345678"
+    assert extracted["credit_limit"] == 150000.0
+    assert extracted["rating"] == 4.8
+
+
+def test_inland_transport_and_inspection_extraction():
+    transport_text = """
+    شركة الأهرام لخدمات النقل البري
+    ترخيص النقل: TR-99412
+    Fleet Types: Flatbed Trailers, Lowbed Trailers, Container Chassis
+    العنوان: المنطقة الصناعية، مدينة العاشر من رمضان
+    هاتف: 01009876543
+    Email: fleet@ahram-transport.com
+    """
+    extractor = MasterDataEntityExtractor()
+    extracted_t = extractor.extract(transport_text, {}, module_name="inland-transport-entity")
+    assert extracted_t["transport_license_number"] == "TR-99412"
+    assert "Flatbed Trailers" in extracted_t["fleet_types"]
+
+    inspection_text = """
+    TUV Rheinland Egypt Inspection Services
+    Accreditation No: GOIEC-8821
+    Inspection Scope: Pre-Shipment Inspection (PSI), Verification of Conformity (VOC)
+    Address: New Cairo, 5th Settlement, Egypt
+    Email: certs@tuv.eg
+    """
+    extracted_i = extractor.extract(inspection_text, {}, module_name="inspection-agency-entity")
+    assert extracted_i["inspection_accreditation_number"] == "GOIEC-8821"
+    assert "Pre-Shipment Inspection" in extracted_i["inspection_scope"]
+
+
+def test_bank_and_insurance_extraction():
+    bank_text = """
+    Commercial International Bank (CIB)
+    SWIFT Code: CIBEGGCAXXX
+    Branch: Smart Village Corporate Branch
+    Bank Code: CIB-01
+    Address: Smart Village, Giza, Egypt
+    Email: corp@cibeg.com
+    """
+    extractor = MasterDataEntityExtractor()
+    extracted_b = extractor.extract(bank_text, {}, module_name="bank-entity")
+    assert extracted_b["swift_code"] == "CIBEGGCAXXX"
+    assert "Smart Village" in extracted_b["branch_name"]
+    assert extracted_b["bank_code"] == "CIB-01"
+
+    insurance_text = """
+    Misr Marine Cargo Insurance Co.
+    Insurance License: FRA-77401
+    Insurance Policy: Institute Cargo Clauses (A) - All Risks
+    Address: Talaat Harb Street, Cairo, Egypt
+    Email: marine@misrins.com
+    """
+    extracted_ins = extractor.extract(insurance_text, {}, module_name="insurance-company-entity")
+    assert extracted_ins["insurance_license_number"] == "FRA-77401"
+    assert "Institute Cargo Clauses (A)" in extracted_ins["insurance_terms"]
+

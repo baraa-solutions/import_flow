@@ -108,6 +108,7 @@ class CurrenciesNotifier extends StateNotifier<AsyncValue<List<CurrencyModel>>> 
     required String fromCurrency,
     required String toCurrency,
     String rateType = 'commercial',
+    String? asOfDate,
   }) async {
     try {
       final response = await _dio.post(
@@ -117,12 +118,45 @@ class CurrenciesNotifier extends StateNotifier<AsyncValue<List<CurrencyModel>>> 
           'from_currency_code': fromCurrency,
           'to_currency_code': toCurrency,
           'rate_type': rateType,
+          if (asOfDate != null && asOfDate.isNotEmpty) 'as_of_date': asOfDate,
         },
       );
       return response.data as Map<String, dynamic>;
     } catch (err) {
       return null;
     }
+  }
+
+  /// Get official Egyptian Customs Exchange Rate (سعر الصرف الجمركي) dynamically as of a date
+  Future<double?> fetchCustomsExchangeRate({
+    required String currencyCode,
+    DateTime? onDate,
+  }) async {
+    final code = currencyCode.trim().toUpperCase();
+    if (code == 'EGP' || code.isEmpty) return 1.0;
+
+    final dateStr = onDate != null ? onDate.toIso8601String().substring(0, 10) : null;
+    final res = await convertCurrency(
+      amount: 1.0,
+      fromCurrency: code,
+      toCurrency: 'EGP',
+      rateType: 'customs',
+      asOfDate: dateStr,
+    );
+    if (res != null && res['applied_rate'] != null) {
+      final rate = (res['applied_rate'] as num).toDouble();
+      if (rate > 0) return rate;
+    }
+
+    // Fallback to loaded currencies list if date is current
+    if (onDate == null || dateStr == DateTime.now().toIso8601String().substring(0, 10)) {
+      final list = state.valueOrNull ?? [];
+      final match = list.where((c) => c.currencyCode.toUpperCase() == code).firstOrNull;
+      if (match?.latestCustomsRate != null && match!.latestCustomsRate! > 0) {
+        return match.latestCustomsRate!;
+      }
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>?> calculateGainLoss({

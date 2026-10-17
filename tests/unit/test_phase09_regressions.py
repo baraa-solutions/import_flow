@@ -324,7 +324,10 @@ def test_settlement_read_matches_engine_categories(db):
     assert rc._get_entity_field_value(rec, "clearance_fees_egp", "financial_settlement") == 5000.0
 
 
-def test_apply_twice_is_idempotent_and_user_invoices_untouched(db):
+def test_estimate_changes_never_touch_settlement_invoices(db):
+    # BE09-T03: settlement recalculation follows the PO FOB only. A different scenario freight (26,000 vs
+    # actual 20,000) or consultation estimate is not a variance, so apply is a no_op twice and the user's
+    # actual invoices stay as entered (no RECALC-ADJ rows).
     _seed_deps(db)
     rec = _settlement(db)
     user = User(username="mgr", full_name="m", email="m@x", role="ADMIN", is_active=True, hashed_password="h")
@@ -334,15 +337,14 @@ def test_apply_twice_is_idempotent_and_user_invoices_untouched(db):
                                     source_page="t", justification="carrier surcharge")
     with patch.object(rc, "_SOURCE_FETCHERS", FETCHERS), patch.object(rc, "has_user_permission", return_value=True):
         first = rc.apply(db, req, user)
-        totals = (rec.total_expenses_egp, rec.total_landed_cost_egp)
         second = rc.apply(db, req, user)
         after = rc.preview(db, "financial_settlement", rec.settlement_id, "t", "mgr")
-    assert first.action_taken == "recalculated" and [c.field_name for c in first.applied_changes] == ["freight_cost_egp"]
-    assert second.action_taken == "no_op"
-    assert totals == (31000.0, 131000.0) == (rec.total_expenses_egp, rec.total_landed_cost_egp)
+    assert first.action_taken == "no_op" and second.action_taken == "no_op"
+    assert (rec.total_expenses_egp, rec.total_landed_cost_egp) == (25000.0, 125000.0)
     assert after.has_any_variance is False and after.message_code == "RECALC_NO_VARIANCE"
+    assert [i.field_name for i in after.items] == ["total_fob_egp"]
     by_no = {e["invoice_no"]: e["amount_egp"] for e in rec.expense_invoices}
-    assert by_no == {"F1": 12000.0, "F2": 8000.0, "C1": 5000.0, "RECALC-ADJ-freight_cost_egp": 6000.0}
+    assert by_no == {"F1": 12000.0, "F2": 8000.0, "C1": 5000.0}
 
 
 def test_apply_on_approved_settlement_is_logged(db):
@@ -353,7 +355,9 @@ def test_apply_on_approved_settlement_is_logged(db):
     db.commit()
     req = RecalculationApplyRequest(target_entity_type="financial_settlement", target_entity_id=rec.settlement_id,
                                     source_page="t", justification="ok")
-    with patch.object(rc, "_SOURCE_FETCHERS", FETCHERS), patch.object(rc, "has_user_permission", return_value=True):
+    # FOB variance 100,000 -> 106,000 (the only settlement dependency since BE09-T03)
+    with patch.object(rc, "_SOURCE_FETCHERS", dict(FETCHERS, purchase_orders=lambda *a: 106000.0)), \
+            patch.object(rc, "has_user_permission", return_value=True):
         res = rc.apply(db, req, user)
     assert res.action_taken == "recalculated"
     assert db.query(RecalculationLog).get(res.log_id).action_taken == "recalculated_approved"
@@ -534,12 +538,11 @@ def test_preview_with_a_missing_rate_is_not_no_variance(db):
     def _missing(*a):
         raise rc.SourceRateMissing("USD", "2026-03-01")
 
-    fetchers = dict(FETCHERS, shipping_scenarios=_missing,
-                    customs_consultation=lambda db, k, field, agg: 0.0 if field == "estimated_duties_egp" else 5000.0)
+    fetchers = dict(FETCHERS, purchase_orders=_missing)
     with patch.object(rc, "_SOURCE_FETCHERS", fetchers):
         res = rc.preview(db, "financial_settlement", rec.settlement_id, "t", "mgr")
-    assert res.message_code == "RECALC_RATE_MISSING" and res.params == {"fields": "freight_cost_egp"}
-    assert next(i for i in res.items if i.field_name == "freight_cost_egp").status == "RATE_MISSING"
+    assert res.message_code == "RECALC_RATE_MISSING" and res.params == {"fields": "total_fob_egp"}
+    assert next(i for i in res.items if i.field_name == "total_fob_egp").status == "RATE_MISSING"
 
 
 # ── Customs review 2 ──────────────────────────────────────────────────────────
@@ -593,8 +596,8 @@ def test_file_already_cost_allocated_cannot_be_approved_again(db):
 
 
 def _small_variance_fetchers():
-    # freight 20000 -> 20200 (1%, below the 5% hard block)
-    return dict(FETCHERS, shipping_scenarios=lambda *a: 20200.0)
+    # PO FOB 100000 -> 101000 (1%, below the 5% hard block); FOB is the only settlement dependency (BE09-T03)
+    return dict(FETCHERS, purchase_orders=lambda *a: 101000.0)
 
 
 def test_approved_settlement_needs_a_justification_even_below_the_threshold(db):
@@ -618,7 +621,7 @@ def test_approved_settlement_needs_a_justification_even_below_the_threshold(db):
         res = rc.apply(db, no_just.model_copy(update={"justification": "bunker surcharge"}), user)
     assert res.action_taken == "recalculated"
     db.refresh(imp)
-    assert imp.actual_landed_cost_total_egp == rec.total_landed_cost_egp == 125200.0
+    assert imp.actual_landed_cost_total_egp == rec.total_landed_cost_egp
 
 
 def test_closed_settlement_is_never_recalculated(db):

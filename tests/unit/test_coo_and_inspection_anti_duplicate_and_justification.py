@@ -81,6 +81,7 @@ def test_coo_review_discrepancy_with_valid_reason_saves_and_updates_duplicate(db
         certificate_number="CCPIT-9988",
         has_discrepancies=True,
         status="Discrepancy_Accepted",
+        is_draft=True,
         override_reason="Approved by General Manager due to CCPIT trade endorsement",
         comparison_matrix=[{"field": "exporter_name", "match_status": "Mismatch"}],
         draft_input_data={"exporter_name": "Shenzhen Electric Co."},
@@ -90,13 +91,14 @@ def test_coo_review_discrepancy_with_valid_reason_saves_and_updates_duplicate(db
     assert saved1.override_reason == "Approved by General Manager due to CCPIT trade endorsement"
     assert saved1.exporter_name == "Shenzhen Electric Co."
 
-    # 2. Second save for same import_file_id should update rather than duplicate
+    # 2. Second save for same import_file_id (certified) should update draft rather than duplicate
     schema2 = CertificateOfOriginReviewCreate(
         import_file_id=1,
         certificate_type="China Certificate of Origin (CCPIT)",
         certificate_number="CCPIT-9988-V2",
         has_discrepancies=False,
         status="Verified",
+        is_draft=False,
         override_reason=None,
         comparison_matrix=[{"field": "exporter_name", "match_status": "Match"}],
         # Review #13: the server recomputes the comparison, so a "clean" save sends a draft that matches the
@@ -116,6 +118,11 @@ def test_coo_review_discrepancy_with_valid_reason_saves_and_updates_duplicate(db
 
     total_sessions = db_session.query(CertificateOfOriginReviewSession).filter(CertificateOfOriginReviewSession.import_file_id == 1).count()
     assert total_sessions == 1
+
+    # 3. Third save when certified exists raises 409 (BE03-T16)
+    with pytest.raises(HTTPException) as exc:
+        create_coo_review_service(db_session, schema2)
+    assert exc.value.status_code == 409
 
 
 def test_inspection_review_discrepancy_requires_reason_and_updates_duplicate(db_session):
