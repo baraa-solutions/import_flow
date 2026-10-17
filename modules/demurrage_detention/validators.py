@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List, Optional
+from typing import Any, List, Optional
 from fastapi import HTTPException, status
 from .schemas import TierRateItem
 
