@@ -597,7 +597,19 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                       ),
                     );
                   }
-                  return _registry(l, bookings, importFiles);
+                  final bookingNotifier = ref.read(freightBookingProvider.notifier);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _registry(l, bookings, importFiles),
+                      ListLoadMoreFooter(
+                        loaded: bookings.length,
+                        total: bookingNotifier.totalCount,
+                        hasMore: bookingNotifier.hasMore,
+                        onLoadMore: bookingNotifier.loadMore,
+                      ),
+                    ],
+                  );
                 },
               ),
             ],

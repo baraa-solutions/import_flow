@@ -37,6 +37,12 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
   int? totalCount;
   bool _isLoadingMore = false;
   bool get isLoadingMore => _isLoadingMore;
+  // Filters of the last fetch, reused by loadMore so the next page matches the visible list.
+  bool _lastIncludeInactive = false;
+  int? _lastImportFileId;
+  String? _lastStatus;
+  String? _lastSearch;
+
   bool get hasMore => totalCount != null && (state.valueOrNull?.length ?? 0) < totalCount!;
 
   Future<void> fetchBookings({
@@ -47,6 +53,10 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
     int skip = 0,
     int limit = 200,
   }) async {
+    _lastIncludeInactive = includeInactive;
+    _lastImportFileId = importFileId;
+    _lastStatus = status;
+    _lastSearch = search;
     _cancelToken?.cancel('Cancelled by new fetchBookings request');
     _cancelToken = CancelToken();
     state = const AsyncValue.loading();
@@ -81,12 +91,16 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
   }
 
   Future<void> loadMore({
-    bool includeInactive = false,
+    bool? includeInactive,
     int? importFileId,
     String? status,
     String? search,
     int limit = 200,
   }) async {
+    includeInactive ??= _lastIncludeInactive;
+    importFileId ??= _lastImportFileId;
+    status ??= _lastStatus;
+    search ??= _lastSearch;
     if (_isLoadingMore || !hasMore) return;
     final currentList = state.valueOrNull ?? [];
     _isLoadingMore = true;

@@ -12201,6 +12201,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get shipmentUpdateBtnSavePdf => 'حفظ PDF';
   @override String insuranceLoadedOfTotal(int loaded, int total) => 'تم تحميل $loaded من $total شهادة';
   @override String get insuranceLoadMoreBtn => 'تحميل المزيد';
+  @override String listLoadedOfTotal(int loaded, int total) => 'تم تحميل $loaded من $total سجل';
+  @override String get listLoadMoreBtn => 'تحميل المزيد';
   @override String get insuranceExportStageName => 'تأمين الشحنات';
   @override String get insuranceExportRegistryTag => 'السجل';
   @override String get fdaDialogTitle => 'توثيق اتفاقية فترات السماح المجانية (BK-02)';
