@@ -108,6 +108,8 @@ class ClearanceExpenseTypeService:
             code = schema.expense_code if explicit_code else ClearanceExpenseTypeRepository.generate_expense_code(db)
             try:
                 obj = ClearanceExpenseTypeRepository.create(db, normalized, code=code)
+                db.commit()
+                db.refresh(obj)
                 return ClearanceExpenseTypeResponse.model_validate(obj)
             except IntegrityError:
                 db.rollback()
@@ -155,12 +157,16 @@ class ClearanceExpenseTypeService:
         if schema.expense_code and schema.expense_code != obj.expense_code:
             validate_expense_code_unique(db, schema.expense_code, current_id=expense_id)
         updated = ClearanceExpenseTypeRepository.update(db, obj, _normalize_expense_type(schema))
+        db.commit()
+        db.refresh(updated)
         return ClearanceExpenseTypeResponse.model_validate(updated)
 
     @staticmethod
     def delete_expense_type(db: Session, expense_id: int) -> ClearanceExpenseTypeResponse:
         obj = get_or_404(db, ClearanceExpenseType, expense_id, "نوع المصروف")
         deleted = ClearanceExpenseTypeRepository.delete(db, obj)
+        db.commit()
+        db.refresh(deleted)
         return ClearanceExpenseTypeResponse.model_validate(deleted)
 
 
@@ -184,6 +190,8 @@ class BrokerPriceListService:
             code = BrokerPriceListRepository.generate_price_list_code(db)
             try:
                 pl = BrokerPriceListRepository.create(db, normalized, code=code)
+                db.commit()
+                db.refresh(pl)
                 return BrokerPriceListResponse.model_validate(pl)
             except IntegrityError:
                 db.rollback()
@@ -247,12 +255,16 @@ class BrokerPriceListService:
             ]
             validate_references(db, expense_type_ids=expense_type_ids)
         updated = BrokerPriceListRepository.update(db, pl, _normalize_price_list(schema))
+        db.commit()
+        db.refresh(updated)
         return BrokerPriceListResponse.model_validate(updated)
 
     @staticmethod
     def soft_delete_price_list(db: Session, price_list_id: int) -> BrokerPriceListResponse:
         pl = get_or_404(db, BrokerPriceList, price_list_id, "قائمة أسعار المخلص")
         deleted = BrokerPriceListRepository.soft_delete(db, pl)
+        db.commit()
+        db.refresh(deleted)
         return BrokerPriceListResponse.model_validate(deleted)
 
     @staticmethod

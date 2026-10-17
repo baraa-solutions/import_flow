@@ -443,6 +443,7 @@ def update_import_file_service(
                 db.commit()
                 for a in assessments:
                     sync_regulatory_tasks_and_alerts(db, a.assessment_id)
+                db.commit()
             except Exception:
                 logger.exception(
                     "Failed to propagate ACID number %s for import file %s",

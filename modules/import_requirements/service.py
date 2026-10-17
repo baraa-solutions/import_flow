@@ -71,7 +71,6 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
     # If import_file has an acid_number but assessment doesn't, sync it
     if import_file and import_file.acid_number and not assessment.acid_number:
         assessment.acid_number = import_file.acid_number
-        db.commit()
 
     # Identify uncompleted / pending items
     uncompleted = []
@@ -216,102 +215,91 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
             completed.append("COA")
 
     # Manage SmartTasks in DB
-    try:
-        from modules.smart_tasks.model import SmartTask
-        import modules.smart_tasks.repository as task_repo
-        from modules.smart_tasks.schemas import SmartTaskCreate
+    from modules.smart_tasks.model import SmartTask
+    import modules.smart_tasks.repository as task_repo
+    from modules.smart_tasks.schemas import SmartTaskCreate
 
-        # 1. Create or ensure uncompleted tasks exist
-        for item in uncompleted:
-            existing_task = db.query(SmartTask).filter(
-                SmartTask.import_file_id == assessment.import_file_id,
-                SmartTask.notes.ilike(f"%REQ_TYPE:{item['type']}%"),
-                SmartTask.is_active == True,
-                SmartTask.status.in_(["Pending", "In Progress"]),
-            ).first()
+    # 1. Create or ensure uncompleted tasks exist
+    for item in uncompleted:
+        existing_task = db.query(SmartTask).filter(
+            SmartTask.import_file_id == assessment.import_file_id,
+            SmartTask.notes.ilike(f"%REQ_TYPE:{item['type']}%"),
+            SmartTask.is_active == True,
+            SmartTask.status.in_(["Pending", "In Progress"]),
+        ).first()
 
-            if not existing_task:
-                task_schema = SmartTaskCreate(
-                    title=item["title"],
-                    description=item["desc"],
-                    task_type="Regulatory Compliance",
-                    import_file_id=assessment.import_file_id,
-                    import_file_code=file_code,
-                    phase_name="STEP_03: Import Regulatory Requirements",
-                    assigned_user=import_file.owner if import_file and import_file.owner else "Import Specialist",
-                    priority=item["priority"],
-                    reminder_type="Regulatory Compliance",
-                    status="Pending",
-                    due_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                    notes=f"REQ_TYPE:{item['type']} | ASSESSMENT:{assessment.assessment_code}",
-                )
-                task_repo.create_task(
-                    db, task_schema, created_by="Requirements Engine",
-                    msg_code=item["msg"].code, msg_params=item["msg"].params, step_code="STEP_03",
-                )
-            else:
-                existing_task.title = item["title"]
-                existing_task.msg_code = item["msg"].code
-                existing_task.msg_params = item["msg"].params
+        if not existing_task:
+            task_schema = SmartTaskCreate(
+                title=item["title"],
+                description=item["desc"],
+                task_type="Regulatory Compliance",
+                import_file_id=assessment.import_file_id,
+                import_file_code=file_code,
+                phase_name="STEP_03: Import Regulatory Requirements",
+                assigned_user=import_file.owner if import_file and import_file.owner else "Import Specialist",
+                priority=item["priority"],
+                reminder_type="Regulatory Compliance",
+                status="Pending",
+                due_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                notes=f"REQ_TYPE:{item['type']} | ASSESSMENT:{assessment.assessment_code}",
+            )
+            task_repo.create_task(
+                db, task_schema, created_by="Requirements Engine",
+                msg_code=item["msg"].code, msg_params=item["msg"].params, step_code="STEP_03",
+            )
+        else:
+            existing_task.title = item["title"]
+            existing_task.msg_code = item["msg"].code
+            existing_task.msg_params = item["msg"].params
 
-        # 2. Auto-close completed requirements tasks
-        for c_type in completed:
-            open_tasks = db.query(SmartTask).filter(
-                SmartTask.import_file_id == assessment.import_file_id,
-                SmartTask.notes.ilike(f"%REQ_TYPE:{c_type}%"),
-                SmartTask.is_active == True,
-                SmartTask.status.in_(["Pending", "In Progress"]),
-            ).all()
-            for t in open_tasks:
-                t.status = "Completed"
-                t.is_auto_closed = True
-
-    except Exception:
-        db.rollback()
-        logger.exception("Regulatory smart-task sync failed for assessment %s", assessment_id)
+    # 2. Auto-close completed requirements tasks
+    for c_type in completed:
+        open_tasks = db.query(SmartTask).filter(
+            SmartTask.import_file_id == assessment.import_file_id,
+            SmartTask.notes.ilike(f"%REQ_TYPE:{c_type}%"),
+            SmartTask.is_active == True,
+            SmartTask.status.in_(["Pending", "In Progress"]),
+        ).all()
+        for t in open_tasks:
+            t.status = "Completed"
+            t.is_auto_closed = True
 
     # 3. Synchronize ImportFile next action and stage activity
     if import_file:
-        try:
-            from modules.lifecycle_board.service import sync_requirements_lifecycle_stage
-            import modules.lifecycle_board.repository as lifecycle_repo
+        from modules.lifecycle_board.service import sync_requirements_lifecycle_stage
+        import modules.lifecycle_board.repository as lifecycle_repo
 
-            if len(uncompleted) == 0 and assessment.overall_status in ["Complete", "Approved", "Cleared", "Confirmed"]:
-                # Complete STEP_03 and move to STEP_04
-                lifecycle_repo.save_or_update_activity(
-                    db,
-                    import_file_code=file_code,
-                    step_code="STEP_03",
-                    status="Completed",
-                    completed_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-                )
-                lifecycle_repo.save_or_update_activity(
-                    db,
-                    import_file_code=file_code,
-                    step_code="STEP_04",
-                    status="In-Progress",
-                    started_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-                )
-                set_file_tracking(
-                    import_file,
-                    step_code="STEP_04",
-                    next_action=msg("NA_STEP04_COMPLETE_PAYMENT_REQUEST_ACID"),
-                )
-                import_file.progress_percent = max(float(import_file.progress_percent or 0), 30.0)
-            else:
-                # Mark STEP_01 and STEP_02 as Completed, and STEP_03 as In-Progress
-                sync_requirements_lifecycle_stage(db, assessment.import_file_id)
-                req_names = [r["type"] for r in uncompleted]
-                req_display = ", ".join(req_names[:3])
-                set_file_tracking(
-                    import_file,
-                    next_action=msg("NA_PENDING_REGULATORY_REQUIREMENTS", count=len(uncompleted), requirements=req_display),
-                )
-
-            db.commit()
-        except Exception:
-            db.rollback()
-            logger.exception("Import file stage sync failed for assessment %s", assessment_id)
+        if len(uncompleted) == 0 and assessment.overall_status in ["Complete", "Approved", "Cleared", "Confirmed"]:
+            # Complete STEP_03 and move to STEP_04
+            lifecycle_repo.save_or_update_activity(
+                db,
+                import_file_code=file_code,
+                step_code="STEP_03",
+                status="Completed",
+                completed_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+            )
+            lifecycle_repo.save_or_update_activity(
+                db,
+                import_file_code=file_code,
+                step_code="STEP_04",
+                status="In-Progress",
+                started_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+            )
+            set_file_tracking(
+                import_file,
+                step_code="STEP_04",
+                next_action=msg("NA_STEP04_COMPLETE_PAYMENT_REQUEST_ACID"),
+            )
+            import_file.progress_percent = max(float(import_file.progress_percent or 0), 30.0)
+        else:
+            # Mark STEP_01 and STEP_02 as Completed, and STEP_03 as In-Progress
+            sync_requirements_lifecycle_stage(db, assessment.import_file_id)
+            req_names = [r["type"] for r in uncompleted]
+            req_display = ", ".join(req_names[:3])
+            set_file_tracking(
+                import_file,
+                next_action=msg("NA_PENDING_REGULATORY_REQUIREMENTS", count=len(uncompleted), requirements=req_display),
+            )
 
 
 # ==============================================================================
@@ -331,8 +319,11 @@ def _check_one_per_file(
 
 def _sync_tasks_safely(db: Session, assessment_id: int) -> None:
     """Smart tasks / stage follow-up. A failure is logged and never undoes the saved assessment."""
-    best_effort(db, sync_regulatory_tasks_and_alerts, f"Regulatory requirement sync for assessment {assessment_id}",
-                db, assessment_id)
+    def _run() -> None:
+        sync_regulatory_tasks_and_alerts(db, assessment_id)
+        db.commit()
+
+    best_effort(db, _run, f"Regulatory requirement sync for assessment {assessment_id}")
 
 
 def create_assessment_service(db: Session, payload: ImportRequirementCreate, user: str = "System"):
@@ -352,6 +343,8 @@ def create_assessment_service(db: Session, payload: ImportRequirementCreate, use
         updated_by=user,
     )
     created = repo.create_assessment(db, obj_data)
+    db.commit()
+    db.refresh(created)
     _sync_tasks_safely(db, created.assessment_id)
     return created
 
@@ -374,6 +367,8 @@ def update_assessment_service(db: Session, assessment_id: int, payload: ImportRe
     update_data["updated_at"] = datetime.now(timezone.utc)
     update_data["updated_by"] = user
     updated = repo.update_assessment(db, obj, update_data)
+    db.commit()
+    db.refresh(updated)
     _sync_tasks_safely(db, updated.assessment_id)
     return updated
 
@@ -383,6 +378,8 @@ def restore_assessment_service(db: Session, assessment_id: int, user: str = "Sys
     if obj.import_file_id and not obj.is_active:
         _check_one_per_file(db, obj.import_file_id, obj.import_file_code, assessment_id)
     restored = repo.restore_assessment(db, obj, user)
+    db.commit()
+    db.refresh(restored)
     _sync_tasks_safely(db, restored.assessment_id)
     return restored
 
@@ -407,6 +404,7 @@ def get_assessment_by_id_service(db: Session, assessment_id: int):
 
 def soft_delete_assessment_service(db: Session, assessment_id: int, user: str = "System") -> None:
     repo.soft_delete_assessment(db, get_or_404(db, ImportRequirementAssessment, assessment_id, ASSESSMENT_LABEL, active_only=True), user)
+    db.commit()
 
 
 # ==============================================================================
