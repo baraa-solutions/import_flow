@@ -175,7 +175,8 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
     final nav = Navigator.of(context);
 
     try {
-      final claimAmount = double.tryParse(_claimAmountCtrl.text.trim()) ?? 0.0;
+      final claimAmountRaw = double.tryParse(_claimAmountCtrl.text.trim());
+      final claimAmount = (claimAmountRaw != null && claimAmountRaw > 0) ? claimAmountRaw : null;
       final committee = _committeeCtrl.text.trim();
       // The server derives the discrepancy type; the verdict is the user's decision.
       final payload = {
@@ -190,7 +191,7 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
         'supplier_claim_filed': _supplierClaimFiled,
         'supplier_claim_ref': _supplierClaimFiled ? _supplierRefCtrl.text.trim() : null,
         'claim_amount_estimated': claimAmount,
-        'claim_currency': _claimCurrency,
+        'claim_currency': (claimAmount != null && _claimCurrency.isNotEmpty) ? _claimCurrency : null,
       };
 
       await ref.read(warehouseReceivingProvider.notifier).submitInspectionProtocol(

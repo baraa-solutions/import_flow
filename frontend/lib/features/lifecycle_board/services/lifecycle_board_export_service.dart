@@ -52,8 +52,8 @@ class LifecycleBoardExportService {
       if (s.poNumber != null && s.poNumber!.isNotEmpty) {
         sb.writeln('   ${l.colPurchaseOrder}: ${s.poNumber}');
       }
-      sb.writeln('   ${l.colModeAndIncoterm}: ${s.shipmentMode} | ${s.incotermCode}');
-      sb.writeln('   ${l.colEstimatedValue}: ${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}');
+      sb.writeln('   ${l.colModeAndIncoterm}: ${s.shipmentMode ?? "-"} | ${s.incotermCode ?? "-"}');
+      sb.writeln('   ${l.colEstimatedValue}: ${s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : "-"} ${s.estimatedCostCurrency ?? ""}');
       if (s.status == 'On-Hold') {
         sb.writeln('   ${l.lifecycleTsvHeaderStatus}: ${l.onHoldStatusTag}');
       }
@@ -125,8 +125,8 @@ class LifecycleBoardExportService {
         s.companyName,
         s.supplierName,
         s.poNumber ?? '-',
-        '${s.shipmentMode} | ${s.incotermCode}',
-        '${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}',
+        '${s.shipmentMode ?? "-"} | ${s.incotermCode ?? "-"}',
+        '${s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : "-"} ${s.estimatedCostCurrency ?? ""}',
         statusStr,
         s.notes ?? '',
       ].join('\t'));
@@ -201,8 +201,8 @@ class LifecycleBoardExportService {
         escapeCsv(s.companyName),
         escapeCsv(s.supplierName),
         escapeCsv(s.poNumber ?? '-'),
-        escapeCsv('${s.shipmentMode} | ${s.incotermCode}'),
-        escapeCsv('${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}'),
+        escapeCsv('${s.shipmentMode ?? "-"} | ${s.incotermCode ?? "-"}'),
+        escapeCsv('${s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : "-"} ${s.estimatedCostCurrency ?? ""}'),
         escapeCsv(statusStr),
         escapeCsv(s.notes ?? ''),
       ].join(','));
@@ -352,8 +352,8 @@ class LifecycleBoardExportService {
                           _pdfDataCell(s.companyName),
                           _pdfDataCell(s.supplierName),
                           _pdfDataCell(s.poNumber ?? '-'),
-                          _pdfDataCell('${s.shipmentMode} | ${s.incotermCode}'),
-                          _pdfDataCell('${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}'),
+                          _pdfDataCell('${s.shipmentMode ?? "-"} | ${s.incotermCode ?? "-"}'),
+                          _pdfDataCell('${s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : "-"} ${s.estimatedCostCurrency ?? ""}'),
                           _pdfDataCell(statusStr, isAlert: s.status == 'On-Hold'),
                           _pdfDataCell(s.notes ?? '-'),
                         ],
@@ -420,7 +420,9 @@ class LifecycleBoardExportService {
       if (item.accumulatedDemurrageFx > 0) {
         sb.writeln('   ${l.radarTsvHeaderDemurrageRisk}: ${l.demurrageIncurredBadge} (${l.demurrageFeesFormatted(item.accumulatedDemurrageFx.toStringAsFixed(0), item.accumulatedDemurrageEgp.toStringAsFixed(0))})');
       } else {
-        sb.writeln('   ${l.radarTsvHeaderDemurrageRisk}: ${l.freeDaysRemainingBadge(item.freeDaysRemaining)} (${l.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal)})');
+        final demRemainingStr = item.freeDaysRemaining != null ? l.freeDaysRemainingBadge(item.freeDaysRemaining) : '-';
+        final demConsumedStr = item.freeDaysTotal != null ? l.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal) : '-';
+        sb.writeln('   ${l.radarTsvHeaderDemurrageRisk}: $demRemainingStr ($demConsumedStr)');
       }
       sb.writeln('   ${l.radarTsvHeaderTestingStatus}: ${item.sampleTestStatus}');
       sb.writeln('   ${l.radarTsvHeaderDocReadiness}: ${item.docReadinessPercent.toStringAsFixed(0)}%');
@@ -462,11 +464,11 @@ class LifecycleBoardExportService {
       final arrivalStr = '${item.eta ?? "-"} (${item.arrivalStatus})';
       final demurrageStr = item.accumulatedDemurrageFx > 0
           ? '${l.demurrageIncurredBadge}: \$${item.accumulatedDemurrageFx.toStringAsFixed(0)}'
-          : l.freeDaysRemainingBadge(item.freeDaysRemaining);
+          : (item.freeDaysRemaining != null ? l.freeDaysRemainingBadge(item.freeDaysRemaining) : '-');
 
       sb.writeln([
         shipmentName,
-        '${item.importFileCode} (${item.shipmentMode}|${item.incotermCode})',
+        '${item.importFileCode} (${item.shipmentMode ?? "-"}|${item.incotermCode ?? "-"})',
         carrierVessel,
         blRoute,
         arrivalStr,
@@ -526,11 +528,11 @@ class LifecycleBoardExportService {
       final arrivalStr = '${item.eta ?? "-"} (${item.arrivalStatus})';
       final demurrageStr = item.accumulatedDemurrageFx > 0
           ? '${l.demurrageIncurredBadge}: \$${item.accumulatedDemurrageFx.toStringAsFixed(0)}'
-          : l.freeDaysRemainingBadge(item.freeDaysRemaining);
+          : (item.freeDaysRemaining != null ? l.freeDaysRemainingBadge(item.freeDaysRemaining) : '-');
 
       sb.writeln([
         escapeCsv(shipmentName),
-        escapeCsv('${item.importFileCode} (${item.shipmentMode}|${item.incotermCode})'),
+        escapeCsv('${item.importFileCode} (${item.shipmentMode ?? "-"}|${item.incotermCode ?? "-"})'),
         escapeCsv(carrierVessel),
         escapeCsv(blRoute),
         escapeCsv(arrivalStr),
@@ -652,7 +654,7 @@ class LifecycleBoardExportService {
                       final arrivalStr = '${l.colEtaPrefix}: ${item.eta ?? "-"}\n${item.arrivalStatus}';
                       final demurrageStr = item.accumulatedDemurrageFx > 0
                           ? '${l.demurrageIncurredBadge}\n\$${item.accumulatedDemurrageFx.toStringAsFixed(0)}'
-                          : l.freeDaysRemainingBadge(item.freeDaysRemaining);
+                          : (item.freeDaysRemaining != null ? l.freeDaysRemainingBadge(item.freeDaysRemaining) : '-');
 
                       return pw.TableRow(
                         children: [

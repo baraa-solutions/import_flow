@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../models/guide_entry_model.dart';
 import '../models/smart_reference_card_model.dart';
 import '../models/similar_shipment_model.dart';
@@ -226,6 +227,18 @@ class ExperienceGuideNotifier extends StateNotifier<AsyncValue<List<GuideEntryMo
       return [];
     }
   }
+
+  /// Matches guide entries for an import file using its supplier, HS code,
+  /// product category, ports, incoterm and file code.
+  Future<GuideMatchResultModel> matchImportFile(ImportFileModel f) => matchShipment(
+        supplier: f.supplierName,
+        hsCode: f.hsCode,
+        productCategory: f.productCategory,
+        portOfLoading: f.portOfLoading,
+        portOfDischarge: f.portOfDischarge,
+        incoterm: f.incotermCode,
+        importFileReference: f.importFileCode,
+      );
 
   Future<GuideMatchResultModel> matchShipment({
     String? hsCode,
