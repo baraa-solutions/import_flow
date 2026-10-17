@@ -121,8 +121,7 @@ class _MockCustomsClearanceNotifier extends CustomsClearanceNotifier {
     bool includeInactive = false,
     int? importFileId,
     String? status,
-    String? search,
-  }) async {
+    String? search, int skip = 0, int limit = 200}) async {
     // no-op
   }
 

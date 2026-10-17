@@ -3,7 +3,7 @@ FastAPI Router for Phase 4 – Freight Booking & Container Allocation
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from modules.auth.router import get_current_user
 from modules.auth.permissions import require_permission
 from modules.users.model import User
@@ -42,14 +42,21 @@ def create_booking(
     summary="List shipment bookings with filters",
 )
 def list_bookings(
+    response: Response,
     include_inactive: bool = False,
     import_file_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("freight_booking.view")),
 ):
-    return service.list_bookings_service(db, include_inactive, import_file_id, status, search)
+    items, total = service.list_bookings_service(
+        db, include_inactive, import_file_id, status, search, skip=skip, limit=limit
+    )
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get(
