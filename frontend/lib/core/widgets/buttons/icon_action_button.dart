@@ -39,15 +39,9 @@ class IconActionButton extends StatelessWidget {
     this.iconSize = 16.0,
   });
 
-  Color get _bgColor {
+  Color _resolveBgColor(BuildContext context) {
     if (backgroundColor != null) return backgroundColor!;
-    // Default: light tint of the icon color
-    return Color.fromRGBO(
-      (color.red * 0.15 + 255 * 0.85).round(),
-      (color.green * 0.15 + 255 * 0.85).round(),
-      (color.blue * 0.15 + 255 * 0.85).round(),
-      1.0,
-    );
+    return color.withValues(alpha: 0.12);
   }
 
   @override
@@ -60,18 +54,18 @@ class IconActionButton extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(6),
-          hoverColor: color.withOpacity(0.12),
-          splashColor: color.withOpacity(0.16),
+          hoverColor: color.withValues(alpha: 0.12),
+          splashColor: color.withValues(alpha: 0.16),
           child: Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: onTap != null ? _bgColor : const Color(0xFFF5F5F5),
+              color: onTap != null ? _resolveBgColor(context) : AppTheme.surfaceAltOf(context),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(
               icon,
               size: iconSize,
-              color: onTap != null ? color : const Color(0xFFBDBDBD),
+              color: onTap != null ? color : AppTheme.textMutedOf(context),
             ),
           ),
         ),
@@ -119,7 +113,7 @@ class PrintActionButton extends IconActionButton {
   }) : super(
           icon: Icons.print,
           color: AppTheme.charcoal,
-          backgroundColor: const Color(0xFFF5F5F5),
+          backgroundColor: AppTheme.charcoalSurface,
         );
 }
 

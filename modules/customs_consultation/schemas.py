@@ -158,7 +158,8 @@ class CustomsBrokerQuoteItemBase(BaseModel):
 
 
 class CustomsBrokerQuoteItemCreate(CustomsBrokerQuoteItemBase):
-    pass
+    unit_price: float = Field(0.0, ge=0)
+    qty: float = Field(1.0, gt=0)
 
 
 class CustomsBrokerQuoteItemResponse(CustomsBrokerQuoteItemBase):

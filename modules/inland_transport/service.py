@@ -5,6 +5,8 @@ from fastapi import HTTPException, Response
 
 from modules.common.pagination import PageParams
 
+from modules.common.errors import best_effort
+
 from .model import InlandTransportBooking
 from .schemas import (
     InlandTransportBookingCreate,
@@ -41,6 +43,8 @@ from .validators import (
     validate_truck_type,
     validate_carrier,
     ensure_file_open,
+    validate_not_future,
+    validate_seal_evidence,
 )
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
@@ -161,8 +165,8 @@ def create_transport_booking_service(
         SmartTask.status.in_(["Pending", "In Progress"]),
         (SmartTask.msg_code == "CC_TASK_INLAND_TRANSPORT")
         | (SmartTask.task_type == "TR-01")
-        # legacy rows without a code: title match only
-        | (SmartTask.msg_code.is_(None) & (SmartTask.title.ilike("%TR-01%") | SmartTask.title.ilike("%نقل%"))),
+        # legacy rows without a code: exact legacy code match in title only (BE810-F27)
+        | (SmartTask.msg_code.is_(None) & SmartTask.title.ilike("%TR-01%")),
     ).all()
     for t in pending_tasks:
         t.status = "Completed"
@@ -185,8 +189,8 @@ def create_transport_booking_service(
                 task_type="System Generated",
                 import_file_id=imp_file.import_file_id,
                 import_file_code=imp_file.import_file_code,
-                phase_name="Phase 6: Inbound & Final Closure",
-                assigned_user="Warehouse Manager",
+                phase_name="Phase 8: Inland Transport & Warehouse Receiving",
+                assigned_user=user,
                 priority="High",
                 reminder_type="Warehouse Receiving",
                 due_date=schema.expected_arrival_at.date().isoformat() if schema.expected_arrival_at else None,
@@ -226,6 +230,22 @@ def create_transport_booking_service(
 
     db.commit()
     db.refresh(booking)
+
+    booking_id = booking.transport_id
+    code = booking.transport_code
+
+    def _audit() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="InlandTransportBooking",
+            entity_id=booking_id,
+            entity_code=code,
+            action="CREATE",
+            new_data=schema.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
+    best_effort(db, _audit, "IT create audit log")
     return booking
 
 
@@ -238,10 +258,19 @@ def record_port_gate_out_service(
     booking = get_transport_booking_service(db, transport_id)
     _require_open_file_for_booking(db, booking.import_file_id)
     validate_transition(booking.status, ACTION_GATE_OUT)
+    validate_not_future(payload.actual_departure_at, "الخروج الفعلي")
+
+    evidence_parts = []
+    if payload.gate_pass_no and payload.gate_pass_no.strip():
+        evidence_parts.append(f"Gate pass: {payload.gate_pass_no.strip()}")
+    if payload.notes and payload.notes.strip():
+        evidence_parts.append(f"Gate-out: {payload.notes.strip()}")
 
     notes = booking.tracking_notes
-    if payload.notes:
-        notes = (notes or "") + f" | Gate-out: {payload.notes}"
+    if evidence_parts:
+        evidence_str = " | ".join(evidence_parts)
+        notes = f"{notes} | {evidence_str}" if notes else evidence_str
+
     apply_changes(booking, {
         "actual_departure_at": payload.actual_departure_at,
         "status": STATUS_IN_TRANSIT,
@@ -262,6 +291,19 @@ def record_port_gate_out_service(
 
     db.commit()
     db.refresh(booking)
+
+    def _audit_gate_out() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="InlandTransportBooking",
+            entity_id=booking.transport_id,
+            entity_code=booking.transport_code,
+            action="GATE_OUT",
+            new_data=payload.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_gate_out, "IT gate out audit log")
     return booking
 
 
@@ -274,11 +316,25 @@ def record_warehouse_arrival_service(
     booking = get_transport_booking_service(db, transport_id)
     _require_open_file_for_booking(db, booking.import_file_id)
     validate_transition(booking.status, ACTION_WAREHOUSE_ARRIVAL)
+    validate_not_future(payload.actual_arrival_at, "الوصول الفعلي")
     validate_actual_times(booking.actual_departure_at, payload.actual_arrival_at)
+    validate_seal_evidence(payload.seal_intact, payload.seal_number)
+
+    seal_tag = "intact" if payload.seal_intact else "BROKEN"
+    if payload.seal_number and payload.seal_number.strip():
+        seal_str = f"Seal: {seal_tag} {payload.seal_number.strip()}"
+    else:
+        seal_str = f"Seal: {seal_tag}"
+
+    evidence_parts = [seal_str]
+    if payload.notes and payload.notes.strip():
+        evidence_parts.append(f"Warehouse arrival: {payload.notes.strip()}")
 
     notes = booking.tracking_notes
-    if payload.notes:
-        notes = (notes or "") + f" | Warehouse arrival: {payload.notes}"
+    if evidence_parts:
+        evidence_str = " | ".join(evidence_parts)
+        notes = f"{notes} | {evidence_str}" if notes else evidence_str
+
     apply_changes(booking, {
         "actual_arrival_at": payload.actual_arrival_at,
         "status": STATUS_ARRIVED,
@@ -298,8 +354,43 @@ def record_warehouse_arrival_service(
             next_action=msg("NA_TR_CHECK_SEALS_ISSUE_GRN"),
         )
 
+    # Broken seal notification
+    if not payload.seal_intact:
+        from modules.notifications.model import SystemNotification
+        seal_no = payload.seal_number.strip() if payload.seal_number else ""
+        notif_msg = msg(
+            "TR_SEAL_BROKEN",
+            truck_plate_number=booking.truck_plate_number,
+            seal_number=seal_no,
+        )
+        db.add(SystemNotification(
+            title=render_en(notif_msg.code, notif_msg.params, "title"),
+            message=render_en(notif_msg.code, notif_msg.params, "body"),
+            msg_code=notif_msg.code,
+            msg_params=notif_msg.params,
+            category="STAGE_PROGRESSION",
+            severity="WARNING",
+            target_role="ALL",
+            entity_type="ImportFile",
+            entity_id=imp_file.import_file_id if imp_file else booking.import_file_id,
+            is_read=False,
+        ))
+
     db.commit()
     db.refresh(booking)
+
+    def _audit_arrival() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="InlandTransportBooking",
+            entity_id=booking.transport_id,
+            entity_code=booking.transport_code,
+            action="ARRIVAL",
+            new_data=payload.model_dump(exclude_unset=True),
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_arrival, "IT arrival audit log")
     return booking
 
 
@@ -401,6 +492,7 @@ def update_transport_booking_service(
                 waybill_number=other.waybill_number,
             )
 
+    old_data = {k: getattr(booking, k, None) for k in data.keys()}
     apply_changes(booking, data, user)
     db.flush()
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
@@ -408,6 +500,20 @@ def update_transport_booking_service(
         sync_file_inland_fields(db, imp_file)
     db.commit()
     db.refresh(booking)
+
+    def _audit_update() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="InlandTransportBooking",
+            entity_id=booking.transport_id,
+            entity_code=booking.transport_code,
+            action="UPDATE",
+            old_data=old_data,
+            new_data=data,
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_update, "IT update audit log")
     return booking
 
 
@@ -424,6 +530,18 @@ def soft_delete_transport_booking_service(
     if imp_file:
         sync_file_inland_fields(db, imp_file)
     db.commit()
+
+    def _audit_delete() -> None:
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="InlandTransportBooking",
+            entity_id=booking.transport_id,
+            entity_code=booking.transport_code,
+            action="DELETE",
+            performed_by=user,
+        )
+
+    best_effort(db, _audit_delete, "IT delete audit log")
 
 
 
@@ -456,5 +574,17 @@ def restore_transport_booking_service(
             sync_file_inland_fields(db, imp_file)
         db.commit()
         db.refresh(booking)
+
+        def _audit_restore() -> None:
+            from modules.audit_logs.service import AuditLogService
+            AuditLogService(db).log_activity(
+                entity_type="InlandTransportBooking",
+                entity_id=booking.transport_id,
+                entity_code=booking.transport_code,
+                action="RESTORE",
+                performed_by=user,
+            )
+
+        best_effort(db, _audit_restore, "IT restore audit log")
 
     return booking

@@ -1,7 +1,7 @@
 """make broker_id and broker_name nullable in customs_consultation_sessions
 
-Revision ID: b2c3d4e5f6a7
-Revises: a0b1c2d3e4f5
+Revision ID: c7e1f2a3b4d5
+Revises: b2c3d4e5f6a7
 Create Date: 2026-10-10
 """
 
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers
-revision: str = "b2c3d4e5f6a7"
-down_revision: Union[str, Sequence[str], None] = "a0b1c2d3e4f5"
+revision: str = "c7e1f2a3b4d5"
+down_revision: Union[str, Sequence[str], None] = "b2c3d4e5f6a7"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
