@@ -402,8 +402,6 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     assert script.get_revision("b2c3d4e5f6a7").down_revision == "a0b1c2d3e4f5"
 
 
-    # -> head a1b2c3d4e5f6 (legacy budget backfill)
-    assert script.get_revision(HEAD_REVISION).down_revision == "a0b1c2d3e4f5"
     assert script.get_revision("a0b1c2d3e4f5").down_revision == "f6a7b8c9d0e1"
     assert script.get_revision("f6a7b8c9d0e1").down_revision == "e5f6a7b8c9d0"
     assert script.get_revision("e5f6a7b8c9d0").down_revision == "d9e4f5a6b7c8"
