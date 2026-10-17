@@ -46,10 +46,18 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
       l10n.supplierTsvHeaderCountryCode,
       l10n.supplierTsvHeaderAddress,
       l10n.supplierTsvHeaderPhone,
+      'Mobile',
+      'Fax',
       l10n.supplierTsvHeaderEmail,
+      'Secondary Email',
+      'Website',
       l10n.supplierTsvHeaderBankName,
       l10n.supplierTsvHeaderSwiftCode,
       l10n.supplierTsvHeaderIban,
+      'WIPO Madrid',
+      'EUIPO',
+      'Global Brand',
+      'ISO 9001',
       l10n.supplierTsvHeaderStatus,
       l10n.supplierTsvHeaderBrands,
       l10n.supplierTsvHeaderNotes,
@@ -70,10 +78,18 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
         s.foreignExporterCountryCode,
         s.address,
         s.phone ?? '',
+        s.mobile ?? '',
+        s.fax ?? '',
         s.email ?? '',
+        s.secondaryEmail ?? '',
+        s.website ?? '',
         s.bankName ?? '',
         s.swiftCode ?? '',
         s.iban ?? '',
+        s.hasWipo ? (s.wipoNumber ?? 'Yes') : 'No',
+        s.hasEuipo ? (s.euipoNumber ?? 'Yes') : 'No',
+        s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No',
+        s.hasIso9001 ? (s.iso9001Number ?? 'Yes') : 'No',
         s.isActive ? l10n.statusActive : l10n.statusInactive,
         s.brands ?? '',
         s.notes ?? '',
@@ -92,11 +108,13 @@ ${l10n.supplierTsvHeaderType}: ${_getSupplierTypeLabel(context, s.supplierType)}
 ${l10n.supplierTsvHeaderForeignExporterId}: ${s.foreignExporterId} | ${l10n.supplierTsvHeaderCargoxId}: ${s.cargoxPlatformId ?? '-'}
 ${l10n.supplierTsvHeaderCountry}: ${s.foreignExporterCountry} (${s.foreignExporterCountryCode})
 ${l10n.supplierTsvHeaderAddress}: ${s.address}
-${l10n.supplierTsvHeaderPhone}: ${s.phone ?? '-'} | ${l10n.supplierTsvHeaderEmail}: ${s.email ?? '-'}
+${l10n.supplierTsvHeaderPhone}: ${s.phone ?? s.mobile ?? '-'} | ${l10n.supplierTsvHeaderEmail}: ${s.email ?? '-'}
 ${l10n.supplierTsvHeaderBankName}: ${s.bankName ?? '-'} | ${l10n.supplierTsvHeaderSwiftCode}: ${s.swiftCode ?? '-'}
 ${l10n.supplierTsvHeaderIban}: ${s.iban ?? '-'}
 ${l10n.supplierTsvHeaderStatus}: ${s.isActive ? l10n.statusActive : l10n.statusInactive}
 ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
+WIPO Madrid: ${s.hasWipo ? (s.wipoNumber ?? 'Yes') : 'No'} | EUIPO: ${s.hasEuipo ? (s.euipoNumber ?? 'Yes') : 'No'}
+Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 9001: ${s.hasIso9001 ? (s.iso9001Number ?? 'Yes') : 'No'}
 '''.trim();
   }
 
@@ -407,6 +425,11 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
           context: context,
           globalPosition: details.globalPosition,
           codeToCopy: supplier.supplierCode,
+          onView: () => SupplierDetailsDialog.show(
+            context,
+            supplier,
+            onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
+          ),
           onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
           onHistory: () => RowHistoryDialog.show(
             context,
@@ -669,6 +692,15 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
     bool hasIso = supplierToEdit?.hasIso ?? false;
     bool registeredDecree43 = supplierToEdit?.registeredDecree43 ?? false;
     bool whiteListRegistered = supplierToEdit?.whiteListRegistered ?? false;
+
+    bool hasWipo = supplierToEdit?.hasWipo ?? false;
+    final wipoCtrl = TextEditingController(text: supplierToEdit?.wipoNumber ?? '');
+    bool hasEuipo = supplierToEdit?.hasEuipo ?? false;
+    final euipoCtrl = TextEditingController(text: supplierToEdit?.euipoNumber ?? '');
+    bool hasGlobalBrand = supplierToEdit?.hasGlobalBrand ?? false;
+    final globalBrandCtrl = TextEditingController(text: supplierToEdit?.globalBrandNumber ?? '');
+    bool hasIso9001 = supplierToEdit?.hasIso9001 ?? false;
+    final iso9001Ctrl = TextEditingController(text: supplierToEdit?.iso9001Number ?? '');
 
     showDialog(
       context: context,
@@ -1018,6 +1050,111 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
                                 ),
                               ),
                               const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade50.withOpacity(0.4),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.amber.shade300),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.verified_rounded, size: 18, color: Colors.amber.shade900),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'قسم شهادات العلامة التجارية والجودة / Trademark Certificates & ISO',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    CheckboxListTile(
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      title: const Text('WIPO Madrid Monitor (شهادة وايپو مدريد)'),
+                                      value: hasWipo,
+                                      activeColor: AppTheme.cobalt,
+                                      onChanged: (val) => setDialogState(() => hasWipo = val ?? false),
+                                    ),
+                                    if (hasWipo) ...[
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 8.0),
+                                        child: CustomTextField(
+                                          controller: wipoCtrl,
+                                          suffixIcon: buildCopySuffix(wipoCtrl),
+                                          label: 'رقم تسجيل WIPO Madrid / Registration No.',
+                                          icon: Icons.numbers,
+                                          hint: 'e.g. 1234567',
+                                        ),
+                                      ),
+                                    ],
+                                    CheckboxListTile(
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      title: const Text('EUIPO (المكتب الأوروبي للملكية الفكرية)'),
+                                      value: hasEuipo,
+                                      activeColor: AppTheme.cobalt,
+                                      onChanged: (val) => setDialogState(() => hasEuipo = val ?? false),
+                                    ),
+                                    if (hasEuipo) ...[
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 8.0),
+                                        child: CustomTextField(
+                                          controller: euipoCtrl,
+                                          suffixIcon: buildCopySuffix(euipoCtrl),
+                                          label: 'رقم تسجيل EUIPO / European Trademark No.',
+                                          icon: Icons.numbers,
+                                          hint: 'e.g. 018345678',
+                                        ),
+                                      ),
+                                    ],
+                                    CheckboxListTile(
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      title: const Text('Global Brand Database (قاعدة بيانات العلامات العالمية)'),
+                                      value: hasGlobalBrand,
+                                      activeColor: AppTheme.cobalt,
+                                      onChanged: (val) => setDialogState(() => hasGlobalBrand = val ?? false),
+                                    ),
+                                    if (hasGlobalBrand) ...[
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 8.0),
+                                        child: CustomTextField(
+                                          controller: globalBrandCtrl,
+                                          suffixIcon: buildCopySuffix(globalBrandCtrl),
+                                          label: 'معرف العلامة في Global Brand DB',
+                                          icon: Icons.numbers,
+                                          hint: 'e.g. GBD-987654',
+                                        ),
+                                      ),
+                                    ],
+                                    CheckboxListTile(
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      title: const Text('ISO 9001 Certificate (شهادة نظام إدارة الجودة)'),
+                                      value: hasIso9001,
+                                      activeColor: AppTheme.cobalt,
+                                      onChanged: (val) => setDialogState(() => hasIso9001 = val ?? false),
+                                    ),
+                                    if (hasIso9001) ...[
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 8.0),
+                                        child: CustomTextField(
+                                          controller: iso9001Ctrl,
+                                          suffixIcon: buildCopySuffix(iso9001Ctrl),
+                                          label: 'رقم شهادة ISO 9001 Certificate No.',
+                                          icon: Icons.verified_user_outlined,
+                                          hint: 'e.g. ISO-9001-2015-XYZ',
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
                               CustomTextField(
                                 controller: brandsCtrl,
                                 suffixIcon: buildCopySuffix(brandsCtrl),
@@ -1091,6 +1228,14 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
                                 hasIso: hasIso,
                                 registeredDecree43: registeredDecree43,
                                 whiteListRegistered: whiteListRegistered,
+                                hasWipo: hasWipo,
+                                wipoNumber: hasWipo && wipoCtrl.text.trim().isNotEmpty ? wipoCtrl.text.trim() : null,
+                                hasEuipo: hasEuipo,
+                                euipoNumber: hasEuipo && euipoCtrl.text.trim().isNotEmpty ? euipoCtrl.text.trim() : null,
+                                hasGlobalBrand: hasGlobalBrand,
+                                globalBrandNumber: hasGlobalBrand && globalBrandCtrl.text.trim().isNotEmpty ? globalBrandCtrl.text.trim() : null,
+                                hasIso9001: hasIso9001,
+                                iso9001Number: hasIso9001 && iso9001Ctrl.text.trim().isNotEmpty ? iso9001Ctrl.text.trim() : null,
                                 brands: brandsCtrl.text.trim().isEmpty ? null : brandsCtrl.text.trim(),
                                 notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                                 isActive: supplierToEdit?.isActive ?? true,
@@ -1108,6 +1253,12 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
                                 }
                                 if (FieldChangeItem.isDifferent(supplierToEdit.registrationType, supplier.registrationType)) {
                                   changes.add(FieldChangeItem(fieldName: l10n.diffSupplierRegType, oldValue: supplierToEdit.registrationType, newValue: supplier.registrationType));
+                                }
+                                if (FieldChangeItem.isDifferent(supplierToEdit.hasWipo, supplier.hasWipo)) {
+                                  changes.add(FieldChangeItem(fieldName: 'WIPO Madrid', oldValue: supplierToEdit.hasWipo ? 'نعم' : 'لا', newValue: supplier.hasWipo ? 'نعم' : 'لا'));
+                                }
+                                if (FieldChangeItem.isDifferent(supplierToEdit.hasIso9001, supplier.hasIso9001)) {
+                                  changes.add(FieldChangeItem(fieldName: 'ISO 9001', oldValue: supplierToEdit.hasIso9001 ? 'نعم' : 'لا', newValue: supplier.hasIso9001 ? 'نعم' : 'لا'));
                                 }
                                 if (FieldChangeItem.isDifferent(supplierToEdit.foreignExporterId, supplier.foreignExporterId)) {
                                   changes.add(FieldChangeItem(fieldName: l10n.diffForeignExporterId, oldValue: supplierToEdit.foreignExporterId, newValue: supplier.foreignExporterId));

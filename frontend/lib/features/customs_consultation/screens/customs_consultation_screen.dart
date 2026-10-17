@@ -9,6 +9,9 @@ import '../widgets/consultation_metric_badge.dart';
 import '../widgets/add_checklist_item_dialog.dart';
 import '../widgets/add_custom_expense_dialog.dart';
 import '../widgets/recalculation_variance_comparison_card.dart';
+import '../widgets/tariff_missing_widgets.dart';
+import '../utils/customs_estimate_payload_builder.dart';
+import 'dart:async';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/widgets/existing_record_snackbar.dart';
 import 'package:flutter/material.dart';
@@ -22,14 +25,10 @@ import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
-import 'dart:convert';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_clearance_quotations/screens/customs_clearance_quotations_screen.dart';
-import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
-import '../../customs_tariff/widgets/hs_code_timeline_widget.dart';
-import '../../customs_tariff/services/customs_exemption_engine.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -43,6 +42,7 @@ import '../services/customs_export_service.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../widgets/search_and_clone_consultation_dialog.dart';
 export '../widgets/search_and_clone_consultation_dialog.dart';
+import '../utils/customs_consultation_payload_builder.dart';
 import '../../financial_approval/providers/financial_approval_provider.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
 import '../../../core/localization/domain_enum_labels.dart';
@@ -69,17 +69,17 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
   final TextEditingController _notesController = TextEditingController();
-  final TextEditingController _estimatedDutiesController = TextEditingController(text: '0.0');
+  final TextEditingController _estimatedDutiesController = TextEditingController();
 
   // Customs Calculator State Controllers
-  final TextEditingController _exchangeRateController = TextEditingController(text: '50.0');
+  final TextEditingController _exchangeRateController = TextEditingController();
   /// Optional manual preliminary rate; only offered when the preliminary and final currencies differ.
   final TextEditingController _preliminaryRateController = TextEditingController();
-  final TextEditingController _freightForeignController = TextEditingController(text: '0.0');
+  final TextEditingController _freightForeignController = TextEditingController();
   String _freightCurrency = 'USD';
-  final TextEditingController _freightExchangeRateController = TextEditingController(text: '50.0');
-  final TextEditingController _freightEgpController = TextEditingController(text: '0.0');
-  final TextEditingController _insuranceEgpController = TextEditingController(text: '0.0');
+  final TextEditingController _freightExchangeRateController = TextEditingController();
+  final TextEditingController _freightEgpController = TextEditingController();
+  final TextEditingController _insuranceEgpController = TextEditingController();
   String _insuranceOption = '0.5%'; // '0.5%', '1.0%', 'Custom'
   String _customsCurrency = 'USD';
   bool _isCustomsCalculatorExpanded = true;
@@ -89,8 +89,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   CustomsRecalculationResponseModel? _recalculationResult;
   bool _isRecalculating = false;
   DateTime _studyDate = DateTime.now();
-  final Map<String, bool> _lineExemptionOverrides = {};
-  bool _isExchangeRateFrozenFromSnapshot = false;
+
+  Timer? _dutyEstimateDebounce;
+  bool _isEstimatingDuty = false;
+  List<CustomsItemCalcRow> _engineCalculatedLines = [];
+  String? _currentEstimateCacheKey;
+  int _dutyEstimateRequestId = 0;
+  double? _engineGrandTotal;
 
   int? _editingConsultationId;
   String? _editingConsultationCode;
@@ -130,6 +135,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         setState(() => _visitedTabs.add(_tabController.index));
       }
     });
+    _exchangeRateController.addListener(_triggerDutyEstimateDebounced);
+    _freightForeignController.addListener(_triggerDutyEstimateDebounced);
+    _freightExchangeRateController.addListener(_triggerDutyEstimateDebounced);
+    _freightEgpController.addListener(_triggerDutyEstimateDebounced);
+    _insuranceEgpController.addListener(_triggerDutyEstimateDebounced);
     _initializeDefaultChecklist();
     Future.microtask(() {
       if (!ref.read(customsConsultationsProvider).isLoading) {
@@ -189,6 +199,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
   @override
   void dispose() {
+    _dutyEstimateDebounce?.cancel();
+    _exchangeRateController.removeListener(_triggerDutyEstimateDebounced);
+    _freightForeignController.removeListener(_triggerDutyEstimateDebounced);
+    _freightExchangeRateController.removeListener(_triggerDutyEstimateDebounced);
+    _freightEgpController.removeListener(_triggerDutyEstimateDebounced);
+    _insuranceEgpController.removeListener(_triggerDutyEstimateDebounced);
     _tabController.dispose();
     _titleController.dispose();
     _notesController.dispose();
@@ -309,6 +325,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   void _onImportFileChanged(int? fileId) {
     setState(() {
       _selectedImportFileId = fileId;
+      _engineCalculatedLines = [];
+      _currentEstimateCacheKey = null;
+      _engineGrandTotal = null;
+      _estimatedDutiesController.text = '';
       if (fileId != null) {
         final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
         final file = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
@@ -394,29 +414,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   }
 
   void _autoCalculateDutiesFromImportFile() {
-    final calcLines = _calculateCustomsLines();
-    final double totalTaxes = calcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
-    if (totalTaxes > 0) {
-      _estimatedDutiesController.text = totalTaxes.toStringAsFixed(2);
-    }
+    _triggerDutyEstimateDebounced();
   }
 
-  Future<void> _updateExchangeRateForCurrency(String currencyCode, {bool force = false}) async {
-    if (_isExchangeRateFrozenFromSnapshot && !force) return;
-    try {
-      final rate = await ref.read(currenciesProvider.notifier).fetchCustomsExchangeRate(
-        currencyCode: currencyCode,
-        onDate: _studyDate,
-      );
-      if (rate != null && rate > 0 && mounted) {
-        setState(() {
-          _exchangeRateController.text = rate.toStringAsFixed(4);
-        });
-        _autoCalculateDutiesFromImportFile();
-        return;
-      }
-    } catch (_) {}
-
+  void _updateExchangeRateForCurrency(String currencyCode) {
     final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
     final matchedCurrency = currencies
         .where((c) => c.currencyCode.toUpperCase() == currencyCode.toUpperCase())
@@ -424,13 +425,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     if (matchedCurrency != null) {
       final rate = matchedCurrency.latestCustomsRate ??
           matchedCurrency.latestCommercialRate;
-      if (rate != null && rate > 0 && mounted) {
-        setState(() {
-          _exchangeRateController.text = rate.toStringAsFixed(4);
-        });
-        _autoCalculateDutiesFromImportFile();
+      if (rate != null && rate > 0) {
+        _exchangeRateController.text = rate.toStringAsFixed(4);
+      } else {
+        _exchangeRateController.text = '';
       }
+    } else {
+      _exchangeRateController.text = '';
     }
+    _triggerDutyEstimateDebounced();
   }
 
   void _updateFreightExchangeRateForCurrency(String currencyCode) {
@@ -443,9 +446,14 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           matchedCurrency.latestCommercialRate;
       if (rate != null && rate > 0) {
         _freightExchangeRateController.text = rate.toStringAsFixed(4);
+      } else {
+        _freightExchangeRateController.text = '';
       }
+    } else {
+      _freightExchangeRateController.text = '';
     }
     _recalculateFreightEgp();
+    _triggerDutyEstimateDebounced();
   }
 
   void _recalculateFreightEgp() {
@@ -482,7 +490,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final matchedCurrency =
         currencies.where((c) => c.currencyCode == highestCurrency).firstOrNull;
     final rate = matchedCurrency?.latestCustomsRate ??
-        (double.tryParse(_exchangeRateController.text) ?? 50.0);
+        double.tryParse(_exchangeRateController.text);
+    if (rate == null || rate <= 0) return;
     final freightEgp = highestQuotation * rate;
 
     setState(() {
@@ -491,6 +500,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       _freightExchangeRateController.text = rate.toStringAsFixed(4);
       _freightEgpController.text = freightEgp.toStringAsFixed(2);
     });
+    _triggerDutyEstimateDebounced();
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -524,18 +534,19 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       return;
     }
 
+    final validLines = calcLines.where((l) => !l.isTariffMissing).toList();
     // ── Consolidate: group all HS Codes by document type ────────────────
     // One checklist item per document type, listing unique HS Codes inside.
     final acidHsCodes =
-        calcLines.where((l) => l.requiresAcid).map((l) => l.hsCode).toSet().toList();
+        validLines.where((l) => l.requiresAcid).map((l) => l.hsCode).toSet().toList();
     final cooHsCodes =
-        calcLines.where((l) => l.requiresCoo).map((l) => l.hsCode).toSet().toList();
+        validLines.where((l) => l.requiresCoo).map((l) => l.hsCode).toSet().toList();
     final goeicHsCodes =
-        calcLines.where((l) => l.requiresInspection).map((l) => l.hsCode).toSet().toList();
+        validLines.where((l) => l.requiresInspection).map((l) => l.hsCode).toSet().toList();
 
     // Group unique HS Codes per regulatory authority
     final Map<String, Set<String>> authHsMap = {};
-    for (final line in calcLines) {
+    for (final line in validLines) {
       if (line.regulatoryAuthority != null &&
           line.regulatoryAuthority!.trim().isNotEmpty) {
         authHsMap
@@ -752,15 +763,36 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     );
   }
 
-  List<CustomsItemCalcRow> _calculateCustomsLines() {
-    final loc = context.l10n;
-    final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
-    final tariffsList = ref.watch(customsTariffProvider).valueOrNull ?? [];
+  String _buildEstimateCacheKey() {
+    return '$_selectedImportFileId|$_selectedPoId|$_customsCurrency|'
+        '${_exchangeRateController.text.trim()}|'
+        '${_freightForeignController.text.trim()}|$_freightCurrency|'
+        '${_freightExchangeRateController.text.trim()}|'
+        '${_freightEgpController.text.trim()}|$_insuranceOption|'
+        '${_insuranceEgpController.text.trim()}|'
+        '${_studyDate.year}-${_studyDate.month}-${_studyDate.day}';
+  }
+
+  void _triggerDutyEstimateDebounced() {
+    _dutyEstimateDebounce?.cancel();
+    _dutyEstimateDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        _fetchDutyEstimateFromEngine();
+      }
+    });
+  }
+
+  Future<void> _fetchDutyEstimateFromEngine() async {
+    final int reqId = ++_dutyEstimateRequestId;
+    final String requestKey = _buildEstimateCacheKey();
+
+    final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
+    final tariffsList = ref.read(customsTariffProvider).valueOrNull ?? [];
 
     ImportFileModel? file;
     List<PurchaseOrderModel> matchingPOs = [];
     if (_selectedImportFileId != null) {
-      final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+      final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
       file = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
       if (file != null) {
         matchingPOs = allPOs.where((p) =>
@@ -772,14 +804,49 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       matchingPOs = allPOs.where((p) => p.poId == _selectedPoId).toList();
     }
 
-    final double exchangeRate = double.tryParse(_exchangeRateController.text.trim()) ?? 50.0;
-    final double freightForeign = double.tryParse(_freightForeignController.text.trim()) ?? 0.0;
-    final double freightFxRate = double.tryParse(_freightExchangeRateController.text.trim()) ?? exchangeRate;
-    final double totalFreightEgp = freightForeign > 0
-        ? (freightForeign * freightFxRate)
-        : (double.tryParse(_freightEgpController.text.trim()) ?? 0.0);
+    final List<POLineItemModel> allPoLines = [];
+    String? defaultOriginCountry;
+    for (final po in matchingPOs) {
+      if (defaultOriginCountry == null && po.countryOfOrigin != null && po.countryOfOrigin!.trim().isNotEmpty) {
+        defaultOriginCountry = po.countryOfOrigin!.trim();
+      }
+      for (final item in po.items) {
+        allPoLines.add(item);
+      }
+    }
 
-    // 1. Calculate Aggregate Total of ALL Invoices attached to the Import File
+    if (allPoLines.isEmpty) {
+      if (mounted && reqId == _dutyEstimateRequestId) {
+        setState(() {
+          _engineCalculatedLines = [];
+          _currentEstimateCacheKey = null;
+          _engineGrandTotal = null;
+          _isEstimatingDuty = false;
+        });
+      }
+      return;
+    }
+
+    final double? exchangeRate = double.tryParse(_exchangeRateController.text.trim());
+    if (exchangeRate == null || exchangeRate <= 0) {
+      final uncalculated = CustomsEstimatePayloadBuilder.mapEngineResponseToCalcRows(
+        engineResponse: {},
+        allLines: allPoLines,
+        tariffs: tariffsList,
+        defaultOriginCountry: defaultOriginCountry,
+        exchangeRate: exchangeRate,
+      );
+      if (mounted && reqId == _dutyEstimateRequestId) {
+        setState(() {
+          _engineCalculatedLines = uncalculated;
+          _currentEstimateCacheKey = null;
+          _engineGrandTotal = null;
+          _isEstimatingDuty = false;
+        });
+      }
+      return;
+    }
+
     double totalInvoicesForeign = 0.0;
     if (file != null && file.invoicesData.isNotEmpty) {
       for (final inv in file.invoicesData) {
@@ -787,19 +854,20 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       }
     }
 
-    // 2. Collect all line items paired with their parent PO
-    final List<Map<String, dynamic>> flatLineEntries = [];
-    for (final po in matchingPOs) {
-      for (final item in po.items) {
-        flatLineEntries.add({
-          'item': item,
-          'po': po,
-        });
-      }
-    }
+    final double poItemsFobSum = allPoLines.fold(0.0, (s, l) => s + l.totalPrice);
+    final double scaleFactor = (totalInvoicesForeign > 0 && poItemsFobSum > 0)
+        ? (totalInvoicesForeign / poItemsFobSum)
+        : 1.0;
 
-    // Pre-calculate FOB and Insurance
-    final double poItemsFobSum = flatLineEntries.fold(0.0, (s, e) => s + (e['item'] as POLineItemModel).totalPrice);
+    final double freightForeign = double.tryParse(_freightForeignController.text.trim()) ?? 0.0;
+    final double? freightFxTyped = double.tryParse(_freightExchangeRateController.text.trim());
+    final double? freightFxRateForEngine = (freightFxTyped != null && freightFxTyped > 0) ? freightFxTyped : null;
+    final double totalFreightEgp = freightForeign > 0 && freightFxRateForEngine != null
+        ? (freightForeign * freightFxRateForEngine)
+        : (_freightCurrency == _customsCurrency && freightForeign > 0 && exchangeRate > 0)
+            ? (freightForeign * exchangeRate)
+            : (double.tryParse(_freightEgpController.text.trim()) ?? 0.0);
+
     final double effectiveFobForeign = totalInvoicesForeign > 0 ? totalInvoicesForeign : poItemsFobSum;
     final double totalFobEgp = effectiveFobForeign * exchangeRate;
     final double candfBaseEgp = totalFobEgp + totalFreightEgp;
@@ -821,228 +889,140 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       totalInsuranceEgp = double.tryParse(_insuranceEgpController.text.trim()) ?? 0.0;
     }
 
-    // Pre-index tariffs for instant O(1) lookups
-    final Map<int, CustomsTariffModel> tariffById = {
-      for (final t in tariffsList) t.tariffId: t,
-    };
-    final Map<String, CustomsTariffModel> tariffByNormalizedHs = {
-      for (final t in tariffsList) t.hsCode.replaceAll('.', '').trim(): t,
-    };
+    final payload = CustomsEstimatePayloadBuilder.buildPayload(
+      lines: allPoLines,
+      tariffs: tariffsList,
+      currency: _customsCurrency,
+      exchangeRate: exchangeRate,
+      freightForeign: freightForeign,
+      freightCurrency: _freightCurrency,
+      freightExchangeRate: freightFxRateForEngine,
+      freightEgp: totalFreightEgp,
+      insuranceEgp: totalInsuranceEgp,
+      insuranceOption: _insuranceOption,
+      estimateDate: _studyDate,
+      scaleFactor: scaleFactor,
+      defaultOriginCountry: defaultOriginCountry,
+    );
 
-    // Case A: No PO Line items, but Invoices exist on the Import File
-    if (flatLineEntries.isEmpty) {
-      if (totalInvoicesForeign > 0 && file != null) {
-        final List<CustomsItemCalcRow> result = [];
-        final int invCount = file.invoicesData.length;
-        for (int i = 0; i < invCount; i++) {
-          final inv = file.invoicesData[i];
-          final double invForeign = inv.amount;
-          final double fobEgp = invForeign * exchangeRate;
-          final double freightShare = invCount > 0 ? (totalFreightEgp / invCount) : 0.0;
-          final double insuranceShare = invCount > 0 ? (totalInsuranceEgp / invCount) : 0.0;
-          final double cifEgp = fobEgp + freightShare + insuranceShare;
-
-          const double effectiveDutyRate = 5.0;
-          final double dutyAmountEgp = cifEgp * (effectiveDutyRate / 100.0);
-          const double vatRate = 14.0;
-          final double vatBaseEgp = cifEgp + dutyAmountEgp;
-          final double vatAmountEgp = vatBaseEgp * (vatRate / 100.0);
-          const double svcRate = 1.0;
-          final double svcAmountEgp = cifEgp * (svcRate / 100.0);
-          final double totalLineTaxes = dutyAmountEgp + vatAmountEgp + svcAmountEgp;
-
-          result.add(CustomsItemCalcRow(
-            hsCode: '8479.89.90',
-            description: 'Commercial Invoice #${inv.invoiceNo} (${file.supplierName})',
-            qty: 1,
-            unit: 'SET',
-            foreignPrice: invForeign,
-            fobEgp: fobEgp,
-            freightEgp: freightShare,
-            insuranceEgp: insuranceShare,
-            cifEgp: cifEgp,
-            dutyRate: effectiveDutyRate,
-            baseDutyRate: effectiveDutyRate,
-            dutyAmountEgp: dutyAmountEgp,
-            vatRate: vatRate,
-            vatBaseEgp: vatBaseEgp,
-            vatAmountEgp: vatAmountEgp,
-            scheduleTaxRate: 0.0,
-            scheduleTaxAmountEgp: 0.0,
-            developmentFeeRate: 0.0,
-            developmentFeeAmountEgp: 0.0,
-            customsServiceFeeRate: svcRate,
-            customsServiceFeeAmountEgp: svcAmountEgp,
-            totalTaxesAndDutiesEgp: totalLineTaxes,
-            requiresCoo: true,
-            requiresInspection: false,
-            requiresAcid: true,
-            regulatoryAuthority: null,
-            priorApprovalNote: null,
-            countryOfOrigin: null,
-            appliedAgreementName: null,
-            hasExemption: false,
-            exemptionConditionsNote: null,
-            requiredDocument: null,
-          ));
-        }
-        return result;
+    if (payload == null) {
+      final uncalculated = CustomsEstimatePayloadBuilder.mapEngineResponseToCalcRows(
+        engineResponse: {},
+        allLines: allPoLines,
+        tariffs: tariffsList,
+        defaultOriginCountry: defaultOriginCountry,
+        scaleFactor: scaleFactor,
+        exchangeRate: exchangeRate,
+      );
+      if (mounted && reqId == _dutyEstimateRequestId) {
+        setState(() {
+          _engineCalculatedLines = uncalculated;
+          _currentEstimateCacheKey = null;
+          _engineGrandTotal = null;
+          _isEstimatingDuty = false;
+        });
       }
+      return;
+    }
+
+    if (mounted && reqId == _dutyEstimateRequestId) {
+      setState(() => _isEstimatingDuty = true);
+    }
+
+    try {
+      final res = await ref.read(customsTariffProvider.notifier).estimateMultiItemDuty(payload);
+      if (!mounted) return;
+      if (reqId != _dutyEstimateRequestId) return; // Ignore out of date responses
+      if (res != null) {
+        final grandTotal = CustomsEstimatePayloadBuilder.parseToDouble(res['grand_total_payable_egp']) ?? 0.0;
+        final rows = CustomsEstimatePayloadBuilder.mapEngineResponseToCalcRows(
+          engineResponse: res,
+          allLines: allPoLines,
+          tariffs: tariffsList,
+          defaultOriginCountry: defaultOriginCountry,
+          scaleFactor: scaleFactor,
+          exchangeRate: exchangeRate,
+        );
+        setState(() {
+          _engineCalculatedLines = rows;
+          _engineGrandTotal = grandTotal;
+          _currentEstimateCacheKey = requestKey;
+          _isEstimatingDuty = false;
+          _estimatedDutiesController.text = grandTotal.toStringAsFixed(2);
+        });
+      } else {
+        setState(() {
+          _engineCalculatedLines = [];
+          _currentEstimateCacheKey = null;
+          _engineGrandTotal = null;
+          _isEstimatingDuty = false;
+        });
+      }
+    } catch (e) {
+      if (mounted && reqId == _dutyEstimateRequestId) {
+        setState(() {
+          _engineCalculatedLines = [];
+          _currentEstimateCacheKey = null;
+          _engineGrandTotal = null;
+          _isEstimatingDuty = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiErrorText.of(context.l10n, e)),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+      }
+    }
+  }
+
+  List<CustomsItemCalcRow> _calculateCustomsLines() {
+    final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
+    final tariffsList = ref.watch(customsTariffProvider).valueOrNull ?? [];
+
+    ImportFileModel? file;
+    List<PurchaseOrderModel> matchingPOs = [];
+    if (_selectedImportFileId != null) {
+      final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+      file = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+      if (file != null) {
+        matchingPOs = allPOs.where((p) =>
+            (p.importFileId != null && p.importFileId == file!.importFileId) ||
+            (file!.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == file.importFileCode) ||
+            (file.poIds != null && p.poId != null && file.poIds!.contains(p.poId))).toList();
+      }
+    } else if (_selectedPoId != null) {
+      matchingPOs = allPOs.where((p) => p.poId == _selectedPoId).toList();
+    }
+
+    final List<POLineItemModel> allPoLines = [];
+    String? defaultOriginCountry;
+    for (final po in matchingPOs) {
+      if (defaultOriginCountry == null && po.countryOfOrigin != null && po.countryOfOrigin!.trim().isNotEmpty) {
+        defaultOriginCountry = po.countryOfOrigin!.trim();
+      }
+      for (final item in po.items) {
+        allPoLines.add(item);
+      }
+    }
+
+    if (allPoLines.isEmpty) {
       return [];
     }
 
-    // Case B: PO Line items exist -> Scale proportionally to Total Invoices if Invoices exist
-    final double scaleFactor = (totalInvoicesForeign > 0 && poItemsFobSum > 0) ? (totalInvoicesForeign / poItemsFobSum) : 1.0;
-
-    // Known Agreement Origin Sets
-    const euCountries = {
-      'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'AT', 'PL', 'SE', 'DK',
-      'FI', 'IE', 'PT', 'GR', 'CZ', 'HU', 'RO', 'BG', 'SK', 'HR',
-      'SI', 'LT', 'LV', 'EE', 'CY', 'MT', 'LU'
-    };
-    const mercosurCountries = {'BR', 'AR', 'UY', 'PY'};
-    const gaftaCountries = {
-      'SA', 'AE', 'JO', 'KW', 'OM', 'QA', 'BH', 'LB', 'IQ', 'SY',
-      'YE', 'SD', 'LY', 'TN', 'DZ', 'MA', 'PS', 'EG'
-    };
-
-    final List<CustomsItemCalcRow> result = [];
-    for (int i = 0; i < flatLineEntries.length; i++) {
-      final entry = flatLineEntries[i];
-      final POLineItemModel l = entry['item'] as POLineItemModel;
-      final PurchaseOrderModel po = entry['po'] as PurchaseOrderModel;
-      final hs = (l.hsCode != null && l.hsCode!.trim().isNotEmpty) ? l.hsCode!.trim() : 'UNASSIGNED';
-      
-      // Match tariff via O(1) lookup
-      CustomsTariffModel? matchedTariff;
-      if (l.tariffId != null) {
-        matchedTariff = tariffById[l.tariffId];
-      }
-      if (matchedTariff == null && hs != 'UNASSIGNED') {
-        matchedTariff = tariffByNormalizedHs[hs.replaceAll('.', '').trim()];
-      }
-
-      // Country of origin resolution
-      final String rawOrigin = (l.countryOfOrigin != null && l.countryOfOrigin!.trim().isNotEmpty)
-          ? l.countryOfOrigin!.trim()
-          : (po.countryOfOrigin != null && po.countryOfOrigin!.trim().isNotEmpty ? po.countryOfOrigin!.trim() : '');
-
-      final originCode = CustomsExemptionEngine.extractIsoOrigin(rawOrigin);
-      final String itemKey = '${po.poId ?? 0}_${l.itemId ?? 0}_${i}_$hs';
-
-      final double baseDutyRate = matchedTariff?.customsDutyRate ?? (l.dutyRate ?? 5.0);
-      double effectiveDutyRate = baseDutyRate;
-      bool hasExemption = false;
-      bool isAgreementEligible = false;
-      String? appliedAgreementName;
-      String? requiredDocument;
-      String? exemptionConditionsNote;
-
-      if (originCode.isNotEmpty) {
-        if (euCountries.contains(originCode)) {
-          isAgreementEligible = true;
-          appliedAgreementName = loc.agreementEur1;
-          requiredDocument = loc.agreementEur1Doc;
-          exemptionConditionsNote = loc.agreementEur1Exemption(baseDutyRate);
-        } else if (mercosurCountries.contains(originCode)) {
-          isAgreementEligible = true;
-          appliedAgreementName = loc.agreementMercosur;
-          requiredDocument = loc.agreementMercosurDoc;
-          exemptionConditionsNote = loc.agreementMercosurExemption(baseDutyRate);
-        } else if (gaftaCountries.contains(originCode)) {
-          isAgreementEligible = true;
-          appliedAgreementName = loc.agreementGafta;
-          requiredDocument = loc.agreementGaftaDoc;
-          exemptionConditionsNote = loc.agreementGaftaExemption(baseDutyRate);
-        } else if (originCode == 'TR') {
-          isAgreementEligible = true;
-          appliedAgreementName = loc.agreementTurkey;
-          requiredDocument = loc.agreementTurkeyDoc;
-          exemptionConditionsNote = loc.agreementTurkeyExemption(baseDutyRate);
-        } else if (originCode == 'GB' || originCode == 'UK') {
-          isAgreementEligible = true;
-          appliedAgreementName = loc.agreementUk;
-          requiredDocument = loc.agreementUkDoc;
-          exemptionConditionsNote = loc.agreementUkExemption(baseDutyRate);
-        }
-      }
-
-      if (isAgreementEligible) {
-        final bool shouldApply = _lineExemptionOverrides[itemKey] ?? false;
-        if (shouldApply) {
-          hasExemption = true;
-          effectiveDutyRate = 0.0;
-        } else {
-          hasExemption = false;
-          effectiveDutyRate = baseDutyRate;
-        }
-      } else {
-        hasExemption = false;
-        effectiveDutyRate = baseDutyRate;
-        if (originCode.isNotEmpty) {
-          exemptionConditionsNote = 'لا ينطبق إعفاء تفضيلي — تطبق التعريفة العامة (MFN)';
-        }
-      }
-
-      final double vatRate = matchedTariff?.vatRate ?? (l.vatRate ?? 14.0);
-      final double scheduleTaxRate = matchedTariff?.scheduleTaxRate ?? 0.0;
-      final double devRate = matchedTariff?.developmentFeeRate ?? 0.0;
-      final double svcRate = matchedTariff?.customsServiceFeeRate ?? 1.0;
-
-      final double lineForeignPrice = l.totalPrice * scaleFactor;
-      final double fobEgp = lineForeignPrice * exchangeRate;
-      final double freightShare = totalFobEgp > 0 ? (fobEgp / totalFobEgp * totalFreightEgp) : 0.0;
-      final double insuranceShare = totalFobEgp > 0 ? (fobEgp / totalFobEgp * totalInsuranceEgp) : 0.0;
-      final double cifEgp = fobEgp + freightShare + insuranceShare;
-
-      final double dutyAmountEgp = cifEgp * (effectiveDutyRate / 100.0);
-      final double vatBaseEgp = cifEgp + dutyAmountEgp;
-      final double vatAmountEgp = vatBaseEgp * (vatRate / 100.0);
-      final double scheduleTaxAmountEgp = cifEgp * (scheduleTaxRate / 100.0);
-      final double devFeeAmountEgp = cifEgp * (devRate / 100.0);
-      final double svcAmountEgp = cifEgp * (svcRate / 100.0);
-
-      final double totalLineTaxes = dutyAmountEgp + vatAmountEgp + scheduleTaxAmountEgp + devFeeAmountEgp + svcAmountEgp;
-
-      result.add(CustomsItemCalcRow(
-        itemKey: itemKey,
-        isAgreementEligible: isAgreementEligible,
-        hsCode: hs,
-        description: l.descriptionAr.isNotEmpty ? l.descriptionAr : (matchedTariff?.hsDescription ?? loc.defaultImportItemDescription),
-        qty: l.quantity,
-        unit: l.unitOfMeasure,
-        foreignPrice: lineForeignPrice,
-        fobEgp: fobEgp,
-        freightEgp: freightShare,
-        insuranceEgp: insuranceShare,
-        cifEgp: cifEgp,
-        dutyRate: effectiveDutyRate,
-        baseDutyRate: baseDutyRate,
-        dutyAmountEgp: dutyAmountEgp,
-        vatRate: vatRate,
-        vatBaseEgp: vatBaseEgp,
-        vatAmountEgp: vatAmountEgp,
-        scheduleTaxRate: scheduleTaxRate,
-        scheduleTaxAmountEgp: scheduleTaxAmountEgp,
-        developmentFeeRate: devRate,
-        developmentFeeAmountEgp: devFeeAmountEgp,
-        customsServiceFeeRate: svcRate,
-        customsServiceFeeAmountEgp: svcAmountEgp,
-        totalTaxesAndDutiesEgp: totalLineTaxes,
-        requiresCoo: matchedTariff?.requiresCoo ?? true,
-        requiresInspection: matchedTariff?.requiresInspection ?? false,
-        requiresAcid: matchedTariff?.requiresAcid ?? true,
-        regulatoryAuthority: matchedTariff?.regulatoryAuthority,
-        priorApprovalNote: matchedTariff?.priorApprovalNote,
-        countryOfOrigin: rawOrigin.isNotEmpty ? rawOrigin : null,
-        appliedAgreementName: appliedAgreementName,
-        hasExemption: hasExemption,
-        exemptionConditionsNote: exemptionConditionsNote,
-        requiredDocument: requiredDocument,
-      ));
+    final String currentKey = _buildEstimateCacheKey();
+    if (_engineCalculatedLines.isNotEmpty && _currentEstimateCacheKey == currentKey) {
+      return _engineCalculatedLines;
     }
 
-    return result;
+    final double? exchangeRate = double.tryParse(_exchangeRateController.text.trim());
+    return CustomsEstimatePayloadBuilder.mapEngineResponseToCalcRows(
+      engineResponse: {},
+      allLines: allPoLines,
+      tariffs: tariffsList,
+      defaultOriginCountry: defaultOriginCountry,
+      exchangeRate: exchangeRate,
+    );
   }
 
   List<CustomsItemCalcRow> _getAggregatedCustomsLines(List<CustomsItemCalcRow> rawLines) {
@@ -1093,8 +1073,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           .toList();
 
       aggregated.add(CustomsItemCalcRow(
-        itemKey: first.itemKey,
-        isAgreementEligible: lines.any((l) => l.isAgreementEligible),
         hsCode: hs,
         description: mergedDesc,
         qty: totalQty,
@@ -1127,6 +1105,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         hasExemption: lines.any((l) => l.hasExemption),
         exemptionConditionsNote: first.exemptionConditionsNote,
         requiredDocument: first.requiredDocument,
+        isTariffMissing: lines.any((l) => l.isTariffMissing),
+        status: lines.any((l) => l.isTariffMissing) ? 'TARIFF_MISSING' : first.status,
       ));
     }
     return aggregated;
@@ -1155,6 +1135,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       _selectedPoId = session.poId;
       _selectedProjectId = session.projectId;
       _estimatedDutiesController.text = session.estimatedDutiesEgp.toStringAsFixed(2);
+      _engineCalculatedLines = [];
+      _currentEstimateCacheKey = null;
+      _engineGrandTotal = session.estimatedDutiesEgp;
       _notesController.text = session.notes ?? '';
       _checklist.clear();
       _checklist.addAll(session.checklistItems);
@@ -1164,22 +1147,23 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       final priceLists = ref.read(brokerPriceListsProvider).valueOrNull ?? [];
       final matchedPl = priceLists.where((pl) => pl.priceListId == session.brokerPriceListId).firstOrNull;
       _brokerPriceListTitle = matchedPl?.title;
-
-      // Restore locked snapshot exchange rate & date (Zero retroactive alteration)
-      if (session.customsExchangeRate > 0) {
-        _exchangeRateController.text = session.customsExchangeRate.toStringAsFixed(4);
-        _customsCurrency = session.customsCurrency;
-        _isExchangeRateFrozenFromSnapshot = true;
-      }
-      if (session.calculationDate != null && session.calculationDate!.isNotEmpty) {
-        try {
-          _studyDate = DateTime.parse(session.calculationDate!);
-        } catch (_) {}
-      }
-
       _visitedTabs.add(0);
       _tabController.animateTo(0);
     });
+
+    if (session.importFileId != null) {
+      _onImportFileChanged(session.importFileId);
+    } else if (session.poId != null) {
+      final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
+      final po = allPOs.where((p) => p.poId == session.poId).firstOrNull;
+      if (po != null && po.currencyCode != null && po.currencyCode!.isNotEmpty) {
+        _customsCurrency = po.currencyCode!;
+        _updateExchangeRateForCurrency(po.currencyCode!);
+      }
+      _triggerDutyEstimateDebounced();
+    } else {
+      _triggerDutyEstimateDebounced();
+    }
   }
 
 
@@ -1446,6 +1430,50 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
   Future<void> _saveConsultation() async {
     final l = context.l10n;
+
+    final double? fxRate = double.tryParse(_exchangeRateController.text.trim());
+    if (fxRate == null || fxRate <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l.customsFxRateRequired),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
+      return;
+    }
+
+    if (_isEstimatingDuty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ يرجى الانتظار حتى انتهاء حساب الرسوم الجمركية من محرك الجمارك.'),
+          backgroundColor: AppTheme.wcagOrange,
+        ),
+      );
+      return;
+    }
+
+    final rawCalcLines = _calculateCustomsLines();
+    if (rawCalcLines.any((l) => l.isTariffMissing)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l.customsMissingTariffBlockSave),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
+      return;
+    }
+
+    if ((_selectedImportFileId != null || _selectedPoId != null) &&
+        (_engineGrandTotal == null || _currentEstimateCacheKey == null || rawCalcLines.any((l) => !l.isCalculated))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ لم يتم حساب تقدير الرسوم الجمركية بعد بواسطة محرك الجمارك.'),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
+      return;
+    }
+
     final validationErrors = <ValidationIssueItem>[];
 
     final titleToSave = _titleController.text.trim();
@@ -1459,6 +1487,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     }
 
     if (!widget.isTaxReviewMode && _selectedBrokerId == null) {
+      _formKey.currentState?.validate();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚠️ ${l.customsBrokerFieldIssue}'),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
       validationErrors.add(ValidationIssueItem(
         fieldName: l.customsBrokerFieldValidation,
         issueDescription: l.customsBrokerFieldIssue,
@@ -1486,7 +1521,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       return;
     }
 
-    final estimatedDuties = double.tryParse(_estimatedDutiesController.text.trim()) ?? 0.0;
+    final estimatedDuties = _engineGrandTotal ?? (double.tryParse(_estimatedDutiesController.text.trim()) ?? 0.0);
     final totalBrokerFees = widget.isTaxReviewMode ? 0.0 : _brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
 
     // Change Diff Confirmation Dialog for Edits
@@ -1557,31 +1592,22 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
     setState(() => _isSaving = true);
     try {
-      final double exRateToSave = double.tryParse(_exchangeRateController.text.trim()) ?? 1.0;
-      final metaMap = {
-        'customs_exchange_rate': exRateToSave,
-        'customs_currency': _customsCurrency,
-        'calculation_date': _studyDate.toIso8601String().substring(0, 10),
-      };
-      final metaStr = '<!-- SNAPSHOT: ${jsonEncode(metaMap)} -->';
-      final rawUserNotes = _notesController.text.trim();
-      final packedNotes = rawUserNotes.isNotEmpty ? '$metaStr\n$rawUserNotes' : metaStr;
-
-      final payload = {
-        'title': titleToSave,
-        'broker_id': _selectedBrokerId ?? 1,
-        'broker_name': _selectedBrokerName.isNotEmpty ? _selectedBrokerName : 'Customs Review',
-        'broker_contact_person': _brokerContactPerson,
-        if (_selectedImportFileId != null) 'import_file_id': _selectedImportFileId,
-        if (_selectedPoId != null) 'po_id': _selectedPoId,
-        if (_selectedProjectId != null) 'project_id': _selectedProjectId,
-        'estimated_duties_egp': estimatedDuties,
-        'total_broker_fees_egp': totalBrokerFees,
-        if (_brokerPriceListId != null && !widget.isTaxReviewMode) 'broker_price_list_id': _brokerPriceListId,
-        'notes': packedNotes,
-        'checklist_items': _checklist.map((item) => item.toJson()).toList(),
-        'broker_quote_items': widget.isTaxReviewMode ? [] : _brokerQuoteItems.map((item) => item.toJson()).toList(),
-      };
+      final payload = CustomsConsultationPayloadBuilder.buildSavePayload(
+        title: titleToSave,
+        brokerId: _selectedBrokerId,
+        brokerName: _selectedBrokerName,
+        brokerContactPerson: _brokerContactPerson,
+        brokerPriceListId: _brokerPriceListId,
+        importFileId: _selectedImportFileId,
+        poId: _selectedPoId,
+        projectId: _selectedProjectId,
+        estimatedDutiesEgp: estimatedDuties,
+        totalBrokerFeesEgp: totalBrokerFees,
+        notes: _notesController.text.trim(),
+        checklistItems: _checklist.map((item) => item.toJson()).toList(),
+        brokerQuoteItems: _brokerQuoteItems.map((item) => item.toJson()).toList(),
+        isTaxReviewMode: widget.isTaxReviewMode,
+      );
 
       if (_editingConsultationId != null) {
         final updated = await ref
@@ -1716,21 +1742,36 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     // Calculation Lines & Totals
     final rawCalcLines = _calculateCustomsLines();
     final calcLines = _getAggregatedCustomsLines(rawCalcLines);
-    final double exchangeRate = double.tryParse(_exchangeRateController.text.trim()) ?? 50.0;
+    final double? exchangeRate = double.tryParse(_exchangeRateController.text.trim());
     final double freightForeign = double.tryParse(_freightForeignController.text.trim()) ?? 0.0;
-    final double freightFxRate = double.tryParse(_freightExchangeRateController.text.trim()) ?? exchangeRate;
+    final double freightFxRate = double.tryParse(_freightExchangeRateController.text.trim()) ?? (exchangeRate ?? 0.0);
     final double totalFreightEgp = freightForeign > 0
         ? (freightForeign * freightFxRate)
         : (double.tryParse(_freightEgpController.text.trim()) ?? 0.0);
     final double totalInsuranceEgp = double.tryParse(_insuranceEgpController.text.trim()) ?? 0.0;
-    final totalFobForeign = rawCalcLines.fold(0.0, (s, l) => s + l.foreignPrice);
-    final totalFobEgp = rawCalcLines.fold(0.0, (s, l) => s + l.fobEgp);
+    final validCalcLines = rawCalcLines.where((l) => !l.isTariffMissing).toList();
+    final totalFobForeign = validCalcLines.fold(0.0, (s, l) => s + l.foreignPrice);
+    final totalFobEgp = validCalcLines.fold(0.0, (s, l) => s + l.fobEgp);
     final totalCandFEgp = totalFobEgp + totalFreightEgp;
-    final totalCifEgp = rawCalcLines.fold(0.0, (s, l) => s + l.cifEgp);
-    final totalCifForeign = exchangeRate > 0 ? (totalCifEgp / exchangeRate) : 0.0;
-    final totalDutyEgp = rawCalcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp);
-    final totalVatEgp = rawCalcLines.fold(0.0, (s, l) => s + l.vatAmountEgp);
-    final totalTaxesAndDutiesEgp = rawCalcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
+    final totalCifEgp = validCalcLines.fold(0.0, (s, l) => s + l.cifEgp);
+    final totalCifForeign = (exchangeRate != null && exchangeRate > 0) ? (totalCifEgp / exchangeRate) : 0.0;
+    final totalDutyEgp = validCalcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp);
+    final totalVatEgp = validCalcLines.fold(0.0, (s, l) => s + l.vatAmountEgp);
+    final totalTaxesAndDutiesEgp = validCalcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
+
+    bool hasInvoicesWithoutPoLines = false;
+    if (_selectedImportFileId != null) {
+      final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+      final file = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+      if (file != null && file.invoicesData.isNotEmpty) {
+        final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
+        final matchingPOs = allPOs.where((p) =>
+            (p.importFileId != null && p.importFileId == file.importFileId) ||
+            (file.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == file.importFileCode) ||
+            (file.poIds != null && p.poId != null && file.poIds!.contains(p.poId))).toList();
+        hasInvoicesWithoutPoLines = matchingPOs.isEmpty || matchingPOs.every((p) => p.items.isEmpty);
+      }
+    }
 
     final tabs = widget.isTaxReviewMode
         ? [
@@ -1952,6 +1993,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             _selectedPoId = null;
                             _selectedProjectId = null;
                             _selectedBrokerId = null;
+                            _engineCalculatedLines = [];
+                            _currentEstimateCacheKey = null;
+                            _engineGrandTotal = null;
+                            _estimatedDutiesController.clear();
                             _initializeDefaultChecklist();
                           });
                         },
@@ -1972,7 +2017,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         icon: Icons.description_outlined,
                         variant: AppButtonVariant.secondary,
                         size: AppButtonSize.small,
-                        onPressed: () => _exportCustomsStudyExcel(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate),
+                        onPressed: () => _exportCustomsStudyExcel(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate ?? 0.0),
                       ),
 
                       // 5. PDF Print/Preview Button
@@ -1981,7 +2026,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         icon: Icons.picture_as_pdf_outlined,
                         variant: AppButtonVariant.secondary,
                         size: AppButtonSize.small,
-                        onPressed: () => _printOrSaveCustomsStudyPdf(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate),
+                        onPressed: () => _printOrSaveCustomsStudyPdf(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate ?? 0.0),
                       ),
 
                       // 6. Dossier Copy Button
@@ -1990,7 +2035,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         icon: Icons.copy_all_outlined,
                         variant: AppButtonVariant.secondary,
                         size: AppButtonSize.small,
-                        onPressed: () => _copyCustomsStudyDossier(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate),
+                        onPressed: () => _copyCustomsStudyDossier(calcLines, totalFreightEgp, totalInsuranceEgp, exchangeRate ?? 0.0),
                       ),
 
                       // 7. Smart Clearance Quote Extractor Button (Clearance Mode Only)
@@ -2593,54 +2638,25 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   controller: _exchangeRateController,
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
-                                    labelText: _isExchangeRateFrozenFromSnapshot
-                                        ? '${l.customsFxRateLabel} (🔒 ${isArabic ? "سعر مثبت تاريخياً" : "Historical Lock"})'
-                                        : l.customsFxRateLabel,
-                                    helperText: _isExchangeRateFrozenFromSnapshot
-                                        ? (isArabic ? 'مثبت من تاريخ الدراسة السابقة لمنع التعديل بأثر رجعي' : 'Locked from snapshot to prevent retroactive changes')
+                                    labelText: l.customsFxRateLabel,
+                                    border: const OutlineInputBorder(),
+                                    errorText: (double.tryParse(_exchangeRateController.text.trim()) ?? 0.0) <= 0
+                                        ? l.customsFxRateRequired
                                         : null,
-                                    helperStyle: const TextStyle(fontSize: 10, color: AppTheme.orange),
-                                    border: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color: _isExchangeRateFrozenFromSnapshot ? AppTheme.orange : AppTheme.cobaltBorder,
-                                      ),
-                                    ),
-                                    prefixIcon: Icon(
-                                      _isExchangeRateFrozenFromSnapshot ? Icons.lock_clock : Icons.currency_exchange,
-                                      color: _isExchangeRateFrozenFromSnapshot ? AppTheme.orange : AppTheme.cobalt,
-                                      size: 18,
-                                    ),
-                                    suffixIcon: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (_isExchangeRateFrozenFromSnapshot)
-                                          IconButton(
-                                            icon: const Icon(Icons.lock_open, size: 16, color: AppTheme.orange),
-                                            tooltip: isArabic ? 'فك تثبيت سعر الصرف وجلب أحدث سعر' : 'Unlock and fetch current rate',
-                                            onPressed: () {
-                                              setState(() {
-                                                _isExchangeRateFrozenFromSnapshot = false;
-                                                _updateExchangeRateForCurrency(_customsCurrency);
-                                              });
-                                            },
-                                          ),
-                                        IconButton(
-                                          icon: const Icon(Icons.copy, size: 16),
-                                          tooltip: l.copyTooltip,
-                                          onPressed: () {
-                                            if (_exchangeRateController.text.isNotEmpty) {
-                                              CopyHelper.copy(context, _exchangeRateController.text);
-                                            }
-                                          },
-                                        ),
-                                      ],
+                                    prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 18),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.copy, size: 16),
+                                      tooltip: l.copyTooltip,
+                                      onPressed: () {
+                                        if (_exchangeRateController.text.isNotEmpty) {
+                                          CopyHelper.copy(context, _exchangeRateController.text);
+                                        }
+                                      },
                                     ),
                                   ),
                                   onChanged: (_) {
-                                    if (_isExchangeRateFrozenFromSnapshot) {
-                                      _isExchangeRateFrozenFromSnapshot = false;
-                                    }
                                     setState(() {});
+                                    _triggerDutyEstimateDebounced();
                                   },
                                 );
                                 final dateField = InkWell(
@@ -2652,12 +2668,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                       lastDate: DateTime(2030),
                                     );
                                     if (picked != null) {
-                                      setState(() {
-                                        _studyDate = picked;
-                                        if (!_isExchangeRateFrozenFromSnapshot) {
-                                          _updateExchangeRateForCurrency(_customsCurrency);
-                                        }
-                                      });
+                                      setState(() => _studyDate = picked);
+                                      _triggerDutyEstimateDebounced();
                                     }
                                   },
                                   child: InputDecorator(
@@ -2899,6 +2911,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           setState(() {
                                             _insuranceOption = set.first;
                                           });
+                                          _triggerDutyEstimateDebounced();
                                         },
                                         style: const ButtonStyle(
                                           visualDensity: VisualDensity.compact,
@@ -2996,7 +3009,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         '${totalCifEgp.toStringAsFixed(2)} $egpLabel',
                                         style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                       ),
-                                      if (exchangeRate > 0)
+                                      if (exchangeRate != null && exchangeRate > 0)
                                         CopyableText(
                                           '≈ ${totalCifForeign.toStringAsFixed(2)} $_customsCurrency',
                                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
@@ -3109,7 +3122,31 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             const SizedBox(height: 10),
 
                             // HS Code Line Items Calculation Table
-                            if (calcLines.isEmpty)
+                            if (hasInvoicesWithoutPoLines) ...[
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.orangeLight,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppTheme.orange),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.warning_amber_rounded, color: AppTheme.wcagOrange),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        l.addPoLinesWithHsToEstimateDuties,
+                                        style: const TextStyle(
+                                          color: AppTheme.wcagOrange,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ] else if (calcLines.isEmpty) ...[
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(8)),
@@ -3120,8 +3157,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     Expanded(child: Text(l.noResultsFound, style: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.w600))),
                                   ],
                                 ),
-                              )
-                            else ...[
+                              ),
+                            ] else ...[
+                              TariffMissingBanner(
+                                count: calcLines.where((l) => l.isTariffMissing).length,
+                              ),
                               SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: DataTable(
@@ -3167,31 +3207,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                   decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
                                                   child: Text(line.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                                 ),
-                                                const SizedBox(width: 4),
-                                                IconButton(
-                                                  icon: const Icon(Icons.history, size: 16, color: AppTheme.cobalt),
-                                                  padding: EdgeInsets.zero,
-                                                  constraints: const BoxConstraints(),
-                                                  tooltip: isArabic ? 'التسلسل الزمني للتعريفة' : 'Tariff Timeline History',
-                                                  onPressed: () {
-                                                    showDialog(
-                                                      context: context,
-                                                      builder: (ctx) => Dialog(
-                                                        child: ConstrainedBox(
-                                                          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 600),
-                                                          child: Padding(
-                                                            padding: const EdgeInsets.all(16.0),
-                                                            child: HsCodeTimelineWidget(
-                                                              hsCode: line.hsCode,
-                                                              countryCode: line.countryOfOrigin,
-                                                              currentDutyRate: line.baseDutyRate,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
+                                                if (line.isTariffMissing) ...[
+                                                  const SizedBox(width: 4),
+                                                  const TariffMissingBadge(),
+                                                ],
                                               ],
                                             ),
                                           ),
@@ -3242,163 +3261,134 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: '${line.fobEgp.toStringAsFixed(2)} $egpLabel',
+                                            value: !line.isCalculated ? '—' : '${line.fobEgp.toStringAsFixed(2)} $egpLabel',
                                             rowSummary: rowSummary,
-                                            child: Text(line.fobEgp.toStringAsFixed(2)),
+                                            child: Text(!line.isCalculated ? '—' : line.fobEgp.toStringAsFixed(2)),
                                           ),
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: '${line.cifEgp.toStringAsFixed(2)} $egpLabel',
+                                            value: !line.isCalculated ? '—' : '${line.cifEgp.toStringAsFixed(2)} $egpLabel',
                                             rowSummary: rowSummary,
-                                            child: Text(line.cifEgp.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                            child: Text(!line.isCalculated ? '—' : line.cifEgp.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
                                           ),
                                         ),
                                         DataCell(
                                           CopyableTableCell(
-                                            value: '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} $egpLabel)',
+                                            value: !line.isCalculated
+                                                ? '—'
+                                                : '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} $egpLabel)',
                                             rowSummary: rowSummary,
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                if (line.hasExemption) ...[
-                                                  Row(
-                                                    mainAxisSize: MainAxisSize.min,
+                                            child: !line.isCalculated
+                                                ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
+                                                : Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    mainAxisAlignment: MainAxisAlignment.center,
                                                     children: [
-                                                      Text(
-                                                        '${line.baseDutyRate}%',
-                                                        style: const TextStyle(decoration: TextDecoration.lineThrough, color: AppTheme.textMuted, fontSize: 11),
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                      Text(
-                                                        '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})',
-                                                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  InkWell(
-                                                    onTap: (line.itemKey != null && line.isAgreementEligible)
-                                                        ? () {
-                                                            setState(() {
-                                                              _lineExemptionOverrides[line.itemKey!] = false;
-                                                            });
-                                                          }
-                                                        : null,
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    child: Container(
-                                                      margin: const EdgeInsets.only(top: 2),
-                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                                      decoration: BoxDecoration(
-                                                        color: AppTheme.emeraldLight,
-                                                        borderRadius: BorderRadius.circular(4),
-                                                        border: Border.all(color: AppTheme.emeraldBorder),
-                                                      ),
-                                                      child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          Text(
-                                                            '${line.appliedAgreementName ?? (context.l10n.ccExemption)} ✔',
+                                                      if (line.hasExemption) ...[
+                                                        Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Text(
+                                                              '${line.baseDutyRate}%',
+                                                              style: const TextStyle(decoration: TextDecoration.lineThrough, color: AppTheme.textMuted, fontSize: 11),
+                                                            ),
+                                                            const SizedBox(width: 4),
+                                                            Text(
+                                                              '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})',
+                                                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        Container(
+                                                          margin: const EdgeInsets.only(top: 2),
+                                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                          decoration: BoxDecoration(
+                                                            color: AppTheme.emeraldLight,
+                                                            borderRadius: BorderRadius.circular(4),
+                                                            border: Border.all(color: AppTheme.emeraldBorder),
+                                                          ),
+                                                          child: Text(
+                                                            line.appliedAgreementName ?? (context.l10n.ccExemption),
                                                             style: const TextStyle(fontSize: 9.5, color: AppTheme.wcagEmerald, fontWeight: FontWeight.bold),
                                                           ),
-                                                          if (line.itemKey != null && line.isAgreementEligible) ...[
-                                                            const SizedBox(width: 3),
-                                                            const Icon(Icons.close, size: 10, color: AppTheme.wcagEmerald),
-                                                          ],
-                                                        ],
-                                                      ),
-                                                    ),
+                                                        ),
+                                                      ] else ...[
+                                                        Text('${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})'),
+                                                      ],
+                                                    ],
                                                   ),
-                                                ] else if (line.isAgreementEligible && line.itemKey != null) ...[
-                                                  Text('${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})'),
-                                                  InkWell(
-                                                    onTap: () {
-                                                      setState(() {
-                                                        _lineExemptionOverrides[line.itemKey!] = true;
-                                                      });
-                                                    },
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    child: Container(
-                                                      margin: const EdgeInsets.only(top: 2),
-                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                                      decoration: BoxDecoration(
-                                                        color: AppTheme.orange.withOpacity(0.12),
-                                                        borderRadius: BorderRadius.circular(4),
-                                                        border: Border.all(color: AppTheme.orange),
+                                          ),
+                                        ),
+                                        DataCell(
+                                          CopyableTableCell(
+                                            value: !line.isCalculated
+                                                ? '—'
+                                                : '${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} $egpLabel)',
+                                            rowSummary: rowSummary,
+                                            child: !line.isCalculated
+                                                ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
+                                                : Text('${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)})'),
+                                          ),
+                                        ),
+                                        DataCell(
+                                          CopyableTableCell(
+                                            value: !line.isCalculated
+                                                ? '—'
+                                                : '${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} $egpLabel',
+                                            rowSummary: rowSummary,
+                                            child: !line.isCalculated
+                                                ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
+                                                : Text('${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} $egpLabel'),
+                                          ),
+                                        ),
+                                        DataCell(
+                                          CopyableTableCell(
+                                            value: !line.isCalculated
+                                                ? '—'
+                                                : '${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel',
+                                            rowSummary: rowSummary,
+                                            child: !line.isCalculated
+                                                ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
+                                                : Text('${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)),
+                                          ),
+                                        ),
+                                        DataCell(
+                                          line.isTariffMissing
+                                              ? const TariffMissingBadge()
+                                              : !line.isCalculated
+                                                  ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
+                                                  : Row(
+                                                  children: [
+                                                    if (line.requiresAcid)
+                                                      Container(
+                                                        margin: const EdgeInsetsDirectional.only(start: 4),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                        decoration: BoxDecoration(color: AppTheme.cobaltBorder, borderRadius: BorderRadius.circular(4)),
+                                                        child: Text(context.l10n.ccACID, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                                       ),
-                                                      child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          const Icon(Icons.check_circle_outline, size: 10, color: AppTheme.orange),
-                                                          const SizedBox(width: 3),
-                                                          Text(
-                                                            'مؤهل (${line.appliedAgreementName}) — تطبيق؟',
-                                                            style: const TextStyle(fontSize: 9.5, color: AppTheme.orange, fontWeight: FontWeight.bold),
-                                                          ),
-                                                        ],
+                                                    if (line.requiresCoo)
+                                                      Container(
+                                                        margin: const EdgeInsetsDirectional.only(start: 4),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                        decoration: BoxDecoration(color: AppTheme.emeraldBorder, borderRadius: BorderRadius.circular(4)),
+                                                        child: Text(context.l10n.ccCOO, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                                                       ),
-                                                    ),
-                                                  ),
-                                                ] else ...[
-                                                  Text('${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})'),
-                                                ],
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: '${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} $egpLabel)',
-                                            rowSummary: rowSummary,
-                                            child: Text('${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)})'),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: '${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} $egpLabel',
-                                            rowSummary: rowSummary,
-                                            child: Text('${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} $egpLabel'),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: '${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel',
-                                            rowSummary: rowSummary,
-                                            child: Text('${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Row(
-                                            children: [
-                                              if (line.requiresAcid)
-                                                Container(
-                                                  margin: const EdgeInsetsDirectional.only(start: 4),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                  decoration: BoxDecoration(color: AppTheme.cobaltBorder, borderRadius: BorderRadius.circular(4)),
-                                                  child: Text(context.l10n.ccACID, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                    if (line.requiresInspection)
+                                                      Container(
+                                                        margin: const EdgeInsetsDirectional.only(start: 4),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                        decoration: BoxDecoration(color: AppTheme.orangeLight, borderRadius: BorderRadius.circular(4)),
+                                                        child: Text(context.l10n.ccGOEIC, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.orange)),
+                                                      ),
+                                                    if (line.regulatoryAuthority != null)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                        decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4)),
+                                                        child: Text(line.regulatoryAuthority!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                      ),
+                                                  ],
                                                 ),
-                                              if (line.requiresCoo)
-                                                Container(
-                                                  margin: const EdgeInsetsDirectional.only(start: 4),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                  decoration: BoxDecoration(color: AppTheme.emeraldBorder, borderRadius: BorderRadius.circular(4)),
-                                                  child: Text(context.l10n.ccCOO, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
-                                                ),
-                                              if (line.requiresInspection)
-                                                Container(
-                                                  margin: const EdgeInsetsDirectional.only(start: 4),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                  decoration: BoxDecoration(color: AppTheme.orangeLight, borderRadius: BorderRadius.circular(4)),
-                                                  child: Text(context.l10n.ccGOEIC, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.orange)),
-                                                ),
-                                              if (line.regulatoryAuthority != null)
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                  decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4)),
-                                                  child: Text(line.regulatoryAuthority!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                                ),
-                                            ],
-                                          ),
                                         ),
                                       ],
                                     );
@@ -3498,18 +3488,28 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     ),
                                     ConsultationMetricBadge(title: l.customsDutyCol, value: '${totalDutyEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.cobalt),
                                     ConsultationMetricBadge(title: l.vatCol, value: '${totalVatEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.emerald),
-                                    ConsultationMetricBadge(title: l.totalTaxesAndDutiesCol, value: '${totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.crimson),
+                                    ConsultationMetricBadge(title: l.totalTaxesAndDutiesCol, value: '${(_engineGrandTotal ?? totalTaxesAndDutiesEgp).toStringAsFixed(2)} $egpLabel', color: AppTheme.crimson),
+                                     if (_isEstimatingDuty)
+                                       const Padding(
+                                         padding: EdgeInsets.symmetric(horizontal: 8),
+                                         child: SizedBox(
+                                           width: 20,
+                                           height: 20,
+                                           child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.cobalt),
+                                         ),
+                                       ),
                                     AppButton(
                                       label: l.applyAndLinkFinancialEstimate,
                                       icon: Icons.done_all,
                                       variant: AppButtonVariant.success,
                                       size: AppButtonSize.small,
                                       onPressed: () {
+                                        final appliedValue = _engineGrandTotal ?? totalTaxesAndDutiesEgp;
                                         setState(() {
-                                          _estimatedDutiesController.text = totalTaxesAndDutiesEgp.toStringAsFixed(2);
+                                          _estimatedDutiesController.text = appliedValue.toStringAsFixed(2);
                                         });
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('✅ ${l.applyAndLinkFinancialEstimate}: ${totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel'), backgroundColor: AppTheme.emerald),
+                                          SnackBar(content: Text('✅ ${l.applyAndLinkFinancialEstimate}: ${appliedValue.toStringAsFixed(2)} $egpLabel'), backgroundColor: AppTheme.emerald),
                                         );
                                       },
                                     ),
@@ -3524,7 +3524,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 totalScheduleTaxEgp: calcLines.fold(0.0, (s, l) => s + l.scheduleTaxAmountEgp),
                                 totalFreightEgp: totalFreightEgp,
                                 totalInsuranceEgp: totalInsuranceEgp,
-                                exchangeRate: exchangeRate,
+                                exchangeRate: exchangeRate ?? 0.0,
                                 editingConsultationId: _editingConsultationId,
                                 editingConsultationCode: _editingConsultationCode,
                                 selectedBrokerId: _selectedBrokerId,

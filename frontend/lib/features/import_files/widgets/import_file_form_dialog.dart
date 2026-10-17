@@ -25,6 +25,7 @@ import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/models/guide_entry_model.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/widgets/unsaved_changes_guard.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 
 class ImportFileFormDialog extends ConsumerStatefulWidget {
@@ -465,6 +466,67 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     }
   }
 
+  List<String> get _currentHsCodes {
+    return _hsCodeController.text
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
+  void _removeHsCode(String code) {
+    final list = _currentHsCodes;
+    list.remove(code);
+    setState(() {
+      _hsCodeController.text = list.join(', ');
+      _markDirty();
+    });
+  }
+
+  void _showAddHsCodeDialog(BuildContext context, bool isArabic) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(isArabic ? 'إضافة بند جمركي إضافي (HS Code)' : 'Add Additional HS Code'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textDirection: TextDirection.ltr,
+          decoration: InputDecoration(
+            labelText: isArabic ? 'كود البند الجمركي' : 'HS Code',
+            hintText: isArabic ? 'مثال: 84158200' : 'e.g. 84158200',
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newCode = ctrl.text.trim();
+              if (newCode.isNotEmpty) {
+                setState(() {
+                  final current = _hsCodeController.text.trim();
+                  if (current.isEmpty) {
+                    _hsCodeController.text = newCode;
+                  } else {
+                    _hsCodeController.text = '$current, $newCode';
+                  }
+                  _markDirty();
+                });
+              }
+              Navigator.pop(ctx);
+            },
+            child: Text(isArabic ? 'إضافة' : 'Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -521,7 +583,15 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _customFileIdController,
-                        decoration: InputDecoration(labelText: '${l.importFileIdLabel} *', border: const OutlineInputBorder()),
+                        decoration: InputDecoration(
+                          labelText: '${l.importFileIdLabel} *',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            tooltip: isArabic ? 'نسخ رقم الملف' : 'Copy File No',
+                            onPressed: () => CopyHelper.copy(context, _customFileIdController.text),
+                          ),
+                        ),
                         validator: (v) => (v == null || v.trim().isEmpty) ? l.importFileIdLabel : null,
                       ),
                     ),
@@ -616,14 +686,30 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _poNoController,
-                        decoration: InputDecoration(labelText: '${l.purchaseOrder} *', border: const OutlineInputBorder()),
+                        decoration: InputDecoration(
+                          labelText: '${l.purchaseOrder} *',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            tooltip: isArabic ? 'نسخ أمر الشراء' : 'Copy PO No',
+                            onPressed: () => CopyHelper.copy(context, _poNoController.text),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: _piNoController,
-                        decoration: InputDecoration(labelText: '${l.poInvoiceLabel} *', border: const OutlineInputBorder()),
+                        decoration: InputDecoration(
+                          labelText: '${l.poInvoiceLabel} *',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            tooltip: isArabic ? 'نسخ الفاتورة المبدئية' : 'Copy PI No',
+                            onPressed: () => CopyHelper.copy(context, _piNoController.text),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -635,27 +721,76 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _hsCodeController,
-                        textDirection: TextDirection.ltr,
-                        decoration: InputDecoration(
-                          labelText: l.guideHsCode,
-                          hintText: isArabic ? 'مثال: 8520' : 'e.g. 8520',
-                          prefixIcon: const Icon(Icons.inventory_2_outlined, color: AppTheme.cobalt, size: 20),
-                          border: const OutlineInputBorder(),
-                          suffixIcon: _isMatchingGuide
-                              ? const Padding(
-                                  padding: EdgeInsets.all(10),
-                                  child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-                                )
-                              : IconButton(
-                                  icon: const Icon(Icons.search, color: AppTheme.cobalt),
-                                  tooltip: l.guideMatchButton,
-                                  onPressed: _matchGuide,
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _hsCodeController,
+                                  textDirection: TextDirection.ltr,
+                                  decoration: InputDecoration(
+                                    labelText: l.guideHsCode,
+                                    hintText: isArabic ? 'مثال: 8520, 8415' : 'e.g. 8520, 8415',
+                                    prefixIcon: const Icon(Icons.inventory_2_outlined, color: AppTheme.cobalt, size: 20),
+                                    border: const OutlineInputBorder(),
+                                    suffixIcon: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (_isMatchingGuide)
+                                          const Padding(
+                                            padding: EdgeInsets.all(10),
+                                            child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                                          )
+                                        else ...[
+                                          IconButton(
+                                            icon: const Icon(Icons.search, color: AppTheme.cobalt, size: 18),
+                                            tooltip: l.guideMatchButton,
+                                            onPressed: _matchGuide,
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.copy_rounded, color: Colors.grey, size: 18),
+                                            tooltip: isArabic ? 'نسخ البند الجمركي' : 'Copy HS Code',
+                                            onPressed: () => CopyHelper.copy(context, _hsCodeController.text),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  onFieldSubmitted: (_) => _matchGuide(),
                                 ),
-                        ),
-                        onFieldSubmitted: (_) => _matchGuide(),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
+                                  foregroundColor: AppTheme.cobalt,
+                                  side: const BorderSide(color: AppTheme.cobalt),
+                                ),
+                                icon: const Icon(Icons.add, size: 16),
+                                label: Text(isArabic ? '+ بند جمركي' : '+ HS Code', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                onPressed: () => _showAddHsCodeDialog(context, isArabic),
+                              ),
+                            ],
+                          ),
+                          if (_currentHsCodes.length > 1) ...[
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: _currentHsCodes.map((code) => Chip(
+                                label: Text(code, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                deleteIcon: const Icon(Icons.close, size: 14),
+                                onDeleted: () => _removeHsCode(code),
+                                backgroundColor: AppTheme.cobalt.withOpacity(0.08),
+                                padding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                              )).toList(),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -668,6 +803,11 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                           hintText: isArabic ? 'مثال: إلكترونيات صوتية' : 'e.g. Audio Electronics',
                           prefixIcon: const Icon(Icons.category_outlined, color: AppTheme.cobalt, size: 20),
                           border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            tooltip: isArabic ? 'نسخ التصنيف' : 'Copy Category',
+                            onPressed: () => CopyHelper.copy(context, _productCategoryController.text),
+                          ),
                         ),
                       ),
                     ),
@@ -1255,7 +1395,15 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                 TextFormField(
                   controller: _notesController,
                   maxLines: 2,
-                  decoration: InputDecoration(labelText: l.notes, border: const OutlineInputBorder()),
+                  decoration: InputDecoration(
+                    labelText: l.notes,
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 16),
+                      tooltip: isArabic ? 'نسخ الملاحظات' : 'Copy Notes',
+                      onPressed: () => CopyHelper.copy(context, _notesController.text),
+                    ),
+                  ),
                 ),
               ],
             ),

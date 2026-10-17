@@ -636,6 +636,7 @@ class ClearanceFinalReleaseFallbackDialog extends ConsumerStatefulWidget {
 
 class _ClearanceFinalReleaseFallbackDialogState
     extends ConsumerState<ClearanceFinalReleaseFallbackDialog> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _releaseNoCtrl = TextEditingController();
   late DateTime _releaseDate;
   bool _isLoading = false;
@@ -643,7 +644,7 @@ class _ClearanceFinalReleaseFallbackDialogState
   @override
   void initState() {
     super.initState();
-    _releaseNoCtrl.text = widget.record.releasePermitNo ?? 'REL-${widget.record.clearanceCode}';
+    _releaseNoCtrl.text = widget.record.releasePermitNo ?? '';
     final stored = widget.record.releaseDate != null ? DateTime.tryParse(widget.record.releaseDate!) : null;
     _releaseDate = stored ?? DateTime.now();
   }
@@ -655,6 +656,8 @@ class _ClearanceFinalReleaseFallbackDialogState
   }
 
   Future<void> _submit(AppLocalizations l) async {
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -697,33 +700,41 @@ class _ClearanceFinalReleaseFallbackDialogState
       content: SelectionArea(
         child: SizedBox(
           width: (MediaQuery.of(context).size.width - 32).clamp(320.0, 500.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l.customsClearanceFinalReleaseDialogDesc,
-                style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _releaseNoCtrl,
-                textDirection: TextDirection.ltr,
-                decoration: InputDecoration(
-                  labelText: l.customsClearanceReleasePermitInput,
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                  suffixIcon: _copyIcon(context, _releaseNoCtrl),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.customsClearanceFinalReleaseDialogDesc,
+                  style: TextStyle(color: AppTheme.textSecondaryOf(context), fontSize: 13),
                 ),
-              ),
-              const SizedBox(height: 12),
-              CcDateField(
-                key: const Key('ccReleaseDateField'),
-                label: l.ccReleaseDateLabel,
-                value: _releaseDate,
-                onChanged: (d) => setState(() => _releaseDate = d),
-              ),
-            ],
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _releaseNoCtrl,
+                  textDirection: TextDirection.ltr,
+                  decoration: InputDecoration(
+                    labelText: l.customsClearanceReleasePermitInput,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    suffixIcon: _copyIcon(context, _releaseNoCtrl),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return l.ccRelPermitRequired;
+                    if (v.trim().length < 3) return l.ccRelPermitTooShort;
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                CcDateField(
+                  key: const Key('ccReleaseDateField'),
+                  label: l.ccReleaseDateLabel,
+                  value: _releaseDate,
+                  onChanged: (d) => setState(() => _releaseDate = d),
+                ),
+              ],
+            ),
           ),
         ),
       ),

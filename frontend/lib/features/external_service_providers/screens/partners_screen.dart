@@ -574,96 +574,74 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                   message: l10n.partnerStatementOfAccountTooltip,
                                                   child: InkWell(
                                                     onTap: () => PartnerStatementOfAccountDialog.show(context, partner),
-                                                    borderRadius: BorderRadius.circular(6),
+                                                    borderRadius: BorderRadius.circular(5),
                                                     child: Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                                      margin: const EdgeInsetsDirectional.only(end: 6),
+                                                      width: 26,
+                                                      height: 26,
+                                                      margin: const EdgeInsetsDirectional.only(end: 4),
                                                       decoration: BoxDecoration(
                                                         color: AppTheme.cobalt.withValues(alpha: 0.12),
                                                         borderRadius: BorderRadius.circular(6),
                                                         border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                                       ),
-                                                      child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          const Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
-                                                          const SizedBox(width: 4),
-                                                          Text(
-                                                            l10n.partnerStatementOfAccountBtn,
-                                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                                          ),
-                                                        ],
+                                                      child: const Center(
+                                                        child: Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
                                                 if (partner.providerId != null) ...[
-                                                    const SizedBox(width: 6),
-                                                    Tooltip(
-                                                      message: l10n.partnerScorecardTooltip,
-                                                      child: InkWell(
-                                                        onTap: () => showPartnerScorecardDialog(
-                                                          context,
-                                                          ref,
-                                                          providerId: partner.providerId!,
-                                                          providerName: partner.partnerName,
-                                                          providerType: partner.partnerType,
-                                                        ),
-                                                        borderRadius: BorderRadius.circular(6),
-                                                        child: Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.amber.shade50,
-                                                            borderRadius: BorderRadius.circular(6),
-                                                            border: Border.all(color: Colors.amber.shade600),
-                                                          ),
-                                                          child: Row(
-                                                            mainAxisSize: MainAxisSize.min,
-                                                            children: [
-                                                              Icon(Icons.workspace_premium_outlined, size: 14, color: Colors.amber.shade800),
-                                                              const SizedBox(width: 4),
-                                                              Text(
-                                                                l10n.partnerScorecardBtn,
-                                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                  ],
                                                   Tooltip(
-                                                    message: l10n.partnerCopySummaryBtn,
+                                                    message: l10n.partnerScorecardTooltip,
                                                     child: InkWell(
-                                                      onTap: () => CopyHelper.copy(
+                                                      onTap: () => showPartnerScorecardDialog(
                                                         context,
-                                                        _buildPartnerSummary(context, partner),
-                                                        customMessage: l10n.partnerCopySummarySuccess,
+                                                        ref,
+                                                        providerId: partner.providerId!,
+                                                        providerName: partner.partnerName,
+                                                        providerType: partner.partnerType,
                                                       ),
-                                                      borderRadius: BorderRadius.circular(6),
+                                                      borderRadius: BorderRadius.circular(5),
                                                       child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                                        margin: const EdgeInsetsDirectional.only(end: 6),
+                                                        width: 26,
+                                                        height: 26,
+                                                        margin: const EdgeInsetsDirectional.only(end: 4),
                                                         decoration: BoxDecoration(
                                                           color: AppTheme.emerald.withValues(alpha: 0.12),
                                                           borderRadius: BorderRadius.circular(6),
                                                           border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
                                                         ),
-                                                        child: Row(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          children: [
-                                                            const Icon(Icons.copy_all_rounded, size: 14, color: AppTheme.emerald),
-                                                            const SizedBox(width: 4),
-                                                            Text(
-                                                              l10n.partnerCopySummaryBtn,
-                                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                                                            ),
-                                                          ],
+                                                        child: Center(
+                                                          child: Icon(Icons.workspace_premium_outlined, size: 14, color: Colors.amber.shade800),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
+                                                ],
+                                                Tooltip(
+                                                  message: l10n.partnerCopySummaryBtn,
+                                                  child: InkWell(
+                                                    onTap: () => CopyHelper.copy(
+                                                      context,
+                                                      _buildPartnerSummary(context, partner),
+                                                      customMessage: l10n.partnerCopySummarySuccess,
+                                                    ),
+                                                    borderRadius: BorderRadius.circular(5),
+                                                    child: Container(
+                                                      width: 26,
+                                                      height: 26,
+                                                      margin: const EdgeInsetsDirectional.only(end: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.emerald.withOpacity(0.12),
+                                                        borderRadius: BorderRadius.circular(5),
+                                                        border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                                                      ),
+                                                      child: const Center(
+                                                        child: Icon(Icons.copy_all_rounded, size: 14, color: AppTheme.emerald),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
                                                   RowActionsPill(
                                                   onView: () => PartnerDetailsDialog.show(
                                                     context,
@@ -1247,7 +1225,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
     final Set<String> selectedCategories = partnerToEdit != null
         ? partnerToEdit.categoriesList.toSet()
-        : {'Customs Broker'};
+        : <String>{};
 
     final nameCtrl = TextEditingController(text: partnerToEdit?.partnerName ?? '');
     final taxIdCtrl = TextEditingController(text: partnerToEdit?.taxId ?? '');
@@ -1261,13 +1239,17 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     final insuranceCoverageCtrl = TextEditingController(text: partnerToEdit?.insuranceCoverageTypes ?? '');
     final scacCtrl = TextEditingController(text: partnerToEdit?.scacCode ?? '');
     final defaultFreeDaysCtrl = TextEditingController(
-      text: partnerToEdit?.defaultFreeDays != null ? partnerToEdit!.defaultFreeDays.toString() : '14',
+      text: partnerToEdit?.defaultFreeDays != null ? partnerToEdit!.defaultFreeDays.toString() : '',
+    );
+    final paymentTermsCtrl = TextEditingController(text: partnerToEdit?.paymentTerms ?? '');
+    final creditLimitCtrl = TextEditingController(
+      text: partnerToEdit?.creditLimit != null ? partnerToEdit!.creditLimit.toString() : '',
     );
     final trackingCtrl = TextEditingController(text: partnerToEdit?.trackingUrl ?? '');
     final fiataCtrl = TextEditingController(text: partnerToEdit?.fiataId ?? '');
     final shippingModesCtrl = TextEditingController(text: partnerToEdit?.shippingModes ?? '');
     final supportedCurrenciesCtrl = TextEditingController(
-      text: partnerToEdit?.supportedCurrencies ?? (partnerToEdit != null ? '' : 'USD, EUR, EGP'),
+      text: partnerToEdit?.supportedCurrencies ?? '',
     );
     final accreditationCtrl = TextEditingController(text: partnerToEdit?.inspectionAccreditationNumber ?? '');
     final inspectionScopeCtrl = TextEditingController(text: partnerToEdit?.inspectionScope ?? '');
@@ -1281,7 +1263,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     final secondaryEmailCtrl = TextEditingController(text: partnerToEdit?.secondaryEmail ?? '');
     final websiteCtrl = TextEditingController(text: partnerToEdit?.website ?? '');
     final addressCtrl = TextEditingController(text: partnerToEdit?.address ?? '');
-    final countryCtrl = TextEditingController(text: partnerToEdit?.country ?? 'Egypt');
+    final countryCtrl = TextEditingController(text: partnerToEdit?.country ?? '');
 
     bool isSubmitting = false;
 
@@ -1618,6 +1600,47 @@ suffixIcon: buildCopySuffix(branchCtrl),
                                         icon: Icons.alt_route_rounded,
                                         hint: l10n.shippingModesHint,
                                       ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: CustomTextField(
+                                              controller: defaultFreeDaysCtrl,
+                                              suffixIcon: buildCopySuffix(defaultFreeDaysCtrl),
+                                              label: '${l10n.defaultFreeDaysLabel} (إلزامي)',
+                                              icon: Icons.timer_outlined,
+                                              isRequired: true,
+                                              keyboardType: TextInputType.number,
+                                              hint: l10n.defaultFreeDaysHint,
+                                              validator: (val) {
+                                                if (val == null || val.trim().isEmpty) return l10n.fieldRequired;
+                                                final parsed = int.tryParse(val.trim());
+                                                if (parsed == null || parsed < 0) return l10n.defaultFreeDaysHint;
+                                                return null;
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: CustomTextField(
+                                              controller: paymentTermsCtrl,
+                                              suffixIcon: buildCopySuffix(paymentTermsCtrl),
+                                              label: l10n.paymentTermsDetailLabel,
+                                              icon: Icons.credit_score_rounded,
+                                              hint: 'e.g. Net 30, 14 Days',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: creditLimitCtrl,
+                                        suffixIcon: buildCopySuffix(creditLimitCtrl),
+                                        label: l10n.creditLimitDetailLabel,
+                                        icon: Icons.monetization_on_outlined,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        hint: '0.00',
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -1920,7 +1943,9 @@ suffixIcon: buildCopySuffix(countryCtrl),
                                 insuranceCoverageTypes: isInsuranceCompany ? (insuranceCoverageCtrl.text.trim().isEmpty ? null : insuranceCoverageCtrl.text.trim()) : null,
                                 scacCode: scacCtrl.text.trim().isEmpty ? null : scacCtrl.text.trim(),
                                 trackingUrl: trackingCtrl.text.trim().isEmpty ? null : trackingCtrl.text.trim(),
-                                defaultFreeDays: isShippingLine ? (int.tryParse(defaultFreeDaysCtrl.text.trim()) ?? 14) : null,
+                                defaultFreeDays: (isShippingLine || isFreightForwarder) ? int.tryParse(defaultFreeDaysCtrl.text.trim()) : null,
+                                paymentTerms: paymentTermsCtrl.text.trim().isEmpty ? null : paymentTermsCtrl.text.trim(),
+                                creditLimit: double.tryParse(creditLimitCtrl.text.trim()) ?? (partnerToEdit?.creditLimit ?? 0.0),
                                 fiataId: isFreightForwarder ? (fiataCtrl.text.trim().isEmpty ? null : fiataCtrl.text.trim()) : null,
                                 shippingModes: isFreightForwarder ? (shippingModesCtrl.text.trim().isEmpty ? null : shippingModesCtrl.text.trim()) : null,
                                 supportedCurrencies: isFreightForwarder ? (supportedCurrenciesCtrl.text.trim().isEmpty ? null : supportedCurrenciesCtrl.text.trim()) : null,

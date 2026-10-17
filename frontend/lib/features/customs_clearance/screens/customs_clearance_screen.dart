@@ -19,6 +19,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
 import '../widgets/clearance_card.dart';
+import '../widgets/clearance_details_dialog.dart';
 import '../widgets/clearance_expenses_dialog.dart';
 import '../widgets/clearance_screen_dialogs.dart';
 import '../widgets/customs_broker_authorization_dialog.dart';
@@ -32,6 +33,7 @@ import '../widgets/discrepancy_and_damage_tab.dart';
 import '../widgets/drawing_samples_and_shortage_tab.dart';
 import '../widgets/final_duty_assessment_dialog.dart';
 import '../widgets/final_duty_payment_tab.dart';
+import '../widgets/import_file_picker_dialog.dart';
 import '../widgets/search_and_clone_customs_clearance_dialog.dart';
 import '../widgets/under_bond_release_dialog.dart';
 
@@ -54,9 +56,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   String _selectedStatusFilter = 'All';
   int _selectedTab = 0;
 
-  // Local state for sample drawing items & discrepancy protocols (Clean Production - 0 records)
-  final List<Map<String, dynamic>> _drawnSamples = [];
-  final List<Map<String, dynamic>> _shortageProtocols = [];
+  // Local state for discrepancy protocols (Clean Production - 0 records)
   final List<Map<String, dynamic>> _discrepancyProtocols = [];
   GuideMatchResultModel? _clearanceGuideMatchResult;
 
@@ -94,28 +94,19 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   }
 
   Future<void> _loadClearanceGuide(int? fileId) async {
-    final files = ref.read(importFilesProvider).valueOrNull ?? [];
-    dynamic file;
-    if (fileId != null) {
-      file = files.where((f) => f.importFileId == fileId).firstOrNull;
-    } else if (files.isNotEmpty) {
-      file = files.first;
+    if (fileId == null) {
+      if (mounted) setState(() => _clearanceGuideMatchResult = null);
+      return;
     }
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
+    final file = files.where((f) => f.importFileId == fileId).firstOrNull;
     if (file == null) {
       if (mounted) setState(() => _clearanceGuideMatchResult = null);
       return;
     }
 
     try {
-      final res = await ref.read(experienceGuideProvider.notifier).matchShipment(
-            supplier: file.supplierName,
-            hsCode: file.hsCode,
-            productCategory: file.productCategory,
-            portOfLoading: file.portOfLoading,
-            portOfDischarge: file.portOfDischarge,
-            incoterm: file.incotermCode,
-            importFileReference: file.importFileCode,
-          );
+      final res = await ref.read(experienceGuideProvider.notifier).matchImportFile(file);
       if (mounted) {
         setState(() => _clearanceGuideMatchResult = res);
       }
@@ -276,9 +267,9 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         l.status,
       ];
 
-  List<String> _tableRow(CustomsClearanceModel r, List<ImportFileModel> files, bool isAr) {
+  List<String> _tableRow(CustomsClearanceModel r, List<ImportFileModel> files, AppLocalizations l) {
     final rawCode = 'IMP-${r.importFileId}';
-    final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: files, isArabic: isAr);
+    final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: files, isArabic: l.isArabic);
     final actual = CcFormat.fixed(r.effectiveDutyTotal);
     final est = CcFormat.fixed(r.estimatedDutyTotal);
     final variance = CcFormat.signedFixed(r.dutyVarianceAmount);
@@ -287,13 +278,13 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       shipTitle,
       r.declaration46No ?? '-',
       r.customsOfficeName,
-      r.channelType,
+      CcUi.channelStyle(l, r.channelType).label,
       r.deliveryOrderNumber ?? '-',
       actual,
       est,
       variance,
-      r.paymentStatus,
-      r.status,
+      CcStatus.isPaid(r) ? l.customsClearanceStatusPaid : l.customsClearanceStatusPendingPayment,
+      CcUi.statusStyle(l, r.status).label,
     ];
   }
 
@@ -301,7 +292,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     final files = ref.read(importFilesProvider).valueOrNull ?? [];
     TableCopyHelper.copyRow(
       context,
-      _tableRow(record, files, l.isArabic),
+      _tableRow(record, files, l),
       headers: _tableHeaders(l),
       includeHeaders: true,
       customMessage: l.copyCustomsClearanceRowSuccess,
@@ -314,7 +305,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     TableCopyHelper.copyTable(
       context,
       _tableHeaders(l),
-      records.map((r) => _tableRow(r, files, l.isArabic)).toList(),
+      records.map((r) => _tableRow(r, files, l)).toList(),
       customMessage: l.copyCustomsClearanceTableSuccess,
     );
   }
@@ -326,7 +317,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       stageName: 'Customs Clearance',
       importFileNameOrCode: 'Registry',
       headers: _tableHeaders(l),
-      rows: records.map((r) => _tableRow(r, files, l.isArabic)).toList(),
+      rows: records.map((r) => _tableRow(r, files, l)).toList(),
     );
   }
 
@@ -345,7 +336,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     ];
 
     final rows = records.map((r) {
-      final row = _tableRow(r, files, l.isArabic);
+      final row = _tableRow(r, files, l);
       // PDF keeps the compact column set (no estimated / variance columns).
       return [...row.sublist(0, 7), row[9], row[10]];
     }).toList();
@@ -361,8 +352,8 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         subtitle: l.ccExportRegistrySubtitle,
         metadata: {
           l.ccExportMetaTotal: records.length.toString(),
-          l.ccExportMetaPaid: records.where((r) => r.paymentStatus == 'Paid & Verified').length.toString(),
-          l.ccExportMetaRelease: records.where((r) => r.status == 'Final Release Granted').length.toString(),
+          l.ccExportMetaPaid: records.where((r) => CcStatus.isPaid(r)).length.toString(),
+          l.ccExportMetaRelease: records.where((r) => CcStatus.isReleased(r)).length.toString(),
         },
       ),
     );
@@ -418,7 +409,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
 
   /// Resolves the shipment a header stage button works on, or tells the user
   /// that no shipment file is registered.
-  void _openStage(void Function(ImportFileModel file) open) {
+  Future<void> _openStage(void Function(ImportFileModel file) open) async {
     final files = ref.read(importFilesProvider).valueOrNull ?? [];
     if (files.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -426,13 +417,36 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       );
       return;
     }
-    final targetFile = widget.initialImportFileId != null
-        ? files.firstWhere(
-            (f) => f.importFileId == widget.initialImportFileId,
-            orElse: () => files.first,
-          )
-        : files.first;
+    ImportFileModel? targetFile;
+    if (widget.initialImportFileId != null) {
+      targetFile = files.where((f) => f.importFileId == widget.initialImportFileId).firstOrNull;
+    }
+    if (targetFile == null) {
+      targetFile = await showImportFilePickerDialog(
+        context,
+        ref,
+        title: context.l10n.importFilePickerTitle,
+      );
+      if (targetFile == null) return;
+    }
+    if (!mounted) return;
     open(targetFile);
+  }
+
+  void _openRecordStage(CustomsClearanceModel record, void Function(ImportFileModel file) open) {
+    final files = ref.read(importFilesProvider).valueOrNull ?? [];
+    final file = files.where((f) => f.importFileId == record.importFileId).firstOrNull;
+    if (file == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(
+          context,
+          context.l10n.ccRecordFileNotFound,
+          severity: AppSeverity.warning,
+        ),
+      );
+      return;
+    }
+    open(file);
   }
 
   Widget _stageButton({
@@ -490,7 +504,11 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         keyName: 'customsInspectionSamplingScreenBtn',
         icon: Icons.biotech_rounded,
         label: l.ccStageInspection,
-        open: (f) => CustomsInspectionSamplingDialog.show(context, f),
+        open: (f) {
+          final records = ref.read(customsClearanceProvider).valueOrNull ?? [];
+          final record = records.where((r) => r.importFileId == f.importFileId).firstOrNull;
+          CustomsInspectionSamplingDialog.show(context, f, clearanceRecord: record);
+        },
       ),
       _stageButton(
         keyName: 'finalDutyAssessmentScreenBtn',
@@ -603,10 +621,10 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
 
   /// Counts straight from the loaded records (no extra calls, no new math).
   List<MetricCardData> _metricsFor(List<CustomsClearanceModel> records, AppLocalizations l) {
-    final assessed = records.where((r) => (r.actualDutyTotal ?? 0) > 0).length;
-    final paid = records.where((r) => r.paymentStatus == 'Paid & Verified').length;
-    final outstanding = records.where((r) => r.paymentStatus != 'Paid & Verified').length;
-    final released = records.where((r) => r.status == 'Final Release Granted').length;
+    final assessed = records.where((r) => CcStatus.isAssessed(r)).length;
+    final paid = records.where((r) => CcStatus.isPaid(r)).length;
+    final outstanding = records.where((r) => !CcStatus.isPaid(r)).length;
+    final released = records.where((r) => CcStatus.isReleased(r)).length;
     return [
       MetricCardData(
         title: l.ccMetricAssessed,
@@ -666,9 +684,15 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                   items: [
                     SearchableDropdownItem(value: 'All', label: l.customsClearanceFilterAll),
                     SearchableDropdownItem(value: 'Inspection In Progress', label: l.customsClearanceFilterInspection),
+                    SearchableDropdownItem(value: 'Inspection & Sampling Recorded', label: l.customsClearanceStatusInspectionRecorded),
                     SearchableDropdownItem(value: 'Duty Requested', label: l.customsClearanceFilterDutyRequested),
+                    SearchableDropdownItem(value: 'Customs Duties Assessed - Ready for Payment', label: l.customsClearanceStatusDutiesAssessed),
                     SearchableDropdownItem(value: 'Duty Paid', label: l.customsClearanceFilterDutyPaid),
+                    SearchableDropdownItem(value: 'Duty Paid - Ready for Final Release', label: l.customsClearanceStatusDutyPaidReady),
+                    SearchableDropdownItem(value: 'Under Bond Released', label: l.customsClearanceStatusUnderBondReleased),
+                    SearchableDropdownItem(value: 'Lab Non-Conforming - Rejected', label: l.customsClearanceStatusLabRejected),
                     SearchableDropdownItem(value: 'Final Release Granted', label: l.customsClearanceFilterFinalRelease),
+                    SearchableDropdownItem(value: 'Invoices Logged & Verified', label: l.customsClearanceStatusInvoicesVerified),
                   ],
                   onChanged: (val) {
                     if (val != null) setState(() => _selectedStatusFilter = val);
@@ -761,6 +785,19 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             key: ValueKey('clearanceCard_${record.clearanceCode}'),
             record: record,
             actions: ClearanceCardActions(
+              onView: () => _showClearanceDetails(record),
+              onBrokerAuth: () => _openRecordStage(
+                record,
+                (f) => CustomsBrokerAuthorizationDialog.show(context, f),
+              ),
+              onDeliveryOrder: () => _openRecordStage(
+                record,
+                (f) => DeliveryOrderPaymentDialog.show(context, f),
+              ),
+              onDeclaration46: () => _openRecordStage(
+                record,
+                (f) => CustomsDeclaration46Dialog.show(context, f),
+              ),
               onEdit: () => _showAddEditDialog(record),
               onCopyRow: () => _copyClearanceRowTsv(record, l),
               onClone: () => _onCloneClearance(record),
@@ -799,15 +836,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   Widget _buildDrawingSamplesAndShortageView(List<CustomsClearanceModel> records, AppLocalizations l) {
     return DrawingSamplesAndShortageTab(
       records: records,
-      drawnSamples: _drawnSamples,
-      shortageProtocols: _shortageProtocols,
       onRefresh: _refreshData,
-      onAddSample: (sample) {
-        setState(() => _drawnSamples.insert(0, sample));
-      },
-      onAddShortage: (shortage) {
-        setState(() => _shortageProtocols.insert(0, shortage));
-      },
     );
   }
 
@@ -825,6 +854,10 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     );
   }
 
+  void _showClearanceDetails(CustomsClearanceModel record) {
+    ClearanceDetailsDialog.show(context, record: record);
+  }
+
   // ===========================================================================
   // SUB-VIEW 3: FINAL CUSTOMS PAYMENT & RELEASE
   // ===========================================================================
@@ -832,6 +865,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     return FinalDutyPaymentTab(
       records: records,
       onRefresh: _refreshData,
+      onView: _showClearanceDetails,
       onPay: _showDutyPaymentDialog,
       onRelease: _showFinalReleaseDialog,
     );

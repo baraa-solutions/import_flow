@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../currencies/providers/currencies_provider.dart';
 
 class WhatIfSimulatorDialog extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -29,11 +30,11 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
 
   // Controls state
   int? _selectedImportFileId;
-  final TextEditingController _invoiceAmountCtrl = TextEditingController(text: '25000');
-  final TextEditingController _freightCtrl = TextEditingController(text: '2000');
+  final TextEditingController _invoiceAmountCtrl = TextEditingController();
+  final TextEditingController _freightCtrl = TextEditingController();
   String _selectedCurrency = 'USD';
   double _fxRateChangePct = 0.0;
-  double _baseRate = 49.50;
+  double _baseRate = 1.0;
   String _shippingRoute = 'RED_SEA'; // RED_SEA or CAPE_OF_GOOD_HOPE
   int _portDelayDays = 0;
   int _containerCount = 1;
@@ -46,11 +47,32 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
   bool _isLoadingExposure = false;
   Map<String, dynamic>? _exposureData;
 
+  double _getCurrencyRate(String code) {
+    final curAsync = ref.read(currenciesProvider);
+    return curAsync.maybeWhen(
+      data: (list) {
+        final found = list.where((c) => c.currencyCode.toUpperCase() == code.toUpperCase()).toList();
+        if (found.isNotEmpty) {
+          final rate = found.first.latestCustomsRate ?? found.first.latestCommercialRate;
+          if (rate != null && rate > 0) return rate;
+        }
+        return 1.0;
+      },
+      orElse: () => 1.0,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _selectedImportFileId = widget.initialImportFileId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final rate = _getCurrencyRate(_selectedCurrency);
+        if (rate > 0) setState(() => _baseRate = rate);
+      }
+    });
     _fetchExposure();
   }
 
@@ -68,20 +90,17 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
 
     final filesAsync = ref.read(importFilesProvider);
     filesAsync.whenData((files) {
-      final match = files.firstWhere(
-        (f) => f.importFileId == fileId,
-        orElse: () => files.first,
-      );
-      if (match.importFileId == fileId) {
+      final matches = files.where((f) => f.importFileId == fileId).toList();
+      if (matches.isNotEmpty) {
+        final match = matches.first;
         setState(() {
           if (match.estimatedCost > 0) {
             _invoiceAmountCtrl.text = match.estimatedCost.toStringAsFixed(0);
           }
           if (match.estimatedCostCurrency.isNotEmpty) {
             _selectedCurrency = match.estimatedCostCurrency.toUpperCase();
-            if (_selectedCurrency == 'EUR') _baseRate = 53.80;
-            if (_selectedCurrency == 'CNY') _baseRate = 6.90;
-            if (_selectedCurrency == 'USD') _baseRate = 49.50;
+            final rate = _getCurrencyRate(_selectedCurrency);
+            if (rate > 0) _baseRate = rate;
           }
         });
       }
@@ -384,10 +403,8 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                               if (val != null) {
                                 setState(() {
                                   _selectedCurrency = val;
-                                  if (val == 'USD') _baseRate = 49.50;
-                                  if (val == 'EUR') _baseRate = 53.80;
-                                  if (val == 'CNY') _baseRate = 6.90;
-                                  if (val == 'GBP') _baseRate = 64.20;
+                                  final rate = _getCurrencyRate(val);
+                                  if (rate > 0) _baseRate = rate;
                                 });
                               }
                             },
