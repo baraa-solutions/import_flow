@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../shipping_scenarios/models/shipping_scenario_model.dart';
 import 'freight_booking_ui.dart';
@@ -42,7 +41,12 @@ class FbkQuoteCard extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryOf(context)),
             ),
             if (item.isRecommended)
-              CcStatusChip(label: l.freightBookingBestQuoteBadge, severity: AppSeverity.warning, icon: Icons.star),
+              AppStatusBadge(
+                label: l.freightBookingBestQuoteBadge,
+                severity: AppSeverity.warning,
+                size: AppStatusBadgeSize.small,
+                icon: Icons.star,
+              ),
           ],
         ),
         const SizedBox(height: 4),

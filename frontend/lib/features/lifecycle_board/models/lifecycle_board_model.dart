@@ -38,11 +38,11 @@ class ShipmentStageCardModel {
   final String companyName;
   final String supplierName;
   final String? poNumber;
-  final String shipmentMode;
-  final String incotermCode;
-  final String priority;
-  final double estimatedCost;
-  final String estimatedCostCurrency;
+  final String? shipmentMode;
+  final String? incotermCode;
+  final String? priority;
+  final double? estimatedCost;
+  final String? estimatedCostCurrency;
   final String stepCode;
   final String stepNameEn;
   final String stepNameAr;
@@ -64,11 +64,11 @@ class ShipmentStageCardModel {
     required this.companyName,
     required this.supplierName,
     this.poNumber,
-    required this.shipmentMode,
-    required this.incotermCode,
-    required this.priority,
-    required this.estimatedCost,
-    required this.estimatedCostCurrency,
+    this.shipmentMode,
+    this.incotermCode,
+    this.priority,
+    this.estimatedCost,
+    this.estimatedCostCurrency,
     required this.stepCode,
     required this.stepNameEn,
     required this.stepNameAr,
@@ -96,11 +96,11 @@ class ShipmentStageCardModel {
       companyName: json['company_name'] ?? '',
       supplierName: json['supplier_name'] ?? '',
       poNumber: json['po_number'],
-      shipmentMode: json['shipment_mode'] ?? 'Sea FCL',
-      incotermCode: json['incoterm_code'] ?? 'FOB',
-      priority: json['priority'] ?? 'High',
-      estimatedCost: (json['estimated_cost'] as num?)?.toDouble() ?? 0.0,
-      estimatedCostCurrency: json['estimated_cost_currency'] ?? 'USD',
+      shipmentMode: json['shipment_mode'],
+      incotermCode: json['incoterm_code'],
+      priority: json['priority'],
+      estimatedCost: (json['estimated_cost'] as num?)?.toDouble(),
+      estimatedCostCurrency: json['estimated_cost_currency'],
       stepCode: json['step_code'] ?? '',
       stepNameEn: json['step_name_en'] ?? '',
       stepNameAr: json['step_name_ar'] ?? '',
@@ -151,9 +151,9 @@ class LiveLogisticsTrackingItemModel {
   final String companyName;
   final String supplierName;
   final String? poNumber;
-  final String shipmentMode;
-  final String incotermCode;
-  final String priority;
+  final String? shipmentMode;
+  final String? incotermCode;
+  final String? priority;
 
   // Voyage & Logistics
   final String? blNumber;
@@ -169,8 +169,8 @@ class LiveLogisticsTrackingItemModel {
   // Demurrage & Free Time
   final String? demurrageTrackingCode;
   final String demurrageStatus;
-  final int freeDaysTotal;
-  final int freeDaysRemaining;
+  final int? freeDaysTotal;
+  final int? freeDaysRemaining;
   final int usedFreeDays;
   final String demurrageRiskLevel;
   final double accumulatedDemurrageFx;
@@ -204,9 +204,9 @@ class LiveLogisticsTrackingItemModel {
     required this.companyName,
     required this.supplierName,
     this.poNumber,
-    required this.shipmentMode,
-    required this.incotermCode,
-    required this.priority,
+    this.shipmentMode,
+    this.incotermCode,
+    this.priority,
     this.blNumber,
     this.carrierName,
     this.vesselName,
@@ -218,10 +218,10 @@ class LiveLogisticsTrackingItemModel {
     required this.arrivalStatus,
     this.demurrageTrackingCode,
     required this.demurrageStatus,
-    required this.freeDaysTotal,
-    required this.freeDaysRemaining,
+    this.freeDaysTotal,
+    this.freeDaysRemaining,
     required this.usedFreeDays,
-    required this.demurrageRiskLevel,
+    this.demurrageRiskLevel = 'Unknown',
     required this.accumulatedDemurrageFx,
     required this.accumulatedDemurrageEgp,
     required this.sampleTestStatus,
@@ -248,9 +248,9 @@ class LiveLogisticsTrackingItemModel {
       companyName: json['company_name'] ?? '',
       supplierName: json['supplier_name'] ?? '',
       poNumber: json['po_number'],
-      shipmentMode: json['shipment_mode'] ?? 'Sea FCL',
-      incotermCode: json['incoterm_code'] ?? 'FOB',
-      priority: json['priority'] ?? 'High',
+      shipmentMode: json['shipment_mode'],
+      incotermCode: json['incoterm_code'],
+      priority: json['priority'],
       blNumber: json['bl_number'],
       carrierName: json['carrier_name'],
       vesselName: json['vessel_name'],
@@ -262,10 +262,10 @@ class LiveLogisticsTrackingItemModel {
       arrivalStatus: json['arrival_status'] ?? 'Pre-Shipment',
       demurrageTrackingCode: json['demurrage_tracking_code'],
       demurrageStatus: json['demurrage_status'] ?? 'No Active Session',
-      freeDaysTotal: json['free_days_total'] ?? 14,
-      freeDaysRemaining: json['free_days_remaining'] ?? 14,
+      freeDaysTotal: json['free_days_total'],
+      freeDaysRemaining: json['free_days_remaining'],
       usedFreeDays: json['used_free_days'] ?? 0,
-      demurrageRiskLevel: json['demurrage_risk_level'] ?? 'Low',
+      demurrageRiskLevel: json['demurrage_risk_level'] ?? 'Unknown',
       accumulatedDemurrageFx: (json['accumulated_demurrage_fx'] as num?)?.toDouble() ?? 0.0,
       accumulatedDemurrageEgp: (json['accumulated_demurrage_egp'] as num?)?.toDouble() ?? 0.0,
       sampleTestStatus: json['sample_test_status'] ?? 'Not Applicable',

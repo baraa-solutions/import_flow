@@ -8,6 +8,7 @@ from database.database import get_db
 from modules.auth.permissions import require_permission
 from modules.auth.router import get_current_user
 from utils.cache_manager import memory_cache
+from utils.export_import_helper import MasterDataExportImportHelper
 
 from .schemas import (
     CustomsDutyBreakdown,
@@ -138,6 +139,59 @@ def estimate_multi_item_customs_duty(
     Estimates customs duties, VAT, schedule taxes, and grand totals for multi-item invoices based on official Nafeza specifications.
     """
     return estimate_multi_item_customs_duty_service(db, request)
+
+
+@customs_tariff_router.get("/export-excel", summary="Export all customs tariffs to Excel (XLSX)", dependencies=[can_view])
+def export_tariffs_excel(db: Session = Depends(get_db)):
+    tariffs = get_all_tariffs_service(db, include_inactive=True)
+    headers = [
+        'HS Code', 'Description', 'Category', 'Duty %', 'VAT %',
+        'Schedule Tax %', 'Development Fee %', 'Service Fee %',
+        'ACID Req', 'COO Req', 'Inspection Req', 'Regulatory Authorities',
+        'Effective From', 'Effective To', 'Status'
+    ]
+    rows = []
+    for t in tariffs:
+        rows.append([
+            t.hs_code,
+            t.hs_description,
+            t.customs_category or '',
+            t.customs_duty_rate,
+            t.vat_rate,
+            t.schedule_tax_rate,
+            t.development_fee_rate,
+            t.customs_service_fee_rate,
+            'Yes' if t.requires_acid else 'No',
+            'Yes' if t.requires_coo else 'No',
+            'Yes' if t.requires_inspection else 'No',
+            t.regulatory_authority or '',
+            t.effective_from,
+            t.effective_to or '',
+            'Active' if t.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_excel("Customs Tariff Schedule", headers, rows)
+    filename = MasterDataExportImportHelper.standard_export_filename("Customs_Tariff_Schedule", "xlsx")
+    return MasterDataExportImportHelper.as_excel_response(filename, content)
+
+
+@customs_tariff_router.get("/export-pdf", summary="Export all customs tariffs to PDF", dependencies=[can_view])
+def export_tariffs_pdf(db: Session = Depends(get_db)):
+    tariffs = get_all_tariffs_service(db, include_inactive=True)
+    headers = ['HS Code', 'Description', 'Category', 'Duty %', 'VAT %', 'ACID', 'Status']
+    rows = []
+    for t in tariffs:
+        rows.append([
+            t.hs_code,
+            t.hs_description,
+            t.customs_category or '',
+            f"{t.customs_duty_rate}%",
+            f"{t.vat_rate}%",
+            'Yes' if t.requires_acid else 'No',
+            'Active' if t.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_pdf("Egyptian Customs Tariff Schedule (MD-008)", headers, rows)
+    filename = MasterDataExportImportHelper.standard_export_filename("Customs_Tariff_Schedule", "pdf")
+    return MasterDataExportImportHelper.as_pdf_response(filename, content)
 
 
 @customs_tariff_router.get("/hs/{hs_code}", response_model=CustomsTariffResponse, dependencies=[can_view])

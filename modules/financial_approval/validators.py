@@ -2,9 +2,8 @@
 Business Validation Rules for Financial Approval (BP-012 & BP-013)
 
 Status sets, server-owned transitions, payment type codes and the coded error helper.
-Coded errors use plain ``{code, message, **params}`` dicts (``fa_error``): the codes are not registered in
-``modules/common/system_messages.py`` yet (see docs/plans/review-shared-needs.md "## 02 shared needs"), and
-``CodedHTTPException`` refuses unregistered codes.
+Coded errors use structured ``{"code", "message", **params}`` dicts (``fa_error``), with codes
+registered in ``modules/common/system_messages.py``.
 """
 
 import re
@@ -168,6 +167,17 @@ def validate_payment_update(item: Any, changes: Dict[str, Any]) -> None:
                 status=item.status,
                 action=f"status:{new_status}",
             )
+    if "currency_code" in changes and changes["currency_code"] is not None:
+        norm_new = enum_codes.normalize_currency(changes["currency_code"])
+        norm_old = enum_codes.normalize_currency(item.currency_code)
+        if norm_new != norm_old and ("exchange_rate" not in changes or changes.get("exchange_rate") is None):
+            raise fa_error(
+                status.HTTP_400_BAD_REQUEST,
+                "FA_PAYMENT_RATE_REQUIRED",
+                "عند تغيير عملة طلب الصرف يجب إدخال سعر الصرف الجديد.",
+                payment_code=item.payment_code,
+                currency_code=norm_new,
+            )
 
 
 def budget_locked_error(item: Any) -> HTTPException:
@@ -215,14 +225,42 @@ def require_same_currency(swift_currency: Optional[str], currency_code: Optional
         )
 
 
+def require_known_currency(db: Session, code: Optional[str]) -> str:
+    """Validates that currency is present in the currencies master table and active.
+    Raises 400 FA_CURRENCY_UNKNOWN otherwise. Returns normalized code."""
+    if not code or not str(code).strip():
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_CURRENCY_UNKNOWN",
+            f"العملة {code} غير معرفة في شاشة العملات.",
+            currency_code=code or "",
+        )
+    from modules.currencies.repository import CurrencyRepository
+
+    norm = enum_codes.normalize_currency(code)
+    if not norm or not isinstance(norm, str):
+        norm = str(code).upper().strip()
+    curr_row = CurrencyRepository(db).get_currency_by_code(norm)
+    if curr_row is None or not curr_row.is_active:
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_CURRENCY_UNKNOWN",
+            f"العملة {code} غير معرفة في شاشة العملات.",
+            currency_code=code,
+        )
+    return norm
+
+
 def validate_payment_request_inputs(
     db: Session,
     requested_amount: float,
     po_id: Optional[int] = None,
     supplier_id: Optional[int] = None,
     import_file_id: Optional[int] = None,
+    currency_code: Optional[str] = None,
+    project_id: Optional[int] = None,
 ) -> None:
-    """requested_amount > 0; supplier, purchase order and import file must exist and be active."""
+    """requested_amount > 0; supplier, purchase order, project, and import file must exist and be active."""
     if requested_amount is None or requested_amount <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -230,7 +268,13 @@ def validate_payment_request_inputs(
         )
     require_active(db, Supplier, supplier_id, "المورد", status_code=status.HTTP_404_NOT_FOUND)
     require_active(db, PurchaseOrder, po_id, "أمر الشراء", status_code=status.HTTP_404_NOT_FOUND)
+    if project_id is not None:
+        from modules.projects.model import Project
+
+        require_active(db, Project, project_id, "المشروع", status_code=status.HTTP_404_NOT_FOUND)
     if import_file_id is not None:
         from modules.import_files.model import ImportFile
 
         require_active(db, ImportFile, import_file_id, "ملف الاستيراد")
+    if currency_code is not None:
+        require_known_currency(db, currency_code)

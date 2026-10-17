@@ -1655,6 +1655,14 @@
       "note"
     ]
   },
+  "FA_CURRENCY_UNKNOWN": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FA_FX_RATE_MISSING": {
     "params": [
       "currency_code"
@@ -1676,6 +1684,15 @@
     "params": [
       "payment_code",
       "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_PAYMENT_RATE_REQUIRED": {
+    "params": [
+      "currency_code",
+      "payment_code"
     ],
     "parts": [
       "note"
@@ -1811,6 +1828,23 @@
     "params": [
       "payment_code",
       "swift_ref"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_SWIFT_REF_REQUIRED": {
+    "params": [
+      "payment_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_SWIFT_VALUE_DATE_INVALID": {
+    "params": [
+      "batch_code",
+      "value"
     ],
     "parts": [
       "note"
@@ -2097,6 +2131,15 @@
       "reason"
     ]
   },
+  "IF_STATUS_TRANSITION_INVALID": {
+    "params": [
+      "from",
+      "to"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "IMPORT_FILE_CLOSED": {
     "params": [
       "import_file_code"
@@ -2186,6 +2229,37 @@
       "note"
     ]
   },
+  "LC_APPROVER_ROLE_UNKNOWN": {
+    "params": [
+      "role_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_CLOSURE_STEP_RESERVED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_NOT_ACTIVE": {
+    "params": [
+      "import_file_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_NOT_FOUND": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "LC_FILE_ON_HOLD": {
     "params": [
       "phase_id",
@@ -2220,6 +2294,12 @@
       "phase_id",
       "reason"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_REF_REQUIRED": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -2259,6 +2339,14 @@
       "note"
     ]
   },
+  "LC_SKIP_DUAL_APPROVAL_REQUIRED": {
+    "params": [
+      "step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "LC_STARTING_POINT_SET": {
     "params": [
       "step_code"
@@ -2278,6 +2366,15 @@
   "LC_STEP_ACTIVATED_AFTER_SKIP": {
     "params": [
       "skipped_step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_ALREADY_COMPLETED": {
+    "params": [
+      "import_file_code",
+      "step_code"
     ],
     "parts": [
       "note"
@@ -2313,6 +2410,15 @@
       "note"
     ]
   },
+  "LC_STEP_NOT_ACTIVE": {
+    "params": [
+      "import_file_code",
+      "step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "LC_STEP_ON_HOLD": {
     "params": [
       "reason"
@@ -2339,6 +2445,14 @@
   },
   "LC_STEP_RESUMED_DEFAULT": {
     "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_SEQUENCE_INVALID": {
+    "params": [
+      "step_code"
+    ],
     "parts": [
       "note"
     ]
@@ -2414,6 +2528,14 @@
   },
   "LC_SYNC_FREIGHT_STUDIES_DONE": {
     "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_TARGET_STEP_INVALID": {
+    "params": [
+      "step_code"
+    ],
     "parts": [
       "note"
     ]
@@ -3488,6 +3610,14 @@
       "body"
     ]
   },
+  "SCENARIO_ITEMS_BOOKED": {
+    "params": [
+      "item_ids"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "SCENARIO_SESSION_EXISTS": {
     "params": [
       "session_code"
@@ -3543,6 +3673,12 @@
       "import_file_code",
       "invoice_no"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SDU_INVOICE_NUMBER_REQUIRED": {
+    "params": [],
     "parts": [
       "note"
     ]

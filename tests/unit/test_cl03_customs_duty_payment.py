@@ -264,3 +264,102 @@ def test_record_duty_payment_api_endpoint(client, sample_data):
     assert data["duty_paid_amount"] == 190500.0
     assert data["payment_status"] == "Paid & Verified"
     assert data["status"] == "Duty Paid - Ready for Final Release"
+
+
+def test_unassessed_duty_payment_flow_and_claim_put_ignored(client, db_session):
+    """BE67-T06: payment is 409 until CL-02 actually ran; PUT nafeza_claim_number is ignored."""
+    imp_file = ImportFile(
+        import_file_code="IMP-2026-UNASSESSED",
+        company_name="Alexandria Modern Polymers LLC",
+        supplier_name="Sinopec Chemical Corp",
+        current_module="Phase 7 - Customs Clearance",
+        is_active=True,
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+    db_session.refresh(imp_file)
+
+    # 1. Create clearance record directly with components (1000 duty + 140 vat = 1140 total)
+    create_payload = {
+        "import_file_id": imp_file.import_file_id,
+        "declaration_46_no": "DEC-2026-UNASS-1",
+        "import_duty_amount": 1000.0,
+        "vat_amount": 140.0,
+    }
+    create_res = client.post("/api/v1/customs-clearance", json=create_payload)
+    assert create_res.status_code == 201, create_res.text
+    clearance_id = create_res.json()["customs_clearance_id"]
+    assert create_res.json()["total_duty_payable"] == 1140.0
+
+    # 2. Attempt payment before CL-02 -> 409 CC_DUTY_NOT_ASSESSED
+    pay_payload = {
+        "import_file_id": imp_file.import_file_id,
+        "bank_receipt_no": "RCP-9988",
+        "sadad_number": "SADAD-9988",
+        "paying_bank_name": "CIB",
+        "duty_paid_amount": 1140.0,
+    }
+    pay_res = client.post("/api/v1/customs-clearance/record-duty-payment", json=pay_payload)
+    assert pay_res.status_code == 409, pay_res.text
+    assert pay_res.json()["detail"]["code"] == "CC_DUTY_NOT_ASSESSED"
+
+    # 3. PUT with nafeza_claim_number is ignored (record still unassessed)
+    put_res = client.put(f"/api/v1/customs-clearance/{clearance_id}", json={"nafeza_claim_number": "NFZ-HACK-01"})
+    assert put_res.status_code == 200, put_res.text
+    assert put_res.json().get("nafeza_claim_number") is None
+
+    # Payment still fails with 409
+    pay_res2 = client.post("/api/v1/customs-clearance/record-duty-payment", json=pay_payload)
+    assert pay_res2.status_code == 409
+    assert pay_res2.json()["detail"]["code"] == "CC_DUTY_NOT_ASSESSED"
+
+    # 4. Run CL-02 assess-final-duties with nafeza_claim_number="NFZ-123"
+    cl02_payload = {
+        "import_file_id": imp_file.import_file_id,
+        "nafeza_claim_number": "NFZ-123",
+        "cif_base_amount": 10000.0,
+        "import_duty_amount": 1000.0,
+        "vat_amount": 140.0,
+    }
+    cl02_res = client.post("/api/v1/customs-clearance/assess-final-duties", json=cl02_payload)
+    assert cl02_res.status_code == 200, cl02_res.text
+    assert cl02_res.json()["nafeza_claim_number"] == "NFZ-123"
+    assert cl02_res.json()["actual_duty_total"] == 1140.0
+
+    # 5. Payment now succeeds
+    pay_res3 = client.post("/api/v1/customs-clearance/record-duty-payment", json=pay_payload)
+    assert pay_res3.status_code == 200, pay_res3.text
+    assert pay_res3.json()["payment_status"] == "Paid & Verified"
+
+
+def test_negative_money_and_bad_rate_validation_endpoints(client, sample_data):
+    """BE67-T06: negative money and non-positive exchange rate are rejected with 422 on create and PUT."""
+    imp_file = sample_data["import_file"]
+    record = sample_data["clearance_record"]
+
+    # POST create negative money -> 422
+    res_neg_vat = client.post("/api/v1/customs-clearance", json={
+        "import_file_id": imp_file.import_file_id,
+        "vat_amount": -5.0,
+    })
+    assert res_neg_vat.status_code == 422
+
+    # POST create exchange_rate <= 0 -> 422
+    res_zero_rate = client.post("/api/v1/customs-clearance", json={
+        "import_file_id": imp_file.import_file_id,
+        "customs_exchange_rate": 0.0,
+    })
+    assert res_zero_rate.status_code == 422
+
+    # PUT negative money -> 422
+    res_put_neg = client.put(f"/api/v1/customs-clearance/{record.customs_clearance_id}", json={
+        "vat_amount": -5.0,
+    })
+    assert res_put_neg.status_code == 422
+
+    # PUT exchange_rate <= 0 -> 422
+    res_put_rate = client.put(f"/api/v1/customs-clearance/{record.customs_clearance_id}", json={
+        "customs_exchange_rate": -1.0,
+    })
+    assert res_put_rate.status_code == 422
+
