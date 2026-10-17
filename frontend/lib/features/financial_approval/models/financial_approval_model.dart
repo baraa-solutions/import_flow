@@ -194,6 +194,8 @@ class PaymentRequestModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? createdBy;
+  final String? updatedBy;
   final String? importFileCode;
 
   PaymentRequestModel({
@@ -233,6 +235,8 @@ class PaymentRequestModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.createdBy,
+    this.updatedBy,
     this.importFileCode,
   });
 
@@ -276,6 +280,8 @@ class PaymentRequestModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      createdBy: json['created_by'],
+      updatedBy: json['updated_by'],
       importFileCode: json['import_file_code'],
     );
   }
@@ -316,6 +322,8 @@ class PaymentRequestModel {
       'smart_task_code': smartTaskCode,
       'version': version,
       'is_active': isActive,
+      'created_by': createdBy,
+      'updated_by': updatedBy,
     };
   }
 }
@@ -352,6 +360,8 @@ class ImportBudgetModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? createdBy;
+  final String? updatedBy;
   final String? importFileCode;
 
   ImportBudgetModel({
@@ -386,6 +396,8 @@ class ImportBudgetModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.createdBy,
+    this.updatedBy,
     this.importFileCode,
   });
 
@@ -425,6 +437,8 @@ class ImportBudgetModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      createdBy: json['created_by'],
+      updatedBy: json['updated_by'],
       importFileCode: json['import_file_code'],
     );
   }
@@ -460,6 +474,8 @@ class ImportBudgetModel {
       'notes': notes,
       'version': version,
       'is_active': isActive,
+      'created_by': createdBy,
+      'updated_by': updatedBy,
     };
   }
 }

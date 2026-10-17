@@ -79,7 +79,9 @@ def payment_code_exists(db: Session, code: str) -> bool:
     return db.query(PaymentRequestSession.payment_id).filter(PaymentRequestSession.payment_code == code).first() is not None
 
 
-def add_payment_request(db: Session, schema: PaymentRequestCreate, code: str, status: str) -> PaymentRequestSession:
+def add_payment_request(
+    db: Session, schema: PaymentRequestCreate, code: str, status: str, created_by: Optional[str] = None
+) -> PaymentRequestSession:
     db_item = PaymentRequestSession(
         payment_code=code,
         title=schema.title,
@@ -104,6 +106,7 @@ def add_payment_request(db: Session, schema: PaymentRequestCreate, code: str, st
         bank_country=schema.bank_country,
         notes=schema.notes,
         is_active=True,
+        created_by=created_by,
     )
     db.add(db_item)
     db.flush()
@@ -243,19 +246,28 @@ def get_matchable_payment_requests(db: Session, target_payment_id: Optional[int]
     )
 
 
-def apply_payment_changes(db: Session, db_item: PaymentRequestSession, changes: Dict[str, Any], current_version: int) -> PaymentRequestSession:
+def apply_payment_changes(
+    db: Session, db_item: PaymentRequestSession, changes: Dict[str, Any], current_version: int,
+    updated_by: Optional[str] = None,
+) -> PaymentRequestSession:
     for field, value in changes.items():
         setattr(db_item, field, value)
     db_item.requested_amount_egp = db_item.requested_amount * db_item.exchange_rate
     db_item.version = current_version + 1
     db_item.updated_at = _now()
+    if updated_by is not None:
+        db_item.updated_by = updated_by
     db.flush()
     return db_item
 
 
-def set_payment_active(db: Session, db_item: PaymentRequestSession, active: bool) -> None:
+def set_payment_active(
+    db: Session, db_item: PaymentRequestSession, active: bool, updated_by: Optional[str] = None
+) -> None:
     db_item.is_active = active
     db_item.updated_at = _now()
+    if updated_by is not None:
+        db_item.updated_by = updated_by
     db.flush()
 
 
@@ -275,6 +287,7 @@ def add_import_budget(
     code: str,
     invoice_amount_egp: float,
     freight_cost_egp: float,
+    created_by: Optional[str] = None,
 ) -> ImportBudgetApproval:
     db_item = ImportBudgetApproval(
         budget_code=code,
@@ -300,6 +313,7 @@ def add_import_budget(
         budget_status="Pending Review",
         notes=schema.notes,
         is_active=True,
+        created_by=created_by,
     )
     db.add(db_item)
     db.flush()
@@ -393,7 +407,10 @@ def find_active_budget_for_file(
     return query.order_by(ImportBudgetApproval.budget_id.asc()).first()
 
 
-def apply_budget_changes(db: Session, db_item: ImportBudgetApproval, changes: Dict[str, Any], current_version: int) -> ImportBudgetApproval:
+def apply_budget_changes(
+    db: Session, db_item: ImportBudgetApproval, changes: Dict[str, Any], current_version: int,
+    updated_by: Optional[str] = None,
+) -> ImportBudgetApproval:
     for field, value in changes.items():
         setattr(db_item, field, value)
     db_item.total_budget_egp = (
@@ -404,13 +421,19 @@ def apply_budget_changes(db: Session, db_item: ImportBudgetApproval, changes: Di
     )
     db_item.version = current_version + 1
     db_item.updated_at = _now()
+    if updated_by is not None:
+        db_item.updated_by = updated_by
     db.flush()
     return db_item
 
 
-def set_budget_active(db: Session, db_item: ImportBudgetApproval, active: bool) -> None:
+def set_budget_active(
+    db: Session, db_item: ImportBudgetApproval, active: bool, updated_by: Optional[str] = None
+) -> None:
     db_item.is_active = active
     db_item.updated_at = _now()
+    if updated_by is not None:
+        db_item.updated_by = updated_by
     db.flush()
 
 

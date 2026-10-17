@@ -1222,3 +1222,81 @@ def test_mark_paid_does_not_overwrite_different_file_swift_no(db):
     assert p.status == "Paid"
     assert p.swift_reference_no == "SWIFT-NEW-111"
     assert imp.swift_no == "SWIFT-EXISTING-999"
+
+
+def test_payment_request_audit_columns_api(api, db):
+    fin1 = _user(db, "fin1", "FINANCE_OFFICER")
+    gm1 = _user(db, "gm1", "GENERAL_MANAGER")
+    imp = seed_file(db, import_file_code="IMP-2026-AUD1")
+
+    # 1. fin1 creates payment request
+    body = {
+        "title": "Payment for audit tracking",
+        "supplier_name": "Audit Supplier",
+        "payment_type": "Against B/L",
+        "requested_amount": 1500.0,
+        "exchange_rate": 50.0,
+        "due_date": str(date.today() + timedelta(days=7)),
+        "import_file_id": imp.import_file_id,
+    }
+    resp = api.post(f"{BASE}/payment-requests", headers=_bearer(fin1), json=body)
+    assert resp.status_code == 201, resp.text
+    created_data = resp.json()
+    assert created_data["created_by"] == "fin1"
+    assert created_data["updated_by"] is None
+
+    # Verify directly in DB
+    db_item = db.query(PaymentRequestSession).filter_by(payment_id=created_data["payment_id"]).one()
+    assert db_item.created_by == "fin1"
+    assert db_item.updated_by is None
+
+    # 2. gm1 approves payment request
+    approve_resp = api.post(f"{BASE}/payment-requests/{created_data['payment_id']}/approve", headers=_bearer(gm1))
+    assert approve_resp.status_code == 200, approve_resp.text
+    approved_data = approve_resp.json()
+    assert approved_data["created_by"] == "fin1"
+    assert approved_data["updated_by"] == "gm1"
+
+    # Verify directly in DB
+    db.refresh(db_item)
+    assert db_item.created_by == "fin1"
+    assert db_item.updated_by == "gm1"
+
+
+def test_import_budget_audit_columns_api(api, db):
+    fin1 = _user(db, "fin1_bg", "FINANCE_OFFICER")
+    gm1 = _user(db, "gm1_bg", "GENERAL_MANAGER")
+    imp = seed_file(db, import_file_code="IMP-2026-AUD2")
+
+    # 1. fin1 creates budget
+    body = {
+        "title": "Budget for audit tracking",
+        "import_file_id": imp.import_file_id,
+        "exchange_rate": 50.0,
+        "invoice_amount_foreign": 1000.0,
+        "freight_cost_foreign": 200.0,
+        "customs_duties_egp": 5000.0,
+        "clearance_inland_egp": 1500.0,
+    }
+    resp = api.post(f"{BASE}/import-budgets", headers=_bearer(fin1), json=body)
+    assert resp.status_code == 201, resp.text
+    created_data = resp.json()
+    assert created_data["created_by"] == "fin1_bg"
+    assert created_data["updated_by"] is None
+
+    # Verify directly in DB
+    db_item = db.query(ImportBudgetApproval).filter_by(budget_id=created_data["budget_id"]).one()
+    assert db_item.created_by == "fin1_bg"
+    assert db_item.updated_by is None
+
+    # 2. gm1 approves budget
+    approve_resp = api.post(f"{BASE}/import-budgets/{created_data['budget_id']}/approve", headers=_bearer(gm1))
+    assert approve_resp.status_code == 200, approve_resp.text
+    approved_data = approve_resp.json()
+    assert approved_data["created_by"] == "fin1_bg"
+    assert approved_data["updated_by"] == "gm1_bg"
+
+    # Verify directly in DB
+    db.refresh(db_item)
+    assert db_item.created_by == "fin1_bg"
+    assert db_item.updated_by == "gm1_bg"
