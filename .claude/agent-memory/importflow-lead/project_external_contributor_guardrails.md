@@ -33,6 +33,12 @@ Stacked PRs: before `gh pr merge --delete-branch` on a base PR, retarget its dep
 CI gate selects tests by changed files and runs with ALLOW_DEV_AUTH_BYPASS=false: contractor "all tests pass" claims
 from pr-gate miss callers in other test files — ask for the named tests.
 
+Merge train that works: review with workflows (diff + customs + security, adversarial verify); detect cumulative
+branches that all target main (parent = other PR head that is an ancestor) and review only head-diff-from-parent;
+merge conflicting approved PRs through one integration branch (Python tests merged per function via AST, never
+line-union), run the FULL suite (gate misses callers), then one PR. Merge without --delete-branch when cumulative
+dependents exist.
+
 **How to apply:** recommend that the CTO keeps those env secrets out of GitHub between releases (set before Publish,
 delete after), and only after he confirms he has an offline copy. Watch main for direct pushes. Review his PRs with
 /review-branch and read every diff under `.github/`, `scripts/ci/`, `.githooks/` and the guard tests. Don't enable

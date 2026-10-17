@@ -360,7 +360,8 @@ class POReconciliationItem(BaseModel):
     item_code: str
     description: str
     hs_code: Optional[str] = None
-    package_type: str = "Carton"
+    # None = no package type recorded (PO line with no packing-list row); never substituted with an invented type.
+    package_type: Optional[str] = "Carton"
     initial_quantity: float
     final_quantity: float
     initial_unit_price: float = 0.0
@@ -635,6 +636,7 @@ class CertificateOfOriginReviewBase(BaseModel):
     has_discrepancies: bool = False
     has_critical_mismatch: bool = False
     override_reason: Optional[str] = None
+    notes: Optional[str] = None
     status: str = "Draft Generated"
     is_draft: Optional[bool] = False
     reviewed_by: Optional[str] = None
@@ -661,6 +663,7 @@ class CertificateOfOriginReviewUpdate(BaseModel):
     has_discrepancies: Optional[bool] = None
     has_critical_mismatch: Optional[bool] = None
     override_reason: Optional[str] = None
+    notes: Optional[str] = None
     status: Optional[str] = None
     is_draft: Optional[bool] = None
     reviewed_by: Optional[str] = None
@@ -935,6 +938,7 @@ class POExtractAndCompareResponse(BaseModel):
     reconciled_packing_items: List[POReconciliationItem]
     extracted_invoice_data: Dict[str, Any]
     extracted_packing_data: Dict[str, Any]
+    system_items_missing: bool = False
 
 
 class InvoiceBLSyncRequest(BaseModel):
@@ -999,6 +1003,7 @@ class InvoiceBLMatchSessionResponse(InvoiceBLMatchSessionBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    currency_mismatch: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 

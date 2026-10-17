@@ -526,22 +526,22 @@ def make_settlement(
 # ── 10. Financial Settlement: preview detects variances ───────────────────────
 
 def test_financial_settlement_preview_variance(db: Session):
-    """Preview on financial_settlement should detect live FOB and expense variances."""
+    """Preview on financial_settlement should detect live FOB variance (expenses are not overwritten)."""
     seed_deps(db)
     seed_variance_setting(db, threshold_pct=5.0)
     settlement = make_settlement(db, status="Draft", fob_egp=100_000.0, customs_egp=15_000.0)
 
-    # 3% variance on customs (below threshold), freight & PO unchanged
+    # 3% variance on PO FOB (103,000 vs 100,000), customs changes in consultation should be ignored
     def _customs_fetcher(db, join_key_value, source_field, aggregation):
         if source_field == "estimated_duties_egp":
-            return 15_450.0  # 3% increase
+            return 15_450.0  # 3% increase, but retired for settlement
         return 5_000.0       # clearance unchanged
 
     from modules.recalculation import service
     with patch.object(service, "_SOURCE_FETCHERS", {
         "customs_consultation": _customs_fetcher,
         "shipping_scenarios": lambda *a: 20_000.0,
-        "purchase_orders": lambda *a: 100_000.0,
+        "purchase_orders": lambda *a: 103_000.0,
     }):
         result = service.preview(
             db=db,
@@ -554,13 +554,17 @@ def test_financial_settlement_preview_variance(db: Session):
     assert result.has_any_variance is True
     assert result.has_hard_block is False
     assert result.can_apply is True
-    assert len(result.items) == 4
+    assert len(result.items) == 1
+    assert result.items[0].field_name == "total_fob_egp"
+    assert result.items[0].old_value == 100_000.0
+    assert result.items[0].new_value == 103_000.0
+    assert result.items[0].variance_amount == 3_000.0
 
 
 # ── 11. Financial Settlement: apply recalculates engine ───────────────────────
 
 def test_financial_settlement_apply_recalculates_engine(db: Session):
-    """Applying live costs to financial settlement runs calculate_landed_cost_engine."""
+    """Applying live FOB to financial settlement runs calculate_landed_cost_engine without modifying expenses."""
     from modules.recalculation import service
     from modules.recalculation.schemas import RecalculationApplyRequest
 
@@ -573,18 +577,12 @@ def test_financial_settlement_apply_recalculates_engine(db: Session):
     )
     user = make_user(db, role="FINANCE_OFFICER")
 
-    # 2% increase on customs (15_300 vs 15_000)
-    def _customs_fetcher(db, join_key_value, source_field, aggregation):
-        if source_field == "estimated_duties_egp":
-            return 15_300.0
-        return 5_000.0
-
     with (
         patch("modules.recalculation.service.has_user_permission", return_value=True),
         patch.object(service, "_SOURCE_FETCHERS", {
-            "customs_consultation": _customs_fetcher,
+            "customs_consultation": lambda *a: 15_300.0,
             "shipping_scenarios": lambda *a: 20_000.0,
-            "purchase_orders": lambda *a: 100_000.0,
+            "purchase_orders": lambda *a: 103_000.0,
         }),
     ):
         request = RecalculationApplyRequest(
@@ -597,16 +595,17 @@ def test_financial_settlement_apply_recalculates_engine(db: Session):
     assert result.action_taken == "recalculated"
     db.refresh(settlement)
     assert settlement.status == "Calculated"
-    # Total expenses was 40,000, now 20,000 + 15,300 + 5,000 = 40,300
-    assert settlement.total_expenses_egp == pytest.approx(40_300.0, abs=1.0)
-    assert settlement.total_landed_cost_egp == pytest.approx(140_300.0, abs=1.0)
-    assert settlement.average_markup_factor == pytest.approx(140_300.0 / 100_000.0, abs=0.01)
+    assert settlement.total_fob_egp == pytest.approx(103_000.0, abs=1.0)
+    # Actual expenses remain untouched: 20,000 + 15,000 + 5,000 = 40,000
+    assert settlement.total_expenses_egp == pytest.approx(40_000.0, abs=1.0)
+    assert settlement.total_landed_cost_egp == pytest.approx(143_000.0, abs=1.0)
+    assert settlement.average_markup_factor == pytest.approx(143_000.0 / 103_000.0, abs=0.01)
 
 
 # ── 12. Financial Settlement: Hard Block on Approved status ───────────────────
 
 def test_financial_settlement_approved_hard_block(db: Session):
-    """Approved settlement with >5% variance requires justification."""
+    """Approved settlement with >5% FOB variance requires justification."""
     from modules.recalculation import service
     from modules.recalculation.schemas import RecalculationApplyRequest
 
@@ -619,18 +618,13 @@ def test_financial_settlement_approved_hard_block(db: Session):
     )
     user = make_user(db, role="GENERAL_MANAGER")
 
-    def _customs_mock(db, join_key_val, source_field, agg):
-        if source_field == "total_broker_fees_egp":
-            return 5_000.0
-        return 15_000.0
-
-    # 50% increase on freight (30_000 vs 20_000) → Hard Block
+    # 50% increase on FOB (150_000 vs 100_000) → Hard Block
     with (
         patch("modules.recalculation.service.has_user_permission", return_value=True),
         patch.object(service, "_SOURCE_FETCHERS", {
-            "customs_consultation": _customs_mock,
-            "shipping_scenarios": lambda *a: 30_000.0,
-            "purchase_orders": lambda *a: 100_000.0,
+            "customs_consultation": lambda *a: 15_000.0,
+            "shipping_scenarios": lambda *a: 20_000.0,
+            "purchase_orders": lambda *a: 150_000.0,
         }),
     ):
 
@@ -650,13 +644,259 @@ def test_financial_settlement_approved_hard_block(db: Session):
             target_entity_type="financial_settlement",
             target_entity_id=settlement.settlement_id,
             source_page="SettlementTest",
-            justification="Carrier imposed emergency bunker surcharge and freight rate increase",
+            justification="PO revised after vendor renegotiation",
         )
         result = service.apply(db=db, request=request_with_just, current_user=user)
 
     assert result.action_taken == "recalculated"
     db.refresh(settlement)
-    assert settlement.status == "Calculated"
-    assert settlement.total_expenses_egp == pytest.approx(50_000.0, abs=1.0)
+    assert settlement.status == "Approved"
+    assert settlement.total_fob_egp == pytest.approx(150_000.0, abs=1.0)
+    assert settlement.total_expenses_egp == pytest.approx(40_000.0, abs=1.0)
+
+
+# ── 13. Financial Settlement: Expense Seeds Retired & Actual Costs Preserved ──
+
+def test_seed_dependencies_retires_settlement_expense_seeds(db: Session):
+    """run_seed deactivates retired settlement expense seeds while leaving FOB and budget seeds active."""
+    import modules.recalculation.repository as repo
+    from modules.recalculation.seed_dependencies import run_seed, RETIRED_DEPENDENCY_SEEDS
+
+    # First, simulate a legacy DB where retired seeds were already inserted as active
+    for retired in RETIRED_DEPENDENCY_SEEDS:
+        repo.upsert_dependency(db=db, **retired)
+    db.flush()
+
+    # Verify they were active before run_seed
+    active_before = repo.get_active_dependencies_for_target(db, "financial_settlement")
+    assert len(active_before) == 3
+
+    # Run seed
+    run_seed(db)
+
+    # Now verify financial_settlement only has total_fob_egp
+    active_after = repo.get_active_dependencies_for_target(db, "financial_settlement")
+    assert len(active_after) == 1
+    assert active_after[0].target_field == "total_fob_egp"
+
+    # Verify import_budget has its 4 dependencies untouched
+    budget_deps = repo.get_active_dependencies_for_target(db, "import_budget")
+    assert len(budget_deps) == 4
+    budget_target_fields = {d.target_field for d in budget_deps}
+    assert budget_target_fields == {
+        "clearance_inland_egp",
+        "customs_duties_egp",
+        "freight_cost_egp",
+        "invoice_amount_egp",
+    }
+
+    # Verify retired seeds exist in DB but is_active is False
+    for retired in RETIRED_DEPENDENCY_SEEDS:
+        row = (
+            db.query(RecalculationDependencyMap)
+            .filter_by(
+                target_entity_type=retired["target_entity_type"],
+                target_field=retired["target_field"],
+                source_entity_type=retired["source_entity_type"],
+                source_field=retired["source_field"],
+            )
+            .first()
+        )
+        assert row is not None
+        assert row.is_active is False
+
+
+def test_financial_settlement_recalculation_preserves_actual_expenses(db: Session):
+    """
+    Settlement with actual Customs Duty expense of 100,000 EGP and customs consultation
+    with estimated_duties_egp = 80,000:
+    After run_seed, preview has NO customs_duties_egp item, apply is no_op when PO FOB matches,
+    and actual expense rows remain untouched.
+    """
+    from modules.recalculation import service
+    from modules.recalculation.seed_dependencies import run_seed
+    from modules.recalculation.schemas import RecalculationApplyRequest
+    from modules.financial_settlement.service import settlement_field_total
+
+    run_seed(db)
+    seed_variance_setting(db, threshold_pct=5.0)
+
+    # Create settlement with actual customs duty 100,000 EGP
+    settlement = make_settlement(
+        db, status="Draft",
+        fob_egp=100_000.0,
+        freight_egp=20_000.0,
+        customs_egp=100_000.0,
+        clearance_egp=5_000.0,
+    )
+    user = make_user(db, role="FINANCE_OFFICER")
+
+    # Upstream values: estimated duties = 80,000 (different from actual 100,000)
+    # Freight scenario = 25,000 (different from actual 20,000)
+    # PO FOB = 100,000 (matches settlement FOB)
+    with (
+        patch("modules.recalculation.service.has_user_permission", return_value=True),
+        patch.object(service, "_SOURCE_FETCHERS", {
+            "customs_consultation": lambda *a: 80_000.0,
+            "shipping_scenarios": lambda *a: 25_000.0,
+            "purchase_orders": lambda *a: 100_000.0,
+        }),
+    ):
+        preview_res = service.preview(
+            db=db,
+            target_entity_type="financial_settlement",
+            target_entity_id=settlement.settlement_id,
+            source_page="SettlementTest",
+            performed_by="test_user",
+        )
+
+        # 1. Preview has NO customs_duties_egp item, NO freight, NO clearance
+        preview_field_names = [item.field_name for item in preview_res.items]
+        assert "customs_duties_egp" not in preview_field_names
+        assert "freight_cost_egp" not in preview_field_names
+        assert "clearance_fees_egp" not in preview_field_names
+        assert preview_field_names == ["total_fob_egp"]
+
+        # Because PO FOB matches (100,000 == 100,000), no variance
+        assert preview_res.has_any_variance is False
+
+        # 2. Apply is no_op when PO FOB matches
+        request = RecalculationApplyRequest(
+            target_entity_type="financial_settlement",
+            target_entity_id=settlement.settlement_id,
+            source_page="SettlementTest",
+        )
+        apply_res = service.apply(db=db, request=request, current_user=user)
+
+        assert apply_res.action_taken == "no_op"
+        assert apply_res.applied_changes == []
+
+    # 3. Verify actual expense rows in settlement are preserved untouched
+    db.refresh(settlement)
+    assert settlement_field_total(settlement.expense_invoices, "customs_duties_egp") == 100_000.0
+    assert settlement.total_expenses_egp == pytest.approx(125_000.0, abs=1.0)
+    assert settlement.total_landed_cost_egp == pytest.approx(225_000.0, abs=1.0)
+
+
+def test_master_data_sync_service_retires_settlement_expense_seeds(db: Session):
+    """
+    MasterDataSyncService (invoked on every application startup via SchemaUpgradeService)
+    idempotently seeds dependencies and deactivates retired settlement expense seeds.
+    """
+    import modules.recalculation.repository as repo
+    from modules.recalculation.seed_dependencies import RETIRED_DEPENDENCY_SEEDS
+    from database.master_data_sync_service import MasterDataSyncService
+
+    # 1. Simulate legacy DB where retired seeds were active
+    for retired in RETIRED_DEPENDENCY_SEEDS:
+        repo.upsert_dependency(db=db, **retired)
+    db.flush()
+
+    active_before = repo.get_active_dependencies_for_target(db, "financial_settlement")
+    assert len(active_before) == 3
+
+    # 2. Run sync via MasterDataSyncService
+    sync_service = MasterDataSyncService(db)
+    seeded_count = sync_service.sync_recalculation_dependencies()
+    assert seeded_count > 0
+
+    # 3. Verify retired seeds are deactivated and only total_fob_egp remains active
+    active_after = repo.get_active_dependencies_for_target(db, "financial_settlement")
+    assert len(active_after) == 1
+    assert active_after[0].target_field == "total_fob_egp"
+
+
+
+
+def test_approved_settlement_recalculation_refreshes_file_and_stays_approved(db: Session):
+    """
+    BE09-T02: A justified recalculation on an Approved settlement keeps it Approved,
+    refreshes import file KPIs (actual_landed_cost_total_egp, variance_egp, variance_pct),
+    and prevents subsequent direct edits via 409 SETTLEMENT_NOT_EDITABLE.
+    """
+    from modules.import_files.model import ImportFile
+    from modules.recalculation import service
+    from modules.recalculation.schemas import RecalculationApplyRequest
+    from modules.financial_settlement.service import update_settlement_service
+    from modules.financial_settlement.schemas import FinancialSettlementUpdate
+
+    seed_deps(db)
+    seed_variance_setting(db, threshold_pct=5.0)
+
+    # 1. Setup ImportFile with initial actual landed cost 150,000 and variance 10,000 (estimated = 140,000)
+    imp = ImportFile(
+        import_file_id=10,
+        import_file_code="IMP-BE09-T02",
+        company_name="Test Company",
+        supplier_name="Test Supplier",
+        actual_landed_cost_total_egp=150_000.0,
+        actual_landed_cost_variance_egp=10_000.0,
+        actual_landed_cost_variance_pct=7.14,
+        is_active=True,
+    )
+    db.add(imp)
+    db.flush()
+
+    # 2. Approved settlement linked to this file
+    # Initial totals: FOB 100,000 + Freight 20,000 + Customs 15,000 + Clearance 5,000 = 140,000
+    settlement = make_settlement(
+        db,
+        status="Approved",
+        import_file_id=imp.import_file_id,
+        fob_egp=100_000.0,
+        freight_egp=20_000.0,
+        customs_egp=15_000.0,
+        clearance_egp=5_000.0,
+    )
+    user = make_user(db, username="manager_be09", role="GENERAL_MANAGER")
+
+    # 3. Source fetchers mock. Since BE09-T03 only total_fob_egp is recalculated on a settlement:
+    # PO FOB 115,000; actual expenses stay 20k + 15k + 5k = 40k; new total landed cost = 155,000.
+    # The consultation / scenario estimates below must be ignored.
+    with (
+        patch("modules.recalculation.service.has_user_permission", return_value=True),
+        patch.object(service, "_SOURCE_FETCHERS", {
+            "customs_consultation": lambda *a: 20_000.0,
+            "shipping_scenarios": lambda *a: 30_000.0,
+            "purchase_orders": lambda *a: 115_000.0,
+        }),
+    ):
+        request = RecalculationApplyRequest(
+            target_entity_type="financial_settlement",
+            target_entity_id=settlement.settlement_id,
+            source_page="SettlementReview",
+            justification="Carrier freight increase and customs tariff adjustment",
+        )
+        result = service.apply(db=db, request=request, current_user=user)
+
+    assert result.action_taken == "recalculated"
+    db.refresh(settlement)
+    db.refresh(imp)
+
+    # Acceptance criteria:
+    # 1. Settlement status stays "Approved"
+    assert settlement.status == "Approved"
+    assert settlement.total_fob_egp == pytest.approx(115_000.0, abs=1.0)
+    assert settlement.total_expenses_egp == pytest.approx(40_000.0, abs=1.0)
+    assert settlement.total_landed_cost_egp == pytest.approx(155_000.0, abs=1.0)
+
+    # 2. Import file KPIs updated:
+    # new_total = 155,000; estimated = 150,000 - 10,000 = 140,000
+    # new_var = 155,000 - 140,000 = 15,000; variance_pct = 15,000 / 140,000 * 100 = 10.71%
+    assert imp.actual_landed_cost_total_egp == 155000.0
+    assert imp.actual_landed_cost_variance_egp == 15000.0
+    assert imp.actual_landed_cost_variance_pct == 10.71
+
+    # 3. Direct updates on the approved settlement are rejected with 409 SETTLEMENT_NOT_EDITABLE
+    with pytest.raises(HTTPException) as exc_info:
+        update_settlement_service(
+            db=db,
+            settlement_id=settlement.settlement_id,
+            schema=FinancialSettlementUpdate(incoterm_code="CIF"),
+            actor=user.username,
+        )
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail.get("code") == "SETTLEMENT_NOT_EDITABLE"
+
 
 

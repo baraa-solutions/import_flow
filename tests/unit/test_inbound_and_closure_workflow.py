@@ -180,7 +180,7 @@ def test_phase_10_file_closure_workflow(db_session):
         archival_notes="All customs releases, GRNs, and GL journals verified and balanced.",
     )
 
-    rec = close_import_file_service(db_session, closure_schema)
+    rec = close_import_file_service(db_session, closure_schema, trusted=True)
     assert rec.closure_code.startswith("CLR-")
     assert rec.status == "Closed"
 
