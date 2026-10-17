@@ -716,13 +716,14 @@ def update_acid_session_service(
     if not db_item:
         raise not_found(LABEL_ACID_SESSION, acid_id)
 
-    target_file_id = schema.import_file_id if schema.import_file_id is not None else db_item.import_file_id
-    target_acid_num = schema.acid_number if schema.acid_number else db_item.acid_number
-    _check_acid_conflict(db, target_file_id, target_acid_num)
-
     if schema.import_file_id is not None:
         _active_import_file(db, schema.import_file_id)
         validate_no_duplicate_acid_session(db, schema.import_file_id, current_acid_id=acid_id)
+
+    # BE03-T06: the duplicate-session rule (400) is checked before the file ACID conflict (409).
+    target_file_id = schema.import_file_id if schema.import_file_id is not None else db_item.import_file_id
+    target_acid_num = schema.acid_number if schema.acid_number else db_item.acid_number
+    _check_acid_conflict(db, target_file_id, target_acid_num)
     if "po_id" in schema.model_fields_set:
         _require_active_po(db, schema.po_id)
 
