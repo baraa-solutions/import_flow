@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import HTTPException, status as http_status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from modules.common.enum_codes import normalize_currency
 from modules.common.errors import best_effort
@@ -25,6 +26,7 @@ from modules.smart_document_upload.extractors.purchase_order import PurchaseOrde
 from modules.smart_document_upload.extractors.import_file import ImportFileExtractor
 from modules.smart_document_upload.extractors.cargo_shipping import CargoShippingExtractor
 from modules.smart_document_upload.extractors.commercial_invoice import CommercialInvoiceExtractor
+from modules.smart_document_upload.extractors.packing_list import PackingListExtractor
 from modules.smart_document_upload.extractors.customs_clearance import CustomsClearanceExtractor
 from modules.smart_document_upload.cross_checker import cross_check_invoice_vs_bl
 
@@ -66,6 +68,10 @@ _EXTRACTOR_MAP: Dict[str, BaseExtractor] = {
     "commercial-invoice": CommercialInvoiceExtractor(),
     "commercial_invoice": CommercialInvoiceExtractor(),
     "invoice": CommercialInvoiceExtractor(),
+    "packing-list": PackingListExtractor(),
+    "packing_list": PackingListExtractor(),
+    "packing": PackingListExtractor(),
+    "packing-and-weight-list": PackingListExtractor(),
     "bill-of-lading": CargoShippingExtractor(),
     "bill_of_lading": CargoShippingExtractor(),
     "bl": CargoShippingExtractor(),
@@ -74,13 +80,26 @@ _EXTRACTOR_MAP: Dict[str, BaseExtractor] = {
 
     "supplier-entity": MasterDataEntityExtractor(),
     "importer-entity": MasterDataEntityExtractor(),
+    "import-company-entity": MasterDataEntityExtractor(),
+    "company-entity": MasterDataEntityExtractor(),
+    "supplier": MasterDataEntityExtractor(),
+    "importer": MasterDataEntityExtractor(),
+    "import-company": MasterDataEntityExtractor(),
+    "partner": MasterDataEntityExtractor(),
     "partner-entity": MasterDataEntityExtractor(),
+    "bank": MasterDataEntityExtractor(),
     "bank-entity": MasterDataEntityExtractor(),
+    "shipping-line": MasterDataEntityExtractor(),
     "shipping-line-entity": MasterDataEntityExtractor(),
+    "customs-broker": MasterDataEntityExtractor(),
     "customs-broker-entity": MasterDataEntityExtractor(),
+    "freight-forwarder": MasterDataEntityExtractor(),
     "freight-forwarder-entity": MasterDataEntityExtractor(),
+    "inland-transport": MasterDataEntityExtractor(),
     "inland-transport-entity": MasterDataEntityExtractor(),
+    "inspection-agency": MasterDataEntityExtractor(),
     "inspection-agency-entity": MasterDataEntityExtractor(),
+    "insurance-company": MasterDataEntityExtractor(),
     "insurance-company-entity": MasterDataEntityExtractor(),
     # Aliases
     "customs-consultation": ImportFileExtractor(),   # extracts invoice fields
@@ -125,7 +144,17 @@ def _fallback_text_extraction(filename: str, content_bytes: bytes) -> str:
                 logger.warning("PyMuPDF text extraction failed (%s); trying pypdf", type(exc).__name__)
             import pypdf
             reader = pypdf.PdfReader(io.BytesIO(content_bytes))
-            return "\n".join(p.extract_text() or "" for p in reader.pages)
+            pdf_text = "\n".join(p.extract_text() or "" for p in reader.pages)
+            if pdf_text and len(pdf_text.strip()) >= 20:
+                return pdf_text
+            try:
+                from modules.import_documentation.service import _ocr_pdf_or_image
+                ocr_text = _ocr_pdf_or_image(filename, content_bytes)
+                if ocr_text and len(ocr_text.strip()) > len(pdf_text.strip()):
+                    return ocr_text
+            except Exception:
+                pass
+            return pdf_text
         elif lower.endswith((".docx", ".doc")):
             import docx
             doc = docx.Document(io.BytesIO(content_bytes))
@@ -147,6 +176,12 @@ def _fallback_text_extraction(filename: str, content_bytes: bytes) -> str:
                     if row_vals:
                         parts.append(" | ".join(row_vals))
             return "\n".join(parts)
+        elif lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
+            try:
+                from modules.import_documentation.service import _ocr_pdf_or_image
+                return _ocr_pdf_or_image(filename, content_bytes)
+            except Exception:
+                return ""
         else:
             return content_bytes.decode("utf-8", errors="ignore")
     except Exception:
@@ -584,6 +619,31 @@ def extract_bill_of_lading_service(
     }
 
 
+def extract_packing_list_service(
+    filename: str = "packing_list.pdf",
+    content_bytes: Optional[bytes] = None,
+    raw_text: Optional[str] = None,
+    db: Optional[Session] = None,
+    created_by: Optional[str] = "Admin",
+) -> Dict[str, Any]:
+    """Extracts packing list fields, totals, dimensions, and line items."""
+    if not raw_text and content_bytes:
+        raw_text, spatial_boxes = extract_raw_text_and_boxes(filename, content_bytes)
+    else:
+        spatial_boxes = {}
+    extractor = PackingListExtractor()
+    extracted = extractor.extract(raw_text or "", spatial_boxes)
+    return {
+        "document_type": "Packing and Weight List",
+        "filename": filename,
+        "extracted_fields": extracted,
+        "items": extracted.get("items", []),
+        "items_count": len(extracted.get("items", [])),
+        "pallets": extracted.get("pallets", []),
+        "pallets_count": len(extracted.get("pallets", [])),
+    }
+
+
 def cross_check_invoice_and_bl_service(
     invoice_data: Dict[str, Any],
     bl_data: Dict[str, Any],
@@ -646,10 +706,11 @@ def _currency_or_400(raw: Optional[str]) -> Optional[str]:
 
 def apply_extracted_invoice_service(db: Session, payload: ApplyInvoiceRequest, user: str = "SYSTEM") -> Dict[str, Any]:
     """
-    Apply validated invoice data to an active ImportFile (SDU-01): ACID must be 19 digits and never replaces a
+    Apply validated invoice data to an active ImportFile (SDU-01 / BE03-T03): ACID must be 19 digits and never replaces a
     different ACID already on the file (409 ``SDU_ACID_CONFLICT``); the Incoterm must exist in the master table;
-    the currency is an ISO code; the value is a positive number (schema). Without an import file the data is
-    only returned for a new file (``SDU_EXTRACTED_ONLY``).
+    the currency is an ISO code; the invoice number is required (400 ``SDU_INVOICE_NUMBER_REQUIRED``). Applying the same
+    invoice replaces its record idempotently and does not overwrite the file's estimated cost or currency. Without an
+    import file the data is only returned for a new file (``SDU_EXTRACTED_ONLY``).
     """
     from modules.import_files.model import ImportFile
 
@@ -664,6 +725,7 @@ def apply_extracted_invoice_service(db: Session, payload: ApplyInvoiceRequest, u
         }
     file_record = get_or_404(db, ImportFile, payload.import_file_id, "ملف الاستيراد", active_only=True)
     validators.ensure_import_file_open(file_record)
+    inv_no = validators.ensure_invoice_number_present(data.invoice_number)
 
     acid = _acid_or_400(data.acid_number)
     incoterm = _incoterm_or_400(db, data.incoterms)
@@ -689,23 +751,50 @@ def apply_extracted_invoice_service(db: Session, payload: ApplyInvoiceRequest, u
         file_record.port_of_loading = data.loading_port.strip()
     if data.discharge_port and data.discharge_port.strip():
         file_record.port_of_discharge = data.discharge_port.strip()
-    if data.invoice_value is not None:
-        file_record.estimated_cost = data.invoice_value
-    if currency:
-        file_record.estimated_cost_currency = currency
 
+    if data.supplier_name and data.supplier_name.strip():
+        curr_supp = (file_record.supplier_name or "").strip()
+        if not curr_supp or curr_supp in ["Unknown", "مورد غير محدد", "N/A"]:
+            file_record.supplier_name = data.supplier_name.strip()
+
+    inv_key = inv_no.upper()
     existing_invoices = list(file_record.invoices_data or [])
-    inv_no = (data.invoice_number or "").strip() or f"INV-{len(existing_invoices) + 1}"
-    existing_invoices.append({
+    replaced = False
+    new_entry = {
         "invoice_no": inv_no,
         "date": data.invoice_date,
         "amount": data.invoice_value or 0.0,
         "currency": currency or file_record.estimated_cost_currency,  # no invented default currency
         "items_count": len(data.items),
-    })
+        "supplier_name": data.supplier_name,
+        "importer_name": data.importer_name,
+        "origin_country": data.origin_country,
+        "hs_code": data.hs_code,
+        "is_preferential_origin": data.is_preferential_origin,
+        "preferential_origin_agreement": data.preferential_origin_agreement,
+        "is_free_of_charge": data.is_free_of_charge,
+        "total_gross_weight_kg": data.total_gross_weight_kg,
+        "total_net_weight_kg": data.total_net_weight_kg,
+        "pallets_count": data.pallets_count,
+        "packages_count": data.packages_count,
+        "container_number": data.container_number,
+        "seal_number": data.seal_number,
+        "purchase_order": data.purchase_order,
+        "freight_amount": data.freight_amount,
+        "items": data.items,
+    }
+    for idx, item in enumerate(existing_invoices):
+        if isinstance(item, dict) and (item.get("invoice_no") or "").strip().upper() == inv_key:
+            existing_invoices[idx] = new_entry
+            replaced = True
+            break
+    if not replaced:
+        existing_invoices.append(new_entry)
+
     file_record.invoices_data = existing_invoices
     file_record.invoices_count = len(existing_invoices)
     file_record.updated_by = user
+    flag_modified(file_record, "invoices_data")
     db.commit()
     db.refresh(file_record)
     return {
@@ -713,9 +802,14 @@ def apply_extracted_invoice_service(db: Session, payload: ApplyInvoiceRequest, u
         "import_file_id": file_record.import_file_id,
         "import_file_code": file_record.import_file_code,
         "msg_code": "SDU_INVOICE_APPLIED",
-        "params": {"import_file_code": file_record.import_file_code, "invoice_no": inv_no},
+        "params": {
+            "import_file_code": file_record.import_file_code,
+            "invoice_no": inv_no,
+            "replaced": replaced,
+        },
         "message_ar": f"تم ربط بيانات الفاتورة بنجاح مع الملف {file_record.import_file_code}",  # kept one release
     }
+
 
 
 def apply_extracted_bl_service(db: Session, payload: ApplyBLRequest, user: str = "SYSTEM") -> Dict[str, Any]:

@@ -7,12 +7,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
-import '../../../core/widgets/metric_card.dart';
-import '../../../core/widgets/universal_entity_extractor_dialog.dart';
-import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../experience_guide/models/guide_entry_model.dart';
@@ -581,21 +576,20 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
               bookingsState.when(
                 loading: () => const Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
-                  child: CcStateView.loading(),
+                  child: AppLoadingState(),
                 ),
                 error: (err, stack) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: CcStateView.error(
+                  child: AppErrorState(
                     message: '${l.error}: $err',
-                    actionLabel: l.retry,
-                    onAction: _refreshData,
+                    onRetry: _refreshData,
                   ),
                 ),
                 data: (bookings) {
                   if (bookings.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: CcStateView.empty(
+                      child: AppEmptyState(
                         message: l.freightBookingEmptyRecords,
                         icon: Icons.directions_boat_outlined,
                         actionLabel: l.freightBookingCreateButton,

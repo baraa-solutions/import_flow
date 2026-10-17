@@ -323,3 +323,76 @@ def validate_deletable(record_status: Optional[str], record_code: str) -> None:
             detail=f"لا يمكن حذف سجل الشحن {record_code} وهو في حالة {record_status}.",
         )
 
+
+def validate_documents_editable(status: Optional[str], code: str) -> None:
+    """BP-022: Locking rule - containers, seals, and weights cannot be modified once documents reach or pass Dual Approved."""
+    if status == STATUS_DUAL_APPROVED or _status_rank(status) >= _status_rank(STATUS_DUAL_APPROVED):
+        raise HTTPException(
+            status_code=409,
+            detail=f"لا يمكن تعديل بيانات الحاويات أو السيل أو أوزان الشحنة للسجل {code} بعد اعتماد المستندات (الحالة: {status}).",
+        )
+
+
+def validate_booking_link(db: Session, booking_id: Optional[int], import_file_id: int) -> None:
+    """BP-020: Validates that a linked freight booking exists, is active, and belongs to the same import file."""
+    if booking_id is None:
+        return
+    from modules.freight_booking.model import ShipmentBooking
+    booking = db.query(ShipmentBooking).filter(ShipmentBooking.booking_id == booking_id).first()
+    if not booking or not booking.is_active or booking.import_file_id != import_file_id:
+        raise HTTPException(
+            status_code=422,
+            detail="الحجز لا يخص نفس ملف الاستيراد",
+        )
+
+
+def containers_or_seals_changed(
+    existing: Optional[List[Any]],
+    incoming: Optional[List[Any]],
+) -> bool:
+    """Returns True if container numbers, seal numbers, or weights differ between existing and incoming lists."""
+    ex_list = existing or []
+    in_list = incoming or []
+    if len(ex_list) != len(in_list):
+        return True
+
+    def _extract(item: Any) -> Dict[str, Any]:
+        if hasattr(item, "model_dump"):
+            return item.model_dump()
+        if isinstance(item, dict):
+            return item
+        return dict(item)
+
+    ex_items = [_extract(x) for x in ex_list]
+    in_items = [_extract(x) for x in in_list]
+
+    ex_map = {(c.get("container_no") or "").strip().upper(): c for c in ex_items}
+    in_map = {(c.get("container_no") or "").strip().upper(): c for c in in_items}
+
+    if len(ex_map) != len(ex_items) or len(in_map) != len(in_items):
+        for ex, nw in zip(ex_items, in_items):
+            if (ex.get("container_no") or "").strip().upper() != (nw.get("container_no") or "").strip().upper():
+                return True
+            if (ex.get("seal_no") or "").strip() != (nw.get("seal_no") or "").strip():
+                return True
+            for w_key in ("tare_weight_kg", "net_weight_kg", "gross_weight_kg"):
+                if abs(float(ex.get(w_key) or 0.0) - float(nw.get(w_key) or 0.0)) > 1e-4:
+                    return True
+        return False
+
+    if set(ex_map.keys()) != set(in_map.keys()):
+        return True
+
+    for c_no, ex in ex_map.items():
+        nw = in_map[c_no]
+        ex_seal = (ex.get("seal_no") or "").strip()
+        nw_seal = (nw.get("seal_no") or "").strip()
+        if ex_seal != nw_seal:
+            return True
+        for w_key in ("tare_weight_kg", "net_weight_kg", "gross_weight_kg"):
+            if abs(float(ex.get(w_key) or 0.0) - float(nw.get(w_key) or 0.0)) > 1e-4:
+                return True
+
+    return False
+
+

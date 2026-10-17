@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class ContainerLoadingTrackingItem(BaseModel):
     container_no: str
     seal_no: Optional[str] = None
+    liner_seal_no: Optional[str] = None
+    customs_seal_no: Optional[str] = None
     container_type: str = "40HC"
     tare_weight_kg: float = 0.0
     net_weight_kg: float = 0.0
@@ -27,7 +29,9 @@ class ContainerLoadingTrackingItem(BaseModel):
 
 class ContainerLoadingItem(BaseModel):
     container_no: str
-    seal_no: str
+    seal_no: Optional[str] = None
+    liner_seal_no: Optional[str] = None
+    customs_seal_no: Optional[str] = None
     container_type: str = "40HC"
     quantity: int = 1
     tare_weight_kg: float = 0.0
@@ -56,6 +60,8 @@ class ContainerLoadingTrackingUpdate(BaseModel):
     loading_end_at: Optional[str] = None
     port_gate_in_at: Optional[str] = None
     seal_no: Optional[str] = None
+    liner_seal_no: Optional[str] = None
+    customs_seal_no: Optional[str] = None
     notes: Optional[str] = None
     milestone_notes: Optional[Dict[str, str]] = None
     updated_by: Optional[str] = Field(None, description="Deprecated and ignored: the logged-in user is recorded")

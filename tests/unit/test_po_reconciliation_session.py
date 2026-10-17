@@ -51,6 +51,9 @@ def db_session():
             is_active=True,
         )
         db.add(import_file)
+        from modules.currencies.model import Currency
+        db.add(Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True))
+        db.add(Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
         db.commit()
         db.refresh(import_file)
 
@@ -91,7 +94,9 @@ def test_create_and_get_po_reconciliation_session(db_session):
     assert res.import_file_code == "IMP-2026-0001"
     assert res.importer_name == "ECO ASSOCIATES FOR TRADING"
     assert res.total_invoice_amount == 37741.0
-    assert res.overall_status == "FULLY_MATCHED"
+    # Server-owned gate: without extracted_invoice_data, overall_status is DRAFT
+    assert res.overall_status == "DRAFT"
+    assert res.is_safe_for_certification is False
     session_id = res.session_id
 
     # 2. Get session by ID
@@ -141,6 +146,7 @@ def test_update_and_delete_po_reconciliation_session(db_session):
         import_file_id=file.import_file_id,
         final_invoice_number="INV-OLD",
         total_invoice_amount=5000.0,
+        currency="EUR",
     )
     created = service.create_po_reconciliation_session_service(db_session, schema)
     sess_id = created.session_id
@@ -154,7 +160,8 @@ def test_update_and_delete_po_reconciliation_session(db_session):
     updated = service.update_po_reconciliation_session_service(db_session, sess_id, update_schema)
     assert updated.final_invoice_number == "INV-UPDATED"
     assert updated.total_invoice_amount == 5500.0
-    assert updated.overall_status == "ACCEPTED_WITH_WARNINGS"
+    # Server-owned gate: without extracted data, client overall_status is ignored and stays DRAFT
+    assert updated.overall_status == "DRAFT"
 
     # Delete (soft delete)
     del_res = service.delete_po_reconciliation_session_service(db_session, sess_id)
