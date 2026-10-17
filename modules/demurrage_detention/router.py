@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from modules.auth.router import get_current_user
 from modules.auth.permissions import require_permission
 from modules.users.model import User
@@ -67,12 +67,19 @@ def create_policy_endpoint(req: DemurragePolicyCreate, db: Session = Depends(get
 
 @router.get("/policies", response_model=List[DemurragePolicyResponse], summary="استعراض سياسات غرامات الخطوط الملاحية")
 def get_policies_endpoint(
+    response: Response,
     carrier_name: Optional[str] = Query(None, description="تصفية باسم الخط الملاحي"),
     container_type: Optional[str] = Query(None, description="تصفية بنوع الحاوية"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("demurrage_detention.view")),
 ):
-    return get_demurrage_policies_service(db, carrier_name=carrier_name, container_type=container_type)
+    policies, total = get_demurrage_policies_service(
+        db, carrier_name=carrier_name, container_type=container_type, skip=skip, limit=limit
+    )
+    response.headers["X-Total-Count"] = str(total)
+    return policies
 
 
 @router.get("/policies/{policy_id}", response_model=DemurragePolicyResponse, summary="جلب تفاصيل سياسة غرامات محددة")
@@ -101,13 +108,20 @@ def create_tracking_endpoint(req: DemurrageTrackingCreate, db: Session = Depends
 
 @router.get("/trackings", response_model=List[DemurrageTrackingResponse], summary="استعراض جلسات تتبع الحاويات")
 def get_trackings_endpoint(
+    response: Response,
     import_file_id: Optional[int] = Query(None, description="تصفية برقم ملف الاستيراد"),
     carrier_name: Optional[str] = Query(None, description="تصفية باسم الخط الملاحي"),
     status: Optional[str] = Query(None, description="تصفية بالحالة"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("demurrage_detention.view")),
 ):
-    return get_demurrage_trackings_service(db, import_file_id=import_file_id, carrier_name=carrier_name, status_filter=status)
+    trackings, total = get_demurrage_trackings_service(
+        db, import_file_id=import_file_id, carrier_name=carrier_name, status_filter=status, skip=skip, limit=limit
+    )
+    response.headers["X-Total-Count"] = str(total)
+    return trackings
 
 
 @router.get("/trackings/{tracking_id}", response_model=DemurrageTrackingResponse, summary="جلب تفاصيل جلسة تتبع حاويات")

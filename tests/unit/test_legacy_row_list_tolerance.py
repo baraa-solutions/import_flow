@@ -135,7 +135,8 @@ def test_freight_booking_cleared_free_days_does_not_break_update_or_list(db_sess
     listed = client.get("/api/v1/freight-booking", headers=HEADERS)
     assert listed.status_code == 200, listed.text
     row = next(r for r in listed.json() if r["booking_code"] == "BKG-LEGACY-0001")
-    assert row["free_demurrage_days"] == 14
+    # BE45-T04: free days are never invented; a cleared value lists as null.
+    assert row["free_demurrage_days"] is None
 
 
 def test_financial_settlement_list_with_app_written_row(db_session, client):
@@ -152,6 +153,30 @@ def test_financial_settlement_list_with_app_written_row(db_session, client):
 
     assert response.status_code == 200, response.text
     assert any(r["settlement_code"] == "LCS-LEGACY-0001" for r in response.json())
+
+
+def test_import_budget_list_tolerates_legacy_row(db_session, client):
+    from modules.financial_approval.model import ImportBudgetApproval
+
+    rec = ImportBudgetApproval(
+        budget_code="BDG-LEGACY-0001",
+        title="Legacy Budget",
+        budget_status="Draft",
+    )
+    db_session.add(rec)
+    db_session.commit()
+    _null_out(db_session, "import_budget_approvals", [
+        "invoice_amount_egp", "invoice_amount_foreign", "freight_cost_egp", "freight_cost_foreign",
+        "customs_duties_egp", "clearance_inland_egp", "exchange_rate", "total_budget_egp",
+    ], "budget_id", rec.budget_id)
+
+    response = client.get("/api/v1/financial-approval/import-budgets", headers=HEADERS)
+
+    assert response.status_code == 200, response.text
+    row = next(r for r in response.json() if r["budget_code"] == "BDG-LEGACY-0001")
+    assert row["invoice_amount_egp"] is None
+    assert row["total_budget_egp"] is None
+    assert row["exchange_rate"] is None
 
 
 # ── Input-only rules are not re-applied on read (Create/Update keep them) ─────────────────────────────────────

@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone, date, timedelta
 from typing import Callable, List, Dict, Any, Optional, Tuple
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
@@ -11,7 +12,8 @@ from fastapi import HTTPException, status
 
 from modules.common.errors import best_effort
 from modules.common.system_parameters import get_float_parameter, get_parameter
-from modules.common.validators import not_found
+from modules.common.validators import not_found, require_active
+from modules.import_files.model import ImportFile
 
 from .model import DemurragePolicy, DemurrageTracking
 from .schemas import (
@@ -34,7 +36,13 @@ from .schemas import (
     EmptyContainerReturnSubmit,
     EmptyContainerReturnResponse,
 )
-from .validators import validate_tier_rates, validate_demurrage_dates, validate_positive_amount
+from .validators import (
+    validate_tier_rates,
+    validate_demurrage_dates,
+    validate_positive_amount,
+    validate_no_active_tracking_for_file,
+    validate_no_active_tracking_for_bl,
+)
 from . import repository
 from modules.common import enum_codes
 from modules.common.system_messages import msg, render_en
@@ -68,12 +76,14 @@ DD_DEFAULT_FREE_DAYS_DEMURRAGE = "DD_DEFAULT_FREE_DAYS_DEMURRAGE"
 DD_DEFAULT_FREE_DAYS_DETENTION = "DD_DEFAULT_FREE_DAYS_DETENTION"
 DD_DEFAULT_STORAGE_FREE_DAYS = "DD_DEFAULT_STORAGE_FREE_DAYS"
 DD_DEFAULT_STORAGE_RATE_EGP = "DD_DEFAULT_STORAGE_RATE_EGP"
+DD_DEFAULT_TARIFF_CURRENCY = "DD_DEFAULT_TARIFF_CURRENCY"
 DD_STANDARD_FREE_DAYS = "DD_STANDARD_FREE_DAYS"
 DD_AVOIDANCE_RATE_USD = "DD_AVOIDANCE_RATE_USD"
 DEFAULT_FREE_DAYS_DEMURRAGE = 14
 DEFAULT_FREE_DAYS_DETENTION = 7
 DEFAULT_STORAGE_FREE_DAYS = 5
 DEFAULT_STORAGE_RATE_EGP = 250.0
+DEFAULT_TARIFF_CURRENCY = "USD"
 DEFAULT_STANDARD_FREE_DAYS = 14
 DEFAULT_AVOIDANCE_RATE_USD = 70.0
 
@@ -94,6 +104,7 @@ class Tariff:
     storage_rate_egp: float
     demurrage_tiers: List[Dict[str, Any]]
     detention_tiers: List[Dict[str, Any]]
+    currency: str = "USD"
 
 
 def _tiers_parameter(db: Session, key: str, default: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -119,12 +130,14 @@ def default_tariff(db: Session) -> Tariff:
         storage_rate_egp=get_float_parameter(db, DD_DEFAULT_STORAGE_RATE_EGP, DEFAULT_STORAGE_RATE_EGP),
         demurrage_tiers=_tiers_parameter(db, DD_DEFAULT_DEMURRAGE_TIERS, DEFAULT_DEMURRAGE_TIERS),
         detention_tiers=_tiers_parameter(db, DD_DEFAULT_DETENTION_TIERS, DEFAULT_DETENTION_TIERS),
+        currency=get_parameter(db, DD_DEFAULT_TARIFF_CURRENCY) or DEFAULT_TARIFF_CURRENCY,
     )
 
 
-def _resolve_tariff(db: Session, policy: Optional[DemurragePolicy]) -> Tariff:
+def _resolve_tariff(db: Session, policy: Optional[DemurragePolicy], fallback: Optional[Tariff] = None) -> Tariff:
     """The policy's tariff, or the configured default tariff when there is no policy (empty tiers -> default)."""
-    fallback = default_tariff(db)
+    if fallback is None:
+        fallback = default_tariff(db)
     if not policy:
         return fallback
     return Tariff(
@@ -134,6 +147,7 @@ def _resolve_tariff(db: Session, policy: Optional[DemurragePolicy]) -> Tariff:
         storage_rate_egp=policy.port_storage_daily_rate_egp,
         demurrage_tiers=policy.demurrage_tiers or fallback.demurrage_tiers,
         detention_tiers=policy.detention_tiers or fallback.detention_tiers,
+        currency=policy.currency or fallback.currency,
     )
 
 
@@ -160,13 +174,13 @@ def _booking_free_days(db: Session, import_file_id: Optional[int]) -> Optional[i
 def _agreed_tariff(tariff: Tariff, booking_free_days: Optional[int], containers: Optional[List[Dict[str, Any]]]) -> Tariff:
     """The policy tariff with the free-days agreement on top: the booking's demurrage free days (as tracking
     create always applied them) and the detention / storage free days BK-02 recorded on the containers."""
-    if booking_free_days:
+    if booking_free_days is not None:
         tariff = replace(tariff, demurrage_free_days=booking_free_days)
     keys = (AGREED_DEMURRAGE_KEY, AGREED_DETENTION_KEY, AGREED_STORAGE_KEY)
     for c in containers or []:
         if all(c.get(k) is None for k in keys):
             continue
-        if not booking_free_days and c.get(AGREED_DEMURRAGE_KEY) is not None:
+        if booking_free_days is None and c.get(AGREED_DEMURRAGE_KEY) is not None:
             tariff = replace(tariff, demurrage_free_days=int(c[AGREED_DEMURRAGE_KEY]))
         if c.get(AGREED_DETENTION_KEY) is not None:
             tariff = replace(tariff, detention_free_days=int(c[AGREED_DETENTION_KEY]))
@@ -176,12 +190,23 @@ def _agreed_tariff(tariff: Tariff, booking_free_days: Optional[int], containers:
     return tariff
 
 
-def _tracking_tariff(db: Session, tracking: DemurrageTracking, booking_free_days: Any = _UNSET) -> Tariff:
+def _tracking_tariff(db: Session, tracking: DemurrageTracking, booking_free_days: Any = _UNSET, fallback: Optional[Tariff] = None) -> Tariff:
     """The one tariff of a tracking for every recalculation (PUT, single container, EIR, BK-02, dual clock,
     radar): policy (or configured default) + the file's free-days agreement."""
     if booking_free_days is _UNSET:
         booking_free_days = _booking_free_days(db, tracking.import_file_id)
-    return _agreed_tariff(_resolve_tariff(db, tracking.policy), booking_free_days, tracking.containers)
+    base_tariff = _resolve_tariff(db, tracking.policy, fallback=fallback)
+    if tracking.currency and base_tariff.currency and tracking.currency.upper() != base_tariff.currency.upper():
+        logger.warning(
+            "Tracking %s has currency %s, but resolved policy currency is now %s. Keeping tracking currency.",
+            tracking.tracking_code,
+            tracking.currency,
+            base_tariff.currency,
+        )
+    tariff = _agreed_tariff(base_tariff, booking_free_days, tracking.containers)
+    if tracking.currency and tariff.currency != tracking.currency:
+        tariff = replace(tariff, currency=tracking.currency)
+    return tariff
 
 
 # ----------------------------------------------------
@@ -428,7 +453,13 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
     """
     Simulates Demurrage, Detention, and Port Storage calculations with full breakdowns.
     """
-    validate_demurrage_dates(req.discharge_date, req.gate_out_date, req.empty_return_date, today=None)
+    validate_demurrage_dates(
+        req.discharge_date,
+        req.gate_out_date,
+        req.empty_return_date,
+        today=None,
+        require_gate_out_for_empty_return=False,
+    )
 
     calc_date = req.calculation_date or _today()
     dem_tiers = [t.model_dump() if hasattr(t, 'model_dump') else t for t in (req.demurrage_tiers or DEFAULT_DEMURRAGE_TIERS)]
@@ -436,6 +467,8 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
 
     # 1. Demurrage calculation (Discharge to Gate-Out / Calc Date)
     demurrage_end_date = req.gate_out_date or calc_date
+    if req.empty_return_date and req.empty_return_date < demurrage_end_date:
+        demurrage_end_date = req.empty_return_date
     demurrage_days_consumed = max(0, (demurrage_end_date - req.discharge_date).days)
     demurrage_days_overdue = max(0, demurrage_days_consumed - req.demurrage_free_days)
     demurrage_expiry_date = req.discharge_date + timedelta(days=req.demurrage_free_days)
@@ -461,6 +494,8 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
 
     # 3. Port Storage calculation
     storage_end_date = req.gate_out_date or calc_date
+    if req.empty_return_date and req.empty_return_date < storage_end_date:
+        storage_end_date = req.empty_return_date
     storage_days_consumed = max(0, (storage_end_date - req.discharge_date).days)
     storage_days_overdue = max(0, storage_days_consumed - req.port_storage_free_days)
     storage_fee_egp = round(storage_days_overdue * req.port_storage_daily_rate_egp * req.containers_count, 2)
@@ -590,9 +625,13 @@ def create_demurrage_policy_service(db: Session, req: DemurragePolicyCreate, use
 
 
 def get_demurrage_policies_service(
-    db: Session, carrier_name: Optional[str] = None, container_type: Optional[str] = None
-) -> List[DemurragePolicy]:
-    return repository.get_policies(db, carrier_name=carrier_name, container_type=container_type)
+    db: Session,
+    carrier_name: Optional[str] = None,
+    container_type: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[DemurragePolicy], int]:
+    return repository.get_policies(db, carrier_name=carrier_name, container_type=container_type, skip=skip, limit=limit)
 
 
 def get_demurrage_policy_by_id_service(db: Session, policy_id: int) -> DemurragePolicy:
@@ -632,13 +671,17 @@ def delete_demurrage_policy_service(db: Session, policy_id: int, user: str = "Sy
 def create_demurrage_tracking_service(
     db: Session, req: DemurrageTrackingCreate, user: str = "System"
 ) -> DemurrageTracking:
-    validate_demurrage_dates(req.discharge_date, req.gate_out_date, req.empty_return_date, today=cairo_today())
-    if req.exchange_rate is not None:
-        validate_positive_amount(req.exchange_rate, "exchange_rate")
-        rate = float(req.exchange_rate)
+    file_code = None
+    if req.import_file_id:
+        imp_file = require_active(db, ImportFile, req.import_file_id, "ملف الاستيراد", status_code=status.HTTP_404_NOT_FOUND)
+        file_code = imp_file.custom_file_number or imp_file.import_file_code
+        existing = repository.get_active_tracking_for_file(db, req.import_file_id)
+        validate_no_active_tracking_for_file(existing)
     else:
-        # DD-09: no client default of 50 any more; the bank rate at the discharge date is used
-        rate = _resolve_exchange_rate(db, req.currency, req.discharge_date)
+        existing = repository.get_active_tracking_for_bl(db, req.bill_of_lading_no)
+        validate_no_active_tracking_for_bl(existing, req.bill_of_lading_no)
+
+    validate_demurrage_dates(req.discharge_date, req.gate_out_date, req.empty_return_date, today=cairo_today())
 
     # Fetch policy if provided or search matching policy (DD-10: first container type, pinned until Q13)
     policy = None
@@ -649,10 +692,24 @@ def create_demurrage_tracking_service(
         policy = repository.get_policy_for_carrier_container(db, req.carrier_name, first_container_type)
 
     tariff = _agreed_tariff(_resolve_tariff(db, policy), _booking_free_days(db, req.import_file_id), None)
+    tracking_currency = tariff.currency
+
+    if req.currency and req.currency.strip().upper() != tracking_currency.strip().upper():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"عملة جلسة التتبع ({req.currency}) تختلف عن عملة سياسة الخط الملاحي ({tracking_currency}).",
+        )
+
+    if req.exchange_rate is not None:
+        validate_positive_amount(req.exchange_rate, "exchange_rate")
+        rate = float(req.exchange_rate)
+    else:
+        # DD-09: no client default of 50 any more; the bank rate at the discharge date is used
+        rate = _resolve_exchange_rate(db, tracking_currency, req.discharge_date)
 
     tracking = DemurrageTracking(
         import_file_id=req.import_file_id,
-        import_file_code=req.import_file_code,
+        import_file_code=file_code,
         policy_id=policy.policy_id if policy else None,
         carrier_name=req.carrier_name,
         bill_of_lading_no=req.bill_of_lading_no,
@@ -661,7 +718,7 @@ def create_demurrage_tracking_service(
         gate_out_date=req.gate_out_date,
         empty_return_date=req.empty_return_date,
         containers=[{"container_no": c.container_no, "container_type": c.container_type} for c in req.containers],
-        currency=req.currency,
+        currency=tracking_currency,
         exchange_rate=rate,
         notes=req.notes,
     )
@@ -692,8 +749,10 @@ def get_demurrage_trackings_service(
     import_file_id: Optional[int] = None,
     carrier_name: Optional[str] = None,
     status_filter: Optional[str] = None,
-) -> List[DemurrageTracking]:
-    return repository.get_trackings(db, import_file_id=import_file_id, carrier_name=carrier_name, status_filter=status_filter)
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[DemurrageTracking], int]:
+    return repository.get_trackings(db, import_file_id=import_file_id, carrier_name=carrier_name, status_filter=status_filter, skip=skip, limit=limit)
 
 
 def get_demurrage_tracking_by_id_service(db: Session, tracking_id: int) -> DemurrageTracking:
@@ -711,6 +770,55 @@ def _require_settlement_permission(db: Session, actor: Any) -> None:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="ترحيل الغرامات إلى التسوية المالية يتطلب صلاحية حساب تكلفة الوصول (financial_settlement.calculate).",
             )
+
+
+def _sync_containers_from_tracking(db: Session, tracking: DemurrageTracking, user: str) -> None:
+    """DEV-OPS-01: Synchronize demurrage calculation outputs to independent ShipmentContainer entities."""
+    try:
+        from modules.containers.model import ShipmentContainer
+        if not tracking.import_file_id or not isinstance(tracking.containers, list):
+            return
+        containers = db.query(ShipmentContainer).filter(
+            ShipmentContainer.import_file_id == tracking.import_file_id,
+            ShipmentContainer.is_active == True,
+        ).all()
+        if not containers:
+            return
+        c_map = {str(c.get("container_no", "")).strip().upper(): c for c in tracking.containers}
+        for sc in containers:
+            c_data = c_map.get(sc.container_number)
+            if c_data:
+                sc.demurrage_tracking_id = tracking.tracking_id
+                gate_out = c_data.get("gate_out_date") or tracking.gate_out_date
+                if gate_out:
+                    if isinstance(gate_out, str):
+                        try:
+                            gate_out = date.fromisoformat(gate_out[:10])
+                        except ValueError:
+                            gate_out = None
+                    if gate_out:
+                        sc.gate_out_date = gate_out
+                empty_ret = c_data.get("empty_return_date") or tracking.empty_return_date
+                if empty_ret:
+                    if isinstance(empty_ret, str):
+                        try:
+                            empty_ret = date.fromisoformat(empty_ret[:10])
+                        except ValueError:
+                            empty_ret = None
+                    if empty_ret:
+                        sc.empty_return_date = empty_ret
+                sc.demurrage_days = int(c_data.get("demurrage_days") or 0)
+                sc.detention_days = int(c_data.get("detention_days") or 0)
+                sc.storage_days = int(c_data.get("storage_days") or 0)
+                sc.demurrage_cost_fx = float(c_data.get("demurrage_fx") or 0.0)
+                sc.detention_cost_fx = float(c_data.get("detention_fx") or 0.0)
+                sc.storage_cost_egp = float(c_data.get("storage_egp") or 0.0)
+                sc.total_cost_egp = float(c_data.get("total_egp") or 0.0)
+                if c_data.get("status"):
+                    sc.status = c_data["status"]
+                sc.updated_by = user
+    except Exception as exc:
+        logger.warning("Failed to sync containers from tracking: %s", exc)
 
 
 def recalculate_and_update_tracking_service(
@@ -746,6 +854,7 @@ def recalculate_and_update_tracking_service(
         tracking.notes = req.notes
     tracking.updated_by = user
     tracking.updated_at = datetime.now(timezone.utc)
+    _sync_containers_from_tracking(db, tracking, user)
     db.commit()
     _recalculate_settlement_follow_up(db, settlement_id, user)
     db.refresh(tracking)
@@ -1250,7 +1359,12 @@ def get_free_days_agreement_service(
     fallback = default_tariff(db)
     file_code = file_rec.custom_file_number or file_rec.import_file_code or f"IMP-{file_rec.import_file_id}"
     carrier = (booking.shipping_line_name if booking else None) or None
-    agreed_dem = file_rec.target_free_days or (booking.free_demurrage_days if booking else standard_free_days) or standard_free_days
+    if file_rec.target_free_days is not None:
+        agreed_dem = file_rec.target_free_days
+    elif booking and booking.free_demurrage_days is not None:
+        agreed_dem = booking.free_demurrage_days
+    else:
+        agreed_dem = standard_free_days
     additional_days = max(0, agreed_dem - standard_free_days)
     estimated_cost_avoidance = _cost_avoidance(db, additional_days, booking)
 
@@ -1307,7 +1421,13 @@ def get_containers_radar_overview_service(db: Session) -> ContainerRadarOverview
     trackings = (
         db.query(DemurrageTracking)
         .options(joinedload(DemurrageTracking.policy), joinedload(DemurrageTracking.import_file))
-        .filter(DemurrageTracking.is_active == True, DemurrageTracking.status != "Completed")
+        .filter(
+            DemurrageTracking.is_active == True,
+            or_(
+                DemurrageTracking.status.notin_(["All Containers Returned", "Closed"]),
+                DemurrageTracking.status.is_(None),
+            ),
+        )
         .all()
     )
 
@@ -1332,13 +1452,14 @@ def get_containers_radar_overview_service(db: Session) -> ContainerRadarOverview
         ).all():
             booking_days.setdefault(file_id, days)
 
+    fallback = default_tariff(db)
     for t in trackings:
         if not t.exchange_rate or t.exchange_rate <= 0:
             # a tracking without a usable rate is flagged, not a failure of the whole radar
             logger.warning("Radar: tracking %s has no valid exchange rate; skipped", t.tracking_code)
             skipped_codes.append(t.tracking_code)
             continue
-        tariff = _tracking_tariff(db, t, booking_free_days=booking_days.get(t.import_file_id))
+        tariff = _tracking_tariff(db, t, booking_free_days=booking_days.get(t.import_file_id), fallback=fallback)
         dem_free = tariff.demurrage_free_days
         storage_free = tariff.storage_free_days
         exchange_rate = float(t.exchange_rate)
@@ -1529,10 +1650,16 @@ def record_empty_container_return_service(
             detail="تاريخ إعادة الحاوية الفارغة لا يمكن أن يكون في المستقبل.",
         )
 
-    tracking = db.query(DemurrageTracking).filter(
+    active_trackings = db.query(DemurrageTracking).filter(
         DemurrageTracking.import_file_id == payload.import_file_id,
         DemurrageTracking.is_active == True,
-    ).first()
+    ).all()
+    if len(active_trackings) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"يوجد أكثر من جلسة تتبع نشطة لملف الاستيراد رقم {payload.import_file_id}. يرجى معالجة التكرار أولاً.",
+        )
+    tracking = active_trackings[0] if active_trackings else None
 
     requested = [c.strip().upper() for c in (payload.returned_containers or []) if c and c.strip()]
     final_dem_fx = 0.0
@@ -1564,6 +1691,20 @@ def record_empty_container_return_service(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"تم تسجيل إرجاع جميع حاويات جلسة التتبع {tracking.tracking_code} بالفعل.",
+            )
+
+        missing_gate_out = []
+        for c in containers:
+            c_no = (c.get("container_no") or "").strip().upper()
+            if c_no in targets:
+                g_out = _parse_date(c.get("gate_out_date")) or tracking.gate_out_date
+                if not g_out:
+                    missing_gate_out.append(c_no)
+
+        if missing_gate_out:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"لا يمكن تسجيل إعادة الحاويات الفارغة بدون تاريخ خروجها من الميناء (Gate-Out) للحاويات: {', '.join(sorted(missing_gate_out))}.",
             )
 
         returned_container_numbers: List[str] = []
@@ -1626,6 +1767,26 @@ def record_empty_container_return_service(
         existing_eirs.append(payload.eir_number)
     imp_file.empty_containers_eir_numbers = ", ".join(existing_eirs)
     imp_file.empty_containers_depot_name = payload.depot_name
+
+    # DEV-OPS-01: Update empty return info on ShipmentContainer entities
+    try:
+        from modules.containers.model import ShipmentContainer
+        sc_list = db.query(ShipmentContainer).filter(
+            ShipmentContainer.import_file_id == payload.import_file_id,
+            ShipmentContainer.is_active == True,
+        ).all()
+        for sc in sc_list:
+            if not returned_container_numbers or sc.container_number in returned_container_numbers:
+                sc.empty_return_date = payload.empty_return_date
+                sc.eir_number = payload.eir_number
+                if payload.depot_name:
+                    sc.depot_name = payload.depot_name
+                if payload.condition_at_return:
+                    sc.condition_at_return = payload.condition_at_return
+                sc.status = "Returned Empty"
+                sc.updated_by = user
+    except Exception as exc:
+        logger.warning("Failed to sync return empty to ShipmentContainer: %s", exc)
 
     if all_returned:
         # 4. Inland transport bookings complete only when every container is back

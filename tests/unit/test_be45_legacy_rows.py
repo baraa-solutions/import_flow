@@ -126,7 +126,7 @@ class TestBE45LegacyRows:
         assert len(data) >= 1
         legacy_item = next(item for item in data if item["cargo_shipping_code"] == "SHP-LEGACY-001")
         assert legacy_item["status"] == "Cargo Ready"
-        assert legacy_item["created_by"] == "System"
+        assert legacy_item["created_by"] is None
         assert legacy_item["is_crd_validated"] is True
         assert legacy_item["notes"] == "x"
 
@@ -206,8 +206,8 @@ class TestBE45LegacyRows:
         items = data["items"] if "items" in data else data
         assert len(items) >= 1
         legacy_item = next(item for item in items if item["certificate_code"] == "INS-LEGACY-001")
-        assert legacy_item["status"] == "Draft"
-        assert legacy_item["created_by"] == "System"
+        assert legacy_item["status"] == "DRAFT"
+        assert legacy_item["created_by"] is None
         assert legacy_item["exchange_rate"] is None
         assert legacy_item["base_premium"] is None
         assert legacy_item["total_payable_premium"] is None
@@ -258,7 +258,7 @@ class TestBE45LegacyRows:
         assert len(data) >= 1
         legacy_item = next(item for item in data if item["update_code"] == "UPD-LEGACY-001")
         assert legacy_item["phase_status"] == "Current"
-        assert legacy_item["created_by"] == "System"
+        assert legacy_item["created_by"] is None
         assert legacy_item["previous_cost"] is None
         assert legacy_item["new_cost"] is None
         assert legacy_item["note"] == "x"
@@ -316,7 +316,7 @@ class TestBE45LegacyRows:
         assert len(data) >= 1
         legacy_item = next(item for item in data if item["tracking_code"] == "TRK-LEGACY-001")
         assert legacy_item["status"] == "Free Time Active"
-        assert legacy_item["created_by"] == "System"
+        assert legacy_item["created_by"] is None
         assert legacy_item["exchange_rate"] is None
         assert legacy_item["total_cost_egp"] is None
         assert legacy_item["total_demurrage_fx"] is None

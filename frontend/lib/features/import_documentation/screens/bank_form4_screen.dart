@@ -21,6 +21,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
 import '../widgets/search_and_clone_bank_form4_dialog.dart';
+import '../widgets/formal_letter_generator_dialog.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
@@ -51,11 +52,11 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
   int? _editingBankDocId;
   String? _editingBankDocCode;
   int? _form4ImportFileId;
-  final TextEditingController _bankAmountController = TextEditingController(text: '62300.0');
+  final TextEditingController _bankAmountController = TextEditingController();
   String _bankDocType = 'Form 4';
   String _form4Currency = 'USD';
   int? _selectedBankId;
-  String _bankName = 'National Bank of Egypt (NBE)';
+  String _bankName = '';
   final TextEditingController _form4RequestDateCtrl = TextEditingController(text: DateTime.now().toString().substring(0, 10));
   final TextEditingController _form4NotesCtrl = TextEditingController();
   final TextEditingController _docReferenceNumberCtrl = TextEditingController();
@@ -64,13 +65,13 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
   bool _isSavingForm4 = false;
 
   final Map<String, bool> _form4DocsChecklist = {
-    'proforma_invoice': true,
-    'packing_list': true,
-    'certificate_of_origin': true,
-    'bill_of_lading': true,
-    'acid_notice': true,
+    'proforma_invoice': false,
+    'packing_list': false,
+    'certificate_of_origin': false,
+    'bill_of_lading': false,
+    'acid_notice': false,
     'marine_insurance': false,
-    'bank_application': true,
+    'bank_application': false,
     'admin_fee_receipt': false,
   };
 
@@ -126,7 +127,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
       _form4ImportFileId = doc.importFileId;
       _bankDocType = doc.docType;
       _docReferenceNumberCtrl.text = (doc.docReferenceNumber == 'PENDING') ? '' : doc.docReferenceNumber;
-      _selectedBankId = doc.bankId;
+      _selectedBankId = doc.nafezaLinkedBankId ?? doc.swiftExecutingBankId ?? doc.bankId;
       _bankName = doc.bankName;
       _bankAmountController.text = doc.amount.toStringAsFixed(2);
       _form4Currency = doc.currencyCode.toUpperCase();
@@ -164,7 +165,6 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
   }
 
   void _onCloneBankDocSelected(BankingDocumentModel doc) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     showDialog(
       context: context,
       builder: (dialogCtx) => AppLocalizationsProvider(
@@ -244,7 +244,6 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           final isDark = Theme.of(context).brightness == Brightness.dark;
-          final isAr = Localizations.localeOf(context).languageCode == 'ar';
           return AlertDialog(
             title: Row(
               children: [
@@ -356,6 +355,1344 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
     );
   }
 
+  void _openPullTaxCodingSheetDialog(BankingDocumentModel doc) {
+    final partners = ref.read(partnersProvider).valueOrNull ?? [];
+    final brokers = partners.where((p) =>
+      p.partnerType.contains('Customs') ||
+      p.partnerType.contains('مستخلص') ||
+      p.partnerType.contains('Broker')
+    ).toList();
+
+    int? selectedBrokerId = doc.taxCodingBrokerId ?? (brokers.isNotEmpty ? brokers.first.providerId : null);
+    final dateCtrl = TextEditingController(text: doc.taxCodingPulledDate ?? DateTime.now().toIso8601String().substring(0, 10));
+    final fileUrlCtrl = TextEditingController(text: doc.taxCodingSheetFileUrl ?? '');
+    final notesCtrl = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.file_download_outlined, color: AppTheme.wcagCobalt),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'تسجيل سحب شيت التكويد الضريبي (المستخلص)',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'يقوم المستخلص الجمركي بسحب شيت الأصناف الضريبي من منصة نافذة لتسليمه لمحاسب الشركة لتكويده.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SearchableDropdownField<int>(
+                    labelText: 'المستخلص الجمركي المسئول',
+                    hintText: 'اختر المستخلص الجمركي',
+                    value: selectedBrokerId,
+                    isRequired: true,
+                    items: brokers.map((b) => SearchableDropdownItem<int>(
+                      value: b.providerId ?? 0,
+                      label: '${b.partnerName} (${b.partnerCode})',
+                    )).toList(),
+                    onChanged: (val) => setModalState(() => selectedBrokerId = val),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: dateCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'تاريخ سحب الشيت من نافذة',
+                      prefixIcon: Icon(Icons.calendar_today_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: fileUrlCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'رابط / مسار ملف الشيت (اختياري)',
+                      prefixIcon: Icon(Icons.attachment_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'ملاحظات المستخلص',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              IdocBUi.fit(AppButton(
+                label: context.l10n.cancel,
+                variant: AppButtonVariant.secondary,
+                onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
+              )),
+              IdocBUi.fit(AppButton(
+                label: 'تأكيد السحب',
+                icon: Icons.check,
+                isLoading: isSubmitting,
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        setModalState(() => isSubmitting = true);
+                        try {
+                          await ref.read(bankingDocumentsProvider.notifier).pullTaxCodingSheet(
+                            doc.bankDocId,
+                            {
+                              'broker_id': selectedBrokerId,
+                              'pulled_date': dateCtrl.text.trim(),
+                              'file_url': fileUrlCtrl.text.trim().isNotEmpty ? fileUrlCtrl.text.trim() : null,
+                              'notes': notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : null,
+                            },
+                          );
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('تم تسجيل سحب شيت التكويد الضريبي بنجاح ومطالبة المحاسب بالرفع والتكويد'),
+                              backgroundColor: AppTheme.wcagEmerald,
+                            ),
+                          );
+                        } catch (e) {
+                          setModalState(() => isSubmitting = false);
+                          if (ctx.mounted) {
+                            showErrorDetailsDialog(ctx, title: 'خطأ في تسجيل سحب الشيت', error: e);
+                          }
+                        }
+                      },
+              )),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _openUploadTaxCodingSheetDialog(BankingDocumentModel doc) {
+    final accountantCtrl = TextEditingController(text: doc.taxCodingAccountantName ?? 'محاسب الشركة المعتمد');
+    final dateCtrl = TextEditingController(text: doc.taxCodingUploadedDate ?? DateTime.now().toIso8601String().substring(0, 10));
+    final notesCtrl = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.upload_file_outlined, color: AppTheme.wcagEmerald),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'تأكيد رفع وتكويد الشيت على نافذة (المحاسب)',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'يقوم محاسب الشركة برفع وتكويد الأصناف على منصة نافذة باستخدام التوكن الضريبي الخاص بالشركة (EGS/GS1).',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: accountantCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'اسم المحاسب المسئول عن التكويد',
+                      prefixIcon: Icon(Icons.person_outline),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: dateCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'تاريخ نجاح الرفع والتكويد',
+                      prefixIcon: Icon(Icons.calendar_today_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'ملاحظات التكويد ورقم الإقرار الضريبي إن وجد',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              IdocBUi.fit(AppButton(
+                label: context.l10n.cancel,
+                variant: AppButtonVariant.secondary,
+                onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
+              )),
+              IdocBUi.fit(AppButton(
+                label: 'تأكيد التكويد والرفع',
+                icon: Icons.check,
+                isLoading: isSubmitting,
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        setModalState(() => isSubmitting = true);
+                        try {
+                          await ref.read(bankingDocumentsProvider.notifier).uploadTaxCodingSheet(
+                            doc.bankDocId,
+                            {
+                              'accountant_name': accountantCtrl.text.trim(),
+                              'uploaded_date': dateCtrl.text.trim(),
+                              'notes': notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : null,
+                            },
+                          );
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('تم تأكيد رفع وتكويد الأصناف ضريبياً على نافذة بنجاح'),
+                              backgroundColor: AppTheme.wcagEmerald,
+                            ),
+                          );
+                        } catch (e) {
+                          setModalState(() => isSubmitting = false);
+                          if (ctx.mounted) {
+                            showErrorDetailsDialog(ctx, title: 'خطأ في تأكيد التكويد', error: e);
+                          }
+                        }
+                      },
+              )),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _openVerifyItemsDialog(BankingDocumentModel doc) {
+    final totalCtrl = TextEditingController(text: doc.itemsCountTotal > 0 ? '${doc.itemsCountTotal}' : '1');
+    final codedCtrl = TextEditingController(text: doc.itemsCountCoded > 0 ? '${doc.itemsCountCoded}' : totalCtrl.text);
+    final selectedBodies = Set<String>.from(doc.regulatoryBodiesDetected);
+    final notesCtrl = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.fact_check_outlined, color: AppTheme.wcagEmerald),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'تأكيد سحب الأصناف والتحقق من التكويد 100% (المستخلص)',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'يقوم المستخلص بسحب الأصناف على نافذة للتأكد من نجاح التكويد 100% واكتشاف أي جهات عرض رقابية.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: totalCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'إجمالي عدد الأصناف',
+                              prefixIcon: Icon(Icons.numbers),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: codedCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'عدد الأصناف المكودة بنجاح',
+                              prefixIcon: Icon(Icons.check_circle_outline),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'جهات العرض الرقابية المكتشفة على نافذة:',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildFilterChip('GOEIC (صادرات وواردات)', selectedBodies.contains('GOEIC'), () {
+                          setModalState(() {
+                            if (selectedBodies.contains('GOEIC')) {
+                              selectedBodies.remove('GOEIC');
+                            } else {
+                              selectedBodies.add('GOEIC');
+                            }
+                          });
+                        }),
+                        _buildFilterChip('NFSA (سلامة الغذاء)', selectedBodies.contains('NFSA'), () {
+                          setModalState(() {
+                            if (selectedBodies.contains('NFSA')) {
+                              selectedBodies.remove('NFSA');
+                            } else {
+                              selectedBodies.add('NFSA');
+                            }
+                          });
+                        }),
+                        _buildFilterChip('Radiation (هيئة الطاقة الذرية)', selectedBodies.contains('Radiation'), () {
+                          setModalState(() {
+                            if (selectedBodies.contains('Radiation')) {
+                              selectedBodies.remove('Radiation');
+                            } else {
+                              selectedBodies.add('Radiation');
+                            }
+                          });
+                        }),
+                        _buildFilterChip('Phytosanitary (حجر زراعي/بيطري)', selectedBodies.contains('Phytosanitary'), () {
+                          setModalState(() {
+                            if (selectedBodies.contains('Phytosanitary')) {
+                              selectedBodies.remove('Phytosanitary');
+                            } else {
+                              selectedBodies.add('Phytosanitary');
+                            }
+                          });
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: notesCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'ملاحظات فحص الأصناف',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              IdocBUi.fit(AppButton(
+                label: context.l10n.cancel,
+                variant: AppButtonVariant.secondary,
+                onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
+              )),
+              IdocBUi.fit(AppButton(
+                label: 'تأكيد السحب والفحص',
+                icon: Icons.check,
+                isLoading: isSubmitting,
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final total = int.tryParse(totalCtrl.text) ?? 1;
+                        final coded = int.tryParse(codedCtrl.text) ?? total;
+                        setModalState(() => isSubmitting = true);
+                        try {
+                          await ref.read(bankingDocumentsProvider.notifier).verifyItems(
+                            doc.bankDocId,
+                            {
+                              'items_pulled_verified': true,
+                              'items_count_total': total,
+                              'items_count_coded': coded,
+                              'regulatory_bodies': selectedBodies.toList(),
+                              'notes': notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : null,
+                            },
+                          );
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('تم تأكيد سحب وفحص الأصناف والتكويد 100% بنجاح'),
+                              backgroundColor: AppTheme.wcagEmerald,
+                            ),
+                          );
+                        } catch (e) {
+                          setModalState(() => isSubmitting = false);
+                          if (ctx.mounted) {
+                            showErrorDetailsDialog(ctx, title: 'خطأ في تأكيد فحص الأصناف', error: e);
+                          }
+                        }
+                      },
+              )),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _openLinkNafezaBankDialog(BankingDocumentModel doc) {
+    final partners = ref.read(partnersProvider).valueOrNull ?? [];
+    final banks = partners.where((p) => p.partnerType.contains('Bank') || p.partnerType.contains('بنك')).toList();
+    int? selectedBankId = doc.nafezaLinkedBankId ?? doc.swiftExecutingBankId ?? (banks.isNotEmpty ? banks.first.providerId : null);
+    final dateCtrl = TextEditingController(text: doc.nafezaBankLinkDate ?? DateTime.now().toIso8601String().substring(0, 10));
+    final notesCtrl = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final isMatchingSwift = doc.swiftExecutingBankId != null && selectedBankId == doc.swiftExecutingBankId;
+
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.link, color: AppTheme.wcagCobalt),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'ربط الشهادة بالبنك على منصة نافذة (المستخلص)',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'يقوم المستخلص بربط الإقرار الجمركي على نافذة بالبنك المنفذ لسويفت التحويل حصراً حتى يتمكن البنك من إقرار نموذج 4.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  if (doc.swiftExecutingBankName != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.wcagCobalt.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.wcagCobalt.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.swap_horiz, size: 16, color: AppTheme.wcagCobalt),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'البنك المنفذ لسويفت التحويل: ${doc.swiftExecutingBankName}'
+                              '${doc.swiftReferenceNo != null ? " (سويفت: ${doc.swiftReferenceNo})" : ""}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.wcagCobalt),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  SearchableDropdownField<int>(
+                    labelText: 'البنك المربوط عليه الشهادة على نافذة',
+                    hintText: 'اختر البنك',
+                    value: selectedBankId,
+                    isRequired: true,
+                    items: banks.map((b) => SearchableDropdownItem<int>(
+                      value: b.providerId ?? 0,
+                      label: '${b.partnerName} (${b.partnerCode})'
+                          '${b.providerId == doc.swiftExecutingBankId ? " ⭐️ [بنك السويفت]" : ""}',
+                    )).toList(),
+                    onChanged: (val) => setModalState(() => selectedBankId = val),
+                  ),
+                  const SizedBox(height: 8),
+
+                  if (!isMatchingSwift && doc.swiftExecutingBankId != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.crimson.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.crimson.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.warning, size: 16, color: AppTheme.crimson),
+                          SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'تنبيه: البنك المختار لا يطابق بنك سويفت التحويل! يجب الربط بنفس بنك السويفت.',
+                              style: TextStyle(fontSize: 11.5, color: AppTheme.crimson, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+
+                  TextFormField(
+                    controller: dateCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'تاريخ إتمام الربط البنكي',
+                      prefixIcon: Icon(Icons.calendar_today_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'ملاحظات الربط البنكي ورقم التأكيد على نافذة',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              IdocBUi.fit(AppButton(
+                label: context.l10n.cancel,
+                variant: AppButtonVariant.secondary,
+                onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
+              )),
+              IdocBUi.fit(AppButton(
+                label: 'تأكيد الربط البنكي',
+                icon: Icons.link,
+                isLoading: isSubmitting,
+                onPressed: isSubmitting || selectedBankId == null
+                    ? null
+                    : () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        setModalState(() => isSubmitting = true);
+                        try {
+                          await ref.read(bankingDocumentsProvider.notifier).linkNafezaBank(
+                            doc.bankDocId,
+                            {
+                              'nafeza_linked_bank_id': selectedBankId,
+                              'link_date': dateCtrl.text.trim(),
+                              'notes': notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : null,
+                            },
+                          );
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('تم تسجيل الربط البنكي على نافذة بنجاح ومطابقة البنك'),
+                              backgroundColor: AppTheme.wcagEmerald,
+                            ),
+                          );
+                        } catch (e) {
+                          setModalState(() => isSubmitting = false);
+                          if (ctx.mounted) {
+                            showErrorDetailsDialog(ctx, title: 'خطأ في الربط البنكي', error: e);
+                          }
+                        }
+                      },
+              )),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _initializeReadinessDraft() async {
+    if (_form4ImportFileId == null) return;
+    try {
+      final created = await ref.read(bankingDocumentsProvider.notifier).createBankingDocument({
+        'import_file_id': _form4ImportFileId,
+        'doc_type': _bankDocType,
+        'bank_id': _selectedBankId,
+        'bank_name': _bankName.isNotEmpty ? _bankName : 'National Bank of Egypt (NBE)',
+        'amount': double.tryParse(_bankAmountController.text) ?? 0.0,
+        'currency_code': _form4Currency,
+        'request_date': _form4RequestDateCtrl.text.trim(),
+        'doc_reference_number': 'PENDING',
+        'notes': 'Initial draft to track pre-Form 4 readiness',
+      });
+      if (created != null && mounted) {
+        _loadForm4ForEdit(created);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم بدء مسار الجاهزية وحفظ مسودة الطلب بنجاح'),
+            backgroundColor: AppTheme.wcagEmerald,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showErrorDetailsDialog(context, title: 'خطأ في بدء مسار الجاهزية', error: e);
+      }
+    }
+  }
+
+  Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.wcagCobalt.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? AppTheme.wcagCobalt : AppTheme.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle : Icons.circle_outlined,
+              size: 14,
+              color: isSelected ? AppTheme.wcagCobalt : AppTheme.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? AppTheme.wcagCobalt : AppTheme.textStrong,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreForm4ReadinessPipeline(BuildContext context, BankingDocumentModel? doc, bool isDark, bool isMobile) {
+    if (_form4ImportFileId == null) {
+      return const SizedBox.shrink();
+    }
+
+    final isDocReady = doc != null && doc.canSubmitForm4;
+    final hasBlockers = doc != null && doc.blockers.isNotEmpty;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDocReady
+              ? AppTheme.wcagEmerald
+              : (hasBlockers ? AppTheme.orange : (isDark ? AppTheme.darkBorder : AppTheme.border)),
+          width: isDocReady || hasBlockers ? 1.5 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row: Title & Readiness Badge
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: (isDocReady ? AppTheme.wcagEmerald : AppTheme.wcagCobalt).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  isDocReady ? Icons.verified : Icons.account_balance,
+                  color: isDocReady ? AppTheme.wcagEmerald : AppTheme.wcagCobalt,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'مسار جاهزية ما قبل طلب نموذج 4 (Pre-Form 4 Readiness)',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.wcagCobalt.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'BP-015',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.wcagCobalt,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'الخطوات الإلزامية قبل مخاطبة البنك: سحب شيت التكويد ← رفع وتكويد المحاسب ← سحب وفحص الأصناف ← الربط البنكي بنافذة',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Overall Status Badge
+              _buildReadinessOverallBadge(doc, isDark),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+          Divider(height: 1, color: isDark ? AppTheme.darkBorder : AppTheme.border),
+          const SizedBox(height: 16),
+
+          if (doc == null) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.wcagCobalt.withValues(alpha: 0.08) : AppTheme.infoBackground,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.wcagCobalt.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: AppTheme.wcagCobalt, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'لم يتم إنشاء مسودة جلسة توثيق بنكي لهذه الشحنة بعد. اضغط على الزر لبدء مسار الجاهزية والربط البنكي.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  IdocBUi.fit(AppButton(
+                    label: 'بدء مسار الجاهزية',
+                    icon: Icons.play_arrow,
+                    onPressed: _initializeReadinessDraft,
+                  )),
+                ],
+              ),
+            ),
+          ] else ...[
+            // Stepper Cards (Stage 1, Stage 2, Stage 3)
+            if (isMobile) ...[
+              _buildStage1TaxCodingCard(doc, isDark),
+              const SizedBox(height: 12),
+              _buildStage2ItemsVerificationCard(doc, isDark),
+              const SizedBox(height: 12),
+              _buildStage3NafezaBankLinkCard(doc, isDark),
+            ] else ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildStage1TaxCodingCard(doc, isDark)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildStage2ItemsVerificationCard(doc, isDark)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildStage3NafezaBankLinkCard(doc, isDark)),
+                ],
+              ),
+            ],
+
+            // Blockers Warning Banner
+            if (hasBlockers) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.crimson.withValues(alpha: 0.15) : AppTheme.dangerBackground,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.crimson.withValues(alpha: 0.4)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'موانع تقديم نموذج 4 للبنك (${doc.blockers.length} متطلب غير مستوفى):',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.crimson,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ...doc.blockers.map((blocker) => Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 26, bottom: 3),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('• ', style: TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold)),
+                          Expanded(
+                            child: Text(
+                              blocker,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.dangerForeground,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            ],
+
+            // Bottom Action Bar: Formal Cover Letter & Readiness Confirmation
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    IdocBUi.fit(AppButton(
+                      label: 'خطاب تغطية بنكي لنموذج 4',
+                      icon: Icons.mark_email_read_outlined,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: () => FormalLetterGeneratorDialog.show(
+                        context,
+                        importFileId: _form4ImportFileId,
+                      ),
+                    )),
+                    if (doc.swiftReferenceNo != null && doc.swiftReferenceNo!.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.wcagCobalt.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.wcagCobalt.withValues(alpha: 0.2)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.swap_horiz, size: 16, color: AppTheme.wcagCobalt),
+                            const SizedBox(width: 6),
+                            Text(
+                              'سويفت التحويل: ${doc.swiftReferenceNo}',
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.wcagCobalt),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                if (doc.canSubmitForm4)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.wcagEmerald.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, size: 16, color: AppTheme.wcagEmerald),
+                        SizedBox(width: 6),
+                        Text(
+                          'مستوفي لشروط تقديم نموذج 4',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.wcagEmerald),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReadinessOverallBadge(BankingDocumentModel? doc, bool isDark) {
+    if (doc == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppTheme.textMuted.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppTheme.textMuted.withValues(alpha: 0.3)),
+        ),
+        child: const Text(
+          'لم تبدأ الجاهزية',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textMuted),
+        ),
+      );
+    }
+
+    if (doc.canSubmitForm4) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppTheme.wcagEmerald.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppTheme.wcagEmerald),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.verified, size: 14, color: AppTheme.wcagEmerald),
+            SizedBox(width: 4),
+            Text(
+              'جاهز للبنك (100%)',
+              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.wcagEmerald),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppTheme.orange.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppTheme.orange),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.pending_actions, size: 14, color: AppTheme.orange),
+          const SizedBox(width: 4),
+          Text(
+            'معلق (${doc.blockers.length} متطلبات)',
+            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.orange),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStage1TaxCodingCard(BankingDocumentModel doc, bool isDark) {
+    final isPulled = doc.taxCodingPulledDate != null;
+    final isUploaded = doc.taxCodingUploadedDate != null;
+    final isDone = isPulled && isUploaded;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDone ? AppTheme.wcagEmerald : (isDark ? AppTheme.darkBorder : AppTheme.border),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isDone ? Icons.check_circle : Icons.receipt_long_outlined,
+                color: isDone ? AppTheme.wcagEmerald : AppTheme.wcagCobalt,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  '1. شيت التكويد الضريبي',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'سحب مستخلص ← تكويد محاسب',
+            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+          ),
+          const SizedBox(height: 10),
+
+          // Sub-step A: Pulled
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: (isPulled ? AppTheme.wcagEmerald : AppTheme.textMuted).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'أ) سحب الشيت (مستخلص)',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isPulled ? AppTheme.wcagEmerald : null),
+                      ),
+                    ),
+                    Icon(isPulled ? Icons.check : Icons.hourglass_top, size: 14, color: isPulled ? AppTheme.wcagEmerald : AppTheme.orange),
+                  ],
+                ),
+                if (isPulled) ...[
+                  const SizedBox(height: 2),
+                  Text('التاريخ: ${doc.taxCodingPulledDate}', style: const TextStyle(fontSize: 10.5)),
+                  if (doc.taxCodingBrokerName != null)
+                    Text('المستخلص: ${doc.taxCodingBrokerName}', style: const TextStyle(fontSize: 10.5)),
+                ] else ...[
+                  const SizedBox(height: 6),
+                  IdocBUi.fit(AppButton(
+                    label: 'سحب الشيت',
+                    icon: Icons.download,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: () => _openPullTaxCodingSheetDialog(doc),
+                  )),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Sub-step B: Uploaded
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: (isUploaded ? AppTheme.wcagEmerald : AppTheme.textMuted).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'ب) رفع وتكويد نافذة (محاسب)',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isUploaded ? AppTheme.wcagEmerald : null),
+                      ),
+                    ),
+                    Icon(isUploaded ? Icons.check : Icons.hourglass_top, size: 14, color: isUploaded ? AppTheme.wcagEmerald : AppTheme.orange),
+                  ],
+                ),
+                if (isUploaded) ...[
+                  const SizedBox(height: 2),
+                  Text('التاريخ: ${doc.taxCodingUploadedDate}', style: const TextStyle(fontSize: 10.5)),
+                  if (doc.taxCodingAccountantName != null)
+                    Text('المحاسب: ${doc.taxCodingAccountantName}', style: const TextStyle(fontSize: 10.5)),
+                ] else ...[
+                  const SizedBox(height: 6),
+                  IdocBUi.fit(AppButton(
+                    label: 'رفع وتكويد الشيت',
+                    icon: Icons.upload,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: isPulled ? () => _openUploadTaxCodingSheetDialog(doc) : null,
+                  )),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStage2ItemsVerificationCard(BankingDocumentModel doc, bool isDark) {
+    final isVerified = doc.itemsPulledVerified;
+    final codedRatio = doc.itemsCountTotal > 0 ? (doc.itemsCountCoded / doc.itemsCountTotal).clamp(0.0, 1.0) : 0.0;
+    final isFullyCoded = doc.itemsCountTotal > 0 && doc.itemsCountCoded == doc.itemsCountTotal;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: (isVerified && isFullyCoded) ? AppTheme.wcagEmerald : (isDark ? AppTheme.darkBorder : AppTheme.border),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                (isVerified && isFullyCoded) ? Icons.check_circle : Icons.fact_check_outlined,
+                color: (isVerified && isFullyCoded) ? AppTheme.wcagEmerald : AppTheme.wcagCobalt,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  '2. سحب وفحص الأصناف',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'تأكيد التكويد 100% وجهات العرض',
+            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+          ),
+          const SizedBox(height: 10),
+
+          // Verification Status & Counts
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: (isVerified ? AppTheme.wcagEmerald : AppTheme.textMuted).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'أصناف مكودة: ${doc.itemsCountCoded} / ${doc.itemsCountTotal}',
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Text(
+                      '${(codedRatio * 100).toInt()}%',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: isFullyCoded ? AppTheme.wcagEmerald : AppTheme.orange,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: codedRatio,
+                    minHeight: 5,
+                    backgroundColor: isDark ? AppTheme.darkBorder : AppTheme.border,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isFullyCoded ? AppTheme.wcagEmerald : AppTheme.orange,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                if (doc.regulatoryBodiesDetected.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: doc.regulatoryBodiesDetected.map((body) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: AppTheme.orange.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.orange.withValues(alpha: 0.4)),
+                      ),
+                      child: Text(
+                        body,
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.orange),
+                      ),
+                    )).toList(),
+                  ),
+                ] else ...[
+                  Text(
+                    'جهات العرض: لا توجد جهات فحص خاصة',
+                    style: TextStyle(fontSize: 10.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          IdocBUi.fit(AppButton(
+            label: isVerified ? 'إعادة تأكيد فحص الأصناف' : 'تأكيد فحص الأصناف',
+            icon: Icons.check_circle_outline,
+            variant: AppButtonVariant.secondary,
+            onPressed: () => _openVerifyItemsDialog(doc),
+          )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStage3NafezaBankLinkCard(BankingDocumentModel doc, bool isDark) {
+    final isLinked = doc.nafezaBankLinkStatus.toUpperCase() == 'LINKED';
+    final isMatching = doc.isBankMatchingSwift;
+    final isSuccess = isLinked && isMatching;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isSuccess ? AppTheme.wcagEmerald : (!isMatching ? AppTheme.crimson : (isDark ? AppTheme.darkBorder : AppTheme.border)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isSuccess ? Icons.check_circle : Icons.link,
+                color: isSuccess ? AppTheme.wcagEmerald : (!isMatching ? AppTheme.crimson : AppTheme.wcagCobalt),
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  '3. الربط البنكي على نافذة',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'الربط الحصري ببنك سويفت التحويل',
+            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+          ),
+          const SizedBox(height: 10),
+
+          // Bank Info Container
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: (isSuccess ? AppTheme.wcagEmerald : (!isMatching ? AppTheme.crimson : AppTheme.textMuted)).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Text('بنك السويفت المنفذ:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    ),
+                    Icon(
+                      isMatching ? Icons.verified : Icons.warning_amber_rounded,
+                      size: 14,
+                      color: isMatching ? AppTheme.wcagEmerald : AppTheme.crimson,
+                    ),
+                  ],
+                ),
+                Text(
+                  doc.swiftExecutingBankName ?? 'لم يتم رصد سويفت بعد',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text('البنك المربوط بنافذة:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                Text(
+                  doc.nafezaLinkedBankName ?? 'لم يتم الربط على نافذة بعد',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: isLinked ? (isMatching ? AppTheme.wcagEmerald : AppTheme.crimson) : AppTheme.orange,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          IdocBUi.fit(AppButton(
+            label: isLinked ? 'تعديل الربط البنكي' : 'ربط الشهادة بالبنك على نافذة',
+            icon: Icons.link,
+            variant: AppButtonVariant.secondary,
+            onPressed: () => _openLinkNafezaBankDialog(doc),
+          )),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final density = ref.watch(displayDensityProvider);
@@ -442,7 +1779,13 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final currencies = ref.watch(currenciesProvider).valueOrNull ?? [];
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final bankingDocs = ref.watch(bankingDocumentsProvider).valueOrNull ?? [];
+
+    final activeDoc = (_editingBankDocId != null)
+        ? bankingDocs.where((d) => d.bankDocId == _editingBankDocId).firstOrNull
+        : (_form4ImportFileId != null
+            ? bankingDocs.where((d) => d.importFileId == _form4ImportFileId).firstOrNull
+            : null);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -573,15 +1916,24 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                   onChanged: (val) {
                     setState(() => _form4ImportFileId = val);
                     if (val != null) {
-                      final file = importFiles.where((f) => f.importFileId == val).firstOrNull;
-                      if (file != null && file.estimatedCost > 0) {
-                        _bankAmountController.text = file.estimatedCost.toStringAsFixed(2);
-                        _form4Currency = file.estimatedCostCurrency.isNotEmpty ? file.estimatedCostCurrency : 'USD';
+                      final existingDoc = bankingDocs.where((d) => d.importFileId == val).firstOrNull;
+                      if (existingDoc != null && _editingBankDocId == null) {
+                        _loadForm4ForEdit(existingDoc);
+                      } else {
+                        final file = importFiles.where((f) => f.importFileId == val).firstOrNull;
+                        if (file != null && file.estimatedCost > 0) {
+                          _bankAmountController.text = file.estimatedCost.toStringAsFixed(2);
+                          _form4Currency = file.estimatedCostCurrency.isNotEmpty ? file.estimatedCostCurrency : 'USD';
+                        }
                       }
                     }
                   },
                 ),
               ),
+              const SizedBox(height: 20),
+
+              // Pre-Form 4 Readiness Pipeline (BP-015)
+              _buildPreForm4ReadinessPipeline(context, activeDoc, isDark, isMobile),
               const SizedBox(height: 20),
 
               // Main Form Card
@@ -635,6 +1987,31 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                           if (b != null) _bankName = b.partnerName;
                         },
                       ),
+                      if (activeDoc != null && activeDoc.swiftExecutingBankId != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              _selectedBankId == activeDoc.swiftExecutingBankId ? Icons.check_circle : Icons.warning_amber_rounded,
+                              size: 14,
+                              color: _selectedBankId == activeDoc.swiftExecutingBankId ? AppTheme.wcagEmerald : AppTheme.crimson,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _selectedBankId == activeDoc.swiftExecutingBankId
+                                    ? 'مطابق للبنك المنفذ لسويفت التحويل (${activeDoc.swiftExecutingBankName})'
+                                    : 'تحذير: لا يطابق البنك المنفذ لسويفت التحويل (${activeDoc.swiftExecutingBankName})!',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: _selectedBankId == activeDoc.swiftExecutingBankId ? AppTheme.wcagEmerald : AppTheme.crimson,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _bankAmountController,
@@ -664,23 +2041,54 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       ),
                     ] else ...[
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             flex: 2,
-                            child: SearchableDropdownField<int>(
-                              labelText: context.l10n.issuingBankLabel,
-                              hintText: context.l10n.selectBankHint,
-                              value: _selectedBankId,
-                              isRequired: true,
-                              items: banksList.map((b) => SearchableDropdownItem<int>(
-                                value: b.providerId ?? 0,
-                                label: '${b.partnerName} (${b.partnerCode})',
-                              )).toList(),
-                              onChanged: (val) {
-                                setState(() => _selectedBankId = val);
-                                final b = banksList.where((p) => p.providerId == val).firstOrNull;
-                                if (b != null) _bankName = b.partnerName;
-                              },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SearchableDropdownField<int>(
+                                  labelText: context.l10n.issuingBankLabel,
+                                  hintText: context.l10n.selectBankHint,
+                                  value: _selectedBankId,
+                                  isRequired: true,
+                                  items: banksList.map((b) => SearchableDropdownItem<int>(
+                                    value: b.providerId ?? 0,
+                                    label: '${b.partnerName} (${b.partnerCode})',
+                                  )).toList(),
+                                  onChanged: (val) {
+                                    setState(() => _selectedBankId = val);
+                                    final b = banksList.where((p) => p.providerId == val).firstOrNull;
+                                    if (b != null) _bankName = b.partnerName;
+                                  },
+                                ),
+                                if (activeDoc != null && activeDoc.swiftExecutingBankId != null) ...[
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        _selectedBankId == activeDoc.swiftExecutingBankId ? Icons.check_circle : Icons.warning_amber_rounded,
+                                        size: 14,
+                                        color: _selectedBankId == activeDoc.swiftExecutingBankId ? AppTheme.wcagEmerald : AppTheme.crimson,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          _selectedBankId == activeDoc.swiftExecutingBankId
+                                              ? 'مطابق للبنك المنفذ لسويفت التحويل (${activeDoc.swiftExecutingBankName})'
+                                              : 'تحذير: لا يطابق البنك المنفذ لسويفت التحويل (${activeDoc.swiftExecutingBankName})!',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: _selectedBankId == activeDoc.swiftExecutingBankId ? AppTheme.wcagEmerald : AppTheme.crimson,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -791,6 +2199,30 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       ],
                     ),
                     const SizedBox(height: 24),
+
+                    if (activeDoc != null && !activeDoc.canSubmitForm4) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.orange.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.orange.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 16, color: AppTheme.orange),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'تنبيه: يمكنك حفظ وتحديث مسودة الطلب، ولكن يجب استيفاء مسار الجاهزية (${activeDoc.blockers.length} متطلبات) قبل التقديم الفعلي للبنك.',
+                                style: const TextStyle(fontSize: 12, color: AppTheme.orange, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
 
                     // Submit Button
                     Wrap(
@@ -1146,7 +2578,33 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                             CopyableTableCell(
                               value: d.bankName,
                               rowSummary: rowSummary,
-                              child: Text(d.bankName, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null)),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(d.bankName, style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : null)),
+                                  if (d.nafezaBankLinkStatus.toUpperCase() == 'LINKED')
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          d.isBankMatchingSwift ? Icons.check_circle : Icons.warning,
+                                          size: 11,
+                                          color: d.isBankMatchingSwift ? AppTheme.wcagEmerald : AppTheme.crimson,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          'مربوط بنافذة (${d.isBankMatchingSwift ? "مطابق للسويفت" : "غير مطابق!"})',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: d.isBankMatchingSwift ? AppTheme.wcagEmerald : AppTheme.crimson,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                           DataCell(

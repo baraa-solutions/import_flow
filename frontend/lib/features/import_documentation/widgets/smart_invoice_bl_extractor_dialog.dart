@@ -317,7 +317,7 @@ class _SmartInvoiceBLExtractorDialogState
             _showSnackBar(l.smartExtractorBlAppliedSuccess);
           }
         } else if (mounted) {
-          final msg = data is Map ? (data['message']?.toString() ?? '') : '';
+          final msg = data['message']?.toString() ?? '';
           _showSnackBar(
             l.smartExtractorApplyBlError(msg.isNotEmpty ? msg : l.idocABlNotApplied),
             isError: true,
@@ -488,6 +488,18 @@ class _SmartInvoiceBLExtractorDialogState
     final l = context.l10n;
     final inv = _extractedInvoice ?? {};
     final currency = (inv['currency'] ?? 'USD').toString();
+    final origin = (inv['origin_country'] ?? '').toString().trim();
+    final hsCode = (inv['hs_code'] ?? '').toString().trim();
+    final isPreferential = inv['is_preferential_origin'] == true;
+    final prefAgreement = (inv['preferential_origin_agreement'] ?? '').toString().trim();
+    final isFOC = inv['is_free_of_charge'] == true;
+    final pallets = inv['pallets_count'];
+    final packages = inv['packages_count'];
+    final containerNo = (inv['container_number'] ?? '').toString().trim();
+    final sealNo = (inv['seal_number'] ?? '').toString().trim();
+    final poNo = (inv['purchase_order'] ?? '').toString().trim();
+    final freightAmt = inv['freight_amount'];
+
     return Card(
       elevation: 0,
       color: AppTheme.cobaltLight,
@@ -533,10 +545,28 @@ class _SmartInvoiceBLExtractorDialogState
                 _buildFieldChip(l.smartExtractorFieldImporterTaxId, '${inv['importer_tax_id'] ?? '-'}'),
                 _buildFieldChip(l.smartExtractorFieldSupplier, '${inv['supplier_name'] ?? '-'}'),
                 _buildFieldChip(l.smartExtractorFieldImporter, '${inv['importer_name'] ?? '-'}'),
+                if (origin.isNotEmpty)
+                  _buildFieldChip('بلد المنشأ (Origin)', origin, isHighlight: true),
+                if (hsCode.isNotEmpty)
+                  _buildFieldChip('البند الجمركي (HS Code)', hsCode, isHighlight: true),
                 _buildFieldChip(l.smartExtractorFieldIncoterms, '${inv['incoterms'] ?? '-'}'),
                 _buildFieldChip(l.smartExtractorFieldTotalAmount, '${inv['invoice_value'] ?? 0} $currency', isHighlight: true),
+                if (freightAmt != null && (freightAmt is num) && freightAmt > 0)
+                  _buildFieldChip('النولون (Freight)', '$freightAmt $currency'),
                 _buildFieldChip(l.smartExtractorFieldTotalGrossWeight, '${inv['total_gross_weight_kg'] ?? '-'} KG'),
+                if (inv['total_net_weight_kg'] != null)
+                  _buildFieldChip('الوزن الصافي (Net Wt)', '${inv['total_net_weight_kg']} KG'),
+                if (packages != null || pallets != null)
+                  _buildFieldChip('التعبئة (Packages/Pallets)', '${packages != null ? "$packages طرد" : ""}${packages != null && pallets != null ? " / " : ""}${pallets != null ? "$pallets بالتة" : ""}'),
                 _buildFieldChip(l.smartExtractorFieldPorts, 'POL: ${inv['loading_port'] ?? '-'} | POD: ${inv['discharge_port'] ?? '-'}'),
+                if (containerNo.isNotEmpty)
+                  _buildFieldChip('الحاوية (Container)', '$containerNo${sealNo.isNotEmpty ? " (Seal: $sealNo)" : ""}'),
+                if (poNo.isNotEmpty)
+                  _buildFieldChip('أمر التوريد (PO)', poNo),
+                if (isPreferential && prefAgreement.isNotEmpty)
+                  _buildFieldChip('اتفاقية المنشأ التفضيلي', prefAgreement, isHighlight: true),
+                if (isFOC)
+                  _buildFieldChip('الحالة الجمركية', 'قيمة إحصائية / عينات مجانية (Free of Charge)', isHighlight: true),
               ],
             ),
           ],
@@ -576,77 +606,117 @@ class _SmartInvoiceBLExtractorDialogState
               )
             else
               ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220),
+                constraints: const BoxConstraints(maxHeight: 260),
                 child: SingleChildScrollView(
-                  child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
-                    columnSpacing: 18,
-                    columns: [
-                      const DataColumn(label: Text('#')),
-                      DataColumn(label: Text(l.smartExtractorColItemDescription)),
-                      DataColumn(label: Text(l.smartExtractorColQuantity)),
-                      DataColumn(label: Text(l.smartExtractorColUnit)),
-                      DataColumn(label: Text(l.smartExtractorColUnitPrice)),
-                      DataColumn(label: Text(l.smartExtractorColTotalPrice)),
-                    ],
-                    rows: List.generate(_invoiceItems.length, (idx) {
-                      final itm = _invoiceItems[idx] as Map<String, dynamic>;
-                      final idxStr = '${idx + 1}';
-                      final desc = '${itm['description'] ?? '-'}';
-                      final qty = '${itm['quantity'] ?? 0}';
-                      final uom = '${itm['unit_of_measure'] ?? 'PCS'}';
-                      final uPrice = '${itm['unit_price'] ?? 0}';
-                      final tPrice = '${itm['total_price'] ?? 0}';
-                      final rowSummary = '$idxStr\t$desc\t$qty\t$uom\t$uPrice\t$tPrice';
+                  scrollDirection: Axis.vertical,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
+                      columnSpacing: 16,
+                      columns: [
+                        const DataColumn(label: Text('#')),
+                        const DataColumn(label: Text('الكود (Code)')),
+                        DataColumn(label: Text(l.smartExtractorColItemDescription)),
+                        const DataColumn(label: Text('بند جمركي (HS)')),
+                        DataColumn(label: Text(l.smartExtractorColQuantity)),
+                        DataColumn(label: Text(l.smartExtractorColUnit)),
+                        DataColumn(label: Text(l.smartExtractorColUnitPrice)),
+                        DataColumn(label: Text(l.smartExtractorColTotalPrice)),
+                        const DataColumn(label: Text('المنشأ (COO)')),
+                      ],
+                      rows: List.generate(_invoiceItems.length, (idx) {
+                        final itm = _invoiceItems[idx] as Map<String, dynamic>;
+                        final idxStr = '${idx + 1}';
+                        final code = '${itm['item_code'] ?? '-'}';
+                        final desc = '${itm['description'] ?? '-'}';
+                        final hs = '${itm['hs_code'] ?? '-'}';
+                        final qty = '${itm['quantity'] ?? 0}';
+                        final uom = '${itm['unit_of_measure'] ?? itm['unit'] ?? 'PCS'}';
+                        final uPrice = '${itm['unit_price'] ?? 0}';
+                        final tPrice = '${itm['total_price'] ?? 0}';
+                        final originItem = '${itm['country_of_origin'] ?? '-'}';
+                        final rowSummary = '$idxStr\t$code\t$desc\t$hs\t$qty\t$uom\t$uPrice\t$tPrice\t$originItem';
 
-                      return DataRow(cells: [
-                        DataCell(
-                          CopyableTableCell(
-                            value: idxStr,
-                            rowSummary: rowSummary,
-                            child: Text(idxStr),
-                          ),
-                        ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: desc,
-                            rowSummary: rowSummary,
-                            child: SizedBox(
-                              width: 250,
-                              child: Text(desc, overflow: TextOverflow.ellipsis),
+                        return DataRow(cells: [
+                          DataCell(
+                            CopyableTableCell(
+                              value: idxStr,
+                              rowSummary: rowSummary,
+                              child: Text(idxStr),
                             ),
                           ),
-                        ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: qty,
-                            rowSummary: rowSummary,
-                            child: Text(qty),
+                          DataCell(
+                            CopyableTableCell(
+                              value: code,
+                              rowSummary: rowSummary,
+                              child: SizedBox(
+                                width: 110,
+                                child: Text(code, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
+                              ),
+                            ),
                           ),
-                        ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: uom,
-                            rowSummary: rowSummary,
-                            child: Text(uom),
+                          DataCell(
+                            CopyableTableCell(
+                              value: desc,
+                              rowSummary: rowSummary,
+                              child: SizedBox(
+                                width: 240,
+                                child: Text(desc, overflow: TextOverflow.ellipsis),
+                              ),
+                            ),
                           ),
-                        ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: uPrice,
-                            rowSummary: rowSummary,
-                            child: Text(uPrice),
+                          DataCell(
+                            CopyableTableCell(
+                              value: hs,
+                              rowSummary: rowSummary,
+                              child: SizedBox(
+                                width: 95,
+                                child: Text(hs, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                              ),
+                            ),
                           ),
-                        ),
-                        DataCell(
-                          CopyableTableCell(
-                            value: tPrice,
-                            rowSummary: rowSummary,
-                            child: Text(tPrice, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          DataCell(
+                            CopyableTableCell(
+                              value: qty,
+                              rowSummary: rowSummary,
+                              child: Text(qty),
+                            ),
                           ),
-                        ),
-                      ]);
-                    }),
+                          DataCell(
+                            CopyableTableCell(
+                              value: uom,
+                              rowSummary: rowSummary,
+                              child: Text(uom),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: uPrice,
+                              rowSummary: rowSummary,
+                              child: Text(uPrice),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: tPrice,
+                              rowSummary: rowSummary,
+                              child: Text(tPrice, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          DataCell(
+                            CopyableTableCell(
+                              value: originItem,
+                              rowSummary: rowSummary,
+                              child: SizedBox(
+                                width: 75,
+                                child: Text(originItem, overflow: TextOverflow.ellipsis),
+                              ),
+                            ),
+                          ),
+                        ]);
+                      }),
+                    ),
                   ),
                 ),
               ),

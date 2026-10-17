@@ -70,7 +70,7 @@ class DemurrageTrackingBase(BaseModel):
     gate_out_date: Optional[date] = Field(None, description="تاريخ خروج الحاوية من بوابة الميناء")
     empty_return_date: Optional[date] = Field(None, description="تاريخ إعادة الحاوية الفارغة لساحة الخط")
     containers: List[ContainerItemInput] = Field(default_factory=list, min_length=1, description="قائمة الحاويات")
-    currency: str = Field("USD", min_length=3, max_length=10)
+    currency: Optional[str] = Field(None, min_length=3, max_length=10, description="عملة جلسة التتبع (null = عملة سياسة الخط الملاحي)")
     exchange_rate: Optional[float] = Field(None, gt=0.0, description="null = bank rate of the currency at the discharge date")
     notes: Optional[str] = None
 
@@ -119,9 +119,9 @@ class DemurrageTrackingResponse(LegacyRowTolerantModel):
     notes: Optional[str] = None
     is_active: bool = True
     created_at: Optional[datetime] = None
-    created_by: str = "System"
+    created_by: Optional[str] = None
     updated_at: Optional[datetime] = None
-    updated_by: str = "System"
+    updated_by: Optional[str] = None
 
 
 class DemurrageSimulationRequest(BaseModel):

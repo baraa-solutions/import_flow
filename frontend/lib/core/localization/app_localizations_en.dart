@@ -157,6 +157,38 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get systemInfoTooltip => 'System Version & Info';
   @override String get backToDashboardTooltip => 'Back to Dashboard';
   @override String get languageToggleTooltip => 'Switch Language (AR / EN)';
+  @override String get confirmDeleteTitle => 'Confirm Deletion';
+  @override String confirmDeleteMessage(String code) => code.isNotEmpty ? 'Are you sure you want to delete "$code"? This action cannot be undone.' : 'Are you sure you want to delete this record? This action cannot be undone.';
+  @override String get deletedSuccessfully => 'Deleted successfully';
+  @override String get copyCode => 'Copy Code';
+  @override String get moreActionsTooltip => 'More Actions';
+  @override String get deactivateRecord => 'Deactivate Record';
+  @override String get restoreRecord => 'Restore Record';
+  @override String get viewActivityLog => 'View Activity Log';
+  @override String get editRecord => 'Edit Record';
+  @override String get genericErrorMessage => 'An unexpected error occurred. Please try again.';
+  @override String get tableSearchHint => 'Search...';
+  @override String get tableNoData => 'No records found';
+  @override String get tableNoResults => 'No records match search or filters';
+  @override String get tableClearFilters => 'Clear Filters';
+  @override String get tableCustomizeColumns => 'Customize Columns';
+  @override String get tableExportCsv => 'Export CSV';
+  @override String get tableExportExcel => 'Export Excel';
+  @override String get tableRowCopied => 'Row data copied to clipboard';
+  @override String get tableRetry => 'Retry';
+  @override String get tableActions => 'Actions';
+  @override String tableTotalCount(int count) => 'Total: $count records';
+  @override String tableSelectedCount(int count) => '$count selected';
+  @override String get resetToDefaults => 'Reset to Defaults';
+  @override String get apply => 'Apply';
+  @override String get recordNotFoundOrDeleted => 'Record not found or deleted';
+  @override String get entityNotFoundOrDeleted => recordNotFoundOrDeleted;
+  @override String get entityDetailsTitle => 'Record Details';
+  @override String get importFilePickerSelectFile => 'Select Import File';
+  @override String get importFilePickerNoFilesFound => 'No import files available';
+  @override String get importFilePickerFileRequired => 'Please select an import file to continue';
+  @override String get importFilePickerContinue => 'Continue';
+  @override String get importFilePickerSearchHint => 'Search by file code, supplier, company...';
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   @override String get switchAsAdmin => 'Switch as: Admin 🔴';
@@ -727,6 +759,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get quoteDetails => 'Freight Quote Details';
   @override String get hideQuote => 'Hide Quote';
   @override String get totalQuoteValue => 'Total Quote Value';
+  @override String rateMissingWarning(String codes) => 'Rate missing: $codes';
+  @override String scenarioSaveRateMissingError(int index, String provider, String codes) => 'Cannot save shipping study: exchange rate missing for ($codes) in scenario $index ($provider).';
   @override String get container40ftItem => 'Container 40ft Freight';
   @override String get container20ftItem => 'Container 20ft Freight';
   @override String get lclCbmItem => 'LCL CBM Freight';
@@ -2498,6 +2532,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get customsClearanceFilterDutyRequested => 'Duty Requested';
   @override String get customsClearanceFilterDutyPaid => 'Duty Paid';
   @override String get customsClearanceFilterFinalRelease => 'Final Release Granted';
+  @override String get customsClearanceStatusInspectionRecorded => 'Inspection & Sampling Recorded';
+  @override String get customsClearanceStatusDutiesAssessed => 'Customs Duties Assessed - Ready for Payment';
+  @override String get customsClearanceStatusDutyPaidReady => 'Duty Paid - Ready for Final Release';
+  @override String get customsClearanceStatusUnderBondReleased => 'Under Bond Released';
+  @override String get customsClearanceStatusLabRejected => 'Lab Non-Conforming - Rejected';
+  @override String get customsClearanceStatusInvoicesVerified => 'Invoices Logged & Verified';
   @override String get customsClearanceNewRecordButton => 'New Clearance Record';
   @override String get customsClearanceEmptyRecords => 'No matching customs clearance records found.';
   @override String get customsClearanceDeclaration46Label => 'Decl. 46';
@@ -2642,6 +2682,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get underBondLabApprovedSuccess => 'Quarantine lock lifted and lab compliance approved successfully ✅';
   @override String get underBondLabRejectedAlert => 'Sample rejected by laboratory; re-export mandate initiated ⛔';
   @override String underBondLabResultError(String error) => 'Failed to record lab result: $error';
+  @override String get underBondConfirmLiftTitle => 'Confirm Lifting Quarantine Lock';
+  @override String get underBondConfirmLiftBody => 'This lifts the quarantine lock and may finalize the release. Do you want to proceed?';
+  @override String get underBondConfirmLiftConfirm => 'Confirm & Lift';
+  @override String get underBondConfirmLiftCancel => 'Cancel';
+  @override String get underBondLabVerdictRequired => 'Lab verdict is required';
+  @override String get underBondRefRequired => 'Bond guarantee reference is required';
+  @override String get underBondRefMinLength => 'Bond guarantee reference must be at least 3 characters';
+  @override String get underBondRefInvalid => 'Please enter a valid guarantee reference number';
+  @override String get underBondLocationRequired => 'Customs warehouse location is required';
+  @override String get underBondCertRequired => 'Lab certificate number is required';
+  @override String get underBondCertMinLength => 'Certificate number must be at least 3 characters';
+  @override String get underBondCertInvalid => 'Please enter a valid lab certificate number';
   @override String get customsClearanceExportTsvBtn => 'Copy Registry as Table (TSV)';
   @override String get customsClearanceExportTsvSuccess => 'Customs clearance data copied to clipboard successfully';
   @override String get customsClearanceCopyFieldTooltip => 'Copy value';
@@ -2671,6 +2723,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get drawingSamplesFilterPending => 'Pending Analysis';
   @override String get drawingSamplesEmptySamples => 'No drawn sample records found';
   @override String get drawingSamplesEmptyShortage => 'No shortage reconciliation records found';
+  @override String get drawingSamplesColFileCode => 'File Code';
+  @override String get drawingSamplesColSampledBodies => 'Sampled Regulatory Bodies';
+  @override String get drawingSamplesColSamplingDate => 'Sampling Date';
+  @override String get drawingSamplesColGoeicCert => 'GOEIC Certificate';
+  @override String get drawingSamplesColTestStatus => 'Test Status';
+  @override String get drawingSamplesColLabResult => 'Lab Result';
+  @override String get ccShortageNotAvailable => 'Shortage protocols will be saved after the backend registry is added';
+  @override String get importFilePickerTitle => 'Select Import Shipment';
+  @override String get importFilePickerSelectPrompt => 'Please select an import file to continue';
+  @override String get ccActionNeedsAssessment => 'Duties must be assessed first';
+  @override String get ccActionNeedsPayment => 'Duties must be paid first';
+  @override String get ccActionQuarantineLocked => 'Shipment is under quarantine lock — quarantine must be lifted first';
+  @override String get ccActionAlreadyReleased => 'Final release already granted';
+  @override String get customsClearanceViewTooltip => 'View customs clearance details';
   @override String get drawingSamplesShortageSectionTitle => 'Cargo Examination & Shortage Protocols';
   @override String get drawingSamplesShortageSectionDesc => 'Compare manifest weights and packages against landed physical cargo to document shortages and apply customs duty deductions or carrier claims';
   @override String get drawingSamplesAddShortageBtn => 'Record Shortage Protocol';
@@ -2766,6 +2832,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get finalDutyScreenSubtitle => 'Nafeza duty assessment reconciliation, bank receipt verification, variance tracking, and final release permit issuance';
   @override String get finalDutySummaryHeader => 'Customs Duty Payment & Release Summary';
   @override String get finalDutyKpiTotalPayable => 'Total Duties Payable';
+  @override String get finalDutyKpiOutstanding => 'Total Outstanding';
   @override String get finalDutyKpiTotalPaid => 'Total Duties Paid';
   @override String get finalDutyKpiPendingPayment => 'Pending Settlements';
   @override String get finalDutyKpiNetVariance => 'Net Duty Variance';
@@ -3579,6 +3646,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get categoryAirFreight => 'Air Freight';
   @override String get categoryBulkCargo => 'Bulk Cargo';
   @override String get categoryMultimodal => 'Multimodal';
+  @override String get categoryCourier => 'Courier';
+  @override String get budgetCurrencyLabel => 'Budget Currency';
   @override String get projectsCopyFieldTooltip => 'Copy data';
   @override String get projectsExportTsvBtn => 'Export Projects (TSV)';
   @override String get projectsExportTsvSuccess => 'Projects table copied to clipboard successfully';
@@ -3698,6 +3767,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get importerCardIdLabelShort => 'Importer Card';
   @override String get vatTaxIdLabelShort => 'VAT Reg ID';
   @override String get commercialRegLabelShort => 'Com. Reg #';
+  @override String get importCompaniesMobileLabel => 'Mobile Number';
+  @override String get importCompaniesFaxLabel => 'Fax Number';
+  @override String get importCompaniesPrimaryEmailLabel => 'Primary Email';
+  @override String get importCompaniesSecondaryEmailLabel => 'Secondary Email';
+  @override String get importCompaniesWebsiteLabel => 'Website URL';
+  @override String get importCompaniesNafezaTokenSection => 'Nafeza E-Token & Digital Link';
+  @override String get importCompaniesNafezaTokenLabel => 'Nafeza Token (Secure Encrypted)';
+  @override String get importCompaniesShowTokenTooltip => 'Show Token';
+  @override String get importCompaniesHideTokenTooltip => 'Hide Token';
+  @override String get importCompaniesCertificatesSection => 'Trademark Certificates & ISO';
+  @override String get importCompaniesWipoTitle => 'WIPO Madrid Monitor Certificate';
+  @override String get importCompaniesWipoRegLabel => 'WIPO Registration No.';
+  @override String get importCompaniesEuipoTitle => 'EUIPO Certificate';
+  @override String get importCompaniesEuipoRegLabel => 'EUIPO Registration No.';
+  @override String get importCompaniesIsoTitle => 'ISO Quality Management Certificates';
 
   // ── Screen 33: Foreign Suppliers ──
   @override String get suppliersScreenTitle => 'Foreign Suppliers Directory';
@@ -4107,13 +4191,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ledgerTypeCol => 'Type';
   @override String get ledgerRefCol => 'Reference';
   @override String get ledgerImportFileCol => 'Import File';
+  @override String get ledgerProjectCol => 'Project Name';
+  @override String get ledgerBlCol => 'B/L Number';
+  @override String get ledgerImporterCol => 'Importer Company';
   @override String get ledgerDescriptionCol => 'Description';
   @override String get ledgerCurrencyCol => 'Currency';
-  @override String get ledgerDebitCol => 'Debit (Invoice)';
-  @override String get ledgerCreditCol => 'Credit (Payment)';
+  @override String get ledgerDebitCol => 'Debit (Due)';
+  @override String get ledgerCreditCol => 'Credit (Paid)';
+  @override String get ledgerRunningBalanceCol => 'Running Balance';
   @override String get ledgerStatusCol => 'Status';
   @override String get ledgerInvoiceBadge => 'Invoice';
   @override String get ledgerPaymentBadge => 'Payment';
+  @override String get partnerSoaRecordInvoiceBtn => 'Record Invoice';
+  @override String get partnerSoaRecordPaymentBtn => 'Record Payment';
+  @override String get partnerSoaExportExcelBtn => 'Export to Excel';
+  @override String get partnerSoaExportPdfBtn => 'Export to PDF';
+  @override String get partnerSoaPrintBtn => 'Print Statement';
   @override String get soaFooterText => 'Sorour Logistics ERP — Multi-Currency Partner & Provider Accounting Module';
   @override String get closeBtn => 'Close';
 
@@ -8290,6 +8383,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get swiftEnterAmountError => 'Please enter transferred amount';
   @override
   String get swiftAmountGreaterThanZeroError => 'Transferred amount must be greater than zero';
+  @override
+  String get swiftCurrencyRequiredError => 'Currency is required';
 
   @override
   String get swiftFileReadErrorSnack => 'Failed to read the selected file';
@@ -8309,6 +8404,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String swiftReconcileSuccessSnack(String swiftRef, String paymentCode) => 'SWIFT ($swiftRef) successfully reconciled with payment request ($paymentCode) and import file updated!';
   @override
   String swiftReconcileErrorSnack(String error) => 'Error during reconciliation: $error';
+  @override
+  String swiftReconcileMissingFields(String fields) =>
+      'Missing required SWIFT fields for smart reconciliation: $fields';
+  @override
+  String get swiftBatchNotConfirmed =>
+      'Cannot reconcile SWIFT batch before it is reviewed and confirmed';
+  @override
+  String get swiftFieldRef => 'SWIFT reference';
+  @override
+  String get swiftFieldValueDate => 'Value date';
+  @override
+  String get swiftFieldAmount => 'Amount';
+  @override
+  String get swiftFieldCurrency => 'Currency';
 
   @override
   String get swiftExportTsvBtn => 'Export TSV';
@@ -11319,6 +11428,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get poProjectCostCenter => 'Project & Cost Center';
   @override String get poIncoterms => 'Incoterms';
   @override String get poFXRate => 'FX Rate';
+  @override String get poExchangeRateRequired => 'Exchange rate is required and must be greater than zero';
+  @override String get poExchangeRateHelper => '⚡ Auto-retrieved based on invoice date and currency';
+  @override String poNoExchangeRateForDate(String code, String date) => 'No exchange rate found for $code on $date';
   @override String get poPaymentTerms => 'Payment Terms';
   @override String get poTotalCBM => 'Total CBM';
   @override String get poGrossNetWeight => 'Gross / Net Weight';
@@ -12341,6 +12453,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccStageRelease => 'Release Permit (CL-04)';
   @override String get ccStageInvoices => 'Clearance Invoices (CL-05)';
   @override String get ccNoImportFiles => 'No shipment files are registered';
+  @override String get ccRecordFileNotFound => 'Associated shipment file not found';
   @override String get ccExpensesTooltip => 'Clearance invoices and expenses (CL-05)';
   @override String get ccMetricAssessed => 'Assessed';
   @override String get ccMetricPaid => 'Paid';
@@ -12391,6 +12504,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccDutySadadHint => 'e.g. SADAD-2026-0042';
   @override String get ccDutyAutoGenerate => 'Auto-generate';
   @override String get ccDutySadadRequired => 'Sadad number is required';
+  @override String get ccDutySadadTooShort => 'SADAD number must be at least 3 characters';
   @override String get ccDutyReceiptLabel => 'Bank payment notice / receipt number';
   @override String get ccDutyReceiptHint => 'e.g. REC-EFIN-998877';
   @override String get ccDutyReceiptRequired => 'Receipt number is required';
@@ -12400,6 +12514,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccDutyDateLabel => 'Payment date';
   @override String get ccDutyMethodLabel => 'Payment method';
   @override String get ccDutyBankLabel => 'Paying bank';
+  @override String get ccDutyBankRequired => 'Please select the paying bank';
   @override String get ccDutyAttachmentsSection => 'Attachments and control notes';
   @override String get ccDutyReceiptFileLabel => 'Electronic payment receipt file link or reference (Receipt File URL)';
   @override String get ccDutyReceiptFileHint => 'e.g. /uploads/receipts/sadad_rec_2026_01.pdf';
@@ -12438,6 +12553,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccAssessLabFees => 'Laboratory and testing fees';
   @override String get ccAssessNotesSection => 'Assessment notes and final calculation directions';
   @override String get ccAssessNotesHint => 'Tariff officer notes and directions or any exceptional items...';
+  @override String get ccPreviousNotesLabel => 'Previous notes';
+  @override String get ccStepNotesLabel => 'Notes for this step';
   @override String ccAssessTotalDue(String amount) => 'Total payable: $amount EGP';
   @override String get ccAssessConfirm => 'Approve and calculate duties (CL-02)';
   @override String ccAssessSuccess(String claim, String total) => 'Customs duties for claim #$claim approved with a total of ($total EGP). Moved to the next stage: duty payment via Sadad (CL-03).';
@@ -12501,6 +12618,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccInsYardLabel => 'Port inspection yard / berth *';
   @override String get ccInsYardHint => 'Select the inspection yard...';
   @override String get ccInsYardRequired => 'Select the inspection yard';
+  @override String get ccInsResultRequired => 'Inspection verdict is required';
+  @override String get ccInsBodiesRequired => 'At least one regulatory body must be selected when sampling';
+  @override String get ccInsSamplingNoRequired => 'Sampling record number is required (min 3 characters)';
   @override String get ccInsDateLabel => 'Technical inspection date *';
   @override String get ccInsTypeLabel => 'Inspection type and method:';
   @override String get ccInsType1 => 'Physical inspection with sampling';
@@ -12524,7 +12644,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccInsSampleSwitchOn => 'The sampling record number will be logged, the testing bodies selected and the GOEIC report followed up';
   @override String get ccInsSampleSwitchOff => 'No samples drawn (visual inspection and document check only)';
   @override String get ccInsSampleRecordLabel => 'Official sampling record number *';
-  @override String get ccInsSampleRecordHint => 'e.g. SMP-2026-ALX-1082';
+  @override String get ccInsSampleRecordHint => 'e.g. Sampling record no.';
   @override String get ccInsSampleRecordNew => 'Generate a new record number';
   @override String get ccInsSampleRecordRequired => 'The sampling record number is required (at least 3 characters)';
   @override String get ccInsSampleDateLabel => 'Sampling date *';
@@ -12724,6 +12844,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccCloneYellow => 'Yellow';
   @override String get ccCloneDuties => 'Duties';
   @override String get ccCloneBtn => 'Clone';
+  @override String get customsDeclMinLength => 'Customs declaration number must be at least 3 characters';
+  @override String get customsDeclChannelLabel => 'Customs Channel';
+  @override String get customsDeclPickDateTooltip => 'Select declaration registration date';
+  @override String get customsDeclMetricEstimatedDuties => 'Total Estimated Duties';
+  @override String get customsDeclColTariffEstimate => 'Estimated Duties';
+  @override String get customsDeclRegistryEmptyMessage => 'No registered declarations yet';
+  @override String get customsDeclExportSubtitle => 'Sorour Logistics ERP — Customs Clearance Follow-up';
+  @override String get customsDeclExportMetaTotal => 'Total Declarations';
+  @override String get customsDeclExportMetaGeneratedAt => 'Generated At';
+  @override String customsDeclExportSubtitleWithFile(String declNo, String fileCode) => 'Declaration 46: $declNo — Import File: $fileCode';
   // === end review phase06_07 keys ===
 
   // === review phase08_10 keys (append below this line) ===
@@ -12874,8 +13004,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get inlandFareRequired => 'Enter the transport cost';
   @override String get inlandFareInvalid => 'The amount must be greater than 0';
   @override String get inlandDepartureDate => 'Planned departure date';
+  @override String get inlandDepartureTime => 'Planned departure time';
   @override String get inlandEtaDate => 'Expected warehouse arrival date (ETA)';
+  @override String get inlandEtaTime => 'Expected warehouse arrival time (ETA)';
   @override String get inlandEtaBeforeDeparture => 'The expected arrival must be after the planned departure';
+  @override String get inlandSelectCarrierHint => 'Select carrier from partners directory';
+  @override String get inlandSelectPickupLocationHint => 'Select pickup port / location';
+  @override String get inlandGatePassNoLabel => 'Port Gate Pass No.';
+  @override String get inlandGatePassNoHint => 'Customs port gate-out pass number (optional)';
+  @override String get inlandSealIntactSwitch => 'Customs seal: intact and matching';
+  @override String get inlandSealNumberLabel => 'Customs seal number *';
+  @override String get inlandSealNumberHint => 'Enter customs seal number';
+  @override String get inlandSealNumberRequiredWhenBroken => 'Seal number is required when seal is broken or compromised';
   @override String get inlandNotesLabel => 'Driver and shipping notes';
   @override String get inlandNotesHint => 'Handling instructions, assistant driver, route...';
   @override String get inlandSubmitBtn => 'Save and confirm the transport booking';
@@ -13180,6 +13320,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The allocated equipment does not match the quoted container sizes (quoted 20ft, but no 20ft container is allocated). Please adjust equipment or re-apply quote.';
   @override String get fbkQuoteEquipmentMismatchBoth =>
       'The allocated equipment does not match the quoted container sizes (quoted 40ft and 20ft, but matching containers are missing). Please adjust equipment or re-apply quote.';
+  @override String get customsFxRateRequired => 'Customs exchange rate is required to calculate duties.';
+  @override String get addPoLinesWithHsToEstimateDuties => 'Add PO lines with HS codes to estimate duties and taxes.';
+  @override String get customsMissingTariffBlockSave => 'Cannot save: Some lines are missing customs tariff. Please assign tariffs first.';
+  @override String get missingTariffLinesWarning => 'Lines missing customs tariffs';
   // === end review phase08_10 keys ===
 }
 

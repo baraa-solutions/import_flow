@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta, date
 import logging
 import re
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -311,7 +311,7 @@ def _sync_import_file_with_booking(db: Session, booking: ShipmentBooking, tracki
     if not file_rec:
         return None
 
-    if booking.free_demurrage_days:
+    if booking.free_demurrage_days is not None:
         file_rec.target_free_days = booking.free_demurrage_days
 
     if booking.eta:
@@ -394,7 +394,7 @@ def _dispatch_free_days_task(db: Session, booking: ShipmentBooking, file_id: int
         booking_no=booking.booking_confirmation_no or booking.booking_code,
         shipping_line_name=booking.shipping_line_name or "N/A",
         vessel_name=booking.vessel_name or "TBA",
-        demurrage_free_days=booking.free_demurrage_days or 14,
+        demurrage_free_days=booking.free_demurrage_days if booking.free_demurrage_days is not None else "N/A",
     )
     task_schema = SmartTaskCreate(
         title=render_en(free_days_msg.code, free_days_msg.params, "title"),
@@ -426,7 +426,7 @@ def _dispatch_booking_confirmed_notification(db: Session, booking: ShipmentBooki
         vessel_name=booking.vessel_name or "TBA",
         etd_date=booking.etd.strftime("%Y-%m-%d") if booking.etd else "TBA",
         eta_date=booking.eta.strftime("%Y-%m-%d") if booking.eta else "TBA",
-        demurrage_free_days=booking.free_demurrage_days or 14,
+        demurrage_free_days=booking.free_demurrage_days if booking.free_demurrage_days is not None else "N/A",
     )
     db.add(SystemNotification(
         title=render_en(notif_msg.code, notif_msg.params, "title"),
@@ -513,9 +513,11 @@ def list_bookings_service(
     include_inactive: bool = False,
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
-    search: Optional[str] = None
-) -> List[ShipmentBooking]:
-    return repo.list_bookings(db, include_inactive, import_file_id, status, search)
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[ShipmentBooking], int]:
+    return repo.list_bookings(db, include_inactive, import_file_id, status, search, skip=skip, limit=limit)
 
 
 def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookingUpdate, user: str = "system") -> ShipmentBooking:
@@ -566,7 +568,7 @@ def confirm_booking_service(db: Session, booking_id: int, payload: ShipmentBooki
         booking.etd = payload.etd
     if payload.eta:
         booking.eta = payload.eta
-    if payload.free_demurrage_days:
+    if "free_demurrage_days" in payload.model_fields_set and payload.free_demurrage_days is not None:
         booking.free_demurrage_days = payload.free_demurrage_days
     if payload.notes:
         booking.notes = payload.notes

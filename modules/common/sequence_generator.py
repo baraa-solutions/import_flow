@@ -3,11 +3,28 @@ modules/common/sequence_generator.py
 Centralized business reference code generator for ImportFlow ERP.
 Avoids race conditions by using max(id)+1 with proper fallback.
 """
+from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Optional, Type
+from typing import Any, Iterator, Optional, Type
 
 from sqlalchemy import Integer, and_, cast, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, SessionTransaction
+
+
+@contextmanager
+def savepoint(db: Session) -> Iterator[SessionTransaction]:
+    """
+    ``db.begin_nested()`` that stays inside the caller's transaction on SQLite too.
+
+    pysqlite only opens a real transaction before the first write, so a SAVEPOINT taken after reads only is the
+    outermost transaction and its RELEASE commits. The caller's later rollback then no longer drops the row.
+    Opening the transaction first keeps the savepoint nested, as it already is on PostgreSQL.
+    """
+    connection = db.connection()
+    if connection.dialect.name == "sqlite" and not connection.connection.dbapi_connection.in_transaction:
+        connection.exec_driver_sql("BEGIN")
+    with db.begin_nested() as nested:
+        yield nested
 
 
 def generate_reference_code(
@@ -59,3 +76,35 @@ def next_yearly_code(
         .scalar()
     )
     return f"{head}{(highest or 0) + 1:0{pad}d}"
+
+
+def next_global_code(
+    db: Session,
+    column: Any,
+    prefix: str,
+    pad: int = 6,
+) -> str:
+    """
+    Next ``<prefix>-<NNNNNN>`` code for a String column (e.g. ``Supplier.supplier_code`` -> "SUP-000017",
+    ``ClearanceExpenseType.expense_code`` -> "EXP-001").
+
+    Continues from the highest numeric suffix already used across all records,
+    so user-typed codes in the same pattern are skipped and deletions never reuse a number.
+    Suffixes that are not plain digits are ignored. The unique constraint on the column stays
+    the final guard: callers retry on IntegrityError.
+    """
+    head = f"{prefix}-"
+    suffix = func.substr(column, len(head) + 1)
+    highest = (
+        db.query(func.max(cast(suffix, Integer)))
+        .filter(
+            and_(
+                column.like(f"{head}%"),
+                suffix != "",
+                suffix.op("NOT GLOB")("*[^0-9]*"),  # SQLite: digits only
+            )
+        )
+        .scalar()
+    )
+    return f"{head}{(highest or 0) + 1:0{pad}d}"
+

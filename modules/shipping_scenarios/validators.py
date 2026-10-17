@@ -1,6 +1,6 @@
 from collections import Counter
 from datetime import date
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Sequence, Set, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -14,11 +14,13 @@ from modules.transport_locations.model import TransportLocation
 
 from modules.shipping_scenarios.schemas import (
     ShippingEvaluationCreate,
+    ShippingEvaluationUpdate,
     ShippingScenarioItemCreate,
 )
 
 # Error code (detail["code"]) for a second active study on the same import file.
 SCENARIO_SESSION_EXISTS = "SCENARIO_SESSION_EXISTS"
+SCENARIO_ITEMS_BOOKED = "SCENARIO_ITEMS_BOOKED"
 
 
 class ShippingScenarioValidator:
@@ -46,8 +48,32 @@ class ShippingScenarioValidator:
             )
 
     @staticmethod
+    def validate_evaluation_update(payload: ShippingEvaluationUpdate, stored: Any) -> None:
+        if payload.avg_form4_days is not None and payload.avg_form4_days < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Average Form 4 days cannot be negative.",
+            )
+
+        if payload.avg_clearance_days is not None and payload.avg_clearance_days < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Average Customs Clearance days cannot be negative.",
+            )
+
+        if payload.items is not None:
+            ShippingScenarioValidator.validate_scenario_items(
+                payload.cargo_ready_date or stored.cargo_ready_date, payload.items
+            )
+        elif payload.cargo_ready_date is not None and payload.cargo_ready_date != stored.cargo_ready_date:
+            if stored.items:
+                ShippingScenarioValidator.validate_scenario_items(
+                    payload.cargo_ready_date, stored.items
+                )
+
+    @staticmethod
     def validate_scenario_items(
-        cargo_ready_date: date, items: List[ShippingScenarioItemCreate]
+        cargo_ready_date: date, items: Iterable[Any]
     ) -> None:
         seen_keys = set()
         for idx, item in enumerate(items, start=1):
@@ -130,6 +156,39 @@ class ShippingScenarioValidator:
             "يوجد بالفعل دراسة سيناريوهات شحن محفوظة لهذا الملف. يرجى الذهاب لتعديل الدراسة الحالية بدلاً من إنشاء دراسة جديدة.",
             session_code=other.session_code,
             session_id=other.session_id,
+        )
+
+    @staticmethod
+    def validate_item_ids_belong(stored_ids: Set[int], sent_ids: Sequence[Optional[int]]) -> None:
+        """400 on foreign or duplicate item IDs in the update payload."""
+        seen: Set[int] = set()
+        for item_id in sent_ids:
+            if item_id is None:
+                continue
+            if item_id in seen:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"بند السيناريو رقم {item_id} مكرر في الطلب.",
+                )
+            if item_id not in stored_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"بند السيناريو رقم {item_id} غير تابع لدراسة السيناريوهات.",
+                )
+            seen.add(item_id)
+
+    @staticmethod
+    def validate_removed_not_booked(booked_ids: Set[int]) -> None:
+        """409 SCENARIO_ITEMS_BOOKED if any removed item is referenced by an active freight booking."""
+        if not booked_ids:
+            return
+        sorted_ids = sorted(list(booked_ids))
+        ids = ", ".join(str(i) for i in sorted_ids)
+        raise CodedHTTPException(
+            status.HTTP_409_CONFLICT,
+            SCENARIO_ITEMS_BOOKED,
+            f"لا يمكن حذف خيارات الشحن ({ids}) المرتبطة بحجز شحن.",
+            item_ids=ids,
         )
 
 

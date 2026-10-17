@@ -1,5 +1,5 @@
 from typing import List, Literal, Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from modules.auth.router import get_current_user
 from modules.auth.permissions import require_permission
 from modules.users.model import User
@@ -50,14 +50,21 @@ def create_cargo_shipping(
 
 @router.get("", response_model=List[CargoShippingResponse])
 def list_cargo_shippings(
+    response: Response,
     include_inactive: bool = Query(False),
     import_file_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("cargo_shipping.view")),
 ):
-    return list_cargo_shippings_service(db, include_inactive, import_file_id, status, search)
+    records, total = list_cargo_shippings_service(
+        db, include_inactive, import_file_id, status, search, skip=skip, limit=limit
+    )
+    response.headers["X-Total-Count"] = str(total)
+    return records
 
 
 @router.get("/{record_id}", response_model=CargoShippingResponse)

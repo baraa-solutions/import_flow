@@ -75,6 +75,22 @@ SESSION_DOCUMENT_STATUS_FIELDS = (
     "coo_status",
     "coc_status",
 )
+SESSION_STATUS_VALUES = {"Approved", "Rejected", "Pending", "Waived / Not Required"}
+
+
+def validate_session_status_values(payload: Any) -> None:
+    """Validate every sent session document status against SESSION_STATUS_VALUES (422 otherwise)."""
+    fields_set = getattr(payload, "model_fields_set", None)
+    for field_name in SESSION_DOCUMENT_STATUS_FIELDS:
+        if fields_set is not None and field_name not in fields_set:
+            continue
+        val = getattr(payload, field_name, None)
+        if val is not None and val not in SESSION_STATUS_VALUES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"قيمة غير صالحة لحالة المستند '{field_name}': '{val}'. القيم المسموح بها: {', '.join(sorted(SESSION_STATUS_VALUES))}.",
+            )
+
 
 
 def _key(value: str) -> str:

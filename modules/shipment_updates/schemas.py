@@ -45,6 +45,8 @@ class ShipmentUpdateLogCreate(ShipmentUpdateLogBase):
     phase_status: PhaseStatus = "Current"
     alert_priority: AlertPriority = "Normal"
     assigned_user: Optional[str] = Field(None, description="Defaults to the logged-in user")
+    previous_cost: Optional[float] = Field(None, description="Deprecated and ignored on create: the server reads it from the import file")
+    new_cost: Optional[float] = Field(None, description="New cost (required and > 0 for Phase Cost Adjustment)")
 
     _log_date = field_validator("log_date")(_check_log_date)
 
@@ -75,9 +77,9 @@ class ShipmentUpdateLogResponse(ShipmentUpdateLogBase, LegacyRowTolerantModel):
     update_category: str = "Follow-up & Notes"
     is_active: bool = True
     created_at: Optional[datetime] = None
-    created_by: str = "System"
+    created_by: Optional[str] = None
     updated_at: Optional[datetime] = None
-    updated_by: str = "System"
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

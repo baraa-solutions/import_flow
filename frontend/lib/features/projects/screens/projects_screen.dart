@@ -3,13 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../incoterms/providers/incoterms_provider.dart';
@@ -109,9 +104,16 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         return l10n.categoryBulkCargo;
       case 'Multimodal':
         return l10n.categoryMultimodal;
+      case 'Courier':
+        return l10n.categoryCourier;
       default:
         return category;
     }
+  }
+
+  String _formatBudget(BuildContext context, ProjectModel p) {
+    if (p.totalBudgetUsd == null) return context.l10n.projectBudgetNotSet;
+    return '${p.budgetCurrency} ${p.totalBudgetUsd!.toStringAsFixed(2)}';
   }
 
   String _getPriorityLabel(BuildContext context, String priority) {
@@ -157,9 +159,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
           .map((c) => _getCategoryLabel(context, c))
           .join(', ');
       final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
-      final budgetText = p.totalBudgetUsd != null
-          ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
-          : l10n.projectBudgetNotSet;
+      final budgetText = _formatBudget(context, p);
       final targetDateText = p.targetEndDate ?? '';
       final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
       final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
@@ -196,9 +196,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         .map((c) => _getCategoryLabel(context, c))
         .join(', ');
     final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
-    final budgetText = p.totalBudgetUsd != null
-        ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
-        : l10n.projectBudgetNotSet;
+    final budgetText = _formatBudget(context, p);
     final targetDateText = p.targetEndDate ?? '-';
     final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
     final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
@@ -230,9 +228,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         .map((c) => _getCategoryLabel(context, c))
         .join(', ');
     final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
-    final budgetText = p.totalBudgetUsd != null
-        ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
-        : l10n.projectBudgetNotSet;
+    final budgetText = _formatBudget(context, p);
     final targetDateText = p.targetEndDate ?? '';
     final activeText = p.isActive ? l10n.projectActiveYes : l10n.projectActiveNo;
     final multiShipmentText = p.allowMultiShipment ? l10n.projectMultiShipmentYes : l10n.projectMultiShipmentNo;
@@ -430,47 +426,22 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             // Table Content
             Expanded(
               child: projectsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
-                error: (err, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.crimson),
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Text(
-                          l10n.projectsFetchError(err.toString()),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.cobalt,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        ),
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: Text(l10n.retryConnection, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          ref.read(projectsProvider.notifier).fetchProjects(status: _selectedStatus, search: _searchQuery);
-                        },
-                      ),
-                    ],
-                  ),
+                loading: () => const AppLoadingState(),
+                error: (err, stack) => AppErrorState(
+                  message: l10n.projectsFetchError(err.toString()),
+                  onRetry: () => ref.read(projectsProvider.notifier).fetchProjects(status: _selectedStatus, search: _searchQuery),
                 ),
                 data: (projects) {
                   if (projects.isEmpty) {
-                    return Center(
-                      child: Text(l10n.noProjectsFound, style: const TextStyle(color: Colors.grey, fontSize: 15)),
+                    return AppEmptyState(
+                      message: l10n.noProjectsFound,
+                      icon: Icons.folder_open_outlined,
                     );
                   }
 
                   return Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.surfaceOf(context),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
@@ -542,9 +513,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                       .map((c) => _getCategoryLabel(context, c))
                                       .join(', ');
                                   final rowSummary = _buildProjectRowSummary(context, p);
-                                  final budgetText = p.totalBudgetUsd != null
-                                      ? '\$${p.totalBudgetUsd!.toStringAsFixed(2)}'
-                                      : l10n.projectBudgetNotSet;
+                                  final budgetText = _formatBudget(context, p);
                                   final incotermText = p.incotermCode ?? l10n.projectIncotermFallback;
 
                                   return TableRow(
@@ -574,32 +543,13 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                           },
                                           printTooltip: l10n.projectCopySummaryBtn,
                                           onDelete: () async {
-                                            final confirm = await showDialog<bool>(
-                                              context: context,
-                                              builder: (ctx) => SelectionArea(
-                                                child: AlertDialog(
-                                                  title: Text(l10n.confirmActionTitle),
-                                                  content: Text(isActive
-                                                      ? l10n.confirmDeactivateProject(p.projectName)
-                                                      : l10n.confirmActivateProject(p.projectName)),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () => Navigator.pop(ctx, false),
-                                                      child: Text(l10n.cancel),
-                                                    ),
-                                                    ElevatedButton(
-                                                      onPressed: () => Navigator.pop(ctx, true),
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald,
-                                                      ),
-                                                      child: Text(
-                                                        isActive ? l10n.deactivateBtn : l10n.activateBtn,
-                                                        style: const TextStyle(color: Colors.white),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
+                                            final confirm = await AppConfirmDialog.showToggleActive(
+                                              context,
+                                              isCurrentlyActive: isActive,
+                                              entityName: p.projectName,
+                                              message: isActive
+                                                  ? l10n.confirmDeactivateProject(p.projectName)
+                                                  : l10n.confirmActivateProject(p.projectName),
                                             );
                                             if (confirm == true && p.projectId != null) {
                                               ref.read(projectsProvider.notifier).toggleActive(p.projectId!, isActive);
@@ -875,34 +825,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   }
 
   Widget _statusBadge(BuildContext context, String status) {
-    Color bg;
-    Color fg;
-
-    switch (status) {
-      case 'Open':
-        bg = AppTheme.emerald.withOpacity(0.1);
-        fg = AppTheme.emerald;
-        break;
-      case 'Closed':
-        bg = Colors.grey.withOpacity(0.1);
-        fg = Colors.grey.shade700;
-        break;
-      case 'On Hold':
-        bg = AppTheme.orange.withOpacity(0.1);
-        fg = AppTheme.orange;
-        break;
-      default:
-        bg = AppTheme.cobalt.withOpacity(0.1);
-        fg = AppTheme.cobalt;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(
-        _getStatusLabel(context, status),
-        style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold),
-      ),
+    return AppStatusBadge.fromStatus(
+      status: status,
+      label: _getStatusLabel(context, status),
+      size: AppStatusBadgeSize.small,
     );
   }
 
@@ -937,8 +863,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final incoterms = ref.read(incotermsProvider).valueOrNull ?? [];
 
     if (companies.isEmpty || suppliers.isEmpty || incoterms.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.projectPrerequisitesMissing)),
+      AppTheme.snackBar(
+        context,
+        l10n.projectPrerequisitesMissing,
+        severity: AppSeverity.warning,
       );
       nameCtrl.dispose();
       ownerCtrl.dispose();
@@ -966,8 +894,15 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       'LCL Breakbulk',
       'Air Freight',
       'Bulk Cargo',
-      'Multimodal'
+      'Multimodal',
+      'Courier',
     ];
+
+    String selectedCurrency = project?.budgetCurrency ?? 'USD';
+    final List<String> availableCurrencies = ['USD', 'EUR', 'EGP', 'GBP', 'CNY', 'AED', 'SAR', 'JPY'];
+    if (!availableCurrencies.contains(selectedCurrency)) {
+      availableCurrencies.insert(0, selectedCurrency);
+    }
 
     final Set<String> selectedCategories = project != null && project.shipmentCategory.isNotEmpty
         ? project.shipmentCategory.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toSet()
@@ -1199,6 +1134,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     Row(
                       children: [
                         Expanded(
+                          flex: 3,
                           child: TextFormField(
                             controller: budgetCtrl,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1213,43 +1149,34 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 120,
+                          child: SearchableDropdownField<String>(
+                            value: selectedCurrency,
+                            labelText: l10n.budgetCurrencyLabel,
+                            items: availableCurrencies
+                                .map((c) => SearchableDropdownItem<String>(
+                                      value: c,
+                                      label: c,
+                                    ))
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) setDialogState(() => selectedCurrency = v);
+                            },
+                          ),
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: TextFormField(
-                            controller: targetEndDateCtrl,
-                            readOnly: true,
-                            decoration: InputDecoration(
-                              labelText: l10n.targetEndDateLabel,
-                              hintText: l10n.targetEndDateHint,
-                              suffixIcon: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (targetEndDateCtrl.text.isNotEmpty)
-                                    IconButton(
-                                      icon: const Icon(Icons.clear, size: 16),
-                                      onPressed: () => setDialogState(() => targetEndDateCtrl.clear()),
-                                    ),
-                                  IconButton(
-                                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
-                                    onPressed: () async {
-                                      final initial = DateTime.tryParse(targetEndDateCtrl.text) ??
-                                          DateTime.now().add(const Duration(days: 90));
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: initial,
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime(2040),
-                                      );
-                                      if (picked != null) {
-                                        final formatted =
-                                            "${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
-                                        setDialogState(() => targetEndDateCtrl.text = formatted);
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
+                          child: AppDatePickerField(
+                            label: l10n.targetEndDateLabel,
+                            hint: l10n.targetEndDateHint,
+                            value: DateTime.tryParse(targetEndDateCtrl.text),
+                            onChanged: (d) {
+                              setDialogState(() {
+                                targetEndDateCtrl.text = d != null ? AppDatePickerField.format(d) : '';
+                              });
+                            },
                           ),
                         ),
                       ],
@@ -1303,14 +1230,18 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   : () async {
                       if (formKey.currentState!.validate()) {
                         if (selectedCompanyIds.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(l10n.selectAtLeastOneCompanyError)),
+                          AppTheme.snackBar(
+                            context,
+                            l10n.selectAtLeastOneCompanyError,
+                            severity: AppSeverity.warning,
                           );
                           return;
                         }
                         if (selectedCategories.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(l10n.selectAtLeastOneCategoryError)),
+                          AppTheme.snackBar(
+                            context,
+                            l10n.selectAtLeastOneCategoryError,
+                            severity: AppSeverity.warning,
                           );
                           return;
                         }
@@ -1336,6 +1267,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               allowMultiShipment: allowMultiShipment,
                               allowMultiCompany: allowMultiCompany,
                               totalBudgetUsd: budget,
+                              budgetCurrency: selectedCurrency,
                               targetEndDate: targetEndDateCtrl.text.trim().isEmpty ? null : targetEndDateCtrl.text.trim(),
                               notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                             );
@@ -1355,6 +1287,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               'allow_multi_shipment': allowMultiShipment,
                               'allow_multi_company': allowMultiCompany,
                               'total_budget_usd': budget,
+                              'budget_currency': selectedCurrency,
                               'target_end_date': targetEndDateCtrl.text.trim().isEmpty ? null : targetEndDateCtrl.text.trim(),
                               'status': selectedStatus,
                               'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),

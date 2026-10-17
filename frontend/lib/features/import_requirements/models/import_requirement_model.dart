@@ -306,6 +306,7 @@ class PrefillMessage {
 
   static const noHs = 'PREFILL_NO_HS';
   static const lineNoHs = 'PREFILL_LINE_NO_HS';
+  static const mixedCurrency = 'PREFILL_MIXED_CURRENCY';
 
   final String code;
   final Map<String, dynamic> params;
@@ -338,7 +339,7 @@ class ImportRequirementPrefillModel {
   final String? countryOfOrigin;
   final String? foreignExporterId;
   final String? currency;
-  final double shipmentValue;
+  final double? shipmentValue;
   final String? poNumber;
   final String? piNumber;
   final String? acidNumber;
@@ -392,7 +393,7 @@ class ImportRequirementPrefillModel {
     this.countryOfOrigin,
     this.foreignExporterId,
     this.currency,
-    this.shipmentValue = 0.0,
+    this.shipmentValue,
     this.poNumber,
     this.piNumber,
     this.acidNumber,
@@ -446,7 +447,7 @@ class ImportRequirementPrefillModel {
       countryOfOrigin: json['country_of_origin'],
       foreignExporterId: json['foreign_exporter_id'],
       currency: json['currency'],
-      shipmentValue: (json['shipment_value'] as num?)?.toDouble() ?? 0.0,
+      shipmentValue: (json['shipment_value'] as num?)?.toDouble(),
       poNumber: json['po_number'],
       piNumber: json['pi_number'],
       acidNumber: json['acid_number'],

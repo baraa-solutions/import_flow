@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session, selectinload
@@ -118,6 +118,21 @@ class ShippingScenarioRepository:
         return query.order_by(desc(ShippingEvaluationSession.session_id)).all()
 
     @staticmethod
+    def booked_item_ids(db: Session, item_ids: Iterable[int]) -> Set[int]:
+        """Finds which of the item_ids are referenced by an active freight booking."""
+        ids = [i for i in item_ids if i is not None]
+        if not ids:
+            return set()
+        from modules.freight_booking.model import ShipmentBooking
+        query = db.query(ShipmentBooking.scenario_item_id).filter(
+            ShipmentBooking.scenario_item_id.in_(ids)
+        )
+        if hasattr(ShipmentBooking, "is_active"):
+            query = query.filter(ShipmentBooking.is_active.is_(True))
+        rows = query.all()
+        return {r[0] for r in rows if r[0] is not None}
+
+    @staticmethod
     def update(
         db: Session, session_obj: ShippingEvaluationSession, payload: ShippingEvaluationUpdate
     ) -> ShippingEvaluationSession:
@@ -127,11 +142,24 @@ class ShippingScenarioRepository:
                 setattr(session_obj, name, value)
 
         if payload.items is not None:
-            db.query(ShippingScenarioItem).filter(
-                ShippingScenarioItem.session_id == session_obj.session_id
-            ).delete()
+            stored_by_id = {it.item_id: it for it in session_obj.items}
+            sent_ids = {it.item_id for it in payload.items if it.item_id is not None}
+
             for item in payload.items:
-                db.add(_item_row(session_obj.session_id, item))
+                if item.item_id is not None and item.item_id in stored_by_id:
+                    row = stored_by_id[item.item_id]
+                    data = item.model_dump(include=set(SCENARIO_ITEM_FIELDS))
+                    for name in _REQUIRED_TEXT_FIELDS:
+                        data[name] = data[name].strip()
+                    for name in _OPTIONAL_TEXT_FIELDS:
+                        data[name] = data[name].strip() if data[name] else None
+                    for name, value in data.items():
+                        setattr(row, name, value)
+                else:
+                    db.add(_item_row(session_obj.session_id, item))
+
+            for removed_id in (set(stored_by_id.keys()) - sent_ids):
+                db.delete(stored_by_id[removed_id])
 
         # An edited and saved study is reactivated unless the client says otherwise.
         session_obj.is_active = payload.is_active if payload.is_active is not None else True

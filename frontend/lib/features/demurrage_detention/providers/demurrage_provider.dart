@@ -21,6 +21,13 @@ class DemurrageState {
   /// so the backend Arabic detail and 403s reach the user.
   final Object? errorObject;
 
+  final int policiesTotalCount;
+  final bool policiesHasMore;
+  final bool policiesIsLoadingMore;
+  final int trackingsTotalCount;
+  final bool trackingsHasMore;
+  final bool trackingsIsLoadingMore;
+
   const DemurrageState({
     this.policies = const [],
     this.trackings = const [],
@@ -29,6 +36,12 @@ class DemurrageState {
     this.isLoading = false,
     this.error,
     this.errorObject,
+    this.policiesTotalCount = 0,
+    this.policiesHasMore = false,
+    this.policiesIsLoadingMore = false,
+    this.trackingsTotalCount = 0,
+    this.trackingsHasMore = false,
+    this.trackingsIsLoadingMore = false,
   });
 
   DemurrageState copyWith({
@@ -39,6 +52,12 @@ class DemurrageState {
     bool? isLoading,
     String? error,
     Object? errorObject,
+    int? policiesTotalCount,
+    bool? policiesHasMore,
+    bool? policiesIsLoadingMore,
+    int? trackingsTotalCount,
+    bool? trackingsHasMore,
+    bool? trackingsIsLoadingMore,
   }) {
     return DemurrageState(
       policies: policies ?? this.policies,
@@ -48,6 +67,12 @@ class DemurrageState {
       isLoading: isLoading ?? this.isLoading,
       error: error,
       errorObject: errorObject,
+      policiesTotalCount: policiesTotalCount ?? this.policiesTotalCount,
+      policiesHasMore: policiesHasMore ?? this.policiesHasMore,
+      policiesIsLoadingMore: policiesIsLoadingMore ?? this.policiesIsLoadingMore,
+      trackingsTotalCount: trackingsTotalCount ?? this.trackingsTotalCount,
+      trackingsHasMore: trackingsHasMore ?? this.trackingsHasMore,
+      trackingsIsLoadingMore: trackingsIsLoadingMore ?? this.trackingsIsLoadingMore,
     );
   }
 }
@@ -56,6 +81,17 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
   final Dio _dio;
   final Ref? _ref;
   CancelToken? _cancelToken;
+
+  int _policiesSkip = 0;
+  int _trackingsSkip = 0;
+  static const int _pageSize = 200;
+
+  String? _lastPoliciesCarrierName;
+  String? _lastPoliciesContainerType;
+
+  int? _lastTrackingsImportFileId;
+  String? _lastTrackingsCarrierName;
+  String? _lastTrackingsStatus;
 
   /// [_dio] must be the authenticated client from `dioProvider`.
   DemurrageNotifier(this._dio, [this._ref]) : super(const DemurrageState());
@@ -81,57 +117,154 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
     }
   }
 
-  Future<void> fetchPolicies({String? carrierName}) async {
+  Future<void> fetchPolicies({
+    String? carrierName,
+    String? containerType,
+    int skip = 0,
+    int limit = _pageSize,
+  }) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
 
+    final isInitial = skip == 0;
+    if (isInitial) {
+      _policiesSkip = 0;
+      _lastPoliciesCarrierName = carrierName;
+      _lastPoliciesContainerType = containerType;
+      state = state.copyWith(isLoading: true, error: null);
+    } else {
+      state = state.copyWith(policiesIsLoadingMore: true, error: null);
+    }
+
     try {
+      final queryParams = <String, dynamic>{
+        'skip': skip,
+        'limit': limit,
+      };
+      if (carrierName != null && carrierName.isNotEmpty) queryParams['carrier_name'] = carrierName;
+      if (containerType != null && containerType.isNotEmpty) queryParams['container_type'] = containerType;
+
       final res = await _dio.get(
         '/demurrage-detention/policies',
-        queryParameters: carrierName != null ? {'carrier_name': carrierName} : null,
+        queryParameters: queryParams,
         cancelToken: _cancelToken,
       );
       if (res.data is List) {
         final policies = (res.data as List)
             .map((e) => DemurragePolicyModel.fromJson(e))
             .toList();
-        state = state.copyWith(policies: policies, isLoading: false);
+        final totalHeader = res.headers.value('x-total-count');
+        final total = totalHeader != null ? int.tryParse(totalHeader) ?? policies.length : policies.length;
+
+        final merged = isInitial ? policies : [...state.policies, ...policies];
+        _policiesSkip = merged.length;
+
+        state = state.copyWith(
+          policies: merged,
+          isLoading: false,
+          policiesIsLoadingMore: false,
+          policiesTotalCount: total,
+          policiesHasMore: merged.length < total,
+        );
       }
     } catch (e) {
       if (e is DioException && CancelToken.isCancel(e)) {
         return;
       }
-      state = state.copyWith(isLoading: false, error: ApiError.message(e), errorObject: e);
+      state = state.copyWith(
+        isLoading: false,
+        policiesIsLoadingMore: false,
+        error: ApiError.message(e),
+        errorObject: e,
+      );
     }
   }
 
-  Future<void> fetchTrackings({int? importFileId, String? carrierName, String? status}) async {
+  Future<void> loadMorePolicies() async {
+    if (state.isLoading || state.policiesIsLoadingMore || !state.policiesHasMore) return;
+    await fetchPolicies(
+      carrierName: _lastPoliciesCarrierName,
+      containerType: _lastPoliciesContainerType,
+      skip: _policiesSkip,
+      limit: _pageSize,
+    );
+  }
+
+  Future<void> fetchTrackings({
+    int? importFileId,
+    String? carrierName,
+    String? status,
+    int skip = 0,
+    int limit = _pageSize,
+  }) async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
 
+    final isInitial = skip == 0;
+    if (isInitial) {
+      _trackingsSkip = 0;
+      _lastTrackingsImportFileId = importFileId;
+      _lastTrackingsCarrierName = carrierName;
+      _lastTrackingsStatus = status;
+      state = state.copyWith(isLoading: true, error: null);
+    } else {
+      state = state.copyWith(trackingsIsLoadingMore: true, error: null);
+    }
+
     try {
-      final queryParams = <String, dynamic>{};
+      final queryParams = <String, dynamic>{
+        'skip': skip,
+        'limit': limit,
+      };
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
-      if (carrierName != null) queryParams['carrier_name'] = carrierName;
-      if (status != null) queryParams['status'] = status;
+      if (carrierName != null && carrierName.isNotEmpty) queryParams['carrier_name'] = carrierName;
+      if (status != null && status.isNotEmpty) queryParams['status'] = status;
 
       final res = await _dio.get(
         '/demurrage-detention/trackings',
-        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+        queryParameters: queryParams,
         cancelToken: _cancelToken,
       );
       if (res.data is List) {
         final trackings = (res.data as List)
             .map((e) => DemurrageTrackingModel.fromJson(e))
             .toList();
-        state = state.copyWith(trackings: trackings, isLoading: false);
+        final totalHeader = res.headers.value('x-total-count');
+        final total = totalHeader != null ? int.tryParse(totalHeader) ?? trackings.length : trackings.length;
+
+        final merged = isInitial ? trackings : [...state.trackings, ...trackings];
+        _trackingsSkip = merged.length;
+
+        state = state.copyWith(
+          trackings: merged,
+          isLoading: false,
+          trackingsIsLoadingMore: false,
+          trackingsTotalCount: total,
+          trackingsHasMore: merged.length < total,
+        );
       }
     } catch (e) {
       if (e is DioException && CancelToken.isCancel(e)) {
         return;
       }
-      state = state.copyWith(isLoading: false, error: ApiError.message(e), errorObject: e);
+      state = state.copyWith(
+        isLoading: false,
+        trackingsIsLoadingMore: false,
+        error: ApiError.message(e),
+        errorObject: e,
+      );
     }
+  }
+
+  Future<void> loadMoreTrackings() async {
+    if (state.isLoading || state.trackingsIsLoadingMore || !state.trackingsHasMore) return;
+    await fetchTrackings(
+      importFileId: _lastTrackingsImportFileId,
+      carrierName: _lastTrackingsCarrierName,
+      status: _lastTrackingsStatus,
+      skip: _trackingsSkip,
+      limit: _pageSize,
+    );
   }
 
   Future<DemurrageSimulationResultModel?> simulateCalculation(Map<String, dynamic> requestPayload) async {

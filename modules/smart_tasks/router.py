@@ -43,6 +43,7 @@ def list_tasks(
     priority: Optional[str] = None,
     import_file_id: Optional[int] = None,
     search: Optional[str] = None,
+    order_by_priority: bool = False,
     db: Session = Depends(get_db),
 ):
     return service.get_all_tasks_service(
@@ -53,6 +54,7 @@ def list_tasks(
         priority=priority,
         import_file_id=import_file_id,
         search=search,
+        order_by_priority=order_by_priority,
     )
 
 

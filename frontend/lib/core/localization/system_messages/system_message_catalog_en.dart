@@ -177,6 +177,10 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
     'body': 'EIR #{eir_number} received and the shipping-line file closed. Collect the supplier, freight, broker and transport invoices and calculate the final landed cost.',
   },
 
+  'DOC_ACID_CONFLICT': {
+    'note': 'ACID number {acid_number} differs from the ACID on file {import_file_code} ({current_acid_number}).',
+  },
+
   'DOC_ACID_REGISTERED': {
     'title': 'ACID registered and verified: {acid_number}',
     'body': 'ACID {acid_number} registered and verified for {import_file_code}. Valid until {expiry_date}. The shipment moved to freight booking (STEP_06).',
@@ -405,6 +409,22 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
     'reason': '{carrier_name} repeatedly exceeded the scheduled transit times to {port_name}.',
   },
 
+  'LC_APPROVER_ROLE_UNKNOWN': {
+    'note': 'Approver role {role_code} does not match any known system role.',
+  },
+  'LC_CLOSURE_STEP_RESERVED': {
+    'note': 'Step STEP_21 is reserved for the file closure module and cannot be completed directly from HTTP.',
+  },
+  'LC_FILE_NOT_ACTIVE': {
+    'note': 'Import file {import_file_code} is {status} and cannot be transitioned on the lifecycle board.',
+  },
+  'LC_FILE_NOT_FOUND': {
+    'note': 'Import file {import_file_code} was not found or is inactive.',
+  },
+  'LC_FILE_REF_REQUIRED': {
+    'note': 'Import file id or code is required.',
+  },
+
   'LC_FILE_ON_HOLD': {
     'note': 'Shipment put on hold at [{phase_id}]: {reason}',
   },
@@ -432,6 +452,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'LC_PENDING_REFERENCE': {
     'note': 'Pending reference: {reference_number} - {reason}',
   },
+  'LC_SKIP_DUAL_APPROVAL_REQUIRED': {
+    'note': 'Step {step_code} requires dual approval and cannot be skipped by non-admin users.',
+  },
   'LC_STARTING_POINT_SET': {
     'note': 'Shipment starting point set to {step_code}',
   },
@@ -452,6 +475,18 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'LC_STEP_COMPLETED': {
     'note': '{step_code} completed',
+  },
+  'LC_STEP_NOT_ACTIVE': {
+    'note': 'Step {step_code} is not currently active on import file {import_file_code}.',
+  },
+  'LC_STEP_ALREADY_COMPLETED': {
+    'note': 'Step {step_code} is already completed or skipped on import file {import_file_code}.',
+  },
+  'LC_STEP_SEQUENCE_INVALID': {
+    'note': 'Step {step_code} cannot be activated ahead of sequence for non-admin users.',
+  },
+  'LC_TARGET_STEP_INVALID': {
+    'note': 'Cannot directly advance to {step_code} without administrator privileges.',
   },
   'LC_STEP_ON_HOLD': {
     'note': 'On hold: {reason}',
@@ -896,6 +931,30 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
     'title': 'Inland transport trucks booked (TR-01)',
     'body': 'Truck {truck_plate_number} booked to move {import_file_code} from {pickup_location} to {destination_warehouse}. Driver: {driver_name} ({driver_phone}).',
   },
+  'DOC_TASK_TAX_CODING_PULL': {
+    'title': 'Pull the tax coding sheet from Nafeza: {import_file_code}',
+    'body': 'The customs broker must pull the tax coding sheet from the Nafeza platform so it can be passed to the accountant for shipment {import_file_code}.',
+  },
+  'DOC_TASK_TAX_CODING_UPLOAD': {
+    'title': 'Code and upload the items tax sheet on Nafeza: {import_file_code}',
+    'body': 'The customs broker pulled the tax coding sheet. The accountant must complete the coding and upload it on the company\'s Nafeza account for file {import_file_code}.',
+  },
+  'DOC_TASK_ITEMS_VERIFY_BANK_LINK': {
+    'title': 'Pull the items to verify the coding and link to bank: {bank_name} - {import_file_code}',
+    'body': 'The items tax sheet was coded and uploaded. The customs broker must pull the items to confirm the coding is complete, then link the shipment on Nafeza to {bank_name} for shipment {import_file_code}.',
+  },
+  'DOC_TASK_ITEMS_VERIFY_SWIFT_BANK_LINK': {
+    'title': 'Pull the items to verify the coding and link to the SWIFT executing bank: {import_file_code}',
+    'body': 'The items tax sheet was coded and uploaded. The customs broker must pull the items to confirm the coding is complete, then link the shipment on Nafeza to the SWIFT executing bank for shipment {import_file_code}.',
+  },
+  'DOC_TASK_FORM4_SUBMIT': {
+    'title': 'Submit the Form 4 file to the bank branch: {bank_name} - {import_file_code}',
+    'body': 'Tax coding and the Nafeza link to {bank_name} are complete. Ready to submit the Form 4 application to the bank and follow up its approval for shipment {import_file_code}.',
+  },
+  'DOC_REGULATORY_BODIES_DETECTED': {
+    'title': 'Regulatory inspections detected for shipment {import_file_code}',
+    'body': 'The Nafeza items pull shows regulatory inspection bodies: {regulatory_bodies}. Prepare the inspection file and draw samples early.',
+  },
   'TR_TASK_TRACK_ARRIVAL_GRN': {
     'title': 'Follow up the truck arrival at the warehouse and issue the GRN (TR-03)',
   },
@@ -1162,6 +1221,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'PREFILL_NO_HS': {
     'note': 'No HS code found for import file {import_file_code}: add the tariff on the PO lines or the consultation.',
   },
+  'PREFILL_MIXED_CURRENCY': {
+    'note': 'The purchase orders of this import file use different currencies ({currencies}): enter the shipment value and currency manually.',
+  },
   'PO_ITEMS_ALLOCATED': {
     'note': 'Purchase order lines {item_ids} have recorded shipments and cannot be removed; send their item_id to edit them.',
   },
@@ -1170,6 +1232,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'SCENARIO_SESSION_EXISTS': {
     'note': 'An active shipping-scenario study ({session_code}) already exists for this import file.',
+  },
+  'SCENARIO_ITEMS_BOOKED': {
+    'note': 'Cannot delete shipping options ({item_ids}) referenced by a freight booking.',
   },
   'CONSULTATION_EXISTS': {
     'note': 'An active customs consultation ({consultation_code}) already exists for this import file.',
@@ -1183,11 +1248,17 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FA_CURRENCY_MISSING': {
     'note': 'No currency is recorded for the amount of {source}. Set the currency first.',
   },
+  'FA_CURRENCY_UNKNOWN': {
+    'note': 'Currency {currency_code} is not defined on the Currencies screen.',
+  },
   'FA_SWIFT_CURRENCY_MISMATCH': {
     'note': 'The SWIFT currency {swift_currency} does not match the payment request currency {currency_code}.',
   },
   'FA_SWIFT_REF_ALREADY_USED': {
     'note': 'SWIFT reference {swift_ref} is already used by payment request {payment_code}.',
+  },
+  'FA_SWIFT_REF_REQUIRED': {
+    'note': 'A SWIFT reference is required before recording payment for request {payment_code}.',
   },
   'FA_SWIFT_BATCH_ALREADY_RECONCILED': {
     'note': 'SWIFT batch {batch_code} is already reconciled with payment request {payment_code}.',
@@ -1195,11 +1266,17 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FA_SWIFT_BATCH_STATUS_INVALID': {
     'note': 'This action is not allowed on SWIFT batch {batch_code} in status {status}.',
   },
+  'FA_SWIFT_VALUE_DATE_INVALID': {
+    'note': "Value date '{value}' in SWIFT batch {batch_code} is missing or not in YYYY-MM-DD format.",
+  },
   'FA_PAYMENT_STATUS_INVALID': {
     'note': 'Payment request {payment_code} is {status}: the action {action} is not allowed.',
   },
   'FA_PAYMENT_LOCKED': {
     'note': 'An approved or paid payment request ({payment_code}, {status}) cannot be changed or deleted.',
+  },
+  'FA_PAYMENT_RATE_REQUIRED': {
+    'note': 'When changing the currency of payment request {payment_code}, the new exchange rate for {currency_code} must be provided.',
   },
   'FA_BUDGET_LOCKED': {
     'note': 'An approved or superseded budget ({budget_code}, {status}) cannot be changed: sync it to create a new revision.',
@@ -1261,6 +1338,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'DOC_INVOICE_BL_SYNCED': {
     'note': 'Invoice {invoice_number} and B/L {draft_bl_number} matched, approved and synced to the import file and customs approvals.',
   },
+  'DOC_INVOICE_BL_NOT_CERTIFIED': {
+    'note': 'No active certified invoice vs B/L match session exists for import file {import_file_id}. Certify the session first.',
+  },
   'ODC_COURIER_NOT_FOUND': {
     'note': 'Courier {courier_no} is not registered on this file\'s original documents session. Add it to the session first.',
   },
@@ -1284,6 +1364,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'SDU_ACID_CONFLICT': {
     'note': 'The extracted ACID {acid_number} differs from the ACID on file {import_file_code} ({current_acid_number}).',
+  },
+  'SDU_INVOICE_NUMBER_REQUIRED': {
+    'note': 'Invoice number is required to link invoice data to the import file.',
   },
   'SDU_FILE_CLOSED': {
     'note': 'Import file {import_file_code} is {status}: extracted data cannot be applied to it.',
@@ -1479,6 +1562,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'IMPORT_FILE_CLOSED': {
     'note': 'Import file {import_file_code} is permanently closed and cannot be modified. Reopening is required first.',
+  },
+  'IF_STATUS_TRANSITION_INVALID': {
+    'note': 'Cannot transition import file status from {from} to {to}.',
   },
   'FC_CLOSURE_BLOCKED': {
     'note': 'The file cannot be closed: {blocking} not met.',

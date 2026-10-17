@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, or_
 
-from modules.common.sequence_generator import next_yearly_code
+from modules.common.sequence_generator import next_yearly_code, savepoint
 from .model import LandedCostSettlementRecord, TaxRate
 
 # Queries only. Nothing here commits: the service owns the transaction (FS-13).
@@ -23,7 +23,7 @@ def add_with_new_code(db: Session, record: LandedCostSettlementRecord) -> Landed
     for attempt in range(_CODE_ATTEMPTS):
         record.settlement_code = generate_settlement_code(db)
         try:
-            with db.begin_nested():
+            with savepoint(db):
                 db.add(record)
                 db.flush()
             return record

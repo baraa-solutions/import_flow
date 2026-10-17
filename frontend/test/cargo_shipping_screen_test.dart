@@ -365,7 +365,7 @@ class _MockCargoShippingNotifier extends CargoShippingNotifier {
   }
 
   @override
-  Future<void> fetchRecords({bool includeInactive = true, int? importFileId, String? status, String? search}) async {
+  Future<void> fetchRecords({bool includeInactive = true, int? importFileId, String? status, String? search, int skip = 0, int limit = 200}) async {
     state = AsyncValue.data(initialRecords);
   }
 }
@@ -396,7 +396,7 @@ class _MockFreightBookingNotifier extends FreightBookingNotifier {
   }
 
   @override
-  Future<void> fetchBookings({bool includeInactive = false, int? importFileId, String? status, String? search}) async {
+  Future<void> fetchBookings({bool includeInactive = false, int? importFileId, String? status, String? search, int skip = 0, int limit = 200}) async {
     state = AsyncValue.data(initialBookings);
   }
 }

@@ -34,17 +34,28 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
     super.dispose();
   }
 
+  int? totalCount;
+  bool _isLoadingMore = false;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMore => totalCount != null && (state.valueOrNull?.length ?? 0) < totalCount!;
+
   Future<void> fetchBookings({
     bool includeInactive = false,
     int? importFileId,
     String? status,
     String? search,
+    int skip = 0,
+    int limit = 200,
   }) async {
     _cancelToken?.cancel('Cancelled by new fetchBookings request');
     _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
-      final queryParams = <String, dynamic>{'include_inactive': includeInactive};
+      final queryParams = <String, dynamic>{
+        'include_inactive': includeInactive,
+        'skip': skip,
+        'limit': limit,
+      };
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
       if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
@@ -55,12 +66,57 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
         cancelToken: _cancelToken,
       );
 
+      final totalHeader = response.headers.value('x-total-count');
+      if (totalHeader != null) {
+        totalCount = int.tryParse(totalHeader);
+      }
+
       final List data = response.data;
       final list = data.map((json) => ShipmentBookingModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
     } catch (e, stack) {
       if (e is DioException && CancelToken.isCancel(e)) return;
       state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> loadMore({
+    bool includeInactive = false,
+    int? importFileId,
+    String? status,
+    String? search,
+    int limit = 200,
+  }) async {
+    if (_isLoadingMore || !hasMore) return;
+    final currentList = state.valueOrNull ?? [];
+    _isLoadingMore = true;
+    try {
+      final queryParams = <String, dynamic>{
+        'include_inactive': includeInactive,
+        'skip': currentList.length,
+        'limit': limit,
+      };
+      if (importFileId != null) queryParams['import_file_id'] = importFileId;
+      if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/freight-booking',
+        queryParameters: queryParams,
+      );
+
+      final totalHeader = response.headers.value('x-total-count');
+      if (totalHeader != null) {
+        totalCount = int.tryParse(totalHeader);
+      }
+
+      final List data = response.data;
+      final nextItems = data.map((json) => ShipmentBookingModel.fromJson(json)).toList();
+      state = AsyncValue.data([...currentList, ...nextItems]);
+    } catch (e) {
+      // Keep existing data on pagination failure
+    } finally {
+      _isLoadingMore = false;
     }
   }
 
