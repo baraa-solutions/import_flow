@@ -2712,8 +2712,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccShortageNotAvailable => 'Shortage protocols will be saved after the backend registry is added';
   @override String get importFilePickerTitle => 'Select Import Shipment';
   @override String get importFilePickerSelectPrompt => 'Please select an import file to continue';
-  @override String get importFilePickerNoFilesFound => 'No active shipment files available';
-  @override String get importFilePickerContinue => 'Continue';
   @override String get drawingSamplesShortageSectionTitle => 'Cargo Examination & Shortage Protocols';
   @override String get drawingSamplesShortageSectionDesc => 'Compare manifest weights and packages against landed physical cargo to document shortages and apply customs duty deductions or carrier claims';
   @override String get drawingSamplesAddShortageBtn => 'Record Shortage Protocol';

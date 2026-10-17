@@ -2830,8 +2830,6 @@ abstract class AppLocalizations {
   String get ccShortageNotAvailable;
   String get importFilePickerTitle;
   String get importFilePickerSelectPrompt;
-  String get importFilePickerNoFilesFound;
-  String get importFilePickerContinue;
   String get drawingSamplesShortageSectionTitle;
   String get drawingSamplesShortageSectionDesc;
   String get drawingSamplesAddShortageBtn;
