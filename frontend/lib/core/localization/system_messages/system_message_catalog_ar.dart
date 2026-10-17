@@ -405,6 +405,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
     'reason': 'تكرار تجاوز الخط الملاحي {carrier_name} لأزمنة الترانزيت المجدولة على ميناء {port_name}.',
   },
 
+  'LC_APPROVER_ROLE_UNKNOWN': {
+    'note': 'دور المعتمد {role_code} لا يطابق أي دور معروف في النظام.',
+  },
   'LC_CLOSURE_STEP_RESERVED': {
     'note': 'المرحلة STEP_21 مخصصة لمنظومة إغلاق الملفات ولا يمكن إكمالها مباشرة عبر HTTP.',
   },
@@ -444,6 +447,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'LC_PENDING_REFERENCE': {
     'note': 'مرجع معلق: {reference_number} — {reason}',
+  },
+  'LC_SKIP_DUAL_APPROVAL_REQUIRED': {
+    'note': 'المرحلة {step_code} تتطلب اعتماداً مزدوجاً ولا يمكن تجاوزها لغير مديري النظام.',
   },
   'LC_STARTING_POINT_SET': {
     'note': 'نقطة البداية المحددة للشحنة: {step_code}',

@@ -2178,6 +2178,14 @@
       "note"
     ]
   },
+  "LC_APPROVER_ROLE_UNKNOWN": {
+    "params": [
+      "role_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "LC_CLOSURE_STEP_RESERVED": {
     "params": [],
     "parts": [
@@ -2275,6 +2283,14 @@
     "params": [
       "reason",
       "reference_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_SKIP_DUAL_APPROVAL_REQUIRED": {
+    "params": [
+      "step_code"
     ],
     "parts": [
       "note"

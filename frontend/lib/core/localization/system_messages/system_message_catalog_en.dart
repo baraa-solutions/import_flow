@@ -405,6 +405,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
     'reason': '{carrier_name} repeatedly exceeded the scheduled transit times to {port_name}.',
   },
 
+  'LC_APPROVER_ROLE_UNKNOWN': {
+    'note': 'Approver role {role_code} does not match any known system role.',
+  },
   'LC_CLOSURE_STEP_RESERVED': {
     'note': 'Step STEP_21 is reserved for the file closure module and cannot be completed directly from HTTP.',
   },
@@ -444,6 +447,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'LC_PENDING_REFERENCE': {
     'note': 'Pending reference: {reference_number} - {reason}',
+  },
+  'LC_SKIP_DUAL_APPROVAL_REQUIRED': {
+    'note': 'Step {step_code} requires dual approval and cannot be skipped by non-admin users.',
   },
   'LC_STARTING_POINT_SET': {
     'note': 'Shipment starting point set to {step_code}',

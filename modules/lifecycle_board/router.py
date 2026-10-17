@@ -64,6 +64,7 @@ def get_step_config(
     "/step-configs/{step_code}",
     response_model=StepConfigResponse,
     summary="Update step skip policy, reason categories, approver roles, or pending ref eligibility (Manager Only, Section 10.7)",
+    dependencies=[Depends(require_permission("users.manage"))],
 )
 def update_step_config(
     step_code: str,
@@ -77,6 +78,7 @@ def update_step_config(
         payload=payload,
         current_user_role=effective_role_code(current_user),
         current_username=current_user.username,
+        actor=current_user,
     )
 
 
@@ -196,6 +198,7 @@ def skip_step(
     return service.skip_step_service(
         db=db,
         payload=payload,
+        actor=current_user,
         current_user_role=effective_role_code(current_user),
         current_username=current_user.username,
     )

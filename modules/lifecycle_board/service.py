@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from fastapi import HTTPException, status
@@ -37,7 +37,7 @@ from modules.common.errors import CodedHTTPException
 from modules.common.system_messages import SysMsg, msg, render_en
 from modules.common.file_tracking import phase_title_en, set_file_tracking
 from modules.auth.permissions import is_admin_user
-from modules.users.model import User
+from modules.users.model import Role, User
 
 logger = logging.getLogger(__name__)
 
@@ -295,6 +295,7 @@ def advance_lifecycle_step_service(
     notes_msg: Optional[SysMsg] = None,
     next_action_msg: Optional[SysMsg] = None,
     stage_code: Optional[str] = None,
+    commit: bool = True,
 ) -> Dict[str, Any]:
     """
     Single-language storage (Phase B):
@@ -391,7 +392,6 @@ def advance_lifecycle_step_service(
                 _append_system_note(
                     existing_act, msg("LC_STEP_AUTO_CLOSED_PRIOR", completed_step_code=completed_step_code)
                 )
-                db.commit()
                 auto_completed_steps.append(prior_code)
 
     # 5. Complete current step
@@ -496,8 +496,12 @@ def advance_lifecycle_step_service(
                 created_by=source_module or "Lifecycle Operations Board",
             )
 
+    if commit:
         db.commit()
-        db.refresh(file_rec)
+        if file_rec:
+            db.refresh(file_rec)
+    else:
+        db.flush()
 
     return {
         "message": f"تم إكمال الخطوة {completed_step_code} وتفعيل الخطوات التالية بنجاح.",
@@ -829,7 +833,7 @@ def _sync_import_file_and_tasks_on_advance(
         set_file_tracking(file_rec, step_code="STEP_21", phase_id="6", next_action=msg("NA_FILE_CLOSED"))
         file_rec.progress_percent = 100.0
 
-    db.commit()
+    db.flush()
 
 
 def _resolve_and_validate_file(
@@ -1054,6 +1058,7 @@ def set_multi_active_stages_service(
             msg_params=None if payload.notes else {},
         )
 
+    db.commit()
     return {
         "message": f"تم تفعيل {len(payload.active_step_codes)} مرحلة بالتوازي للشحنة {file_rec.import_file_code}.",
         "active_steps": payload.active_step_codes,
@@ -1129,14 +1134,16 @@ def update_step_config_service(
     payload: StepConfigUpdateRequest,
     current_user_role: Optional[str] = None,
     current_username: Optional[str] = None,
+    actor: Optional[User] = None,
 ) -> StepConfigResponse:
-    # 1. Manager Role Authorization (Section 10.7)
-    role_normalized = (current_user_role or "").strip().upper()
-    if role_normalized not in ["MANAGER", "GENERAL_MANAGER", "ADMIN"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="فقط دور المدير (Manager) مخول بالاطلاع على وتعديل سياسات وقواعد تصنيف المراحل (Section 10.7)."
-        )
+    # 1. Fallback role guard for direct callers passing role string without actor (Section 10.7)
+    if current_user_role is not None and actor is None:
+        role_normalized = current_user_role.strip().upper()
+        if role_normalized not in ["MANAGER", "GENERAL_MANAGER", "ADMIN"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="فقط دور المدير (Manager) مخول بالاطلاع على وتعديل سياسات وقواعد تصنيف المراحل (Section 10.7)."
+            )
 
     # 2. Mandatory Justification (Section 10.3 & 10.7)
     if not payload.justification or len(payload.justification.strip()) < 5:
@@ -1144,6 +1151,29 @@ def update_step_config_service(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="يجب تقديم سبب تبريري إلزامي لتعديل تصنيف المرحلة (لا يقل عن 5 أحرف)."
         )
+
+    # 3. Validate approver_roles against active roles table (BEX-T02)
+    if payload.approver_roles is not None:
+        if db.query(Role).first() is None:
+            from modules.auth.seed_rbac import seed_rbac
+            seed_rbac(db)
+
+        for r in payload.approver_roles:
+            cleaned_role = (r or "").strip().upper()
+            target_role = "GENERAL_MANAGER" if cleaned_role == "MANAGER" else cleaned_role
+            role_exists = db.query(Role).filter(
+                or_(
+                    func.upper(Role.role_code) == cleaned_role,
+                    func.upper(Role.role_code) == target_role,
+                )
+            ).first()
+            if not role_exists:
+                raise CodedHTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    code="LC_APPROVER_ROLE_UNKNOWN",
+                    message_ar=f"دور الاعتماد '{r}' غير معروف في أدوار النظام.",
+                    role_code=r,
+                )
 
     validators.validate_step_code(step_code)
     _ensure_step_configs(db)
@@ -1163,8 +1193,6 @@ def update_step_config_service(
             supports_pending_reference=False,
         )
         db.add(cfg)
-        db.commit()
-        db.refresh(cfg)
 
     # Store old values for audit trail
     old_policy = cfg.skip_policy
@@ -1182,11 +1210,9 @@ def update_step_config_service(
         cfg.supports_pending_reference = payload.supports_pending_reference
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    username = current_username or "Manager"
+    username = current_username or (actor.username if actor else "Manager")
     cfg.last_modified_by = username
     cfg.last_modified_at = now_str
-    db.commit()
-    db.refresh(cfg)
 
     # Log rule change in audit trail (Section 10.3)
     audit_entry = StepConfigAuditLog(
@@ -1203,6 +1229,9 @@ def update_step_config_service(
         justification=payload.justification.strip(),
     )
     repo.save_step_config_audit_log(db, audit_entry)
+
+    db.commit()
+    db.refresh(cfg)
 
     return StepConfigResponse.model_validate(cfg)
 
@@ -1275,26 +1304,24 @@ def register_pending_reference_service(
     )
 
     # 4. Central Audit Log
-    try:
-        audit_log = AuditLog(
-            entity_type="LifecycleStep",
-            entity_id=file_rec.import_file_id,
-            entity_code=file_rec.import_file_code,
-            action="REGISTER_PENDING_REFERENCE",
-            changes_summary=f"Registered pending reference '{payload.reference_number}' for step {payload.step_code}. Step remains incomplete pending docs.",
-            old_values=json.dumps({"step_code": payload.step_code, "status": "In-Progress"}),
-            new_values=json.dumps({
-                "step_code": payload.step_code,
-                "status": "Reference recorded – pending full documentation",
-                "reference_number": payload.reference_number,
-                "expected_completion_date": payload.expected_completion_date,
-            }),
-            performed_by=username,
-        )
-        db.add(audit_log)
-        db.commit()
-    except Exception:
-        pass
+    audit_log = AuditLog(
+        entity_type="LifecycleStep",
+        entity_id=file_rec.import_file_id,
+        entity_code=file_rec.import_file_code,
+        action="REGISTER_PENDING_REFERENCE",
+        changes_summary=f"Registered pending reference '{payload.reference_number}' for step {payload.step_code}. Step remains incomplete pending docs.",
+        old_values=json.dumps({"step_code": payload.step_code, "status": "In-Progress"}),
+        new_values=json.dumps({
+            "step_code": payload.step_code,
+            "status": "Reference recorded – pending full documentation",
+            "reference_number": payload.reference_number,
+            "expected_completion_date": payload.expected_completion_date,
+        }),
+        performed_by=username,
+    )
+    db.add(audit_log)
+    db.commit()
+    db.refresh(pending_rec)
 
     return RegisterPendingReferenceResponse(
         message=f"تم تسجيل المرجع المعلق '{payload.reference_number}' للمرحلة {payload.step_code} بنجاح. تظل المرحلة غير مكتملة امتثالياً حتى استيفاء المستندات.",
@@ -1311,6 +1338,7 @@ def register_pending_reference_service(
 def skip_step_service(
     db: Session,
     payload: SkipStepPayload,
+    actor: Optional[User] = None,
     current_user_role: Optional[str] = None,
     current_username: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -1334,20 +1362,35 @@ def skip_step_service(
             detail=f"الخطوة '{payload.current_step_code}' محظورة من التخطي حسب سياسة النظام المعتمدة (Policy: blocked). يتطلب التخطي تعديل سياسة المرحلة من قبل المدير أولاً."
         )
 
+    if skip_policy == "dual_approval" and not is_admin_user(actor):
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="LC_SKIP_DUAL_APPROVAL_REQUIRED",
+            message_ar=f"الخطوة '{payload.current_step_code}' تتطلب موافقة مزدوجة لتخطيها، وهو مقصور حالياً على مدير النظام (ADMIN).",
+            step_code=payload.current_step_code,
+        )
+
     # Role validation is mandatory: the caller role comes from the authenticated user (never a header)
-    if not current_user_role or not current_user_role.strip():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="تعذر تحديد دور المستخدم."
-        )
-    user_role_norm = current_user_role.strip().upper()
-    allowed_roles = [r.strip().upper() for r in (cfg.approver_roles if cfg else ["Manager"])]
-    is_authorized = user_role_norm in allowed_roles or user_role_norm in ["ADMIN", "MANAGER", "GENERAL_MANAGER"]
-    if not is_authorized:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"دورك '{current_user_role}' غير مخول باعتماد تخطي هذه الخطوة. الأدوار المعتمدة: {cfg.approver_roles if cfg else ['Manager']}."
-        )
+    effective_role = current_user_role or (
+        actor.assigned_role.role_code
+        if actor and getattr(actor, "assigned_role", None)
+        else getattr(actor, "role", None)
+    )
+    is_admin = is_admin_user(actor)
+    if not is_admin:
+        if not effective_role or not effective_role.strip():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="تعذر تحديد دور المستخدم."
+            )
+        user_role_norm = effective_role.strip().upper()
+        allowed_roles = [r.strip().upper() for r in (cfg.approver_roles if cfg else ["Manager"])]
+        is_authorized = user_role_norm in allowed_roles or user_role_norm in ["ADMIN", "MANAGER", "GENERAL_MANAGER"]
+        if not is_authorized:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"دورك '{effective_role}' غير مخول باعتماد تخطي هذه الخطوة. الأدوار المعتمدة: {cfg.approver_roles if cfg else ['Manager']}."
+            )
 
     # Auto-infer next step from sequence if not explicitly provided
     if not payload.next_step_codes:
@@ -1392,7 +1435,6 @@ def skip_step_service(
     if payload.current_step_code not in current_skipped:
         current_skipped.append(payload.current_step_code)
         file_rec.skipped_stages = current_skipped
-        db.commit()
 
     # Sync ImportFile stage, module, progress, and Smart Tasks
     _sync_import_file_and_tasks_on_advance(
@@ -1405,21 +1447,20 @@ def skip_step_service(
     )
 
     # Write permanent central audit log entry
-    try:
-        audit_log = AuditLog(
-            entity_type="LifecycleStep",
-            entity_id=file_rec.import_file_id,
-            entity_code=file_rec.import_file_code,
-            action="SKIP_STAGE",
-            changes_summary=f"Skipped {payload.current_step_code} -> Activated {payload.next_step_codes}. Reason: {payload.skip_reason}",
-            old_values=json.dumps({"step_code": payload.current_step_code, "status": "In-Progress"}),
-            new_values=json.dumps({"step_code": payload.current_step_code, "status": "Skipped", "reason": payload.skip_reason, "policy": skip_policy}),
-            performed_by=current_username or "System",
-        )
-        db.add(audit_log)
-        db.commit()
-    except Exception:
-        pass
+    audit_username = current_username or (actor.username if actor else "System")
+    audit_log = AuditLog(
+        entity_type="LifecycleStep",
+        entity_id=file_rec.import_file_id,
+        entity_code=file_rec.import_file_code,
+        action="SKIP_STAGE",
+        changes_summary=f"Skipped {payload.current_step_code} -> Activated {payload.next_step_codes}. Reason: {payload.skip_reason}",
+        old_values=json.dumps({"step_code": payload.current_step_code, "status": "In-Progress"}),
+        new_values=json.dumps({"step_code": payload.current_step_code, "status": "Skipped", "reason": payload.skip_reason, "policy": skip_policy}),
+        performed_by=audit_username,
+    )
+    db.add(audit_log)
+    db.commit()
+    db.refresh(file_rec)
 
     return {
         "message": f"تم تخطي الخطوة {payload.current_step_code} وتفعيل الخطوات اللاحقة بنجاح.",
@@ -1482,6 +1523,7 @@ def initialize_file_lifecycle_service(db: Session, import_file_code: str, starti
         msg_code=start_msg.code,
         msg_params=start_msg.params,
     )
+    db.commit()
 
 
 def _append_system_note(act: Any, message: SysMsg) -> None:
