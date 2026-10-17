@@ -3453,6 +3453,14 @@
       "note"
     ]
   },
+  "PREFILL_MIXED_CURRENCY": {
+    "params": [
+      "currencies"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "PREFILL_NO_HS": {
     "params": [
       "import_file_code"

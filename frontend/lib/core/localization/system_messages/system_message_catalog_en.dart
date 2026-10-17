@@ -1197,6 +1197,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'PREFILL_NO_HS': {
     'note': 'No HS code found for import file {import_file_code}: add the tariff on the PO lines or the consultation.',
   },
+  'PREFILL_MIXED_CURRENCY': {
+    'note': 'The purchase orders of this import file use different currencies ({currencies}): enter the shipment value and currency manually.',
+  },
   'PO_ITEMS_ALLOCATED': {
     'note': 'Purchase order lines {item_ids} have recorded shipments and cannot be removed; send their item_id to edit them.',
   },

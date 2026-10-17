@@ -334,7 +334,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         _acidNumberCtrl.text = prefill.acidNumber ?? '';
         _originCtrl.text = prefill.countryOfOrigin ?? 'China';
         _currencyCtrl.text = prefill.currency ?? '';
-        _valueCtrl.text = prefill.shipmentValue.toStringAsFixed(2);
+        _valueCtrl.text = prefill.shipmentValue != null ? prefill.shipmentValue!.toStringAsFixed(2) : '';
         _factoryRegCtrl.text = prefill.factoryRegistrationNo ?? prefill.foreignExporterId ?? '';
 
         _hsCodeItems.clear();

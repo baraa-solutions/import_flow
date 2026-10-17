@@ -1128,6 +1128,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "note": "No HS code found for import file {import_file_code}: add the tariff on the PO lines or the consultation.",
     },
     "PREFILL_LINE_NO_HS": {"note": "PO {po_number} line {item_code} has no tariff (HS code) and was skipped."},
+    "PREFILL_MIXED_CURRENCY": {
+        "note": "The purchase orders of this import file use different currencies ({currencies}): enter the shipment value and currency manually.",
+    },
     "IR_ASSESSMENT_EXISTS": {
         "note": "An active import-requirements assessment ({assessment_code}) already exists for this import file.",
     },

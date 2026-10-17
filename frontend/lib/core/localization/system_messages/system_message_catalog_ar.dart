@@ -1197,6 +1197,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'PREFILL_NO_HS': {
     'note': 'لم يتم العثور على بند جمركي (HS Code) للملف الاستيرادي {import_file_code}: أضف البند الجمركي في بنود أمر الشراء أو في الدراسة.',
   },
+  'PREFILL_MIXED_CURRENCY': {
+    'note': 'أوامر الشراء في هذا الملف الاستيرادي بعملات مختلفة ({currencies}): أدخل قيمة الشحنة والعملة يدوياً.',
+  },
   'PO_ITEMS_ALLOCATED': {
     'note': 'بنود أمر الشراء {item_ids} لها شحنات مسجلة ولا يمكن حذفها؛ أرسل رقم البند (item_id) لتعديلها.',
   },

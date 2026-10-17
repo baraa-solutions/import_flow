@@ -68,7 +68,7 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 49 | ACC3-T04 | demurrage_detention | CRITICAL | No demurrage / storage after empty return; gate-out required | none | no | yes: 422 | review required | [acc-logistics](acc-logistics-costs-review.md) | done |
 | 50 | ACC3-T05 | demurrage_detention (+FE dialog) | CRITICAL | Tracking currency = tariff currency | none | no | yes: `currency` optional, 422 mismatch | review required | [acc-logistics](acc-logistics-costs-review.md) | done |
 | 51 | BE01-T05 | freight_quotations | CRITICAL | Freight comparison in one currency (EGP) | BE01-T04, BEW0-01 | no | additive EGP fields; values change | review required | [be-01](be-01-review.md) | todo |
-| 52 | BE01-T06 | import_requirements | CRITICAL | Prefill sums values per currency | BEW0-02 | no | yes: nullable value, `PREFILL_MIXED_CURRENCY` | review required | [be-01](be-01-review.md) | todo |
+| 52 | BE01-T06 | import_requirements | CRITICAL | Prefill sums values per currency | BEW0-02 | no | yes: nullable value, `PREFILL_MIXED_CURRENCY` | review required | [be-01](be-01-review.md) | done |
 | 53 | BE810-T06 | file_closure | CRITICAL | Dossier FOB per currency | none | no | yes: `fob_by_currency`, nullable totals | review required | [be-08-10](be-08-10-review.md) | todo |
 | 54 | BE02-T04 | financial_approval | CRITICAL | "Mark as Paid" requires a real SWIFT reference | none | no | yes: 400 `FA_SWIFT_REF_REQUIRED` | review required | [be-02](be-02-review.md) | todo |
 | 55 | BE02-T05 | financial_approval | CRITICAL | Backfill legacy budget columns, NULL-safe sync | none | **yes** (backfill + server_default) | no | review required | [be-02](be-02-review.md) | todo |
