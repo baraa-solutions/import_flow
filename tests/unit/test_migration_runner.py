@@ -30,7 +30,7 @@ PREVIOUS_HEAD = "d3e4f5a6b7c8"
 
 
 # Current Alembic head (users.must_change_password). BASELINE_REVISION is the stamp baseline before it.
-HEAD_REVISION = "a1b2c3d4e5f6"
+HEAD_REVISION = "e2f3a4b5c6d7"
 
 
 class _SpyMasterData:
@@ -390,8 +390,10 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     # -> c3d4e5f6a7b8 (trademark and contact fields)
     # -> d4e5f6a7b8c9 (logistics service invoices and insurance policies)
     # -> e4f5a6b7c8d9 (pre-Form 4 readiness pipeline)
-    # -> head a1b2c3d4e5f6 (budget_currency in projects)
-    assert script.get_revision(HEAD_REVISION).down_revision == "e4f5a6b7c8d9"
+    # -> a1b2c3d4e5f6 (budget_currency in projects)
+    # -> head e2f3a4b5c6d7 (legacy budget column backfill)
+    assert script.get_revision(HEAD_REVISION).down_revision == "a1b2c3d4e5f6"
+    assert script.get_revision("a1b2c3d4e5f6").down_revision == "e4f5a6b7c8d9"
     assert script.get_revision("e4f5a6b7c8d9").down_revision == "d4e5f6a7b8c9"
     assert script.get_revision("d4e5f6a7b8c9").down_revision == "c3d4e5f6a7b8"
     assert script.get_revision("c3d4e5f6a7b8").down_revision == "d1a2b3c4e5f6"
