@@ -10048,6 +10048,9 @@ abstract class AppLocalizations {
   String get ccCloneYellow;
   String get ccCloneDuties;
   String get ccCloneBtn;
+  String get customsDeclMinLength;
+  String get customsDeclChannelLabel;
+  String get customsDeclPickDateTooltip;
   // === end review phase06_07 keys ===
 
   // === review phase08_10 keys (append below this line) ===
