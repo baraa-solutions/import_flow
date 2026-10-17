@@ -180,7 +180,7 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 156 | BE45-T17 | cargo_shipping, cargo_insurance, shipment_updates, demurrage_detention | MAJOR | Legacy-tolerant response schemas | none | no | no | yes | [be-04-05](be-04-05-review.md) | done |
 | 157 | BE45-T18 | cargo_insurance, demurrage_detention | MAJOR | Remove invented defaults | BE45-T17 | no | yes: required port / container type, nullable fields | yes | [be-04-05](be-04-05-review.md) | done |
 | 158 | BE45-T19 | freight_booking | MAJOR | Booking FK master data on update | BE45-T12 | no | additive FK ids; Literal types | yes | [be-04-05](be-04-05-review.md) | done |
-| 159 | BE45-T21 | freight_booking | MAJOR | Audit wiring on `shipment_bookings` | BEW0-05 | via BEW0-05 (backfill from owner) | additive | yes | [be-04-05](be-04-05-review.md) | todo |
+| 159 | BE45-T21 | freight_booking | MAJOR | Audit wiring on `shipment_bookings` | BEW0-05 | via BEW0-05 (backfill from owner) | additive | yes | [be-04-05](be-04-05-review.md) | done |
 | 160 | BE67-T11 | customs_tariff | MAJOR | customs_tariff repository without commits | BE67-T08, BE67-T09 | no | no | yes | [be-06-07](be-06-07-review.md) | todo |
 | 161 | BE67-T15 | customs_tariff | MAJOR | `/customs-tariff/paginated` + fee code validation | BE67-T01, BEW0-04 | no | yes: paging; 409 / 422 fee codes | yes | [be-06-07](be-06-07-review.md) | todo |
 | 162 | BE67-T17 | customs_clearance | MAJOR | No invented customs values in CS-03 / CL-01 / CS-01 | BE67-T07 | no | yes: required channel / office / result | yes | [be-06-07](be-06-07-review.md) | todo |

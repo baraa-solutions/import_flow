@@ -487,7 +487,7 @@ def create_booking_service(db: Session, payload: ShipmentBookingCreate, user: st
     owner = payload.owner if "owner" in payload.model_fields_set and payload.owner else user
 
     def build() -> ShipmentBooking:
-        new_booking = repo.create_booking(db, payload, owner=owner)
+        new_booking = repo.create_booking(db, payload, owner=owner, user=user)
         calculate_transit_time_and_costs(new_booking, db=db)
         _sync_import_file_with_booking(db, new_booking, _tracking_step_for(new_booking))
         return new_booking
@@ -543,7 +543,7 @@ def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookin
     update_data = payload.model_dump(mode="json", exclude_unset=True, exclude_none=True)
     old_data = {k: getattr(booking, k, None) for k in update_data.keys()}
 
-    repo.apply_booking_update(booking, payload)
+    repo.apply_booking_update(booking, payload, user=user)
     calculate_transit_time_and_costs(booking, db=db)
     _sync_import_file_with_booking(db, booking, _tracking_step_for(booking))
     db.commit()
@@ -575,6 +575,8 @@ def confirm_booking_service(db: Session, booking_id: int, payload: ShipmentBooki
     if payload.notes:
         booking.notes = payload.notes
 
+    booking.updated_by = user
+    booking.updated_at = datetime.now(timezone.utc)
     calculate_transit_time_and_costs(booking, db=db)
     past_step_07 = _file_past_step(_active_import_file(db, booking.import_file_id), "STEP_07")
     file_rec = _sync_import_file_with_booking(db, booking, "STEP_07")
@@ -600,7 +602,7 @@ def confirm_booking_service(db: Session, booking_id: int, payload: ShipmentBooki
 def soft_delete_booking_service(db: Session, booking_id: int, user: str = "system") -> bool:
     booking = get_booking_service(db, booking_id)
     validators.validate_deletable(booking)
-    repo.set_booking_active(booking, False)
+    repo.set_booking_active(booking, False, user=user)
     db.commit()
     best_effort(db, _log_audit, "AuditLog for ShipmentBooking delete", db, booking, "DELETE", user, {"is_active": False})
     return True
@@ -611,7 +613,7 @@ def restore_booking_service(db: Session, booking_id: int, user: str = "system") 
     if not booking:
         raise not_found(validators.BOOKING_LABEL_AR, booking_id)
     validators.validate_no_duplicate_booking_for_file(db, booking.import_file_id, current_booking_id=booking_id)
-    repo.set_booking_active(booking, True)
+    repo.set_booking_active(booking, True, user=user)
     calculate_transit_time_and_costs(booking, db=db)
     db.commit()
     db.refresh(booking)
@@ -657,6 +659,8 @@ def confirm_departure_and_bol_service(
     booking.shipped_on_board_date = payload.shipped_on_board_date
     booking.bill_of_lading_no = payload.bill_of_lading_no.strip()
     booking.status = validators.STATUS_SAILED
+    booking.updated_by = user
+    booking.updated_at = datetime.now(timezone.utc)
 
     if payload.revised_eta:
         booking.eta = payload.revised_eta
