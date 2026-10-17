@@ -161,9 +161,7 @@ class _FinalDutyAssessmentDialogState
     _varianceReasonController = TextEditingController(
       text: rec?.dutyVarianceReason ?? '',
     );
-    _assessmentNotesController = TextEditingController(
-      text: rec?.notes ?? '',
-    );
+    _assessmentNotesController = TextEditingController();
 
     if (rec?.nafezaClaimDate != null) {
       final parsed = DateTime.tryParse(rec!.nafezaClaimDate!);
@@ -484,10 +482,22 @@ class _FinalDutyAssessmentDialogState
               title: l.ccAssessNotesSection,
               icon: Icons.note_alt_outlined,
               accent: AppTheme.charcoal,
-              child: TextFormField(
-                controller: _assessmentNotesController,
-                maxLines: 2,
-                decoration: InputDecoration(hintText: l.ccAssessNotesHint, border: const OutlineInputBorder()),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if ((widget.clearanceRecord?.notes ?? '').trim().isNotEmpty)
+                    CcPreviousNotesBox(notes: widget.clearanceRecord!.notes!),
+                  TextFormField(
+                    key: const Key('assessmentNotesField'),
+                    controller: _assessmentNotesController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: l.ccStepNotesLabel,
+                      hintText: l.ccAssessNotesHint,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

@@ -26,6 +26,10 @@ from modules.financial_approval.model import (
     SwiftExtractionBatch,
 )
 from modules.financial_approval.schemas import (
+    CloneImportBudgetRequest,
+
+
+    BudgetPrefillResponse,
     ClonePaymentRequestRequest,
     ImportBudgetCreate,
     ImportBudgetUpdate,
@@ -139,8 +143,8 @@ def test_pay_and_reconcile_on_draft_are_rejected(db):
     assert exc.value.status_code == 400
     with pytest.raises(HTTPException) as exc:
         service.smart_reconcile_swift_service(db, SmartSwiftReconcileRequest(
-            payment_id=p.payment_id, swift_reference_no="R", swift_receipt_date=date(2026, 8, 14),
-            swift_transferred_amount=10000.0))
+            payment_id=p.payment_id, swift_reference_no="R123", swift_receipt_date=date(2026, 8, 14),
+            swift_transferred_amount=10000.0, swift_transferred_currency="USD"))
     assert exc.value.status_code == 400
     db.refresh(p)
     assert p.status == "Draft" and p.swift_reference_no is None
@@ -462,7 +466,7 @@ def test_payment_type_codes_and_legacy_labels(db):
     assert p.payment_type == "LETTER_OF_CREDIT"
     with pytest.raises(ValidationError):
         PaymentRequestCreate(title="Bad type", supplier_name="Sup", requested_amount=1.0, exchange_rate=50.0,
-                             due_date=date(2026, 9, 1), payment_type="متعدد (PO-1 (T/T))")
+                             currency_code="USD", due_date=date(2026, 9, 1), payment_type="متعدد (PO-1 (T/T))")
 
 
 def test_duplicate_guard_matches_legacy_label_rows(db):
@@ -578,11 +582,11 @@ def test_highest_freight_is_compared_in_egp(db):
 def test_list_returns_import_file_code_and_searches_it(db):
     imp = seed_file(db, import_file_code="IMP-2026-4242")
     p = _payment(db, import_file_id=imp.import_file_id)
-    rows = service.get_all_payment_requests_service(db, search="4242")
+    rows, _ = service.get_all_payment_requests_service(db, search="4242")
     assert [r.payment_id for r in rows] == [p.payment_id]
     assert rows[0].import_file_code == "IMP-2026-4242"
     budget = seed_budget(db, imp.import_file_id)
-    brows = service.get_all_import_budgets_service(db, search="IMP-2026-4242")
+    brows, _ = service.get_all_import_budgets_service(db, search="IMP-2026-4242")
     assert [r.budget_id for r in brows] == [budget.budget_id]
     assert brows[0].import_file_code == "IMP-2026-4242"
 
@@ -714,8 +718,8 @@ def test_api_create_payment_contract(api, db):
     officer = _user(db, "finance_officer2", "FINANCE_OFFICER")
     imp = seed_file(db, import_file_code="IMP-2026-9001")
     body = {"title": "API payment", "supplier_name": "Sup", "payment_type": "Against B/L", "requested_amount": 100.0,
-            "exchange_rate": 48.5, "due_date": str(date.today() + timedelta(days=5)), "import_file_id": imp.import_file_id,
-            "status": "Paid"}
+            "currency_code": "USD", "exchange_rate": 48.5, "due_date": str(date.today() + timedelta(days=5)),
+            "import_file_id": imp.import_file_id, "status": "Paid"}
     resp = api.post(BASE + "/payment-requests", headers=_bearer(officer), json=body)
     assert resp.status_code == 201, resp.text
     data = resp.json()
@@ -739,3 +743,210 @@ def test_swift_edit_author_is_token_user(api, db):
     assert resp.status_code == 200, resp.text
     assert db.query(OcrCorrectionsLog).filter_by(batch_id=batch.batch_id).one().corrected_by == "finance_officer3"
     assert db.query(SwiftExtractionBatch).filter_by(batch_id=batch.batch_id).one().status == "EXTRACTED_PENDING_REVIEW"
+
+
+def test_be02_t12_currency_change_requires_new_rate(api, db):
+    """BE02-T12: Changing a payment's currency requires a new rate."""
+    officer = _user(db, "finance_officer_t12", "FINANCE_OFFICER")
+    p = _payment(db, amount=10000.0, currency="USD", exchange_rate=50.0)
+    assert p.requested_amount_egp == 500000.0
+
+    # 1. PUT with a different currency_code and no exchange_rate -> 400 FA_PAYMENT_RATE_REQUIRED
+    resp = api.put(
+        f"{BASE}/payment-requests/{p.payment_id}",
+        headers=_bearer(officer),
+        json={"currency_code": "EUR"},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["code"] == "FA_PAYMENT_RATE_REQUIRED"
+    assert "سعر الصرف الجديد" in resp.json()["detail"]["message"]
+
+    # Also test directly via service
+    with pytest.raises(HTTPException) as exc:
+        service.update_payment_request_service(
+            db, p.payment_id, PaymentRequestUpdate(currency_code="EUR")
+        )
+    assert exc.value.status_code == 400
+    assert _code(exc) == "FA_PAYMENT_RATE_REQUIRED"
+
+    # 2. PUT with different currency_code and exchange_rate=55 -> requested_amount_egp == 550000.0
+    resp_ok = api.put(
+        f"{BASE}/payment-requests/{p.payment_id}",
+        headers=_bearer(officer),
+        json={"currency_code": "EUR", "exchange_rate": 55.0},
+    )
+    assert resp_ok.status_code == 200
+    data = resp_ok.json()
+    assert data["currency_code"] == "EUR"
+    assert data["exchange_rate"] == 55.0
+    assert data["requested_amount_egp"] == 550000.0
+
+    # Same currency update without exchange_rate -> succeeds without 400
+    resp_same = api.put(
+        f"{BASE}/payment-requests/{p.payment_id}",
+        headers=_bearer(officer),
+        json={"currency_code": "EUR", "title": "Updated Title"},
+    )
+    assert resp_same.status_code == 200
+
+
+# ─── BE02-T16: hygiene & validation guards ───────────────────────────────────
+
+def test_clone_payment_request_invalid_amount_422():
+    with pytest.raises(ValidationError):
+        ClonePaymentRequestRequest(new_requested_amount=0.0)
+    with pytest.raises(ValidationError):
+        ClonePaymentRequestRequest(new_requested_amount=-15.0)
+
+
+def test_clone_import_budget_invalid_rate_422():
+    with pytest.raises(ValidationError):
+        CloneImportBudgetRequest(new_exchange_rate=0.0)
+    with pytest.raises(ValidationError):
+        CloneImportBudgetRequest(new_exchange_rate=-5.0)
+
+
+def test_budget_variance_logs_missing_budget_404(db):
+    with pytest.raises(HTTPException) as exc:
+        service.get_budget_variance_logs_service(db, budget_id=99999)
+    assert exc.value.status_code == 404
+    assert "الميزانية" in exc.value.detail
+
+
+def test_budget_prefill_soft_deleted_file_404(db):
+    imp = seed_file(db)
+    imp.is_active = False
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        service.get_budget_prefill_service(db, imp.import_file_id)
+    assert exc.value.status_code == 404
+
+
+def test_match_swift_batch_before_confirmation_raises_409(db):
+    batch = service.extract_swift_for_review_service(db, SWIFT_TEXT, "test.txt", "Text")
+    with pytest.raises(HTTPException) as exc:
+        service.match_reviewed_batch_service(db, batch.batch_id)
+    assert exc.value.status_code == 409
+    assert _code(exc) == "FA_SWIFT_BATCH_STATUS_INVALID"
+
+
+# ─── BE02-T18: legacy-tolerant budget money and base64 size limit ────────────
+
+def test_smart_swift_file_extract_oversize_base64_422():
+    with pytest.raises(ValidationError):
+        SmartSwiftFileExtractRequest(filename="invoice.pdf", file_base64="A" * 14_000_000)
+
+    # Valid string under limit does not raise
+    valid = SmartSwiftFileExtractRequest(filename="invoice.pdf", file_base64="A" * 100)
+    assert valid.filename == "invoice.pdf"
+
+
+def test_import_budget_legacy_null_money_response(db, api):
+    from sqlalchemy import text
+
+    officer = _user(db, "finance_officer_legacy", "FINANCE_OFFICER")
+    budget = seed_budget(db, None, status="Budget Approved")
+    # Simulate legacy row where money fields are NULL in database
+    db.execute(text(
+        "UPDATE import_budget_approvals SET invoice_amount_egp = NULL, invoice_amount_foreign = NULL, "
+        "freight_cost_egp = NULL, freight_cost_foreign = NULL, customs_duties_egp = NULL, "
+        "clearance_inland_egp = NULL, exchange_rate = NULL, total_budget_egp = NULL "
+        "WHERE budget_id = :id"
+    ), {"id": budget.budget_id})
+    db.commit()
+
+    resp = api.get(f"{BASE}/import-budgets", headers=_bearer(officer))
+    assert resp.status_code == 200, resp.text
+    rows = resp.json()
+    item = next(r for r in rows if r["budget_id"] == budget.budget_id)
+    assert item["invoice_amount_egp"] is None
+    assert item["freight_cost_egp"] is None
+    assert item["total_budget_egp"] is None
+    assert item["exchange_rate"] is None
+
+
+def test_cost_diffs_handles_legacy_null_budget_money():
+    from modules.financial_approval.service import _cost_diffs
+    from modules.financial_approval.model import ImportBudgetApproval
+
+    budget = ImportBudgetApproval(
+        budget_id=1,
+        title="Legacy Budget",
+        invoice_amount_egp=None,
+        freight_cost_egp=None,
+        customs_duties_egp=None,
+        clearance_inland_egp=None,
+    )
+    prefill = BudgetPrefillResponse(
+        import_file_id=1,
+        import_file_code="IMP-001",
+        import_file_title="Imp",
+        incoterm="FOB",
+        supplier_name="Sup",
+        payment_terms_summary="Cash",
+        total_invoice_amount_egp=1000.0,
+        estimated_freight_cost_egp=500.0,
+        estimated_customs_duties_egp=200.0,
+        estimated_clearance_fees_egp=100.0,
+    )
+    diffs = _cost_diffs(budget, prefill, threshold=5.0)
+    assert len(diffs) == 4
+    # All diffs should treat old as 0.0 and calculate 100% variance
+    for d in diffs:
+        assert d.old == 0.0
+        assert d.pct == 100.0
+        assert d.is_hard is True
+
+
+def test_create_payment_without_currency_code_raises_422(api, db):
+    officer = _user(db, "finance_officer_currency", "FINANCE_OFFICER")
+    payload = {
+        "title": "Payment missing currency",
+        "supplier_name": "Supplier Co",
+        "payment_type": "Advance Payment",
+        "requested_amount": 1000.0,
+        "exchange_rate": 50.0,
+        "due_date": str(date.today() + timedelta(days=5)),
+    }
+    resp = api.post(BASE + "/payment-requests", headers=_bearer(officer), json=payload)
+    assert resp.status_code == 422
+    assert any(err["loc"][-1] == "currency_code" for err in resp.json()["detail"])
+
+    with pytest.raises(ValidationError) as exc:
+        PaymentRequestCreate(**payload)
+    assert "currency_code" in str(exc.value)
+
+
+def test_smart_reconcile_with_zero_amount_raises_422(api, db):
+    officer = _user(db, "finance_officer_smart", "FINANCE_OFFICER")
+    payload = {
+        "payment_id": 1,
+        "swift_reference_no": "SWIFT-REF-123",
+        "swift_receipt_date": str(date.today()),
+        "swift_transferred_amount": 0.0,
+        "swift_transferred_currency": "USD",
+    }
+    resp = api.post(BASE + "/swift/smart-reconcile", headers=_bearer(officer), json=payload)
+    assert resp.status_code == 422
+    assert any(err["loc"][-1] == "swift_transferred_amount" for err in resp.json()["detail"])
+
+    with pytest.raises(ValidationError) as exc:
+        SmartSwiftReconcileRequest(**payload)
+    assert "swift_transferred_amount" in str(exc.value)
+
+
+def test_budget_create_with_foreign_amount_and_no_currency_raises_422(api, db):
+    officer = _user(db, "finance_officer_bgt", "FINANCE_OFFICER")
+    payload = {
+        "title": "Budget Missing Foreign Currency",
+        "exchange_rate": 50.0,
+        "invoice_amount_foreign": 1000.0,
+    }
+    resp = api.post(BASE + "/import-budgets", headers=_bearer(officer), json=payload)
+    assert resp.status_code == 422
+    assert any("invoice_currency is required" in str(err["msg"]) for err in resp.json()["detail"])
+
+    with pytest.raises(ValidationError) as exc:
+        ImportBudgetCreate(**payload)
+    assert "invoice_currency is required when invoice_amount_foreign > 0" in str(exc.value)
+

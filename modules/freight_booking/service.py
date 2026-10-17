@@ -19,6 +19,7 @@ import modules.freight_booking.validators as validators
 from modules.common.errors import best_effort
 from modules.common.system_messages import msg, render_en
 from modules.common.file_tracking import set_file_tracking
+from modules.common.clock import cairo_today
 from modules.common.validators import not_found
 
 logger = logging.getLogger(__name__)
@@ -316,7 +317,7 @@ def _sync_import_file_with_booking(db: Session, booking: ShipmentBooking, tracki
     if booking.eta:
         file_rec.required_eta = booking.eta.date() if isinstance(booking.eta, datetime) else booking.eta
 
-    if booking.shipping_line_name:
+    if tracking_step == "STEP_07" and booking.shipping_line_name:
         carrier_label = booking.shipping_line_name
         if booking.vessel_name:
             carrier_label += f" ({booking.vessel_name})"
@@ -520,6 +521,13 @@ def list_bookings_service(
 def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookingUpdate, user: str = "system") -> ShipmentBooking:
     booking = get_booking_service(db, booking_id)
 
+    validators.validate_editable_fields(booking, payload.model_fields_set, payload=payload)
+
+    if "shipment_type" in payload.model_fields_set or "containers_data" in payload.model_fields_set:
+        eff_type = payload.shipment_type if ("shipment_type" in payload.model_fields_set and payload.shipment_type is not None) else booking.shipment_type
+        eff_containers = payload.containers_data if ("containers_data" in payload.model_fields_set and payload.containers_data is not None) else booking.containers_data
+        validators.validate_container_allocation(eff_type, eff_containers)
+
     if "status" in payload.model_fields_set:
         validators.validate_manual_status(payload.status, booking.status)
     if payload.import_file_id is not None:
@@ -617,8 +625,32 @@ def confirm_departure_and_bol_service(
     booking = get_booking_service(db, booking_id)
     validators.validate_can_depart(booking)
 
+    today = cairo_today()
+    atd_date = (
+        payload.actual_departure_date.date()
+        if isinstance(payload.actual_departure_date, datetime)
+        else payload.actual_departure_date
+    )
+    if atd_date > today:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="تاريخ الإبحار الفعلي (ATD) لا يمكن أن يكون في المستقبل.",
+        )
+    if booking.booking_request_date:
+        req_date = (
+            booking.booking_request_date.date()
+            if isinstance(booking.booking_request_date, datetime)
+            else booking.booking_request_date
+        )
+        if atd_date < req_date:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="تاريخ الإبحار الفعلي (ATD) لا يمكن أن يكون قبل تاريخ طلب الحجز.",
+            )
+
     # 1. Update Booking state
     booking.atd = payload.actual_departure_date
+    booking.shipped_on_board_date = payload.shipped_on_board_date
     booking.bill_of_lading_no = payload.bill_of_lading_no.strip()
     booking.status = validators.STATUS_SAILED
 
@@ -646,10 +678,12 @@ def confirm_departure_and_bol_service(
 
     # 3. Follow-ups: lifecycle STEP_08_BL, prior SH-01 tasks, SH-02 task, notification
     if file_id:
-        best_effort(db, _advance_departure_lifecycle, "Lifecycle advance for departure", db, booking)
+        if not _file_past_step(file_rec, "STEP_08_BL"):
+            best_effort(db, _advance_departure_lifecycle, "Lifecycle advance for departure", db, booking)
         best_effort(db, _close_prior_tasks, "Auto-close prior departure smart tasks", db, file_id,
                     DEPARTURE_TASK_MSG_CODES, DEPARTURE_TASK_TITLE_KEYS)
-        best_effort(db, _dispatch_draft_bl_task, "Dispatch SH-02 smart task", db, booking, file_id, file_code)
+        if not _file_past_step(file_rec, "STEP_08_BL"):
+            best_effort(db, _dispatch_draft_bl_task, "Dispatch SH-02 smart task", db, booking, file_id, file_code)
         best_effort(db, _dispatch_departure_notification, "Departure notification", db, booking, file_code)
     best_effort(db, _log_audit, "AuditLog for ShipmentBooking departure", db, booking, "DEPART", user,
                 payload.model_dump(mode="json", exclude_unset=True))
@@ -661,17 +695,21 @@ def _sync_import_file_on_departure(db: Session, booking: ShipmentBooking) -> Opt
     """No commit: updates the import file and the file's active demurrage trackings with the B/L."""
     if not booking.import_file_id:
         return None
-    file_rec = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
+    file_rec = db.query(ImportFile).filter(
+        ImportFile.import_file_id == booking.import_file_id,
+        ImportFile.is_active == True,
+    ).first()
     if not file_rec:
         return None
 
     if booking.eta:
         file_rec.required_eta = booking.eta.date() if isinstance(booking.eta, datetime) else booking.eta
 
-    file_rec.current_module = "STEP_08 In-Transit On Water"
-    set_file_tracking(file_rec, next_action=msg("NA_STEP08BL_REVIEW_DRAFT_BL"))
-    if (file_rec.progress_percent or 0.0) < 60.0:
-        file_rec.progress_percent = 60.0
+    if not _file_past_step(file_rec, "STEP_08_BL"):
+        file_rec.current_module = "STEP_08 In-Transit On Water"
+        set_file_tracking(file_rec, next_action=msg("NA_STEP08BL_REVIEW_DRAFT_BL"))
+        if (file_rec.progress_percent or 0.0) < 60.0:
+            file_rec.progress_percent = 60.0
 
     from modules.demurrage_detention.model import DemurrageTracking
     dem_records = db.query(DemurrageTracking).filter(
@@ -687,6 +725,12 @@ def _sync_import_file_on_departure(db: Session, booking: ShipmentBooking) -> Opt
 
 def _advance_departure_lifecycle(db: Session, booking: ShipmentBooking) -> None:
     from modules.lifecycle_board.service import advance_lifecycle_step_service
+    file_rec = db.query(ImportFile).filter(
+        ImportFile.import_file_id == booking.import_file_id,
+        ImportFile.is_active == True,
+    ).first()
+    if file_rec and _file_past_step(file_rec, "STEP_08_BL"):
+        return
     atd_str = booking.atd.strftime("%Y-%m-%d") if booking.atd else "N/A"
     advance_lifecycle_step_service(
         db=db,

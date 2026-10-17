@@ -9,7 +9,7 @@ The acting user always comes from the authenticated user, never from the payload
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
@@ -218,6 +218,9 @@ def create_payment_request(
 
 @router.get("/payment-requests", response_model=List[PaymentRequestResponse])
 def list_payment_requests(
+    response: Response,
+    skip: int = Query(0, ge=0),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     include_inactive: bool = False,
     search: Optional[str] = None,
     po_id: Optional[int] = None,
@@ -226,9 +229,18 @@ def list_payment_requests(
     db: Session = Depends(get_db),
     _: User = Depends(can_view),
 ):
-    return service.get_all_payment_requests_service(
-        db, include_inactive=include_inactive, search=search, po_id=po_id, supplier_id=supplier_id, status=status,
+    items, total = service.get_all_payment_requests_service(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        po_id=po_id,
+        supplier_id=supplier_id,
+        status=status,
+        skip=skip,
+        limit=limit,
     )
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get("/payment-requests/{payment_id}", response_model=PaymentRequestResponse)
@@ -300,7 +312,7 @@ def soft_delete_payment_request(payment_id: int, db: Session = Depends(get_db), 
 @router.post("/payment-requests/{payment_id}/restore")
 def restore_payment_request(payment_id: int, db: Session = Depends(get_db), _: User = Depends(can_manage)):
     service.restore_payment_request_service(db, payment_id)
-    return {"message": "Payment Request restored successfully"}
+    return {"message": "تم استعادة طلب الصرف بنجاح"}
 
 
 # --- IMPORT BUDGET ENDPOINTS (BP-013) ---
@@ -313,6 +325,9 @@ def create_import_budget(
 
 @router.get("/import-budgets", response_model=List[ImportBudgetResponse])
 def list_import_budgets(
+    response: Response,
+    skip: int = Query(0, ge=0),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     include_inactive: bool = False,
     search: Optional[str] = None,
     import_file_id: Optional[int] = None,
@@ -321,10 +336,18 @@ def list_import_budgets(
     db: Session = Depends(get_db),
     _: User = Depends(can_view),
 ):
-    return service.get_all_import_budgets_service(
-        db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, po_id=po_id,
+    items, total = service.get_all_import_budgets_service(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
         budget_status=budget_status,
+        skip=skip,
+        limit=limit,
     )
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.post("/import-budgets/{budget_id}/approve", response_model=ImportBudgetResponse)
@@ -438,4 +461,4 @@ def soft_delete_import_budget(budget_id: int, db: Session = Depends(get_db), _: 
 @router.post("/import-budgets/{budget_id}/restore")
 def restore_import_budget(budget_id: int, db: Session = Depends(get_db), _: User = Depends(can_manage)):
     service.restore_import_budget_service(db, budget_id)
-    return {"message": "Import Budget restored successfully"}
+    return {"message": "تم استعادة ميزانية الاستيراد بنجاح"}

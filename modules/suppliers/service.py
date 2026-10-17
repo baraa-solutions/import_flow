@@ -1,4 +1,7 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+
+from modules.common.sequence_generator import next_global_code
 
 from .model import Supplier
 from .schemas import SupplierCreate, SupplierUpdate
@@ -20,9 +23,7 @@ from .repository import (
 # ==================================================
 
 def generate_supplier_code(db: Session) -> str:
-    total = count_suppliers(db)
-    next_id = total + 1
-    return f"SUP-{next_id:06d}"
+    return next_global_code(db, Supplier.supplier_code, "SUP", pad=6)
 
 
 # ==================================================
@@ -33,17 +34,27 @@ def create_supplier_service(db: Session, supplier_data: SupplierCreate) -> Suppl
     from .validators import validate_supplier
     validate_supplier(db, supplier_data)
 
-    code = getattr(supplier_data, "supplier_code", None) or generate_supplier_code(db)
-    exporter_id = (supplier_data.foreign_exporter_id or "").strip()
-    if not exporter_id:
-        exporter_id = f"EXP-{code}"
-        supplier_data.foreign_exporter_id = exporter_id
+    explicit_code = bool(getattr(supplier_data, "supplier_code", None))
+    exporter_id_supplied = bool((supplier_data.foreign_exporter_id or "").strip())
 
-    supplier_dict = supplier_data.model_dump()
-    supplier_dict["supplier_code"] = code
+    supplier = None
+    for attempt in range(3):
+        code = getattr(supplier_data, "supplier_code", None) if explicit_code else generate_supplier_code(db)
+        if not exporter_id_supplied:
+            exporter_id = f"EXP-{code}"
+            supplier_data.foreign_exporter_id = exporter_id
 
-    supplier = create_supplier(db, supplier_dict)
-    
+        supplier_dict = supplier_data.model_dump()
+        supplier_dict["supplier_code"] = code
+
+        try:
+            supplier = create_supplier(db, supplier_dict)
+            break
+        except IntegrityError:
+            db.rollback()
+            if attempt == 2 or explicit_code:
+                raise
+
     AuditLogService(db).log_activity(
         entity_type="Supplier",
         entity_id=supplier.supplier_id,

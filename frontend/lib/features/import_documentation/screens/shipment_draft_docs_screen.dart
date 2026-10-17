@@ -75,10 +75,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       });
     }
     if (oldWidget.initialImportFileId != widget.initialImportFileId && widget.initialImportFileId != null) {
-      setState(() {
-        _selectedImportFileId = widget.initialImportFileId;
-      });
-      _loadGuideForFile(widget.initialImportFileId);
+      _selectImportFile(widget.initialImportFileId);
     }
   }
 
@@ -98,6 +95,15 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
     _loadGuideForFile(_selectedImportFileId);
   }
 
+  /// Selects [id] (and optionally switches to [subTab]), then reloads the guide for it.
+  void _selectImportFile(int? id, {int? subTab}) {
+    setState(() {
+      if (subTab != null) _selectedSubTab = subTab;
+      _selectedImportFileId = id;
+    });
+    _loadGuideForFile(id);
+  }
+
   Future<void> _loadGuideForFile(int? fileId) async {
     if (fileId == null) {
       if (mounted) setState(() => _guideMatchResult = null);
@@ -108,15 +114,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
     if (file == null) return;
 
     try {
-      final res = await ref.read(experienceGuideProvider.notifier).matchShipment(
-        supplier: file.supplierName,
-        hsCode: file.hsCode,
-        productCategory: file.productCategory,
-        portOfLoading: file.portOfLoading,
-        portOfDischarge: file.portOfDischarge,
-        incoterm: file.incotermCode,
-        importFileReference: file.importFileCode,
-      );
+      final res = await ref.read(experienceGuideProvider.notifier).matchImportFile(file);
       if (mounted) {
         setState(() => _guideMatchResult = res);
       }
@@ -134,11 +132,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
           builder: (ctx) => SearchAndCloneCustomsApprovalDialog(
             items: approvals,
             onSelectItem: (item) {
-              setState(() {
-                _selectedSubTab = 0;
-                _selectedImportFileId = item.importFileId;
-              });
-              _loadGuideForFile(item.importFileId);
+              _selectImportFile(item.importFileId, subTab: 0);
             },
           ),
         );
@@ -155,11 +149,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
           builder: (ctx) => SearchAndClonePoReconciliationDialog(
             sessions: sessions,
             onSelectSession: (s) {
-              setState(() {
-                _selectedSubTab = 1;
-                _selectedImportFileId = s.importFileId;
-              });
-              _loadGuideForFile(s.importFileId);
+              _selectImportFile(s.importFileId, subTab: 1);
             },
           ),
         );
@@ -176,11 +166,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
           builder: (ctx) => SearchAndCloneCooDialog(
             reviews: cooReviews,
             onSelectReview: (r) {
-              setState(() {
-                _selectedSubTab = 4;
-                _selectedImportFileId = r.importFileId ?? _selectedImportFileId;
-              });
-              _loadGuideForFile(_selectedImportFileId);
+              _selectImportFile(r.importFileId ?? _selectedImportFileId, subTab: 4);
             },
           ),
         );
@@ -314,12 +300,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       case 3:
         return InvoiceBLMatcherTab(
           selectedImportFileId: _selectedImportFileId,
-          onImportFileChanged: (newId) {
-            setState(() {
-              _selectedImportFileId = newId;
-            });
-            _loadGuideForFile(newId);
-          },
+          onImportFileChanged: (newId) => _selectImportFile(newId),
         );
       case 4:
         return COOReviewTab(
