@@ -8,12 +8,7 @@ import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
-import '../../../core/widgets/metric_card.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/universal_entity_extractor_dialog.dart';
-import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../experience_guide/models/guide_entry_model.dart';
 import '../../experience_guide/providers/experience_guide_provider.dart';
@@ -596,11 +591,11 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
       ],
       body: SelectionArea(
         child: clearanceAsync.when(
-          loading: () => const CcStateView.loading(),
-          error: (err, stack) => CcStateView.error(
+          loading: () => const AppLoadingState(),
+          error: (err, stack) => AppErrorState(
+            error: err,
             message: l.customsClearanceErrorFetch(ApiErrorText.of(l, err)),
-            actionLabel: l.retry,
-            onAction: _refreshData,
+            onRetry: _refreshData,
           ),
           data: (records) {
             switch (_selectedTab) {
@@ -674,34 +669,11 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              SizedBox(
+              AppSearchField(
+                controller: _searchController,
                 width: 260,
-                child: TextField(
-                  controller: _searchController,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: InputDecoration(
-                    hintText: l.customsClearanceSearchHint,
-                    prefixIcon: const Icon(Icons.search, size: 18),
-                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _searchController,
-                      builder: (context, value, _) {
-                        return value.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 16),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() {});
-                                },
-                              )
-                            : const SizedBox.shrink();
-                      },
-                    ),
-                    border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: 8),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
+                hint: l.customsClearanceSearchHint,
+                onChanged: (_) => setState(() {}),
               ),
               SizedBox(
                 width: 220,
@@ -792,14 +764,14 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
 
     final Widget body;
     if (records.isEmpty) {
-      body = CcStateView.empty(
+      body = AppEmptyState(
         message: l.customsClearanceEmptyRecords,
         icon: Icons.gavel_rounded,
         actionLabel: l.customsClearanceNewRecordButton,
         onAction: () => _showAddEditDialog(),
       );
     } else if (filtered.isEmpty) {
-      body = CcStateView.empty(
+      body = AppEmptyState(
         message: l.customsClearanceEmptyRecords,
         icon: Icons.search_off,
       );

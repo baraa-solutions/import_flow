@@ -3,17 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/change_diff_dialog.dart';
-import '../../../core/widgets/custom_text_field.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/row_context_menu.dart';
-import '../../../core/widgets/universal_entity_extractor_dialog.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/supplier_model.dart';
 import '../providers/suppliers_provider.dart';
 import '../widgets/supplier_details_dialog.dart';
@@ -338,7 +329,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
             // Data Table Content
             Expanded(
               child: suppliersAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
+                loading: () => const AppLoadingState(),
                 error: (err, stack) => Center(
                   child: SingleChildScrollView(
                     child: Column(
@@ -385,18 +376,20 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                   }).toList();
 
                   if (filtered.isEmpty) {
-                    return Center(
-                      child: Text(l10n.noSuppliersFound, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                    return AppEmptyState(
+                      message: l10n.noSuppliersFound,
+                      subtitle: _searchQuery.isNotEmpty ? '${l10n.noResultsFound}: $_searchQuery' : null,
                     );
                   }
 
                   return Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.surfaceOf(context),
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderOf(context)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: AppTheme.isDark(context) ? Colors.black26 : const Color(0x0A000000),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -469,24 +462,15 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                 onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
                 onPrint: () => MasterDataExportService.printOrSaveSupplierPdf(supplier),
                 onDelete: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: Text(l10n.confirmActionTitle),
-                      content: Text(isActive
-                          ? l10n.confirmDeactivateSupplier(supplier.companyName)
-                          : l10n.confirmActivateSupplier(supplier.companyName)),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
+                  final confirm = await AppConfirmDialog.showToggleActive(
+                    context,
+                    isCurrentlyActive: isActive,
+                    entityName: supplier.companyName,
+                    message: isActive
+                        ? l10n.confirmDeactivateSupplier(supplier.companyName)
+                        : l10n.confirmActivateSupplier(supplier.companyName),
                   );
-                  if (confirm == true && supplier.supplierId != null) {
+                  if (confirm && supplier.supplierId != null) {
                     ref.read(suppliersProvider.notifier).toggleActiveStatus(supplier.supplierId!, isActive);
                   }
                 },
@@ -606,27 +590,17 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                           onPressed: () => CopyHelper.copy(context, supplier.companyName),
                         ),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            isActive ? l10n.statusActive : l10n.statusInactive,
-                            style: TextStyle(
-                              color: isActive ? AppTheme.emerald : AppTheme.crimson,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                        AppStatusBadge(
+                          label: isActive ? l10n.statusActive : l10n.statusInactive,
+                          severity: isActive ? AppSeverity.success : AppSeverity.danger,
+                          size: AppStatusBadgeSize.small,
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
                       l10n.supplierRowMeta(supplier.foreignExporterId, supplier.cargoxPlatformId, supplier.address, supplier.brands),
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                      style: TextStyle(fontSize: 13, color: AppTheme.textMutedOf(context)),
                     ),
                   ],
                 ),

@@ -3,21 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/change_diff_dialog.dart';
-import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/universal_entity_extractor_dialog.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
 import '../widgets/partner_details_dialog.dart';
 import '../widgets/partner_statement_of_account_dialog.dart';
 import '../widgets/partner_scorecard_dialog.dart';
-import '../../../core/services/master_data_export_service.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
 
 class PartnersScreen extends ConsumerStatefulWidget {
   const PartnersScreen({super.key});
@@ -428,7 +421,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                         scale: 0.8,
                         child: Switch(
                           value: showInactive,
-                          activeColor: AppTheme.cobalt,
+                          activeThumbColor: AppTheme.cobalt,
                           onChanged: (val) {
                             ref.read(showInactivePartnersProvider.notifier).state = val;
                           },
@@ -469,40 +462,10 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
             // Data Table Content
             Expanded(
               child: partnersAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
-                error: (err, stack) => Center(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.crimson),
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                          child: Text(
-                            l10n.partnersFetchError.replaceAll('\$error', err.toString()),
-                            textAlign: TextAlign.center,
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.cobalt,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          ),
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: Text(l10n.retryConnectionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            ref.read(partnersProvider.notifier).fetchPartners();
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+                loading: () => const AppLoadingState(),
+                error: (err, stack) => AppErrorState(
+                  error: err,
+                  onRetry: () => ref.read(partnersProvider.notifier).fetchPartners(),
                 ),
                 data: (partners) {
                   final filtered = partners.where((p) {
@@ -517,8 +480,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                   }).toList();
 
                   if (filtered.isEmpty) {
-                    return Center(
-                      child: Text(l10n.noPartnersFound, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                    return AppEmptyState(
+                      icon: Icons.apartment_outlined,
+                      message: l10n.noPartnersFound,
                     );
                   }
 
@@ -529,12 +493,12 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       return Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
+                          color: AppTheme.surfaceOf(context),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+                          border: Border.all(color: AppTheme.borderOf(context)),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
+                              color: Colors.black.withValues(alpha: 0.04),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -595,7 +559,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                         decoration: BoxDecoration(
                                           color: isDark
                                               ? (isEven ? AppTheme.darkElevatedSurface : AppTheme.darkCardBackground)
-                                              : (isEven ? Colors.white : Colors.grey.shade50),
+                                              : (isEven ? AppTheme.surfaceOf(context) : Colors.grey.shade50),
                                           border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200)),
                                         ),
                                         children: [
@@ -616,9 +580,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                       height: 26,
                                                       margin: const EdgeInsetsDirectional.only(end: 4),
                                                       decoration: BoxDecoration(
-                                                        color: AppTheme.cobalt.withOpacity(0.12),
-                                                        borderRadius: BorderRadius.circular(5),
-                                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                        color: AppTheme.cobalt.withValues(alpha: 0.12),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                                       ),
                                                       child: const Center(
                                                         child: Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
@@ -643,9 +607,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                         height: 26,
                                                         margin: const EdgeInsetsDirectional.only(end: 4),
                                                         decoration: BoxDecoration(
-                                                          color: Colors.amber.shade50,
-                                                          borderRadius: BorderRadius.circular(5),
-                                                          border: Border.all(color: Colors.amber.shade600),
+                                                          color: AppTheme.emerald.withValues(alpha: 0.12),
+                                                          borderRadius: BorderRadius.circular(6),
+                                                          border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
                                                         ),
                                                         child: Center(
                                                           child: Icon(Icons.workspace_premium_outlined, size: 14, color: Colors.amber.shade800),
@@ -687,22 +651,12 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                   onEdit: () => _showPartnerDialog(context, partner),
                                                   onPrint: () => MasterDataExportService.printOrSavePartnerPdf(partner),
                                                   onDelete: () async {
-                                                    final confirm = await showDialog<bool>(
-                                                      context: context,
-                                                      builder: (ctx) => AlertDialog(
-                                                        title: Text(l10n.confirmActionTitle),
-                                                        content: Text(isActive
-                                                            ? l10n.confirmDeactivatePartner(partner.partnerName)
-                                                            : l10n.confirmActivatePartner(partner.partnerName)),
-                                                        actions: [
-                                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.closeBtn)),
-                                                          ElevatedButton(
-                                                            onPressed: () => Navigator.pop(ctx, true),
-                                                            style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                            child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                                                          ),
-                                                        ],
-                                                      ),
+                                                    final confirm = await AppConfirmDialog.showToggleActive(
+                                                      context,
+                                                      isCurrentlyActive: isActive,
+                                                      message: isActive
+                                                          ? l10n.confirmDeactivatePartner(partner.partnerName)
+                                                          : l10n.confirmActivatePartner(partner.partnerName),
                                                     );
                                                     if (confirm == true && partner.providerId != null) {
                                                       ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
@@ -730,9 +684,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                                     decoration: BoxDecoration(
-                                                      color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.08),
+                                                      color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withValues(alpha: 0.08),
                                                       borderRadius: BorderRadius.circular(6),
-                                                      border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withOpacity(0.15)),
+                                                      border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withValues(alpha: 0.15)),
                                                     ),
                                                     child: Row(
                                                       mainAxisSize: MainAxisSize.min,
@@ -1185,24 +1139,10 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
                                           // Status
                                           _cell(
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(20),
-                                                border: Border.all(
-                                                  color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.3),
-                                                  width: 0.8,
-                                                ),
-                                              ),
-                                              child: Text(
-                                                isActive ? l10n.statusActive : l10n.statusInactive,
-                                                style: TextStyle(
-                                                  color: isActive ? AppTheme.emerald : AppTheme.crimson,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
+                                            child: AppStatusBadge(
+                                              label: isActive ? l10n.statusActive : l10n.statusInactive,
+                                              severity: isActive ? AppSeverity.success : AppSeverity.danger,
+                                              size: AppStatusBadgeSize.small,
                                             ),
                                           ),
 
@@ -1255,9 +1195,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Text(
         _getCategoryLabel(context, cat),
@@ -1431,7 +1371,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   return FilterChip(
                                     label: Text(_getCategoryLabel(context, cat)),
                                     selected: isChecked,
-                                    selectedColor: AppTheme.cobalt.withOpacity(0.2),
+                                    selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
                                     checkmarkColor: AppTheme.cobalt,
                                     labelStyle: TextStyle(
                                       color: isChecked ? AppTheme.cobalt : (isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal),
@@ -1468,9 +1408,9 @@ suffixIcon: buildCopySuffix(nameCtrl),
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.emerald.withOpacity(0.05),
+                                    color: AppTheme.emerald.withValues(alpha: 0.05),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.emerald.withOpacity(0.2)),
+                                    border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.2)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1520,9 +1460,9 @@ suffixIcon: buildCopySuffix(branchCtrl),
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.cobalt.withOpacity(0.05),
+                                    color: AppTheme.cobalt.withValues(alpha: 0.05),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                                    border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1579,9 +1519,9 @@ suffixIcon: buildCopySuffix(branchCtrl),
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.orange.withOpacity(0.05),
+                                    color: AppTheme.orange.withValues(alpha: 0.05),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.orange.withOpacity(0.2)),
+                                    border: Border.all(color: AppTheme.orange.withValues(alpha: 0.2)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1614,9 +1554,9 @@ suffixIcon: buildCopySuffix(branchCtrl),
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.charcoal.withOpacity(0.05),
+                                    color: AppTheme.charcoal.withValues(alpha: 0.05),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.charcoal.withOpacity(0.2)),
+                                    border: Border.all(color: AppTheme.charcoal.withValues(alpha: 0.2)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1711,9 +1651,9 @@ suffixIcon: buildCopySuffix(branchCtrl),
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.cobalt.withOpacity(0.05),
+                                    color: AppTheme.cobalt.withValues(alpha: 0.05),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                                    border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1752,9 +1692,9 @@ suffixIcon: buildCopySuffix(branchCtrl),
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.emerald.withOpacity(0.05),
+                                    color: AppTheme.emerald.withValues(alpha: 0.05),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.emerald.withOpacity(0.2)),
+                                    border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.2)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1796,9 +1736,9 @@ suffixIcon: buildCopySuffix(branchCtrl),
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.cobalt.withOpacity(0.05),
+                                    color: AppTheme.cobalt.withValues(alpha: 0.05),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                                    border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2111,10 +2051,10 @@ suffixIcon: buildCopySuffix(countryCtrl),
                                 });
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(errorMessage, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      backgroundColor: AppTheme.crimson,
-                                      behavior: SnackBarBehavior.floating,
+                                    AppTheme.snackBar(
+                                      context,
+                                      errorMessage,
+                                      severity: AppSeverity.danger,
                                     ),
                                   );
                                 }

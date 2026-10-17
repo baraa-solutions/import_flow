@@ -14,6 +14,7 @@ import '../../../core/widgets/change_diff_dialog.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../customs_tariff/widgets/tariff_form_dialog.dart';
+import '../../customs_tariff/widgets/duty_calculator_dialog.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
@@ -779,7 +780,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (!mounted) return;
     setState(() {
       if (targetTab == 'invoice' || targetTab == 'all') {
-        final poNum = ext['po_number']?.toString() ?? ext['proforma_invoice_number']?.toString();
+        final poNum = (ext['invoice_number'] ?? ext['po_number'] ?? ext['proforma_invoice_number'])?.toString();
         if (poNum != null && poNum.isNotEmpty) {
           _piCtrl.text = poNum;
         }
@@ -787,7 +788,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         if (poRef != null && poRef.isNotEmpty) {
           _poReferenceCtrl.text = poRef;
         }
-        final dateStr = (ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString();
+        final dateStr = (ext['order_date'] ?? ext['invoice_date'] ?? ext['po_date'] ?? ext['date'])?.toString();
         if (dateStr != null && dateStr.isNotEmpty) {
           _selectedOrderDate = _parseFlexDate(dateStr);
         }
@@ -897,9 +898,23 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
 
       if (targetTab == 'packing' || targetTab == 'all') {
-        final packingList = ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty
-            ? ext['packing_list_items'] as List
-            : (ext['items'] is List ? ext['items'] as List : []);
+        final rawPallet = ext['pallet_count'] ?? ext['pallets'];
+        if (rawPallet != null) {
+          final pCount = _numToInt(rawPallet);
+          if (pCount > 0) {
+            _palletCount = pCount;
+            _isDirectVolumeMode = true;
+          }
+        }
+        if (ext['is_pallet_stackable'] != null) {
+          _isPalletStackable = ext['is_pallet_stackable'] as bool? ?? false;
+        }
+
+        final packingList = (ext['packing_items'] is List && (ext['packing_items'] as List).isNotEmpty)
+            ? ext['packing_items'] as List
+            : (ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty
+                ? ext['packing_list_items'] as List
+                : (ext['items'] is List ? ext['items'] as List : []));
 
         if (packingList.isNotEmpty) {
           _dialogPackingItems = packingList.asMap().entries.map((entry) {
@@ -946,8 +961,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
               heightCm: (p['height_cm'] as num?)?.toDouble() ?? 0.0,
               grossWeightUnitKg: (p['gross_weight_unit_kg'] ?? p['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
               netWeightUnitKg: (p['net_weight_unit_kg'] ?? p['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
-              totalGrossWeightKg: (p['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
-              totalNetWeightKg: (p['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+              totalGrossWeightKg: (p['total_gross_weight_kg'] ?? p['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+              totalNetWeightKg: (p['total_net_weight_kg'] ?? p['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
               totalCbm: pTotCbm,
               isStackable: p['is_stackable'] as bool? ?? true,
             );
@@ -1736,7 +1751,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   ),
                                   const SizedBox(width: 12),
                                   SmartUploadButton(
-                                    module: SmartUploadModule.purchaseOrder,
+                                    module: SmartUploadModule.commercialInvoice,
                                     compact: false,
                                     label: '🚀 قراءة الفاتورة المبدئية',
                                     onDataExtracted: (result) {
@@ -2104,27 +2119,67 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'PO Line Items (بنود الفاتورة المبدئية) *',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                const Expanded(
+                                  child: Text(
+                                    'PO Line Items (بنود الفاتورة المبدئية) *',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                  ),
                                 ),
-                                AppButton(
-                                  label: 'Add Item',
-                                  icon: Icons.add,
-                                  variant: AppButtonVariant.secondary,
-                                  size: AppButtonSize.small,
-                                  onPressed: () {
-                                    setState(() {
-                                      _dialogItems.add(
-                                        POLineItemModel(
-                                          descriptionAr: 'بند جديد ${_dialogItems.length + 1}',
-                                          quantity: 1,
-                                          unitPrice: 0,
-                                          countryOfOrigin: _selectedCountryOfOrigin,
-                                        ),
-                                      );
-                                    });
-                                  },
+                                const SizedBox(width: 8),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_dialogItems.isNotEmpty) ...[
+                                      AppButton(
+                                        label: 'حاسبة الجمارك',
+                                        icon: Icons.calculate_outlined,
+                                        variant: AppButtonVariant.secondary,
+                                        size: AppButtonSize.small,
+                                        onPressed: () {
+                                          final extracted = _dialogItems.map((item) {
+                                            final itemHs = item.hsCode ??
+                                                (item.tariffId != null && tariffs.any((t) => t.tariffId == item.tariffId)
+                                                    ? tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsCode
+                                                    : '');
+                                            return {
+                                              'description': item.descriptionAr,
+                                              'hs_code': itemHs,
+                                              'price': (item.quantity * item.unitPrice),
+                                              'country_of_origin': item.countryOfOrigin ?? _selectedCountryOfOrigin,
+                                            };
+                                          }).toList();
+
+                                          final curr = currencies.where((c) => c.currencyId == _selectedCurrencyId).firstOrNull;
+                                          showDutyCalculatorDialog(
+                                            context,
+                                            ref,
+                                            initialCurrency: curr?.currencyCode ?? 'USD',
+                                            initialImportFileId: _selectedImportFileId,
+                                            initialExtractedLines: extracted,
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    AppButton(
+                                      label: 'Add Item',
+                                      icon: Icons.add,
+                                      variant: AppButtonVariant.secondary,
+                                      size: AppButtonSize.small,
+                                      onPressed: () {
+                                        setState(() {
+                                          _dialogItems.add(
+                                            POLineItemModel(
+                                              descriptionAr: 'بند جديد ${_dialogItems.length + 1}',
+                                              quantity: 1,
+                                              unitPrice: 0,
+                                              countryOfOrigin: _selectedCountryOfOrigin,
+                                            ),
+                                          );
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -2435,7 +2490,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   ),
                                   const SizedBox(width: 12),
                                   SmartUploadButton(
-                                    module: SmartUploadModule.purchaseOrder,
+                                    module: SmartUploadModule.packingList,
                                     // Icon-only on narrow windows (the text column takes the rest).
                                     compact: MediaQuery.sizeOf(context).width < 700,
                                     label: '🚀 قراءة بيان التعبئة',

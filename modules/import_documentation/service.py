@@ -5829,6 +5829,23 @@ def _po_recon_lifecycle(db: Session, session: POPackingReconciliationSession, ms
             notes_msg=msg(msg_code, session_code=code),
             assigned_user=actor,
         )
+
+        def _close_po_recon_tasks() -> None:
+            from modules.smart_tasks.model import SmartTask
+            tasks = db.query(SmartTask).filter(
+                SmartTask.import_file_id == file_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+                SmartTask.is_active == True,
+            ).all()
+            for t in tasks:
+                title_s = (t.title or "").lower()
+                step_s = (t.step_code or "").lower()
+                if "step_08_po" in title_s or "step_08_po" in step_s or "مطابقة الفاتورة" in (t.title or ""):
+                    t.status = "Completed"
+                    t.is_auto_closed = True
+            db.commit()
+
+        best_effort(db, _close_po_recon_tasks, "Auto-close STEP_08_PO smart tasks")
         db.refresh(session)
 
 

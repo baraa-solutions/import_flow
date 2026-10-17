@@ -10,10 +10,18 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 
-  void showDutyCalculatorDialog(BuildContext context, WidgetRef ref,
-      {String? initialHsCode, int? initialImportFileId}) {
-    String selectedCurrency = 'USD';
-    String selectedFreightCurrency = 'USD';
+  void showDutyCalculatorDialog(BuildContext context, WidgetRef ref, {
+    String? initialHsCode,
+    int? initialImportFileId,
+    String? initialCurrency,
+    double? initialFreightAmount,
+    double? initialInsuranceAmount,
+    List<Map<String, dynamic>>? initialExtractedLines,
+  }) {
+    String selectedCurrency = (initialCurrency != null && initialCurrency.trim().isNotEmpty)
+        ? initialCurrency.trim().toUpperCase()
+        : 'USD';
+    String selectedFreightCurrency = selectedCurrency;
 
     final exchangeRateCtrl = TextEditingController();
     final totalInvoiceFcCtrl = TextEditingController();
@@ -111,16 +119,52 @@ import '../../currencies/providers/currencies_provider.dart';
       });
     }
 
-    List<Map<String, dynamic>> multiLines = [
-      {
-        'hs': TextEditingController(text: initialHsCode ?? ''),
-        'value': TextEditingController(),
-        'inspection': TextEditingController(),
-        'origin': 'CN',
-        'exemption': null,
-        'is_exemption_conditions_met': false,
-      },
-    ];
+    // Lines extracted from an uploaded invoice (smart upload / PO form) prefill the calculator; values the
+    // document did not give stay empty.
+    List<Map<String, dynamic>> multiLines = (initialExtractedLines != null && initialExtractedLines.isNotEmpty)
+        ? initialExtractedLines.map((line) {
+            final hs = line['hs_code']?.toString() ?? line['hs']?.toString() ?? '';
+            final val = line['total_price']?.toString() ??
+                line['amount']?.toString() ??
+                line['value']?.toString() ??
+                line['total_amount']?.toString() ??
+                '';
+            final origin = line['country_of_origin']?.toString() ??
+                line['origin_country']?.toString() ??
+                line['origin']?.toString();
+            return <String, dynamic>{
+              'hs': TextEditingController(text: hs),
+              'value': TextEditingController(text: val),
+              'inspection': TextEditingController(),
+              'origin': origin,
+              'exemption': null,
+              'is_exemption_conditions_met': false,
+            };
+          }).toList()
+        : [
+            {
+              'hs': TextEditingController(text: initialHsCode ?? ''),
+              'value': TextEditingController(),
+              'inspection': TextEditingController(),
+              'origin': 'CN',
+              'exemption': null,
+              'is_exemption_conditions_met': false,
+            },
+          ];
+
+    if (initialExtractedLines != null && initialExtractedLines.isNotEmpty) {
+      double sumVal = 0.0;
+      for (final l in multiLines) {
+        sumVal += double.tryParse((l['value'] as TextEditingController).text) ?? 0.0;
+      }
+      if (sumVal > 0) totalInvoiceFcCtrl.text = sumVal.toStringAsFixed(2);
+      if (initialFreightAmount != null && initialFreightAmount > 0) {
+        freightForeignCtrl.text = initialFreightAmount.toStringAsFixed(2);
+      }
+      if (initialInsuranceAmount != null && initialInsuranceAmount > 0) {
+        insuranceCtrl.text = initialInsuranceAmount.toStringAsFixed(2);
+      }
+    }
 
     Map<String, dynamic>? multiResult;
     String? multiError;
