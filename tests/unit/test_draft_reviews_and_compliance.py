@@ -464,7 +464,9 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
         self.assertEqual(app2.stage, "Stage 5: Final")
         self.assertEqual(app2.status, "FINAL")
 
-        # 6. Branch into New Draft Version (Stage 3 - Locks unchanged previously approved items)
+        # 6. Branch into New Draft Version (locks unchanged previously approved items).
+        # BE03-T07: the new version's stage is server-computed from its own comparison; fields the
+        # new draft leaves out are Missing, so it opens in Revision Required.
         new_ver_req = NewDraftVersionRequest(
             parent_session_id=session.bl_review_id,
             draft_fields={
@@ -474,7 +476,9 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
         )
         v2 = service.create_new_draft_version_service(self.db, new_ver_req)
         self.assertEqual(v2.version_number, 2)
-        self.assertEqual(v2.stage, "Stage 3: Reviewed")
+        self.assertEqual(v2.stage, "Stage 2: Revision Required")
+        self.assertEqual(v2.status, "REVISION_REQUIRED")
+        self.assertGreater(v2.open_discrepancies_count, 0)
         vessel_item = next(c for c in v2.checklist_data if c["field_key"] == "vessel_name")
         self.assertTrue(vessel_item["is_locked"])
 

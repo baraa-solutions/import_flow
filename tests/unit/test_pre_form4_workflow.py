@@ -19,6 +19,7 @@ from modules.external_service_providers.model import ExternalServiceProvider
 from modules.financial_approval.model import PaymentRequestSession
 from modules.import_documentation.model import BankingDocumentSession
 from modules.smart_tasks.model import SmartTask
+from modules.currencies.model import Currency
 from modules.import_documentation import service
 from modules.import_documentation.schemas import (
     BankingDocumentCreate,
@@ -68,7 +69,9 @@ def test_setup(db_session):
         partner_type="Customs Broker",
         is_active=True,
     )
-    db_session.add_all([bank_cib, bank_nbe, broker])
+    # BE03-T13: banking documents validate their currency against the currencies master table.
+    usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    db_session.add_all([bank_cib, bank_nbe, broker, usd])
     db_session.commit()
     db_session.refresh(bank_cib)
     db_session.refresh(bank_nbe)
