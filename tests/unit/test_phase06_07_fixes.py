@@ -123,6 +123,7 @@ def _clearance(db, imp, **fields) -> CustomsClearanceRecord:
 
 def _assessed(db, imp, total=1000.0, **fields):
     values = dict(import_duty_amount=total, total_duty_payable=total, actual_duty_total=total,
+                  assessment_status="Assessed", nafeza_claim_number="CLM-FIX-001",
                   payment_status="Payment Requested")
     values.update(fields)
     return _clearance(db, imp, **values)

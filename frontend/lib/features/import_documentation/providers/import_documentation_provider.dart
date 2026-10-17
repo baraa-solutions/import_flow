@@ -272,6 +272,66 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
     }
   }
 
+  Future<BankingDocumentModel?> pullTaxCodingSheet(int bankDocId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/banking-documents/$bankDocId/tax-coding-sheet/pull',
+        data: payload,
+      );
+      final updated = BankingDocumentModel.fromJson(response.data);
+      await fetchBankingDocuments();
+      invalidateImportDocDependents(_ref);
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<BankingDocumentModel?> uploadTaxCodingSheet(int bankDocId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/banking-documents/$bankDocId/tax-coding-sheet/upload',
+        data: payload,
+      );
+      final updated = BankingDocumentModel.fromJson(response.data);
+      await fetchBankingDocuments();
+      invalidateImportDocDependents(_ref);
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<BankingDocumentModel?> verifyItems(int bankDocId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/banking-documents/$bankDocId/items/verify',
+        data: payload,
+      );
+      final updated = BankingDocumentModel.fromJson(response.data);
+      await fetchBankingDocuments();
+      invalidateImportDocDependents(_ref);
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<BankingDocumentModel?> linkNafezaBank(int bankDocId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/banking-documents/$bankDocId/nafeza-bank-link',
+        data: payload,
+      );
+      final updated = BankingDocumentModel.fromJson(response.data);
+      await fetchBankingDocuments();
+      invalidateImportDocDependents(_ref);
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<bool> deleteBankingDocument(int bankDocId) async {
     try {
       await _dio.delete('${ApiConstants.baseUrl}/import-documentation/banking-documents/$bankDocId');

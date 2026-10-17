@@ -4,8 +4,10 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../models/customs_clearance_model.dart';
 
 /// Dedicated Export & Dossier Service for Screen 60:
 /// Customs Clearance - Drawing Samples & Shortage Tracking.
@@ -24,8 +26,11 @@ class DrawingSamplesExportService {
 
   static String getSampleStatusLabel(BuildContext context, String? status) {
     final l = context.l10n;
-    if (status == 'PASSED') {
+    if (status == 'Approved' || status == 'PASSED' || status == 'CONFORMING') {
       return l.customsClearanceSamplePassed;
+    }
+    if (status == 'Rejected' || status == 'NON_CONFORMING') {
+      return l.ccInsStatusRejected;
     }
     return l.customsClearanceSamplePending;
   }
@@ -45,31 +50,39 @@ class DrawingSamplesExportService {
   }
 
   /// Exports drawn samples as TSV string with UTF-8 BOM
-  static String exportSamplesToTsv(BuildContext context, List<Map<String, dynamic>> samples) {
+  static String exportSamplesToTsv(
+    BuildContext context,
+    List<CustomsClearanceModel> samples, {
+    String Function(int id)? fileCodeResolver,
+  }) {
     final l = context.l10n;
     final buf = StringBuffer();
     buf.write('\uFEFF'); // UTF-8 BOM
 
     buf.writeln([
       l.drawingSamplesColSampleCode,
-      l.drawingSamplesFieldAuthority,
-      l.drawingSamplesFieldDrawingDate,
-      l.drawingSamplesFieldReceiptNo,
-      l.drawingSamplesFieldTestType,
-      l.drawingSamplesFieldStatus,
+      l.drawingSamplesColFileCode,
+      l.drawingSamplesColSampledBodies,
+      l.drawingSamplesColSamplingDate,
+      l.drawingSamplesColGoeicCert,
+      l.drawingSamplesColTestStatus,
+      l.drawingSamplesColLabResult,
       l.drawingSamplesFieldNotes,
     ].join('\t'));
 
     for (final s in samples) {
-      final statusStr = getSampleStatusLabel(context, s['status'] as String?);
+      final bodies = s.sampledRegulatoryBodies.map((b) => DomainEnums.label(l, DomainEnumType.regulatoryBody, b)).join(', ');
+      final fileCode = fileCodeResolver != null ? fileCodeResolver(s.importFileId) : '—';
+      final statusStr = getSampleStatusLabel(context, s.sampleTestStatus);
       buf.writeln([
-        _cleanTsv((s['sample_id'] ?? '').toString()),
-        _cleanTsv((s['authority'] ?? '').toString()),
-        _cleanTsv((s['drawing_date'] ?? '').toString()),
-        _cleanTsv((s['receipt_no'] ?? '').toString()),
-        _cleanTsv((s['test_type'] ?? '').toString()),
+        _cleanTsv(s.samplingRecordNo ?? '—'),
+        _cleanTsv(fileCode),
+        _cleanTsv(bodies.isNotEmpty ? bodies : '—'),
+        _cleanTsv(s.samplingDate ?? '—'),
+        _cleanTsv(s.goeicCertificateNo ?? '—'),
         _cleanTsv(statusStr),
-        _cleanTsv((s['notes'] ?? '-').toString()),
+        _cleanTsv(s.labTestResult),
+        _cleanTsv(s.inspectionNotes ?? '—'),
       ].join('\t'));
     }
 
@@ -113,31 +126,39 @@ class DrawingSamplesExportService {
   }
 
   /// Exports drawn samples as CSV string with UTF-8 BOM
-  static String exportSamplesToCsv(BuildContext context, List<Map<String, dynamic>> samples) {
+  static String exportSamplesToCsv(
+    BuildContext context,
+    List<CustomsClearanceModel> samples, {
+    String Function(int id)? fileCodeResolver,
+  }) {
     final l = context.l10n;
     final buf = StringBuffer();
     buf.write('\uFEFF'); // UTF-8 BOM
 
     buf.writeln([
       _csvQuote(l.drawingSamplesColSampleCode),
-      _csvQuote(l.drawingSamplesFieldAuthority),
-      _csvQuote(l.drawingSamplesFieldDrawingDate),
-      _csvQuote(l.drawingSamplesFieldReceiptNo),
-      _csvQuote(l.drawingSamplesFieldTestType),
-      _csvQuote(l.drawingSamplesFieldStatus),
+      _csvQuote(l.drawingSamplesColFileCode),
+      _csvQuote(l.drawingSamplesColSampledBodies),
+      _csvQuote(l.drawingSamplesColSamplingDate),
+      _csvQuote(l.drawingSamplesColGoeicCert),
+      _csvQuote(l.drawingSamplesColTestStatus),
+      _csvQuote(l.drawingSamplesColLabResult),
       _csvQuote(l.drawingSamplesFieldNotes),
     ].join(','));
 
     for (final s in samples) {
-      final statusStr = getSampleStatusLabel(context, s['status'] as String?);
+      final bodies = s.sampledRegulatoryBodies.map((b) => DomainEnums.label(l, DomainEnumType.regulatoryBody, b)).join(', ');
+      final fileCode = fileCodeResolver != null ? fileCodeResolver(s.importFileId) : '—';
+      final statusStr = getSampleStatusLabel(context, s.sampleTestStatus);
       buf.writeln([
-        _csvQuote((s['sample_id'] ?? '').toString()),
-        _csvQuote((s['authority'] ?? '').toString()),
-        _csvQuote((s['drawing_date'] ?? '').toString()),
-        _csvQuote((s['receipt_no'] ?? '').toString()),
-        _csvQuote((s['test_type'] ?? '').toString()),
+        _csvQuote(s.samplingRecordNo ?? '—'),
+        _csvQuote(fileCode),
+        _csvQuote(bodies.isNotEmpty ? bodies : '—'),
+        _csvQuote(s.samplingDate ?? '—'),
+        _csvQuote(s.goeicCertificateNo ?? '—'),
         _csvQuote(statusStr),
-        _csvQuote((s['notes'] ?? '-').toString()),
+        _csvQuote(s.labTestResult),
+        _csvQuote(s.inspectionNotes ?? '—'),
       ].join(','));
     }
 
@@ -181,9 +202,13 @@ class DrawingSamplesExportService {
   }
 
   /// Saves drawn samples TSV to file
-  static Future<void> saveSamplesTsvToFile(BuildContext context, List<Map<String, dynamic>> samples) async {
+  static Future<void> saveSamplesTsvToFile(
+    BuildContext context,
+    List<CustomsClearanceModel> samples, {
+    String Function(int id)? fileCodeResolver,
+  }) async {
     final l = context.l10n;
-    final tsvContent = exportSamplesToTsv(context, samples);
+    final tsvContent = exportSamplesToTsv(context, samples, fileCodeResolver: fileCodeResolver);
     await CopyHelper.copy(context, tsvContent, customMessage: l.drawingSamplesCopiedTsvSuccess);
     if (!context.mounted) return;
 
@@ -199,9 +224,13 @@ class DrawingSamplesExportService {
   }
 
   /// Saves drawn samples CSV to file
-  static Future<void> saveSamplesCsvToFile(BuildContext context, List<Map<String, dynamic>> samples) async {
+  static Future<void> saveSamplesCsvToFile(
+    BuildContext context,
+    List<CustomsClearanceModel> samples, {
+    String Function(int id)? fileCodeResolver,
+  }) async {
     final l = context.l10n;
-    final csvContent = exportSamplesToCsv(context, samples);
+    final csvContent = exportSamplesToCsv(context, samples, fileCodeResolver: fileCodeResolver);
     await CopyHelper.copy(context, csvContent, customMessage: l.drawingSamplesCopiedExcelSuccess);
     if (!context.mounted) return;
 
@@ -237,8 +266,9 @@ class DrawingSamplesExportService {
   /// Builds a complete text dossier summarizing both Drawn Samples and Shortage Reconciliation
   static String buildDrawingSamplesDossier({
     required BuildContext context,
-    required List<Map<String, dynamic>> samples,
-    required List<Map<String, dynamic>> shortages,
+    required List<CustomsClearanceModel> samples,
+    List<Map<String, dynamic>> shortages = const [],
+    String Function(int id)? fileCodeResolver,
   }) {
     final l = context.l10n;
     final buf = StringBuffer();
@@ -252,15 +282,13 @@ class DrawingSamplesExportService {
 
     // Summary KPIs
     final totalSamples = samples.length;
-    final passedSamples = samples.where((s) => s['status'] == 'PASSED').length;
-    final pendingSamples = totalSamples - passedSamples;
-    final totalShortages = shortages.length;
+    final passedSamples = samples.where((s) => s.sampleTestStatus == 'Approved' || s.labTestResult == 'CONFORMING').length;
+    final pendingSamples = samples.where((s) => s.sampleTestStatus == 'Samples Under Testing' || s.labTestResult == 'PENDING').length;
 
     buf.writeln('--- ${l.drawingSamplesSummaryHeader} ---');
     buf.writeln('• ${l.drawingSamplesKpiTotalSamples}: $totalSamples');
     buf.writeln('• ${l.drawingSamplesKpiPassedSamples}: $passedSamples');
     buf.writeln('• ${l.drawingSamplesKpiPendingSamples}: $pendingSamples');
-    buf.writeln('• ${l.drawingSamplesKpiShortageCount}: $totalShortages');
     buf.writeln('');
 
     // Section 1: Laboratory Drawn Samples
@@ -272,12 +300,15 @@ class DrawingSamplesExportService {
     } else {
       for (int i = 0; i < samples.length; i++) {
         final s = samples[i];
-        final statusStr = getSampleStatusLabel(context, s['status'] as String?);
-        buf.writeln('[${i + 1}] ${s['sample_id']} | ${s['authority']}');
-        buf.writeln('   • ${l.drawingSamplesFieldDrawingDate}: ${s['drawing_date']} | ${l.drawingSamplesFieldReceiptNo}: ${s['receipt_no']}');
-        buf.writeln('   • ${l.drawingSamplesFieldTestType}: ${s['test_type']} | ${l.drawingSamplesFieldStatus}: $statusStr');
-        if (s['notes'] != null && s['notes'].toString().isNotEmpty && s['notes'] != '-') {
-          buf.writeln('   • ${l.drawingSamplesFieldNotes}: ${s['notes']}');
+        final fileCode = fileCodeResolver != null ? fileCodeResolver(s.importFileId) : '—';
+        final bodies = s.sampledRegulatoryBodies.map((b) => DomainEnums.label(l, DomainEnumType.regulatoryBody, b)).join(', ');
+        final statusStr = getSampleStatusLabel(context, s.sampleTestStatus);
+        buf.writeln('[${i + 1}] ${s.samplingRecordNo ?? '—'} | $fileCode');
+        buf.writeln('   • ${l.drawingSamplesColSampledBodies}: ${bodies.isNotEmpty ? bodies : '—'}');
+        buf.writeln('   • ${l.drawingSamplesColSamplingDate}: ${s.samplingDate ?? '—'} | ${l.drawingSamplesColGoeicCert}: ${s.goeicCertificateNo ?? '—'}');
+        buf.writeln('   • ${l.drawingSamplesColTestStatus}: $statusStr | ${l.drawingSamplesColLabResult}: ${s.labTestResult}');
+        if (s.inspectionNotes != null && s.inspectionNotes!.trim().isNotEmpty) {
+          buf.writeln('   • ${l.drawingSamplesFieldNotes}: ${s.inspectionNotes}');
         }
       }
     }
@@ -285,10 +316,10 @@ class DrawingSamplesExportService {
 
     // Section 2: Cargo Examination & Shortage Reconciliation
     buf.writeln('----------------------------------------------------------------');
-    buf.writeln('2. ${l.drawingSamplesShortageSectionTitle} (${shortages.length})');
+    buf.writeln('2. ${l.drawingSamplesShortageSectionTitle}');
     buf.writeln('----------------------------------------------------------------');
     if (shortages.isEmpty) {
-      buf.writeln(l.drawingSamplesEmptyShortage);
+      buf.writeln(l.ccShortageNotAvailable);
     } else {
       for (int i = 0; i < shortages.length; i++) {
         final item = shortages[i];
@@ -313,14 +344,16 @@ class DrawingSamplesExportService {
   /// Copies full plain-text dossier to clipboard
   static Future<void> copyDossierToClipboard({
     required BuildContext context,
-    required List<Map<String, dynamic>> samples,
-    required List<Map<String, dynamic>> shortages,
+    required List<CustomsClearanceModel> samples,
+    List<Map<String, dynamic>> shortages = const [],
+    String Function(int id)? fileCodeResolver,
   }) async {
     final l = context.l10n;
     final dossier = buildDrawingSamplesDossier(
       context: context,
       samples: samples,
       shortages: shortages,
+      fileCodeResolver: fileCodeResolver,
     );
     await CopyHelper.copy(context, dossier, customMessage: l.drawingSamplesCopiedDossierSuccess);
   }
@@ -349,8 +382,9 @@ class DrawingSamplesExportService {
   /// Generates Vector A4 Landscape PDF with Cairo font and launches print dialog
   static Future<void> printOrSaveDrawingSamplesPdf({
     required BuildContext context,
-    required List<Map<String, dynamic>> samples,
-    required List<Map<String, dynamic>> shortages,
+    required List<CustomsClearanceModel> samples,
+    List<Map<String, dynamic>> shortages = const [],
+    String Function(int id)? fileCodeResolver,
   }) async {
     final l = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
@@ -360,9 +394,8 @@ class DrawingSamplesExportService {
     final fontBold = await PdfGoogleFonts.cairoBold();
 
     final totalSamples = samples.length;
-    final passedSamples = samples.where((s) => s['status'] == 'PASSED').length;
-    final pendingSamples = totalSamples - passedSamples;
-    final totalShortages = shortages.length;
+    final passedSamples = samples.where((s) => s.sampleTestStatus == 'Approved' || s.labTestResult == 'CONFORMING').length;
+    final pendingSamples = samples.where((s) => s.sampleTestStatus == 'Samples Under Testing' || s.labTestResult == 'PENDING').length;
 
     final pdf = pw.Document();
 
@@ -437,10 +470,6 @@ class DrawingSamplesExportService {
                   pw.Text(l.drawingSamplesKpiPendingSamples, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
                   pw.Text('$pendingSamples', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.orange800)),
                 ]),
-                pw.Column(children: [
-                  pw.Text(l.drawingSamplesKpiShortageCount, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
-                  pw.Text('$totalShortages', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.red800)),
-                ]),
               ],
             ),
           ),
@@ -456,23 +485,25 @@ class DrawingSamplesExportService {
             border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
             columnWidths: {
               0: const pw.FlexColumnWidth(2.5),
-              1: const pw.FlexColumnWidth(3.5),
-              2: const pw.FlexColumnWidth(2.5),
+              1: const pw.FlexColumnWidth(2.5),
+              2: const pw.FlexColumnWidth(3.5),
               3: const pw.FlexColumnWidth(2.5),
-              4: const pw.FlexColumnWidth(3.5),
+              4: const pw.FlexColumnWidth(2.5),
               5: const pw.FlexColumnWidth(2.5),
-              6: const pw.FlexColumnWidth(4),
+              6: const pw.FlexColumnWidth(2.5),
+              7: const pw.FlexColumnWidth(3.5),
             },
             children: [
               pw.TableRow(
                 decoration: const pw.BoxDecoration(color: PdfColors.blueGrey800),
                 children: [
                   _pdfCell(l.drawingSamplesColSampleCode, isHeader: true),
-                  _pdfCell(l.drawingSamplesFieldAuthority, isHeader: true),
-                  _pdfCell(l.drawingSamplesFieldDrawingDate, isHeader: true),
-                  _pdfCell(l.drawingSamplesFieldReceiptNo, isHeader: true),
-                  _pdfCell(l.drawingSamplesFieldTestType, isHeader: true),
-                  _pdfCell(l.drawingSamplesFieldStatus, isHeader: true),
+                  _pdfCell(l.drawingSamplesColFileCode, isHeader: true),
+                  _pdfCell(l.drawingSamplesColSampledBodies, isHeader: true),
+                  _pdfCell(l.drawingSamplesColSamplingDate, isHeader: true),
+                  _pdfCell(l.drawingSamplesColGoeicCert, isHeader: true),
+                  _pdfCell(l.drawingSamplesColTestStatus, isHeader: true),
+                  _pdfCell(l.drawingSamplesColLabResult, isHeader: true),
                   _pdfCell(l.drawingSamplesFieldNotes, isHeader: true),
                 ],
               ),
@@ -489,24 +520,28 @@ class DrawingSamplesExportService {
                     _pdfCell(''),
                     _pdfCell(''),
                     _pdfCell(''),
+                    _pdfCell(''),
                   ],
                 )
               else
                 ...samples.map((s) {
-                  final isPassed = s['status'] == 'PASSED';
-                  final statusStr = getSampleStatusLabel(context, s['status'] as String?);
+                  final isPassed = s.sampleTestStatus == 'Approved' || s.labTestResult == 'CONFORMING';
+                  final statusStr = getSampleStatusLabel(context, s.sampleTestStatus);
+                  final fileCode = fileCodeResolver != null ? fileCodeResolver(s.importFileId) : '—';
+                  final bodies = s.sampledRegulatoryBodies.map((b) => DomainEnums.label(l, DomainEnumType.regulatoryBody, b)).join(', ');
                   return pw.TableRow(
                     decoration: pw.BoxDecoration(
                       color: isPassed ? PdfColors.green50 : PdfColors.white,
                     ),
                     children: [
-                      _pdfCell((s['sample_id'] ?? '').toString(), isBold: true),
-                      _pdfCell((s['authority'] ?? '').toString()),
-                      _pdfCell((s['drawing_date'] ?? '').toString()),
-                      _pdfCell((s['receipt_no'] ?? '').toString()),
-                      _pdfCell((s['test_type'] ?? '').toString()),
+                      _pdfCell(s.samplingRecordNo ?? '—', isBold: true),
+                      _pdfCell(fileCode),
+                      _pdfCell(bodies.isNotEmpty ? bodies : '—'),
+                      _pdfCell(s.samplingDate ?? '—'),
+                      _pdfCell(s.goeicCertificateNo ?? '—'),
                       _pdfCell(statusStr, color: isPassed ? PdfColors.green900 : PdfColors.orange900, isBold: true),
-                      _pdfCell((s['notes'] ?? '-').toString()),
+                      _pdfCell(s.labTestResult),
+                      _pdfCell(s.inspectionNotes ?? '—'),
                     ],
                   );
                 }),
@@ -520,52 +555,43 @@ class DrawingSamplesExportService {
             style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey900),
           ),
           pw.SizedBox(height: 4),
-          pw.Table(
-            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
-            columnWidths: {
-              0: const pw.FlexColumnWidth(2.5),
-              1: const pw.FlexColumnWidth(3),
-              2: const pw.FlexColumnWidth(4),
-              3: const pw.FlexColumnWidth(2),
-              4: const pw.FlexColumnWidth(2),
-              5: const pw.FlexColumnWidth(2),
-              6: const pw.FlexColumnWidth(2),
-              7: const pw.FlexColumnWidth(3.5),
-              8: const pw.FlexColumnWidth(3.5),
-            },
-            children: [
-              pw.TableRow(
-                decoration: const pw.BoxDecoration(color: PdfColors.blueGrey800),
-                children: [
-                  _pdfCell(l.drawingSamplesColShortageCode, isHeader: true),
-                  _pdfCell(l.drawingSamplesColContainerPkg, isHeader: true),
-                  _pdfCell(l.drawingSamplesColItemDesc, isHeader: true),
-                  _pdfCell(l.drawingSamplesColManifestQty, isHeader: true),
-                  _pdfCell(l.drawingSamplesColLandedQty, isHeader: true),
-                  _pdfCell(l.drawingSamplesColShortageQty, isHeader: true),
-                  _pdfCell(l.drawingSamplesColShortagePct, isHeader: true),
-                  _pdfCell(l.drawingSamplesColShortageAction, isHeader: true),
-                  _pdfCell(l.drawingSamplesColShortageNotes, isHeader: true),
-                ],
+          if (shortages.isEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 8),
+              child: pw.Text(
+                l.ccShortageNotAvailable,
+                style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
               ),
-              if (shortages.isEmpty)
+            )
+          else
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+              columnWidths: {
+                0: const pw.FlexColumnWidth(2.5),
+                1: const pw.FlexColumnWidth(3),
+                2: const pw.FlexColumnWidth(4),
+                3: const pw.FlexColumnWidth(2),
+                4: const pw.FlexColumnWidth(2),
+                5: const pw.FlexColumnWidth(2),
+                6: const pw.FlexColumnWidth(2),
+                7: const pw.FlexColumnWidth(3.5),
+                8: const pw.FlexColumnWidth(3.5),
+              },
+              children: [
                 pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.blueGrey800),
                   children: [
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(8),
-                      child: pw.Text(l.drawingSamplesEmptyShortage, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                    ),
-                    _pdfCell(''),
-                    _pdfCell(''),
-                    _pdfCell(''),
-                    _pdfCell(''),
-                    _pdfCell(''),
-                    _pdfCell(''),
-                    _pdfCell(''),
-                    _pdfCell(''),
+                    _pdfCell(l.drawingSamplesColShortageCode, isHeader: true),
+                    _pdfCell(l.drawingSamplesColContainerPkg, isHeader: true),
+                    _pdfCell(l.drawingSamplesColItemDesc, isHeader: true),
+                    _pdfCell(l.drawingSamplesColManifestQty, isHeader: true),
+                    _pdfCell(l.drawingSamplesColLandedQty, isHeader: true),
+                    _pdfCell(l.drawingSamplesColShortageQty, isHeader: true),
+                    _pdfCell(l.drawingSamplesColShortagePct, isHeader: true),
+                    _pdfCell(l.drawingSamplesColShortageAction, isHeader: true),
+                    _pdfCell(l.drawingSamplesColShortageNotes, isHeader: true),
                   ],
-                )
-              else
+                ),
                 ...shortages.map((item) {
                   final actionLabel = getShortageActionLabel(context, item['action'] as String?);
                   return pw.TableRow(
@@ -582,8 +608,8 @@ class DrawingSamplesExportService {
                     ],
                   );
                 }),
-            ],
-          ),
+              ],
+            ),
           pw.SizedBox(height: 12),
 
           // Footer

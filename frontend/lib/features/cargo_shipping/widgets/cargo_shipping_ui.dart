@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../models/cargo_shipping_model.dart';
 
@@ -413,13 +411,14 @@ class ShippingRegistryRow extends StatelessWidget {
               displayName,
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryOf(context)),
             ),
-            CcStatusChip(label: rec.cargoShippingCode, severity: AppSeverity.info),
-            CcStatusChip(
+            AppStatusBadge(label: rec.cargoShippingCode, severity: AppSeverity.info, size: AppStatusBadgeSize.small),
+            AppStatusBadge(
               label: rec.shipmentType,
               severity: rec.shipmentType == 'FCL' ? AppSeverity.info : AppSeverity.warning,
+              size: AppStatusBadgeSize.small,
             ),
             if (!rec.isActive)
-              CcStatusChip(label: l.cargoShippingSoftDeletedBadge, severity: AppSeverity.danger, icon: Icons.delete_outline),
+              AppStatusBadge(label: l.cargoShippingSoftDeletedBadge, severity: AppSeverity.danger, icon: Icons.delete_outline, size: AppStatusBadgeSize.small),
           ],
         ),
         const SizedBox(height: 6),
@@ -432,20 +431,22 @@ class ShippingRegistryRow extends StatelessWidget {
           spacing: 6,
           runSpacing: 4,
           children: [
-            CcStatusChip(
+            AppStatusBadge(
               label: '${l.status}: $statusLabel',
               severity: ShippingFormat.statusSeverity(rec.status),
+              size: AppStatusBadgeSize.small,
             ),
             if (rec.shipmentType == 'FCL')
-              CcStatusChip(
+              AppStatusBadge(
                 label: l.cargoShippingGatedCountBadge(gatedCount, rec.containersLoadingData.length),
                 severity: AppSeverity.success,
                 icon: Icons.login,
+                size: AppStatusBadgeSize.small,
               ),
             if (hasBreach)
-              CcStatusChip(label: l.cargoShippingSlaBreached, severity: AppSeverity.danger, icon: Icons.alarm_off)
+              AppStatusBadge(label: l.cargoShippingSlaBreached, severity: AppSeverity.danger, icon: Icons.alarm_off, size: AppStatusBadgeSize.small)
             else
-              CcStatusChip(label: l.cargoShippingSlaOnTime, severity: AppSeverity.success, icon: Icons.alarm_on),
+              AppStatusBadge(label: l.cargoShippingSlaOnTime, severity: AppSeverity.success, icon: Icons.alarm_on, size: AppStatusBadgeSize.small),
           ],
         ),
       ],
@@ -653,7 +654,7 @@ class ShippingTrackingHeader extends StatelessWidget {
                   statusLabel,
                   customMessage: '${l.cargoShippingSlaTsvHeaderTrackingStatus}: $statusLabel',
                 ),
-                child: CcStatusChip(label: statusLabel, severity: statusSeverity),
+                child: AppStatusBadge(label: statusLabel, severity: statusSeverity, size: AppStatusBadgeSize.small),
               ),
             ),
             if (breached) ...[
@@ -663,10 +664,11 @@ class ShippingTrackingHeader extends StatelessWidget {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                   onTap: () => CopyHelper.copy(context, l.cargoShippingSlaBreachedBadge),
-                  child: CcStatusChip(
+                  child: AppStatusBadge(
                     label: l.cargoShippingSlaBreachedBadge,
                     severity: AppSeverity.danger,
                     icon: Icons.alarm_off,
+                    size: AppStatusBadgeSize.small,
                   ),
                 ),
               ),

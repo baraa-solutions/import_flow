@@ -289,3 +289,6 @@ process on the port. Needs outside backend-developer ownership:
   PID found by `findstr ":28080"`, which also matches :280800 and non-LISTENING rows), `scripts/start_backend_service.vbs`
   (hard-coded `--port 28080`, unanchored findstr), `scripts/validate_clean_machine.py` (`DEFAULT_PORT = 28080`,
   read-only check), `package_production.py` (generated launchers taskkill `:28080`; Track 2 only).
+
+### 04-05 review addendum (BE45-T05)
+- `modules/financial_settlement/service.py:1431` must count `status == 'ISSUED'` certificates only (ignoring DRAFT / CANCELLED to prevent doubling insurance in landed cost).

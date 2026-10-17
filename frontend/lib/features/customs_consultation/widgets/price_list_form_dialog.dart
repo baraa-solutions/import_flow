@@ -99,9 +99,9 @@ void showPriceListFormDialog(
   }
 
   final isEditing = existingPriceList != null;
-  int? selectedBroker = existingPriceList?.brokerId ?? (brokersList.isNotEmpty ? brokersList.first.providerId : null);
-  final titleCtrl = TextEditingController(text: existingPriceList?.title ?? (initialExtractedData?['title'] ?? 'Customs Clearance & Inland Transport Price List 2026'));
-  final portCtrl = TextEditingController(text: existingPriceList?.portName ?? (initialExtractedData?['port_name'] ?? 'Alexandria & El-Dekheila Port'));
+  int? selectedBroker = existingPriceList?.brokerId;
+  final titleCtrl = TextEditingController(text: existingPriceList?.title ?? (initialExtractedData?['title'] ?? ''));
+  final portCtrl = TextEditingController(text: existingPriceList?.portName ?? (initialExtractedData?['port_name'] ?? ''));
   final notesCtrl = TextEditingController(text: existingPriceList?.notes ?? (initialExtractedData?['notes'] ?? ''));
   final dateCtrl = TextEditingController(text: existingPriceList?.effectiveFrom ?? (initialExtractedData?['effective_from'] ?? DateTime.now().toIso8601String().split('T').first));
   int version = existingPriceList?.version ?? 1;
@@ -579,7 +579,7 @@ void showPriceListFormDialog(
           String? selectedCanonicalCode = catalogItems.isNotEmpty ? catalogItems.first.code : null;
 
           final aliasPatternCtrl = TextEditingController(text: initialName ?? '');
-          final customPriceCtrl = TextEditingController(text: initialPrice != null && initialPrice > 0 ? initialPrice.toStringAsFixed(0) : '1000');
+          final customPriceCtrl = TextEditingController(text: initialPrice != null && initialPrice > 0 ? initialPrice.toStringAsFixed(0) : '');
           final customNotesCtrl = TextEditingController();
 
           // For mode 1 (new code or standard reference code)

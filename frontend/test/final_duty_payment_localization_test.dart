@@ -5,14 +5,15 @@ import 'package:frontend/core/localization/app_localizations_en.dart';
 
 void main() {
   group('Screen 62: Customs Clearance - Final Duty Payment & Release Localization Tests', () {
-    final AppLocalizations ar = AppLocalizationsAr();
-    final AppLocalizations en = AppLocalizationsEn();
+    const AppLocalizations ar = AppLocalizationsAr();
+    const AppLocalizations en = AppLocalizationsEn();
 
     final List<String Function(AppLocalizations)> getters = [
       (l) => l.finalDutyScreenTitle,
       (l) => l.finalDutyScreenSubtitle,
       (l) => l.finalDutySummaryHeader,
       (l) => l.finalDutyKpiTotalPayable,
+      (l) => l.finalDutyKpiOutstanding,
       (l) => l.finalDutyKpiTotalPaid,
       (l) => l.finalDutyKpiPendingPayment,
       (l) => l.finalDutyKpiNetVariance,
