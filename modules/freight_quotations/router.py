@@ -36,7 +36,7 @@ def create_rfq(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("quotations.manage")),
 ):
-    return FreightQuotationService.create_rfq(db, rfq_in)
+    return FreightQuotationService.create_rfq(db, rfq_in, user=current_user.username)
 
 
 @router.get(
@@ -91,7 +91,7 @@ def update_rfq(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("quotations.manage")),
 ):
-    return FreightQuotationService.update_rfq(db, rfq_id, update_in)
+    return FreightQuotationService.update_rfq(db, rfq_id, update_in, user=current_user.username)
 
 
 @router.post(
@@ -105,7 +105,7 @@ def award_quotation(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("quotations.manage")),
 ):
-    return FreightQuotationService.award_quotation(db, rfq_id, quotation_id)
+    return FreightQuotationService.award_quotation(db, rfq_id, quotation_id, user=current_user.username)
 
 
 @router.delete(
@@ -118,7 +118,7 @@ def soft_delete_rfq(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("quotations.manage")),
 ):
-    return FreightQuotationService.soft_delete_rfq(db, rfq_id)
+    return FreightQuotationService.soft_delete_rfq(db, rfq_id, user=current_user.username)
 
 
 @router.post(
@@ -131,7 +131,7 @@ def restore_rfq(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("quotations.manage")),
 ):
-    return FreightQuotationService.restore_rfq(db, rfq_id)
+    return FreightQuotationService.restore_rfq(db, rfq_id, user=current_user.username)
 
 
 @router.get(

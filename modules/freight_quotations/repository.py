@@ -25,7 +25,12 @@ class FreightQuotationRepository:
         return db.query(FreightRFQRequest).filter(FreightRFQRequest.rfq_code == code).first()
 
     @staticmethod
-    def create(db: Session, rfq_in: FreightRFQRequestCreate, code: Optional[str] = None) -> FreightRFQRequest:
+    def create(
+        db: Session,
+        rfq_in: FreightRFQRequestCreate,
+        code: Optional[str] = None,
+        user: Optional[str] = None,
+    ) -> FreightRFQRequest:
         final_code = code or FreightQuotationRepository.generate_rfq_code(db)
 
         db_rfq = FreightRFQRequest(
@@ -47,6 +52,8 @@ class FreightQuotationRepository:
             selected_quotation_id=None,
             notes=rfq_in.notes,
             is_active=True,
+            created_by=user,
+            updated_by=user,
         )
 
         db.add(db_rfq)
@@ -128,7 +135,10 @@ class FreightQuotationRepository:
 
     @staticmethod
     def update(
-        db: Session, db_rfq: FreightRFQRequest, update_in: FreightRFQRequestUpdate
+        db: Session,
+        db_rfq: FreightRFQRequest,
+        update_in: FreightRFQRequestUpdate,
+        user: Optional[str] = None,
     ) -> FreightRFQRequest:
         update_data = update_in.model_dump(
             exclude_unset=True,
@@ -137,6 +147,9 @@ class FreightQuotationRepository:
 
         for field, val in update_data.items():
             setattr(db_rfq, field, val)
+
+        if user is not None:
+            db_rfq.updated_by = user
 
         if update_in.quotations is not None:
             sent_quote_ids = {
@@ -203,15 +216,19 @@ class FreightQuotationRepository:
         return db_rfq
 
     @staticmethod
-    def soft_delete(db: Session, db_rfq: FreightRFQRequest) -> FreightRFQRequest:
+    def soft_delete(db: Session, db_rfq: FreightRFQRequest, user: Optional[str] = None) -> FreightRFQRequest:
         db_rfq.is_active = False
+        if user is not None:
+            db_rfq.updated_by = user
         db_rfq.updated_at = datetime.now(timezone.utc)
         db.flush()
         return db_rfq
 
     @staticmethod
-    def restore(db: Session, db_rfq: FreightRFQRequest) -> FreightRFQRequest:
+    def restore(db: Session, db_rfq: FreightRFQRequest, user: Optional[str] = None) -> FreightRFQRequest:
         db_rfq.is_active = True
+        if user is not None:
+            db_rfq.updated_by = user
         db_rfq.updated_at = datetime.now(timezone.utc)
         db.flush()
         return db_rfq
