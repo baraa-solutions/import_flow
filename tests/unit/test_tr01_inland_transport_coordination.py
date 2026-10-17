@@ -832,3 +832,125 @@ def test_update_booking_unknown_carrier_id_raises_400(client, db_session):
     )
     assert resp.status_code == 400
     assert resp.json().get("detail", {}).get("code") == "IT_CARRIER_INVALID"
+
+
+# ─── BE810-T14: Gate-Out / Arrival Evidence & Seal Validation ─────────────────
+
+
+def test_gate_out_keeps_gate_pass_no_in_notes(db_session):
+    """BE810-T14: gate-out with gate_pass_no='GP-1' -> notes contain 'GP-1'."""
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-GATEPASS-TEST")
+    bk = create_transport_booking_service(db_session, payload)
+
+    now = datetime.now(timezone.utc)
+    gate_out = InlandTransportGateOutSubmit(
+        actual_departure_at=now,
+        gate_pass_no="GP-1",
+        notes="Gate 24 passed",
+    )
+    updated = record_port_gate_out_service(db_session, bk.transport_id, gate_out)
+    assert "Gate pass: GP-1" in updated.tracking_notes
+    assert "Gate-out: Gate 24 passed" in updated.tracking_notes
+
+
+def test_arrival_broken_seal_without_seal_number_raises_400(client, db_session):
+    """BE810-T14: arrival with seal_intact=False and no seal_number -> 400."""
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-BROKEN-NO-NUM")
+    bk = create_transport_booking_service(db_session, payload)
+
+    # Gate out first
+    record_port_gate_out_service(
+        db_session, bk.transport_id, InlandTransportGateOutSubmit(actual_departure_at=datetime.now(timezone.utc))
+    )
+
+    resp = client.post(
+        f"/api/v1/inland-transport/bookings/{bk.transport_id}/warehouse-arrival",
+        json={
+            "actual_arrival_at": (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat(),
+            "seal_intact": False,
+            "seal_number": "",
+            "notes": "الختم مقطوع",
+        },
+    )
+    assert resp.status_code == 400
+    detail = resp.json().get("detail", {})
+    assert detail.get("code") == "IT_SEAL_REQUIRED"
+
+
+def test_arrival_broken_seal_with_number_records_evidence_and_warning_notification(db_session):
+    """BE810-T14: broken seal with number appends 'Seal: BROKEN <no>' and creates WARNING notification."""
+    from modules.notifications.model import SystemNotification
+
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-BROKEN-WITH-NUM")
+    bk = create_transport_booking_service(db_session, payload)
+
+    dep_time = datetime.now(timezone.utc)
+    record_port_gate_out_service(
+        db_session, bk.transport_id, InlandTransportGateOutSubmit(actual_departure_at=dep_time)
+    )
+
+    arrival = InlandTransportArrivalSubmit(
+        actual_arrival_at=dep_time + timedelta(hours=4),
+        seal_intact=False,
+        seal_number="SEAL-9988",
+        notes="تم اكتشاف كسر الختم عند بوابة المخزن",
+    )
+    arrived = record_warehouse_arrival_service(db_session, bk.transport_id, arrival)
+    assert "Seal: BROKEN SEAL-9988" in arrived.tracking_notes
+
+    # Verify SystemNotification
+    notif = (
+        db_session.query(SystemNotification)
+        .filter(
+            SystemNotification.entity_id == imp_file.import_file_id,
+            SystemNotification.severity == "WARNING",
+            SystemNotification.msg_code == "TR_SEAL_BROKEN",
+        )
+        .first()
+    )
+    assert notif is not None
+    assert "SEAL-9988" in notif.message
+    assert bk.truck_plate_number in notif.title
+
+
+def test_gate_out_future_departure_raises_400(client, db_session):
+    """BE810-T14: departure date > now + 1 day -> 400 IT_DATE_IN_FUTURE."""
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-FUTURE-DEP")
+    bk = create_transport_booking_service(db_session, payload)
+
+    future = datetime.now(timezone.utc) + timedelta(days=2)
+    resp = client.post(
+        f"/api/v1/inland-transport/bookings/{bk.transport_id}/gate-out",
+        json={"actual_departure_at": future.isoformat()},
+    )
+    assert resp.status_code == 400
+    detail = resp.json().get("detail", {})
+    assert detail.get("code") == "IT_DATE_IN_FUTURE"
+
+
+def test_arrival_future_arrival_raises_400(client, db_session):
+    """BE810-T14: arrival date > now + 1 day -> 400 IT_DATE_IN_FUTURE."""
+    imp_file = _create_sample_file(db_session)
+    payload = _booking_payload(imp_file, "WB-FUTURE-ARR")
+    bk = create_transport_booking_service(db_session, payload)
+
+    record_port_gate_out_service(
+        db_session, bk.transport_id, InlandTransportGateOutSubmit(actual_departure_at=datetime.now(timezone.utc))
+    )
+
+    future = datetime.now(timezone.utc) + timedelta(days=2)
+    resp = client.post(
+        f"/api/v1/inland-transport/bookings/{bk.transport_id}/warehouse-arrival",
+        json={
+            "actual_arrival_at": future.isoformat(),
+            "seal_intact": True,
+        },
+    )
+    assert resp.status_code == 400
+    detail = resp.json().get("detail", {})
+    assert detail.get("code") == "IT_DATE_IN_FUTURE"
+

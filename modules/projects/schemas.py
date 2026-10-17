@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -54,8 +54,11 @@ class ProjectResponse(ProjectBase):
     company_name: Optional[str] = None
     supplier_name: Optional[str] = None
     incoterm_code: Optional[str] = None
-    total_committed_usd: Optional[float] = 0.0
+    total_committed_usd: Optional[float] = None
     po_count: Optional[int] = 0
     remaining_budget_usd: Optional[float] = None
+    budget_utilization_percent: Optional[float] = None
+    missing_rate_currencies: List[str] = Field(default_factory=list)
+    committed_by_currency: Dict[str, float] = Field(default_factory=dict)
 
     model_config = ConfigDict(from_attributes=True)

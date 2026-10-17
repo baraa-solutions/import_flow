@@ -541,11 +541,31 @@
       "note"
     ]
   },
+  "CT_AGREEMENT_DATA_INVALID": {
+    "params": [
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CT_CUSTOMS_RATE_MISSING": {
     "params": [
       "currency",
       "on_date"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_SIMULATION_NO_BROKER": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_SIMULATION_NO_LINES": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -1915,6 +1935,14 @@
       "note"
     ]
   },
+  "FC_EXPORT_BLOCKED": {
+    "params": [
+      "blocking"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FC_STATUS_INVALID": {
     "params": [],
     "parts": [
@@ -2103,6 +2131,20 @@
       "note"
     ]
   },
+  "IT_DATE_IN_FUTURE": {
+    "params": [
+      "field_name"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_SEAL_REQUIRED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "IT_STATUS_INVALID": {
     "params": [
       "status"
@@ -2131,6 +2173,37 @@
   "JOURNAL_UNBALANCED": {
     "params": [
       "difference"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_APPROVER_ROLE_UNKNOWN": {
+    "params": [
+      "role_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_CLOSURE_STEP_RESERVED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_NOT_ACTIVE": {
+    "params": [
+      "import_file_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_FILE_NOT_FOUND": {
+    "params": [
+      "import_file_code"
     ],
     "parts": [
       "note"
@@ -2174,6 +2247,12 @@
       "note"
     ]
   },
+  "LC_FILE_REF_REQUIRED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "LC_FILE_RESUMED": {
     "params": [
       "notes"
@@ -2209,6 +2288,14 @@
       "note"
     ]
   },
+  "LC_SKIP_DUAL_APPROVAL_REQUIRED": {
+    "params": [
+      "step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "LC_STARTING_POINT_SET": {
     "params": [
       "step_code"
@@ -2228,6 +2315,15 @@
   "LC_STEP_ACTIVATED_AFTER_SKIP": {
     "params": [
       "skipped_step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_ALREADY_COMPLETED": {
+    "params": [
+      "import_file_code",
+      "step_code"
     ],
     "parts": [
       "note"
@@ -2263,6 +2359,15 @@
       "note"
     ]
   },
+  "LC_STEP_NOT_ACTIVE": {
+    "params": [
+      "import_file_code",
+      "step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "LC_STEP_ON_HOLD": {
     "params": [
       "reason"
@@ -2289,6 +2394,14 @@
   },
   "LC_STEP_RESUMED_DEFAULT": {
     "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_SEQUENCE_INVALID": {
+    "params": [
+      "step_code"
+    ],
     "parts": [
       "note"
     ]
@@ -2364,6 +2477,14 @@
   },
   "LC_SYNC_FREIGHT_STUDIES_DONE": {
     "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_TARGET_STEP_INVALID": {
+    "params": [
+      "step_code"
+    ],
     "parts": [
       "note"
     ]
@@ -3497,6 +3618,12 @@
       "note"
     ]
   },
+  "SDU_INVOICE_NUMBER_REQUIRED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "SDU_NO_SHIPPING_RECORD": {
     "params": [
       "import_file_code"
@@ -3556,6 +3683,14 @@
       "note"
     ]
   },
+  "SETTLEMENT_PO_NOT_ALLOCATED": {
+    "params": [
+      "po_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "SETTLEMENT_UNPAID_INVOICE": {
     "params": [
       "amount",
@@ -3589,6 +3724,17 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "TR_SEAL_BROKEN": {
+    "params": [
+      "seal_number",
+      "truck_plate_number"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
     ]
   },
   "TR_TASK_TRACK_ARRIVAL_GRN": {
@@ -3671,10 +3817,24 @@
       "body"
     ]
   },
+  "WR_CLAIM_CURRENCY_INVALID": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_CUSTOMS_NOT_RELEASED": {
     "params": [
       "import_file_code"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_DATE_IN_FUTURE": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -3874,21 +4034,5 @@
     "4": "4. Digital & Banking",
     "5": "5. Port Operations & Clearance",
     "6": "6. Inbound & Final Closure"
-  },
-  "CT_AGREEMENT_DATA_INVALID": {
-    "params": [
-      "reason"
-    ],
-    "parts": [
-      "note"
-    ]
-  },
-  "SETTLEMENT_PO_NOT_ALLOCATED": {
-    "params": [
-      "po_number"
-    ],
-    "parts": [
-      "note"
-    ]
   }
 }

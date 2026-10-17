@@ -450,7 +450,22 @@ def generate_master_report_service(
     open_files = [f for f in files if f.status == "Open"]
     in_prog = [f for f in files if f.status == "In Progress"]
     closed_files = [f for f in files if f.status in ("Closed", "Archived")]
-    total_cost = sum(f.estimated_cost for f in files)
+    estimated_cost_by_currency: Dict[str, float] = {}
+    for f in files:
+        cost = float(f.estimated_cost or 0.0)
+        curr = (f.estimated_cost_currency or "").strip().upper()
+        if not curr:
+            curr = "UNKNOWN"
+        estimated_cost_by_currency[curr] = round(
+            estimated_cost_by_currency.get(curr, 0.0) + cost, 2
+        )
+
+    if len(estimated_cost_by_currency) == 1:
+        total_estimated_cost = round(next(iter(estimated_cost_by_currency.values())), 2)
+    elif len(estimated_cost_by_currency) == 0:
+        total_estimated_cost = 0.0
+    else:
+        total_estimated_cost = None
 
     file_responses = [ImportFileResponse.model_validate(f) for f in files]
 
@@ -459,7 +474,8 @@ def generate_master_report_service(
         open_files_count=len(open_files),
         in_progress_count=len(in_prog),
         closed_files_count=len(closed_files),
-        total_estimated_cost=total_cost,
+        total_estimated_cost=total_estimated_cost,
+        estimated_cost_by_currency=estimated_cost_by_currency,
         files=file_responses,
     )
 
