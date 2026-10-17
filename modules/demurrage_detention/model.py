@@ -76,7 +76,7 @@ class DemurrageTracking(Base):
     policy_id = Column(Integer, ForeignKey("demurrage_policies.policy_id"), nullable=True)
     carrier_name = Column(String(100), index=True, nullable=False)
     bill_of_lading_no = Column(String(100), index=True, nullable=False)
-    port_name = Column(String(100), default="Alexandria Port", nullable=False)
+    port_name = Column(String(100), nullable=False)
 
     discharge_date = Column(Date, nullable=False)  # Date containers discharged from vessel
     gate_out_date = Column(Date, nullable=True)   # Date container cleared & left port gate

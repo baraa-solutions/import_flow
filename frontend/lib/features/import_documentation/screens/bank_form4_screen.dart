@@ -964,7 +964,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
         'currency_code': _form4Currency,
         'request_date': _form4RequestDateCtrl.text.trim(),
         'doc_reference_number': 'PENDING',
-        'notes': 'مسودة أولية لتتبع جاهزية ما قبل نموذج 4',
+        'notes': 'Initial draft to track pre-Form 4 readiness',
       });
       if (created != null && mounted) {
         _loadForm4ForEdit(created);
@@ -1072,12 +1072,16 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          'مسار جاهزية ما قبل طلب نموذج 4 (Pre-Form 4 Readiness)',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                        Flexible(
+                          child: Text(
+                            'مسار جاهزية ما قبل طلب نموذج 4 (Pre-Form 4 Readiness)',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1399,9 +1403,11 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'أ) سحب الشيت (مستخلص)',
-                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isPulled ? AppTheme.wcagEmerald : null),
+                    Expanded(
+                      child: Text(
+                        'أ) سحب الشيت (مستخلص)',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isPulled ? AppTheme.wcagEmerald : null),
+                      ),
                     ),
                     Icon(isPulled ? Icons.check : Icons.hourglass_top, size: 14, color: isPulled ? AppTheme.wcagEmerald : AppTheme.orange),
                   ],
@@ -1438,9 +1444,11 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'ب) رفع وتكويد نافذة (محاسب)',
-                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isUploaded ? AppTheme.wcagEmerald : null),
+                    Expanded(
+                      child: Text(
+                        'ب) رفع وتكويد نافذة (محاسب)',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isUploaded ? AppTheme.wcagEmerald : null),
+                      ),
                     ),
                     Icon(isUploaded ? Icons.check : Icons.hourglass_top, size: 14, color: isUploaded ? AppTheme.wcagEmerald : AppTheme.orange),
                   ],
@@ -1520,9 +1528,11 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'أصناف مكودة: ${doc.itemsCountCoded} / ${doc.itemsCountTotal}',
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: Text(
+                        'أصناف مكودة: ${doc.itemsCountCoded} / ${doc.itemsCountTotal}',
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                      ),
                     ),
                     Text(
                       '${(codedRatio * 100).toInt()}%',
@@ -1639,7 +1649,9 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('بنك السويفت المنفذ:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Expanded(
+                      child: Text('بنك السويفت المنفذ:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    ),
                     Icon(
                       isMatching ? Icons.verified : Icons.warning_amber_rounded,
                       size: 14,

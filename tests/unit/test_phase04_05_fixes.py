@@ -546,7 +546,8 @@ def test_dd_no_policy_parameter_path_equals_head_numbers(db):
                        ("DD_DEFAULT_STORAGE_RATE_EGP", "250")):
         db.add(SystemParameter(param_key=key, param_value=value))
     db.commit()
-    t2 = dd.create_demurrage_tracking_service(db, req)
+    # BE45-T06: one active tracking per B/L, so the parameter-path tracking uses its own B/L.
+    t2 = dd.create_demurrage_tracking_service(db, req.model_copy(update={"bill_of_lading_no": "BL-HEAD-PARAMS"}))
     assert (t2.total_demurrage_fx, t2.total_detention_fx, t2.total_storage_egp, t2.total_cost_egp) == head
     put = dd.recalculate_and_update_tracking_service(db, t2.tracking_id, DemurrageTrackingUpdate(notes="n"))
     assert (put.total_demurrage_fx, put.total_detention_fx, put.total_storage_egp, put.total_cost_egp) == head

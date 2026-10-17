@@ -2185,9 +2185,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                 ],
               ),
               const SizedBox(height: 10),
-              // Actions row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              // Actions row: wraps on narrow cards instead of overflowing
+              Wrap(
+                alignment: WrapAlignment.end,
                 children: [
                   IconButton(
                     icon: const Icon(Icons.summarize_outlined, color: AppTheme.cobalt, size: 18),
