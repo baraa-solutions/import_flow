@@ -58,10 +58,37 @@ def validate_rfq_links(db: Session, *, import_file_id: Optional[int] = None, pro
     require_active(db, TransportLocation, port_id, "الميناء")
 
 
+def validate_rfq_open(rfq) -> None:
+    """Adding, updating, or deleting quotes requires an open RFQ (not Awarded and not Cancelled)."""
+    if rfq.status == RFQ_STATUS_AWARDED:
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            "CCQ_RFQ_AWARDED",
+            "لا يمكن تعديل أو حذف أو إضافة عروض أسعار لطلب تمت ترسيته بالفعل.",
+            rfq_code=rfq.rfq_code,
+        )
+    if rfq.status == RFQ_STATUS_CANCELLED:
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            "CCQ_RFQ_CANCELLED",
+            "لا يمكن إضافة أو تعديل عروض أسعار لطلب عرض أسعار ملغى.",
+            rfq_code=rfq.rfq_code,
+        )
+
+
 def validate_rfq_status_change(current_status: str, new_status: Optional[str]) -> None:
-    """RFQ PUT: the status must be a known value and cannot become "Awarded" (only the award route does that)."""
+    """RFQ PUT: the status must be a known value and cannot become "Awarded" (only the award route does that).
+    An already Awarded RFQ refuses any status change (409 CCQ_RFQ_AWARDED)."""
     if new_status is None:
         return
+    if current_status == RFQ_STATUS_AWARDED and new_status != RFQ_STATUS_AWARDED:
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            "CCQ_RFQ_AWARDED",
+            "لا يمكن تغيير حالة طلب عرض أسعار تمت ترسيته بالفعل.",
+            current_status=current_status,
+            new_status=new_status,
+        )
     if new_status not in RFQ_STATUSES or (new_status == RFQ_STATUS_AWARDED and current_status != RFQ_STATUS_AWARDED):
         raise coded_error(
             status.HTTP_400_BAD_REQUEST,
@@ -72,11 +99,6 @@ def validate_rfq_status_change(current_status: str, new_status: Optional[str]) -
 
 
 def validate_quotation_create(data: CustomsClearanceQuotationCreate) -> None:
-    if not data.provider_name or len(data.provider_name.strip()) < 2:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="اسم المخلص الجمركي / المكتب مطلوب.",
-        )
     if data.provider_id <= 0:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -89,20 +111,27 @@ def validate_quotation_create(data: CustomsClearanceQuotationCreate) -> None:
         )
 
 
-def validate_quotation_provider(db: Session, provider_id: int) -> None:
+def validate_quotation_provider(db: Session, provider_id: int):
     from modules.external_service_providers.model import ExternalServiceProvider
 
-    require_active(db, ExternalServiceProvider, provider_id, "المخلص الجمركي / الشريك")
+    return require_active(db, ExternalServiceProvider, provider_id, "المخلص الجمركي / الشريك")
 
 
 def validate_award(rfq, quote, today: Optional[date] = None) -> None:
-    """Award: the quote must be an active quote of this RFQ (400), the RFQ not cancelled (409), the quote valid (400)."""
-    if quote is None or quote.rfq_id != rfq.rfq_id or not quote.is_active:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="عرض السعر المحدد لا ينتمي لهذا الطلب.")
+    """Award: the quote must be an active quote of this RFQ (400), RFQ not awarded (409), RFQ not cancelled (409), quote valid (400)."""
+    if rfq.status == RFQ_STATUS_AWARDED:
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            "CCQ_RFQ_AWARDED",
+            "تمت ترسية طلب عرض الأسعار بالفعل ولا يمكن الترسية مرة أخرى.",
+            rfq_code=rfq.rfq_code,
+        )
     if rfq.status == RFQ_STATUS_CANCELLED:
         raise coded_error(
             status.HTTP_409_CONFLICT, "CCQ_RFQ_CANCELLED", "لا يمكن ترسية طلب عرض أسعار ملغى.", rfq_code=rfq.rfq_code
         )
+    if quote is None or quote.rfq_id != rfq.rfq_id or not quote.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="عرض السعر المحدد لا ينتمي لهذا الطلب.")
     today = today or date.today()
     if quote.validity_date is not None and quote.validity_date < today:
         raise coded_error(
