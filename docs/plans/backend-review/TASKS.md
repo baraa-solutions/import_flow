@@ -155,7 +155,7 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 131 | BE01-T12 | customs_consultation | MAJOR | Consultation validation (FKs, clone guard, nulls, money inputs, dates) | BE01-T01, BE01-T03 | no | yes: stricter 400 / 409 / 422 | yes | [be-01](be-01-review.md) | todo |
 | 132 | BE01-T13 | shipping_scenarios | MAJOR | Scenario clone guard and update re-validation | BE01-T02 | no | yes: 409 `SCENARIO_SESSION_EXISTS`, 422 | yes | [be-01](be-01-review.md) | todo |
 | 133 | BE01-T14 | cbm_calculator | MAJOR | CBM totals pushed on update and link consistently | none | no | no (404 on inactive) | yes | [be-01](be-01-review.md) | todo |
-| 134 | BE01-T15 | purchase_orders | MAJOR | Paginated PO list (`/purchase-orders/paginated`, summary rows) | BE01-T11, BEW0-04 | no | additive | yes | [be-01](be-01-review.md) | todo |
+| 134 | BE01-T15 | purchase_orders | MAJOR | Paginated PO list (`/purchase-orders/paginated`, summary rows) | BE01-T11, BEW0-04 | no | additive | yes | [be-01](be-01-review.md) | done |
 | 135 | BE01-T16 | purchase_orders, customs_consultation, freight_quotations | MAJOR | Legacy-tolerant response schemas | BE01-T07, BE01-T12, BE01-T04 | no | no | yes | [be-01](be-01-review.md) | todo |
 | 136 | BE01-T18 | 4 phase-01 modules | MAJOR | Currency fields validated against the master, no invented defaults | BE01-T13, BE01-T12, BE01-T05, BE01-T06, BEW0-02 | no (option B: Q9) | yes: currency required with a price | yes | [be-01](be-01-review.md) | todo |
 | 137 | BE02-T07 | financial_approval | MAJOR | SWIFT file extraction off the event loop + OCR page cap | none | no | no | yes | [be-02](be-02-review.md) | todo |
