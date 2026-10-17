@@ -118,12 +118,44 @@ class ShippingScenarioItemBase(BaseModel):
 
 
 class ShippingScenarioItemCreate(ShippingScenarioItemBase):
-    pass
+    item_id: Optional[int] = None
+
+    free_time_days: int = Field(14, ge=0)
+    total_quotation_amount: float = Field(0.0, ge=0)
+
+    container_40ft_price: float = Field(0.0, ge=0)
+    container_40ft_qty: int = Field(0, ge=0)
+
+    container_20ft_price: float = Field(0.0, ge=0)
+    container_20ft_qty: int = Field(0, ge=0)
+
+    lcl_cbm_price: float = Field(0.0, ge=0)
+    lcl_cbm_qty: float = Field(0.0, ge=0)
+
+    express_courier_price: float = Field(0.0, ge=0)
+    eur_atr_price: float = Field(0.0, ge=0)
+    solas_vgm_price: float = Field(0.0, ge=0)
+    vgm_notification_price: float = Field(0.0, ge=0)
+    telex_release_price: float = Field(0.0, ge=0)
+    insurance_price: float = Field(0.0, ge=0)
+    booking_cancellation_price: float = Field(0.0, ge=0)
+    ics2_filing_fee_price: float = Field(0.0, ge=0)
+    others_fee_price: float = Field(0.0, ge=0)
+    document_fees_price: float = Field(0.0, ge=0)
+    waiver_letter_fee_price: float = Field(0.0, ge=0)
+    dthc_price: float = Field(0.0, ge=0)
+    storage_per_week_price: float = Field(0.0, ge=0)
+    extra_day_storage_price: float = Field(0.0, ge=0)
+
+    clearance_fee_price: float = Field(0.0, ge=0)
+    inspection_fee_price: float = Field(0.0, ge=0)
+    inland_transport_fee_price: float = Field(0.0, ge=0)
+    port_expenses_price: float = Field(0.0, ge=0)
 
 
 # Every stored scenario field (create payload == model columns besides ids): used for create, update,
 # clone and the response so the ~90-field mapping is written once.
-SCENARIO_ITEM_FIELDS = tuple(ShippingScenarioItemCreate.model_fields)
+SCENARIO_ITEM_FIELDS = tuple(f for f in ShippingScenarioItemCreate.model_fields if f != "item_id")
 
 
 class ShippingScenarioItemUpdate(BaseModel):
@@ -320,3 +352,4 @@ class CloneShippingEvaluationRequest(BaseModel):
     unlink_po: bool = True
     copy_carrier_options: bool = True
     remarks: Optional[str] = None
+    target_import_file_id: Optional[int] = None

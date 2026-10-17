@@ -84,3 +84,52 @@ def validate_invoices_currency_consistency(invoices_data: Optional[List[dict]]):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"يجب أن تكون جميع الفواتير المربوطة بملف الشحنة بنفس العملة الموحدة. تم اكتشاف عملات متعددة: [{curr_list}]. يرجى توحيد العملة لجميع الفواتير المرتبطة بالملف.",
         )
+
+
+ALLOWED_STATUS_TRANSITIONS = {
+    "Open": {"In Progress", "On Hold", "Closed"},
+    "Draft": {"In Progress", "On Hold", "Closed"},
+    "In Progress": {"On Hold", "Closed"},
+    "On Hold": {"In Progress", "Closed"},
+    "Closed": {"In Progress"},
+    "Archived": set(),
+}
+
+STATUS_CANONICAL = {
+    "open": "Open",
+    "draft": "Draft",
+    "in progress": "In Progress",
+    "on hold": "On Hold",
+    "closed": "Closed",
+    "archived": "Archived",
+    "active": "In Progress",
+}
+
+
+def validate_status_transition(current_status: Optional[str], target_status: str) -> None:
+    """
+    Validates whether transitioning an import file from current_status to target_status is allowed.
+    Allowed transitions:
+      - Open / Draft -> In Progress, On Hold, Closed
+      - In Progress -> On Hold, Closed
+      - On Hold -> In Progress (resume), Closed
+      - Closed -> In Progress (reopen)
+      - Archived -> none
+    Raises CodedHTTPException (409) with IF_STATUS_TRANSITION_INVALID if disallowed.
+    """
+    raw_current = (current_status or "").strip()
+    raw_target = (target_status or "").strip()
+    curr_norm = STATUS_CANONICAL.get(raw_current.lower(), raw_current)
+    targ_norm = STATUS_CANONICAL.get(raw_target.lower(), raw_target)
+
+    allowed = ALLOWED_STATUS_TRANSITIONS.get(curr_norm, set())
+    if targ_norm not in allowed:
+        from modules.common.errors import CodedHTTPException
+
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="IF_STATUS_TRANSITION_INVALID",
+            message_ar=f"لا يمكن تغيير حالة ملف الشحنة من '{current_status}' إلى '{target_status}'.",
+            **{"from": current_status or "", "to": target_status},
+        )
+

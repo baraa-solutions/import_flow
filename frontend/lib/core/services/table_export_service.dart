@@ -133,14 +133,13 @@ class TableExportService {
     );
   }
 
-  /// Exports any generic tabular data to a formatted, multi-page PDF document
+  /// Generates a formatted, multi-page PDF document for generic tabular data
   /// with Cairo Arabic font, RTL layout, ERP banner, and clean Key-Value Grid metadata card.
-  static Future<String?> exportTableToPdf({
-    required BuildContext context,
+  static Future<pw.Document> generatePdfDocument({
     required List<String> headers,
     required List<List<dynamic>> rows,
     required String stageName,
-    required String importFileNameOrCode,
+    String? importFileNameOrCode,
     TableExportHeaderContext? headerContext,
     List<TableExportSection>? additionalSections,
     PdfPageFormat? pageFormat,
@@ -194,10 +193,11 @@ class TableExportService {
                         ),
                       ],
                     ),
-                    pw.Text(
-                      importFileNameOrCode,
-                      style: pw.TextStyle(color: PdfColor.fromHex('#3498DB'), fontSize: 11, fontWeight: pw.FontWeight.bold),
-                    ),
+                    if ((importFileNameOrCode ?? '').isNotEmpty)
+                      pw.Text(
+                        importFileNameOrCode!,
+                        style: pw.TextStyle(color: PdfColor.fromHex('#3498DB'), fontSize: 11, fontWeight: pw.FontWeight.bold),
+                      ),
                   ],
                 ),
               ),
@@ -401,6 +401,31 @@ class TableExportService {
       ),
     );
 
+    return pdf;
+  }
+
+  /// Exports any generic tabular data to a formatted, multi-page PDF document
+  /// with Cairo Arabic font, RTL layout, ERP banner, and clean Key-Value Grid metadata card.
+  static Future<String?> exportTableToPdf({
+    required BuildContext context,
+    required List<String> headers,
+    required List<List<dynamic>> rows,
+    required String stageName,
+    required String importFileNameOrCode,
+    TableExportHeaderContext? headerContext,
+    List<TableExportSection>? additionalSections,
+    PdfPageFormat? pageFormat,
+  }) async {
+    final pdf = await generatePdfDocument(
+      headers: headers,
+      rows: rows,
+      stageName: stageName,
+      importFileNameOrCode: importFileNameOrCode,
+      headerContext: headerContext,
+      additionalSections: additionalSections,
+      pageFormat: pageFormat,
+    );
+
     final pdfBytes = await pdf.save();
     if (!context.mounted) return null;
 
@@ -412,6 +437,33 @@ class TableExportService {
       extension: 'pdf',
       customDialogTitle: 'تصدير جدول البيانات (PDF)',
       showNotification: true,
+    );
+  }
+
+  /// Direct print or print-preview for any generic tabular data via Printing.layoutPdf.
+  static Future<void> printTable({
+    required BuildContext context,
+    required List<String> headers,
+    required List<List<dynamic>> rows,
+    required String stageName,
+    String? importFileNameOrCode,
+    TableExportHeaderContext? headerContext,
+    List<TableExportSection>? additionalSections,
+    PdfPageFormat? pageFormat,
+  }) async {
+    final pdf = await generatePdfDocument(
+      headers: headers,
+      rows: rows,
+      stageName: stageName,
+      importFileNameOrCode: importFileNameOrCode,
+      headerContext: headerContext,
+      additionalSections: additionalSections,
+      pageFormat: pageFormat,
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdf.save(),
+      name: stageName,
     );
   }
 }
