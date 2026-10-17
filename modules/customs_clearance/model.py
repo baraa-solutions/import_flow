@@ -33,7 +33,7 @@ class CustomsClearanceRecord(Base):
     declaration_46_date = Column(DateTime, nullable=True)
     mts_certificate_number = Column(String(100), nullable=True)
     customs_tariff_items_count = Column(Integer, default=1)
-    customs_office_name = Column(String(200), default="Alexandria Port Customs", nullable=False)
+    customs_office_name = Column(String(200), nullable=True)
 
     # BP-027 / CS-01: Customs Broker Assignment & Electronic Authorization
     broker_id = Column(Integer, ForeignKey("external_service_providers.provider_id"), nullable=True)
@@ -45,12 +45,12 @@ class CustomsClearanceRecord(Base):
     mandate_letter_code = Column(String(100), nullable=True)
 
     # BP-029 Field Inspection & Channel (CL-01)
-    channel_type = Column(String(30), default="Red Channel") # Red Channel, Green Channel, Yellow Channel
+    channel_type = Column(String(30), nullable=True) # Red Channel, Green Channel, Yellow Channel
     inspection_date = Column(DateTime, nullable=True)
-    inspection_type = Column(String(50), default="Physical & Sampling", nullable=True)
+    inspection_type = Column(String(50), nullable=True)
     inspection_yard = Column(String(150), nullable=True)
     inspector_name = Column(String(150), nullable=True)
-    inspection_result = Column(String(50), default="Conforming", nullable=False)
+    inspection_result = Column(String(50), nullable=True)
     is_sample_drawn = Column(Boolean, default=True, nullable=False)
     sampling_date = Column(DateTime, nullable=True)
     sampling_record_no = Column(String(100), nullable=True)
@@ -62,7 +62,7 @@ class CustomsClearanceRecord(Base):
 
     # BP-030 & CL-02 Duty Payment Breakdown & Nafeza Assessment
     cif_base_amount = Column(Float, default=0.0)
-    customs_exchange_rate = Column(Float, default=1.0)
+    customs_exchange_rate = Column(Float, nullable=True)
     import_duty_amount = Column(Float, default=0.0)
     vat_amount = Column(Float, default=0.0)
     schedule_tax_amount = Column(Float, default=0.0)

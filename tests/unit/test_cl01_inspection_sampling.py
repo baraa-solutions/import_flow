@@ -218,6 +218,7 @@ def test_record_customs_inspection_sampling_validation_errors(db_session, sample
     # 1. Non-existent file -> 404
     payload_404 = CustomsInspectionSamplingSubmit(
         import_file_id=99999,
+        inspection_result="Conforming",
         inspection_type="Physical & Sampling",
     )
     with pytest.raises(HTTPException) as exc_info:
@@ -227,23 +228,26 @@ def test_record_customs_inspection_sampling_validation_errors(db_session, sample
     # 2. Short sampling record no -> 400
     payload_short = CustomsInspectionSamplingSubmit(
         import_file_id=imp_file.import_file_id,
+        inspection_result="Conforming",
         is_sample_drawn=True,
         sampling_record_no="SM",
     )
     with pytest.raises(HTTPException) as exc_info2:
         record_customs_inspection_sampling_service(db_session, payload_short)
     assert exc_info2.value.status_code == 400
+    assert "3 أحرف/أرقام" in exc_info2.value.detail
 
-    # 3. Auto-generate sampling record no when sample drawn without number
-    payload_auto = CustomsInspectionSamplingSubmit(
+    # 3. Missing sampling record no when sample drawn -> 400 (no invented SMP- generator)
+    payload_missing_smp = CustomsInspectionSamplingSubmit(
         import_file_id=imp_file.import_file_id,
+        inspection_result="Conforming",
         is_sample_drawn=True,
         sampling_record_no=None,
     )
-    record = record_customs_inspection_sampling_service(db_session, payload_auto)
-    assert record.is_sample_drawn is True
-    assert record.sampling_record_no is not None
-    assert record.sampling_record_no.startswith("SMP-")
+    with pytest.raises(HTTPException) as exc_info3:
+        record_customs_inspection_sampling_service(db_session, payload_missing_smp)
+    assert exc_info3.value.status_code == 400
+    assert "رقم محضر سحب العينات مطلوب عند سحب عينات." in exc_info3.value.detail
 
 
 def test_record_inspection_sampling_api_endpoint(client, sample_data):
@@ -275,3 +279,28 @@ def test_record_inspection_sampling_api_endpoint(client, sample_data):
     assert data["sampling_record_no"] == "SMP-2026-DKH-3399"
     assert data["goeic_certificate_no"] == "GOEIC-CER-9922"
     assert data["status"] == "Inspection & Sampling Recorded"
+
+
+def test_cl01_api_missing_inspection_result_returns_422(client, sample_data):
+    """Omitting inspection_result must fail Pydantic validation with 422."""
+    imp_file = sample_data["import_file"]
+    body = {
+        "import_file_id": imp_file.import_file_id,
+        "is_sample_drawn": False,
+    }
+    res = client.post("/api/v1/customs-clearance/record-inspection-sampling", json=body)
+    assert res.status_code == 422
+
+
+def test_cl01_api_sample_drawn_without_record_returns_400(client, sample_data):
+    """When is_sample_drawn=True, missing sampling_record_no must return 400."""
+    imp_file = sample_data["import_file"]
+    body = {
+        "import_file_id": imp_file.import_file_id,
+        "inspection_result": "Conforming",
+        "is_sample_drawn": True,
+        "sampling_record_no": "",
+    }
+    res = client.post("/api/v1/customs-clearance/record-inspection-sampling", json=body)
+    assert res.status_code == 400
+    assert "رقم محضر سحب العينات مطلوب عند سحب عينات." in res.text

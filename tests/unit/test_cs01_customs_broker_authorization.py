@@ -141,6 +141,7 @@ def test_authorize_customs_broker_service_full_workflow(db_session, sample_data)
     assert record.delegation_status == "Authorized"
     assert record.customs_office_name == "Alexandria Port Customs"
     assert record.status == "Broker Authorized - Ready for 46"
+    assert record.customs_exchange_rate is None
     assert record.mandate_letter_code is not None  # Formal mandate letter was generated!
 
     # 1. Verify ImportFile sync
@@ -272,3 +273,45 @@ def test_authorize_broker_validation_errors(client, sample_data):
         },
     )
     assert res3.status_code == 422  # Pydantic min_length validation
+
+
+def test_authorize_broker_without_office_and_empty_license_skips_letter(db_session):
+    """When customs_office_name is omitted, it must stay None, and missing broker license skips letter."""
+    imp_file = ImportFile(
+        import_file_code="IMP-2026-NOLIC",
+        custom_file_number="FILE-NOLIC-1",
+        company_name="Test Company",
+        supplier_name="Test Supplier",
+        current_module="Phase 5 - Sailing & CargoX",
+        owner="Kamal",
+        is_active=True,
+    )
+    db_session.add(imp_file)
+
+    broker = ExternalServiceProvider(
+        partner_code="BRK-NOLIC",
+        partner_name="مخلص بدون ترخيص مدخل",
+        partner_type="Customs Broker",
+        tax_id="771-000-001",
+        commercial_register="CR-001",
+        clearance_license_number="",  # Empty license
+        is_active=True,
+    )
+    db_session.add(broker)
+    db_session.commit()
+    db_session.refresh(imp_file)
+    db_session.refresh(broker)
+
+    payload = CustomsBrokerAuthorizationSubmit(
+        import_file_id=imp_file.import_file_id,
+        broker_id=broker.provider_id,
+        delegation_number="DEL-2026-NOLIC",
+        customs_office_name=None,
+        generate_mandate_letter=True,
+    )
+
+    record = authorize_customs_broker_service(db_session, payload, user="Tamer Specialist")
+
+    assert record.customs_office_name is None
+    assert record.customs_exchange_rate is None
+    assert record.mandate_letter_code is None  # Mandate letter skipped, not invented!
