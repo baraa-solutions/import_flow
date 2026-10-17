@@ -11,7 +11,7 @@ class CustomsClearanceCreate(BaseModel):
     declaration_46_date: Optional[datetime] = None
     mts_certificate_number: Optional[str] = None
     customs_tariff_items_count: int = 1
-    customs_office_name: str = "Alexandria Port Customs"
+    customs_office_name: Optional[str] = None
     broker_id: Optional[int] = None
     broker_name: Optional[str] = None
     delegation_number: Optional[str] = None
@@ -19,12 +19,12 @@ class CustomsClearanceCreate(BaseModel):
     delegation_status: Optional[str] = "Authorized"
     authorization_notes: Optional[str] = None
     mandate_letter_code: Optional[str] = None
-    channel_type: str = "Red Channel"
+    channel_type: Optional[str] = None
     inspection_date: Optional[datetime] = None
-    inspection_type: Optional[str] = "Physical & Sampling"
+    inspection_type: Optional[str] = None
     inspection_yard: Optional[str] = None
     inspector_name: Optional[str] = None
-    inspection_result: str = "Conforming"
+    inspection_result: Optional[str] = None
     is_sample_drawn: bool = True
     sampling_date: Optional[datetime] = None
     sampling_record_no: Optional[str] = None
@@ -33,7 +33,7 @@ class CustomsClearanceCreate(BaseModel):
     regulatory_bodies: List[str] = []
     inspection_notes: Optional[str] = None
     cif_base_amount: float = Field(0.0, ge=0)
-    customs_exchange_rate: float = Field(1.0, gt=0)
+    customs_exchange_rate: Optional[float] = Field(None, gt=0)
     import_duty_amount: float = Field(0.0, ge=0)
     vat_amount: float = Field(0.0, ge=0)
     schedule_tax_amount: float = Field(0.0, ge=0)
@@ -71,7 +71,7 @@ class CustomsBrokerAuthorizationSubmit(BaseModel):
     broker_id: int = Field(..., description="معرف المخلص الجمركي (ExternalServiceProvider ID)")
     delegation_number: str = Field(..., min_length=3, description="رقم التفويض الإلكتروني للمخلص (Nafeza / MTS Code)")
     delegation_date: Optional[datetime] = Field(None, description="تاريخ صدور التفويض")
-    customs_office_name: Optional[str] = Field("Alexandria Port Customs", description="الميناء الجمركي المعني بالتخليص")
+    customs_office_name: Optional[str] = Field(None, description="الميناء الجمركي المعني بالتخليص")
     authorization_notes: Optional[str] = Field(None, description="ملاحظات وتوجيهات التفويض")
     generate_mandate_letter: bool = Field(True, description="توليد خطاب تفويض جمركي رسمي")
 
@@ -97,8 +97,8 @@ class CustomsDeclaration46Submit(BaseModel):
     import_file_id: int = Field(..., description="معرف ملف الشحنة الاستيرادية")
     declaration_46_no: str = Field(..., min_length=3, description="رقم الإقرار الجمركي ونموذج 46 ك.م (Declaration 46 Number)")
     declaration_46_date: Optional[datetime] = Field(None, description="تاريخ قيد الإقرار الجمركي")
-    customs_office_name: str = Field("Alexandria Port Customs", description="الميناء / المركز الجمركي المعني بالقيد")
-    channel_type: str = Field("Red Channel", description="المسار الجمركي المحدد (Red Channel, Yellow Channel, Green Channel)")
+    customs_office_name: str = Field(..., min_length=2, description="الميناء / المركز الجمركي المعني بالقيد")
+    channel_type: str = Field(..., min_length=2, description="المسار الجمركي المحدد (Red Channel, Yellow Channel, Green Channel)")
     regulatory_bodies: List[str] = Field(default_factory=list, description="جهات العرض الرقابية والفحص (GOEIC, Food Safety, etc.)")
     mts_certificate_number: Optional[str] = Field(None, description="رقم الشهادة الجمركية المبدئية أو المرجعية (MTS Ref)")
     customs_tariff_items_count: int = Field(1, ge=1, description="عدد بنود التعريفة الجمركية المتضمنة في الإقرار")
@@ -108,10 +108,10 @@ class CustomsDeclaration46Submit(BaseModel):
 class CustomsInspectionSamplingSubmit(BaseModel):
     import_file_id: int = Field(..., description="معرف ملف الشحنة الاستيرادية")
     inspection_date: Optional[datetime] = Field(None, description="تاريخ الكشف والمعاينة الفنية")
-    inspection_type: str = Field("Physical & Sampling", description="نوع الكشف (Physical & Sampling, 100% Full, Random Sample, X-Ray Scan, Document Review)")
+    inspection_type: Optional[str] = Field(None, description="نوع الكشف (Physical & Sampling, 100% Full, Random Sample, X-Ray Scan, Document Review)")
     inspection_yard: Optional[str] = Field(None, description="INSPECTION_YARD code (legacy yard names are normalized) or free text")
     inspector_name: Optional[str] = Field(None, description="اسم المفتش أو رئيس لجنة الفحص الجمركي المشترك")
-    inspection_result: str = Field("Conforming", description="نتيجة المعاينة (Conforming, Shortage, Surplus, Discrepancy)")
+    inspection_result: str = Field(..., description="نتيجة المعاينة (Conforming, Shortage, Surplus, Discrepancy)")
     is_sample_drawn: bool = Field(True, description="هل تم سحب عينات للفحص والتحليل المعملي؟")
     sampling_date: Optional[datetime] = Field(None, description="تاريخ سحب العينات")
     sampling_record_no: Optional[str] = Field(None, description="رقم محضر سحب العينات الرسمي")
@@ -362,7 +362,7 @@ class CustomsClearanceResponse(LegacyRowTolerantModel):
     declaration_46_date: Optional[datetime] = None
     mts_certificate_number: Optional[str] = None
     customs_tariff_items_count: int = 1
-    customs_office_name: str
+    customs_office_name: Optional[str] = None
     broker_id: Optional[int] = None
     broker_name: Optional[str] = None
     delegation_number: Optional[str] = None
@@ -370,12 +370,12 @@ class CustomsClearanceResponse(LegacyRowTolerantModel):
     delegation_status: Optional[str] = "Authorized"
     authorization_notes: Optional[str] = None
     mandate_letter_code: Optional[str] = None
-    channel_type: str
+    channel_type: Optional[str] = None
     inspection_date: Optional[datetime] = None
-    inspection_type: Optional[str] = "Physical & Sampling"
+    inspection_type: Optional[str] = None
     inspection_yard: Optional[str] = None
     inspector_name: Optional[str] = None
-    inspection_result: str = "Conforming"
+    inspection_result: Optional[str] = None
     is_sample_drawn: bool = True
     sampling_date: Optional[datetime] = None
     sampling_record_no: Optional[str] = None

@@ -1509,7 +1509,7 @@ def create_partial_batch_service(
         "initial_starting_step": initial_step,
         "status": "Open",
         "owner": parent.owner or current_user,
-        "notes": payload.notes or f"دفعة شحن مجزأة تابعة للملف الأساسي: {parent.import_file_code}",
+        "notes": payload.notes or f"Partial shipment batch of parent file: {parent.import_file_code}",
         "is_active": True,
         "created_by": current_user,
         "updated_by": current_user,

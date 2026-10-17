@@ -13,11 +13,12 @@ def generate_booking_code(db: Session) -> str:
     return next_yearly_code(db, ShipmentBooking.booking_code, "BKG", pad=4)
 
 
-def create_booking(db: Session, payload: ShipmentBookingCreate, owner: str) -> ShipmentBooking:
+def create_booking(db: Session, payload: ShipmentBookingCreate, owner: str, user: Optional[str] = None) -> ShipmentBooking:
     """Adds and flushes the booking (the service commits)."""
     code = generate_booking_code(db)
     containers_json = [c.model_dump() for c in payload.containers_data]
     costs_json = [c.model_dump() for c in payload.cost_charges_data]
+    actor = user or owner or "system"
 
     booking = ShipmentBooking(
         booking_code=code,
@@ -60,6 +61,8 @@ def create_booking(db: Session, payload: ShipmentBookingCreate, owner: str) -> S
         savings_notes=payload.savings_notes,
         status=payload.status,
         owner=owner,
+        created_by=actor,
+        updated_by=actor,
         notes=payload.notes,
     )
 
@@ -105,7 +108,7 @@ def list_bookings(
     return items, total
 
 
-def apply_booking_update(booking: ShipmentBooking, payload: ShipmentBookingUpdate) -> None:
+def apply_booking_update(booking: ShipmentBooking, payload: ShipmentBookingUpdate, user: Optional[str] = None) -> None:
     """Copies the sent fields onto the booking (no commit). An explicit null on a NOT NULL column is skipped."""
     required = not_null_columns(ShipmentBooking)
     data = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if not (v is None and k in required)}
@@ -118,8 +121,12 @@ def apply_booking_update(booking: ShipmentBooking, payload: ShipmentBookingUpdat
         setattr(booking, key, val)
 
     booking.updated_at = datetime.now(timezone.utc)
+    if user:
+        booking.updated_by = user
 
 
-def set_booking_active(booking: ShipmentBooking, is_active: bool) -> None:
+def set_booking_active(booking: ShipmentBooking, is_active: bool, user: Optional[str] = None) -> None:
     booking.is_active = is_active
     booking.updated_at = datetime.now(timezone.utc)
+    if user:
+        booking.updated_by = user

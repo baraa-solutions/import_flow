@@ -5,8 +5,8 @@ Customs Clearance Quotations & Price Lists Schemas
 from __future__ import annotations
 
 from datetime import datetime, date
-from typing import List, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Optional, Any
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class CustomsClearanceQuotationCreate(BaseModel):
     provider_id: int
-    provider_name: str
+    provider_name: Optional[str] = None
     license_number: Optional[str] = None
     clearance_fee: float = Field(default=0.0, ge=0)
     inland_transport_fee: float = Field(default=0.0, ge=0)
@@ -136,6 +136,19 @@ class CustomsClearanceRFQResponse(BaseModel):
     updated_at: datetime
     quotations: List[CustomsClearanceQuotationResponse] = []
 
+    @field_validator("quotations", mode="before")
+    @classmethod
+    def filter_active_quotations(cls, v: Any) -> Any:
+        if v is None:
+            return []
+        if isinstance(v, (list, tuple)):
+            return [
+                q for q in v
+                if (getattr(q, "is_active", True) is not False)
+                and (not isinstance(q, dict) or q.get("is_active") is not False)
+            ]
+        return v
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Price List Schemas
@@ -143,7 +156,7 @@ class CustomsClearanceRFQResponse(BaseModel):
 
 class ClearancePriceListItemCreate(BaseModel):
     provider_id: int
-    provider_name: str
+    provider_name: Optional[str] = None
     port_name: str
     service_category: str = "CLEARANCE_FEE"
     container_type: str = "40HQ"
@@ -155,6 +168,7 @@ class ClearancePriceListItemCreate(BaseModel):
 
 
 class ClearancePriceListItemUpdate(BaseModel):
+    provider_id: Optional[int] = None
     port_name: Optional[str] = None
     service_category: Optional[str] = None
     container_type: Optional[str] = None

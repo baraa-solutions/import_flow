@@ -45,7 +45,7 @@ def get_all_tariffs(
     skip: int = 0,
     limit: Optional[int] = None,
     category_values: Optional[List[str]] = None,
-) -> List[CustomsTariff]:
+) -> Tuple[List[CustomsTariff], int]:
     """``category_values``: exact customs_category values (codes + their legacy labels) OR-ed into the
     text search, so a label typed by the user also finds rows that store the code."""
     query = db.query(CustomsTariff)
@@ -66,19 +66,19 @@ def get_all_tariffs(
         if category_values:
             conditions.append(CustomsTariff.customs_category.in_(category_values))
         query = query.filter(or_(*conditions))
+    total = query.count()
     query = query.order_by(CustomsTariff.hs_code)
     if skip > 0:
         query = query.offset(skip)
     if limit is not None:
         query = query.limit(limit)
-    return query.all()
+    return query.all(), total
 
 
 def create_tariff(db: Session, data: dict) -> CustomsTariff:
     tariff = CustomsTariff(**data)
     db.add(tariff)
-    db.commit()
-    db.refresh(tariff)
+    db.flush()
     return tariff
 
 
@@ -88,8 +88,7 @@ def update_tariff(db: Session, tariff_id: int, data: dict) -> Optional[CustomsTa
         return None
     for key, value in data.items():
         setattr(tariff, key, value)
-    db.commit()
-    db.refresh(tariff)
+    db.flush()
     return tariff
 
 
@@ -130,8 +129,7 @@ def archive_and_create_new_tariff_version(
 
     new_tariff = CustomsTariff(**new_version_data)
     db.add(new_tariff)
-    db.commit()
-    db.refresh(new_tariff)
+    db.flush()
     return new_tariff
 
 
@@ -142,8 +140,7 @@ def toggle_tariff_active(
     if not tariff:
         return None
     tariff.is_active = is_active
-    db.commit()
-    db.refresh(tariff)
+    db.flush()
     return tariff
 
 
@@ -206,8 +203,7 @@ from .model import FeeCode, PreferentialAgreement
 def create_preferential_agreement(db: Session, data: dict) -> PreferentialAgreement:
     agreement = PreferentialAgreement(**data)
     db.add(agreement)
-    db.commit()
-    db.refresh(agreement)
+    db.flush()
     return agreement
 
 
@@ -323,10 +319,7 @@ def bulk_create_or_update_tariff_with_agreements(
         db.add(ag)
         created_agreements.append(ag)
 
-    db.commit()
-    db.refresh(tariff)
-    for ag in created_agreements:
-        db.refresh(ag)
+    db.flush()
     return tariff, created_agreements
 
 
@@ -358,11 +351,14 @@ def get_active_fee_codes(db: Session, on_date: Optional[date] = None) -> List[Fe
     )
 
 
+def get_fee_code_by_code(db: Session, code: str) -> Optional[FeeCode]:
+    return db.query(FeeCode).filter(FeeCode.code == code.strip()).first()
+
+
 def create_fee_code(db: Session, data: dict) -> FeeCode:
     fc = FeeCode(**data)
     db.add(fc)
-    db.commit()
-    db.refresh(fc)
+    db.flush()
     return fc
 
 

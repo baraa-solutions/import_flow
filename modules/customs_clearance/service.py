@@ -7,7 +7,6 @@ Every mutating service follows one order (06-07 plan CL-12 / CL-13):
    ``best_effort``: a failing side effect is logged and rolled back alone, it never undoes the saved business write.
 """
 import logging
-import random
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, TypeVar
@@ -375,6 +374,8 @@ def create_customs_clearance_service(
             declaration_46_no=schema.declaration_46_no,
             customs_office_name=schema.customs_office_name,
             channel_type=schema.channel_type,
+            cif_base_amount=schema.cif_base_amount,
+            customs_exchange_rate=schema.customs_exchange_rate,
             inspection_date=schema.inspection_date or now,
             regulatory_bodies=schema.regulatory_bodies,
             inspection_notes=schema.inspection_notes,
@@ -542,12 +543,16 @@ def _generate_mandate_letter(
     from modules.formal_letters.schemas import FormalLetterGenerateRequest
     from modules.formal_letters.service import generate_formal_letter_service
 
+    if not broker_license or not broker_license.strip():
+        logger.info("Skipping mandate letter generation for clearance record %s: broker_license is empty", record_id)
+        return
+
     letter_req = FormalLetterGenerateRequest(
         import_file_id=payload.import_file_id,
         template_type="customs_broker_mandate",
         recipient_name=f"السيد مدير عام {payload.customs_office_name or 'جمارك الإسكندرية'}",
         broker_name=broker_name,
-        broker_license=broker_license or "رخصة معتمدة",
+        broker_license=broker_license.strip(),
         custom_notes=payload.authorization_notes,
     )
     created_letter = generate_formal_letter_service(db, letter_req, user=user)
@@ -584,7 +589,7 @@ def authorize_customs_broker_service(
         imp_file = _require_import_file(db, payload.import_file_id)
         record = _find_or_new_record(
             db, imp_file, user,
-            customs_office_name=payload.customs_office_name or "Alexandria Port Customs",
+            customs_office_name=payload.customs_office_name,
             status="Broker Authorized - Ready for 46",
         )
         record.broker_id = broker_id
@@ -749,8 +754,8 @@ def register_customs_declaration_46_service(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="رقم الإقرار الجمركي ونموذج 46 ك.م يجب ألا يقل عن 3 أحرف/أرقام.")
 
     dec_dt = payload.declaration_46_date or _now()
-    channel = payload.channel_type or "Red Channel"
-    office = (payload.customs_office_name or "").strip() or "Alexandria Port Customs"
+    channel = payload.channel_type.strip()
+    office = payload.customs_office_name.strip()
     reg_bodies = enum_codes.normalize_list(enum_codes.REGULATORY_BODY, payload.regulatory_bodies) or []
     tariff_count = payload.customs_tariff_items_count if payload.customs_tariff_items_count and payload.customs_tariff_items_count > 0 else 1
     mts_cert = payload.mts_certificate_number.strip() if payload.mts_certificate_number else None
@@ -820,17 +825,17 @@ def record_customs_inspection_sampling_service(
 
     sampling_rec = (payload.sampling_record_no or "").strip()
     if payload.is_sample_drawn:
-        if sampling_rec and len(sampling_rec) < 3:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="رقم محضر سحب العينات يجب ألا يقل عن 3 أحرف/أرقام.")
         if not sampling_rec:
-            sampling_rec = f"SMP-{datetime.now().year}-{payload.import_file_id:04d}-{random.randint(100, 999)}"
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="رقم محضر سحب العينات مطلوب عند سحب عينات.")
+        if len(sampling_rec) < 3:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="رقم محضر سحب العينات يجب ألا يقل عن 3 أحرف/أرقام.")
 
     insp_dt = payload.inspection_date or _now()
     sampling_dt = payload.sampling_date or (insp_dt if payload.is_sample_drawn else None)
     # INSPECTION_YARD code when picked from the list (legacy Arabic names mapped); free text stays as typed.
     insp_yard = enum_codes.normalize(enum_codes.INSPECTION_YARD, (payload.inspection_yard or "").strip()) or "Joint Inspection Yard"
-    insp_type = (payload.inspection_type or "").strip() or "Physical & Sampling"
-    insp_result = (payload.inspection_result or "").strip() or "Conforming"
+    insp_type = (payload.inspection_type or "").strip() or None
+    insp_result = payload.inspection_result.strip()
     sample_status = payload.sample_test_status or ("Samples Under Testing" if payload.is_sample_drawn else "None")
     sampled_bodies = enum_codes.normalize_list(enum_codes.REGULATORY_BODY, payload.sampled_regulatory_bodies) or []
     goeic_cert = (payload.goeic_certificate_no or "").strip() if payload.goeic_certificate_no else None
@@ -840,7 +845,7 @@ def record_customs_inspection_sampling_service(
         imp_file = _require_import_file(db, payload.import_file_id)
         record = _find_or_new_record(
             db, imp_file, user,
-            customs_office_name=insp_yard, channel_type="Red Channel", status="Inspection & Sampling Recorded",
+            status="Inspection & Sampling Recorded",
         )
         record.inspection_date = insp_dt
         record.inspection_type = insp_type

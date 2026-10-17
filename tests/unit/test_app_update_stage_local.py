@@ -2,6 +2,8 @@
 POST /stage-local (spec §B.7): offline update from files on this machine. Signature, schema, sha256/size and
 "newer than installed" are enforced; expiry and highest_seen are not (Decision 1). The staged copy is what is hashed.
 """
+import os
+
 import pytest
 from fastapi import HTTPException
 
@@ -39,8 +41,18 @@ def _no_maintenance_leak():
     clear_maintenance_mode()
 
 
+# The drive rules (``X:\\`` on a fixed/removable drive) are Windows-only and run on the Windows CI. Elsewhere the
+# temp files have POSIX paths, so the drive check is replaced by "absolute path" to keep every other rule covered.
+WINDOWS_ONLY = pytest.mark.skipif(os.name != "nt", reason="drive-letter rules are Windows-only")
+
+
 @pytest.fixture
 def env(tmp_path, monkeypatch):
+    if os.name != "nt":
+        monkeypatch.setattr(
+            update_rules, "_is_local_drive_path",
+            lambda path: isinstance(path, str) and "\x00" not in path and os.path.isabs(path),
+        )
     return make_env(tmp_path, monkeypatch)
 
 
@@ -275,6 +287,7 @@ def test_non_local_paths_are_one_generic_400(path):
         assert exc.value.detail == DETAIL_FILE_NOT_FOUND
 
 
+@WINDOWS_ONLY
 @pytest.mark.parametrize("drive_type,allowed", [(2, True), (3, True), (4, False), (5, False), (6, False),
                                                  (0, False), (1, False)])
 def test_only_fixed_and_removable_drives(env, monkeypatch, drive_type, allowed):
@@ -295,11 +308,13 @@ def test_only_fixed_and_removable_drives(env, monkeypatch, drive_type, allowed):
     assert seen and all(len(r) == 3 and r[1:] == ":\\" for r in seen)
 
 
+@WINDOWS_ONLY
 def test_network_drive_letter_is_refused_through_the_service(env, monkeypatch):
     monkeypatch.setattr(update_rules, "get_drive_type", lambda root: 4)  # DRIVE_REMOTE (mapped share)
     _refused(env, env.service(), _usb(env, sign(env.key, payload())), 400, DETAIL_FILE_NOT_FOUND)
 
 
+@WINDOWS_ONLY
 def test_real_local_drive_is_accepted(env):
     manifest, installer = _usb(env, sign(env.key, payload()))
     assert update_rules.get_drive_type(installer[0] + ":\\") in (2, 3)

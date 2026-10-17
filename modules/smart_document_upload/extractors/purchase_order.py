@@ -117,17 +117,14 @@ class PurchaseOrderExtractor(BaseExtractor):
             unified_inv = extract_commercial_invoice_data(text) or {}
             unified_pl = extract_packing_list_data(text) or {}
 
-            # 1. Commercial items fallback/enrichment
+            # 1. Commercial items: fallback only. A longer generic list is not a better one (it picks up
+            #    header, address and bank lines as items), so items this extractor found are kept.
             if not result.get("items") and unified_inv.get("items"):
                 result["items"] = unified_inv.get("items")
-            elif result.get("items") and unified_inv.get("items") and len(unified_inv["items"]) > len(result["items"]):
-                result["items"] = unified_inv["items"]
 
-            # 2. Packing list items fallback/enrichment
+            # 2. Packing list items: fallback only, for the same reason.
             pl_itms = unified_pl.get("packing_items") or unified_pl.get("items")
             if not result.get("packing_list_items") and pl_itms:
-                result["packing_list_items"] = pl_itms
-            elif result.get("packing_list_items") and pl_itms and len(pl_itms) > len(result["packing_list_items"]):
                 result["packing_list_items"] = pl_itms
 
             # 3. Document numbers and date

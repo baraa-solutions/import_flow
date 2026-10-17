@@ -32,6 +32,7 @@ class ApiErrorCode {
   static const fcClosureBlocked = 'FC_CLOSURE_BLOCKED';
   static const ctSimulationNoLines = 'CT_SIMULATION_NO_LINES';
   static const ctSimulationNoBroker = 'CT_SIMULATION_NO_BROKER';
+  static const settlementDuplicateActive = 'SETTLEMENT_DUPLICATE_ACTIVE';
 }
 
 /// User-facing, localized text for a failed API call.
