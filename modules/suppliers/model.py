@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 
+from sqlalchemy import Boolean
 from sqlalchemy import Column
+from sqlalchemy import DateTime
+from sqlalchemy import Float
 from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Text
-from sqlalchemy import Boolean
-from sqlalchemy import DateTime
 
 from database.database import Base
 
@@ -73,6 +74,20 @@ class Supplier(Base):
     )
 
 
+    # Foreign Tax / VAT Registration ID
+    tax_id = Column(
+        String(50),
+        nullable=True
+    )
+
+    # Contract / Transacting Currency (e.g. USD, EUR, CNY)
+    currency = Column(
+        String(10),
+        default="USD",
+        nullable=False
+    )
+
+
     # ==================================================
     # Country Information
     # ==================================================
@@ -88,10 +103,25 @@ class Supplier(Base):
         nullable=False
     )
 
+    city = Column(
+        String(100),
+        nullable=True
+    )
+
+    postal_code = Column(
+        String(20),
+        nullable=True
+    )
+
 
     # ==================================================
     # Contact Information
     # ==================================================
+
+    contact_person = Column(
+        String(150),
+        nullable=True
+    )
 
     address = Column(
         String(300),
@@ -165,6 +195,16 @@ class Supplier(Base):
         nullable=False
     )
 
+    # Trademark & Quality Certificates
+    has_wipo = Column(Boolean, default=False, nullable=False)
+    wipo_number = Column(String(100), nullable=True)
+    has_euipo = Column(Boolean, default=False, nullable=False)
+    euipo_number = Column(String(100), nullable=True)
+    has_global_brand = Column(Boolean, default=False, nullable=False)
+    global_brand_number = Column(String(100), nullable=True)
+    has_iso_9001 = Column(Boolean, default=False, nullable=False)
+    iso_9001_number = Column(String(100), nullable=True)
+
     registered_decree_43 = Column(
         Boolean,
         default=False,
@@ -180,6 +220,23 @@ class Supplier(Base):
     brands = Column(
         Text,
         nullable=True
+    )
+
+    payment_terms = Column(
+        String(100),
+        nullable=True
+    )
+
+    credit_limit = Column(
+        Float,
+        default=0.0,
+        nullable=False
+    )
+
+    rating = Column(
+        Float,
+        default=5.0,
+        nullable=False
     )
 
     notes = Column(

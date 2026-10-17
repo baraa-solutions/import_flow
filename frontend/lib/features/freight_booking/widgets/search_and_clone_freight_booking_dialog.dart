@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../cargo_shipping/widgets/cargo_shipping_ui.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../models/freight_booking_model.dart';
@@ -128,7 +127,7 @@ class _SearchAndCloneFreightBookingDialogState
           const SizedBox(height: 12),
           Expanded(
             child: _filtered.isEmpty
-                ? CcStateView.empty(message: l.freightBookingEmptyRecords, icon: Icons.search_off_rounded)
+                ? AppEmptyState(message: l.freightBookingEmptyRecords, icon: Icons.search_off_rounded)
                 : ListView.separated(
                     itemCount: _filtered.length,
                     separatorBuilder: (_, __) => Divider(height: 1, color: AppTheme.borderOf(context)),
@@ -199,7 +198,12 @@ class _SearchAndCloneFreightBookingDialogState
                             color: AppTheme.textSecondaryOf(context),
                           ),
                         ),
-                      CcStatusChip(label: st.label, severity: st.severity, icon: st.icon),
+                      AppStatusBadge(
+                        label: st.label,
+                        severity: st.severity,
+                        size: AppStatusBadgeSize.small,
+                        icon: st.icon,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),

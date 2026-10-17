@@ -6,6 +6,7 @@ import pytest
 from datetime import date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from database.database import Base
 from modules.external_service_providers.model import ExternalServiceProvider
@@ -42,7 +43,12 @@ def _admin():
 @pytest.fixture
 def db_session():
     """Creates in-memory SQLite DB fixture."""
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    engine = create_engine(
+        "sqlite:///:memory:",
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(engine)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = TestingSessionLocal()
@@ -1034,5 +1040,182 @@ class TestFinancialApprovalBackend:
         )
         db_session.refresh(pending_budget)
         assert pending_budget.variance_override_reason == "Variance accepted after vendor confirmation"
+
+    def test_payment_requests_pagination_and_x_total_count(self, db_session):
+        """BE02-T08: Test pagination with skip, limit, and X-Total-Count header on payment requests."""
+        # 1. Direct repository & service test with 30 items
+        for i in range(1, 31):
+            service.create_payment_request_service(
+                db_session,
+                PaymentRequestCreate(
+                    title=f"Payment Request {i}",
+                    supplier_name="Global Supplier",
+                    requested_amount=100.0 * i,
+                    currency_code="USD",
+                    exchange_rate=50.0,
+                    due_date=date(2026, 9, 1),
+                ),
+            )
+
+        # Direct repo test
+        items, total = repo.get_all_payment_requests(db_session, skip=10, limit=5)
+        assert total == 30
+        assert len(items) == 5
+        assert [item.payment_id for item in items] == [20, 19, 18, 17, 16]
+
+        # Direct service test
+        s_items, s_total = service.get_all_payment_requests_service(db_session, skip=10, limit=5)
+        assert s_total == 30
+        assert len(s_items) == 5
+        assert [item.payment_id for item in s_items] == [20, 19, 18, 17, 16]
+
+        # Without params: returns all 30
+        all_items, all_total = service.get_all_payment_requests_service(db_session)
+        assert all_total == 30
+        assert len(all_items) == 30
+
+        # 2. REST API endpoint test with TestClient
+        from fastapi.testclient import TestClient
+        from main import app
+        from database.database import get_db
+        from modules.auth.seed_rbac import seed_rbac
+        from modules.auth.security import create_access_token, hash_password
+        from modules.users.model import Role, User
+
+        seed_rbac(db_session)
+
+        def override_get_db():
+            try:
+                yield db_session
+            finally:
+                pass
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            client = TestClient(app, raise_server_exceptions=False)
+
+            role = db_session.query(Role).filter(Role.role_code == "FINANCE_OFFICER").one()
+            user = User(
+                username="fin_officer_page",
+                email="fin_page@test.com",
+                full_name="Finance Officer Page",
+                hashed_password=hash_password("Password123"),
+                role=role.role_code,
+                role_id=role.role_id,
+                is_active=True,
+            )
+            db_session.add(user)
+            db_session.commit()
+            db_session.refresh(user)
+
+            headers = {"Authorization": f"Bearer {create_access_token({'sub': str(user.user_id), 'role': user.role})}"}
+
+            # 30 rows with skip=10&limit=5 -> 5 items (ids 20..16) and X-Total-Count: 30
+            resp = client.get("/api/v1/financial-approval/payment-requests?skip=10&limit=5", headers=headers)
+            assert resp.status_code == 200, resp.text
+            assert resp.headers.get("X-Total-Count") == "30"
+            data = resp.json()
+            assert len(data) == 5
+            assert [item["payment_id"] for item in data] == [20, 19, 18, 17, 16]
+
+            # No params -> 30 items and X-Total-Count: 30
+            resp_all = client.get("/api/v1/financial-approval/payment-requests", headers=headers)
+            assert resp_all.status_code == 200
+            assert resp_all.headers.get("X-Total-Count") == "30"
+            assert len(resp_all.json()) == 30
+
+            # Boundary checks
+            assert client.get("/api/v1/financial-approval/payment-requests?skip=-1", headers=headers).status_code == 422
+            assert client.get("/api/v1/financial-approval/payment-requests?limit=0", headers=headers).status_code == 422
+            assert client.get("/api/v1/financial-approval/payment-requests?limit=501", headers=headers).status_code == 422
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_import_budgets_pagination_and_x_total_count(self, db_session):
+        """BE02-T08: Test pagination with skip, limit, and X-Total-Count header on import budgets."""
+        # 1. Direct repository & service test with 30 items
+        for i in range(1, 31):
+            service.create_import_budget_service(
+                db_session,
+                ImportBudgetCreate(
+                    title=f"Budget Plan {i}",
+                    exchange_rate=50.0,
+                    invoice_amount_egp=10000.0 * i,
+                ),
+            )
+
+        # Direct repo test
+        items, total = repo.get_all_import_budgets(db_session, skip=10, limit=5)
+        assert total == 30
+        assert len(items) == 5
+        assert [item.budget_id for item in items] == [20, 19, 18, 17, 16]
+
+        # Direct service test
+        s_items, s_total = service.get_all_import_budgets_service(db_session, skip=10, limit=5)
+        assert s_total == 30
+        assert len(s_items) == 5
+        assert [item.budget_id for item in s_items] == [20, 19, 18, 17, 16]
+
+        # Without params: returns all 30
+        all_items, all_total = service.get_all_import_budgets_service(db_session)
+        assert all_total == 30
+        assert len(all_items) == 30
+
+        # 2. REST API endpoint test with TestClient
+        from fastapi.testclient import TestClient
+        from main import app
+        from database.database import get_db
+        from modules.auth.seed_rbac import seed_rbac
+        from modules.auth.security import create_access_token, hash_password
+        from modules.users.model import Role, User
+
+        seed_rbac(db_session)
+
+        def override_get_db():
+            try:
+                yield db_session
+            finally:
+                pass
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            client = TestClient(app, raise_server_exceptions=False)
+
+            role = db_session.query(Role).filter(Role.role_code == "FINANCE_OFFICER").one()
+            user = User(
+                username="fin_officer_bgt_page",
+                email="fin_bgt_page@test.com",
+                full_name="Finance Officer Budget Page",
+                hashed_password=hash_password("Password123"),
+                role=role.role_code,
+                role_id=role.role_id,
+                is_active=True,
+            )
+            db_session.add(user)
+            db_session.commit()
+            db_session.refresh(user)
+
+            headers = {"Authorization": f"Bearer {create_access_token({'sub': str(user.user_id), 'role': user.role})}"}
+
+            # 30 rows with skip=10&limit=5 -> 5 items (ids 20..16) and X-Total-Count: 30
+            resp = client.get("/api/v1/financial-approval/import-budgets?skip=10&limit=5", headers=headers)
+            assert resp.status_code == 200, resp.text
+            assert resp.headers.get("X-Total-Count") == "30"
+            data = resp.json()
+            assert len(data) == 5
+            assert [item["budget_id"] for item in data] == [20, 19, 18, 17, 16]
+
+            # No params -> 30 items and X-Total-Count: 30
+            resp_all = client.get("/api/v1/financial-approval/import-budgets", headers=headers)
+            assert resp_all.status_code == 200
+            assert resp_all.headers.get("X-Total-Count") == "30"
+            assert len(resp_all.json()) == 30
+
+            # Boundary checks
+            assert client.get("/api/v1/financial-approval/import-budgets?skip=-1", headers=headers).status_code == 422
+            assert client.get("/api/v1/financial-approval/import-budgets?limit=0", headers=headers).status_code == 422
+            assert client.get("/api/v1/financial-approval/import-budgets?limit=501", headers=headers).status_code == 422
+        finally:
+            app.dependency_overrides.clear()
 
 

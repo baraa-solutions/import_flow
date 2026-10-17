@@ -3,10 +3,16 @@ Unit tests for BE02-T02:
 Budget clone converts freight with the freight currency's own rate (BE02-F02).
 """
 import pytest
+from datetime import date
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 
-from modules.financial_approval.model import ImportBudgetApproval
-from modules.financial_approval.schemas import CloneImportBudgetRequest
+from modules.financial_approval.model import ImportBudgetApproval, PaymentRequestSession
+from modules.financial_approval.schemas import (
+    CloneImportBudgetRequest,
+    PaymentRequestResponse,
+    ImportBudgetResponse,
+)
 from modules.financial_approval.service import (
     _budget_egp_amounts,
     clone_import_budget_service,
@@ -219,3 +225,69 @@ def test_clone_budget_missing_freight_rate_no_row_created(db):
 
     count_after = db.query(ImportBudgetApproval).count()
     assert count_after == count_before
+
+
+def test_payment_request_session_without_exchange_rate_raises_integrity_error(db):
+    """Constructing PaymentRequestSession without exchange_rate and flushing raises IntegrityError (BE02-T14)."""
+    pay = PaymentRequestSession(
+        payment_code="PAY-TEST-NO-RATE",
+        title="Test Payment Without Rate",
+        supplier_id=1,
+        supplier_name="Test Supplier",
+        requested_amount=1000.0,
+        currency_code="USD",
+        requested_amount_egp=50000.0,
+        due_date=date(2026, 10, 20),
+        request_date=date(2026, 9, 20),
+        status="Approved",
+        is_active=True,
+    )
+    db.add(pay)
+    with pytest.raises(IntegrityError):
+        db.flush()
+    db.rollback()
+
+
+def test_budget_approval_without_exchange_rate_does_not_invent_rate(db):
+    """ImportBudgetApproval model has no default=50.0 rate in Python (BE02-T14)."""
+    b = ImportBudgetApproval(
+        budget_code="BGT-TEST-NO-RATE",
+        title="Test Budget Without Rate",
+        budget_status="Draft",
+        is_active=True,
+    )
+    assert b.exchange_rate is None
+
+
+def test_response_schemas_do_not_invent_50_rate():
+    """PaymentRequestResponse and ImportBudgetResponse do not default exchange_rate to 50.0 (BE02-T14)."""
+    from datetime import datetime, timezone
+
+    resp_budget = ImportBudgetResponse(
+        budget_id=1,
+        budget_code="BGT-001",
+        title="Test Budget",
+        total_budget_egp=1000.0,
+        budget_status="Draft",
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    assert resp_budget.exchange_rate is None
+
+    resp_pay = PaymentRequestResponse(
+        payment_id=1,
+        payment_code="PAY-001",
+        title="Test Payment",
+        supplier_name="Test Supplier",
+        requested_amount=100.0,
+        requested_amount_egp=5000.0,
+        due_date=date(2026, 10, 20),
+        request_date=date(2026, 9, 20),
+        status="Draft",
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    assert resp_pay.exchange_rate is None
+

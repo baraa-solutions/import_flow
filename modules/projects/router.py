@@ -1,12 +1,13 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, UploadFile, File
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.projects.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from modules.projects.service import ProjectService
+from utils.export_import_helper import MasterDataExportImportHelper
 
 router = APIRouter(prefix="/api/v1/projects", tags=["Projects Module"], dependencies=[Depends(get_current_user)])
 
@@ -30,67 +31,52 @@ def get_all_projects(
     )
 
 
-@router.get("/{project_id}", response_model=ProjectResponse)
-def get_project_by_id(
-    project_id: int,
-    db: Session = Depends(get_db),
-):
-    service = ProjectService(db)
-    return service.get_by_id(project_id)
-
-
-@router.get("/{project_id}/financial-commitments")
-def get_project_financial_commitments(
-    project_id: int,
-    db: Session = Depends(get_db),
-):
-    service = ProjectService(db)
-    return service.get_financial_commitments(project_id)
-
-
-@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
-def create_project(
-    data: ProjectCreate,
-    db: Session = Depends(get_db),
-):
-    service = ProjectService(db)
-    return service.create(data)
-
-
-@router.put("/{project_id}", response_model=ProjectResponse)
-def update_project(
-    project_id: int,
-    data: ProjectUpdate,
-    db: Session = Depends(get_db),
-):
-    service = ProjectService(db)
-    return service.update(project_id, data)
-
-
-@router.delete("/{project_id}", response_model=ProjectResponse)
-def soft_delete_project(
-    project_id: int,
-    db: Session = Depends(get_db),
-):
-    service = ProjectService(db)
-    return service.soft_delete(project_id)
-
-
-@router.post("/{project_id}/restore", response_model=ProjectResponse)
-def restore_project(
-    project_id: int,
-    db: Session = Depends(get_db),
-):
-    service = ProjectService(db)
-    return service.restore(project_id)
-
-
 # ==================================================
-# Excel Template & Bulk Import & Export
+# Excel Template & Bulk Import & Export (Defined before /{project_id})
 # ==================================================
 
-from fastapi import Response, UploadFile, File
-from utils.export_import_helper import MasterDataExportImportHelper
+@router.get("/export-excel")
+def export_projects_excel(db: Session = Depends(get_db)):
+    service = ProjectService(db)
+    projects = service.get_all(include_inactive=True)
+    headers = ['ID', 'Project Code', 'Project Name', 'Client Name', 'Manager Name', 'Budget', 'Currency', 'Status']
+    rows = []
+    for p in projects:
+        rows.append([
+            p.project_id,
+            p.project_code,
+            p.project_name,
+            p.client_name or '',
+            p.manager_name or '',
+            p.budget or 0.0,
+            p.currency or 'USD',
+            'Active' if p.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_excel("Projects & Cost Centers", headers, rows)
+    filename = MasterDataExportImportHelper.standard_export_filename("Projects_CostCenters", "xlsx")
+    return MasterDataExportImportHelper.as_excel_response(filename, content)
+
+
+@router.get("/export-pdf")
+def export_projects_pdf(db: Session = Depends(get_db)):
+    service = ProjectService(db)
+    projects = service.get_all(include_inactive=True)
+    headers = ['ID', 'Project Code', 'Project Name', 'Client', 'Manager', 'Budget', 'Status']
+    rows = []
+    for p in projects:
+        rows.append([
+            p.project_id,
+            p.project_code,
+            p.project_name,
+            p.client_name or '',
+            p.manager_name or '',
+            f"{p.budget or 0.0:,.2f} {p.currency or 'USD'}",
+            'Active' if p.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_pdf("Projects & Cost Centers (MD-007)", headers, rows)
+    filename = MasterDataExportImportHelper.standard_export_filename("Projects_CostCenters", "pdf")
+    return MasterDataExportImportHelper.as_pdf_response(filename, content)
+
 
 @router.get("/excel-template")
 def download_projects_excel_template():
@@ -149,50 +135,60 @@ async def import_excel_projects(file: UploadFile = File(...), db: Session = Depe
     return {"message": f"Successfully imported {imported_count} projects & cost centers.", "errors": errors}
 
 
-@router.get("/export-excel")
-def export_projects_excel(db: Session = Depends(get_db)):
+# ==================================================
+# Parameterized Project Routes
+# ==================================================
+
+@router.get("/{project_id}", response_model=ProjectResponse)
+def get_project_by_id(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
     service = ProjectService(db)
-    projects = service.get_all(include_inactive=True)
-    headers = ['ID', 'Project Code', 'Project Name', 'Client Name', 'Manager Name', 'Budget', 'Currency', 'Status']
-    rows = []
-    for p in projects:
-        rows.append([
-            p.project_id,
-            p.project_code,
-            p.project_name,
-            p.client_name or '',
-            p.manager_name or '',
-            p.budget or 0.0,
-            p.currency or 'USD',
-            'Active' if p.is_active else 'Inactive',
-        ])
-    content = MasterDataExportImportHelper.export_to_excel("Projects & Cost Centers", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Projects_CostCenters_Report.xlsx"},
-    )
+    return service.get_by_id(project_id)
 
 
-@router.get("/export-pdf")
-def export_projects_pdf(db: Session = Depends(get_db)):
+@router.get("/{project_id}/financial-commitments")
+def get_project_financial_commitments(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
     service = ProjectService(db)
-    projects = service.get_all(include_inactive=True)
-    headers = ['ID', 'Project Code', 'Project Name', 'Client', 'Manager', 'Budget', 'Status']
-    rows = []
-    for p in projects:
-        rows.append([
-            p.project_id,
-            p.project_code,
-            p.project_name,
-            p.client_name or '',
-            p.manager_name or '',
-            f"{p.budget or 0.0:,.2f} {p.currency or 'USD'}",
-            'Active' if p.is_active else 'Inactive',
-        ])
-    content = MasterDataExportImportHelper.export_to_pdf("Projects & Cost Centers (MD-007)", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=Projects_CostCenters_Report.pdf"},
-    )
+    return service.get_financial_commitments(project_id)
+
+
+@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+def create_project(
+    data: ProjectCreate,
+    db: Session = Depends(get_db),
+):
+    service = ProjectService(db)
+    return service.create(data)
+
+
+@router.put("/{project_id}", response_model=ProjectResponse)
+def update_project(
+    project_id: int,
+    data: ProjectUpdate,
+    db: Session = Depends(get_db),
+):
+    service = ProjectService(db)
+    return service.update(project_id, data)
+
+
+@router.delete("/{project_id}", response_model=ProjectResponse)
+def soft_delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    service = ProjectService(db)
+    return service.soft_delete(project_id)
+
+
+@router.post("/{project_id}/restore", response_model=ProjectResponse)
+def restore_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    service = ProjectService(db)
+    return service.restore(project_id)

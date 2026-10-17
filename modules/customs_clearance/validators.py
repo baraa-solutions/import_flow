@@ -67,9 +67,14 @@ def assessed_duty_total(record) -> float:
 
 
 def is_assessed(record) -> bool:
-    """Assessed = ``assessment_status == "Assessed"`` AND an assessed total > 0. (The column defaults to "Assessed"
-    on every new record, so the status alone does not prove an assessment.)"""
-    return record is not None and record.assessment_status == "Assessed" and assessed_duty_total(record) > 0
+    """Assessed = ``assessment_status == "Assessed"``, assessed total > 0, AND nafeza_claim_number present
+    (proving CL-02 actually ran, since assessment_status defaulted to "Assessed")."""
+    return (
+        record is not None
+        and record.assessment_status == "Assessed"
+        and assessed_duty_total(record) > 0
+        and bool((record.nafeza_claim_number or "").strip())
+    )
 
 
 def is_duty_fully_paid(record) -> bool:

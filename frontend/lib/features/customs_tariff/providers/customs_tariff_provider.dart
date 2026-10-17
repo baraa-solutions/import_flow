@@ -6,8 +6,15 @@ import '../models/customs_tariff_model.dart';
 import '../../../core/network/api_client.dart';
 
 
+import '../services/customs_exemption_engine.dart';
+
+
 final showInactiveCustomsTariffsProvider = StateProvider<bool>((ref) => false);
 final customsTariffSearchQueryProvider = StateProvider<String>((ref) => '');
+
+final customsExemptionEngineProvider = Provider<CustomsExemptionEngine>((ref) {
+  return CustomsExemptionEngine(ref.read(dioProvider));
+});
 
 final customsTariffProvider = StateNotifierProvider<CustomsTariffNotifier,
     AsyncValue<List<CustomsTariffModel>>>((ref) {
@@ -303,6 +310,7 @@ class CustomsTariffNotifier
     required String hsCode,
     required String originCountry,
     bool hasPreferentialDocument = false,
+    DateTime? checkDate,
   }) async {
     try {
       final response = await _dio.post(
@@ -311,6 +319,8 @@ class CustomsTariffNotifier
           'hs_code': hsCode,
           'origin_country': originCountry,
           'has_preferential_document': hasPreferentialDocument,
+          if (checkDate != null)
+            'check_date': checkDate.toIso8601String().substring(0, 10),
         },
       );
       return response.data as Map<String, dynamic>;

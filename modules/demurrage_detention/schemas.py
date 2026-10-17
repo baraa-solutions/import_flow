@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 from modules.common.legacy_rows import read_model
 
@@ -320,7 +320,8 @@ class ContainerRadarOverviewResponse(BaseModel):
 class EmptyContainerReturnSubmit(BaseModel):
     import_file_id: int = Field(..., description="معرف ملف الاستيراد المراد إرجاع حاوياته")
     eir_number: str = Field(..., min_length=3, description="رقم إيصال استلام الحاوية الفارغة EIR")
-    empty_return_date: date = Field(default_factory=date.today, description="تاريخ إعادة الحاوية الفارغة")
+    empty_return_date: date = Field(..., description="تاريخ إعادة الحاوية الفارغة")
+    return_date: Optional[date] = Field(None, description="اسم بديل لتاريخ الإعادة لأغراض التوافقية")
     depot_name: Optional[str] = Field(None, description="اسم مستودع أو ساحة الإرجاع (e.g. Dekheila Yard)")
     returned_containers: Optional[List[str]] = Field(None, description="قائمة أرقام الحاويات المرجعة (إن تركت فارغة يتم تطبيقها على كافة الحاويات التي لم تُرجع بعد)")
     container_condition: str = Field("SOUND_CLEAN", description="حالة الحاوية: SOUND_CLEAN, MINOR_DAMAGE, REPAIR_REQUIRED")
@@ -330,6 +331,14 @@ class EmptyContainerReturnSubmit(BaseModel):
     driver_name: Optional[str] = Field(None, description="اسم سائق شاحنة الإرجاع")
     truck_plate_no: Optional[str] = Field(None, description="رقم لوحة شاحنة الإرجاع")
     notes: Optional[str] = Field(None, description="ملاحظات إضافية")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_return_date(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get("empty_return_date") and data.get("return_date"):
+                data["empty_return_date"] = data["return_date"]
+        return data
 
 
 class EmptyContainerReturnResponse(BaseModel):

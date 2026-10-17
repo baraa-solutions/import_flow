@@ -5,13 +5,15 @@ Queries and row writes only. Every write ``flush``es; the service commits once p
 """
 
 from datetime import date, datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from modules.common.sequence_generator import next_yearly_code
 from modules.financial_approval.model import (
+    BudgetVarianceLog,
+    BudgetVarianceSetting,
     ImportBudgetApproval,
     OcrCorrectionsLog,
     PaymentRequestSession,
@@ -19,7 +21,12 @@ from modules.financial_approval.model import (
     SwiftExtractionField,
 )
 from modules.financial_approval.schemas import ImportBudgetCreate, PaymentRequestCreate
-from modules.financial_approval.validators import BATCH_PENDING, PAYMENT_APPROVED, normalize_payment_type
+from modules.financial_approval.validators import (
+    BATCH_PENDING,
+    BUDGET_SUPERSEDED,
+    PAYMENT_APPROVED,
+    normalize_payment_type,
+)
 
 
 def _now() -> datetime:
@@ -125,16 +132,16 @@ def get_inactive_payment_request(db: Session, payment_id: int) -> Optional[Payme
     )
 
 
-def get_all_payment_requests(
+def _apply_payment_request_filters(
     db: Session,
+    query,
     include_inactive: bool = False,
     search: Optional[str] = None,
     import_file_id: Optional[int] = None,
     po_id: Optional[int] = None,
     supplier_id: Optional[int] = None,
     status: Optional[str] = None,
-) -> List[PaymentRequestSession]:
-    query = db.query(PaymentRequestSession)
+):
     if not include_inactive:
         query = query.filter(PaymentRequestSession.is_active == True)
 
@@ -156,7 +163,38 @@ def get_all_payment_requests(
             | PaymentRequestSession.import_file_id.in_(_file_ids_matching(db, pattern))
         )
 
-    return query.order_by(PaymentRequestSession.payment_id.desc()).all()
+    return query
+
+
+def get_all_payment_requests(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    po_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[PaymentRequestSession], int]:
+    query = db.query(PaymentRequestSession)
+    query = _apply_payment_request_filters(
+        db,
+        query,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
+        supplier_id=supplier_id,
+        status=status,
+    )
+    total = query.order_by(None).count()
+    query = query.order_by(PaymentRequestSession.payment_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all(), total
 
 
 def find_open_payment_of_type(
@@ -275,15 +313,15 @@ def get_inactive_import_budget(db: Session, budget_id: int) -> Optional[ImportBu
     )
 
 
-def get_all_import_budgets(
+def _apply_import_budget_filters(
     db: Session,
+    query,
     include_inactive: bool = False,
     search: Optional[str] = None,
     import_file_id: Optional[int] = None,
     po_id: Optional[int] = None,
     budget_status: Optional[str] = None,
-) -> List[ImportBudgetApproval]:
-    query = db.query(ImportBudgetApproval)
+):
     if not include_inactive:
         query = query.filter(ImportBudgetApproval.is_active == True)
 
@@ -302,7 +340,36 @@ def get_all_import_budgets(
             | ImportBudgetApproval.import_file_id.in_(_file_ids_matching(db, pattern))
         )
 
-    return query.order_by(ImportBudgetApproval.budget_id.desc()).all()
+    return query
+
+
+def get_all_import_budgets(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    po_id: Optional[int] = None,
+    budget_status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[ImportBudgetApproval], int]:
+    query = db.query(ImportBudgetApproval)
+    query = _apply_import_budget_filters(
+        db,
+        query,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
+        budget_status=budget_status,
+    )
+    total = query.order_by(None).count()
+    query = query.order_by(ImportBudgetApproval.budget_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all(), total
 
 
 def find_active_budget_for_file(
@@ -479,3 +546,29 @@ def mark_swift_batch_reconciled(db: Session, batch: SwiftExtractionBatch, paymen
     batch.updated_at = now
     db.flush()
     return batch
+
+
+def variance_logs_for_budget(db: Session, budget_id: int) -> List[BudgetVarianceLog]:
+    return (
+        db.query(BudgetVarianceLog)
+        .filter(BudgetVarianceLog.budget_id == budget_id)
+        .order_by(BudgetVarianceLog.detected_at.desc())
+        .all()
+    )
+
+
+def get_setting(db: Session, key: str) -> Optional[BudgetVarianceSetting]:
+    return db.query(BudgetVarianceSetting).filter(BudgetVarianceSetting.setting_key == key).first()
+
+
+def active_budgets_for_file(db: Session, import_file_id: int) -> List[ImportBudgetApproval]:
+    return (
+        db.query(ImportBudgetApproval)
+        .filter(
+            ImportBudgetApproval.import_file_id == import_file_id,
+            ImportBudgetApproval.is_active == True,
+            ImportBudgetApproval.budget_status != BUDGET_SUPERSEDED,
+        )
+        .all()
+    )
+

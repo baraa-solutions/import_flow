@@ -36,11 +36,11 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
   String _selectedTemplate = 'demurrage_extension';
 
   final TextEditingController _recipientController = TextEditingController();
-  final TextEditingController _bankNameController = TextEditingController(text: 'بنك مصر');
-  final TextEditingController _bankBranchController = TextEditingController(text: 'الفرع الرئيسي');
+  final TextEditingController _bankNameController = TextEditingController();
+  final TextEditingController _bankBranchController = TextEditingController();
   final TextEditingController _brokerNameController = TextEditingController();
   final TextEditingController _brokerLicenseController = TextEditingController();
-  final TextEditingController _extensionDaysController = TextEditingController(text: '21');
+  final TextEditingController _extensionDaysController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
   bool _isGenerating = false;
@@ -56,15 +56,6 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _selectedFileId = widget.initialImportFileId;
-    Future.microtask(() {
-      final filesState = ref.read(importFilesProvider);
-      final files = filesState.valueOrNull ?? [];
-      if (_selectedFileId == null && files.isNotEmpty) {
-        setState(() {
-          _selectedFileId = files.first.importFileId;
-        });
-      }
-    });
   }
 
   @override
