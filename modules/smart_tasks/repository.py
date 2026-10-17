@@ -6,15 +6,15 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
+from sqlalchemy.exc import IntegrityError
 
+from modules.common.sequence_generator import next_yearly_code
 from modules.smart_tasks.model import SmartTask
 from modules.smart_tasks.schemas import SmartTaskCreate, SmartTaskUpdate
 
 
-def generate_task_code(db: Session) -> str:
-    year = datetime.now(timezone.utc).year
-    count = db.query(func.count(SmartTask.task_id)).scalar() or 0
-    return f"TSK-{year}-{(count + 1):04d}"
+def generate_task_code(db: Session, year: Optional[int] = None) -> str:
+    return next_yearly_code(db, SmartTask.task_code, "TSK", pad=4, year=year)
 
 
 def create_task(
@@ -31,36 +31,49 @@ def create_task(
 
     ``commit=False`` only flushes (the task gets its id): use it inside a larger service transaction so a later
     failure rolls the task back together with the caller's own writes."""
-    task_code = generate_task_code(db)
-    db_obj = SmartTask(
-        task_code=task_code,
-        title=schema.title,
-        description=schema.description,
-        task_type=schema.task_type,
-        import_file_id=schema.import_file_id,
-        import_file_code=schema.import_file_code,
-        phase_name=schema.phase_name,
-        assigned_user=schema.assigned_user,
-        priority=schema.priority,
-        reminder_type=schema.reminder_type,
-        due_date=schema.due_date,
-        reminder_date=schema.reminder_date,
-        status=schema.status,
-        notes=schema.notes,
-        attachment_url=schema.attachment_url,
-        msg_code=msg_code,
-        msg_params=dict(msg_params) if msg_params else None,
-        step_code=step_code,
-        created_by=created_by,
-        updated_by=created_by,
-    )
-    db.add(db_obj)
-    if commit:
-        db.commit()
-        db.refresh(db_obj)
-    else:
-        db.flush()
-    return db_obj
+    for attempt in range(3):
+        task_code = generate_task_code(db)
+        db_obj = SmartTask(
+            task_code=task_code,
+            title=schema.title,
+            description=schema.description,
+            task_type=schema.task_type,
+            import_file_id=schema.import_file_id,
+            import_file_code=schema.import_file_code,
+            phase_name=schema.phase_name,
+            assigned_user=schema.assigned_user,
+            priority=schema.priority,
+            reminder_type=schema.reminder_type,
+            due_date=schema.due_date,
+            reminder_date=schema.reminder_date,
+            status=schema.status,
+            notes=schema.notes,
+            attachment_url=schema.attachment_url,
+            msg_code=msg_code,
+            msg_params=dict(msg_params) if msg_params else None,
+            step_code=step_code,
+            created_by=created_by,
+            updated_by=created_by,
+        )
+        if commit:
+            db.add(db_obj)
+            try:
+                db.commit()
+                db.refresh(db_obj)
+                return db_obj
+            except IntegrityError:
+                db.rollback()
+                if attempt == 2:
+                    raise
+        else:
+            try:
+                with db.begin_nested():
+                    db.add(db_obj)
+                    db.flush()
+                return db_obj
+            except IntegrityError:
+                if attempt == 2:
+                    raise
 
 
 def get_task_by_id(db: Session, task_id: int) -> Optional[SmartTask]:

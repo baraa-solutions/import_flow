@@ -32,23 +32,20 @@ class CustomsClearanceCreate(BaseModel):
     goeic_certificate_no: Optional[str] = None
     regulatory_bodies: List[str] = []
     inspection_notes: Optional[str] = None
-    cif_base_amount: float = 0.0
-    customs_exchange_rate: float = 1.0
-    import_duty_amount: float = 0.0
-    vat_amount: float = 0.0
-    schedule_tax_amount: float = 0.0
-    development_fee_amount: float = 0.0
-    customs_service_fees: float = 0.0
-    wht_amount: float = 0.0
-    lab_service_fees: float = 0.0
-    estimated_duty_total: float = 0.0
-    actual_duty_total: float = 0.0
+    cif_base_amount: float = Field(0.0, ge=0)
+    customs_exchange_rate: float = Field(1.0, gt=0)
+    import_duty_amount: float = Field(0.0, ge=0)
+    vat_amount: float = Field(0.0, ge=0)
+    schedule_tax_amount: float = Field(0.0, ge=0)
+    development_fee_amount: float = Field(0.0, ge=0)
+    customs_service_fees: float = Field(0.0, ge=0)
+    wht_amount: float = Field(0.0, ge=0)
+    lab_service_fees: float = Field(0.0, ge=0)
+    estimated_duty_total: float = Field(0.0, ge=0)
+    actual_duty_total: float = Field(0.0, ge=0)
     duty_variance_amount: float = 0.0
     duty_variance_percentage: float = 0.0
     duty_variance_reason: Optional[str] = None
-    nafeza_claim_number: Optional[str] = None
-    nafeza_claim_date: Optional[datetime] = None
-    assessment_status: str = "Assessed"
     nafeza_assessment_json: Optional[Dict[str, Any]] = None
     port_arrival_date: Optional[datetime] = None
     delivery_order_number: Optional[str] = None
@@ -57,7 +54,7 @@ class CustomsClearanceCreate(BaseModel):
     free_days_allowed: int = 14
     shipping_agent_id: Optional[int] = None
     shipping_agent_name: Optional[str] = None
-    delivery_order_fees: float = 0.0
+    delivery_order_fees: float = Field(0.0, ge=0)
     delivery_order_currency: str = "EGP"
     delivery_order_payment_ref: Optional[str] = None
     delivery_order_paid_at: Optional[datetime] = None
@@ -326,19 +323,17 @@ class CustomsClearanceUpdate(BaseModel):
     regulatory_bodies: Optional[List[str]] = None
     sample_test_status: Optional[str] = None
     inspection_notes: Optional[str] = None
-    cif_base_amount: Optional[float] = None
-    customs_exchange_rate: Optional[float] = None
-    import_duty_amount: Optional[float] = None
-    vat_amount: Optional[float] = None
-    schedule_tax_amount: Optional[float] = None
-    development_fee_amount: Optional[float] = None
-    customs_service_fees: Optional[float] = None
-    wht_amount: Optional[float] = None
-    lab_service_fees: Optional[float] = None
-    estimated_duty_total: Optional[float] = None
+    cif_base_amount: Optional[float] = Field(None, ge=0)
+    customs_exchange_rate: Optional[float] = Field(None, gt=0)
+    import_duty_amount: Optional[float] = Field(None, ge=0)
+    vat_amount: Optional[float] = Field(None, ge=0)
+    schedule_tax_amount: Optional[float] = Field(None, ge=0)
+    development_fee_amount: Optional[float] = Field(None, ge=0)
+    customs_service_fees: Optional[float] = Field(None, ge=0)
+    wht_amount: Optional[float] = Field(None, ge=0)
+    lab_service_fees: Optional[float] = Field(None, ge=0)
+    estimated_duty_total: Optional[float] = Field(None, ge=0)
     duty_variance_reason: Optional[str] = None
-    nafeza_claim_number: Optional[str] = None
-    nafeza_claim_date: Optional[datetime] = None
     nafeza_assessment_json: Optional[Dict[str, Any]] = None
     port_arrival_date: Optional[datetime] = None
     delivery_order_number: Optional[str] = None
@@ -347,7 +342,7 @@ class CustomsClearanceUpdate(BaseModel):
     free_days_allowed: Optional[int] = None
     shipping_agent_id: Optional[int] = None
     shipping_agent_name: Optional[str] = None
-    delivery_order_fees: Optional[float] = None
+    delivery_order_fees: Optional[float] = Field(None, ge=0)
     delivery_order_currency: Optional[str] = None
     delivery_order_payment_ref: Optional[str] = None
     delivery_order_paid_at: Optional[datetime] = None

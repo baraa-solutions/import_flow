@@ -13,12 +13,14 @@ class AsyncActionButton extends StatefulWidget {
   final String label;
   final AppButtonVariant variant;
   final Future<void> Function() onAction;
+  final bool enabled;
 
   const AsyncActionButton({
     super.key,
     required this.label,
     required this.onAction,
     this.variant = AppButtonVariant.primary,
+    this.enabled = true,
   });
 
   @override
@@ -29,7 +31,7 @@ class _AsyncActionButtonState extends State<AsyncActionButton> {
   bool _busy = false;
 
   Future<void> _run() async {
-    if (_busy) return;
+    if (_busy || !widget.enabled) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
     try {
@@ -52,7 +54,7 @@ class _AsyncActionButtonState extends State<AsyncActionButton> {
       label: widget.label,
       variant: widget.variant,
       isLoading: _busy,
-      onPressed: _busy ? null : _run,
+      onPressed: (_busy || !widget.enabled) ? null : _run,
     );
   }
 }

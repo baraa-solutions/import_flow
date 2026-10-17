@@ -160,6 +160,9 @@ def test_confirm_departure_and_bol_success(db_session):
         status="Booking Requested",
     )
     booking = create_booking_service(db_session, booking_create)
+    # ATD in these tests is a fixed past date; it may not precede the booking request date (BE45-T11).
+    booking.booking_request_date = datetime(2026, 8, 1, tzinfo=timezone.utc)
+    db_session.commit()
     assert booking.booking_id is not None
     booking = confirm_booking_service(
         db_session,
@@ -240,6 +243,9 @@ def test_departure_api_endpoint(client, db_session):
         status="Booking Requested",
     )
     booking = create_booking_service(db_session, booking_create)
+    # ATD in these tests is a fixed past date; it may not precede the booking request date (BE45-T11).
+    booking.booking_request_date = datetime(2026, 8, 1, tzinfo=timezone.utc)
+    db_session.commit()
     booking = confirm_booking_service(
         db_session, booking.booking_id, ShipmentBookingConfirm(booking_confirmation_no="CMA-CONF-7711")
     )

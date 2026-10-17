@@ -26,6 +26,18 @@ class SupplierBase(BaseModel):
 
     foreign_exporter_country_code: str = "GB"
 
+    tax_id: str | None = None
+
+    currency: str = "USD"
+
+    # Contact & Location Information
+
+    contact_person: str | None = None
+
+    city: str | None = None
+
+    postal_code: str | None = None
+
     address: str = "Exporter Address"
 
     phone: str | None = None
@@ -50,11 +62,27 @@ class SupplierBase(BaseModel):
 
     has_iso: bool = False
 
+    # Trademark & Quality Certificates
+    has_wipo: bool = False
+    wipo_number: str | None = None
+    has_euipo: bool = False
+    euipo_number: str | None = None
+    has_global_brand: bool = False
+    global_brand_number: str | None = None
+    has_iso_9001: bool = False
+    iso_9001_number: str | None = None
+
     registered_decree_43: bool = False
 
     white_list_registered: bool = False
 
     brands: str | None = None
+
+    payment_terms: str | None = None
+
+    credit_limit: float = 0.0
+
+    rating: float = 5.0
 
     notes: str | None = None
 
@@ -84,9 +112,19 @@ class SupplierUpdate(BaseModel):
 
     cargox_platform_id: str | None = None
 
+    tax_id: str | None = None
+
+    currency: str | None = None
+
     foreign_exporter_country: str | None = None
 
     foreign_exporter_country_code: str | None = None
+
+    contact_person: str | None = None
+
+    city: str | None = None
+
+    postal_code: str | None = None
 
     address: str | None = None
 
@@ -112,11 +150,26 @@ class SupplierUpdate(BaseModel):
 
     has_iso: bool | None = None
 
+    has_wipo: bool | None = None
+    wipo_number: str | None = None
+    has_euipo: bool | None = None
+    euipo_number: str | None = None
+    has_global_brand: bool | None = None
+    global_brand_number: str | None = None
+    has_iso_9001: bool | None = None
+    iso_9001_number: str | None = None
+
     registered_decree_43: bool | None = None
 
     white_list_registered: bool | None = None
 
     brands: str | None = None
+
+    payment_terms: str | None = None
+
+    credit_limit: float | None = None
+
+    rating: float | None = None
 
     notes: str | None = None
 

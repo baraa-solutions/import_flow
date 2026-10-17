@@ -89,6 +89,8 @@ def test_customs_clearance_variance_calculation(db_session):
     assert record.delivery_order_number == "DO-MAERSK-9988"
 
     # Now test payment submission with actual Nafeza ledger
+    record.nafeza_claim_number = "NAF-88992"
+    db_session.commit()
     payment_submit = DutyPaymentSubmit(
         bank_receipt_no="RCPT-CIB-2026-7788",
         paying_bank_name="Commercial International Bank (CIB)",

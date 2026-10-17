@@ -863,28 +863,28 @@ def get_comprehensive_shipment_dossier_service(
             c_seal = c.get("customs_seal_no") or ""
             containers_list.append({
                 "container_no": c_no,
-                "container_type": c.get("container_type", "40HC"),
+                "container_type": c.get("container_type"),
                 "seal_no": c.get("seal_no") or l_seal,
                 "liner_seal_no": l_seal,
                 "customs_seal_no": c_seal,
                 "tare_weight_kg": float(c.get("tare_weight_kg") or 0.0),
                 "net_weight_kg": float(c.get("net_weight_kg") or 0.0),
                 "gross_weight_kg": float(c.get("gross_weight_kg") or 0.0),
-                "vgm_status": c.get("vgm_status") or "Verified",
-                "tracking_status": c.get("tracking_status") or "Gate-In Completed",
+                "vgm_status": c.get("vgm_status"),
+                "tracking_status": c.get("tracking_status"),
             })
     elif getattr(imp, "container_number", None) or getattr(imp, "seal_number", None):
         containers_list.append({
-            "container_no": getattr(imp, "container_number", None) or "CONT-001",
-            "container_type": "40HC",
+            "container_no": getattr(imp, "container_number", None),
+            "container_type": None,
             "seal_no": getattr(imp, "seal_number", "") or "",
             "liner_seal_no": getattr(imp, "seal_number", "") or "",
             "customs_seal_no": "",
             "tare_weight_kg": 0.0,
             "net_weight_kg": float(getattr(imp, "net_weight_kg", 0.0) or 0.0),
             "gross_weight_kg": float(getattr(imp, "gross_weight_kg", 0.0) or 0.0),
-            "vgm_status": "Verified",
-            "tracking_status": "Active",
+            "vgm_status": None,
+            "tracking_status": None,
         })
 
     # 9. FX Reconciliation (Customs vs Commercial Bank)

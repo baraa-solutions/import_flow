@@ -1826,6 +1826,44 @@ def aggregate_shipment_invoices_service(
             notes="إجمالي مصاريف التخليص والخدمات بالميناء",
         ))
 
+    # 5.1 Logistics Service Invoices (modules.logistics_invoices.model.LogisticsServiceInvoice)
+    from modules.logistics_invoices.model import LogisticsServiceInvoice
+    lsi_invoices = db.query(LogisticsServiceInvoice).filter(
+        LogisticsServiceInvoice.shipment_id == import_file_id,
+        LogisticsServiceInvoice.is_active == True,
+    ).all()
+    for lsi in lsi_invoices:
+        pt_map = {
+            "freight": ("SHIPPING_LINE", "خط الشحن / وكيل النولون", "Freight Forwarding"),
+            "clearance": ("BROKER", "مخلص جمركي", "Customs Clearance"),
+            "inspection": ("INSPECTION", "شركة فحص وتفتيش", "Inspection & Testing"),
+            "insurance": ("INSURANCE", "شركة تأمين بحري", "Marine Insurance"),
+        }
+        pt_code, pt_ar, cat_desc = pt_map.get(lsi.partner_type, ("OTHER", "شريك لوجستي", "Logistics Service"))
+        invoices.append(AggregatedInvoiceItemSchema(
+            invoice_id=f"LSI-{lsi.invoice_id}",
+            invoice_no=lsi.invoice_number or lsi.invoice_code,
+            invoice_date=str(lsi.invoice_date.date() if hasattr(lsi.invoice_date, "date") else lsi.invoice_date),
+            party_type=pt_code,
+            party_type_ar=pt_ar,
+            party_name=lsi.partner_name,
+            category=cat_desc,
+            category_ar=cat_desc,
+            currency=lsi.currency,
+            exchange_rate=float(lsi.exchange_rate or 1.0),
+            amount_fc=float(lsi.total_amount_fx or 0.0),
+            amount_egp=float(lsi.total_amount_egp or 0.0),
+            paid_amount_egp=float(lsi.paid_amount_egp or 0.0),
+            remaining_amount_egp=float(lsi.remaining_amount_egp or 0.0),
+            payment_status=lsi.payment_status.upper(),
+            payment_reference=lsi.invoice_code,
+            withholding_tax_rate=0.0,
+            withholding_tax_amount_egp=float(lsi.wht_amount or 0.0),
+            net_payable_egp=float(lsi.net_payable_egp or 0.0),
+            source_module="Logistics Service Invoice LSI",
+            notes=lsi.notes or f"فاتورة خدمات لوجستية {lsi.partner_type} رقم {lsi.invoice_number}",
+        ))
+
     # 6. Inland Transport (TR-01: InlandTransportBooking)
     transports = db.query(InlandTransportBooking).filter(
         InlandTransportBooking.import_file_id == import_file_id,

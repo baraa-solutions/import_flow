@@ -1841,7 +1841,7 @@ class _ImportFileComprehensiveReportScreenState
               itemBuilder: (ctx, idx) {
                 final c = containers[idx];
                 final cNo = c['container_no']?.toString() ?? 'CONT-${idx + 1}';
-                final cType = c['container_type']?.toString() ?? '40HC';
+                final cType = c['container_type']?.toString() ?? '-';
                 final lSeal = c['liner_seal_no']?.toString() ?? c['seal_no']?.toString() ?? '—';
                 final cSeal = c['customs_seal_no']?.toString() ?? '—';
                 final tare = c['tare_weight_kg'] ?? 0.0;
@@ -1931,7 +1931,7 @@ class _ImportFileComprehensiveReportScreenState
                           const SizedBox(width: 14),
                           Text('وزن قائم: $gross كجم', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                           const Spacer(),
-                          Text('VGM: ${c['vgm_status'] ?? "مؤكد"}', style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
+                          Text('VGM: ${c['vgm_status'] ?? "-"}', style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ],

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
+import 'package:frontend/features/customs_clearance/widgets/customs_ui.dart';
 
 void main() {
   group('Screen 24: Customs Clearance Management Localization Tests', () {
@@ -22,6 +23,12 @@ void main() {
         ar.customsClearanceFilterDutyRequested,
         ar.customsClearanceFilterDutyPaid,
         ar.customsClearanceFilterFinalRelease,
+        ar.customsClearanceStatusInspectionRecorded,
+        ar.customsClearanceStatusDutiesAssessed,
+        ar.customsClearanceStatusDutyPaidReady,
+        ar.customsClearanceStatusUnderBondReleased,
+        ar.customsClearanceStatusLabRejected,
+        ar.customsClearanceStatusInvoicesVerified,
         ar.customsClearanceNewRecordButton,
         ar.customsClearanceEmptyRecords,
         ar.customsClearanceDeclaration46Label,
@@ -166,9 +173,22 @@ void main() {
         ar.underBondLabApprovedSuccess,
         ar.underBondLabRejectedAlert,
         ar.underBondLabResultError('err'),
+        ar.underBondConfirmLiftTitle,
+        ar.underBondConfirmLiftBody,
+        ar.underBondConfirmLiftConfirm,
+        ar.underBondConfirmLiftCancel,
+        ar.underBondLabVerdictRequired,
+        ar.underBondRefRequired,
+        ar.underBondRefMinLength,
+        ar.underBondRefInvalid,
+        ar.underBondLocationRequired,
+        ar.underBondCertRequired,
+        ar.underBondCertMinLength,
+        ar.underBondCertInvalid,
         ar.customsClearanceExportTsvBtn,
         ar.customsClearanceExportTsvSuccess,
         ar.customsClearanceCopyFieldTooltip,
+        ar.ccRecordFileNotFound,
       ];
 
       final List<String> enStrings = [
@@ -184,6 +204,12 @@ void main() {
         en.customsClearanceFilterDutyRequested,
         en.customsClearanceFilterDutyPaid,
         en.customsClearanceFilterFinalRelease,
+        en.customsClearanceStatusInspectionRecorded,
+        en.customsClearanceStatusDutiesAssessed,
+        en.customsClearanceStatusDutyPaidReady,
+        en.customsClearanceStatusUnderBondReleased,
+        en.customsClearanceStatusLabRejected,
+        en.customsClearanceStatusInvoicesVerified,
         en.customsClearanceNewRecordButton,
         en.customsClearanceEmptyRecords,
         en.customsClearanceDeclaration46Label,
@@ -328,9 +354,22 @@ void main() {
         en.underBondLabApprovedSuccess,
         en.underBondLabRejectedAlert,
         en.underBondLabResultError('err'),
+        en.underBondConfirmLiftTitle,
+        en.underBondConfirmLiftBody,
+        en.underBondConfirmLiftConfirm,
+        en.underBondConfirmLiftCancel,
+        en.underBondLabVerdictRequired,
+        en.underBondRefRequired,
+        en.underBondRefMinLength,
+        en.underBondRefInvalid,
+        en.underBondLocationRequired,
+        en.underBondCertRequired,
+        en.underBondCertMinLength,
+        en.underBondCertInvalid,
         en.customsClearanceExportTsvBtn,
         en.customsClearanceExportTsvSuccess,
         en.customsClearanceCopyFieldTooltip,
+        en.ccRecordFileNotFound,
       ];
 
       for (final s in arStrings) {
@@ -418,6 +457,23 @@ void main() {
       expect(en.underBondActionError('connection_failed'), contains('connection_failed'));
       expect(ar.underBondLabResultError('timeout'), contains('timeout'));
       expect(en.underBondLabResultError('timeout'), contains('timeout'));
+    });
+
+    test('Phase-07 statuses have localized Arabic labels', () {
+      final statuses = [
+        'Inspection & Sampling Recorded',
+        'Customs Duties Assessed - Ready for Payment',
+        'Duty Paid - Ready for Final Release',
+        'Duty Paid',
+        'Under Bond Released',
+        'Lab Non-Conforming - Rejected',
+        'Invoices Logged & Verified',
+      ];
+      for (final s in statuses) {
+        final style = CcUi.statusStyle(ar, s);
+        expect(style.label, isNot(equals(s)));
+        expect(style.label, isNotEmpty);
+      }
     });
   });
 }

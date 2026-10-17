@@ -145,11 +145,11 @@ class ComprehensiveReportExportService {
       sb.writeln('--- حاويات الشحنة ومطابقة أرقام السيل (Containers & Seal Matrix) ---');
       for (final c in dossier.containers) {
         final cNo = c['container_no'] ?? '—';
-        final cType = c['container_type'] ?? '40HC';
+        final cType = c['container_type'] ?? '-';
         final lSeal = c['liner_seal_no'] ?? c['seal_no'] ?? '—';
         final cSeal = c['customs_seal_no'] ?? '—';
         final gross = c['gross_weight_kg'] ?? 0.0;
-        final vgm = c['vgm_status'] ?? 'Verified';
+        final vgm = c['vgm_status'] ?? '-';
         sb.writeln('• $cNo ($cType) | سيل التوكيل: $lSeal | سيل الجمارك: $cSeal | وزن قائم: $gross KG | VGM: $vgm');
       }
       sb.writeln();
@@ -526,11 +526,11 @@ class ComprehensiveReportExportService {
                       ...dossier.containers.map((c) => pw.TableRow(
                         children: [
                           _pdfDataCell(c['container_no']?.toString() ?? '—'),
-                          _pdfDataCell(c['container_type']?.toString() ?? '40HC'),
+                          _pdfDataCell(c['container_type']?.toString() ?? '-'),
                           _pdfDataCell(c['liner_seal_no']?.toString() ?? c['seal_no']?.toString() ?? '—'),
                           _pdfDataCell(c['customs_seal_no']?.toString() ?? '—'),
                           _pdfDataCell('${c['gross_weight_kg'] ?? 0} KG'),
-                          _pdfDataCell(c['vgm_status']?.toString() ?? 'Verified'),
+                          _pdfDataCell(c['vgm_status']?.toString() ?? '-'),
                         ],
                       )),
                     ],
@@ -979,11 +979,11 @@ class ComprehensiveReportExportService {
       for (var i = 0; i < dossier.containers.length; i++) {
         final c = dossier.containers[i];
         final cNo = c['container_no']?.toString() ?? 'CONT-${i + 1}';
-        final cType = c['container_type']?.toString() ?? '40HC';
+        final cType = c['container_type']?.toString() ?? '-';
         final lSeal = c['liner_seal_no']?.toString() ?? c['seal_no']?.toString() ?? '—';
         final cSeal = c['customs_seal_no']?.toString() ?? '—';
         final gross = c['gross_weight_kg'] ?? 0.0;
-        final vgm = c['vgm_status'] ?? 'Verified';
+        final vgm = c['vgm_status'] ?? '-';
         addRow(sCont, '$cNo ($cType)', 'سيل التوكيل: $lSeal | سيل الجمارك: $cSeal', 'Gross: $gross KG | VGM: $vgm');
       }
     }

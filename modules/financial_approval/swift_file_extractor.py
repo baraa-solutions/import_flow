@@ -14,6 +14,8 @@ from typing import Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
+MAX_SWIFT_OCR_PAGES = 5
+
 # Initialize RapidOCR engine once lazily
 _rapid_ocr_engine = None
 
@@ -109,7 +111,13 @@ def extract_text_from_pdf(content_bytes: bytes) -> str:
             ocr_engine = get_ocr_engine()
             if ocr_engine:
                 ocr_parts = []
-                for i in range(len(pdf)):
+                pages_to_ocr = min(len(pdf), MAX_SWIFT_OCR_PAGES)
+                if len(pdf) > MAX_SWIFT_OCR_PAGES:
+                    skipped_pages = len(pdf) - MAX_SWIFT_OCR_PAGES
+                    logger.info(
+                        f"PDF has {len(pdf)} pages; capping OCR fallback at {MAX_SWIFT_OCR_PAGES} pages ({skipped_pages} skipped)"
+                    )
+                for i in range(pages_to_ocr):
                     page = pdf[i]
                     image = page.render(scale=2).to_pil()
                     img_byte_arr = io.BytesIO()
