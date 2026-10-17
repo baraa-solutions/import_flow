@@ -198,8 +198,9 @@ class TestBE45NoInventedDefaults:
             bill_of_lading_no="BL-EIR-001",
             port_name="Alexandria Port",
             discharge_date=date(2026, 1, 1),
+            gate_out_date=date(2026, 1, 5),
             containers=[
-                {"container_no": "MSCU9999999", "container_type": "40ft High Cube"}
+                {"container_no": "MSCU9999999", "container_type": "40ft High Cube", "gate_out_date": "2026-01-05"}
             ],
             currency="USD",
             exchange_rate=50.0,
