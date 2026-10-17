@@ -107,6 +107,61 @@ class PurchaseOrderExtractor(BaseExtractor):
             "is_pallet_stackable": False,
             "packing_list_items": packing_items,
         }
+
+        # Harmonize with unified AI engines for commercial invoice & packing list
+        try:
+            from modules.import_documentation.ai_document_parser import (
+                extract_commercial_invoice_data,
+                extract_packing_list_data,
+            )
+            unified_inv = extract_commercial_invoice_data(text) or {}
+            unified_pl = extract_packing_list_data(text) or {}
+
+            # 1. Commercial items fallback/enrichment
+            if not result.get("items") and unified_inv.get("items"):
+                result["items"] = unified_inv.get("items")
+            elif result.get("items") and unified_inv.get("items") and len(unified_inv["items"]) > len(result["items"]):
+                result["items"] = unified_inv["items"]
+
+            # 2. Packing list items fallback/enrichment
+            pl_itms = unified_pl.get("packing_items") or unified_pl.get("items")
+            if not result.get("packing_list_items") and pl_itms:
+                result["packing_list_items"] = pl_itms
+            elif result.get("packing_list_items") and pl_itms and len(pl_itms) > len(result["packing_list_items"]):
+                result["packing_list_items"] = pl_itms
+
+            # 3. Document numbers and date
+            if not result.get("po_number"):
+                result["po_number"] = unified_inv.get("invoice_number") or unified_pl.get("packing_list_number")
+            if not result.get("order_date"):
+                result["order_date"] = unified_inv.get("invoice_date") or unified_pl.get("date")
+
+            # 4. Currency and financial totals
+            if not result.get("currency") and unified_inv.get("currency"):
+                result["currency"] = unified_inv["currency"]
+            if not result.get("total_amount") and unified_inv.get("total_amount"):
+                result["total_amount"] = unified_inv["total_amount"]
+
+            # 5. Weights and volumes
+            if not result.get("total_gross_weight_kg") and (unified_pl.get("total_gross_weight_kg") or unified_inv.get("total_gross_weight_kg")):
+                result["total_gross_weight_kg"] = unified_pl.get("total_gross_weight_kg") or unified_inv.get("total_gross_weight_kg")
+            if not result.get("total_net_weight_kg") and (unified_pl.get("total_net_weight_kg") or unified_inv.get("total_net_weight_kg")):
+                result["total_net_weight_kg"] = unified_pl.get("total_net_weight_kg") or unified_inv.get("total_net_weight_kg")
+            if not result.get("gross_volume_cbm") and (unified_pl.get("total_cbm") or unified_inv.get("total_cbm")):
+                result["gross_volume_cbm"] = unified_pl.get("total_cbm") or unified_inv.get("total_cbm")
+            if not result.get("pallet_count") and unified_pl.get("pallet_count"):
+                result["pallet_count"] = unified_pl.get("pallet_count")
+            if not result.get("total_packages") and (unified_pl.get("total_packages") or unified_inv.get("packages_count")):
+                result["total_packages"] = unified_pl.get("total_packages") or unified_inv.get("packages_count")
+
+            # 6. Egyptian regulatory fields
+            if not result.get("acid_number") and (unified_inv.get("acid_number") or unified_pl.get("acid_number")):
+                result["acid_number"] = unified_inv.get("acid_number") or unified_pl.get("acid_number")
+            if not result.get("importer_tax_id") and (unified_inv.get("importer_tax_id") or unified_pl.get("importer_tax_id")):
+                result["importer_tax_id"] = unified_inv.get("importer_tax_id") or unified_pl.get("importer_tax_id")
+        except Exception:
+            pass
+
         return result
 
     # ─── Number format & currency ────────────────────────────────────────────

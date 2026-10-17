@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../auth/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/step_config_model.dart';
 import '../providers/step_config_provider.dart';
 import '../services/step_config_export_service.dart';
+import '../../auth/providers/rbac_provider.dart';
 import '../../../core/localization/domain_enum_labels.dart';
 
 class StepConfigManagementScreen extends ConsumerStatefulWidget {
@@ -22,6 +24,28 @@ class StepConfigManagementScreen extends ConsumerStatefulWidget {
 class _StepConfigManagementScreenState
     extends ConsumerState<StepConfigManagementScreen> {
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(rbacProvider.notifier).fetchRbacData();
+    });
+  }
+
+  bool _canManageUsers(UserModel? user) {
+    if (user == null) return false;
+    if (user.isAdmin) return true;
+    final rbacState = ref.watch(rbacProvider);
+    final userRole = rbacState.roles
+        .where((r) => r.roleCode.toUpperCase() == user.role.toUpperCase())
+        .firstOrNull;
+    if (userRole != null) {
+      return userRole.permissions.contains('*') ||
+          userRole.permissions.contains('users.manage');
+    }
+    return false;
+  }
 
   @override
   void dispose() {
@@ -541,12 +565,13 @@ class _StepConfigManagementScreenState
                       customMessage: l.stepConfigCopyRowSuccess);
                 },
               ),
-              IconButton(
-                icon: const Icon(Icons.edit_note_rounded,
-                    color: AppTheme.flatCobalt, size: 22),
-                tooltip: l.stepConfigEditTooltip,
-                onPressed: () => _showEditDialog(context, cfg),
-              ),
+              if (_canManageUsers(ref.watch(authProvider).user))
+                IconButton(
+                  icon: const Icon(Icons.edit_note_rounded,
+                      color: AppTheme.flatCobalt, size: 22),
+                  tooltip: l.stepConfigEditTooltip,
+                  onPressed: () => _showEditDialog(context, cfg),
+                ),
               IconButton(
                 icon: const Icon(Icons.history_rounded,
                     color: Color(0xFF2C3E50), size: 20),
@@ -779,6 +804,7 @@ class _StepConfigManagementScreenState
   }
 
   void _showEditDialog(BuildContext context, StepConfigModel config) {
+    if (!_canManageUsers(ref.read(authProvider).user)) return;
     showDialog(
       context: context,
       builder: (dialogCtx) => _StepConfigEditDialog(config: config),
@@ -819,7 +845,13 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
     super.initState();
     _skipPolicy = widget.config.skipPolicy;
     _supportsPendingReference = widget.config.supportsPendingReference;
-    _approverRoles = List.from(widget.config.approverRoles);
+    _approverRoles = widget.config.approverRoles
+        .map((r) => r == 'Manager' ? 'GENERAL_MANAGER' : r)
+        .where((r) => r != 'ComplianceHead')
+        .toList();
+    if (_approverRoles.isEmpty) {
+      _approverRoles = ['GENERAL_MANAGER'];
+    }
     _reasonCategories = List.from(widget.config.reasonCategories);
   }
 
@@ -832,6 +864,10 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(stepConfigProvider);
+    final rbacState = ref.watch(rbacProvider);
+    final availableRoles = rbacState.roles.isNotEmpty
+        ? rbacState.roles.map((r) => r.roleCode).toList()
+        : const ['GENERAL_MANAGER', 'ADMIN', 'LOGISTICS_OPERATOR'];
     final l = context.l10n;
     final isAr = Localizations.maybeLocaleOf(context)?.languageCode == 'ar' ||
         Directionality.of(context) == TextDirection.rtl;
@@ -961,7 +997,7 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
                   Wrap(
                     spacing: 8,
                     children: [
-                      for (final role in ['Manager', 'ADMIN', 'ComplianceHead'])
+                      for (final role in availableRoles)
                         FilterChip(
                           label: Text(role),
                           selected: _approverRoles.contains(role),
