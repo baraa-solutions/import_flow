@@ -134,7 +134,7 @@ class TestFileClosureModule(unittest.TestCase):
         )
 
         with self.assertRaises(HTTPException) as ctx:
-            close_import_file_service(self.db, schema)
+            close_import_file_service(self.db, schema, trusted=True)
         self.assertEqual(ctx.exception.status_code, 400)
 
     def test_close_import_file_success(self):
@@ -155,7 +155,7 @@ class TestFileClosureModule(unittest.TestCase):
             archival_notes="All customs duties paid, landed cost calculated, GRN received.",
         )
 
-        record = close_import_file_service(self.db, schema)
+        record = close_import_file_service(self.db, schema, trusted=True)
         self.assertIsNotNone(record.closure_id)
         self.assertTrue(record.closure_code.startswith("CLR-"))
         self.assertEqual(record.status, "Closed")
@@ -180,7 +180,7 @@ class TestFileClosureModule(unittest.TestCase):
                 tasks_closed=True,
             ),
         )
-        record = close_import_file_service(self.db, schema)
+        record = close_import_file_service(self.db, schema, trusted=True)
         c_id = record.closure_id
 
         # FC-09 / Q5: the closure of a Closed file cannot be deleted (reopen first)
@@ -219,7 +219,7 @@ class TestFileClosureModule(unittest.TestCase):
                 tasks_closed=True,
             ),
         )
-        record = close_import_file_service(self.db, schema)
+        record = close_import_file_service(self.db, schema, trusted=True)
         self.assertIsNotNone(record.closure_id)
         self.assertEqual(record.status, "Closed")
 
@@ -240,18 +240,62 @@ class TestFileClosureModule(unittest.TestCase):
             is_draft=True,
         )
 
-        record = close_import_file_service(self.db, schema)
+        record = close_import_file_service(self.db, schema, trusted=True)
         self.assertIsNotNone(record.closure_id)
         self.assertEqual(record.status, "Draft")
         self.assertEqual(record.closure_checklist["docs_verified"], True)
         self.assertEqual(record.closure_checklist["warehouse_received"], False)
 
-        # Import file should remain open with in-progress closure status
+        # BE810-T09 / F19: Import file without dossier_exported_at leaves current_stage and current_module unchanged
         imp_file = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
         self.assertNotEqual(imp_file.status, "Closed")
+        self.assertEqual("Phase 1 - Planning & Feasibility", imp_file.current_stage)
+
+        # When dossier_exported_at is set, draft update moves tracking to CLOSURE_IN_PROGRESS
+        imp_file.dossier_exported_at = datetime.now()
+        self.db.commit()
+        record_after_export = close_import_file_service(self.db, schema, trusted=True)
+        self.db.refresh(imp_file)
         self.assertEqual("Closure In-Progress", imp_file.current_stage)
         self.assertEqual("CLOSURE_IN_PROGRESS", imp_file.current_stage_code)
         self.assertEqual("NA_CLO_COMPLETE_CHECKLIST", imp_file.next_action_code)
+        self.assertEqual("Phase 10 - Import File Closure & Historical Archive (Draft)", imp_file.current_module)
+
+    def test_draft_post_on_phase_6_file_leaves_module_and_stage_unchanged(self):
+        """BE810-T09: Draft POST on a Phase 6 file leaves current_module and current_stage unchanged."""
+        imp_file = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
+        imp_file.current_stage = "Stage 6: Customs Clearance & Final Release"
+        imp_file.current_module = "Phase 6: Customs Clearance & Form 46"
+        imp_file.dossier_exported_at = None
+        self.db.commit()
+
+        schema = FileClosureCreate(
+            import_file_id=self.import_file_id,
+            is_draft=True,
+        )
+        record = close_import_file_service(self.db, schema, trusted=True)
+        self.assertEqual(record.status, "Draft")
+
+        self.db.refresh(imp_file)
+        self.assertEqual("Stage 6: Customs Clearance & Final Release", imp_file.current_stage)
+        self.assertEqual("Phase 6: Customs Clearance & Form 46", imp_file.current_module)
+
+    def test_official_close_strips_trailing_draft_from_closed_at_phase(self):
+        """BE810-T09: Official close strips trailing ' (Draft)' from imp.closed_at_phase."""
+        _create_prerequisite_records(self.db, self.import_file_id)
+        imp_file = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
+        imp_file.current_module = "Phase 10 - Import File Closure & Historical Archive (Draft)"
+        self.db.commit()
+
+        schema = FileClosureCreate(
+            import_file_id=self.import_file_id,
+            is_draft=False,
+        )
+        record = close_import_file_service(self.db, schema, trusted=True)
+        self.assertEqual(record.status, "Closed")
+
+        self.db.refresh(imp_file)
+        self.assertEqual("Phase 10 - Import File Closure & Historical Archive", imp_file.closed_at_phase)
 
 if __name__ == "__main__":
     unittest.main()

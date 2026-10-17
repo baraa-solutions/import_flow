@@ -113,7 +113,7 @@ def test_warehouse_receiving_list_tolerates_legacy_row(db_session, client):
 
     assert response.status_code == 200, response.text
     row = next(r for r in response.json() if r["grn_code"] == "GRN-LEGACY-0001")
-    assert row["claim_currency"] == "EGP"
+    assert row["claim_currency"] is None
     assert row["supplier_claim_filed"] is False
     assert row["claim_amount_estimated"] is None
     assert row["discrepancy_rate_percent"] is None

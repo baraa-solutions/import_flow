@@ -145,10 +145,10 @@ class CustomsConsultationSession(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     
     # Linked Broker (Customs Broker from external_service_providers)
-    broker_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("external_service_providers.provider_id"), nullable=False, index=True
+    broker_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("external_service_providers.provider_id"), nullable=True, index=True
     )
-    broker_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    broker_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     broker_contact_person: Mapped[str] = mapped_column(String(100), nullable=True)
     broker_price_list_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("broker_price_lists.price_list_id"), nullable=True

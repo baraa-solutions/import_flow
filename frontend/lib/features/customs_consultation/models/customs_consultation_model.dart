@@ -627,7 +627,7 @@ class CustomsRecalculationResponseModel {
   final bool isReconciled;
   final String sourceDescription;
   /// FINAL side rate (EGP per unit of [finalCurrency]).
-  final double exchangeRate;
+  final double? exchangeRate;
   final double? preliminaryExchangeRate;
   final String? preliminaryCurrency;
   final String? finalCurrency;
@@ -665,7 +665,7 @@ class CustomsRecalculationResponseModel {
     this.reconciliationSessionId,
     this.isReconciled = false,
     required this.sourceDescription,
-    required this.exchangeRate,
+    this.exchangeRate,
     this.preliminaryExchangeRate,
     this.preliminaryCurrency,
     this.finalCurrency,
@@ -701,7 +701,7 @@ class CustomsRecalculationResponseModel {
       reconciliationSessionId: json['reconciliation_session_id'],
       isReconciled: json['is_reconciled'] ?? false,
       sourceDescription: json['source_description'] ?? '',
-      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 50.0,
+      exchangeRate: (json['exchange_rate'] as num?)?.toDouble(),
       preliminaryExchangeRate: (json['preliminary_exchange_rate'] as num?)?.toDouble(),
       preliminaryCurrency: json['preliminary_currency'] as String?,
       finalCurrency: json['final_currency'] as String?,
@@ -767,6 +767,10 @@ class CustomsItemCalcRow {
   final bool hasExemption;
   final String? exemptionConditionsNote;
   final String? requiredDocument;
+  final bool isTariffMissing;
+  final String? status;
+
+  bool get isCalculated => status == 'CALCULATED';
 
   CustomsItemCalcRow({
     required this.hsCode,
@@ -801,6 +805,8 @@ class CustomsItemCalcRow {
     this.hasExemption = false,
     this.exemptionConditionsNote,
     this.requiredDocument,
+    this.isTariffMissing = false,
+    this.status,
   });
 }
 
@@ -817,7 +823,7 @@ extension CustomsRecalculationRates on CustomsRecalculationResponseModel {
       '${currency == null || currency.isEmpty ? '' : '$currency '}${rate.toStringAsFixed(4)}';
 
   /// "USD 49.5000" (currency omitted when the backend did not send it).
-  String get finalRateText => _piece(finalCurrency, exchangeRate);
+  String get finalRateText => exchangeRate == null ? '—' : _piece(finalCurrency, exchangeRate!);
 
   /// Null when there is no separate preliminary rate to show.
   String? get preliminaryRateText =>

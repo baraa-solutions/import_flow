@@ -5,15 +5,26 @@ PreToolUse hook: guard files that must never be rewritten by an agent.
   existing file is blocked; Edit (appending a new task entry) is allowed.
 - .env holds the generated SECRET_KEY: no edits.
 - *.db / *.db-wal / *.db-shm are live SQLite databases: no edits.
+- The module-docs-writer subagent writes docs only: docs/modules/**, docs/phase_XX_*.md and its own
+  memory folder. The hook input names the subagent in `agent_type`.
 
 Exit code 2 blocks the tool call and shows the reason to Claude.
 """
 import json
+import re
 import sys
 from pathlib import Path
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 DATABASE_SUFFIXES = (".db", ".db-wal", ".db-shm", ".sqlite", ".sqlite3")
+DOCS_WRITER_AGENT = "module-docs-writer"
+DOCS_WRITER_ALLOWED = re.compile(
+    r"^(docs/modules/.+\.md|docs/phase_\d\d_[^/]+\.md|\.claude/agent-memory/module-docs-writer/.+\.md)$"
+)
+
+
+def is_docs_writer_path(relative: Path) -> bool:
+    return bool(DOCS_WRITER_ALLOWED.match(relative.as_posix()))
 
 
 def block(reason: str) -> int:
@@ -37,10 +48,19 @@ def main() -> int:
     if name.endswith(DATABASE_SUFFIXES):
         return block(f"Blocked: {target.name} is a live SQLite database. Change data through the app or a migration.")
 
+    is_docs_writer = payload.get("agent_type") == DOCS_WRITER_AGENT
     try:
         relative = target.relative_to(PROJECT_DIR)
     except ValueError:
+        if is_docs_writer:
+            return block(f"Blocked: {DOCS_WRITER_AGENT} writes only inside the project docs, not {target}.")
         return 0
+
+    if is_docs_writer and not is_docs_writer_path(relative):
+        return block(
+            f"Blocked: {DOCS_WRITER_AGENT} writes only docs/modules/*.md, docs/phase_XX_*.md and its memory "
+            f"folder, not {relative.as_posix()}. Report the needed change to the lead instead."
+        )
 
     is_history_log = relative.parts[:1] == ("history",) and target.suffix == ".md"
     if tool_name == "Write" and is_history_log and target.exists():

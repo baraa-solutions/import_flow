@@ -687,7 +687,7 @@ def test_complete_user_testing_checklist_flow(e2e_context):
     from modules.file_closure.schemas import DossierExportConfirmRequest
     from modules.file_closure.service import confirm_dossier_export_service
     export_res = confirm_dossier_export_service(
-        db, DossierExportConfirmRequest(import_file_id=imp_file.import_file_id), user="Internal Auditor"
+        db, DossierExportConfirmRequest(import_file_id=imp_file.import_file_id), user="Internal Auditor", trusted=True
     )
     assert export_res.success is True
     checklist_results["CLO-03"] = "Passed ✅: Comprehensive audit and financial report compiled."
@@ -706,7 +706,7 @@ def test_complete_user_testing_checklist_flow(e2e_context):
         archive_location="Digital Archive Vault - 2026",
         archival_notes="All goods received, zero demurrage, all suppliers & customs settled.",
     )
-    closure_rec = close_import_file_service(db, closure_schema)
+    closure_rec = close_import_file_service(db, closure_schema, trusted=True)
     assert closure_rec.closure_id is not None
     imp_file.is_active = False
     imp_file.current_module = "Phase 9: Closed & Settled"

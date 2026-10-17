@@ -90,6 +90,132 @@ void main() {
       expect(find.text('يرجى إدخال قيمة مصاريف التوكيل'), findsOneWidget);
       expect(find.text('يرجى تحديد أيام السماح'), findsOneWidget);
     });
+
+    testWidgets('With targetFreeDays null, picking issue date keeps free days field empty', (tester) async {
+      final sampleFile = ImportFileModel(
+        importFileId: 78,
+        importFileCode: 'IMP-2026-0078',
+        customFileNumber: 'CF-7788',
+        companyName: 'Al-Madina Trading',
+        supplierName: 'Mediterranean Logistics Corp',
+        currentModule: 'Phase 6 - Customs Preparation',
+        currentStage: 'Customs Broker Authorized',
+        nextAction: 'سداد إذن التسليم الملاحي واستلام D/O (CS-02)',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T10:00:00Z',
+        deliveryOrderNo: null,
+        targetFreeDays: null,
+      );
+
+      final fakeLines = [
+        PartnerModel(
+          providerId: 22,
+          partnerCode: 'MSK-01',
+          partnerName: 'Maersk Line Egypt',
+          partnerType: 'Shipping Line',
+          country: 'Egypt',
+          paymentType: 'Cash',
+          creditLimit: 0,
+          rating: 4.8,
+          isActive: true,
+        ),
+      ];
+
+      await tester.binding.setSurfaceSize(const Size(1200, 950));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            allPartnersProvider.overrideWith((ref) => FakeShippingPartnersNotifier(fakeLines)),
+          ],
+          child: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              home: Scaffold(
+                body: DeliveryOrderPaymentDialog(file: sampleFile),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Free days field starts empty
+      final freeDaysField = tester.widget<TextFormField>(find.byKey(const Key('freeDaysField')));
+      expect(freeDaysField.controller?.text, isEmpty);
+
+      // Tap issue date picker
+      await tester.tap(find.byIcon(Icons.calendar_today_rounded));
+      await tester.pumpAndSettle();
+
+      // Tap confirmation button in showDatePicker dialog
+      final confirmButtons = find.byType(TextButton);
+      if (confirmButtons.evaluate().isNotEmpty) {
+        await tester.tap(confirmButtons.last, warnIfMissed: false);
+        await tester.pumpAndSettle();
+      }
+
+      // Free days field must still be empty!
+      expect(freeDaysField.controller?.text, isEmpty);
+    });
+
+    testWidgets('Stored values prefill correctly from ImportFileModel', (tester) async {
+      final sampleFile = ImportFileModel(
+        importFileId: 79,
+        importFileCode: 'IMP-2026-0079',
+        customFileNumber: 'CF-7799',
+        companyName: 'Al-Madina Trading',
+        supplierName: 'Mediterranean Logistics Corp',
+        currentModule: 'Phase 6 - Customs Preparation',
+        currentStage: 'Customs Broker Authorized',
+        nextAction: 'سداد إذن التسليم الملاحي واستلام D/O (CS-02)',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T10:00:00Z',
+        deliveryOrderNo: 'DO-EXISTING-999',
+        targetFreeDays: 21,
+        deliveryOrderDate: '2026-10-01T00:00:00Z',
+        deliveryOrderExpiryDate: '2026-10-22T00:00:00Z',
+      );
+
+      final fakeLines = [
+        PartnerModel(
+          providerId: 22,
+          partnerCode: 'MSK-01',
+          partnerName: 'Maersk Line Egypt',
+          partnerType: 'Shipping Line',
+          country: 'Egypt',
+          paymentType: 'Cash',
+          creditLimit: 0,
+          rating: 4.8,
+          isActive: true,
+        ),
+      ];
+
+      await tester.binding.setSurfaceSize(const Size(1200, 950));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            allPartnersProvider.overrideWith((ref) => FakeShippingPartnersNotifier(fakeLines)),
+          ],
+          child: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              home: Scaffold(
+                body: DeliveryOrderPaymentDialog(file: sampleFile),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final doNumField = tester.widget<TextFormField>(find.byKey(const Key('doNumberField')));
+      expect(doNumField.controller?.text, equals('DO-EXISTING-999'));
+
+      final freeDaysField = tester.widget<TextFormField>(find.byKey(const Key('freeDaysField')));
+      expect(freeDaysField.controller?.text, equals('21'));
+    });
   });
 }
 
