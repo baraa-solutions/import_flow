@@ -11,8 +11,11 @@ To add a new relationship in the future:
   Done. No other code changes needed.
 """
 
+import logging
 from sqlalchemy.orm import Session
 import modules.recalculation.repository as repo
+
+logger = logging.getLogger("recalculation_seed")
 
 # ─── Blocked statuses for import budgets ────────────────────────────────────
 _BUDGET_BLOCKED_STATUSES = ["Budget Approved", "Superseded"]
@@ -94,6 +97,10 @@ DEPENDENCY_SEEDS = [
         "label_en": "Total FOB Value from Purchase Orders",
         "display_order": 10,
     },
+]
+
+
+RETIRED_DEPENDENCY_SEEDS = [
     # ── financial_settlement ← shipping_scenarios ───────────────────────────
     {
         "target_entity_type": "financial_settlement",
@@ -141,15 +148,26 @@ DEPENDENCY_SEEDS = [
 
 def run_seed(db: Session) -> int:
     """
-    Idempotently seeds all dependency rows. Returns count of rows upserted.
+    Idempotently seeds all dependency rows and deactivates retired seeds.
+    Returns count of active rows upserted.
     """
     count = 0
     for seed in DEPENDENCY_SEEDS:
         repo.upsert_dependency(db=db, **seed)
         count += 1
+    for retired in RETIRED_DEPENDENCY_SEEDS:
+        repo.deactivate_dependency(
+            db=db,
+            target_entity_type=retired["target_entity_type"],
+            target_field=retired["target_field"],
+            source_entity_type=retired["source_entity_type"],
+            source_field=retired["source_field"],
+        )
     db.commit()
+    logger.info("[RecalculationEngine] Seeded %d dependency rows and deactivated retired seeds.", count)
     print(f"[RecalculationEngine] Seeded {count} dependency rows.")
     return count
+
 
 
 if __name__ == "__main__":

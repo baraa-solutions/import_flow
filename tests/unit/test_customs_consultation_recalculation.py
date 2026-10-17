@@ -203,6 +203,21 @@ def test_customs_recalculation_api_endpoint(db_session):
     client = TestClient(app)
 
     imp_file = db_session.query(ImportFile).first()
+    from modules.users.model import User
+    from modules.auth.security import create_access_token
+    user = User(
+        username="test_cc_admin",
+        full_name="CC Admin",
+        email="cc@admin.com",
+        role="ADMIN",
+        is_active=True,
+        hashed_password="hashed",
+    )
+    db_session.add(user)
+    db_session.commit()
+    token = create_access_token({"sub": str(user.user_id), "role": user.role})
+    headers = {"Authorization": f"Bearer {token}"}
+
     payload = {
         "import_file_id": imp_file.import_file_id,
         "exchange_rate": 52.0,
