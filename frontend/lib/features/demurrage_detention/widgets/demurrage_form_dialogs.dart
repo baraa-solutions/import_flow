@@ -233,6 +233,18 @@ class _UpdateTrackingDatesDialogState extends ConsumerState<UpdateTrackingDatesD
     final l = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+
+    if (_emptyReturn != null && _gateOut == null) {
+      messenger.showSnackBar(
+        AppTheme.snackBar(
+          context,
+          'لا يمكن تسجيل إعادة الحاوية الفارغة بدون تاريخ خروجها من الميناء (Gate-Out).',
+          severity: AppSeverity.danger,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     final ok = await ref.read(demurrageProvider.notifier).updateTrackingDates(
           widget.item.trackingId,
@@ -246,7 +258,11 @@ class _UpdateTrackingDatesDialogState extends ConsumerState<UpdateTrackingDatesD
       ok ? l.datesUpdatedAndRecalculatedSuccessSnack : ApiErrorText.of(l, error, fallback: l.datesUpdateErrorSnack),
       severity: ok ? AppSeverity.success : AppSeverity.danger,
     );
-    navigator.pop();
+    if (ok) {
+      navigator.pop();
+    } else {
+      setState(() => _isSaving = false);
+    }
     messenger.showSnackBar(snack);
   }
 

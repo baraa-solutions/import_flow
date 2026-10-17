@@ -435,7 +435,13 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
     """
     Simulates Demurrage, Detention, and Port Storage calculations with full breakdowns.
     """
-    validate_demurrage_dates(req.discharge_date, req.gate_out_date, req.empty_return_date, today=None)
+    validate_demurrage_dates(
+        req.discharge_date,
+        req.gate_out_date,
+        req.empty_return_date,
+        today=None,
+        require_gate_out_for_empty_return=False,
+    )
 
     calc_date = req.calculation_date or _today()
     dem_tiers = [t.model_dump() if hasattr(t, 'model_dump') else t for t in (req.demurrage_tiers or DEFAULT_DEMURRAGE_TIERS)]
@@ -443,6 +449,8 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
 
     # 1. Demurrage calculation (Discharge to Gate-Out / Calc Date)
     demurrage_end_date = req.gate_out_date or calc_date
+    if req.empty_return_date and req.empty_return_date < demurrage_end_date:
+        demurrage_end_date = req.empty_return_date
     demurrage_days_consumed = max(0, (demurrage_end_date - req.discharge_date).days)
     demurrage_days_overdue = max(0, demurrage_days_consumed - req.demurrage_free_days)
     demurrage_expiry_date = req.discharge_date + timedelta(days=req.demurrage_free_days)
@@ -468,6 +476,8 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
 
     # 3. Port Storage calculation
     storage_end_date = req.gate_out_date or calc_date
+    if req.empty_return_date and req.empty_return_date < storage_end_date:
+        storage_end_date = req.empty_return_date
     storage_days_consumed = max(0, (storage_end_date - req.discharge_date).days)
     storage_days_overdue = max(0, storage_days_consumed - req.port_storage_free_days)
     storage_fee_egp = round(storage_days_overdue * req.port_storage_daily_rate_egp * req.containers_count, 2)
@@ -1634,6 +1644,20 @@ def record_empty_container_return_service(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"تم تسجيل إرجاع جميع حاويات جلسة التتبع {tracking.tracking_code} بالفعل.",
+            )
+
+        missing_gate_out = []
+        for c in containers:
+            c_no = (c.get("container_no") or "").strip().upper()
+            if c_no in targets:
+                g_out = _parse_date(c.get("gate_out_date")) or tracking.gate_out_date
+                if not g_out:
+                    missing_gate_out.append(c_no)
+
+        if missing_gate_out:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"لا يمكن تسجيل إعادة الحاويات الفارغة بدون تاريخ خروجها من الميناء (Gate-Out) للحاويات: {', '.join(sorted(missing_gate_out))}.",
             )
 
         returned_container_numbers: List[str] = []
