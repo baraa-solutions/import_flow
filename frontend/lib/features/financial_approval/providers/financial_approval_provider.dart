@@ -171,10 +171,12 @@ class PaymentRequestsNotifier
   Future<PaymentRequestModel?> executePayment(int paymentId,
       {String? swiftRef}) async {
     try {
+      final cleanRef = swiftRef?.trim();
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId/pay',
-        queryParameters:
-            swiftRef != null ? {'swift_reference_no': swiftRef} : null,
+        queryParameters: (cleanRef != null && cleanRef.isNotEmpty)
+            ? {'swift_reference_no': cleanRef}
+            : null,
       );
       final paid = PaymentRequestModel.fromJson(response.data);
       await _refresh();

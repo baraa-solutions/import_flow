@@ -9,12 +9,14 @@ import '../../../core/widgets/ltr_text.dart';
 import '../../../core/widgets/metric_card.dart';
 import '../models/customs_clearance_model.dart';
 import '../services/final_duty_payment_export_service.dart';
+import 'clearance_details_dialog.dart';
 import 'customs_ui.dart';
 
 /// Screen 62: Customs Clearance - Final Duty Payment & Release SubTab.
 class FinalDutyPaymentTab extends ConsumerStatefulWidget {
   final List<CustomsClearanceModel> records;
   final VoidCallback? onRefresh;
+  final void Function(CustomsClearanceModel record)? onView;
   final void Function(CustomsClearanceModel record)? onPay;
   final void Function(CustomsClearanceModel record)? onRelease;
 
@@ -22,6 +24,7 @@ class FinalDutyPaymentTab extends ConsumerStatefulWidget {
     super.key,
     required this.records,
     this.onRefresh,
+    this.onView,
     this.onPay,
     this.onRelease,
   });
@@ -43,15 +46,13 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
 
   List<CustomsClearanceModel> get _filteredRecords {
     return widget.records.where((r) {
-      if (_statusFilter == 'PAID' && r.paymentStatus != 'Paid & Verified') {
+      if (_statusFilter == 'PAID' && !CcStatus.isPaid(r)) {
         return false;
       }
-      if (_statusFilter == 'PENDING' && r.paymentStatus == 'Paid & Verified') {
+      if (_statusFilter == 'PENDING' && CcStatus.isPaid(r)) {
         return false;
       }
-      if (_statusFilter == 'RELEASED' &&
-          r.status != 'Final Release Granted' &&
-          (r.releasePermitNo == null || r.releasePermitNo!.isEmpty)) {
+      if (_statusFilter == 'RELEASED' && !CcStatus.isReleased(r)) {
         return false;
       }
 
@@ -76,7 +77,7 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
   }
 
   void _copyRowSummary(CustomsClearanceModel r, AppLocalizations l) {
-    final isPaid = r.paymentStatus == 'Paid & Verified';
+    final isPaid = CcStatus.isPaid(r);
     final actual = CcFormat.fixed(r.effectiveDutyTotal);
     final est = CcFormat.fixed(r.estimatedDutyTotal);
     final variance = '${CcFormat.signedFixed(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
@@ -102,44 +103,32 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
     final records = widget.records;
     final filtered = _filteredRecords;
 
-    final totalPayable = records.fold<double>(
-      0.0,
-      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
-    );
-    final totalPaid = records.where((r) => r.paymentStatus == 'Paid & Verified').fold<double>(
-      0.0,
-      (sum, r) => sum + (r.effectiveDutyTotal ?? 0),
-    );
-    final pendingCount = records.where((r) => r.paymentStatus != 'Paid & Verified').length;
-    final netVariance = records.fold<double>(
-      0.0,
-      (sum, r) => sum + (r.dutyVarianceAmount ?? 0),
-    );
+    final kpis = FinalDutyKpis.from(records);
 
     final metrics = [
       MetricCardData(
-        title: '${l.finalDutyKpiTotalPayable} (${l.egpCurrency})',
-        value: CcFormat.money(totalPayable),
+        title: '${l.finalDutyKpiOutstanding} (${l.egpCurrency})',
+        value: CcFormat.money(kpis.outstanding),
         icon: Icons.account_balance_wallet_outlined,
         color: AppTheme.cobalt,
       ),
       MetricCardData(
         title: '${l.finalDutyKpiTotalPaid} (${l.egpCurrency})',
-        value: CcFormat.money(totalPaid),
+        value: CcFormat.money(kpis.totalPaid),
         icon: Icons.check_circle_outline,
         color: AppTheme.emerald,
       ),
       MetricCardData(
         title: l.finalDutyKpiPendingPayment,
-        value: pendingCount.toString(),
+        value: kpis.pendingCount.toString(),
         icon: Icons.pending_actions_outlined,
         color: AppTheme.orange,
       ),
       MetricCardData(
         title: '${l.finalDutyKpiNetVariance} (${l.egpCurrency})',
-        value: CcFormat.signedMoney(netVariance),
+        value: CcFormat.signedMoney(kpis.netVariance),
         icon: Icons.compare_arrows_outlined,
-        color: netVariance.abs() > 500 ? AppTheme.crimson : AppTheme.charcoal,
+        color: kpis.netVariance.abs() > CcUi.varianceWarnThresholdEgp ? AppTheme.crimson : AppTheme.charcoal,
       ),
     ];
 
@@ -355,16 +344,21 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
   }
 
   DataRow _buildRow(CustomsClearanceModel r, AppLocalizations l) {
-    final isPaid = r.paymentStatus == 'Paid & Verified';
+    final isPaid = CcStatus.isPaid(r);
+    final isReleased = CcStatus.isReleased(r);
+    final canPay = CcStatus.canPay(r);
+    final canRelease = CcStatus.canRelease(r);
     final actual = r.effectiveDutyTotal;
     final actualDutyStr = '${CcFormat.money(actual)} ${l.finalDutyCurrencyEgp}';
     final estDutyStr = '${CcFormat.money(r.estimatedDutyTotal)} ${l.finalDutyCurrencyEgp}';
     final varianceStr = '${CcFormat.signedMoney(r.dutyVarianceAmount)} (${CcFormat.percent(r.dutyVariancePercentage)})';
     final paymentStatusStr = isPaid ? l.finalDutyStatusPaidVerified : l.finalDutyStatusPendingPayment;
+    final channelLabel = CcUi.channelStyle(l, r.channelType).label;
+    final statusLabel = CcUi.statusStyle(l, r.status).label;
     final bankReceiptStr = r.bankReceiptNo ?? '-';
     final releasePermitStr = r.releasePermitNo ?? '-';
     final rowSummary =
-        "${r.clearanceCode}\t${r.declaration46No ?? '-'}\t${r.customsOfficeName}\t${r.channelType}\t$actualDutyStr\t$estDutyStr\t$varianceStr\t$paymentStatusStr\t$bankReceiptStr\t$releasePermitStr\t${r.status}";
+        "${r.clearanceCode}\t${r.declaration46No ?? '-'}\t${r.customsOfficeName}\t$channelLabel\t$actualDutyStr\t$estDutyStr\t$varianceStr\t$paymentStatusStr\t$bankReceiptStr\t$releasePermitStr\t$statusLabel";
 
     DataCell textCell(String value, Widget child) =>
         DataCell(CopyableTableCell(value: value, rowSummary: rowSummary, child: child));
@@ -381,28 +375,45 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
                 onPressed: () => _copyRowSummary(r, l),
               ),
               const SizedBox(width: 4),
-              AppButton(
-                label: isPaid ? l.customsClearanceBtnPaymentDetails : l.customsClearanceBtnPayReconcile,
-                icon: isPaid ? Icons.verified : Icons.payment,
-                variant: isPaid ? AppButtonVariant.primary : AppButtonVariant.success,
-                size: AppButtonSize.small,
-                onPressed: widget.onPay != null ? () => widget.onPay!(r) : null,
-              ),
-              const SizedBox(width: 6),
-              AppButton(
-                label: l.customsClearanceBtnFinalRelease,
-                icon: Icons.assignment_turned_in,
-                variant: AppButtonVariant.secondary,
-                size: AppButtonSize.small,
-                onPressed: widget.onRelease != null ? () => widget.onRelease!(r) : null,
-              ),
+              if (isPaid || isReleased)
+                AppButton(
+                  label: l.view,
+                  icon: Icons.visibility_outlined,
+                  variant: AppButtonVariant.primary,
+                  size: AppButtonSize.small,
+                  onPressed: () {
+                    if (widget.onView != null) {
+                      widget.onView!(r);
+                    } else {
+                      ClearanceDetailsDialog.show(context, record: r);
+                    }
+                  },
+                )
+              else
+                AppButton(
+                  label: l.customsClearanceBtnPayReconcile,
+                  icon: Icons.payment,
+                  variant: AppButtonVariant.success,
+                  size: AppButtonSize.small,
+                  onPressed: canPay && widget.onPay != null ? () => widget.onPay!(r) : null,
+                ),
+              if (canRelease) ...[
+                const SizedBox(width: 6),
+                AppButton(
+                  label: l.customsClearanceBtnFinalRelease,
+                  icon: Icons.assignment_turned_in,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.small,
+                  onPressed: widget.onRelease != null ? () => widget.onRelease!(r) : null,
+                ),
+              ],
             ],
           ),
         ),
         _codeCell(r.clearanceCode, rowSummary, color: AppTheme.cobalt),
         _codeCell(r.declaration46No, rowSummary),
         textCell(r.customsOfficeName, Text(r.customsOfficeName, style: const TextStyle(fontSize: 12))),
-        textCell(r.channelType, Text(r.channelType, style: const TextStyle(fontSize: 12))),
+        textCell(channelLabel, Text(channelLabel, style: const TextStyle(fontSize: 12))),
         textCell(
           actualDutyStr,
           LtrText(
@@ -419,7 +430,7 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 12,
-              color: (r.dutyVarianceAmount ?? 0).abs() > 500
+              color: (r.dutyVarianceAmount ?? 0).abs() > CcUi.varianceWarnThresholdEgp
                   ? AppTheme.warningForeground
                   : AppTheme.textSecondaryOf(context),
             ),

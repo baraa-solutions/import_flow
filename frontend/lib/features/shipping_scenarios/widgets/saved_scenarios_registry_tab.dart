@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
-import '../../../core/widgets/row_actions_pill.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../purchase_orders/models/purchase_order_model.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../projects/providers/projects_provider.dart';
@@ -16,11 +15,7 @@ import '../../../core/services/file_save_helper.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../screens/shipping_scenarios_screen.dart';
-import '../../../core/widgets/table_row_clone_helper.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/localization/api_error_text.dart';
 
 class SavedScenariosRegistryTab extends ConsumerStatefulWidget {
@@ -147,33 +142,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
           child: LayoutBuilder(
             builder: (context, constraints) {
               final isCompact = constraints.maxWidth < 750;
-              final searchField = TextField(
+              final searchField = AppSearchField(
                 controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: l.searchStudiesHint,
-                  prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
-                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _searchController,
-                    builder: (context, val, _) {
-                      return val.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () {
-                                _searchController.clear();
-                                ref.read(shippingScenariosProvider.notifier).setSearchQuery('');
-                              },
-                            )
-                          : const SizedBox.shrink();
-                    },
-                  ),
-                  filled: true,
-                  fillColor: isDark ? AppTheme.darkInputBackground : AppTheme.charcoalSurface,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
-                  isDense: true,
-                ),
+                hint: l.searchStudiesHint,
                 onChanged: (v) {
                   ref.read(shippingScenariosProvider.notifier).setSearchQuery(v.trim());
                 },
@@ -249,30 +220,13 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
         // ─── Data Table ──────────────────────────────────────────────────────
         Expanded(
           child: state.isLoading
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(color: AppTheme.cobalt),
-                      SizedBox(height: 16),
-                    ],
-                  ),
-                )
+              ? const AppLoadingState()
               : state.sessions.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.folder_open_rounded, size: 64, color: AppTheme.cloudWhite),
-                          const SizedBox(height: 16),
-                          Text(
-                            _searchController.text.isNotEmpty
-                                ? l.noResultsFound
-                                : l.noDataFound,
-                            style: const TextStyle(fontSize: 16, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
+                  ? AppEmptyState(
+                      icon: Icons.folder_open_rounded,
+                      message: _searchController.text.isNotEmpty
+                          ? l.noResultsFound
+                          : l.noDataFound,
                     )
                   : LayoutBuilder(
                       builder: (context, constraints) {
@@ -1377,35 +1331,14 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
 
   Future<void> _handleDeleteOrRestore(BuildContext context, ShippingEvaluationModel sess, AppLocalizations l) async {
     if (sess.isActive) {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.warning_rounded, color: AppTheme.orange, size: 22),
-              const SizedBox(width: 8),
-              Text(l.confirmDelete, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Text(
-            '${l.confirmDeleteStudyMessage} (${sess.sessionCode})',
-            style: const TextStyle(fontSize: 13),
-          ),
-          actions: [
-            AppButton(
-              label: l.cancel,
-              variant: AppButtonVariant.secondary,
-              size: AppButtonSize.small,
-              onPressed: () => Navigator.pop(ctx, false),
-            ),
-            AppButton(
-              label: l.delete,
-              icon: Icons.delete_rounded,
-              variant: AppButtonVariant.danger,
-              onPressed: () => Navigator.pop(ctx, true),
-            ),
-          ],
-        ),
+      final confirm = await AppConfirmDialog.show(
+        context,
+        title: l.confirmDelete,
+        message: '${l.confirmDeleteStudyMessage} (${sess.sessionCode})',
+        confirmLabel: l.delete,
+        cancelLabel: l.cancel,
+        confirmVariant: AppButtonVariant.danger,
+        icon: Icons.warning_rounded,
       );
       if (confirm == true) {
         await ref.read(shippingScenariosProvider.notifier).deleteSession(sess.sessionId!);
@@ -1567,20 +1500,10 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: sess.isActive ? AppTheme.emerald.withOpacity(0.15) : AppTheme.crimson.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        sess.isActive ? l.activeStatus : (context.l10n.ssInactive),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: sess.isActive ? AppTheme.emerald : AppTheme.crimson,
-                        ),
-                      ),
+                    AppStatusBadge(
+                      label: sess.isActive ? l.activeStatus : context.l10n.ssInactive,
+                      severity: sess.isActive ? AppSeverity.success : AppSeverity.danger,
+                      size: AppStatusBadgeSize.small,
                     ),
                   ],
                 ),

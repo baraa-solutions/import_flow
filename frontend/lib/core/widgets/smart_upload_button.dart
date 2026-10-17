@@ -13,6 +13,7 @@ import 'universal_entity_extractor_dialog.dart';
 import 'extraction_progress_dialog.dart';
 import '../helpers/file_picker_helper.dart';
 import '../../features/customs_tariff/widgets/tariff_form_dialog.dart';
+import '../../features/customs_tariff/widgets/duty_calculator_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21,6 +22,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum SmartUploadModule {
   purchaseOrder('purchase-order', 'أمر الشراء', 'Purchase Order'),
+  commercialInvoice('commercial-invoice', 'الفاتورة التجارية / المبدئية', 'Commercial Invoice'),
+  packingList('packing-list', 'بيان التعبئة والوزن', 'Packing & Weight List'),
   importFile('import-file', 'ملف الاستيراد', 'Import File'),
   cargoShipping('cargo-shipping', 'بيانات الشحنة وبوليصة الشحن', 'Cargo Shipping (B/L)'),
   customsClearance('customs-clearance', 'الإقرار الجمركي', 'Customs Clearance'),
@@ -533,7 +536,7 @@ class _SmartUploadButtonState extends ConsumerState<SmartUploadButton> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Shows extracted fields to the user for review before applying to the form.
-class SmartUploadPreviewDialog extends StatefulWidget {
+class SmartUploadPreviewDialog extends ConsumerStatefulWidget {
   final SmartUploadResult result;
   final ValueChanged<SmartUploadResult> onConfirm;
   final VoidCallback onCancel;
@@ -546,16 +549,48 @@ class SmartUploadPreviewDialog extends StatefulWidget {
   });
 
   @override
-  State<SmartUploadPreviewDialog> createState() => _SmartUploadPreviewDialogState();
+  ConsumerState<SmartUploadPreviewDialog> createState() => _SmartUploadPreviewDialogState();
 }
 
-class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
+class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDialog> {
   late Map<String, dynamic> _currentFields;
 
   @override
   void initState() {
     super.initState();
     _currentFields = Map<String, dynamic>.from(widget.result.extractedFields);
+  }
+
+  void _openCustomsDutyCalculator() {
+    final rawItems = _currentFields['items'] ??
+        _currentFields['line_items'] ??
+        _currentFields['packing_items'] ??
+        _currentFields['packing_list_items'] ??
+        _currentFields['lines'];
+
+    List<Map<String, dynamic>> extractedLines = [];
+    if (rawItems is List) {
+      for (final item in rawItems) {
+        if (item is Map<String, dynamic>) {
+          extractedLines.add(item);
+        } else if (item is Map) {
+          extractedLines.add(Map<String, dynamic>.from(item));
+        }
+      }
+    }
+
+    final currency = _currentFields['currency']?.toString() ?? 'USD';
+    final freight = double.tryParse(_currentFields['freight_amount']?.toString() ?? '') ?? 0.0;
+    final hsCode = _currentFields['hs_code']?.toString();
+
+    showDutyCalculatorDialog(
+      context,
+      ref,
+      initialHsCode: hsCode,
+      initialCurrency: currency,
+      initialFreightAmount: freight > 0 ? freight : null,
+      initialExtractedLines: extractedLines.isNotEmpty ? extractedLines : null,
+    );
   }
 
   void _showAddCustomFieldModal() {
@@ -1086,8 +1121,27 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  if (_currentFields['items'] != null ||
+                      _currentFields['line_items'] != null ||
+                      _currentFields['packing_items'] != null ||
+                      _currentFields['packing_list_items'] != null ||
+                      _currentFields['lines'] != null ||
+                      _currentFields['hs_code'] != null) ...[
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.cobalt,
+                        side: const BorderSide(color: AppTheme.cobaltBorder),
+                      ),
+                      icon: const Icon(Icons.calculate_outlined, size: 16),
+                      label: Text(
+                        isAr ? 'ترحيل لحاسبة الجمارك' : 'Send to Customs Calculator',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                      onPressed: _openCustomsDutyCalculator,
+                    ),
+                  ],
+                  const Spacer(),
                   TextButton(
                     onPressed: widget.onCancel,
                     child: Text(isAr ? 'إلغاء' : 'Cancel'),
@@ -1175,6 +1229,10 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
       'swift_code': l.fieldSwiftCode,
       'result': l.fieldInspectionResult,
       'packages_count': l.fieldPackagesCount,
+      'packing_list_number': l.poRecFinalPackingListNoLabel,
+      'total_packages': l.fieldPackagesCount,
+      'total_net_weight_kg': l.fieldNetWeight,
+      'pallet_count': l.palletCountCol,
     };
     return labels[key] ?? rawKey.replaceAll('★', '').replaceAll('*', '').trim().replaceAll('_', ' ');
   }

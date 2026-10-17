@@ -373,6 +373,7 @@ class ShippingScenarioItemModel {
 
   Map<String, dynamic> toCreateJson() {
     return {
+      if (itemId != null) 'item_id': itemId,
       if (providerId != null) 'provider_id': providerId,
       'provider_name': providerName,
       if (customsBrokerId != null) 'customs_broker_id': customsBrokerId,

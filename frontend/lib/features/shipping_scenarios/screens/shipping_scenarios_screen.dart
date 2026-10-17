@@ -6,14 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/smart_upload_button.dart';
-import '../../../core/widgets/error_details_dialog.dart';
-import '../../../core/widgets/universal_entity_extractor_dialog.dart';
-import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../../../core/widgets/widgets.dart';
 
 import '../../external_service_providers/models/partner_model.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -29,14 +24,8 @@ import '../utils/shipping_scenario_calculator.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/performance/dispose_tracker.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
-import '../../../core/widgets/directional_icon.dart';
-import '../../../core/widgets/table_row_clone_helper.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/localization/api_error_text.dart';
-import '../../../core/widgets/existing_record_snackbar.dart';
 
 
 class ShippingScenariosScreen extends ConsumerStatefulWidget {
