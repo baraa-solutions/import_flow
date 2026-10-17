@@ -4,6 +4,7 @@ Freight Quotations Calculation & Business Service Engine (BP-008)
 
 from datetime import datetime, timezone
 from typing import List, Optional
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
@@ -93,10 +94,24 @@ class FreightQuotationService:
             validate_carrier_exists(db, q.provider_id)
             validate_quotation_dates(rfq_in.crd_date, q.sailing_date, q.estimated_arrival_date)
 
-        db_rfq = FreightQuotationRepository.create(db, rfq_in)
-        db.commit()
-        db.refresh(db_rfq)
-        return FreightQuotationService._compute_rfq_metrics(db, db_rfq)
+        for attempt in range(1, 4):
+            code = FreightQuotationRepository.generate_rfq_code(db)
+            try:
+                db_rfq = FreightQuotationRepository.create(db, rfq_in, code=code)  # flush only
+                db.commit()
+                db.refresh(db_rfq)
+                return FreightQuotationService._compute_rfq_metrics(db, db_rfq)
+            except IntegrityError:
+                db.rollback()
+                if not FreightQuotationRepository.get_by_code(db, code):
+                    raise
+                if attempt == 3:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"كود طلب عروض الأسعار '{code}' مستخدم بالفعل، يرجى إعادة المحاولة.",
+                    )
+                continue
+        raise AssertionError("unreachable")  # pragma: no cover
 
     @staticmethod
     def get_rfq(db: Session, rfq_id: int) -> FreightRFQRequestResponse:

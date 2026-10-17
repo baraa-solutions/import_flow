@@ -186,6 +186,30 @@ class BankingDocumentBase(BaseModel):
     expiry_date: Optional[date] = None
     notes: Optional[str] = None
 
+    # Pre-Form 4 Readiness Pipeline Fields (Tax Coding Sheet & SWIFT Bank Linkage)
+    tax_coding_sheet_status: Optional[str] = Field("NOT_STARTED", description="NOT_STARTED, PULLED_BY_BROKER, UPLOADED_BY_ACCOUNTANT")
+    tax_coding_sheet_file_url: Optional[str] = None
+    tax_coding_pulled_date: Optional[date] = None
+    tax_coding_broker_id: Optional[int] = None
+    tax_coding_broker_name: Optional[str] = None
+    tax_coding_uploaded_date: Optional[date] = None
+    tax_coding_accountant_name: Optional[str] = None
+
+    items_pulled_verified: Optional[bool] = False
+    items_pulled_date: Optional[date] = None
+    items_count_total: Optional[int] = 0
+    items_count_coded: Optional[int] = 0
+    regulatory_bodies_detected: Optional[List[str]] = None
+
+    nafeza_bank_link_status: Optional[str] = Field("PENDING", description="PENDING, LINKED_TO_BANK")
+    nafeza_bank_link_date: Optional[date] = None
+    nafeza_linked_bank_id: Optional[int] = None
+    nafeza_linked_bank_name: Optional[str] = None
+    swift_executing_bank_id: Optional[int] = None
+    swift_executing_bank_name: Optional[str] = None
+    swift_reference_no: Optional[str] = None
+    is_bank_matching_swift: Optional[bool] = True
+
 
 class BankingDocumentCreate(BankingDocumentBase):
     pass
@@ -205,6 +229,73 @@ class BankingDocumentUpdate(BaseModel):
     expiry_date: Optional[date] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+
+    tax_coding_sheet_status: Optional[str] = None
+    tax_coding_sheet_file_url: Optional[str] = None
+    tax_coding_pulled_date: Optional[date] = None
+    tax_coding_broker_id: Optional[int] = None
+    tax_coding_broker_name: Optional[str] = None
+    tax_coding_uploaded_date: Optional[date] = None
+    tax_coding_accountant_name: Optional[str] = None
+    items_pulled_verified: Optional[bool] = None
+    items_pulled_date: Optional[date] = None
+    items_count_total: Optional[int] = None
+    items_count_coded: Optional[int] = None
+    regulatory_bodies_detected: Optional[List[str]] = None
+    nafeza_bank_link_status: Optional[str] = None
+    nafeza_bank_link_date: Optional[date] = None
+    nafeza_linked_bank_id: Optional[int] = None
+    nafeza_linked_bank_name: Optional[str] = None
+    swift_executing_bank_id: Optional[int] = None
+    swift_executing_bank_name: Optional[str] = None
+    swift_reference_no: Optional[str] = None
+    is_bank_matching_swift: Optional[bool] = None
+
+
+class TaxCodingSheetPullRequest(BaseModel):
+    broker_id: Optional[int] = None
+    broker_name: Optional[str] = None
+    pulled_date: date = Field(default_factory=date.today)
+    file_url: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class TaxCodingSheetUploadRequest(BaseModel):
+    accountant_name: str = Field(..., min_length=2, max_length=200)
+    uploaded_date: date = Field(default_factory=date.today)
+    items_count_coded: Optional[int] = None
+    items_count_total: Optional[int] = None
+    file_url: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class ItemsVerificationConfirmRequest(BaseModel):
+    verified: bool = True
+    verified_date: date = Field(default_factory=date.today)
+    items_count_total: Optional[int] = None
+    items_count_coded: Optional[int] = None
+    regulatory_bodies_detected: Optional[List[str]] = None
+    notes: Optional[str] = None
+
+
+class NafezaBankLinkConfirmRequest(BaseModel):
+    bank_id: int = Field(..., description="External service provider ID of the bank linked on Nafeza")
+    bank_name: Optional[str] = None
+    link_date: date = Field(default_factory=date.today)
+    notes: Optional[str] = None
+    override_swift_mismatch: bool = False
+    override_reason: Optional[str] = None
+
+
+class SwiftCoverageSummary(BaseModel):
+    invoice_amount: float = 0.0
+    invoice_currency: str = "USD"
+    total_swift_transferred_amount: float = 0.0
+    coverage_percent: float = 0.0
+    is_fully_covered: bool = False
+    executing_bank_id: Optional[int] = None
+    executing_bank_name: Optional[str] = None
+    swift_references: List[str] = []
 
 
 class BankingDocumentReceive(BaseModel):
@@ -226,6 +317,10 @@ class BankingDocumentResponse(BankingDocumentBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+    swift_coverage: Optional[SwiftCoverageSummary] = None
+    can_submit_form4: bool = False
+    blockers: List[str] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -360,7 +455,8 @@ class POReconciliationItem(BaseModel):
     item_code: str
     description: str
     hs_code: Optional[str] = None
-    package_type: str = "Carton"
+    # None = no package type recorded (PO line with no packing-list row); never substituted with an invented type.
+    package_type: Optional[str] = "Carton"
     initial_quantity: float
     final_quantity: float
     initial_unit_price: float = 0.0
@@ -1002,6 +1098,7 @@ class InvoiceBLMatchSessionResponse(InvoiceBLMatchSessionBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    currency_mismatch: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 

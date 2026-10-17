@@ -19,8 +19,8 @@ class AddCustomExpenseDialog extends StatefulWidget {
 
 class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
   final _nameCtrl = TextEditingController();
-  final _priceCtrl = TextEditingController(text: '0.0');
-  final _qtyCtrl = TextEditingController(text: '1.0');
+  final _priceCtrl = TextEditingController();
+  final _qtyCtrl = TextEditingController();
   String _selectedCategory = 'Other Fees';
   String _selectedUnit = 'Fixed';
   String _selectedCurrency = 'EGP';

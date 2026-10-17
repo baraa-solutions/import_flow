@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import EmailStr
+from pydantic import model_validator
 
 
 # ==========================================================
@@ -27,7 +28,23 @@ class ImportCompanyBase(BaseModel):
     registration_expiry: date = date(2030, 12, 31)
 
     phone: str | None = None
+    mobile: str | None = None
+    fax: str | None = None
     email: str | None = None
+    secondary_email: str | None = None
+    website: str | None = None
+    nafeza_token: str | None = None
+
+    # Trademark & Quality Certificates
+    has_wipo: bool = False
+    wipo_number: str | None = None
+    has_euipo: bool = False
+    euipo_number: str | None = None
+    has_global_brand: bool = False
+    global_brand_number: str | None = None
+    has_iso_9001: bool = False
+    iso_9001_number: str | None = None
+
     notes: str | None = None
 
 
@@ -62,7 +79,21 @@ class ImportCompanyUpdate(BaseModel):
     registration_expiry: date | None = None
 
     phone: str | None = None
-    email: EmailStr | None = None
+    mobile: str | None = None
+    fax: str | None = None
+    email: str | None = None
+    secondary_email: str | None = None
+    website: str | None = None
+    nafeza_token: str | None = None
+
+    has_wipo: bool | None = None
+    wipo_number: str | None = None
+    has_euipo: bool | None = None
+    euipo_number: str | None = None
+    has_global_brand: bool | None = None
+    global_brand_number: str | None = None
+    has_iso_9001: bool | None = None
+    iso_9001_number: str | None = None
 
     notes: str | None = None
 
@@ -91,6 +122,24 @@ class ImportCompanyResponse(ImportCompanyBase):
     created_by: str | None = None
     updated_by: str | None = None
 
+    # Security: never return plaintext nafeza_token; provide presence flag & masked last-4
+    has_nafeza_token: bool = False
+    masked_nafeza_token: str | None = None
+    nafeza_token: str | None = None
+
     model_config = ConfigDict(
         from_attributes=True
     )
+
+    @model_validator(mode="after")
+    def sanitize_secret_token(self) -> "ImportCompanyResponse":
+        raw = self.nafeza_token
+        if raw and str(raw).strip():
+            self.has_nafeza_token = True
+            if not self.masked_nafeza_token:
+                from utils.crypto_utils import mask_secret_token
+                self.masked_nafeza_token = mask_secret_token(raw)
+        elif self.masked_nafeza_token:
+            self.has_nafeza_token = True
+        self.nafeza_token = None
+        return self

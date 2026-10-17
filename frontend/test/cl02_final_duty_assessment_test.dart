@@ -166,5 +166,59 @@ void main() {
       // Verify Action Button
       expect(find.text('اعتماد واحتساب الرسوم (CL-02)'), findsOneWidget);
     });
+
+    testWidgets('CL-02: Dialog with previous notes displays them read-only and starts with empty notes controller', (tester) async {
+      final sampleFile = ImportFileModel(
+        importFileId: 95,
+        importFileCode: 'IMP-2026-0095',
+        companyName: 'Delta Industrial Machinery LLC',
+        supplierName: 'Bavaria Tech GmbH',
+        currentModule: 'Phase 7 - Customs Clearance & Inspection',
+        currentStage: 'Stage 7 - Customs Clearance',
+        nextAction: 'Action',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T12:00:00Z',
+      );
+
+      final sampleClearanceWithNotes = CustomsClearanceModel(
+        customsClearanceId: 502,
+        clearanceCode: 'CLR-2026-0502',
+        importFileId: 95,
+        notes: 'N1',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T12:00:00Z',
+      );
+
+      await tester.binding.setSurfaceSize(const Size(1200, 950));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              home: Scaffold(
+                body: FinalDutyAssessmentDialog(
+                  file: sampleFile,
+                  clearanceRecord: sampleClearanceWithNotes,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Read-only previous notes box is visible and contains 'N1'
+      expect(find.text('N1'), findsOneWidget);
+
+      // Notes input field controller starts empty
+      final notesFieldFinder = find.byKey(const Key('assessmentNotesField'));
+      expect(notesFieldFinder, findsOneWidget);
+      final formField = tester.widget<TextFormField>(notesFieldFinder);
+      expect(formField.controller?.text, '');
+    });
   });
 }
+

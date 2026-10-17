@@ -7,6 +7,7 @@ from typing import Dict, Iterable, List, Optional
 from datetime import datetime, timezone, date
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
+from sqlalchemy.exc import IntegrityError
 
 from modules.import_files.model import ImportFile
 from modules.external_service_providers.model import ExternalServiceProvider
@@ -24,12 +25,12 @@ IMPORT_FILE_SORT_MAP = {
 }
 
 
-def generate_import_file_code(db: Session) -> str:
-    """Generates unique import file code: IMP-YYYY-XXXX"""
-    current_year = datetime.now(timezone.utc).year
-    prefix = f"IMP-{current_year}-"
-    count = db.query(ImportFile).filter(ImportFile.import_file_code.like(f"{prefix}%")).count()
-    return f"{prefix}{count + 1:04d}"
+from modules.common.sequence_generator import next_yearly_code
+
+
+def generate_import_file_code(db: Session, year: Optional[int] = None) -> str:
+    """Generates unique import file code: IMP-YYYY-XXXX using next_yearly_code."""
+    return next_yearly_code(db, ImportFile.import_file_code, "IMP", pad=4, year=year)
 
 
 def _apply_import_file_filters(
@@ -263,25 +264,42 @@ def codes_by_ids(db: Session, ids: Iterable[Optional[int]]) -> Dict[int, str]:
     return {fid: (code or custom) for fid, code, custom in rows if (code or custom)}
 
 
-def get_import_file_by_code(db: Session, code_or_custom_num: str) -> Optional[ImportFile]:
+def get_import_file_by_code(
+    db: Session, code_or_custom_num: str, include_inactive: bool = False
+) -> Optional[ImportFile]:
     term = (code_or_custom_num or "").strip()
-    return db.query(ImportFile).filter(
+    query = db.query(ImportFile).filter(
         or_(
             ImportFile.import_file_code == term,
             ImportFile.custom_file_number == term,
-            ImportFile.custom_file_number.ilike(f"{term}%"),
-            ImportFile.custom_file_number.ilike(f"%{term}%"),
-        ),
-        ImportFile.is_active == True
-    ).first()
+        )
+    )
+    if not include_inactive:
+        query = query.filter(ImportFile.is_active == True)
+    return query.first()
 
 
 def create_import_file(db: Session, obj_data: dict) -> ImportFile:
-    db_obj = ImportFile(**obj_data)
-    db.add(db_obj)
-    db.commit()
-    db.refresh(db_obj)
-    return db_obj
+    auto_code = not bool(obj_data.get("import_file_code"))
+
+    for attempt in range(3):
+        if auto_code:
+            obj_data["import_file_code"] = generate_import_file_code(db)
+            if not obj_data.get("custom_file_number"):
+                obj_data["custom_file_number"] = obj_data["import_file_code"].replace("IMP-", "FILE-")
+        db_obj = ImportFile(**obj_data)
+        db.add(db_obj)
+        try:
+            db.commit()
+            db.refresh(db_obj)
+            return db_obj
+        except IntegrityError:
+            db.rollback()
+            if attempt == 2 or not auto_code:
+                raise
+            obj_data.pop("import_file_code", None)
+            if obj_data.get("custom_file_number", "").startswith("FILE-"):
+                obj_data.pop("custom_file_number", None)
 
 
 def update_import_file(db: Session, import_file_id: int, update_data: dict) -> Optional[ImportFile]:
