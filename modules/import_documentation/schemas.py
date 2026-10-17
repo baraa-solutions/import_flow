@@ -1053,8 +1053,8 @@ class InvoiceBLMatchSessionBase(BaseModel):
     packing_list_number: Optional[str] = None
     acid_number: Optional[str] = None
     match_score_percentage: float = 0.0
-    overall_status: str = "FULLY_MATCHED"
-    is_safe_for_certification: bool = True
+    overall_status: str = "DRAFT_SAVED"
+    is_safe_for_certification: bool = False
     is_draft: bool = False
     critical_discrepancies_count: int = 0
     warning_discrepancies_count: int = 0
@@ -1110,13 +1110,13 @@ class POReconciliationSessionBase(BaseModel):
     acid_number: Optional[str] = None
     shipper_name: Optional[str] = None
     total_invoice_amount: float = 0.0
-    currency: str = "EUR"
+    currency: Optional[str] = None
     total_packages: float = 0.0
     total_net_weight_kg: float = 0.0
     total_gross_weight_kg: float = 0.0
     total_cbm: float = 0.0
-    overall_status: str = "FULLY_MATCHED"
-    is_safe_for_certification: bool = True
+    overall_status: str = "DRAFT"
+    is_safe_for_certification: bool = False
     critical_discrepancies_count: int = 0
     warning_discrepancies_count: int = 0
     header_discrepancies: Optional[List[Dict[str, Any]]] = None
@@ -1129,7 +1129,7 @@ class POReconciliationSessionBase(BaseModel):
 
 
 class POReconciliationSessionCreate(POReconciliationSessionBase):
-    pass
+    currency: str = Field(..., min_length=3, max_length=3, description="3-letter active ISO currency code")
 
 
 class POReconciliationSessionUpdate(BaseModel):
