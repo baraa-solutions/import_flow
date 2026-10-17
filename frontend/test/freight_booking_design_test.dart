@@ -198,7 +198,8 @@ void main() {
       expect(find.text('Select the port of discharge'), findsOneWidget);
       expect(find.text('Pick the estimated departure date'), findsOneWidget);
       expect(find.text('Pick the estimated arrival date'), findsOneWidget);
-      expect(find.text('Enter a whole number of days (0 or more)'), findsOneWidget);
+      // BE45-T04: free days are optional (never invented), so an empty field is not an error.
+      expect(find.text('Enter a whole number of days (0 or more)'), findsNothing);
       expect(notifier.created, isEmpty, reason: 'invalid form must not reach the API');
       expect(tester.takeException(), isNull);
     });

@@ -141,7 +141,7 @@ class DemurrageTrackingModel {
       policyId: json['policy_id'],
       carrierName: json['carrier_name'] ?? '',
       billOfLadingNo: json['bill_of_lading_no'] ?? '',
-      portName: json['port_name'] ?? 'Alexandria Port',
+      portName: json['port_name'] ?? '',
       dischargeDate: json['discharge_date'] ?? '',
       gateOutDate: json['gate_out_date'],
       emptyReturnDate: json['empty_return_date'],

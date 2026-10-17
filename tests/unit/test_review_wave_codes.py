@@ -449,7 +449,7 @@ def test_every_reader_key_is_seeded():
     } | {getattr(dd, name) for name in dir(dd) if name.startswith("DD_") and isinstance(getattr(dd, name), str)
          and getattr(dd, name) == name} | set(ESTIMATE_PARAMETER_DEFAULTS)
     assert keys <= set(sp.DEFAULT_PARAMETERS), keys - set(sp.DEFAULT_PARAMETERS)
-    assert len(keys) == 24
+    assert len(keys) == 25  # ACC3-T05 added DD_DEFAULT_TARIFF_CURRENCY
 
 
 def test_seeded_database_gives_the_same_numbers_as_an_empty_one(db):

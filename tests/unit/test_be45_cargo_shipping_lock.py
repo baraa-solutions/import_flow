@@ -231,7 +231,7 @@ class TestBE45CargoShippingLock(unittest.TestCase):
         self.assertEqual(updated.level2_approval_status, "Pending")
         self.assertEqual(updated.dual_approval_status, "Pending")
         self.assertIn("Initial level 1 ok", updated.level1_notes)
-        self.assertIn("تمت إعادة تعيين الاعتماد", updated.level1_notes)
+        self.assertIn("Approval reset", updated.level1_notes)
 
     def test_level1_reset_on_seal_patch_before_dual_approved(self):
         """Patching container seal_no before Dual Approved resets Level 1 approval to Pending."""
@@ -250,7 +250,7 @@ class TestBE45CargoShippingLock(unittest.TestCase):
         )
         self.assertEqual(updated.level1_approval_status, "Pending")
         self.assertEqual(updated.dual_approval_status, "Pending")
-        self.assertIn("تمت إعادة تعيين الاعتماد لتعديل رقم السيل", updated.level1_notes)
+        self.assertIn("Approval reset: the seal number", updated.level1_notes)
 
     def test_level1_not_reset_when_containers_unchanged(self):
         """PUT without modifying containers or seals preserves Level 1 approval."""

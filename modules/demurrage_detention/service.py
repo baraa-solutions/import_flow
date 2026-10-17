@@ -605,6 +605,14 @@ def create_demurrage_policy_service(db: Session, req: DemurragePolicyCreate, use
 
     data = req.model_dump()
     fallback = default_tariff(db)
+    if data.get("demurrage_free_days") is None:
+        data["demurrage_free_days"] = fallback.demurrage_free_days
+    if data.get("detention_free_days") is None:
+        data["detention_free_days"] = fallback.detention_free_days
+    if data.get("port_storage_free_days") is None:
+        data["port_storage_free_days"] = fallback.storage_free_days
+    if data.get("port_storage_daily_rate_egp") is None:
+        data["port_storage_daily_rate_egp"] = fallback.storage_rate_egp
     if not data.get("demurrage_tiers"):
         data["demurrage_tiers"] = fallback.demurrage_tiers
     if not data.get("detention_tiers"):
@@ -1223,7 +1231,7 @@ def register_free_days_agreement_service(
         booking.free_demurrage_days = payload.agreed_demurrage_free_days
 
     # 3. Recalculate the file's active trackings
-    carrier = payload.carrier_name or (booking.shipping_line_name if booking else None) or "Carrier"
+    carrier = payload.carrier_name or (booking.shipping_line_name if booking else None) or None
     trackings = db.query(DemurrageTracking).filter(
         DemurrageTracking.import_file_id == payload.import_file_id,
         DemurrageTracking.is_active == True,
@@ -1350,7 +1358,7 @@ def get_free_days_agreement_service(
     standard_free_days = _standard_free_days(db)
     fallback = default_tariff(db)
     file_code = file_rec.custom_file_number or file_rec.import_file_code or f"IMP-{file_rec.import_file_id}"
-    carrier = (booking.shipping_line_name if booking else None) or "Carrier"
+    carrier = (booking.shipping_line_name if booking else None) or None
     if file_rec.target_free_days is not None:
         agreed_dem = file_rec.target_free_days
     elif booking and booking.free_demurrage_days is not None:
@@ -1758,7 +1766,7 @@ def record_empty_container_return_service(
     if payload.eir_number not in existing_eirs:
         existing_eirs.append(payload.eir_number)
     imp_file.empty_containers_eir_numbers = ", ".join(existing_eirs)
-    imp_file.empty_containers_depot_name = payload.depot_name or "Carrier Depot"
+    imp_file.empty_containers_depot_name = payload.depot_name
 
     # DEV-OPS-01: Update empty return info on ShipmentContainer entities
     try:
@@ -1835,7 +1843,7 @@ def record_empty_container_return_service(
         import_file_code=imp_file.import_file_code,
         container_count=len(returned_container_numbers),
         eir_number=payload.eir_number,
-        depot_enum_empty_container_depot=payload.depot_name or "Carrier Depot",
+        depot_enum_empty_container_depot=payload.depot_name or "",
     )
     db.add(SystemNotification(
         title=render_en(notif_msg.code, notif_msg.params, "title"),

@@ -23,7 +23,7 @@ from utils import db_safety
 PREVIOUS = "f7a1c3e5b9d2"
 
 
-HEAD = "73cee71ca978"  # current head (create_shipment_containers_table DEV-OPS-01)
+HEAD = "a7b8c9d0e1f2"  # current head (customs clearance nullable office/result BE67-T17)
 
 NEW_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],
