@@ -1768,6 +1768,42 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                      fontWeight: FontWeight.bold,
                                                    ),
                                                  ),
+                                               if (file.isChildPartial && file.parentFileCode != null)
+                                                 Container(
+                                                   margin: const EdgeInsets.only(top: 2),
+                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                   decoration: BoxDecoration(
+                                                     color: Colors.amber.withValues(alpha: 0.15),
+                                                     borderRadius: BorderRadius.circular(4),
+                                                     border: Border.all(color: Colors.amber.shade700, width: 0.8),
+                                                   ),
+                                                   child: Text(
+                                                     'دفعة جزئية من ${file.parentFileCode}',
+                                                     style: TextStyle(
+                                                       fontSize: density.tableCellSecondaryFontSize - 1,
+                                                       color: isDark ? Colors.amber.shade300 : Colors.amber.shade900,
+                                                       fontWeight: FontWeight.bold,
+                                                     ),
+                                                   ),
+                                                 ),
+                                               if (file.isParentPartial)
+                                                 Container(
+                                                   margin: const EdgeInsets.only(top: 2),
+                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                   decoration: BoxDecoration(
+                                                     color: Colors.blue.withValues(alpha: 0.15),
+                                                     borderRadius: BorderRadius.circular(4),
+                                                     border: Border.all(color: Colors.blue.shade700, width: 0.8),
+                                                   ),
+                                                   child: Text(
+                                                     'شحنة مجزأة (رئيسية)',
+                                                     style: TextStyle(
+                                                       fontSize: density.tableCellSecondaryFontSize - 1,
+                                                       color: isDark ? Colors.lightBlueAccent : Colors.blue.shade900,
+                                                       fontWeight: FontWeight.bold,
+                                                     ),
+                                                   ),
+                                                 ),
                                              ],
                                            ),
                                          ),

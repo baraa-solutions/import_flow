@@ -23,7 +23,7 @@ from utils import db_safety
 PREVIOUS = "f7a1c3e5b9d2"
 
 
-HEAD = "e2f3a4b5c6d7"  # current head (legacy budget backfill)
+HEAD = "f3a4b5c6d7e8"  # current head (partial shipments linkage on import_files DEV-OPS-04)
 
 NEW_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],

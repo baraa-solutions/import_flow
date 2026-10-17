@@ -58,6 +58,11 @@ class ImportFileBase(BaseModel):
     service_type_preference: Optional[str] = Field("Direct", description="Direct, Transshipment, Any")
     shipping_instructions_notes: Optional[str] = Field(None, description="Special shipping instructions")
 
+    # Partial Shipments Linkage (DEV-OPS-04)
+    parent_import_file_id: Optional[int] = Field(None, description="Parent Import File ID for partial shipments")
+    parent_file_code: Optional[str] = Field(None, description="Parent Import File Code for partial shipments")
+    is_partial_shipment: bool = Field(False, description="Flag indicating if this is a partial shipment batch")
+
     acid_number: Optional[str] = Field(None, description="19-digit Nafeza ACID Number")
     acid_request_date: Optional[date] = None
     acid_issue_date: Optional[date] = None
@@ -203,6 +208,9 @@ class ImportFileUpdate(BaseModel):
     target_free_days: Optional[int] = None
     service_type_preference: Optional[str] = None
     shipping_instructions_notes: Optional[str] = None
+    parent_import_file_id: Optional[int] = None
+    parent_file_code: Optional[str] = None
+    is_partial_shipment: Optional[bool] = None
 
     acid_number: Optional[str] = None
     acid_request_date: Optional[date] = None
@@ -356,6 +364,18 @@ class CloneImportFileRequest(BaseModel):
     copy_items: Optional[bool] = Field(None, description="Alias for copy_invoices_data & copy_packing_lists")
     copy_attachments: bool = Field(False, description="Copy documents and attachments (default false per UX-CLONE-011)")
     notes: Optional[str] = Field(None, description="Optional notes on the cloned shipment")
+
+
+class CreatePartialBatchRequest(BaseModel):
+    target_import_file_code: Optional[str] = Field(None, min_length=3, description="New unique import file code for the partial batch (auto-generated if omitted)")
+    target_custom_file_number: Optional[str] = Field(None, description="New custom file number for the partial batch")
+    invoices_data: Optional[List[Dict[str, Any]]] = Field(None, description="Subset of invoices allocated to this partial batch")
+    packing_lists_data: Optional[List[Dict[str, Any]]] = Field(None, description="Subset of packing lists allocated to this partial batch")
+    estimated_cost: Optional[float] = Field(None, ge=0.0, description="Estimated cost allocated to this batch")
+    shipment_mode: Optional[str] = Field(None, description="Shipment mode for this batch (inherits from parent if omitted)")
+    required_eta: Optional[date] = Field(None, description="Expected arrival date for this batch")
+    initial_starting_step: Optional[str] = Field("STEP_01", description="Lifecycle starting step")
+    notes: Optional[str] = Field(None, description="Operational notes for this partial batch")
 
 
 

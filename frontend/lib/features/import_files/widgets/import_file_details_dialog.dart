@@ -59,6 +59,7 @@ import '../../financial_settlement/widgets/final_settlement_invoices_dialog.dart
 import '../../financial_settlement/widgets/actual_landed_cost_dialog.dart';
 import '../../comprehensive_report/widgets/comprehensive_dossier_export_dialog.dart';
 import '../../file_closure/widgets/official_file_closure_dialog.dart';
+import 'create_partial_batch_dialog.dart';
 import 'logistics_shipment_expenses_summary_card.dart';
 import '../../logistics_invoices/screens/logistics_invoices_screen.dart';
 
@@ -517,6 +518,57 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
                 ),
+                if (file.isChildPartial && file.parentFileCode != null)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.amber.shade700, width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.call_split_rounded, size: 14, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900),
+                        const SizedBox(width: 6),
+                        Text(
+                          'دفعة شحن جزئية تابعة للملف الأساسي: ${file.parentFileCode}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.amber.shade300 : Colors.amber.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (file.isParentPartial)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.blue.shade700, width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.call_split_rounded, size: 14, color: isDark ? Colors.lightBlueAccent : Colors.blue.shade900),
+                        const SizedBox(width: 6),
+                        Text(
+                          'ملف شحنة مجزأة رئيسية (تم تفريغ دفعات جزئية منه)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.lightBlueAccent : Colors.blue.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
               ],
             ),
           ),
@@ -2033,7 +2085,28 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               );
             },
           ),
+        if (file.status != 'Closed')
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            ),
+            icon: const Icon(Icons.call_split_rounded, color: Colors.white, size: 16),
+            label: const Text('إنشاء دفعة جزئية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () async {
+              final created = await showDialog<ImportFileModel>(
+                context: context,
+                builder: (c) => CreatePartialBatchDialog(parentFile: file),
+              );
+              if (created != null && context.mounted) {
+                Navigator.pop(context);
+              }
+            },
+          ),
         TextButton(onPressed: () => Navigator.pop(context), child: Text(l.close)),
+
       ],
     );
   }
