@@ -10,7 +10,7 @@ Legend: Sev `CRITICAL*` = report said MAJOR, lead raised it because it fixes a C
 
 | # | Task id | Phase | Sev | Title | Depends on | Backend needed | Report link | Status |
 |---|---|---|---|---|---|---|---|---|
-| 1 | FEX-T01 | X | MAJOR | Shared list query, page result and paged notifier base | none | no | [cross-cutting-tables-and-view.md#fex-t01](cross-cutting-tables-and-view.md#fex-t01-shared-list-query-page-result-and-paged-notifier-base) | todo |
+| 1 | FEX-T01 | X | MAJOR | Shared list query, page result and paged notifier base | none | no | [cross-cutting-tables-and-view.md#fex-t01](cross-cutting-tables-and-view.md#fex-t01-shared-list-query-page-result-and-paged-notifier-base) | done |
 | 2 | FEX-T13 | X | MAJOR | Current-user permissions in the UI | none | no | [cross-cutting-tables-and-view.md#fex-t13](cross-cutting-tables-and-view.md#fex-t13-current-user-permissions-in-the-ui) | todo |
 | 3 | FEX-T08 | X | MAJOR | RowAction model, RowActionsBar and shared confirm (replaces RowActionsPill internals) | FEX-T13 (optional) | no | [cross-cutting-tables-and-view.md#fex-t08](cross-cutting-tables-and-view.md#fex-t08-rowaction-model-rowactionsbar-and-shared-confirm-replaces-rowactionspill-internals) | todo |
 | 4 | FEX-T02 | X | MAJOR | `PagedDataTable<T>` widget (virtualized, sticky header, pinned start columns) | FEX-T01, FEX-T08 | no | [cross-cutting-tables-and-view.md#fex-t02](cross-cutting-tables-and-view.md#fex-t02-pageddatatablet-widget-virtualized-sticky-header-pinned-start-columns) | todo |
