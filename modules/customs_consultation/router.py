@@ -101,7 +101,7 @@ def create_expense_type(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission(MASTER_EDIT)),
 ):
-    return ClearanceExpenseTypeService.create_expense_type(db, schema)
+    return ClearanceExpenseTypeService.create_expense_type(db, schema, user=current_user.username)
 
 
 @router.get(
@@ -128,7 +128,7 @@ def update_expense_type(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission(MASTER_EDIT)),
 ):
-    return ClearanceExpenseTypeService.update_expense_type(db, expense_id, schema)
+    return ClearanceExpenseTypeService.update_expense_type(db, expense_id, schema, user=current_user.username)
 
 
 @router.delete(
@@ -141,7 +141,7 @@ def delete_expense_type(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission(MASTER_EDIT)),
 ):
-    return ClearanceExpenseTypeService.delete_expense_type(db, expense_id)
+    return ClearanceExpenseTypeService.delete_expense_type(db, expense_id, user=current_user.username)
 
 
 # ==============================================================================
@@ -190,7 +190,7 @@ def create_price_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission(MANAGE)),
 ):
-    return BrokerPriceListService.create_price_list(db, schema)
+    return BrokerPriceListService.create_price_list(db, schema, user=current_user.username)
 
 
 @router.get(
@@ -217,7 +217,7 @@ def update_price_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission(MANAGE)),
 ):
-    return BrokerPriceListService.update_price_list(db, price_list_id, schema)
+    return BrokerPriceListService.update_price_list(db, price_list_id, schema, user=current_user.username)
 
 
 @router.delete(
@@ -230,7 +230,7 @@ def delete_price_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission(MANAGE)),
 ):
-    return BrokerPriceListService.soft_delete_price_list(db, price_list_id)
+    return BrokerPriceListService.soft_delete_price_list(db, price_list_id, user=current_user.username)
 
 
 @router.post(
@@ -245,7 +245,7 @@ def clone_price_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission(MANAGE)),
 ):
-    return BrokerPriceListService.clone_price_list(db, price_list_id, payload)
+    return BrokerPriceListService.clone_price_list(db, price_list_id, payload, user=current_user.username)
 
 
 

@@ -99,7 +99,9 @@ def _normalize_price_list(schema):
 class ClearanceExpenseTypeService:
 
     @staticmethod
-    def create_expense_type(db: Session, schema: ClearanceExpenseTypeCreate) -> ClearanceExpenseTypeResponse:
+    def create_expense_type(
+        db: Session, schema: ClearanceExpenseTypeCreate, user: Optional[str] = None
+    ) -> ClearanceExpenseTypeResponse:
         explicit_code = bool(schema.expense_code and schema.expense_code.strip())
         if explicit_code:
             validate_expense_code_unique(db, schema.expense_code)
@@ -107,7 +109,7 @@ class ClearanceExpenseTypeService:
         for attempt in range(1, 4):
             code = schema.expense_code if explicit_code else ClearanceExpenseTypeRepository.generate_expense_code(db)
             try:
-                obj = ClearanceExpenseTypeRepository.create(db, normalized, code=code)
+                obj = ClearanceExpenseTypeRepository.create(db, normalized, code=code, user=user)
                 db.commit()
                 db.refresh(obj)
                 return ClearanceExpenseTypeResponse.model_validate(obj)
@@ -150,21 +152,23 @@ class ClearanceExpenseTypeService:
 
     @staticmethod
     def update_expense_type(
-        db: Session, expense_id: int, schema: ClearanceExpenseTypeUpdate
+        db: Session, expense_id: int, schema: ClearanceExpenseTypeUpdate, user: Optional[str] = None
     ) -> ClearanceExpenseTypeResponse:
         obj = get_or_404(db, ClearanceExpenseType, expense_id, "نوع المصروف")
         reject_cleared_not_null_fields(ClearanceExpenseType, schema, "نوع المصروف")
         if schema.expense_code and schema.expense_code != obj.expense_code:
             validate_expense_code_unique(db, schema.expense_code, current_id=expense_id)
-        updated = ClearanceExpenseTypeRepository.update(db, obj, _normalize_expense_type(schema))
+        updated = ClearanceExpenseTypeRepository.update(db, obj, _normalize_expense_type(schema), user=user)
         db.commit()
         db.refresh(updated)
         return ClearanceExpenseTypeResponse.model_validate(updated)
 
     @staticmethod
-    def delete_expense_type(db: Session, expense_id: int) -> ClearanceExpenseTypeResponse:
+    def delete_expense_type(
+        db: Session, expense_id: int, user: Optional[str] = None
+    ) -> ClearanceExpenseTypeResponse:
         obj = get_or_404(db, ClearanceExpenseType, expense_id, "نوع المصروف")
-        deleted = ClearanceExpenseTypeRepository.delete(db, obj)
+        deleted = ClearanceExpenseTypeRepository.delete(db, obj, user=user)
         db.commit()
         db.refresh(deleted)
         return ClearanceExpenseTypeResponse.model_validate(deleted)
@@ -177,7 +181,9 @@ class ClearanceExpenseTypeService:
 class BrokerPriceListService:
 
     @staticmethod
-    def create_price_list(db: Session, schema: BrokerPriceListCreate) -> BrokerPriceListResponse:
+    def create_price_list(
+        db: Session, schema: BrokerPriceListCreate, user: Optional[str] = None
+    ) -> BrokerPriceListResponse:
         validate_broker_exists(db, schema.broker_id)
         expense_type_ids = [
             itm.expense_type_id
@@ -189,7 +195,7 @@ class BrokerPriceListService:
         for attempt in range(1, 4):
             code = BrokerPriceListRepository.generate_price_list_code(db)
             try:
-                pl = BrokerPriceListRepository.create(db, normalized, code=code)
+                pl = BrokerPriceListRepository.create(db, normalized, code=code, user=user)
                 db.commit()
                 db.refresh(pl)
                 return BrokerPriceListResponse.model_validate(pl)
@@ -233,7 +239,7 @@ class BrokerPriceListService:
 
     @staticmethod
     def update_price_list(
-        db: Session, price_list_id: int, schema: BrokerPriceListUpdate
+        db: Session, price_list_id: int, schema: BrokerPriceListUpdate, user: Optional[str] = None
     ) -> BrokerPriceListResponse:
         pl = get_or_404(db, BrokerPriceList, price_list_id, "قائمة أسعار المخلص")
         reject_cleared_not_null_fields(BrokerPriceList, schema, "قائمة أسعار المخلص")
@@ -254,22 +260,24 @@ class BrokerPriceListService:
                 if itm.expense_type_id is not None
             ]
             validate_references(db, expense_type_ids=expense_type_ids)
-        updated = BrokerPriceListRepository.update(db, pl, _normalize_price_list(schema))
+        updated = BrokerPriceListRepository.update(db, pl, _normalize_price_list(schema), user=user)
         db.commit()
         db.refresh(updated)
         return BrokerPriceListResponse.model_validate(updated)
 
     @staticmethod
-    def soft_delete_price_list(db: Session, price_list_id: int) -> BrokerPriceListResponse:
+    def soft_delete_price_list(
+        db: Session, price_list_id: int, user: Optional[str] = None
+    ) -> BrokerPriceListResponse:
         pl = get_or_404(db, BrokerPriceList, price_list_id, "قائمة أسعار المخلص")
-        deleted = BrokerPriceListRepository.soft_delete(db, pl)
+        deleted = BrokerPriceListRepository.soft_delete(db, pl, user=user)
         db.commit()
         db.refresh(deleted)
         return BrokerPriceListResponse.model_validate(deleted)
 
     @staticmethod
     def clone_price_list(
-        db: Session, price_list_id: int, schema: CloneBrokerPriceListRequest
+        db: Session, price_list_id: int, schema: CloneBrokerPriceListRequest, user: Optional[str] = None
     ) -> BrokerPriceListResponse:
         original = get_or_404(db, BrokerPriceList, price_list_id, "قائمة أسعار المخلص")
 
@@ -309,6 +317,8 @@ class BrokerPriceListService:
             notes=schema.notes or f"Cloned from: {original.price_list_code}",
             cloned_from_id=original.price_list_id,
             cloned_from_code=original.price_list_code,
+            created_by=user,
+            updated_by=user,
         )
         db.add(new_pl)
         db.flush()

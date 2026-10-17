@@ -43,6 +43,8 @@ class ClearanceExpenseTypeResponse(ClearanceExpenseTypeBase):
     expense_code: str
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -142,6 +144,8 @@ class BrokerPriceListResponse(BrokerPriceListBase):
     cloned_from_code: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
     items: List[BrokerPriceListItemResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
