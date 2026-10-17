@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/cc_dialog_shell.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -333,15 +333,17 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
             ],
           ),
           if (delayDays > 0)
-            CcStatusChip(
+            AppStatusBadge(
               label: l.fbkDepDelayed(delayDays),
               severity: AppSeverity.warning,
+              size: AppStatusBadgeSize.small,
               icon: Icons.warning_amber_rounded,
             )
           else
-            CcStatusChip(
+            AppStatusBadge(
               label: l.fbkDepOnSchedule,
               severity: AppSeverity.success,
+              size: AppStatusBadgeSize.small,
               icon: Icons.check_circle_outline,
             ),
         ],

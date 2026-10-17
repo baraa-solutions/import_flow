@@ -482,7 +482,7 @@ class PurchaseOrderModel {
   final int currencyId;
   final DateTime? orderDate;
   final DateTime? expectedDeliveryDate;
-  final double exchangeRate;
+  final double? exchangeRate;
   final String? paymentTerms;
   final double totalAmountFob;
   final double totalCbm;
@@ -533,7 +533,7 @@ class PurchaseOrderModel {
     required this.currencyId,
     this.orderDate,
     this.expectedDeliveryDate,
-    this.exchangeRate = 1.0,
+    this.exchangeRate,
     this.paymentTerms = 'LC at Sight / اعتماد مستندي',
     this.totalAmountFob = 0.0,
     this.totalCbm = 0.0,
@@ -583,7 +583,7 @@ class PurchaseOrderModel {
       expectedDeliveryDate: json['expected_delivery_date'] != null
           ? DateTime.parse(json['expected_delivery_date'])
           : null,
-      exchangeRate: _numToDouble(json['exchange_rate'], 1.0),
+      exchangeRate: _numToNullableDouble(json['exchange_rate']),
       paymentTerms: json['payment_terms'] as String?,
       totalAmountFob: _numToDouble(json['total_amount_fob']),
       totalCbm: _numToDouble(json['total_cbm']),
@@ -636,7 +636,7 @@ class PurchaseOrderModel {
       'currency_id': currencyId,
       if (orderDate != null) 'order_date': orderDate!.toIso8601String(),
       if (expectedDeliveryDate != null) 'expected_delivery_date': expectedDeliveryDate!.toIso8601String(),
-      'exchange_rate': exchangeRate,
+      if (exchangeRate != null) 'exchange_rate': exchangeRate,
       if (paymentTerms != null) 'payment_terms': paymentTerms,
       'pallet_count': palletCount,
       'pallet_type': palletType,

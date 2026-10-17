@@ -11,6 +11,8 @@ class PartnerModel {
   final String? scacCode;
   final String? trackingUrl;
   final int? defaultFreeDays;
+  final String? localAgentName;
+  final String? bookingEmail;
   final String? fiataId;
   final String? shippingModes;
   final String? supportedCurrencies;
@@ -24,6 +26,8 @@ class PartnerModel {
   final String? swiftCode;
   final String? bankCode;
   final String? branchName;
+  final String? accountNumber;
+  final String? iban;
   final String? contactPerson;
   final String? phone;
   final String? mobile;
@@ -34,6 +38,7 @@ class PartnerModel {
   final String? address;
   final String country;
   final String paymentType;
+  final String? paymentTerms;
   final double creditLimit;
   final double rating;
   final String? notes;
@@ -59,6 +64,8 @@ class PartnerModel {
     this.scacCode,
     this.trackingUrl,
     this.defaultFreeDays,
+    this.localAgentName,
+    this.bookingEmail,
     this.fiataId,
     this.shippingModes,
     this.supportedCurrencies,
@@ -72,6 +79,8 @@ class PartnerModel {
     this.swiftCode,
     this.bankCode,
     this.branchName,
+    this.accountNumber,
+    this.iban,
     this.contactPerson,
     this.phone,
     this.mobile,
@@ -82,6 +91,7 @@ class PartnerModel {
     this.address,
     this.country = 'Egypt',
     this.paymentType = 'Credit',
+    this.paymentTerms,
     this.creditLimit = 0.0,
     this.rating = 5.0,
     this.notes,
@@ -112,6 +122,8 @@ class PartnerModel {
       scacCode: json['scac_code']?.toString(),
       trackingUrl: json['tracking_url']?.toString(),
       defaultFreeDays: json['default_free_days'] != null ? int.tryParse(json['default_free_days'].toString()) : null,
+      localAgentName: json['local_agent_name']?.toString(),
+      bookingEmail: json['booking_email']?.toString(),
       fiataId: json['fiata_id']?.toString(),
       shippingModes: json['shipping_modes']?.toString(),
       supportedCurrencies: json['supported_currencies']?.toString(),
@@ -125,6 +137,8 @@ class PartnerModel {
       swiftCode: json['swift_code']?.toString(),
       bankCode: json['bank_code']?.toString(),
       branchName: json['branch_name']?.toString(),
+      accountNumber: json['account_number']?.toString(),
+      iban: json['iban']?.toString(),
       contactPerson: json['contact_person']?.toString(),
       phone: json['phone']?.toString(),
       mobile: json['mobile']?.toString(),
@@ -135,6 +149,7 @@ class PartnerModel {
       address: json['address']?.toString(),
       country: json['country']?.toString() ?? 'Egypt',
       paymentType: json['payment_type']?.toString() ?? 'Credit',
+      paymentTerms: json['payment_terms']?.toString(),
       creditLimit: (json['credit_limit'] as num?)?.toDouble() ?? 0.0,
       rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
       notes: json['notes']?.toString(),
@@ -155,6 +170,8 @@ class PartnerModel {
       'scac_code': scacCode,
       'tracking_url': trackingUrl,
       'default_free_days': defaultFreeDays,
+      'local_agent_name': localAgentName,
+      'booking_email': bookingEmail,
       'fiata_id': fiataId,
       'shipping_modes': shippingModes,
       'supported_currencies': supportedCurrencies,
@@ -168,6 +185,8 @@ class PartnerModel {
       'swift_code': swiftCode,
       'bank_code': bankCode,
       'branch_name': branchName,
+      'account_number': accountNumber,
+      'iban': iban,
       'contact_person': contactPerson,
       'phone': phone,
       'mobile': mobile,
@@ -178,6 +197,7 @@ class PartnerModel {
       'address': address,
       'country': country,
       'payment_type': paymentType,
+      'payment_terms': paymentTerms,
       'credit_limit': creditLimit,
       'rating': rating,
       'notes': notes,
@@ -191,12 +211,22 @@ class PartnerCurrencyBalanceModel {
   final double totalInvoiced;
   final double totalPaid;
   final double balanceDue;
+  final double? exchangeRateUsed;
+  final String? rateType;
+  final String? rateDate;
+  final double? equivalentEgp;
+  final String? warning;
 
   PartnerCurrencyBalanceModel({
     required this.currency,
     this.totalInvoiced = 0.0,
     this.totalPaid = 0.0,
     this.balanceDue = 0.0,
+    this.exchangeRateUsed,
+    this.rateType,
+    this.rateDate,
+    this.equivalentEgp,
+    this.warning,
   });
 
   factory PartnerCurrencyBalanceModel.fromJson(Map<String, dynamic> json) {
@@ -205,6 +235,11 @@ class PartnerCurrencyBalanceModel {
       totalInvoiced: (json['total_invoiced'] as num?)?.toDouble() ?? 0.0,
       totalPaid: (json['total_paid'] as num?)?.toDouble() ?? 0.0,
       balanceDue: (json['balance_due'] as num?)?.toDouble() ?? 0.0,
+      exchangeRateUsed: (json['exchange_rate_used'] as num?)?.toDouble(),
+      rateType: json['rate_type']?.toString(),
+      rateDate: json['rate_date']?.toString(),
+      equivalentEgp: (json['equivalent_egp'] as num?)?.toDouble(),
+      warning: json['warning']?.toString(),
     );
   }
 }
@@ -216,6 +251,9 @@ class PartnerLedgerEntryModel {
   final String referenceNo;
   final String description;
   final String? importFileCode;
+  final String? projectName;
+  final String? blNumber;
+  final String? importerName;
   final String currency;
   final double debitAmount;
   final double creditAmount;
@@ -229,6 +267,9 @@ class PartnerLedgerEntryModel {
     required this.referenceNo,
     required this.description,
     this.importFileCode,
+    this.projectName,
+    this.blNumber,
+    this.importerName,
     required this.currency,
     this.debitAmount = 0.0,
     this.creditAmount = 0.0,
@@ -244,6 +285,9 @@ class PartnerLedgerEntryModel {
       referenceNo: json['reference_no']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       importFileCode: json['import_file_code']?.toString(),
+      projectName: json['project_name']?.toString(),
+      blNumber: json['bl_number']?.toString(),
+      importerName: json['importer_name']?.toString(),
       currency: json['currency']?.toString() ?? 'EGP',
       debitAmount: (json['debit_amount'] as num?)?.toDouble() ?? 0.0,
       creditAmount: (json['credit_amount'] as num?)?.toDouble() ?? 0.0,
@@ -259,9 +303,13 @@ class PartnerStatementOfAccountModel {
   final String partnerName;
   final String partnerType;
   final List<PartnerCurrencyBalanceModel> currencyBalances;
+  final double? equivalentEgpTotal;
   final List<PartnerLedgerEntryModel> ledgerEntries;
   final int totalInvoicesCount;
   final int totalPaymentsCount;
+  final String? asOfDate;
+  final String? rateType;
+  final bool hasUnconvertedBalances;
 
   PartnerStatementOfAccountModel({
     required this.providerId,
@@ -269,9 +317,13 @@ class PartnerStatementOfAccountModel {
     required this.partnerName,
     required this.partnerType,
     this.currencyBalances = const [],
+    this.equivalentEgpTotal,
     this.ledgerEntries = const [],
     this.totalInvoicesCount = 0,
     this.totalPaymentsCount = 0,
+    this.asOfDate,
+    this.rateType,
+    this.hasUnconvertedBalances = false,
   });
 
   factory PartnerStatementOfAccountModel.fromJson(Map<String, dynamic> json) {
@@ -284,12 +336,16 @@ class PartnerStatementOfAccountModel {
               ?.map((e) => PartnerCurrencyBalanceModel.fromJson(e))
               .toList() ??
           [],
+      equivalentEgpTotal: (json['equivalent_egp_total'] as num?)?.toDouble(),
       ledgerEntries: (json['ledger_entries'] as List<dynamic>?)
               ?.map((e) => PartnerLedgerEntryModel.fromJson(e))
               .toList() ??
           [],
       totalInvoicesCount: json['total_invoices_count'] ?? 0,
       totalPaymentsCount: json['total_payments_count'] ?? 0,
+      asOfDate: json['as_of_date']?.toString(),
+      rateType: json['rate_type']?.toString(),
+      hasUnconvertedBalances: json['has_unconverted_balances'] == true,
     );
   }
 }
