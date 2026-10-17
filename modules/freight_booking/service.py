@@ -478,6 +478,7 @@ def _commit_with_code_retry(db: Session, build: Callable[[], ShipmentBooking]) -
 
 
 def create_booking_service(db: Session, payload: ShipmentBookingCreate, user: str = "system") -> ShipmentBooking:
+    validators.validate_master_refs(db, payload)
     validators.validate_container_allocation(payload.shipment_type, payload.containers_data)
     validators.validate_manual_status(payload.status)
     validators.validate_no_duplicate_booking_for_file(db, payload.import_file_id)
@@ -524,6 +525,7 @@ def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookin
     booking = get_booking_service(db, booking_id)
 
     validators.validate_editable_fields(booking, payload.model_fields_set, payload=payload)
+    validators.validate_master_refs(db, payload)
 
     if "shipment_type" in payload.model_fields_set or "containers_data" in payload.model_fields_set:
         eff_type = payload.shipment_type if ("shipment_type" in payload.model_fields_set and payload.shipment_type is not None) else booking.shipment_type

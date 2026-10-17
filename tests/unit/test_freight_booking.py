@@ -316,7 +316,7 @@ class TestFreightBookingBackend:
         payload = ShipmentBookingCreate(
             booking_confirmation_no="AIR-INC-01",
             shipping_line_name="EgyptAir Cargo",
-            shipment_type="Air Freight",
+            shipment_type="Air",
             original_freight_cost_usd=2000.0,
             cost_charges_data=[
                 BookingChargeItem(charge_type="Air Freight", unit="Per Shipment", quantity=1, rate=2500.0, total=2500.0)
