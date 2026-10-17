@@ -416,7 +416,7 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
           codeToCopy: supplier.supplierCode,
           onView: () => SupplierDetailsDialog.show(
             context,
-            supplier: supplier,
+            supplier,
             onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
           ),
           onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
