@@ -1226,6 +1226,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'FA_SWIFT_REF_ALREADY_USED': {
     'note': 'مرجع السويفت {swift_ref} مستخدم بالفعل في طلب الدفع {payment_code}.',
   },
+  'FA_SWIFT_REF_REQUIRED': {
+    'note': 'يجب إدخال الرقم المرجعي للسويفت قبل تسجيل السداد لطلب الصرف {payment_code}.',
+  },
   'FA_SWIFT_BATCH_ALREADY_RECONCILED': {
     'note': 'دفعة السويفت {batch_code} تمت مطابقتها بالفعل مع طلب الدفع {payment_code}.',
   },

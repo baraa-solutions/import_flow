@@ -596,9 +596,10 @@ def _mark_paid(db: Session, item: PaymentRequestSession, swift_reference_no: Opt
                transferred_amount: Optional[float], currency_code: Optional[str]) -> _PaidEvent:
     """Core of the Paid transition (same transaction as the caller): status, SWIFT reference, the import
     file's ``swift_no`` and the LOGISTICS_OFFICER notification. Follow-ups: ``_after_paid``."""
-    swift_ref = swift_reference_no or item.swift_reference_no or f"SWF-{item.payment_id}"
+    swift_ref = (swift_reference_no or item.swift_reference_no or "").strip()
+    assert swift_ref, "swift_reference_no must be non-empty when marking Paid"
     amount = float(transferred_amount or item.swift_transferred_amount or item.requested_amount or 0.0)
-    currency = currency_code or item.swift_transferred_currency or item.currency_code or "USD"
+    currency = currency_code or item.swift_transferred_currency or item.currency_code
 
     item.status = PAYMENT_PAID
     item.swift_reference_no = swift_ref
@@ -712,11 +713,19 @@ def execute_payment_service(db: Session, payment_id: int, swift_reference_no: Op
     """Approved -> Paid once the SWIFT transfer copy exists."""
     db_item = _get_payment(db, payment_id)
     require_payment_status(db_item, PAYMENT_PAY_FROM, "pay")
-    _ensure_swift_ref_unused(db, swift_reference_no, db_item)
+    ref = (swift_reference_no or "").strip() or (db_item.swift_reference_no or "").strip()
+    if not ref:
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_SWIFT_REF_REQUIRED",
+            "يجب إدخال الرقم المرجعي للسويفت قبل تسجيل السداد.",
+            payment_code=db_item.payment_code,
+        )
+    _ensure_swift_ref_unused(db, ref, db_item)
 
     event = _mark_paid(
         db, db_item,
-        swift_reference_no=swift_reference_no or db_item.swift_reference_no,
+        swift_reference_no=ref,
         transferred_amount=float(db_item.swift_transferred_amount or db_item.requested_amount or 0.0),
         currency_code=db_item.swift_transferred_currency or db_item.currency_code,
     )

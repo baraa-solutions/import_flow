@@ -1825,6 +1825,14 @@
       "note"
     ]
   },
+  "FA_SWIFT_REF_REQUIRED": {
+    "params": [
+      "payment_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FA_SWIFT_VALUE_DATE_INVALID": {
     "params": [
       "batch_code",
