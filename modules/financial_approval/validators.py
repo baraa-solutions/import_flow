@@ -168,6 +168,17 @@ def validate_payment_update(item: Any, changes: Dict[str, Any]) -> None:
                 status=item.status,
                 action=f"status:{new_status}",
             )
+    if "currency_code" in changes and changes["currency_code"] is not None:
+        norm_new = enum_codes.normalize_currency(changes["currency_code"])
+        norm_old = enum_codes.normalize_currency(item.currency_code)
+        if norm_new != norm_old and ("exchange_rate" not in changes or changes.get("exchange_rate") is None):
+            raise fa_error(
+                status.HTTP_400_BAD_REQUEST,
+                "FA_PAYMENT_RATE_REQUIRED",
+                "عند تغيير عملة طلب الصرف يجب إدخال سعر الصرف الجديد.",
+                payment_code=item.payment_code,
+                currency_code=norm_new,
+            )
 
 
 def budget_locked_error(item: Any) -> HTTPException:

@@ -1235,6 +1235,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FA_PAYMENT_LOCKED': {
     'note': 'An approved or paid payment request ({payment_code}, {status}) cannot be changed or deleted.',
   },
+  'FA_PAYMENT_RATE_REQUIRED': {
+    'note': 'When changing the currency of payment request {payment_code}, the new exchange rate for {currency_code} must be provided.',
+  },
   'FA_BUDGET_LOCKED': {
     'note': 'An approved or superseded budget ({budget_code}, {status}) cannot be changed: sync it to create a new revision.',
   },
