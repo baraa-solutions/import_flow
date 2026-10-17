@@ -67,25 +67,29 @@ can_simulate = Depends(require_permission("customs_clearance.update"))
 
 @customs_tariff_router.get("", response_model=List[CustomsTariffResponse], dependencies=[can_view])
 def get_all_tariffs(
+    response: Response,
     include_inactive: bool = Query(False),
     search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0, description="Offset for pagination"),
-    limit: Optional[int] = Query(None, ge=1, le=5000, description="Page limit"),
+    limit: int = Query(200, ge=1, le=5000, description="Page limit"),
     db: Session = Depends(get_db),
 ):
     cache_key = f"customs_tariff:list:{include_inactive}:{search}:{skip}:{limit}"
     cached = memory_cache.get(cache_key)
     if cached is not None:
-        return cached
-    res = get_all_tariffs_service(
+        rows, total = cached
+        response.headers["X-Total-Count"] = str(total)
+        return rows
+    rows, total = get_all_tariffs_service(
         db,
         include_inactive=include_inactive,
         search=search,
         skip=skip,
         limit=limit,
     )
-    memory_cache.set(cache_key, res, ttl_seconds=300)
-    return res
+    response.headers["X-Total-Count"] = str(total)
+    memory_cache.set(cache_key, (rows, total), ttl_seconds=300)
+    return rows
 
 
 @customs_tariff_router.post("", response_model=CustomsTariffResponse, dependencies=[can_edit])
@@ -100,25 +104,29 @@ def create_tariff(data: CustomsTariffCreate, db: Session = Depends(get_db)):
 
 @customs_tariff_router.get("/", response_model=List[CustomsTariffResponse], dependencies=[can_view])
 def list_tariffs(
+    response: Response,
     include_inactive: bool = Query(False),
     search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0, description="Offset for pagination"),
-    limit: Optional[int] = Query(None, ge=1, le=5000, description="Page limit"),
+    limit: int = Query(200, ge=1, le=5000, description="Page limit"),
     db: Session = Depends(get_db),
 ):
     cache_key = f"customs_tariff:list:{include_inactive}:{search}:{skip}:{limit}"
     cached = memory_cache.get(cache_key)
     if cached is not None:
-        return cached
-    res = get_all_tariffs_service(
+        rows, total = cached
+        response.headers["X-Total-Count"] = str(total)
+        return rows
+    rows, total = get_all_tariffs_service(
         db,
         include_inactive=include_inactive,
         search=search,
         skip=skip,
         limit=limit,
     )
-    memory_cache.set(cache_key, res, ttl_seconds=300)
-    return res
+    response.headers["X-Total-Count"] = str(total)
+    memory_cache.set(cache_key, (rows, total), ttl_seconds=300)
+    return rows
 
 
 @customs_tariff_router.post("/estimate", response_model=CustomsDutyBreakdown, dependencies=[can_view])
@@ -143,7 +151,7 @@ def estimate_multi_item_customs_duty(
 
 @customs_tariff_router.get("/export-excel", summary="Export all customs tariffs to Excel (XLSX)", dependencies=[can_view])
 def export_tariffs_excel(db: Session = Depends(get_db)):
-    tariffs = get_all_tariffs_service(db, include_inactive=True)
+    tariffs, _ = get_all_tariffs_service(db, include_inactive=True, limit=None)
     headers = [
         'HS Code', 'Description', 'Category', 'Duty %', 'VAT %',
         'Schedule Tax %', 'Development Fee %', 'Service Fee %',
@@ -176,7 +184,7 @@ def export_tariffs_excel(db: Session = Depends(get_db)):
 
 @customs_tariff_router.get("/export-pdf", summary="Export all customs tariffs to PDF", dependencies=[can_view])
 def export_tariffs_pdf(db: Session = Depends(get_db)):
-    tariffs = get_all_tariffs_service(db, include_inactive=True)
+    tariffs, _ = get_all_tariffs_service(db, include_inactive=True, limit=None)
     headers = ['HS Code', 'Description', 'Category', 'Duty %', 'VAT %', 'ACID', 'Status']
     rows = []
     for t in tariffs:

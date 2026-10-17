@@ -14,11 +14,11 @@ class TierRateItem(BaseModel):
 class DemurragePolicyBase(BaseModel):
     carrier_name: str = Field(..., min_length=2, max_length=100, description="اسم الخط الملاحي")
     container_type: str = Field(..., min_length=2, max_length=50, description="نوع الحاوية")
-    demurrage_free_days: int = Field(14, ge=0, description="أيام سماح بقاء الحاوية بالميناء")
-    detention_free_days: int = Field(7, ge=0, description="أيام سماح إعادة الحاوية الفارغة")
-    port_storage_free_days: int = Field(5, ge=0, description="أيام سماح تخزين ساحات الميناء")
+    demurrage_free_days: Optional[int] = Field(None, ge=0, description="أيام سماح بقاء الحاوية بالميناء")
+    detention_free_days: Optional[int] = Field(None, ge=0, description="أيام سماح إعادة الحاوية الفارغة")
+    port_storage_free_days: Optional[int] = Field(None, ge=0, description="أيام سماح تخزين ساحات الميناء")
     currency: str = Field("USD", min_length=3, max_length=10, description="عملة الغرامات")
-    port_storage_daily_rate_egp: float = Field(250.0, ge=0.0, description="رسم تخزين الميناء اليومي بالجنيه")
+    port_storage_daily_rate_egp: Optional[float] = Field(None, ge=0.0, description="رسم تخزين الميناء اليومي بالجنيه")
     demurrage_tiers: List[TierRateItem] = Field(default_factory=list, description="شرائح غرامة الأرضيات")
     detention_tiers: List[TierRateItem] = Field(default_factory=list, description="شرائح غرامة تأخير الفارغ")
     notes: Optional[str] = None
@@ -56,7 +56,7 @@ class DemurragePolicyResponse(DemurragePolicyBase):
 
 class ContainerItemInput(BaseModel):
     container_no: str = Field(..., min_length=4, max_length=50, description="رقم الحاوية (مثال: MSCU1234567)")
-    container_type: str = Field("40ft High Cube", min_length=2, max_length=50, description="نوع الحاوية")
+    container_type: str = Field(..., min_length=2, max_length=50, description="نوع الحاوية")
 
 
 class DemurrageTrackingBase(BaseModel):
@@ -65,7 +65,7 @@ class DemurrageTrackingBase(BaseModel):
     policy_id: Optional[int] = Field(None, description="رقم سياسة الخط الملاحي المطبقة")
     carrier_name: str = Field(..., min_length=2, max_length=100, description="اسم الخط الملاحي")
     bill_of_lading_no: str = Field(..., min_length=3, max_length=100, description="رقم بوليصة الشحن")
-    port_name: str = Field("Alexandria Port", min_length=2, max_length=100, description="ميناء الوصول")
+    port_name: str = Field(..., min_length=2, max_length=100, description="ميناء الوصول")
     discharge_date: date = Field(..., description="تاريخ تفريغ الحاويات من السفينة بالميناء")
     gate_out_date: Optional[date] = Field(None, description="تاريخ خروج الحاوية من بوابة الميناء")
     empty_return_date: Optional[date] = Field(None, description="تاريخ إعادة الحاوية الفارغة لساحة الخط")
@@ -243,7 +243,7 @@ class FreeDaysAgreementRegister(BaseModel):
 class FreeDaysAgreementResponse(BaseModel):
     import_file_id: int
     import_file_code: str
-    carrier_name: str
+    carrier_name: Optional[str] = None
     booking_code: Optional[str] = None
     booking_confirmation_no: Optional[str] = None
     standard_policy_demurrage_days: int = 14

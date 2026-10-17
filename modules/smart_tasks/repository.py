@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
 from sqlalchemy.exc import IntegrityError
 
-from modules.common.sequence_generator import next_yearly_code
+from modules.common.sequence_generator import next_yearly_code, savepoint
 from modules.smart_tasks.model import SmartTask
 from modules.smart_tasks.schemas import SmartTaskCreate, SmartTaskUpdate
 
@@ -67,7 +67,7 @@ def create_task(
                     raise
         else:
             try:
-                with db.begin_nested():
+                with savepoint(db):
                     db.add(db_obj)
                     db.flush()
                 return db_obj

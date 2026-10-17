@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_locales.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/widgets/live_pulse_badge.dart';
+import 'package:frontend/core/widgets/states/app_error_state.dart';
 import 'package:frontend/features/demurrage_detention/models/demurrage_model.dart';
 import 'package:frontend/features/demurrage_detention/providers/demurrage_provider.dart';
 import 'package:frontend/features/demurrage_detention/screens/demurrage_detention_screen.dart';
@@ -179,7 +180,9 @@ void main() {
         state: const DemurrageState(error: 'boom', errorObject: 'boom'),
       );
       expect(tester.takeException(), isNull);
-      expect(find.byIcon(Icons.error_outline), findsWidgets);
+      // CcStateView.error renders the shared AppErrorState (its own icon) with a retry action.
+      expect(find.byType(AppErrorState), findsOneWidget);
+      expect(find.text('Retry'), findsWidgets);
     });
 
     testWidgets('simulator tab shows the severity banner and the cost summary', (tester) async {

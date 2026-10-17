@@ -1336,6 +1336,16 @@
       "note"
     ]
   },
+  "DOC_REGULATORY_BODIES_DETECTED": {
+    "params": [
+      "import_file_code",
+      "regulatory_bodies"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
   "DOC_TASK_CARGOX_TRANSFER": {
     "params": [
       "draft_bl_number",
@@ -1358,9 +1368,56 @@
       "body"
     ]
   },
+  "DOC_TASK_FORM4_SUBMIT": {
+    "params": [
+      "bank_name",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
   "DOC_TASK_FREIGHT_BOOKING": {
     "params": [
       "acid_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DOC_TASK_ITEMS_VERIFY_BANK_LINK": {
+    "params": [
+      "bank_name",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DOC_TASK_ITEMS_VERIFY_SWIFT_BANK_LINK": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DOC_TASK_TAX_CODING_PULL": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "DOC_TASK_TAX_CODING_UPLOAD": {
+    "params": [
       "import_file_code"
     ],
     "parts": [

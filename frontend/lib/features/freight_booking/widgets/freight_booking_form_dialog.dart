@@ -73,7 +73,12 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
   String _freightTerms = 'Collect';
   String _status = 'Draft';
   String? _shippingLineName;
+  int? _shippingLineId;
   String? _freightForwarderName;
+  int? _freightForwarderId;
+  int? _polLocationId;
+  int? _podLocationId;
+  int? _rfqRequestId;
 
   DateTime? _etd;
   DateTime? _eta;
@@ -208,7 +213,12 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
     _freightTerms = b?.freightTerms ?? 'Collect';
     _status = widget.isClone ? 'Draft' : (b?.status ?? 'Draft');
     _shippingLineName = b?.shippingLineName;
+    _shippingLineId = b?.shippingLineId;
     _freightForwarderName = b?.freightForwarderName;
+    _freightForwarderId = b?.freightForwarderId;
+    _polLocationId = b?.polLocationId;
+    _podLocationId = b?.podLocationId;
+    _rfqRequestId = b?.rfqRequestId;
 
     if (b?.etd != null) _etd = DateTime.tryParse(b!.etd!);
     if (b?.eta != null) _eta = DateTime.tryParse(b!.eta!);
@@ -644,13 +654,18 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
       final payload = {
         'booking_confirmation_no': _bookingConfirmNoController.text.trim(),
         'import_file_id': _selectedImportFileId,
+        if (_rfqRequestId != null) 'rfq_request_id': _rfqRequestId,
         'scenario_session_id': _selectedScenarioSessionId,
         'scenario_item_id': _selectedScenarioItemId,
         'scenario_provider_name': _selectedScenarioProviderName,
+        if (_freightForwarderId != null) 'freight_forwarder_id': _freightForwarderId,
         'freight_forwarder_name': _freightForwarderName,
+        if (_shippingLineId != null) 'shipping_line_id': _shippingLineId,
         'shipping_line_name': _shippingLineName,
         'shipment_type': _shipmentType,
+        if (_polLocationId != null) 'pol_location_id': _polLocationId,
         'pol_name': _polController.text.trim(),
+        if (_podLocationId != null) 'pod_location_id': _podLocationId,
         'pod_name': _podController.text.trim(),
         'etd': _etd?.toIso8601String(),
         'eta': _eta?.toIso8601String(),
@@ -1059,7 +1074,13 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                           SearchableDropdownItem<String>(value: s.partnerName, label: s.partnerName, subtitle: s.partnerType),
                       ],
                       onChanged: (val) {
-                        if (val != null) setState(() => _shippingLineName = val);
+                        if (val != null) {
+                          final match = shippingLines.where((s) => s.partnerName == val).firstOrNull;
+                          setState(() {
+                            _shippingLineName = val;
+                            _shippingLineId = match?.providerId;
+                          });
+                        }
                       },
                     ),
                   ),
@@ -1076,7 +1097,13 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                           SearchableDropdownItem<String>(value: f.partnerName, label: f.partnerName, subtitle: f.partnerType),
                       ],
                       onChanged: (val) {
-                        if (val != null) setState(() => _freightForwarderName = val);
+                        if (val != null) {
+                          final match = freightForwarders.where((f) => f.partnerName == val).firstOrNull;
+                          setState(() {
+                            _freightForwarderName = val;
+                            _freightForwarderId = match?.providerId;
+                          });
+                        }
                       },
                     ),
                   ),
@@ -1096,7 +1123,13 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                       validator: (_) => reqText(_polController.text) == null ? null : l.fbkValidatorPol,
                       items: portItems,
                       onChanged: (val) {
-                        if (val != null) setState(() => _polController.text = val);
+                        if (val != null) {
+                          final match = ports.where((p) => p.locationName == val).firstOrNull;
+                          setState(() {
+                            _polController.text = val;
+                            _polLocationId = match?.locationId;
+                          });
+                        }
                       },
                     ),
                   ),
@@ -1111,7 +1144,13 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                       validator: (_) => reqText(_podController.text) == null ? null : l.fbkValidatorPod,
                       items: portItems,
                       onChanged: (val) {
-                        if (val != null) setState(() => _podController.text = val);
+                        if (val != null) {
+                          final match = ports.where((p) => p.locationName == val).firstOrNull;
+                          setState(() {
+                            _podController.text = val;
+                            _podLocationId = match?.locationId;
+                          });
+                        }
                       },
                     ),
                   ),

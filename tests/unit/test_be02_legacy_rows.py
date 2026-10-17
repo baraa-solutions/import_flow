@@ -64,9 +64,9 @@ def _load_migration():
         Path(__file__).resolve().parents[2]
         / "alembic"
         / "versions"
-        / "a1b2c3d4e5f6_fa_legacy_budget_backfill.py"
+        / "e2f3a4b5c6d7_fa_legacy_budget_backfill.py"
     )
-    spec = importlib.util.spec_from_file_location("mig_a1b2c3d4e5f6", path)
+    spec = importlib.util.spec_from_file_location("mig_e2f3a4b5c6d7", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -158,6 +158,9 @@ def test_migration_backfills_null_columns(db):
         title="Legacy Payment",
         import_file_id=f.import_file_id,
         supplier_name="Global Supplier",
+        requested_amount=1000.0,
+        currency_code="USD",
+        exchange_rate=50.0,
         requested_amount_egp=50000.0,
         due_date=date.today(),
         status="Draft",
