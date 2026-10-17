@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -70,10 +68,6 @@ class _CustomsBrokerAuthorizationDialogState
     );
     _notesController = TextEditingController();
 
-    if (_delegationNoController.text.trim().isEmpty) {
-      _generateDelegationNumber();
-    }
-
     if (widget.file.portOfDischarge != null &&
         widget.file.portOfDischarge!.trim().isNotEmpty) {
       final pod = widget.file.portOfDischarge!.trim();
@@ -94,24 +88,6 @@ class _CustomsBrokerAuthorizationDialogState
     _delegationNoController.dispose();
     _notesController.dispose();
     super.dispose();
-  }
-
-  void _generateDelegationNumber() {
-    final year = DateTime.now().year;
-    final randNum = 1000 + Random().nextInt(9000);
-    String portPrefix = 'ALEX';
-    if (_selectedCustomsOffice.contains('Dekheila')) {
-      portPrefix = 'DEKH';
-    } else if (_selectedCustomsOffice.contains('Port Said')) {
-      portPrefix = 'PSD';
-    } else if (_selectedCustomsOffice.contains('Sokhna')) {
-      portPrefix = 'SOKH';
-    } else if (_selectedCustomsOffice.contains('Airport')) {
-      portPrefix = 'CAI';
-    }
-    setState(() {
-      _delegationNoController.text = 'DEL-$year-$portPrefix-$randNum';
-    });
   }
 
   Future<void> _submitAuthorization() async {
@@ -287,27 +263,17 @@ class _CustomsBrokerAuthorizationDialogState
                 l.ccBrkNoLabel,
                 hint: l.ccBrkNoHint,
                 icon: Icons.qr_code_rounded,
-                suffix: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.copy_rounded, size: 18),
-                      tooltip: l.ccBrkCopyTooltip,
-                      onPressed: () {
-                        if (_delegationNoController.text.trim().isNotEmpty) {
-                          Clipboard.setData(ClipboardData(text: _delegationNoController.text.trim()));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            AppTheme.snackBar(context, l.ccBrkCopied, severity: AppSeverity.success),
-                          );
-                        }
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.auto_fix_high_rounded, color: AppTheme.cobalt, size: 20),
-                      tooltip: l.ccBrkGenerateTooltip,
-                      onPressed: _generateDelegationNumber,
-                    ),
-                  ],
+                suffix: IconButton(
+                  icon: const Icon(Icons.copy_rounded, size: 18),
+                  tooltip: l.ccBrkCopyTooltip,
+                  onPressed: () {
+                    if (_delegationNoController.text.trim().isNotEmpty) {
+                      Clipboard.setData(ClipboardData(text: _delegationNoController.text.trim()));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        AppTheme.snackBar(context, l.ccBrkCopied, severity: AppSeverity.success),
+                      );
+                    }
+                  },
                 ),
               ),
               validator: (val) {

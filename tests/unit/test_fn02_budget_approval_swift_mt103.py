@@ -35,6 +35,7 @@ from modules.financial_approval.schemas import (
     SwiftReconciliationRequest,
     ImportBudgetCreate,
 )
+from modules.users.model import User
 from modules.financial_approval.service import (
     create_payment_request_service,
     create_import_budget_service,
@@ -42,6 +43,7 @@ from modules.financial_approval.service import (
     approve_payment_request_service,
     execute_payment_service,
     reconcile_swift_service,
+    override_budget_variance_service,
 )
 
 
@@ -207,8 +209,10 @@ def test_approve_import_budget_workflow(db_session, seed_data):
         project_id=1,
         exchange_rate=48.50,
         invoice_amount_foreign=100000.0,
+        invoice_currency="USD",
         invoice_amount_egp=4850000.0,
         freight_cost_foreign=5000.0,
+        freight_currency="USD",
         freight_cost_egp=242500.0,
         customs_duties_egp=250000.0,
         clearance_inland_egp=50000.0,
@@ -280,8 +284,10 @@ def test_approve_import_budget_hard_block_variance(db_session, seed_data):
         project_id=1,
         exchange_rate=48.50,
         invoice_amount_foreign=100000.0,
+        invoice_currency="USD",
         invoice_amount_egp=4850000.0,
         freight_cost_foreign=5000.0,
+        freight_currency="USD",
         freight_cost_egp=242500.0,
         customs_duties_egp=250000.0,
         clearance_inland_egp=50000.0,
@@ -312,10 +318,22 @@ def test_approve_import_budget_hard_block_variance(db_session, seed_data):
     assert exc_info.value.detail["code"] == "FA_BUDGET_HARD_BLOCK"
     assert "لا يمكن اعتماد الميزانية" in exc_info.value.detail["message"]
 
-    # Provide override reason -> Approval succeeds
+    # Setting only variance_override_reason no longer bypasses the pending hard block
     budget.variance_override_reason = "Approved by GM due to peak shipping season rate hike"
     db_session.commit()
+    with pytest.raises(HTTPException) as exc_info:
+        approve_import_budget_service(db_session, budget.budget_id)
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail["code"] == "FA_BUDGET_HARD_BLOCK"
 
+    # Go through the real override path -> resolves pending hard logs -> approval succeeds
+    admin = User(user_id=1, username="finance_director", email="cfo@example.com", role="ADMIN", is_active=True)
+    override_budget_variance_service(
+        db_session,
+        budget.budget_id,
+        current_user=admin,
+        justification_note="Approved by GM due to peak shipping season rate hike",
+    )
     approved = approve_import_budget_service(db_session, budget.budget_id)
     assert approved.budget_status == "Budget Approved"
 
@@ -490,8 +508,10 @@ def test_api_budget_approve_and_swift_reconcile_endpoints(db_session, seed_data)
             project_id=1,
             exchange_rate=48.50,
             invoice_amount_foreign=100000.0,
+            invoice_currency="USD",
             invoice_amount_egp=4850000.0,
             freight_cost_foreign=5000.0,
+            freight_currency="USD",
             freight_cost_egp=242500.0,
             customs_duties_egp=250000.0,
             clearance_inland_egp=50000.0,

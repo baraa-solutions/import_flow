@@ -12,6 +12,7 @@ class CustomTextField extends StatelessWidget {
   final int maxLines;
   final String? Function(String?)? validator;
   final Widget? suffixIcon;
+  final bool obscureText;
 
   /// Direction of the typed value. Pass [TextDirection.ltr] for codes (HS,
   /// ACID, container, B/L, SWIFT, IBAN) and numbers so they stay readable in
@@ -30,6 +31,7 @@ class CustomTextField extends StatelessWidget {
     this.maxLines = 1,
     this.validator,
     this.suffixIcon,
+    this.obscureText = false,
     this.textDirection,
   });
 
@@ -73,6 +75,7 @@ class CustomTextField extends StatelessWidget {
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
+          obscureText: obscureText,
           keyboardType: keyboardType,
           maxLines: maxLines,
           textDirection: textDirection,

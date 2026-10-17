@@ -44,7 +44,7 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
   final _emailController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _displayNameController = TextEditingController(text: 'Sorour Logistics Operations');
+  final _displayNameController = TextEditingController();
 
   final _imapHostController = TextEditingController(text: 'imap.gmail.com');
   final _imapPortController = TextEditingController(text: '993');
