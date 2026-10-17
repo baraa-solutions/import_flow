@@ -23,7 +23,7 @@ from utils import db_safety
 PREVIOUS = "f7a1c3e5b9d2"
 
 
-HEAD = "f3a4b5c6d7e8"  # current head (partial shipments linkage on import_files DEV-OPS-04)
+HEAD = "73cee71ca978"  # current head (create_shipment_containers_table DEV-OPS-01)
 
 NEW_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],
