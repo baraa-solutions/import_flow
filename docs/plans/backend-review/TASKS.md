@@ -149,7 +149,7 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 125 | BE03-T10 | docs_customs_approval | MAJOR | DCA ticket status workflow and session four-eyes | none | no | yes: 422 / 409 `DCA_TICKET_CLOSED`, `DCA_SAME_REVIEWER` | review required | [be-03](be-03-review.md) | todo |
 | 126 | BE03-T20 | import_documentation | MAJOR | External LLM parsing behind an explicit setting | Q2 (be-03) | no | no | review required | [be-03](be-03-review.md) | todo |
 | 127 | BE01-T08 | customs_consultation, import_requirements | MAJOR | One commit per use case | BE01-T01, BE01-T03, BE01-T06 | no | no | yes | [be-01](be-01-review.md) | done (PR #177) |
-| 128 | BE01-T09 | customs_consultation | MAJOR | Audit wiring for broker price lists and expense types | BE01-T08, BEW0-05 | via BEW0-05 | additive | yes | [be-01](be-01-review.md) | done |
+| 128 | BE01-T09 | customs_consultation | MAJOR | Audit wiring for broker price lists and expense types | BE01-T08, BEW0-05 | via BEW0-05 | additive | yes | [be-01](be-01-review.md) | done (PR #178) |
 | 129 | BE01-T10 | freight_quotations | MAJOR | Audit wiring for freight RFQs | BE01-T04, BEW0-05 | via BEW0-05 | additive | yes | [be-01](be-01-review.md) | todo |
 | 130 | BE01-T11 | purchase_orders | MAJOR | PO status workflow and lifecycle guards | BE01-T07 | no | yes: `PO_NOT_EDITABLE`, `PO_HAS_ALLOCATIONS` | yes | [be-01](be-01-review.md) | todo |
 | 131 | BE01-T12 | customs_consultation | MAJOR | Consultation validation (FKs, clone guard, nulls, money inputs, dates) | BE01-T01, BE01-T03 | no | yes: stricter 400 / 409 / 422 | yes | [be-01](be-01-review.md) | todo |
