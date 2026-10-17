@@ -1,6 +1,7 @@
 from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
 # Invoice number prefix of the single adjustment row per field written by the recalculation engine (RC-01).
 # Only these rows may carry a negative amount (live total lower than the user invoices).
@@ -73,25 +74,26 @@ class FinancialSettlementUpdate(BaseModel):
     accountant_name: Optional[str] = Field(None, description="Ignored: the acting user is recorded")
     notes: Optional[str] = None
 
-class FinancialSettlementResponse(BaseModel):
+@read_model
+class FinancialSettlementResponse(LegacyRowTolerantModel):
     settlement_id: int
     settlement_code: str
     import_file_id: int
-    incoterm_code: str = "FOB"
-    expense_invoices: List[Dict[str, Any]]
-    total_fob_egp: float
-    total_expenses_egp: float
-    total_landed_cost_egp: float
-    average_markup_factor: float
-    item_landed_costs: List[Dict[str, Any]]
-    status: str
-    accountant_name: str
+    incoterm_code: Optional[str] = "FOB"
+    expense_invoices: List[Dict[str, Any]] = []
+    total_fob_egp: float = 0.0
+    total_expenses_egp: float = 0.0
+    total_landed_cost_egp: float = 0.0
+    average_markup_factor: float = 1.0
+    item_landed_costs: List[Dict[str, Any]] = []
+    status: Optional[str] = None
+    accountant_name: Optional[str] = None
     notes: Optional[str] = None
-    is_active: bool
-    created_at: datetime
-    created_by: str
-    updated_at: datetime
-    updated_by: str
+    is_active: Optional[bool] = None
+    created_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[str] = None
     messages: List[SettlementMessage] = []
 
     model_config = ConfigDict(from_attributes=True)

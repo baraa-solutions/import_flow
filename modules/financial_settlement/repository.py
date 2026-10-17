@@ -51,6 +51,8 @@ def list_settlements(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
 ) -> List[LandedCostSettlementRecord]:
     query = db.query(LandedCostSettlementRecord)
     if not include_inactive:
@@ -65,7 +67,12 @@ def list_settlements(
             (LandedCostSettlementRecord.settlement_code.ilike(pattern)) |
             (LandedCostSettlementRecord.accountant_name.ilike(pattern))
         )
-    return query.order_by(desc(LandedCostSettlementRecord.settlement_id)).all()
+    query = query.order_by(desc(LandedCostSettlementRecord.settlement_id))
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
 def _with_amount_egp(expenses: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

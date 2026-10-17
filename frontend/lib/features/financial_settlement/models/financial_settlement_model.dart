@@ -197,9 +197,9 @@ class LandedCostSettlementModel {
     var rawItems = json['item_landed_costs'] as List<dynamic>? ?? [];
 
     return LandedCostSettlementModel(
-      settlementId: json['settlement_id'],
+      settlementId: (json['settlement_id'] as num?)?.toInt() ?? 0,
       settlementCode: json['settlement_code'] ?? '',
-      importFileId: json['import_file_id'],
+      importFileId: (json['import_file_id'] as num?)?.toInt() ?? 0,
       expenseInvoices: rawExpenses.map((e) => ExpenseInvoiceModel.fromJson(e)).toList(),
       totalFobEgp: (json['total_fob_egp'] as num?)?.toDouble() ?? 0.0,
       totalExpensesEgp: (json['total_expenses_egp'] as num?)?.toDouble() ?? 0.0,
@@ -210,8 +210,8 @@ class LandedCostSettlementModel {
       accountantName: json['accountant_name'] ?? '',
       notes: json['notes'],
       isActive: json['is_active'] ?? true,
-      createdAt: json['created_at'] ?? '',
-      updatedAt: json['updated_at'] ?? '',
+      createdAt: json['created_at']?.toString() ?? '',
+      updatedAt: json['updated_at']?.toString() ?? '',
     );
   }
 
