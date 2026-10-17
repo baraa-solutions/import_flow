@@ -49,6 +49,7 @@ class ShipmentBookingBase(BaseModel):
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
     atd: Optional[datetime] = None
+    shipped_on_board_date: Optional[date] = None
     departure_delay_days: Optional[int] = 0
     expected_warehouse_days: Optional[int] = 7
     expected_warehouse_arrival_date: Optional[datetime] = None
@@ -91,6 +92,7 @@ class ShipmentBookingUpdate(BaseModel):
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
     atd: Optional[datetime] = None
+    shipped_on_board_date: Optional[date] = None
     departure_delay_days: Optional[int] = None
     expected_warehouse_days: Optional[int] = None
     expected_warehouse_arrival_date: Optional[datetime] = None

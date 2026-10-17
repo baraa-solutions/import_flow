@@ -7,32 +7,32 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
+import '../../currencies/models/currency_model.dart';
+import '../../currencies/providers/currencies_provider.dart';
 
-  void showDutyCalculatorDialog(BuildContext context, WidgetRef ref,
-      {String? initialHsCode, int? initialImportFileId}) {
-    String selectedCurrency = 'USD';
-    String selectedFreightCurrency = 'USD';
+  void showDutyCalculatorDialog(BuildContext context, WidgetRef ref, {
+    String? initialHsCode,
+    int? initialImportFileId,
+    String? initialCurrency,
+    double? initialFreightAmount,
+    double? initialInsuranceAmount,
+    List<Map<String, dynamic>>? initialExtractedLines,
+  }) {
+    String selectedCurrency = (initialCurrency != null && initialCurrency.trim().isNotEmpty)
+        ? initialCurrency.trim().toUpperCase()
+        : 'USD';
+    String selectedFreightCurrency = selectedCurrency;
 
-    final Map<String, double> defaultExchangeRates = {
-      'USD': 50.7917,
-      'EUR': 55.2000,
-      'GBP': 64.5000,
-      'CNY': 7.1000,
-      'SAR': 13.5400,
-      'AED': 13.8200,
-      'EGP': 1.0000,
-    };
-
-    final exchangeRateCtrl = TextEditingController(text: '50.7917');
-    final totalInvoiceFcCtrl = TextEditingController(text: '11736.40');
-    final insuranceCtrl = TextEditingController(text: '14902.793');
-    final deemedInsuranceCtrl = TextEditingController(text: '0.00');
-    final freightForeignCtrl = TextEditingController(text: '234.72');
+    final exchangeRateCtrl = TextEditingController();
+    final totalInvoiceFcCtrl = TextEditingController();
+    final insuranceCtrl = TextEditingController();
+    final deemedInsuranceCtrl = TextEditingController();
+    final freightForeignCtrl = TextEditingController();
     final freightExchangeRateCtrl = TextEditingController();
-    final multiFreightCtrl = TextEditingController(text: '11922.234');
-    final deemedFreightCtrl = TextEditingController(text: '0.00');
-    final additionalFeesCtrl = TextEditingController(text: '1329.50');
-    final declaredCifCtrl = TextEditingController(text: '623000.00');
+    final multiFreightCtrl = TextEditingController();
+    final deemedFreightCtrl = TextEditingController();
+    final additionalFeesCtrl = TextEditingController();
+    final declaredCifCtrl = TextEditingController();
 
     String insuranceType = 'actual';
     String freightType = 'actual';
@@ -49,7 +49,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
     }
 
     double computeTotalFobEgp(List<Map<String, dynamic>> lines) {
-      final rate = double.tryParse(exchangeRateCtrl.text.trim()) ?? 50.7917;
+      final rate = double.tryParse(exchangeRateCtrl.text.trim()) ?? 0.0;
       return computeTotalInvoiceFc(lines) * rate;
     }
 
@@ -58,8 +58,8 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
       if (insuranceType != 'deemed') return;
       final deemed = computeTotalFobEgp(lines) * 0.025;
       setState(() {
-        deemedInsuranceCtrl.text = deemed.toStringAsFixed(3);
-        insuranceCtrl.text = '0.00';
+        deemedInsuranceCtrl.text = deemed > 0 ? deemed.toStringAsFixed(3) : '';
+        insuranceCtrl.text = '';
       });
     }
 
@@ -68,34 +68,34 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
       if (freightType != 'deemed') return;
       final deemed = computeTotalFobEgp(lines) * 0.020;
       setState(() {
-        deemedFreightCtrl.text = deemed.toStringAsFixed(3);
-        multiFreightCtrl.text = '0.00';
+        deemedFreightCtrl.text = deemed > 0 ? deemed.toStringAsFixed(3) : '';
+        multiFreightCtrl.text = '';
       });
     }
 
     void syncCalculatedFields(
         StateSetter setState, List<Map<String, dynamic>> lines) {
       final totalFc = computeTotalInvoiceFc(lines);
-      final rate = double.tryParse(exchangeRateCtrl.text.trim()) ?? 50.7917;
+      final rate = double.tryParse(exchangeRateCtrl.text.trim()) ?? 0.0;
       final fobEgp = totalFc * rate;
 
       if (insuranceType == 'deemed') {
         final deemedIns = fobEgp * 0.025;
-        deemedInsuranceCtrl.text = deemedIns.toStringAsFixed(3);
-        insuranceCtrl.text = '0.00';
+        deemedInsuranceCtrl.text = deemedIns > 0 ? deemedIns.toStringAsFixed(3) : '';
+        insuranceCtrl.text = '';
       }
 
       if (freightType == 'deemed') {
         final deemedFrt = fobEgp * 0.020;
-        deemedFreightCtrl.text = deemedFrt.toStringAsFixed(3);
-        multiFreightCtrl.text = '0.00';
+        deemedFreightCtrl.text = deemedFrt > 0 ? deemedFrt.toStringAsFixed(3) : '';
+        multiFreightCtrl.text = '';
       } else {
         final fAmt = double.tryParse(freightForeignCtrl.text.trim()) ?? 0;
         final customRate = double.tryParse(freightExchangeRateCtrl.text.trim());
         final fRate = selectedFreightCurrency == 'EGP'
             ? 1.0
             : (customRate ?? (selectedFreightCurrency == selectedCurrency ? rate : null));
-        if (fRate != null) {
+        if (fRate != null && fAmt > 0) {
           final calcFrtEgp = fAmt * fRate;
           multiFreightCtrl.text = calcFrtEgp.toStringAsFixed(3);
         } else {
@@ -114,42 +114,63 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
       final calculatedCifEgp = fobEgp + effectiveIns + effectiveFrt;
 
       setState(() {
-        totalInvoiceFcCtrl.text = totalFc.toStringAsFixed(2);
-        declaredCifCtrl.text = calculatedCifEgp.toStringAsFixed(2);
+        totalInvoiceFcCtrl.text = totalFc > 0 ? totalFc.toStringAsFixed(2) : '';
+        declaredCifCtrl.text = calculatedCifEgp > 0 ? calculatedCifEgp.toStringAsFixed(2) : '';
       });
     }
 
-    List<Map<String, dynamic>> multiLines = [
-      {
-        'hs': TextEditingController(text: initialHsCode ?? '8536.41.00'),
-        'value': TextEditingController(text: '607.6'),
-        'inspection': TextEditingController(text: '0.00'),
-        'origin': 'CN',
-        'exemption': null,
-        'is_exemption_conditions_met': false,
-      },
-      {
-        'hs': TextEditingController(text: '8537.10.90'),
-        'value': TextEditingController(text: '4371.2'),
-        'inspection': TextEditingController(text: '8514.81'),
-        'origin': 'TR',
-        'exemption': null,
-        'is_exemption_conditions_met': false,
-      },
-      {
-        'hs': TextEditingController(text: '8537.10.90'),
-        'value': TextEditingController(text: '6757.6'),
-        'inspection': TextEditingController(text: '69772.09'),
-        'origin': 'DE',
-        'exemption': null,
-        'is_exemption_conditions_met': false,
-      },
-    ];
+    // Lines extracted from an uploaded invoice (smart upload / PO form) prefill the calculator; values the
+    // document did not give stay empty.
+    List<Map<String, dynamic>> multiLines = (initialExtractedLines != null && initialExtractedLines.isNotEmpty)
+        ? initialExtractedLines.map((line) {
+            final hs = line['hs_code']?.toString() ?? line['hs']?.toString() ?? '';
+            final val = line['total_price']?.toString() ??
+                line['amount']?.toString() ??
+                line['value']?.toString() ??
+                line['total_amount']?.toString() ??
+                '';
+            final origin = line['country_of_origin']?.toString() ??
+                line['origin_country']?.toString() ??
+                line['origin']?.toString();
+            return <String, dynamic>{
+              'hs': TextEditingController(text: hs),
+              'value': TextEditingController(text: val),
+              'inspection': TextEditingController(),
+              'origin': origin,
+              'exemption': null,
+              'is_exemption_conditions_met': false,
+            };
+          }).toList()
+        : [
+            {
+              'hs': TextEditingController(text: initialHsCode ?? ''),
+              'value': TextEditingController(),
+              'inspection': TextEditingController(),
+              'origin': 'CN',
+              'exemption': null,
+              'is_exemption_conditions_met': false,
+            },
+          ];
+
+    if (initialExtractedLines != null && initialExtractedLines.isNotEmpty) {
+      double sumVal = 0.0;
+      for (final l in multiLines) {
+        sumVal += double.tryParse((l['value'] as TextEditingController).text) ?? 0.0;
+      }
+      if (sumVal > 0) totalInvoiceFcCtrl.text = sumVal.toStringAsFixed(2);
+      if (initialFreightAmount != null && initialFreightAmount > 0) {
+        freightForeignCtrl.text = initialFreightAmount.toStringAsFixed(2);
+      }
+      if (initialInsuranceAmount != null && initialInsuranceAmount > 0) {
+        insuranceCtrl.text = initialInsuranceAmount.toStringAsFixed(2);
+      }
+    }
 
     Map<String, dynamic>? multiResult;
     String? multiError;
     bool isMultiCalculating = false;
     bool didAutoSimulate = false;
+    bool didInitialRateLoad = false;
 
     Future<void> runImportFileSimulation(
         int fileId, StateSetter setState) async {
@@ -212,7 +233,12 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                   'value': TextEditingController(
                       text: _numToDouble(lineMap['item_total_fob_foreign'])
                           .toStringAsFixed(2)),
-                  'inspection': TextEditingController(text: '0.00'),
+                  'inspection': TextEditingController(
+                      text: lineMap['inspection_fee_egp'] != null &&
+                              _numToDouble(lineMap['inspection_fee_egp']) > 0
+                          ? _numToDouble(lineMap['inspection_fee_egp'])
+                              .toStringAsFixed(2)
+                          : ''),
                   'origin': lineMap['origin_country']?.toString() ?? 'CN',
                   'exemption':
                       lineMap['preferential_agreement_applied']?.toString(),
@@ -245,6 +271,25 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
             didAutoSimulate = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               runImportFileSimulation(initialImportFileId, setCalcState);
+            });
+          } else if (initialImportFileId == null && !didInitialRateLoad) {
+            didInitialRateLoad = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (exchangeRateCtrl.text.isEmpty) {
+                final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
+                final currModel = currencies.cast<CurrencyModel?>().firstWhere(
+                  (c) => c != null && c.currencyCode.toUpperCase() == selectedCurrency.toUpperCase(),
+                  orElse: () => null,
+                );
+                if (currModel != null &&
+                    currModel.latestCustomsRate != null &&
+                    currModel.latestCustomsRate! > 0) {
+                  setCalcState(() {
+                    exchangeRateCtrl.text = currModel.latestCustomsRate!.toStringAsFixed(4);
+                    syncCalculatedFields(setCalcState, multiLines);
+                  });
+                }
+              }
             });
           }
 
@@ -314,10 +359,20 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                       : 'Load Actual Nafeza Sample (2026-612-1-94731)',
                                   style: const TextStyle(fontSize: 11)),
                               onPressed: () {
+                                final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
+                                final usdCurr = currencies.cast<CurrencyModel?>().firstWhere(
+                                  (c) => c != null && c.currencyCode.toUpperCase() == 'USD',
+                                  orElse: () => null,
+                                );
+                                final dynamicRate = (usdCurr != null &&
+                                        usdCurr.latestCustomsRate != null &&
+                                        usdCurr.latestCustomsRate! > 0)
+                                    ? usdCurr.latestCustomsRate!.toStringAsFixed(4)
+                                    : '';
                                 setCalcState(() {
                                   selectedCurrency = 'USD';
                                   selectedFreightCurrency = 'USD';
-                                  exchangeRateCtrl.text = '50.7917';
+                                  exchangeRateCtrl.text = dynamicRate;
                                   insuranceCtrl.text = '14902.793';
                                   deemedInsuranceCtrl.text = '0.00';
                                   insuranceType = 'actual';
@@ -393,9 +448,21 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                   selectedFreightCurrency == 'USD') {
                                 selectedFreightCurrency = val;
                               }
-                              exchangeRateCtrl.text =
-                                  (defaultExchangeRates[val] ?? 50.7917)
-                                      .toStringAsFixed(4);
+                              final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
+                              final currModel = currencies.cast<CurrencyModel?>().firstWhere(
+                                (c) => c != null && c.currencyCode.toUpperCase() == val.toUpperCase(),
+                                orElse: () => null,
+                              );
+                              if (currModel != null &&
+                                  currModel.latestCustomsRate != null &&
+                                  currModel.latestCustomsRate! > 0) {
+                                exchangeRateCtrl.text =
+                                    currModel.latestCustomsRate!.toStringAsFixed(4);
+                              } else if (val == 'EGP') {
+                                exchangeRateCtrl.text = '1.0000';
+                              } else {
+                                exchangeRateCtrl.text = '';
+                              }
                               syncCalculatedFields(setCalcState, multiLines);
                             });
                           },
@@ -413,7 +480,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                             labelText: isArabic
                                 ? 'سعر التحويل (EGP/$selectedCurrency) *'
                                 : 'Exchange Rate (EGP/$selectedCurrency) *',
-                            hintText: '50.7917',
+                            hintText: isArabic ? 'سعر الصرف الجمركي' : 'Customs Rate',
                             isDense: true,
                           ),
                         ),
@@ -472,7 +539,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                             labelText: isArabic
                                 ? 'رسوم أساسية/إضافية (EGP)'
                                 : 'Basic / Additional Fees (EGP)',
-                            hintText: '1329.50',
+                            hintText: '0.00',
                             isDense: true,
                           ),
                         ),
@@ -527,7 +594,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                               onSelected: (_) {
                                 setCalcState(() {
                                   insuranceType = 'actual';
-                                  deemedInsuranceCtrl.text = '0.00';
+                                  deemedInsuranceCtrl.text = '';
                                   syncCalculatedFields(
                                       setCalcState, multiLines);
                                 });
@@ -542,7 +609,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                               onSelected: (_) {
                                 setCalcState(() {
                                   insuranceType = 'deemed';
-                                  insuranceCtrl.text = '0.00';
+                                  insuranceCtrl.text = '';
                                   recalcDeemedInsurance(
                                       setCalcState, multiLines);
                                   syncCalculatedFields(
@@ -566,7 +633,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                     labelText: isArabic
                                         ? 'مبلغ التأمين الفعلي (EGP)'
                                         : 'Actual Insurance Amount (EGP)',
-                                    hintText: '14902.793',
+                                    hintText: '0.00',
                                     isDense: true,
                                   ),
                                 ),
@@ -665,7 +732,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                               onSelected: (_) {
                                 setCalcState(() {
                                   freightType = 'actual';
-                                  deemedFreightCtrl.text = '0.00';
+                                  deemedFreightCtrl.text = '';
                                   syncCalculatedFields(
                                       setCalcState, multiLines);
                                 });
@@ -680,7 +747,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                               onSelected: (_) {
                                 setCalcState(() {
                                   freightType = 'deemed';
-                                  multiFreightCtrl.text = '0.00';
+                                  multiFreightCtrl.text = '';
                                   recalcDeemedFreight(setCalcState, multiLines);
                                   syncCalculatedFields(
                                       setCalcState, multiLines);
@@ -747,7 +814,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                     labelText: isArabic
                                         ? 'مبلغ النولون ($selectedFreightCurrency) *'
                                         : 'Freight Amount ($selectedFreightCurrency) *',
-                                    hintText: '234.72',
+                                    hintText: '0.00',
                                     isDense: true,
                                   ),
                                 ),
@@ -874,9 +941,9 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                         onPressed: () {
                           setCalcState(() {
                             multiLines.add({
-                              'hs': TextEditingController(text: '8471.30.00'),
-                              'value': TextEditingController(text: '1000.00'),
-                              'inspection': TextEditingController(text: '0.00'),
+                              'hs': TextEditingController(),
+                              'value': TextEditingController(),
+                              'inspection': TextEditingController(),
                               'origin': 'CN',
                               'exemption': null,
                               'is_exemption_conditions_met': false,
@@ -983,7 +1050,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                       setCalcState, multiLines),
                                   decoration: InputDecoration(
                                     labelText: isArabic ? 'القيمة ($selectedCurrency)' : 'Value ($selectedCurrency)',
-                                    hintText: '1000',
+                                    hintText: '0.00',
                                     isDense: true,
                                   ),
                                 ),
@@ -1273,7 +1340,15 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                           : () async {
                               final rate = double.tryParse(
                                       exchangeRateCtrl.text.trim()) ??
-                                  50.7917;
+                                  0.0;
+                              if (rate <= 0) {
+                                setCalcState(() {
+                                  multiError = isArabic
+                                      ? 'يرجى إدخال أو اختيار سعر تحويل صحيح للعملة أولاً'
+                                      : 'Please enter or select a valid exchange rate first';
+                                });
+                                return;
+                              }
 
                               final bool isDeemedInsurance =
                                   insuranceType == 'deemed';
@@ -1320,6 +1395,15 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                                   'exemption_code': m['exemption'],
                                   'is_exemption_conditions_met': m['is_exemption_conditions_met'] == true,
                                 });
+                              }
+
+                              if (linesData.isEmpty || linesData.any((l) => (l['hs_code'] as String).isEmpty || (l['value_fc'] as double) <= 0)) {
+                                setCalcState(() {
+                                  multiError = isArabic
+                                      ? 'يرجى إدخال بند جمركي وقيمة صالحة أكبر من صفر لكل صنف'
+                                      : 'Please enter a valid HS code and value greater than 0 for all items';
+                                });
+                                return;
                               }
 
                               setCalcState(() {
@@ -1729,7 +1813,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                             onPressed: () async {
                               final rate = double.tryParse(
                                       exchangeRateCtrl.text.trim()) ??
-                                  50.7917;
+                                  _numToDouble(multiResult!['exchange_rate'], 1.0);
                               final totalFc = computeTotalInvoiceFc(multiLines);
                               final fobEgp = totalFc * rate;
                               final insEgp = (insuranceType == 'deemed')
@@ -1787,7 +1871,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                             onPressed: () async {
                               final rate = double.tryParse(
                                       exchangeRateCtrl.text.trim()) ??
-                                  50.7917;
+                                  _numToDouble(multiResult!['exchange_rate'], 1.0);
                               final totalFc = computeTotalInvoiceFc(multiLines);
                               final fobEgp = totalFc * rate;
                               final insEgp = (insuranceType == 'deemed')
@@ -1859,7 +1943,7 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
                             onPressed: () {
                               final rate = double.tryParse(
                                       exchangeRateCtrl.text.trim()) ??
-                                  50.7917;
+                                  _numToDouble(multiResult!['exchange_rate'], 1.0);
                               final totalFc = computeTotalInvoiceFc(multiLines);
                               final fobEgp = totalFc * rate;
                               final insEgp = (insuranceType == 'deemed')

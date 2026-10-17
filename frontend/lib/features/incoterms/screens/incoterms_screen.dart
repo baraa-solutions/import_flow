@@ -3,15 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
-import '../../../core/widgets/adaptive_tab_scaffold.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/incoterm_model.dart';
 import '../providers/incoterms_provider.dart';
 
@@ -196,7 +190,7 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
                           scale: 0.8,
                           child: Switch(
                             value: showInactiveIncoterms,
-                            activeColor: AppTheme.cobalt,
+                            activeThumbColor: AppTheme.cobalt,
                             onChanged: (val) {
                               ref.read(showInactiveIncotermsProvider.notifier).state = val;
                             },
@@ -221,7 +215,7 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
                           scale: 0.8,
                           child: Switch(
                             value: showInactiveCostItems,
-                            activeColor: AppTheme.cobalt,
+                            activeThumbColor: AppTheme.cobalt,
                             onChanged: (val) {
                               ref.read(showInactiveCostItemsProvider.notifier).state = val;
                             },
@@ -309,9 +303,11 @@ class _IncotermsTab extends ConsumerWidget {
     final incotermsAsync = ref.watch(incotermsProvider);
 
     return incotermsAsync.when(
-      loading: () =>
-          const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
-      error: (e, _) => Center(child: Text(e.toString())),
+      loading: () => const AppLoadingState(),
+      error: (e, _) => AppErrorState(
+        error: e,
+        onRetry: () => ref.read(incotermsProvider.notifier).fetchIncoterms(),
+      ),
       data: (incoterms) {
         final filtered = searchQuery.isEmpty
             ? incoterms
@@ -321,9 +317,10 @@ class _IncotermsTab extends ConsumerWidget {
                     i.incotermName.toLowerCase().contains(searchQuery))
                 .toList();
         if (filtered.isEmpty) {
-          return Center(
-              child: Text(l10n.noIncotermsFound,
-                  style: const TextStyle(color: Colors.grey)));
+          return AppEmptyState(
+            icon: Icons.handshake_outlined,
+            message: l10n.noIncotermsFound,
+          );
         }
         return _buildIncotermTable(context, ref, filtered);
       },
@@ -390,9 +387,9 @@ class _IncotermsTab extends ConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppTheme.borderOf(context)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -440,7 +437,11 @@ class _IncotermsTab extends ConsumerWidget {
                     final isEven = entry.key % 2 == 0;
                     return TableRow(
                       decoration: BoxDecoration(
-                        color: isEven ? Colors.white : Colors.grey.shade50,
+                        color: isEven
+                            ? AppTheme.surfaceOf(context)
+                            : (AppTheme.isDark(context)
+                                ? AppTheme.darkSurface
+                                : Colors.grey.shade50),
                       ),
                       children: [
                         _cell(
@@ -461,10 +462,10 @@ class _IncotermsTab extends ConsumerWidget {
                                         horizontal: 7, vertical: 5),
                                     margin: const EdgeInsetsDirectional.only(end: 6),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.emerald.withOpacity(0.12),
+                                      color: AppTheme.emerald.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
-                                          color: AppTheme.emerald.withOpacity(0.3)),
+                                          color: AppTheme.emerald.withValues(alpha: 0.3)),
                                     ),
                                     child: const Icon(
                                       Icons.copy_all_rounded,
@@ -483,32 +484,12 @@ class _IncotermsTab extends ConsumerWidget {
                                 },
                                 printTooltip: l10n.exportIncotermsPdfBtn,
                                 onDelete: () async {
-                                  final isActive = i.isActive;
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: Text(l10n.confirmActionTitle),
-                                      content: Text(isActive
-                                          ? l10n.confirmDeactivateIncoterm(i.incotermCode)
-                                          : l10n.confirmActivateIncoterm(i.incotermCode)),
-                                      actions: [
-                                        TextButton(
-                                            onPressed: () => Navigator.pop(ctx, false),
-                                            child: Text(l10n.cancel)),
-                                        ElevatedButton(
-                                          onPressed: () => Navigator.pop(ctx, true),
-                                          style: ElevatedButton.styleFrom(
-                                              backgroundColor: isActive
-                                                  ? AppTheme.crimson
-                                                  : AppTheme.emerald),
-                                          child: Text(
-                                              isActive
-                                                  ? l10n.deactivateBtn
-                                                  : l10n.activateBtn,
-                                              style: const TextStyle(color: Colors.white)),
-                                        ),
-                                      ],
-                                    ),
+                                  final confirm = await AppConfirmDialog.showToggleActive(
+                                    context,
+                                    isCurrentlyActive: i.isActive,
+                                    message: i.isActive
+                                        ? l10n.confirmDeactivateIncoterm(i.incotermCode)
+                                        : l10n.confirmActivateIncoterm(i.incotermCode),
                                   );
                                   if (confirm == true) {
                                     await ref
@@ -536,7 +517,7 @@ class _IncotermsTab extends ConsumerWidget {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.cobalt.withOpacity(0.1),
+                                    color: AppTheme.cobalt.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
@@ -593,25 +574,10 @@ class _IncotermsTab extends ConsumerWidget {
                           child: CopyableTableCell(
                             value: i.isActive ? l10n.statusActive : l10n.statusInactive,
                             rowSummary: _buildIncotermRowSummary(l10n, i),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: i.isActive
-                                    ? AppTheme.emerald.withOpacity(0.1)
-                                    : AppTheme.crimson.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                i.isActive ? l10n.statusActive : l10n.statusInactive,
-                                style: TextStyle(
-                                  color: i.isActive
-                                      ? AppTheme.emerald
-                                      : AppTheme.crimson,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                              ),
+                            child: AppStatusBadge(
+                              label: i.isActive ? l10n.statusActive : l10n.statusInactive,
+                              severity: i.isActive ? AppSeverity.success : AppSeverity.danger,
+                              size: AppStatusBadgeSize.small,
                             ),
                           ),
                         ),
@@ -794,9 +760,8 @@ class _IncotermsTab extends ConsumerWidget {
                       if (ctx.mounted) {
                         if (error != null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(error),
-                                  backgroundColor: AppTheme.crimson));
+                            AppTheme.snackBar(context, error, severity: AppSeverity.danger),
+                          );
                         } else {
                           Navigator.pop(ctx);
                         }
@@ -858,9 +823,11 @@ class _CostItemsTab extends ConsumerWidget {
     final costItemsAsync = ref.watch(costItemsProvider);
 
     return costItemsAsync.when(
-      loading: () => const Center(
-          child: CircularProgressIndicator(color: AppTheme.cobalt)),
-      error: (e, _) => Center(child: Text(e.toString())),
+      loading: () => const AppLoadingState(),
+      error: (e, _) => AppErrorState(
+        error: e,
+        onRetry: () => ref.read(costItemsProvider.notifier).fetchCostItems(),
+      ),
       data: (items) {
         final filtered = searchQuery.isEmpty
             ? items
@@ -871,9 +838,10 @@ class _CostItemsTab extends ConsumerWidget {
                     i.costCategory.toLowerCase().contains(searchQuery))
                 .toList();
         if (filtered.isEmpty) {
-          return Center(
-              child: Text(l10n.noCostItemsFound,
-                  style: const TextStyle(color: Colors.grey)));
+          return AppEmptyState(
+            icon: Icons.payments_outlined,
+            message: l10n.noCostItemsFound,
+          );
         }
         return _buildCostItemTable(context, ref, filtered);
       },
@@ -941,9 +909,9 @@ class _CostItemsTab extends ConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppTheme.borderOf(context)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -992,7 +960,11 @@ class _CostItemsTab extends ConsumerWidget {
                 final catColor = _categoryColor(item.costCategory);
                 return TableRow(
                   decoration: BoxDecoration(
-                      color: isEven ? Colors.white : Colors.grey.shade50),
+                      color: isEven
+                          ? AppTheme.surfaceOf(context)
+                          : (AppTheme.isDark(context)
+                              ? AppTheme.darkSurface
+                              : Colors.grey.shade50)),
                   children: [
                     _cell(
                       child: Row(
@@ -1012,10 +984,10 @@ class _CostItemsTab extends ConsumerWidget {
                                     horizontal: 7, vertical: 5),
                                 margin: const EdgeInsetsDirectional.only(end: 6),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.emerald.withOpacity(0.12),
+                                  color: AppTheme.emerald.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                      color: AppTheme.emerald.withOpacity(0.3)),
+                                      color: AppTheme.emerald.withValues(alpha: 0.3)),
                                 ),
                                 child: const Icon(
                                   Icons.copy_all_rounded,
@@ -1030,31 +1002,20 @@ class _CostItemsTab extends ConsumerWidget {
                             onEdit: () => showCostItemDialog(context, ref, item: item),
                             onPrint: () {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l10n.printCostItemSnack(item.costItemCode, item.costItemName)),
-                                  backgroundColor: AppTheme.charcoal,
+                                AppTheme.snackBar(
+                                  context,
+                                  l10n.printCostItemSnack(item.costItemCode, item.costItemName),
                                   duration: const Duration(seconds: 2),
                                 ),
                               );
                             },
                             onDelete: () async {
-                              final isActive = item.isActive;
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: Text(l10n.confirmActionTitle),
-                                  content: Text(isActive
-                                      ? l10n.confirmDeactivateCostItem(item.costItemCode)
-                                      : l10n.confirmActivateCostItem(item.costItemCode)),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                    ElevatedButton(
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                      child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                                    ),
-                                  ],
-                                ),
+                              final confirm = await AppConfirmDialog.showToggleActive(
+                                context,
+                                isCurrentlyActive: item.isActive,
+                                message: item.isActive
+                                    ? l10n.confirmDeactivateCostItem(item.costItemCode)
+                                    : l10n.confirmActivateCostItem(item.costItemCode),
                               );
                               if (confirm == true) {
                                 await ref.read(costItemsProvider.notifier).toggleActive(item.costItemId, item.isActive);
@@ -1078,7 +1039,7 @@ class _CostItemsTab extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: catColor.withOpacity(0.1),
+                                color: catColor.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Row(
@@ -1128,7 +1089,7 @@ class _CostItemsTab extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: catColor.withOpacity(0.1),
+                            color: catColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(_getCategoryLabel(l10n, item.costCategory),
@@ -1143,25 +1104,10 @@ class _CostItemsTab extends ConsumerWidget {
                       child: CopyableTableCell(
                         value: item.isActive ? l10n.statusActive : l10n.statusInactive,
                         rowSummary: _buildCostItemRowSummary(l10n, item),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: item.isActive
-                                ? AppTheme.emerald.withOpacity(0.1)
-                                : AppTheme.crimson.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            item.isActive ? l10n.statusActive : l10n.statusInactive,
-                            style: TextStyle(
-                              color: item.isActive
-                                  ? AppTheme.emerald
-                                  : AppTheme.crimson,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
-                            ),
-                          ),
+                        child: AppStatusBadge(
+                          label: item.isActive ? l10n.statusActive : l10n.statusInactive,
+                          severity: item.isActive ? AppSeverity.success : AppSeverity.danger,
+                          size: AppStatusBadgeSize.small,
                         ),
                       ),
                     ),
@@ -1294,9 +1240,9 @@ class _CostItemsTab extends ConsumerWidget {
                       setDialogState(() => isLoading = false);
                       if (ctx.mounted) {
                         if (error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text(error),
-                              backgroundColor: AppTheme.crimson));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            AppTheme.snackBar(context, error, severity: AppSeverity.danger),
+                          );
                         } else {
                           Navigator.pop(ctx);
                         }
@@ -1433,9 +1379,11 @@ class _ResponsibilityMatrixTabState
         // Matrix table
         Expanded(
           child: matrixAsync.when(
-            loading: () => const Center(
-                child: CircularProgressIndicator(color: AppTheme.cobalt)),
-            error: (e, _) => Center(child: Text(e.toString())),
+            loading: () => const AppLoadingState(),
+            error: (e, _) => AppErrorState(
+              error: e,
+              onRetry: () => ref.read(responsibilityMatrixProvider.notifier).fetchAll(),
+            ),
             data: (matrix) {
               final filtered = _selectedIncotermId == null
                   ? matrix
@@ -1443,9 +1391,10 @@ class _ResponsibilityMatrixTabState
                       .where((r) => r.incotermId == _selectedIncotermId)
                       .toList();
               if (filtered.isEmpty) {
-                return Center(
-                    child: Text(l10n.noMatrixDataFound,
-                        style: const TextStyle(color: Colors.grey)));
+                return AppEmptyState(
+                  icon: Icons.table_chart_outlined,
+                  message: l10n.noMatrixDataFound,
+                );
               }
               return _buildMatrixTable(filtered);
             },
@@ -1498,9 +1447,9 @@ class _ResponsibilityMatrixTabState
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppTheme.borderOf(context)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -1550,24 +1499,23 @@ class _ResponsibilityMatrixTabState
                   ...matrix.asMap().entries.map((entry) {
                     final r = entry.value;
                     final isEven = entry.key % 2 == 0;
-                    Color partyColor;
-                    String partyText;
-                    switch (r.responsibleParty) {
-                      case 'Importer':
-                        partyColor = AppTheme.cobalt;
-                        partyText = l10n.partyBuyerImporter;
-                        break;
-                      case 'Exporter':
-                        partyColor = AppTheme.orange;
-                        partyText = l10n.partySellerExporter;
-                        break;
-                      default:
-                        partyColor = AppTheme.emerald;
-                        partyText = l10n.partyShared;
-                    }
+                    final partySeverity = switch (r.responsibleParty) {
+                      'Importer' => AppSeverity.info,
+                      'Exporter' => AppSeverity.warning,
+                      _ => AppSeverity.success,
+                    };
+                    final partyText = switch (r.responsibleParty) {
+                      'Importer' => l10n.partyBuyerImporter,
+                      'Exporter' => l10n.partySellerExporter,
+                      _ => l10n.partyShared,
+                    };
                     return TableRow(
                       decoration: BoxDecoration(
-                          color: isEven ? Colors.white : Colors.grey.shade50),
+                          color: isEven
+                              ? AppTheme.surfaceOf(context)
+                              : (AppTheme.isDark(context)
+                                  ? AppTheme.darkSurface
+                                  : Colors.grey.shade50)),
                       children: [
                         _cell(
                           child: Row(
@@ -1587,10 +1535,10 @@ class _ResponsibilityMatrixTabState
                                         horizontal: 7, vertical: 5),
                                     margin: const EdgeInsetsDirectional.only(end: 6),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.emerald.withOpacity(0.12),
+                                      color: AppTheme.emerald.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
-                                          color: AppTheme.emerald.withOpacity(0.3)),
+                                          color: AppTheme.emerald.withValues(alpha: 0.3)),
                                     ),
                                     child: const Icon(
                                       Icons.copy_all_rounded,
@@ -1618,7 +1566,7 @@ class _ResponsibilityMatrixTabState
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.1),
+                                color: AppTheme.cobalt.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(r.incotermCode ?? '—',
@@ -1652,18 +1600,10 @@ class _ResponsibilityMatrixTabState
                           child: CopyableTableCell(
                             value: partyText,
                             rowSummary: _buildMatrixRowSummary(l10n, r),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: partyColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(partyText,
-                                  style: TextStyle(
-                                      color: partyColor,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11)),
+                            child: AppStatusBadge(
+                              label: partyText,
+                              severity: partySeverity,
+                              size: AppStatusBadgeSize.small,
                             ),
                           ),
                         ),
@@ -1740,10 +1680,10 @@ class _ResponsibilityMatrixTabState
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.06),
+                        color: AppTheme.cobalt.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(8),
                         border:
-                            Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                            Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1826,7 +1766,7 @@ class _ResponsibilityMatrixTabState
                           l10n.includedInSellerPriceSubtitle,
                           style: const TextStyle(fontSize: 11, color: Colors.grey)),
                       value: isIncluded,
-                      activeColor: AppTheme.emerald,
+                      activeThumbColor: AppTheme.emerald,
                       onChanged: (val) => setDialogState(() => isIncluded = val),
                     ),
                     const SizedBox(height: 12),
@@ -1876,15 +1816,14 @@ class _ResponsibilityMatrixTabState
                       setDialogState(() => isLoading = false);
                       if (ctx.mounted) {
                         if (error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text(error),
-                              backgroundColor: AppTheme.crimson));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            AppTheme.snackBar(context, error, severity: AppSeverity.danger),
+                          );
                         } else {
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(l10n.updatedSuccessfully),
-                                  backgroundColor: AppTheme.emerald));
+                            AppTheme.snackBar(context, l10n.updatedSuccessfully, severity: AppSeverity.success),
+                          );
                         }
                       }
                     },

@@ -108,10 +108,29 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
 
   Widget _buildContent(BuildContext context) {
     final l10n = context.l10n;
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
     final country = _card?['country_name'] ?? _card?['country'] ?? '';
     final code = _card?['country_code'] ?? _card?['supplier_code'] ?? '';
     final avgCycleDays = _card?['average_cycle_days'] ?? _card?['last_actual_lead_time_days'] ?? 0;
-    final recommendation = _card?['executive_recommendation_ar'] ?? _card?['advisory_recommendation_ar'] ?? '';
+    
+    final rawPoints = isArabic
+        ? (_card?['advisory_points_ar'] as List<dynamic>?)
+        : (_card?['advisory_points_en'] as List<dynamic>?);
+    final recommendation = isArabic
+        ? (_card?['executive_recommendation_ar'] ?? _card?['advisory_recommendation_ar'] ?? '').toString()
+        : (_card?['executive_recommendation_en'] ?? _card?['advisory_recommendation_en'] ?? _card?['executive_recommendation_ar'] ?? '').toString();
+
+    List<String> recommendationPoints = [];
+    if (rawPoints != null && rawPoints.isNotEmpty) {
+      recommendationPoints = rawPoints.map((e) => e.toString()).toList();
+    } else if (recommendation.isNotEmpty) {
+      final lines = recommendation.split('\n').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+      recommendationPoints = lines.where((l) => !l.startsWith('تقرير استشاري') && !l.startsWith('Executive AI')).toList();
+      if (recommendationPoints.isEmpty) {
+        recommendationPoints = [recommendation];
+      }
+    }
+
     final historicalPrices = (_card?['historical_prices'] ?? _card?['items_price_history']) as List<dynamic>? ?? [];
     final recentFreight = (_card?['recent_freight'] ?? _card?['shipping_memory']) as Map<String, dynamic>?;
     final clearance = (_card?['customs_clearance'] ?? _card?['customs_memory']) as Map<String, dynamic>?;
@@ -190,17 +209,59 @@ ${l10n.routeIntelligenceDialogTitle}
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Icon(Icons.lightbulb_outline, color: AppTheme.cobalt, size: 24),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           l10n.routeIntelligenceAiRecommendationTitle,
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13.5),
                         ),
-                        const SizedBox(height: 4),
-                        Text(recommendation, style: TextStyle(color: Colors.grey.shade900, fontSize: 13, height: 1.4)),
+                        const SizedBox(height: 10),
+                        if (recommendationPoints.isNotEmpty) ...[
+                          for (int i = 0; i < recommendationPoints.length; i++)
+                            Padding(
+                              padding: EdgeInsets.only(bottom: i < recommendationPoints.length - 1 ? 8.0 : 0.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 22,
+                                    height: 22,
+                                    margin: const EdgeInsetsDirectional.only(end: 8, top: 1),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.cobalt.withOpacity(0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '${i + 1}',
+                                      style: const TextStyle(
+                                        color: AppTheme.cobalt,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      recommendationPoints[i].replaceFirst(RegExp(r'^\d+\.\s*'), ''),
+                                      style: TextStyle(
+                                        color: Colors.grey.shade900,
+                                        fontSize: 12.5,
+                                        height: 1.45,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ] else
+                          Text(
+                            recommendation,
+                            style: TextStyle(color: Colors.grey.shade900, fontSize: 13, height: 1.4),
+                          ),
                       ],
                     ),
                   ),

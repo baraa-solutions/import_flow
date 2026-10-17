@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/ltr_text.dart';
-import '../../../core/widgets/row_actions_pill.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../models/freight_booking_model.dart';
 import 'freight_booking_ui.dart';
@@ -131,33 +129,42 @@ class FbkRegistryRow extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: _isDone ? actions.onDeparture : actions.onConfirmBooking,
-            child: CcStatusChip(
+            child: AppStatusBadge(
               label: st.label,
               severity: st.severity,
+              size: AppStatusBadgeSize.small,
               icon: _isDone ? st.icon : Icons.touch_app,
             ),
           ),
         ),
         if (b.billOfLadingNo != null)
-          CcStatusChip(
+          AppStatusBadge(
             label: 'B/L: ${b.billOfLadingNo}',
             severity: AppSeverity.success,
+            size: AppStatusBadgeSize.small,
             icon: Icons.receipt_long,
           ),
         if (b.scenarioProviderName != null)
-          CcStatusChip(
+          AppStatusBadge(
             label: l.freightBookingApprovedQuoteLabel(b.scenarioProviderName!),
             severity: AppSeverity.success,
+            size: AppStatusBadgeSize.small,
             icon: Icons.verified,
           ),
         if (b.atd != null && b.departureDelayDays > 0)
-          CcStatusChip(
+          AppStatusBadge(
             label: '+${b.departureDelayDays}d',
             severity: AppSeverity.danger,
+            size: AppStatusBadgeSize.small,
             icon: Icons.alarm_off,
           ),
         if (!b.isActive)
-          CcStatusChip(label: l.fbkInactiveBadge, severity: AppSeverity.danger, icon: Icons.delete_outline),
+          AppStatusBadge(
+            label: l.fbkInactiveBadge,
+            severity: AppSeverity.danger,
+            size: AppStatusBadgeSize.small,
+            icon: Icons.delete_outline,
+          ),
       ],
     );
   }
