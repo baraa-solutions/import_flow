@@ -68,7 +68,8 @@ def next_global_code(
     pad: int = 6,
 ) -> str:
     """
-    Next ``<prefix>-<NNNNNN>`` code for a String column (e.g. ``Supplier.supplier_code`` -> "SUP-000017").
+    Next ``<prefix>-<NNNNNN>`` code for a String column (e.g. ``Supplier.supplier_code`` -> "SUP-000017",
+    ``ClearanceExpenseType.expense_code`` -> "EXP-001").
 
     Continues from the highest numeric suffix already used across all records,
     so user-typed codes in the same pattern are skipped and deletions never reuse a number.
@@ -89,3 +90,4 @@ def next_global_code(
         .scalar()
     )
     return f"{head}{(highest or 0) + 1:0{pad}d}"
+
