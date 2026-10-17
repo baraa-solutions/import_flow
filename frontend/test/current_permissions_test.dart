@@ -153,7 +153,7 @@ void main() {
       expect(permissions.can('arbitrary.permission.code'), isTrue);
     });
 
-    test('network error safely defaults to empty set (deny by default)', () async {
+    test('network error propagates exception so Riverpod produces AsyncError', () async {
       final dio = Dio();
       dio.httpClientAdapter = _MockHttpClientAdapter((options) {
         return ResponseBody.fromString('Internal Server Error', 500);
@@ -169,9 +169,10 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final permissions = await container.read(currentPermissionsProvider.future);
-      expect(permissions.isEmpty, isTrue);
-      expect(permissions.can('purchase_orders.manage'), isFalse);
+      expect(
+        () => container.read(currentPermissionsProvider.future),
+        throwsA(isA<DioException>()),
+      );
     });
   });
 
@@ -266,6 +267,50 @@ void main() {
 
       expect(find.text('View Action Visible'), findsOneWidget);
       expect(find.text('Manage Action Hidden'), findsNothing);
+    });
+
+    testWidgets('provider throws -> .view gate shows child and .manage gate hides child', (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          currentPermissionsProvider.overrideWith((ref) {
+            return Future<PermissionSet>.error(
+              DioException(
+                requestOptions: RequestOptions(path: '/auth/me/permissions'),
+                response: Response(
+                  requestOptions: RequestOptions(path: '/auth/me/permissions'),
+                  statusCode: 500,
+                ),
+              ),
+            );
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const Directionality(
+            textDirection: TextDirection.rtl,
+            child: Column(
+              children: [
+                PermissionGate(
+                  code: 'purchase_orders.view',
+                  child: Text('View Action Visible on Error'),
+                ),
+                PermissionGate(
+                  code: 'purchase_orders.manage',
+                  child: Text('Manage Action Hidden on Error'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('View Action Visible on Error'), findsOneWidget);
+      expect(find.text('Manage Action Hidden on Error'), findsNothing);
     });
   });
 }

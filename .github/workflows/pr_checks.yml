@@ -1,27 +1,80 @@
 name: PR Checks
 
 # Guardrail for every Pull Request into main, whoever (or whatever AI agent) wrote it.
-# - backend-gate + flutter-analyze run on every PR push and are the checks the owner requires before merging.
-# - Full suites live in full_tests.yml (label `full-tests` or manual run), so a label event can never cancel or skip
-#   these checks. The release gate stays local (scripts/release/run_release_tests.py, /release-check).
+# - backend-gate + flutter-analyze are the checks the owner requires before merging.
+# - Actions minutes are limited (private repo on GitHub Free; Windows minutes bill double), so:
+#   * the checks do NOT run on every push. They run once when a non-draft PR is opened / reopened / marked ready,
+#     and again on demand: add the label `run-checks` (remove and re-add it to run again) or "Run workflow".
+#     The owner re-runs them before merging; contributors run the same gate locally before every push
+#     (python scripts/ci/guardrails.py pr-gate + flutter analyze).
+#   * each job runs only when the PR touches its area (see the `changes` job). Manual runs always run both.
+# - Full suites live in full_tests.yml (label `full-tests` or manual run).
+#   The release gate stays local (scripts/release/run_release_tests.py, /release-check).
 # Uses `pull_request` (never `pull_request_target`) and a read-only token: PR code never sees a secret.
 
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review, labeled]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# Unrelated label events (e.g. `question`) get their own group, so they never cancel a running check.
 concurrency:
-  group: pr-checks-${{ github.event.pull_request.number || github.ref }}
+  group: pr-checks-${{ github.event.pull_request.number || github.ref }}-${{ (github.event.action == 'labeled' && github.event.label.name != 'run-checks') && github.run_id || 'gate' }}
   cancel-in-progress: true
 
 jobs:
+  # Decides whether to run at all (event filter) and which areas the PR touches.
+  # backend: any file outside frontend/ (docs and history included: the gate checks append-only history).
+  # frontend: frontend/, the docs/*.json contracts the parity tests read, or this workflow.
+  changes:
+    name: Detect changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (!github.event.pull_request.draft &&
+       (github.event.action != 'labeled' || github.event.label.name == 'run-checks'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.detect.outputs.backend }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect touched areas
+        id: detect
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(git diff --name-only "$BASE_SHA"..."$HEAD_SHA")
+          echo "$files"
+          backend=false
+          frontend=false
+          if echo "$files" | grep -qvE '^frontend/'; then backend=true; fi
+          if echo "$files" | grep -qE '^frontend/|^docs/[^/]+\.json$|^\.github/workflows/pr_checks\.yml$'; then frontend=true; fi
+          if echo "$files" | grep -qE '^\.github/workflows/pr_checks\.yml$'; then backend=true; fi
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+
   backend-gate:
     name: Backend gate
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -48,6 +101,8 @@ jobs:
 
   flutter-analyze:
     name: Flutter analyze
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

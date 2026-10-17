@@ -47,7 +47,9 @@ def db_session():
     proj1 = Project(project_id=1, project_code="PRJ-01", project_name="Textile Expansion", project_owner="Kamal", company_id=1, supplier_id=1, incoterm_id=1, import_type="Direct Commercial")
     file1 = ImportFile(import_file_id=1, import_file_code="IMP-2026-0001", custom_file_number="6701068100", company_name="Egyptian Import Co", supplier_name="ABC China", owner="Kamal")
     
-    db.add_all([comp1, sup1, inco1, proj1, file1])
+    curr1 = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    curr2 = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_base_currency=True, is_active=True)
+    db.add_all([comp1, sup1, inco1, proj1, file1, curr1, curr2])
     db.commit()
 
     try:
@@ -326,6 +328,144 @@ class TestFreightBookingBackend:
         assert booking.cost_savings_usd == 0.0
         assert booking.cost_variance_usd == -500.0
         assert "Freight cost increase" in booking.savings_notes
+
+    def test_insurance_charge_rejected(self, db_session):
+        # 1. By charge_type containing 'insurance'
+        payload1 = ShipmentBookingCreate(
+            booking_confirmation_no="INS-REJ-01",
+            shipping_line_name="MSC",
+            shipment_type="Ocean FCL",
+            containers_data=[ContainerAllocationItem(container_type="40HC", quantity=1)],
+            cost_charges_data=[
+                BookingChargeItem(charge_type="Sea Freight 40ft", unit="Per Container", quantity=1, rate=2000.0, total=2000.0),
+                BookingChargeItem(charge_type="Marine Insurance", unit="Per Policy", quantity=1, rate=350.0, total=350.0),
+            ],
+        )
+        with pytest.raises(HTTPException) as exc1:
+            create_booking_service(db_session, payload1)
+        assert exc1.value.status_code == 422
+        assert "التأمين البحري يُسجل في شاشة وثائق التأمين وليس ضمن تكاليف الحجز." in exc1.value.detail
+
+        # 2. By charge_category = "INSURANCE"
+        payload2 = ShipmentBookingCreate(
+            booking_confirmation_no="INS-REJ-02",
+            shipping_line_name="MSC",
+            shipment_type="Ocean FCL",
+            containers_data=[ContainerAllocationItem(container_type="40HC", quantity=1)],
+            cost_charges_data=[
+                BookingChargeItem(charge_type="Risk Coverage", charge_category="INSURANCE", unit="Per Policy", quantity=1, rate=350.0, total=350.0),
+            ],
+        )
+        with pytest.raises(HTTPException) as exc2:
+            create_booking_service(db_session, payload2)
+        assert exc2.value.status_code == 422
+        assert "التأمين البحري يُسجل في شاشة وثائق التأمين وليس ضمن تكاليف الحجز." in exc2.value.detail
+
+        # 3. By Arabic text 'تأمين'
+        payload3 = ShipmentBookingCreate(
+            booking_confirmation_no="INS-REJ-03",
+            shipping_line_name="MSC",
+            shipment_type="Ocean FCL",
+            containers_data=[ContainerAllocationItem(container_type="40HC", quantity=1)],
+            cost_charges_data=[
+                BookingChargeItem(charge_type="وثيقة تأمين بحري", unit="Per Policy", quantity=1, rate=350.0, total=350.0),
+            ],
+        )
+        with pytest.raises(HTTPException) as exc3:
+            create_booking_service(db_session, payload3)
+        assert exc3.value.status_code == 422
+        assert "التأمين البحري يُسجل في شاشة وثائق التأمين وليس ضمن تكاليف الحجز." in exc3.value.detail
+
+    def test_insurance_charge_rejected_on_update(self, db_session):
+        payload = ShipmentBookingCreate(
+            booking_confirmation_no="UPD-REJ-01",
+            shipping_line_name="CMA CGM",
+            shipment_type="Ocean FCL",
+            containers_data=[ContainerAllocationItem(container_type="40HC", quantity=1)],
+            cost_charges_data=[
+                BookingChargeItem(charge_type="Sea Freight 40ft", unit="Per Container", quantity=1, rate=2000.0, total=2000.0),
+            ],
+        )
+        booking = create_booking_service(db_session, payload)
+
+        update_payload = ShipmentBookingUpdate(
+            cost_charges_data=[
+                BookingChargeItem(charge_type="Sea Freight 40ft", unit="Per Container", quantity=1, rate=2000.0, total=2000.0),
+                BookingChargeItem(charge_type="Marine Insurance", unit="Per Policy", quantity=1, rate=300.0, total=300.0),
+            ]
+        )
+        with pytest.raises(HTTPException) as exc:
+            update_booking_service(db_session, booking.booking_id, update_payload)
+        assert exc.value.status_code == 422
+        assert "التأمين البحري يُسجل في شاشة وثائق التأمين وليس ضمن تكاليف الحجز." in exc.value.detail
+
+    def test_invalid_charge_category_rejected(self, db_session):
+        payload = ShipmentBookingCreate(
+            booking_confirmation_no="CAT-REJ-01",
+            shipping_line_name="MSC",
+            shipment_type="Ocean FCL",
+            containers_data=[ContainerAllocationItem(container_type="40HC", quantity=1)],
+            cost_charges_data=[
+                BookingChargeItem(charge_type="Special Handling", charge_category="INVALID_CATEGORY", unit="Per Container", quantity=1, rate=100.0, total=100.0),
+            ],
+        )
+        with pytest.raises(HTTPException) as exc:
+            create_booking_service(db_session, payload)
+        assert exc.value.status_code == 422
+        assert "فئة التكلفة غير صحيحة" in exc.value.detail
+
+    def test_legacy_insurance_charge_still_reads(self, db_session):
+        from modules.freight_booking.model import ShipmentBooking
+        # Direct DB insertion simulating a pre-existing legacy record with insurance charges
+        legacy_booking = ShipmentBooking(
+            booking_code="BKG-LEGACY-001",
+            booking_confirmation_no="LEGACY-INS-01",
+            shipping_line_name="Hapag-Lloyd",
+            shipment_type="Ocean FCL",
+            status="Draft",
+            is_active=True,
+            total_freight_cost_usd=2350.0,
+            containers_data=[{"container_type": "40HC", "quantity": 1}],
+            cost_charges_data=[
+                {"charge_type": "Sea Freight 40ft", "unit": "Per Container", "quantity": 1, "rate": 2000.0, "total": 2000.0, "currency": "USD", "amount_usd": 2000.0, "charge_category": "FREIGHT"},
+                {"charge_type": "Marine Insurance", "unit": "Per Policy", "quantity": 1, "rate": 350.0, "total": 350.0, "currency": "USD", "amount_usd": 350.0, "charge_category": "INSURANCE"},
+            ],
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        db_session.add(legacy_booking)
+        db_session.commit()
+        db_session.refresh(legacy_booking)
+
+        # get_booking_service does not validate on read
+        fetched = get_booking_service(db_session, legacy_booking.booking_id)
+        assert fetched.booking_id == legacy_booking.booking_id
+        assert len(fetched.cost_charges_data) == 2
+        assert fetched.cost_charges_data[1]["charge_type"] == "Marine Insurance"
+
+        # list_bookings_service also reads without validation
+        all_bookings = list_bookings_service(db_session)
+        assert any(b.booking_code == "BKG-LEGACY-001" for b in all_bookings)
+
+    def test_charge_category_inferred_and_persisted(self, db_session):
+        payload = ShipmentBookingCreate(
+            booking_confirmation_no="CAT-INF-01",
+            shipping_line_name="Maersk",
+            shipment_type="Ocean FCL",
+            containers_data=[ContainerAllocationItem(container_type="40HC", quantity=1)],
+            cost_charges_data=[
+                BookingChargeItem(charge_type="Sea Freight 40ft", unit="Per Container", quantity=1, rate=2000.0, total=2000.0),
+                BookingChargeItem(charge_type="DTHC (Destination THC)", unit="Per Shipment", quantity=1, rate=250.0, total=250.0),
+                BookingChargeItem(charge_type="Storage per one week", unit="Per Week", quantity=1, rate=150.0, total=150.0),
+                BookingChargeItem(charge_type="Documentation Fee", unit="Per Shipment", quantity=1, rate=75.0, total=75.0),
+            ],
+        )
+        booking = create_booking_service(db_session, payload)
+        charges = booking.cost_charges_data
+        assert charges[0]["charge_category"] == "FREIGHT"
+        assert charges[1]["charge_category"] == "DESTINATION_LOCAL"
+        assert charges[2]["charge_category"] == "STORAGE"
+        assert charges[3]["charge_category"] == "OTHER"
 
 
 

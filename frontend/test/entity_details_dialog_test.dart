@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:frontend/core/localization/app_locales.dart';
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/widgets/entity_details/details_section.dart';
 import 'package:frontend/core/widgets/entity_details/entity_details_dialog.dart';
 import 'package:frontend/core/widgets/entity_details/entity_ref.dart';
@@ -314,6 +315,124 @@ void main() {
       await tester.tap(find.byIcon(Icons.edit));
       await tester.pump();
       expect(editClicked, 1);
+    });
+
+    testWidgets('Edit button built with RowAction.edit() resolves to solid orange, not orangeLight', (tester) async {
+      const supplier = _FakeSupplier(
+        id: 1,
+        code: 'SUP-001',
+        name: 'المورد الأول',
+      );
+
+      final editAction = RowAction<_FakeSupplier>.edit(
+        permission: 'suppliers.manage',
+        run: (_) {},
+      );
+
+      await tester.pumpWidget(
+        _wrapTestWidget(
+          overrides: [
+            currentPermissionsProvider.overrideWith(
+              (ref) async => const PermissionSet({'suppliers.manage'}),
+            ),
+          ],
+          child: EntityDetailsDialog<_FakeSupplier>(
+            title: 'تفاصيل المورد',
+            value: const AsyncData(supplier),
+            footerActions: [editAction],
+            body: (s) => Text('Body: ${s.name}'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final filledButton = tester.widget<FilledButton>(find.byType(FilledButton));
+      final bg = filledButton.style?.backgroundColor?.resolve({});
+      expect(bg, isNot(equals(AppTheme.orangeLight)));
+      expect(bg, equals(AppTheme.orange));
+    });
+
+    testWidgets('Footer action shows SnackBar with ApiError.message when run() throws DioException', (tester) async {
+      const supplier = _FakeSupplier(
+        id: 1,
+        code: 'SUP-001',
+        name: 'المورد الأول',
+      );
+
+      final deleteAction = RowAction<_FakeSupplier>.delete(
+        permission: 'suppliers.manage',
+        confirm: false,
+        run: (_) async {
+          throw DioException(
+            requestOptions: RequestOptions(path: '/api/v1/suppliers/1'),
+            response: Response(
+              requestOptions: RequestOptions(path: '/api/v1/suppliers/1'),
+              statusCode: 409,
+              data: {'detail': 'Record is locked and cannot be deleted'},
+            ),
+          );
+        },
+      );
+
+      await tester.pumpWidget(
+        _wrapTestWidget(
+          overrides: [
+            currentPermissionsProvider.overrideWith(
+              (ref) async => const PermissionSet({'suppliers.manage'}),
+            ),
+          ],
+          child: EntityDetailsDialog<_FakeSupplier>(
+            title: 'تفاصيل المورد',
+            value: const AsyncData(supplier),
+            footerActions: [deleteAction],
+            body: (s) => Text('Body: ${s.name}'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('Record is locked and cannot be deleted'), findsOneWidget);
+    });
+
+    testWidgets('Destructive footer action shows deletedSuccessfully SnackBar on success', (tester) async {
+      const supplier = _FakeSupplier(
+        id: 1,
+        code: 'SUP-001',
+        name: 'المورد الأول',
+      );
+
+      final deleteAction = RowAction<_FakeSupplier>.delete(
+        permission: 'suppliers.manage',
+        confirm: false,
+        run: (_) async {},
+      );
+
+      await tester.pumpWidget(
+        _wrapTestWidget(
+          overrides: [
+            currentPermissionsProvider.overrideWith(
+              (ref) async => const PermissionSet({'suppliers.manage'}),
+            ),
+          ],
+          child: EntityDetailsDialog<_FakeSupplier>(
+            title: 'تفاصيل المورد',
+            value: const AsyncData(supplier),
+            footerActions: [deleteAction],
+            body: (s) => Text('Body: ${s.name}'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('تم الحذف بنجاح'), findsOneWidget);
     });
 
     testWidgets('RTL: the sheet opens from the right on wide desktop screens (width >= 1200)', (tester) async {

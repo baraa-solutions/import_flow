@@ -10,6 +10,24 @@ It sits after `.agents/rules/GUARDRAILS.md` (when present) and before `AI_WORKFL
 | Frontend (`FE01..FE10`, `FEX`) | `docs/plans/frontend-review/TASKS.md` | linked report section in `docs/plans/frontend-review/*.md` |
 | Backend / accounting (`BE..`, `BEX`, `ACC1..ACC3`) | `docs/plans/backend-review/TASKS.md` | linked report section in `docs/plans/backend-review/*.md` |
 
+## Step 0: sync check (every task, before Step 1)
+
+The review side posts merges, merge commits pushed to your branches, rule changes and answers on GitHub
+(issue #12 and your PRs). Rule files change on `main`. Check both before starting any task:
+
+```
+gh issue view 12 --repo baraa-solutions/import_flow --comments
+gh search prs --repo baraa-solutions/import_flow --author @me --review changes_requested --state open
+git fetch origin
+git diff --stat HEAD origin/main -- AGENTS.md .agents/ .antigravityrules .claude/ docs/plans/
+```
+
+- Unread instruction, a "changes requested" review, or a merge commit on one of your branches: handle it first,
+  and `git pull` that branch before touching it.
+- Rule files changed: pull `origin/main`, re-read `AGENTS.md`, `GUARDRAILS.md`, this file and the changed files.
+- Then branch from the latest `origin/main`. First comment of the PR: `Sync check done at <time>: issue #12 read,
+  rules at origin/main <short hash>`.
+
 ## Step 1: find the task
 
 - If the user gives a **task id** (e.g. `FE03-T02`), search both `TASKS.md` files and the report files for that exact id.

@@ -295,11 +295,6 @@ class CustomsConsultationRepository:
     @staticmethod
     def create(db: Session, session_in: CustomsConsultationCreate) -> CustomsConsultationSession:
         code = CustomsConsultationRepository.generate_consultation_code(db)
-        
-        # Calculate total applied broker fees
-        total_broker_fees = sum(
-            (itm.unit_price * itm.qty) for itm in session_in.broker_quote_items if itm.is_applicable
-        )
 
         db_session = CustomsConsultationSession(
             consultation_code=code,
@@ -313,7 +308,7 @@ class CustomsConsultationRepository:
             project_id=session_in.project_id,
             overall_status=session_in.overall_status,
             estimated_duties_egp=session_in.estimated_duties_egp,
-            total_broker_fees_egp=total_broker_fees or session_in.total_broker_fees_egp,
+            total_broker_fees_egp=0.0,
             notes=session_in.notes,
             is_active=True,
         )
@@ -359,6 +354,7 @@ class CustomsConsultationRepository:
             db.add(db_quote)
 
         db.flush()
+        db.expire(db_session, ["checklist_items", "broker_quote_items"])
         return db_session
 
     @staticmethod
@@ -453,11 +449,8 @@ class CustomsConsultationRepository:
                 CustomsBrokerQuoteItem.consultation_id == db_session.consultation_id
             ).delete()
 
-            total_broker_fees = 0.0
             for quote_in in update_in.broker_quote_items:
                 line_total = (quote_in.unit_price * quote_in.qty) if quote_in.is_applicable else 0.0
-                if quote_in.is_applicable:
-                    total_broker_fees += line_total
                 db_quote = CustomsBrokerQuoteItem(
                     consultation_id=db_session.consultation_id,
                     expense_type_id=quote_in.expense_type_id,
@@ -472,7 +465,6 @@ class CustomsConsultationRepository:
                     notes=quote_in.notes,
                 )
                 db.add(db_quote)
-            db_session.total_broker_fees_egp = total_broker_fees
 
         db_session.updated_at = datetime.now(timezone.utc)
         db.flush()

@@ -5,6 +5,8 @@ import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/widgets/copyable_data_helper.dart';
 import 'package:frontend/features/auth/models/user_model.dart';
 import 'package:frontend/features/auth/providers/auth_provider.dart';
+import 'package:frontend/features/auth/providers/rbac_provider.dart';
+import 'package:frontend/features/auth/models/rbac_models.dart';
 import 'package:frontend/features/lifecycle_board/models/step_config_model.dart';
 import 'package:frontend/features/lifecycle_board/providers/step_config_provider.dart';
 import 'package:frontend/features/lifecycle_board/screens/step_config_management_screen.dart';
@@ -14,16 +16,25 @@ final mockOperator = UserModel(
   username: 'operator_samir',
   email: 'samir@importflow.com',
   fullName: 'Samir Logistics Operator',
-  role: 'OPERATOR',
+  role: 'LOGISTICS_OPERATOR',
   isActive: true,
 );
 
-final mockManager = UserModel(
-  userId: 1,
-  username: 'manager_ahmed',
-  email: 'manager@importflow.com',
+final mockGeneralManager = UserModel(
+  userId: 2,
+  username: 'gm_ahmed',
+  email: 'gm@importflow.com',
   fullName: 'Ahmed General Manager',
-  role: 'MANAGER',
+  role: 'GENERAL_MANAGER',
+  isActive: true,
+);
+
+final mockAdmin = UserModel(
+  userId: 1,
+  username: 'admin_sys',
+  email: 'admin@importflow.com',
+  fullName: 'System Administrator',
+  role: 'ADMIN',
   isActive: true,
 );
 
@@ -45,19 +56,60 @@ final mockConfigs = [
     phaseId: 2,
     skipPolicy: 'single_approval',
     supportsPendingReference: true,
-    approverRoles: ['Manager'],
+    approverRoles: ['GENERAL_MANAGER'],
     reasonCategories: ['Regulatory Exemption', 'Client Waived'],
   ),
 ];
 
-Widget _buildTestApp({Locale locale = const Locale('ar'), bool isManager = true}) {
+Widget _buildTestApp({
+  Locale locale = const Locale('ar'),
+  UserModel? user,
+  _MockStepConfigNotifier? configNotifier,
+}) {
+  final currentUser = user ?? mockAdmin;
+  final notifier = configNotifier ??
+      _MockStepConfigNotifier(
+        StepConfigState(configs: mockConfigs, isLoading: false),
+      );
+
   return ProviderScope(
     overrides: [
       authProvider.overrideWith((ref) => _MockAuthNotifier(
-            AuthState(user: isManager ? mockManager : mockOperator, isAuthenticated: true),
+            AuthState(user: currentUser, isAuthenticated: true),
           )),
-      stepConfigProvider.overrideWith((ref) => _MockStepConfigNotifier(
-            StepConfigState(configs: mockConfigs, isLoading: false),
+      stepConfigProvider.overrideWith((ref) => notifier),
+      rbacProvider.overrideWith((ref) => _MockRbacNotifier(
+            const RbacState(
+              roles: [
+                RoleModel(
+                  roleId: 1,
+                  roleCode: 'ADMIN',
+                  nameEn: 'System Administrator',
+                  nameAr: 'مدير النظام',
+                  isSystemRole: true,
+                  isActive: true,
+                  permissions: ['*'],
+                ),
+                RoleModel(
+                  roleId: 2,
+                  roleCode: 'GENERAL_MANAGER',
+                  nameEn: 'General Logistics Manager',
+                  nameAr: 'مدير عام اللوجستيات',
+                  isSystemRole: true,
+                  isActive: true,
+                  permissions: ['lifecycle_board.view', 'import_files.view'],
+                ),
+                RoleModel(
+                  roleId: 3,
+                  roleCode: 'LOGISTICS_OPERATOR',
+                  nameEn: 'Logistics Operations Specialist',
+                  nameAr: 'أخصائي عمليات لوجستية',
+                  isSystemRole: true,
+                  isActive: true,
+                  permissions: ['lifecycle_board.view'],
+                ),
+              ],
+            ),
           )),
     ],
     child: MaterialApp(
@@ -80,7 +132,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
 
-    await tester.pumpWidget(_buildTestApp(locale: const Locale('ar'), isManager: false));
+    await tester.pumpWidget(_buildTestApp(locale: const Locale('ar'), user: mockOperator));
     await tester.pumpAndSettle();
 
     expect(find.byType(SelectionArea), findsOneWidget);
@@ -91,13 +143,35 @@ void main() {
   });
 
   testWidgets(
-      'Manager sees authorized table with SelectionArea, 4 exports, and CopyableTableCell',
+      'GENERAL_MANAGER without users.manage sees authorized table but edit actions are hidden',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
 
-    await tester.pumpWidget(_buildTestApp(locale: const Locale('ar'), isManager: true));
+    await tester.pumpWidget(_buildTestApp(locale: const Locale('ar'), user: mockGeneralManager));
+    await tester.pumpAndSettle();
+
+    // GM can access the screen
+    expect(find.textContaining('إعدادات تصنيف مخاطر المراحل وحوكمة التخطي'), findsOneWidget);
+    expect(find.text('STEP_01'), findsOneWidget);
+    expect(find.text('STEP_06'), findsOneWidget);
+
+    // But edit buttons are hidden because GM does not have users.manage
+    expect(find.byIcon(Icons.edit_note_rounded), findsNothing);
+    // Copy and audit buttons are still available
+    expect(find.byIcon(Icons.copy_rounded), findsWidgets);
+    expect(find.byIcon(Icons.history_rounded), findsWidgets);
+  });
+
+  testWidgets(
+      'ADMIN with users.manage sees authorized table, opens edit dialog with valid roles and drops ComplianceHead',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(_buildTestApp(locale: const Locale('ar'), user: mockAdmin));
     await tester.pumpAndSettle();
 
     // Verify SelectionArea exists
@@ -140,6 +214,15 @@ void main() {
     expect(find.textContaining('السبب التبريري للتعديل'), findsOneWidget);
     expect(find.text('تسجيل مرجع معلق مبكر'), findsOneWidget);
 
+    // Verify valid role chips: GENERAL_MANAGER, ADMIN, LOGISTICS_OPERATOR
+    expect(find.widgetWithText(FilterChip, 'GENERAL_MANAGER'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'ADMIN'), findsOneWidget);
+    expect(find.widgetWithText(FilterChip, 'LOGISTICS_OPERATOR'), findsOneWidget);
+
+    // Verify ComplianceHead and Manager chips are completely absent
+    expect(find.widgetWithText(FilterChip, 'ComplianceHead'), findsNothing);
+    expect(find.widgetWithText(FilterChip, 'Manager'), findsNothing);
+
     // Try submitting without justification: validation error must appear
     final saveButton = find.text('حفظ التعديل وتوثيق السجل');
     expect(saveButton, findsOneWidget);
@@ -151,13 +234,104 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('Edit dialog saves payload with selected valid roles and justification',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final mockNotifier = _MockStepConfigNotifier(
+      StepConfigState(configs: mockConfigs, isLoading: false),
+    );
+
+    await tester.pumpWidget(_buildTestApp(
+      locale: const Locale('ar'),
+      user: mockAdmin,
+      configNotifier: mockNotifier,
+    ));
+    await tester.pumpAndSettle();
+
+    // Open edit dialog for STEP_06
+    final editButtons = find.byIcon(Icons.edit_note_rounded);
+    await tester.ensureVisible(editButtons.at(1));
+    await tester.tap(editButtons.at(1));
+    await tester.pumpAndSettle();
+
+    // Enter valid justification
+    final justificationField = find.byType(TextFormField);
+    await tester.enterText(justificationField, 'Direct supplier shipment approved by GM');
+    await tester.pumpAndSettle();
+
+    // Select ADMIN chip as well
+    final adminChip = find.widgetWithText(FilterChip, 'ADMIN');
+    expect(adminChip, findsOneWidget);
+    await tester.tap(adminChip);
+    await tester.pumpAndSettle();
+
+    // Tap Save
+    final saveButton = find.text('حفظ التعديل وتوثيق السجل');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    // Verify payload captured
+    expect(mockNotifier.lastUpdatePayload, isNotNull);
+    expect(mockNotifier.lastUpdatePayload!['stepCode'], 'STEP_06');
+    expect(mockNotifier.lastUpdatePayload!['justification'], 'Direct supplier shipment approved by GM');
+    final approverRoles = mockNotifier.lastUpdatePayload!['approverRoles'] as List<String>;
+    expect(approverRoles, contains('GENERAL_MANAGER'));
+    expect(approverRoles, contains('ADMIN'));
+    expect(approverRoles.contains('ComplianceHead'), isFalse);
+  });
+
+  testWidgets('Shows SnackBar with error when updateStepConfig fails with 422',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final mockNotifier = _MockStepConfigNotifier(
+      StepConfigState(configs: mockConfigs, isLoading: false),
+    );
+    mockNotifier.shouldSucceed = false;
+    mockNotifier.failureError = 'فشل تعديل سياسة المرحلة: دور الاعتماد ComplianceHead غير معروف في أدوار النظام.';
+
+    await tester.pumpWidget(_buildTestApp(
+      locale: const Locale('ar'),
+      user: mockAdmin,
+      configNotifier: mockNotifier,
+    ));
+    await tester.pumpAndSettle();
+
+    // Open edit dialog for STEP_06
+    final editButtons = find.byIcon(Icons.edit_note_rounded);
+    await tester.ensureVisible(editButtons.at(1));
+    await tester.tap(editButtons.at(1));
+    await tester.pumpAndSettle();
+
+    // Enter valid justification
+    final justificationField = find.byType(TextFormField);
+    await tester.enterText(justificationField, 'Audit exception modification');
+    await tester.pumpAndSettle();
+
+    // Tap Save
+    final saveButton = find.text('حفظ التعديل وتوثيق السجل');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    // Verify error SnackBar is displayed
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.textContaining('ComplianceHead غير معروف'), findsOneWidget);
+  });
+
   testWidgets('Renders properly in English mode with LTR Directionality',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
 
-    await tester.pumpWidget(_buildTestApp(locale: const Locale('en'), isManager: true));
+    await tester.pumpWidget(_buildTestApp(locale: const Locale('en'), user: mockAdmin));
     await tester.pumpAndSettle();
 
     // Verify English header
@@ -183,9 +357,24 @@ class _MockAuthNotifier extends StateNotifier<AuthState>
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _MockRbacNotifier extends StateNotifier<RbacState>
+    implements RbacNotifier {
+  _MockRbacNotifier(super.state);
+
+  @override
+  Future<void> fetchRbacData() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _MockStepConfigNotifier extends StateNotifier<StepConfigState>
     implements StepConfigNotifier {
   _MockStepConfigNotifier(super.state);
+
+  Map<String, dynamic>? lastUpdatePayload;
+  bool shouldSucceed = true;
+  String? failureError;
 
   @override
   Future<void> fetchConfigs() async {}
@@ -195,6 +384,33 @@ class _MockStepConfigNotifier extends StateNotifier<StepConfigState>
 
   @override
   void setFilterPhase(int? p) {}
+
+  @override
+  Future<bool> updateStepConfig({
+    required String stepCode,
+    String? skipPolicy,
+    List<String>? reasonCategories,
+    List<String>? approverRoles,
+    bool? supportsPendingReference,
+    required String justification,
+  }) async {
+    lastUpdatePayload = {
+      'stepCode': stepCode,
+      'skipPolicy': skipPolicy,
+      'reasonCategories': reasonCategories,
+      'approverRoles': approverRoles,
+      'supportsPendingReference': supportsPendingReference,
+      'justification': justification,
+    };
+    if (!shouldSucceed) {
+      state = state.copyWith(
+        isSaving: false,
+        errorMessage: failureError ?? 'فشل تعديل سياسة المرحلة: دور الاعتماد غير معروف.',
+      );
+      return false;
+    }
+    return true;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

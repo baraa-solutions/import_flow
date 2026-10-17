@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+const Object _unset = Object();
+
 /// Represents a standardized query for fetching paginated lists from server
 /// or client data sources across ImportFlow ERP tables.
 ///
@@ -63,23 +65,39 @@ class ListQuery {
   static const _unset = Object();
 
   /// Creates a copy of this query with modified properties.
+  ///
+  /// Passing `null` to [sort] or [search] clears the existing value.
   ListQuery copyWith({
     int? page,
     int? pageSize,
     Object? sort = _unset,
-    bool clearSort = false,
-    String? search,
+    Object? search = _unset,
     Map<String, Object?>? filters,
     bool? includeInactive,
   }) {
-    final effectiveSort = clearSort
-        ? null
-        : (identical(sort, _unset) ? this.sort : sort as String?);
+    final String? resolvedSort;
+    if (identical(sort, _unset)) {
+      resolvedSort = this.sort;
+    } else if (sort is String? Function()) {
+      resolvedSort = sort();
+    } else {
+      resolvedSort = sort as String?;
+    }
+
+    final String? resolvedSearch;
+    if (identical(search, _unset)) {
+      resolvedSearch = this.search;
+    } else if (search is String? Function()) {
+      resolvedSearch = search();
+    } else {
+      resolvedSearch = search as String?;
+    }
+
     return ListQuery(
       page: page ?? this.page,
       pageSize: pageSize ?? this.pageSize,
-      sort: effectiveSort,
-      search: search ?? this.search,
+      sort: resolvedSort,
+      search: resolvedSearch ?? '',
       filters: filters ?? this.filters,
       includeInactive: includeInactive ?? this.includeInactive,
     );
@@ -103,8 +121,9 @@ class ListQuery {
         pageSize,
         sort,
         search,
-        Object.hashAll(filters.keys),
-        Object.hashAll(filters.values),
+        Object.hashAllUnordered(
+          filters.entries.map((e) => Object.hash(e.key, e.value)),
+        ),
         includeInactive,
       );
 

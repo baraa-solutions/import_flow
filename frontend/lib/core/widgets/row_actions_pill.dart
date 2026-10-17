@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'paged_data_table/row_action.dart';
 
@@ -6,11 +7,11 @@ import 'paged_data_table/row_action.dart';
 /// Thin adapter wrapping [RowActionsBar] with backward-compatible callbacks.
 /// Automatically hides actions where the corresponding callback is null (no more grey disabled icons).
 class RowActionsPill extends StatelessWidget {
-  final VoidCallback? onView;
-  final VoidCallback? onEdit;
-  final VoidCallback? onClone;
-  final VoidCallback? onPrint;
-  final VoidCallback? onDelete;
+  final FutureOr<void> Function()? onView;
+  final FutureOr<void> Function()? onEdit;
+  final FutureOr<void> Function()? onClone;
+  final FutureOr<void> Function()? onPrint;
+  final FutureOr<void> Function()? onDelete;
 
   /// Override tooltips for domain-specific labels (optional).
   final String? viewTooltip;
@@ -48,7 +49,7 @@ class RowActionsPill extends StatelessWidget {
     if (onView != null) {
       actions.add(
         RowAction.view(
-          run: (_) => onView!(),
+          run: (_) async => await onView!(),
           label: viewTooltip != null ? (_) => viewTooltip! : null,
         ),
       );
@@ -57,7 +58,7 @@ class RowActionsPill extends StatelessWidget {
     if (onEdit != null) {
       actions.add(
         RowAction.edit(
-          run: (_) => onEdit!(),
+          run: (_) async => await onEdit!(),
           label: editTooltip != null ? (_) => editTooltip! : null,
         ),
       );
@@ -66,7 +67,7 @@ class RowActionsPill extends StatelessWidget {
     if (onClone != null) {
       actions.add(
         RowAction.clone(
-          run: (_) => onClone!(),
+          run: (_) async => await onClone!(),
           label: cloneTooltip != null ? (_) => cloneTooltip! : null,
         ),
       );
@@ -75,7 +76,7 @@ class RowActionsPill extends StatelessWidget {
     if (onPrint != null) {
       actions.add(
         RowAction.print(
-          run: (_) => onPrint!(),
+          run: (_) async => await onPrint!(),
           label: printTooltip != null ? (_) => printTooltip! : null,
         ),
       );
@@ -84,8 +85,9 @@ class RowActionsPill extends StatelessWidget {
     if (onDelete != null) {
       actions.add(
         RowAction.delete(
-          run: (_) => onDelete!(),
+          run: (_) async => await onDelete!(),
           confirm: confirmDelete,
+          showOutcomeSnackBar: false,
           label: deleteTooltip != null ? (_) => deleteTooltip! : null,
         ),
       );

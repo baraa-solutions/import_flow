@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/providers/current_permissions_provider.dart';
 import '../localization/app_localizations.dart';
@@ -22,11 +23,31 @@ class RowContextMenuHelper {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final l = context.l10n;
 
+    PermissionSet? effectivePermissions = permissions;
+    AsyncValue<PermissionSet>? permAsync;
+    if (effectivePermissions == null) {
+      try {
+        final container = ProviderScope.containerOf(context, listen: false);
+        permAsync = container.read(currentPermissionsProvider);
+        effectivePermissions = permAsync?.asData?.value;
+      } catch (_) {
+        // No ProviderScope in tree (e.g. isolated tests)
+      }
+    }
+
     // Filter permitted and enabled actions
     final filtered = actions.where((a) {
       if (!a.enabled) return false;
-      if (permissions != null && a.permission != null && a.permission!.isNotEmpty) {
-        return permissions.can(a.permission!);
+      if (a.permission != null && a.permission!.isNotEmpty) {
+        if (effectivePermissions != null) {
+          return effectivePermissions.can(a.permission!);
+        } else if (permAsync != null) {
+          return permAsync.when(
+            data: (permSet) => permSet.can(a.permission!),
+            loading: () => a.permission!.endsWith('.view'),
+            error: (_, __) => a.permission!.endsWith('.view'),
+          );
+        }
       }
       return true;
     }).toList();
@@ -53,28 +74,51 @@ class RowContextMenuHelper {
 
     for (int i = 0; i < sortedActions.length; i++) {
       final action = sortedActions[i];
+      final isEnabled = action.disabledReason == null;
       menuItems.add(
         PopupMenuItem<RowAction<T>>(
           value: action,
-          child: Row(
-            children: [
-              Icon(
-                action.resolveIcon(),
-                size: 18,
-                color: action.resolveColor(context),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  action.resolveLabel(l),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: action.isDestructive ? AppTheme.crimson : AppTheme.charcoal,
+          enabled: isEnabled,
+          child: Tooltip(
+            message: action.disabledReason ?? '',
+            child: Row(
+              children: [
+                Icon(
+                  action.resolveIcon(),
+                  size: 18,
+                  color: isEnabled
+                      ? action.resolveColor(context)
+                      : AppTheme.textSecondaryOf(context),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        action.resolveLabel(l),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: !isEnabled
+                              ? AppTheme.textSecondaryOf(context)
+                              : (action.isDestructive ? AppTheme.crimson : AppTheme.charcoal),
+                        ),
+                      ),
+                      if (action.disabledReason != null)
+                        Text(
+                          action.disabledReason!,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textSecondaryOf(context),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
@@ -131,6 +175,7 @@ class RowContextMenuHelper {
         );
       } else if (value is RowAction<T>) {
         if (!context.mounted) return;
+        if (!value.enabled || value.disabledReason != null) return;
         if (value.confirm) {
           final title = value.confirmTitle?.call(l) ?? l.confirmDeleteTitle;
           final msg = value.confirmMessage?.call(l, row) ?? l.confirmDeleteMessage('');
@@ -145,7 +190,7 @@ class RowContextMenuHelper {
 
         try {
           await value.run(row);
-          if (context.mounted && value.isDestructive) {
+          if (context.mounted && value.isDestructive && value.showOutcomeSnackBar) {
             scaffoldMessenger.showSnackBar(
               SnackBar(
                 content: Text(l.deletedSuccessfully),
@@ -174,6 +219,7 @@ class RowContextMenuHelper {
     required BuildContext context,
     required Offset globalPosition,
     required String codeToCopy,
+    VoidCallback? onView,
     required VoidCallback onEdit,
     required VoidCallback onHistory,
     required bool isActive,
@@ -192,6 +238,22 @@ class RowContextMenuHelper {
       elevation: 6,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       items: [
+        if (onView != null)
+          PopupMenuItem<String>(
+            value: 'view',
+            child: Row(
+              children: [
+                const Icon(Icons.visibility, size: 18, color: AppTheme.cobalt),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    l.viewDetails,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                  ),
+                ),
+              ],
+            ),
+          ),
         PopupMenuItem<String>(
           value: 'edit',
           child: Row(
@@ -265,6 +327,9 @@ class RowContextMenuHelper {
     ).then((value) {
       if (value == null) return;
       switch (value) {
+        case 'view':
+          onView?.call();
+          break;
         case 'edit':
           onEdit();
           break;
