@@ -32,6 +32,7 @@ void main() {
         declaration46No: 'DEC-46-9900',
         customsOfficeName: 'Dekheila Port Customs',
         channelType: 'Red Channel',
+        nafezaClaimNumber: 'CLM-NFZ-7781',
         totalDutyPayable: 210000.0,
         actualDutyTotal: 0.0,
         estimatedDutyTotal: 215000.0,
@@ -94,8 +95,9 @@ void main() {
       expect(dossier.contains('CLR-2026-0001'), isTrue);
       expect(dossier.contains('RCP-BNK-9901'), isTrue);
       expect(dossier.contains('CLR-2026-0002'), isTrue);
-      // Check KPI totals calculation: 154200 + 210000 = 364200.00
-      expect(dossier.contains('364200.00'), isTrue);
+      // KPIs (FE07-T07): paid = 154200.00; outstanding = assessed unpaid duty (claim number set) = 210000.00
+      expect(dossier.contains('154200.00'), isTrue);
+      expect(dossier.contains('210000.00'), isTrue);
     });
 
     testWidgets('Empty records list is handled gracefully without errors', (tester) async {

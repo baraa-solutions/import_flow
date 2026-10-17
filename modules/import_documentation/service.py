@@ -1244,9 +1244,10 @@ def create_banking_document_service(
             from modules.import_files.model import ImportFile
             imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
             f_code = imp.import_file_code if imp else f"IMP-{item.import_file_id}"
+            pull_msg = msg("DOC_TASK_TAX_CODING_PULL", import_file_code=f_code)
             task_schema = SmartTaskCreate(
-                title=f"سحب شيت التكويد الضريبي من نافذة - {f_code}",
-                description=f"مطلوب من المستخلص الجمركي سحب شيت التكويد الضريبي من منصة نافذة تمهيداً لرفعه للمحاسب لشحنة {f_code}.",
+                title=render_en(pull_msg.code, pull_msg.params, "title"),
+                description=render_en(pull_msg.code, pull_msg.params, "body"),
                 task_type="System Generated",
                 import_file_id=item.import_file_id,
                 import_file_code=f_code,
@@ -1258,7 +1259,10 @@ def create_banking_document_service(
                 status="Pending",
                 notes=f"ACTION:TAX_CODING_PULL | BankDoc: {item.bank_doc_code}",
             )
-            create_smart_task(db, task_schema, created_by="Banking Documents Engine", commit=False)
+            create_smart_task(
+                db, task_schema, created_by="Banking Documents Engine",
+                msg_code=pull_msg.code, msg_params=pull_msg.params, commit=False,
+            )
 
         _commit_follow_up(db, _dispatch_pull_task, "Dispatch tax coding sheet pull task")
 
@@ -1378,7 +1382,7 @@ def record_tax_coding_sheet_pull_service(
     if schema.file_url:
         item.tax_coding_sheet_file_url = schema.file_url
     if schema.notes:
-        item.notes = f"{item.notes}\n[شيت التكويد] سحب المستخلص: {schema.notes}" if item.notes else f"[شيت التكويد] سحب المستخلص: {schema.notes}"
+        item.notes = f"{item.notes}\n[Tax coding sheet] Broker pull: {schema.notes}" if item.notes else f"[Tax coding sheet] Broker pull: {schema.notes}"
 
     item.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -1407,12 +1411,13 @@ def record_tax_coding_sheet_pull_service(
         for t in pending:
             if "سحب شيت التكويد" in (t.title or "") or (t.notes and "ACTION:TAX_CODING_PULL" in t.notes):
                 t.status = "Completed"
-                t.completion_notes = f"تم سحب شيت التكويد الضريبي بواسطة المستخلص في {schema.pulled_date}."
+                t.completion_notes = f"Tax coding sheet pulled by the customs broker on {schema.pulled_date}."
 
         # Create task for Company Accountant
+        upload_msg = msg("DOC_TASK_TAX_CODING_UPLOAD", import_file_code=f_code)
         acc_task = SmartTaskCreate(
-            title=f"رفع وتكويد شيت الأصناف الضريبي على منصة نافذة - {f_code}",
-            description=f"قام المستخلص بسحب شيت التكويد الضريبي. مطلوب من المحاسب استكمال التكويد ورفعه بحساب الشركة على نافذة لملف {f_code}.",
+            title=render_en(upload_msg.code, upload_msg.params, "title"),
+            description=render_en(upload_msg.code, upload_msg.params, "body"),
             task_type="System Generated",
             import_file_id=f_id,
             import_file_code=f_code,
@@ -1424,7 +1429,10 @@ def record_tax_coding_sheet_pull_service(
             status="Pending",
             notes=f"ACTION:TAX_CODING_UPLOAD | BankDoc: {item.bank_doc_code}",
         )
-        create_smart_task(db, acc_task, created_by="Banking Documents Engine", commit=False)
+        create_smart_task(
+            db, acc_task, created_by="Banking Documents Engine",
+            msg_code=upload_msg.code, msg_params=upload_msg.params, commit=False,
+        )
 
     _commit_follow_up(db, _handle_pull_tasks, "Tax coding pull smart tasks")
     return enrich_banking_response(db, item)
@@ -1444,7 +1452,7 @@ def record_tax_coding_sheet_upload_service(
     if schema.file_url:
         item.tax_coding_sheet_file_url = schema.file_url
     if schema.notes:
-        item.notes = f"{item.notes}\n[شيت التكويد] رفع المحاسب: {schema.notes}" if item.notes else f"[شيت التكويد] رفع المحاسب: {schema.notes}"
+        item.notes = f"{item.notes}\n[Tax coding sheet] Accountant upload: {schema.notes}" if item.notes else f"[Tax coding sheet] Accountant upload: {schema.notes}"
 
     item.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -1473,13 +1481,17 @@ def record_tax_coding_sheet_upload_service(
         for t in pending:
             if "رفع وتكويد شيت" in (t.title or "") or (t.notes and "ACTION:TAX_CODING_UPLOAD" in t.notes):
                 t.status = "Completed"
-                t.completion_notes = f"تم رفع وتكويد شيت الأصناف على نافذة بواسطة المحاسب {schema.accountant_name} في {schema.uploaded_date}."
+                t.completion_notes = f"Items tax sheet coded and uploaded on Nafeza by accountant {schema.accountant_name} on {schema.uploaded_date}."
 
-        target_bank = item.swift_executing_bank_name or item.bank_name or "البنك المنفذ للسويفت"
+        target_bank = item.swift_executing_bank_name or item.bank_name
         # Create task for Customs Broker to pull items & link bank
+        if target_bank:
+            verify_msg = msg("DOC_TASK_ITEMS_VERIFY_BANK_LINK", bank_name=target_bank, import_file_code=f_code)
+        else:
+            verify_msg = msg("DOC_TASK_ITEMS_VERIFY_SWIFT_BANK_LINK", import_file_code=f_code)
         broker_task = SmartTaskCreate(
-            title=f"سحب الأصناف للتأكد من التكويد والربط على بنك: {target_bank} - {f_code}",
-            description=f"تم رفع وتكويد شيت الأصناف بنجاح. مطلوب من المستخلص سحب الأصناف للتأكد من تمام التكويد، ثم ربط الشحنة على نافذة على {target_bank} لشحنة {f_code}.",
+            title=render_en(verify_msg.code, verify_msg.params, "title"),
+            description=render_en(verify_msg.code, verify_msg.params, "body"),
             task_type="System Generated",
             import_file_id=f_id,
             import_file_code=f_code,
@@ -1491,7 +1503,10 @@ def record_tax_coding_sheet_upload_service(
             status="Pending",
             notes=f"ACTION:ITEMS_VERIFY_AND_BANK_LINK | BankDoc: {item.bank_doc_code}",
         )
-        create_smart_task(db, broker_task, created_by="Banking Documents Engine", commit=False)
+        create_smart_task(
+            db, broker_task, created_by="Banking Documents Engine",
+            msg_code=verify_msg.code, msg_params=verify_msg.params, commit=False,
+        )
 
     _commit_follow_up(db, _handle_upload_tasks, "Tax coding upload smart tasks")
     return enrich_banking_response(db, item)
@@ -1510,7 +1525,7 @@ def record_items_verification_service(
     if schema.regulatory_bodies_detected is not None:
         item.regulatory_bodies_detected = schema.regulatory_bodies_detected
     if schema.notes:
-        item.notes = f"{item.notes}\n[سحب الأصناف] تأكيد المستخلص: {schema.notes}" if item.notes else f"[سحب الأصناف] تأكيد المستخلص: {schema.notes}"
+        item.notes = f"{item.notes}\n[Items pull] Broker confirmation: {schema.notes}" if item.notes else f"[Items pull] Broker confirmation: {schema.notes}"
 
     item.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -1523,10 +1538,16 @@ def record_items_verification_service(
             from modules.import_files.model import ImportFile
             imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first() if item.import_file_id else None
             f_code = imp.import_file_code if imp else f"IMP-{item.import_file_id}"
-            bodies_str = "، ".join(schema.regulatory_bodies_detected)
+            alert_msg = msg(
+                "DOC_REGULATORY_BODIES_DETECTED",
+                import_file_code=f_code,
+                regulatory_bodies=", ".join(schema.regulatory_bodies_detected),
+            )
             db.add(SystemNotification(
-                title=f"عروض رقابية مكتشفة لشحنة {f_code}",
-                message=f"أظهر سحب الأصناف على نافذة وجود جهات عرض رقابية: {bodies_str}. يرجى تجهيز ملف الفحص وسحب العينات مبكراً.",
+                title=render_en(alert_msg.code, alert_msg.params, "title"),
+                message=render_en(alert_msg.code, alert_msg.params, "body"),
+                msg_code=alert_msg.code,
+                msg_params=alert_msg.params,
                 target_role="Customs Broker",
             ))
 
@@ -1577,9 +1598,9 @@ def record_nafeza_bank_link_service(
     item.bank_id = schema.bank_id
     item.bank_name = bank_name
     if schema.notes:
-        item.notes = f"{item.notes}\n[الربط البنكي نافذة] {schema.notes}" if item.notes else f"[الربط البنكي نافذة] {schema.notes}"
+        item.notes = f"{item.notes}\n[Nafeza bank link] {schema.notes}" if item.notes else f"[Nafeza bank link] {schema.notes}"
     if getattr(schema, "override_reason", None):
-        item.notes = f"{item.notes}\n[تخطي عدم تطابق بنك السويفت]: {schema.override_reason}"
+        item.notes = f"{item.notes}\n[SWIFT bank mismatch override]: {schema.override_reason}"
 
     item.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -1608,12 +1629,13 @@ def record_nafeza_bank_link_service(
         for t in pending:
             if "سحب الأصناف" in (t.title or "") or (t.notes and "ACTION:ITEMS_VERIFY_AND_BANK_LINK" in t.notes):
                 t.status = "Completed"
-                t.completion_notes = f"تم التحقق من الأصناف والربط على بنك {bank_name} على نافذة في {schema.link_date}."
+                t.completion_notes = f"Items verified and linked to bank {bank_name} on Nafeza on {schema.link_date}."
 
         # Create task for Import / Banking Officer to submit Form 4 to bank
+        form4_msg = msg("DOC_TASK_FORM4_SUBMIT", bank_name=bank_name, import_file_code=f_code)
         bank_task = SmartTaskCreate(
-            title=f"تقديم ملف نموذج 4 لفرع بنك: {bank_name} - {f_code}",
-            description=f"تم استكمال التكويد الضريبي والربط على بنك {bank_name} على نافذة. جاهز لتقديم طلب نموذج 4 رسمياً للبنك ومتابعة الاعتماد لشحنة {f_code}.",
+            title=render_en(form4_msg.code, form4_msg.params, "title"),
+            description=render_en(form4_msg.code, form4_msg.params, "body"),
             task_type="System Generated",
             import_file_id=f_id,
             import_file_code=f_code,
@@ -1625,7 +1647,10 @@ def record_nafeza_bank_link_service(
             status="Pending",
             notes=f"ACTION:FORM4_SUBMIT | BankDoc: {item.bank_doc_code}",
         )
-        create_smart_task(db, bank_task, created_by="Banking Documents Engine", commit=False)
+        create_smart_task(
+            db, bank_task, created_by="Banking Documents Engine",
+            msg_code=form4_msg.code, msg_params=form4_msg.params, commit=False,
+        )
 
     _commit_follow_up(db, _handle_link_tasks, "Nafeza bank link smart tasks")
     return enrich_banking_response(db, item)

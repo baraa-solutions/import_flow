@@ -96,6 +96,9 @@ class NafezaIntegrationClient:
                 "source_url": tariff_create.source_url,
             }
             tariff_record = tariff_repo.update_tariff(db, existing_tariff.tariff_id, update_data)
+            # BE67-T11: the repository only flushes; this sync owns the transaction.
+            db.commit()
+            db.refresh(tariff_record)
         else:
             tariff_record = create_tariff_service(db, tariff_create)
 

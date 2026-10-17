@@ -64,7 +64,7 @@ class CargoInsuranceCertificate(Base):
     package_type = Column(String(50), nullable=True) # Cartons, Pallets, Containers
     gross_weight_kg = Column(Float, nullable=True)
     survey_agent_in_destination = Column(String(200), nullable=True)
-    claims_payable_at = Column(String(150), nullable=True, default="Cairo, Egypt")
+    claims_payable_at = Column(String(150), nullable=True, default=None)
 
     # Workflow & Lifecycle Status
     status = Column(String(30), default="DRAFT", nullable=False) # DRAFT, ISSUED, CANCELLED, CLAIMED
