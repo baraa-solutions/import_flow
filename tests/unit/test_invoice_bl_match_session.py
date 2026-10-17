@@ -113,7 +113,8 @@ def test_invoice_bl_match_session_lifecycle(db_session):
     # Phase 3a DOC-12: the certifier is the logged-in user (``user``); the payload's certified_by is ignored.
     cert_session = create_invoice_bl_match_session_service(db_session, certified_payload, user="Eng. Ahmed Sorour")
     assert cert_session.is_draft is False
-    assert cert_session.overall_status == "FULLY_MATCHED"
+    # BE03-T05: overall_status is server-owned (computed from invoice_data vs bl_data); the payload value is ignored.
+    assert cert_session.overall_status == "ACCEPTED_WITH_WARNINGS"
 
     # 6. Verify reflection in CustomsDocumentApproval
     db_session.refresh(inv_approval)
