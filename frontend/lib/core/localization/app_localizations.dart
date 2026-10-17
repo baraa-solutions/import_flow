@@ -174,6 +174,20 @@ abstract class AppLocalizations {
   String get viewActivityLog;
   String get editRecord;
   String get genericErrorMessage;
+  String get tableSearchHint;
+  String get tableNoData;
+  String get tableNoResults;
+  String get tableClearFilters;
+  String get tableCustomizeColumns;
+  String get tableExportCsv;
+  String get tableExportExcel;
+  String get tableRowCopied;
+  String get tableRetry;
+  String get tableActions;
+  String tableTotalCount(int count);
+  String tableSelectedCount(int count);
+  String get resetToDefaults;
+  String get apply;
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   String get switchAsAdmin;

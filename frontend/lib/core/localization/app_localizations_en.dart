@@ -167,6 +167,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get viewActivityLog => 'View Activity Log';
   @override String get editRecord => 'Edit Record';
   @override String get genericErrorMessage => 'An unexpected error occurred. Please try again.';
+  @override String get tableSearchHint => 'Search...';
+  @override String get tableNoData => 'No records found';
+  @override String get tableNoResults => 'No records match search or filters';
+  @override String get tableClearFilters => 'Clear Filters';
+  @override String get tableCustomizeColumns => 'Customize Columns';
+  @override String get tableExportCsv => 'Export CSV';
+  @override String get tableExportExcel => 'Export Excel';
+  @override String get tableRowCopied => 'Row data copied to clipboard';
+  @override String get tableRetry => 'Retry';
+  @override String get tableActions => 'Actions';
+  @override String tableTotalCount(int count) => 'Total: $count records';
+  @override String tableSelectedCount(int count) => '$count selected';
+  @override String get resetToDefaults => 'Reset to Defaults';
+  @override String get apply => 'Apply';
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   @override String get switchAsAdmin => 'Switch as: Admin 🔴';

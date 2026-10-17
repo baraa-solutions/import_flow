@@ -62,6 +62,8 @@ class ListQuery {
     return params;
   }
 
+  static const _unset = Object();
+
   /// Creates a copy of this query with modified properties.
   ///
   /// Passing `null` to [sort] or [search] clears the existing value.

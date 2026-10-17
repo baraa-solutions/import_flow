@@ -167,6 +167,20 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get viewActivityLog => 'سجل النشاطات';
   @override String get editRecord => 'تعديل السجل';
   @override String get genericErrorMessage => 'حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى.';
+  @override String get tableSearchHint => 'بحث...';
+  @override String get tableNoData => 'لا توجد سجلات';
+  @override String get tableNoResults => 'لا توجد نتائج مطابقة للبحث أو الفلاتر';
+  @override String get tableClearFilters => 'إعادة ضبط الفلاتر';
+  @override String get tableCustomizeColumns => 'تخصيص الأعمدة';
+  @override String get tableExportCsv => 'تصدير CSV';
+  @override String get tableExportExcel => 'تصدير Excel';
+  @override String get tableRowCopied => 'تم نسخ بيانات الصف إلى الحافظة';
+  @override String get tableRetry => 'إعادة المحاولة';
+  @override String get tableActions => 'الإجراءات';
+  @override String tableTotalCount(int count) => 'الإجمالي: $count سجل';
+  @override String tableSelectedCount(int count) => 'تم تحديد $count';
+  @override String get resetToDefaults => 'استعادة الافتراضي';
+  @override String get apply => 'تطبيق';
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   @override String get switchAsAdmin => 'تبديل كـ: مدير النظام 🔴';
