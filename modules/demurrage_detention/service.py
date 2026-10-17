@@ -75,12 +75,14 @@ DD_DEFAULT_FREE_DAYS_DEMURRAGE = "DD_DEFAULT_FREE_DAYS_DEMURRAGE"
 DD_DEFAULT_FREE_DAYS_DETENTION = "DD_DEFAULT_FREE_DAYS_DETENTION"
 DD_DEFAULT_STORAGE_FREE_DAYS = "DD_DEFAULT_STORAGE_FREE_DAYS"
 DD_DEFAULT_STORAGE_RATE_EGP = "DD_DEFAULT_STORAGE_RATE_EGP"
+DD_DEFAULT_TARIFF_CURRENCY = "DD_DEFAULT_TARIFF_CURRENCY"
 DD_STANDARD_FREE_DAYS = "DD_STANDARD_FREE_DAYS"
 DD_AVOIDANCE_RATE_USD = "DD_AVOIDANCE_RATE_USD"
 DEFAULT_FREE_DAYS_DEMURRAGE = 14
 DEFAULT_FREE_DAYS_DETENTION = 7
 DEFAULT_STORAGE_FREE_DAYS = 5
 DEFAULT_STORAGE_RATE_EGP = 250.0
+DEFAULT_TARIFF_CURRENCY = "USD"
 DEFAULT_STANDARD_FREE_DAYS = 14
 DEFAULT_AVOIDANCE_RATE_USD = 70.0
 
@@ -101,6 +103,7 @@ class Tariff:
     storage_rate_egp: float
     demurrage_tiers: List[Dict[str, Any]]
     detention_tiers: List[Dict[str, Any]]
+    currency: str = "USD"
 
 
 def _tiers_parameter(db: Session, key: str, default: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -126,6 +129,7 @@ def default_tariff(db: Session) -> Tariff:
         storage_rate_egp=get_float_parameter(db, DD_DEFAULT_STORAGE_RATE_EGP, DEFAULT_STORAGE_RATE_EGP),
         demurrage_tiers=_tiers_parameter(db, DD_DEFAULT_DEMURRAGE_TIERS, DEFAULT_DEMURRAGE_TIERS),
         detention_tiers=_tiers_parameter(db, DD_DEFAULT_DETENTION_TIERS, DEFAULT_DETENTION_TIERS),
+        currency=get_parameter(db, DD_DEFAULT_TARIFF_CURRENCY) or DEFAULT_TARIFF_CURRENCY,
     )
 
 
@@ -141,6 +145,7 @@ def _resolve_tariff(db: Session, policy: Optional[DemurragePolicy]) -> Tariff:
         storage_rate_egp=policy.port_storage_daily_rate_egp,
         demurrage_tiers=policy.demurrage_tiers or fallback.demurrage_tiers,
         detention_tiers=policy.detention_tiers or fallback.detention_tiers,
+        currency=policy.currency or fallback.currency,
     )
 
 
@@ -188,7 +193,18 @@ def _tracking_tariff(db: Session, tracking: DemurrageTracking, booking_free_days
     radar): policy (or configured default) + the file's free-days agreement."""
     if booking_free_days is _UNSET:
         booking_free_days = _booking_free_days(db, tracking.import_file_id)
-    return _agreed_tariff(_resolve_tariff(db, tracking.policy), booking_free_days, tracking.containers)
+    base_tariff = _resolve_tariff(db, tracking.policy)
+    if tracking.currency and base_tariff.currency and tracking.currency.upper() != base_tariff.currency.upper():
+        logger.warning(
+            "Tracking %s has currency %s, but resolved policy currency is now %s. Keeping tracking currency.",
+            tracking.tracking_code,
+            tracking.currency,
+            base_tariff.currency,
+        )
+    tariff = _agreed_tariff(base_tariff, booking_free_days, tracking.containers)
+    if tracking.currency and tariff.currency != tracking.currency:
+        tariff = replace(tariff, currency=tracking.currency)
+    return tariff
 
 
 # ----------------------------------------------------
@@ -652,12 +668,6 @@ def create_demurrage_tracking_service(
         validate_no_active_tracking_for_bl(existing, req.bill_of_lading_no)
 
     validate_demurrage_dates(req.discharge_date, req.gate_out_date, req.empty_return_date, today=cairo_today())
-    if req.exchange_rate is not None:
-        validate_positive_amount(req.exchange_rate, "exchange_rate")
-        rate = float(req.exchange_rate)
-    else:
-        # DD-09: no client default of 50 any more; the bank rate at the discharge date is used
-        rate = _resolve_exchange_rate(db, req.currency, req.discharge_date)
 
     # Fetch policy if provided or search matching policy (DD-10: first container type, pinned until Q13)
     policy = None
@@ -668,6 +678,20 @@ def create_demurrage_tracking_service(
         policy = repository.get_policy_for_carrier_container(db, req.carrier_name, first_container_type)
 
     tariff = _agreed_tariff(_resolve_tariff(db, policy), _booking_free_days(db, req.import_file_id), None)
+    tracking_currency = tariff.currency
+
+    if req.currency and req.currency.strip().upper() != tracking_currency.strip().upper():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"عملة جلسة التتبع ({req.currency}) تختلف عن عملة سياسة الخط الملاحي ({tracking_currency}).",
+        )
+
+    if req.exchange_rate is not None:
+        validate_positive_amount(req.exchange_rate, "exchange_rate")
+        rate = float(req.exchange_rate)
+    else:
+        # DD-09: no client default of 50 any more; the bank rate at the discharge date is used
+        rate = _resolve_exchange_rate(db, tracking_currency, req.discharge_date)
 
     tracking = DemurrageTracking(
         import_file_id=req.import_file_id,
@@ -680,7 +704,7 @@ def create_demurrage_tracking_service(
         gate_out_date=req.gate_out_date,
         empty_return_date=req.empty_return_date,
         containers=[{"container_no": c.container_no, "container_type": c.container_type} for c in req.containers],
-        currency=req.currency,
+        currency=tracking_currency,
         exchange_rate=rate,
         notes=req.notes,
     )
