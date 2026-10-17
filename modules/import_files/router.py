@@ -221,11 +221,8 @@ def export_import_files_excel(
             f.form46_no or '',
         ])
     content = MasterDataExportImportHelper.export_to_excel("Import Files Master Tracking", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Import_Files_Report.xlsx"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Import_Files_Master", "xlsx")
+    return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @router.get("/export-pdf", summary="Export all import files to PDF")
@@ -250,11 +247,8 @@ def export_import_files_pdf(
             f.status,
         ])
     content = MasterDataExportImportHelper.export_to_pdf("Import Files & Shipment Tracking", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=Import_Files_Report.pdf"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Import_Files_Master", "pdf")
+    return MasterDataExportImportHelper.as_pdf_response(filename, content)
 
 
 @router.get(

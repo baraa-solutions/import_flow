@@ -12,6 +12,10 @@ class ApiError {
   static bool isForbidden(Object? error) =>
       error is DioException && error.response?.statusCode == 403;
 
+  /// True when [error] is an HTTP 404 Not Found from the backend.
+  static bool isNotFound(Object? error) =>
+      error is DioException && error.response?.statusCode == 404;
+
   /// Backend error code sent while the signed-in account must replace its
   /// password: `403 {"detail": {"code": "PASSWORD_CHANGE_REQUIRED", ...}}`.
   static const String passwordChangeRequiredCode = 'PASSWORD_CHANGE_REQUIRED';

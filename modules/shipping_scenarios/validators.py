@@ -1,6 +1,6 @@
 from collections import Counter
 from datetime import date
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Sequence, Set, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -19,6 +19,7 @@ from modules.shipping_scenarios.schemas import (
 
 # Error code (detail["code"]) for a second active study on the same import file.
 SCENARIO_SESSION_EXISTS = "SCENARIO_SESSION_EXISTS"
+SCENARIO_ITEMS_BOOKED = "SCENARIO_ITEMS_BOOKED"
 
 
 class ShippingScenarioValidator:
@@ -130,6 +131,39 @@ class ShippingScenarioValidator:
             "يوجد بالفعل دراسة سيناريوهات شحن محفوظة لهذا الملف. يرجى الذهاب لتعديل الدراسة الحالية بدلاً من إنشاء دراسة جديدة.",
             session_code=other.session_code,
             session_id=other.session_id,
+        )
+
+    @staticmethod
+    def validate_item_ids_belong(stored_ids: Set[int], sent_ids: Sequence[Optional[int]]) -> None:
+        """400 on foreign or duplicate item IDs in the update payload."""
+        seen: Set[int] = set()
+        for item_id in sent_ids:
+            if item_id is None:
+                continue
+            if item_id in seen:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"بند السيناريو رقم {item_id} مكرر في الطلب.",
+                )
+            if item_id not in stored_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"بند السيناريو رقم {item_id} غير تابع لدراسة السيناريوهات.",
+                )
+            seen.add(item_id)
+
+    @staticmethod
+    def validate_removed_not_booked(booked_ids: Set[int]) -> None:
+        """409 SCENARIO_ITEMS_BOOKED if any removed item is referenced by an active freight booking."""
+        if not booked_ids:
+            return
+        sorted_ids = sorted(list(booked_ids))
+        ids = ", ".join(str(i) for i in sorted_ids)
+        raise CodedHTTPException(
+            status.HTTP_409_CONFLICT,
+            SCENARIO_ITEMS_BOOKED,
+            f"لا يمكن حذف خيارات الشحن ({ids}) المرتبطة بحجز شحن.",
+            item_ids=ids,
         )
 
 

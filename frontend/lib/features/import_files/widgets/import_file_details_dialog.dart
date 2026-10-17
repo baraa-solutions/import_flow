@@ -58,6 +58,8 @@ import '../../financial_settlement/widgets/final_settlement_invoices_dialog.dart
 import '../../financial_settlement/widgets/actual_landed_cost_dialog.dart';
 import '../../comprehensive_report/widgets/comprehensive_dossier_export_dialog.dart';
 import '../../file_closure/widgets/official_file_closure_dialog.dart';
+import 'logistics_shipment_expenses_summary_card.dart';
+import '../../logistics_invoices/screens/logistics_invoices_screen.dart';
 
 
 
@@ -910,6 +912,28 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           ),
           const SizedBox(width: 8),
           ElevatedButton.icon(
+            key: const Key('logisticsInvoicesHubHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E3A8A),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.account_balance_wallet_rounded, size: 18),
+            label: Text(isAr ? 'فواتير الشركاء (LSI)' : 'Logistics Invoices (LSI)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (ctx) => LogisticsInvoicesScreen(
+                    initialShipmentId: file.importFileId,
+                    initialBlNumber: null,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
             key: const Key('inlandTransportHeaderBtn'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0D9488),
@@ -1130,6 +1154,10 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
 
               // Systemic Detected Patterns Card
               const DetectedPatternsCard(),
+              const SizedBox(height: 12),
+
+              // Logistics Service Invoices & Advance Custody Summary Card
+              LogisticsShipmentExpensesSummaryCard(file: file),
               const SizedBox(height: 12),
 
               // Top Metric Summary Cards

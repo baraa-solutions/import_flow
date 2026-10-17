@@ -157,6 +157,18 @@ enum DisplayDensityMode {
   bool get isCompact => this == DisplayDensityMode.compact;
   bool get isUltraCompact => this == DisplayDensityMode.ultraCompact;
 
+  /// Picks the value matching this density mode.
+  T byDensity<T>(T comfortable, T compact, T ultra) {
+    switch (this) {
+      case DisplayDensityMode.comfortable:
+        return comfortable;
+      case DisplayDensityMode.compact:
+        return compact;
+      case DisplayDensityMode.ultraCompact:
+        return ultra;
+    }
+  }
+
   String localizedName(bool isArabic) => isArabic ? nameAr : nameEn;
 
   VisualDensity get visualDensity {

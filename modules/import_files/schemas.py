@@ -364,7 +364,8 @@ class ImportMasterReportSummary(BaseModel):
     open_files_count: int
     in_progress_count: int
     closed_files_count: int
-    total_estimated_cost: float
+    total_estimated_cost: Optional[float] = None
+    estimated_cost_by_currency: Dict[str, float] = Field(default_factory=dict)
     files: List[ImportFileResponse]
 
 
