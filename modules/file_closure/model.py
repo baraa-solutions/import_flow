@@ -38,7 +38,7 @@ class ImportFileClosureRecord(Base):
     status = Column(String(50), default="Closed", index=True) # Closed, Archived
 
     is_active = Column(Boolean, default=True, index=True)
-    closed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    closed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     created_by = Column(String(100), default="System")
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

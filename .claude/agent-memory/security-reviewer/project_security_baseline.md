@@ -263,3 +263,80 @@ Pattern to watch: fail-open guards via optional import in stacked PRs. MINOR: no
 file_closure `_require_any_permission` now fail-closed (actor=None -> 403) unless `trusted=True`; only official-close passes
 trusted=True (route already requires import_files.close). MINOR: `trusted` kwarg on confirm_dossier_export_service is a
 test-only bypass knob with no production caller. No route/dependency changes; TR-03 assigned_user from token username.
+
+## PR #51 BE45-T03 (2026-10-09) clean
+Re-push of a pushed tracking (PUT tracking, PATCH container, BK-02, EIR) now needs financial_settlement.calculate
+via `_require_settlement_permission` before any write; routers pass actor=current_user; all 4 `_repush_recalculated`
+callers covered, no non-router callers. BK-02/EIR check any active pushed tracking of the file (broader than EIR's
+.first(), fail-safe). Partly closes the 2026-10-05 MAJOR "push writes settlement on demurrage manage" (re-push side);
+cross-file req.import_file_id / accountant_name part not re-checked here. MINOR: actor=None skips the guard
+(fail-open seam, no prod caller); tests do not assert tracking/settlement unchanged after 403.
+
+## PR #52 BE45-T02 (2026-10-09) — clean
+Diff vs PR #51: service-only (recalc before push, live dual-clock values, additive `is_provisional`). No route
+changes; new `calc_date` kwarg is not exposed by any router (server date only). Push still calls
+`_require_settlement_permission` first; dual-clock GET stays on `demurrage_detention.view`, no commit.
+
+## PR #63 BE67-T01 (2026-10-09) — clean, closes customs_tariff open-route backlog
+All 25 customs_tariff routes now carry view / edit / customs_clearance.update (simulate-file) on top of the
+router-level get_current_user; /export-template and /fee-codes moved above /{tariff_id}. Codes exist in catalog.
+Pre-existing, left to later tasks: upload-excel has no size/type cap (BE67-T09), no created_by on tariff writes.
+
+## PR #64 BEX-T01 lifecycle_board (2026-10-09) — closes BEX-F01/F10/F19 core
+All 6 GETs now lifecycle_board.view, 5 POSTs lifecycle_board.advance (catalog codes), router-level get_current_user kept.
+sync/advance go through http_advance_step_service: file 404/422/409, STEP_21 reserved, step must be In-Progress,
+auto_complete_prior admin-only, assigned_user = token username. Open: MAJOR `/stages/set-active` (same advance perm)
+can mark ANY step (incl. Completed ones, STEP_20) In-Progress with no actor/sequence check, so set-active + sync defeats
+LC_STEP_NOT_ACTIVE; target_step_codes on sync lets non-admin jump the file forward past skip policy. PUT step-configs
+still only get_current_user + service role check (deferred to BEX-T02). MINOR: advance_step_service(actor=None) legacy
+path skips guards (no prod caller).
+
+## PR #66 BEX-T03 lifecycle_board (2026-10-09) — clean
+Branch stacks BEX-T01/T02 commits (reviewed in #64/#65); T03 = 0a2940a1 + docs 6486baa8. No router/permission change;
+GET /summary (lifecycle_board.view) no longer writes (`_ensure_initial_stages` deleted). Live-tracking pre-fetches now
+`IN (active ids)` (bound params, no interpolation). Live tracking still returns every active file unpaged (perf, not auth).
+
+## PR #88 client feedback items 1-6 (2026-10-09) — request_changes
+Client-requested, no task card; branch also carries FE06/FE07/FE08-T13 commits. OCR is local (RapidOCR/pytesseract),
+no API key, images only go to own /smart-upload. Alembic single head c3d4e5f6a7b8, nullable columns.
+- BLOCKER: import_companies.nafeza_token plaintext String(500); ImportCompanyResponse inherits Base -> full token on
+  GET list/by-id to any authenticated user (router auth-only). Flutter masks only on display.
+- MAJOR: smart_document_upload EXTRACT_CODES += 9 codes not in catalog (suppliers.*, import_companies.*, partners.*,
+  master_data.manage) + master_data.view -> AUDITOR_VIEWER gains upload/session write, FINANCE_OFFICER gains session read.
+- MAJOR: extractor dialog token field not obscured; "copy all" writes token plaintext to clipboard.
+- MINOR: new export routes (currencies, customs_tariff, incoterms) auth-only, no master_data.view; partners/suppliers
+  exports now carry credit limit / IBAN / account no. on auth-only routes (Phase-2 per-route backlog).
+
+## PR #65 BEX-T02 lifecycle_board transactions (2026-10-09) - clean (MINORs)
+- PUT /lifecycle-board/step-configs/{code} now users.manage (service role-string check kept only when actor is None);
+  skip dual_approval -> 409 unless is_admin_user(actor); approver_roles validated vs roles table.
+- MINOR: update_step_config_service calls seed_rbac(db) (commits) from the request path when roles table empty.
+- Pre-existing, not this PR: skip hard-allows ADMIN/MANAGER/GENERAL_MANAGER regardless of approver_roles;
+  set-active route passes no actor. PR branch also carries BEX-T01 commits (cbcf8443).
+
+## PR #68 FEX-T13 (2026-10-09) — clean
+- Flutter-only: currentPermissionsProvider (GET /auth/me/permissions, already get_current_user-protected, self only)
+  + PermissionGate. '*' added client-side when role_code == ADMIN: UX only, backend still enforces. No backend change.
+- Gate shows `.view` children while loading/error; mutations fail closed. No token logging.
+
+## PR #69 FEX-T08 (2026-10-09) — clean
+- Flutter-only RowAction/RowActionsBar/showConfirmDialog; diff vs #67 also carries #68 (T13) content.
+- RowActionsBar._isPermitted mirrors PermissionGate: `.view` visible on loading/error, mutations fail closed. UX only.
+
+## PR #73 FEX-T21 (2026-10-09) - clean
+- Flutter-only ImportFilePickerDialog (core/widgets) + 5 l10n keys; no routes, no tokens. Default closed-file filter is UX only; backend closed-file guards must stay authoritative when FE06-T04/FE08-T04/FE09-T01 wire it.
+
+## PR #74 FEX-T03 (2026-10-09) - docs only, MINOR
+- docs/standards/list-paging-contract.md: Flutter RowAction example uses `purchase_orders.manage` (not in catalog; real code is `purchase_orders.edit`). Standard mandates `.view` on /paginated, /lookup, /export-excel.
+
+## PR #84 FE06-T03 (2026-10-09) - clean
+- Flutter-only (diff vs #83): removed random DO / delegation / decl-46 / MTS number generators, fees default 12500, hard-coded 14 free days.
+  No routes, no tokens. free_days input is digitsOnly with no upper bound: backend schema must bound it (not security-relevant).
+
+## PR #86 FE07-T02 (2026-10-09) - clean
+- Flutter-only (diff vs #85): inspection dialog no longer defaults verdict/yard/GOEIC body or random SMP number; pre-fills from clearance record.
+  No routes, no tokens, no backend files. Verdict is required only by the Flutter FormField; backend enforcement of a non-empty verdict is a domain, not security, concern.
+
+## PR #87 FE07-T03 (2026-10-09) - clean
+- Flutter-only (diff vs #86): samples tab reads real CustomsClearanceModel rows; session-only maps removed; new core ImportFilePickerDialog (reads importFilesProvider, hides Closed).
+  Only write path is the existing CustomsInspectionSamplingDialog -> POST /record-inspection-sampling, backend-guarded by customs_clearance.update. No routes/tokens/logging changed.

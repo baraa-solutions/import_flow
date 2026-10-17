@@ -21,7 +21,7 @@ from database.schema_upgrade_service import SchemaUpgradeService
 from utils import db_safety
 
 PREVIOUS = "f7a1c3e5b9d2"
-HEAD = "a0b1c2d3e4f5"  # current head (audit & soft-delete columns on models)
+HEAD = "c7e1f2a3b4d5"  # current head (customs consultation nullable broker)
 
 NEW_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],

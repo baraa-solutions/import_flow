@@ -14,14 +14,32 @@
 - [Legacy NULL money in responses](ruling_legacy_null_money_responses.md) — 2026-10-05: backend safe; smart_checklists crash; Dart ?? 1.0 rate
 - [BEW0-01 FX resolver (PR #18)](ruling_bew0_01_fx_resolver.md) — 2026-10-07: 48.50 leftover in freight_data_connector; CI 401 flake from main
 - [CC-01 service fee / deemed CIF / air 167](ruling_cc01_service_fee_deemed_cif.md) — 2026-10-05: 1.00 fallback OK; deemed=0 compliant but understates
-- [BEW0-06 settlement gate](ruling_bew0_06_settlement_gate.md) — 2026-10-07 PR#20: CL-05 totals on amount_egp via engine; CI 401 not from diff
+- [BEW0-06 settlement gate](ruling_bew0_06_settlement_gate.md) — 2026-10-07 PR#20: CL-05 totals on amount_egp; re-review 10-08 c9e0eaf4 approved
 - [BE810-T01 inland resync (PR #21)](ruling_be810_t01_inland_resync.md) — 2026-10-07: file cost = sum active fares; TR-IMP fallback safe; CI 401 not from diff
 - [BE810-T06 dossier FOB (PR #26)](ruling_be810_t06_dossier_fob.md) — 2026-10-07: per-currency FOB OK; estimate USD default left to T07
 - [BE810-T07 dossier no-invented (PR #33)](ruling_be810_t07_dossier_no_invented.md) — 2026-10-07: re-review 787ca4fa 3 MAJORs fixed; settlement 1.0 leftover
 - [ACC3-T02 booking insurance (PR #42)](ruling_acc3_t02_booking_insurance.md) — 2026-10-07: 422 OK; legacy INSURANCE still in freight total on recalc
-- [BE45-T01 booking FX (PR #41)](ruling_be45_t01_booking_fx.md) — 2026-10-07: re-review e7437ae2 fixes OK; cross-size dropdown drops freight line
-- [ACC2-T01 PO shares (PR #39)](ruling_acc2_t01_po_shares.md) — 2026-10-07: re-review aecc1095 both MAJORs fixed; mixed-FOB PO-level allocs minor
+- [BE45-T01 booking FX (PR #41)](ruling_be45_t01_booking_fx.md) — 2026-10-10 8d66d7c9: all 3 items fixed statically; flutter run hung
+- [ACC2-T01 PO shares (PR #39)](ruling_acc2_t01_po_shares.md) — 2026-10-08 re-review cf777093: mixed-FOB fixed; approve_with_minor
 - [BE67-T02 agreement rate (PR #40)](ruling_be67_t02_agreement_rate.md) — 2026-10-07: re-review approve_with_minor; 10-digit fixed; _customs_rate dropped
 - [BE67-T04 simulate-file (PR #44)](ruling_be67_t04_simulate_file.md) — 2026-10-07: re-review 72f91d38 all fixed; new warning codes unregistered
-- [ACC1-T01 freight FX (PR #43)](ruling_acc1_t01_freight_fx.md) — 2026-10-07: card order OK; deemed freight still 422s on missing rate; Flutter 1.0 preview
+- [ACC1-T01 freight FX (PR #43)](ruling_acc1_t01_freight_fx.md) — 2026-10-08 re-review cc0d4f8f: compile fixed, all items fixed; approve_with_minor
 - [ACC3-T03 ocean freight CIF (PR #45)](ruling_acc3_t03_ocean_freight_cif.md) — 2026-10-07: ocean-only freight OK; history text claims total_cost fallback
+- [BE09-T03 settlement seeds (PR #49)](ruling_be09_t03_settlement_seeds.md) — 2026-10-09: seeds retired OK; run_seed not at boot (MAJOR deploy)
+- [BE09-T02 approved recalc (PR #48)](ruling_be09_t02_approved_recalc.md) — 2026-10-09: stays Approved; variance from old_total-old_var OK
+- [BE02-T01 variance override (PR #55)](ruling_be02_t01_variance_override.md) — 2026-10-09: code OK; fn02 hard-block test stale red
+- [BE45-T02 recalc before push (PR #52)](ruling_be45_t02_recalc_before_push.md) — 2026-10-09: math OK; test_dd07 stale red (gate skipped it)
+- [BE01-T01 broker fees EGP (PR #53)](ruling_be01_t01_broker_fees_egp.md) — 2026-10-09: per-line commercial FX OK; fx=None raw-sum fallback MINOR
+- [BE02-T02 budget clone freight (PR #54)](ruling_be02_t02_budget_clone_freight.md) — 2026-10-09: freight own rate OK; NULL freight ccy -> wrong code
+- [BE67-T01 tariff permissions (PR #63)](ruling_be67_t01_tariff_permissions.md) — 2026-10-09: router-only, no money change; template CSV rates not engine input
+- [BEX-T10 money aggregates (PR #62)](ruling_bex_t10_money_aggregates.md) — 2026-10-09: EGP-pivot USD OK; screen hides null totals
+- [BE45-T04 nullable free days (PR #71)](ruling_be45_t04_nullable_free_days.md) — 2026-10-09: backend OK; form ?? 14 BLOCKER; legacy test red
+- [PR #88 client feedback money](ruling_pr88_client_feedback_money.md) — 2026-10-09: SOA FX fallback dict BLOCKER, CL-05 double count; calc rate OK
+- [FE01-T01 consultation engine (PR #75)](ruling_fe01_t01_consultation_engine.md) — 2026-10-09: saved total omits inspection/Nafeza fees BLOCKER
+- [BE67-T06 assessed needs claim (PR #59)](ruling_be67_t06_assessed_claim.md) — 2026-10-09: math OK; characterization t4 fixture red (BLOCKER)
+- [FE02-T01 SWIFT reconcile (PR #78)](ruling_fe02_t01_swift_reconcile.md) — 2026-10-09: smart path OK; manual dialog amount=requested prefill MAJOR
+- [FE04-T01 charge units (PR #79)](ruling_fe04_t01_charge_units.md) — 2026-10-09: 40/20ft units fix OK; SOLAS/LCL banner vs saved drift
+- [FE05-T01 demurrage push file (PR #80)](ruling_fe05_t01_demurrage_push_file.md) — 2026-10-09: ?? 1 removed; dialog shows backend totals; approve
+- [FE06-T03 CS dialogs (PR #84)](ruling_fe06_t03_cs_dialogs.md) — 2026-10-09: generators/12500 gone; D/O expiry today+14 leaks to free days MAJOR
+- [FE07-T01 CL-03/CL-04 refs (PR #85)](ruling_fe07_t01_cl03_cl04_refs.md) — 2026-10-09: refs no longer invented; blank demurrage -> 0.0 per card; approve
+- [FE01-T03 PO FX required (PR #77)](ruling_fe01_t03_po_fx_required.md) — 2026-10-09: math OK; input_test 2 red; setState in build; isActive
