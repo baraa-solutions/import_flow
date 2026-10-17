@@ -63,7 +63,9 @@ def reject_cleared_not_null_fields(model: Type, update_schema: BaseModel, label_
             )
 
 
-def validate_expense_code_unique(db: Session, code: str, current_id: int | None = None) -> None:
+def validate_expense_code_unique(db: Session, code: str | None, current_id: int | None = None) -> None:
+    if not code:
+        return
     query = db.query(ClearanceExpenseType).filter(ClearanceExpenseType.expense_code == code)
     if current_id:
         query = query.filter(ClearanceExpenseType.expense_id != current_id)

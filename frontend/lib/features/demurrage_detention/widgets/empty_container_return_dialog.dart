@@ -63,7 +63,7 @@ class _EmptyContainerReturnDialogState
   final _driverNameCtrl = TextEditingController();
   final _truckPlateNoCtrl = TextEditingController();
   final _damageNotesCtrl = TextEditingController();
-  final _damageFeeCtrl = TextEditingController(text: '0.0');
+  final _damageFeeCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
 
   DateTime _emptyReturnDate = DateTime.now();
