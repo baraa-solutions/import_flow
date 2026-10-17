@@ -45,7 +45,7 @@ def get_all_tariffs(
     skip: int = 0,
     limit: Optional[int] = None,
     category_values: Optional[List[str]] = None,
-) -> List[CustomsTariff]:
+) -> Tuple[List[CustomsTariff], int]:
     """``category_values``: exact customs_category values (codes + their legacy labels) OR-ed into the
     text search, so a label typed by the user also finds rows that store the code."""
     query = db.query(CustomsTariff)
@@ -66,12 +66,13 @@ def get_all_tariffs(
         if category_values:
             conditions.append(CustomsTariff.customs_category.in_(category_values))
         query = query.filter(or_(*conditions))
+    total = query.count()
     query = query.order_by(CustomsTariff.hs_code)
     if skip > 0:
         query = query.offset(skip)
     if limit is not None:
         query = query.limit(limit)
-    return query.all()
+    return query.all(), total
 
 
 def create_tariff(db: Session, data: dict) -> CustomsTariff:
@@ -348,6 +349,10 @@ def get_active_fee_codes(db: Session, on_date: Optional[date] = None) -> List[Fe
         .order_by(FeeCode.fee_code_id)
         .all()
     )
+
+
+def get_fee_code_by_code(db: Session, code: str) -> Optional[FeeCode]:
+    return db.query(FeeCode).filter(FeeCode.code == code.strip()).first()
 
 
 def create_fee_code(db: Session, data: dict) -> FeeCode:

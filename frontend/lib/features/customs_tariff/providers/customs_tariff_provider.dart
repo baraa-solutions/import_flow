@@ -56,6 +56,7 @@ class CustomsTariffNotifier
         queryParameters: {
           'include_inactive': showInactive,
           if (search.isNotEmpty) 'search': search,
+          'limit': 500,
         },
         cancelToken: _cancelToken,
       );

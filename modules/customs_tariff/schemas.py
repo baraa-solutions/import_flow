@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -148,19 +148,33 @@ class CustomsTariffResponse(BaseModel):
 # Fee Code Schemas (Nafeza Statement Fee Codes Registry)
 # ==================================================
 
+FeeCodeCalculationType = Literal["flat", "reference", "derived"]
+FeeCodeReferenceSource = Literal["duty_amount", "service_fee_amount", "vat_amount"]
+
+
 class FeeCodeCreate(BaseModel):
     code: str = Field(..., min_length=1, max_length=10, description="كود الرسم نافذة الرسمي")
     name_ar: str = Field(..., min_length=2, max_length=200, description="اسم الرسم باللغة العربية")
     collection_group: str = Field(..., max_length=100, description="المجموعة: رسم مستخلص / ضريبة جمارك / أ.ت.ص ...")
-    calculation_type: str = Field(default="flat", description="نوع الحساب: flat, reference, derived")
+    calculation_type: FeeCodeCalculationType = Field(default="flat", description="نوع الحساب: flat, reference, derived")
     flat_amount: Optional[Decimal] = Field(default=Decimal("0.00"), ge=0)
-    reference_source: Optional[str] = Field(None, description="duty_amount, service_fee_amount, vat_amount")
+    reference_source: Optional[FeeCodeReferenceSource] = Field(None, description="duty_amount, service_fee_amount, vat_amount")
     derived_formula_rate: Optional[Decimal] = Field(None, ge=0, le=100)
     derived_formula_base_codes: Optional[str] = Field(None, description="الأكواد بالفواصل e.g. 390,392")
     effective_from: date = Field(default_factory=date.today)
     effective_to: Optional[date] = None
     source_url: Optional[str] = None
     notes: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_calculation_rules(self) -> "FeeCodeCreate":
+        if self.calculation_type == "reference":
+            if not self.reference_source:
+                raise ValueError("reference_source is required when calculation_type is 'reference'")
+        elif self.calculation_type == "derived":
+            if self.derived_formula_rate is None or not (self.derived_formula_base_codes and self.derived_formula_base_codes.strip()):
+                raise ValueError("derived_formula_rate and derived_formula_base_codes are required when calculation_type is 'derived'")
+        return self
 
 
 class FeeCodeResponse(BaseModel):

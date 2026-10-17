@@ -108,7 +108,7 @@ def get_all_tariffs_service(
     search: Optional[str] = None,
     skip: int = 0,
     limit: Optional[int] = None,
-) -> List[CustomsTariff]:
+) -> Tuple[List[CustomsTariff], int]:
     return repository.get_all_tariffs(
         db,
         include_inactive=include_inactive,
@@ -978,6 +978,12 @@ def get_all_fee_codes_service(
 def create_fee_code_service(
     db: Session, request: FeeCodeCreate
 ) -> repository.FeeCode:
+    existing = repository.get_fee_code_by_code(db, request.code)
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="CT_FEE_CODE_DUPLICATE: A fee code with this code already exists",
+        )
     fc = repository.create_fee_code(db, request.model_dump())
     db.commit()
     db.refresh(fc)
