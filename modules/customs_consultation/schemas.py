@@ -7,6 +7,8 @@ from typing import Optional, List
 from typing_extensions import Self
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
+
 
 # ==============================================================================
 # Clearance Expense Types Schemas (تكويد أنواع المصروفات)
@@ -38,7 +40,8 @@ class ClearanceExpenseTypeUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-class ClearanceExpenseTypeResponse(ClearanceExpenseTypeBase):
+@read_model
+class ClearanceExpenseTypeResponse(ClearanceExpenseTypeBase, LegacyRowTolerantModel):
     expense_id: int
     expense_code: str
     created_at: datetime
@@ -85,9 +88,13 @@ class BrokerPriceListItemUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-class BrokerPriceListItemResponse(BrokerPriceListItemBase):
+@read_model
+class BrokerPriceListItemResponse(BrokerPriceListItemBase, LegacyRowTolerantModel):
     item_id: int
     price_list_id: int
+    standard_price: Optional[float] = None
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -137,7 +144,8 @@ class BrokerPriceListUpdate(BaseModel):
         return self
 
 
-class BrokerPriceListResponse(BrokerPriceListBase):
+@read_model
+class BrokerPriceListResponse(BrokerPriceListBase, LegacyRowTolerantModel):
     price_list_id: int
     price_list_code: str
     cloned_from_id: Optional[int] = None
@@ -188,9 +196,13 @@ class CustomsBrokerQuoteItemCreate(CustomsBrokerQuoteItemBase):
     qty: float = Field(1.0, gt=0)
 
 
-class CustomsBrokerQuoteItemResponse(CustomsBrokerQuoteItemBase):
+@read_model
+class CustomsBrokerQuoteItemResponse(CustomsBrokerQuoteItemBase, LegacyRowTolerantModel):
     quote_item_id: int
     consultation_id: int
+    unit_price: Optional[float] = None
+    qty: Optional[float] = None
+    total_amount: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -227,7 +239,8 @@ class CustomsChecklistItemCreate(CustomsChecklistItemBase):
     pass
 
 
-class CustomsChecklistItemResponse(CustomsChecklistItemBase):
+@read_model
+class CustomsChecklistItemResponse(CustomsChecklistItemBase, LegacyRowTolerantModel):
     item_id: int
     consultation_id: int
 
@@ -275,15 +288,18 @@ class CustomsConsultationUpdate(BaseModel):
     broker_quote_items: Optional[List[CustomsBrokerQuoteItemCreate]] = None
 
 
-class CustomsConsultationResponse(CustomsConsultationBase):
+@read_model
+class CustomsConsultationResponse(CustomsConsultationBase, LegacyRowTolerantModel):
     consultation_id: int
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
     consultation_code: str
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
+    estimated_duties_egp: Optional[float] = None
+    total_broker_fees_egp: Optional[float] = None
     has_blocking_issues: bool
-    readiness_percentage: float
+    readiness_percentage: Optional[float] = None
     is_active: bool
     cloned_from_id: Optional[int] = None
     cloned_from_code: Optional[str] = None
@@ -326,68 +342,70 @@ class CustomsRecalculationRequest(BaseModel):
     estimate_date: Optional[date] = None
 
 
-class LineVarianceComparison(BaseModel):
+@read_model
+class LineVarianceComparison(LegacyRowTolerantModel):
     item_name: str
     hs_code: str
     country_of_origin: Optional[str] = None
     # OK, or TARIFF_MISSING: no HS code / no tariff valid on the estimate date. Such a line carries zero
     # taxes and is excluded from every response total (no fallback rate is used).
     status: str = "OK"
-    preliminary_qty: float = 0.0
-    final_qty: float = 0.0
-    qty_variance: float = 0.0
-    preliminary_unit_price: float = 0.0
-    final_unit_price: float = 0.0
-    unit_price_variance: float = 0.0
-    preliminary_fob_egp: float = 0.0
-    final_fob_egp: float = 0.0
-    fob_variance_egp: float = 0.0
-    preliminary_cif_egp: float = 0.0
-    final_cif_egp: float = 0.0
-    cif_variance_egp: float = 0.0
-    duty_rate_pct: float = 0.0
-    preliminary_duty_egp: float = 0.0
-    final_duty_egp: float = 0.0
-    duty_variance_egp: float = 0.0
-    vat_rate_pct: float = 0.0
-    preliminary_vat_egp: float = 0.0
-    final_vat_egp: float = 0.0
-    vat_variance_egp: float = 0.0
-    preliminary_total_taxes_egp: float = 0.0
-    final_total_taxes_egp: float = 0.0
-    total_taxes_variance_egp: float = 0.0
+    preliminary_qty: Optional[float] = 0.0
+    final_qty: Optional[float] = 0.0
+    qty_variance: Optional[float] = 0.0
+    preliminary_unit_price: Optional[float] = 0.0
+    final_unit_price: Optional[float] = 0.0
+    unit_price_variance: Optional[float] = 0.0
+    preliminary_fob_egp: Optional[float] = 0.0
+    final_fob_egp: Optional[float] = 0.0
+    fob_variance_egp: Optional[float] = 0.0
+    preliminary_cif_egp: Optional[float] = 0.0
+    final_cif_egp: Optional[float] = 0.0
+    cif_variance_egp: Optional[float] = 0.0
+    duty_rate_pct: Optional[float] = 0.0
+    preliminary_duty_egp: Optional[float] = 0.0
+    final_duty_egp: Optional[float] = 0.0
+    duty_variance_egp: Optional[float] = 0.0
+    vat_rate_pct: Optional[float] = 0.0
+    preliminary_vat_egp: Optional[float] = 0.0
+    final_vat_egp: Optional[float] = 0.0
+    vat_variance_egp: Optional[float] = 0.0
+    preliminary_total_taxes_egp: Optional[float] = 0.0
+    final_total_taxes_egp: Optional[float] = 0.0
+    total_taxes_variance_egp: Optional[float] = 0.0
 
 
-class CustomsRecalculationResponse(BaseModel):
+@read_model
+class CustomsRecalculationResponse(LegacyRowTolerantModel):
     import_file_id: int
     import_file_code: str
     final_invoice_number: Optional[str] = None
     reconciliation_session_id: Optional[int] = None
     is_reconciled: bool = False
     source_description: str = "Reconciled Final Commercial Invoice"
-    exchange_rate: float  # final side (EGP per unit of final_currency)
+    exchange_rate: Optional[float] = None  # final side (EGP per unit of final_currency)
     preliminary_exchange_rate: Optional[float] = None
     preliminary_currency: Optional[str] = None
     final_currency: Optional[str] = None
     exchange_rate_source: str = "table"  # final side: "table" (customs rate table on the date) / "manual"
     preliminary_exchange_rate_source: str = "table"
     estimate_date: date
-    preliminary_fob_egp: float = 0.0
-    final_fob_egp: float = 0.0
-    fob_variance_egp: float = 0.0
-    preliminary_cif_egp: float = 0.0
-    final_cif_egp: float = 0.0
-    cif_variance_egp: float = 0.0
-    preliminary_duty_egp: float = 0.0
-    final_duty_egp: float = 0.0
-    duty_variance_egp: float = 0.0
-    preliminary_vat_egp: float = 0.0
-    final_vat_egp: float = 0.0
-    vat_variance_egp: float = 0.0
-    preliminary_total_taxes_egp: float = 0.0
-    final_total_taxes_egp: float = 0.0
-    total_taxes_variance_egp: float = 0.0
-    variance_percentage: float = 0.0
+    preliminary_fob_egp: Optional[float] = 0.0
+    final_fob_egp: Optional[float] = 0.0
+    fob_variance_egp: Optional[float] = 0.0
+    preliminary_cif_egp: Optional[float] = 0.0
+    final_cif_egp: Optional[float] = 0.0
+    cif_variance_egp: Optional[float] = 0.0
+    preliminary_duty_egp: Optional[float] = 0.0
+    final_duty_egp: Optional[float] = 0.0
+    duty_variance_egp: Optional[float] = 0.0
+    preliminary_vat_egp: Optional[float] = 0.0
+    final_vat_egp: Optional[float] = 0.0
+    vat_variance_egp: Optional[float] = 0.0
+    preliminary_total_taxes_egp: Optional[float] = 0.0
+    final_total_taxes_egp: Optional[float] = 0.0
+    total_taxes_variance_egp: Optional[float] = 0.0
+    variance_percentage: Optional[float] = 0.0
     forecast_status: str = "Balanced"  # "Increased Cost", "Reduced Cost", "Exact Match"
     tariff_missing_lines_count: int = 0
     comparison_lines: List[LineVarianceComparison] = []
