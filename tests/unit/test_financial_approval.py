@@ -105,6 +105,7 @@ class TestFinancialApprovalBackend:
             supplier_name="Germany Heavy Duty Machinery GMBH",
             payment_type="Final Settlement",
             requested_amount=10000.0,
+            currency_code="USD",
             due_date=date(2026, 9, 15),
             exchange_rate=50.0,
         )
@@ -149,6 +150,7 @@ class TestFinancialApprovalBackend:
             title="Draft Payment to be deleted",
             supplier_name="Test Supplier",
             requested_amount=1000.0,
+            currency_code="USD",
             due_date=date(2026, 9, 1),
             exchange_rate=50.0,
         )
@@ -218,6 +220,7 @@ class TestFinancialApprovalBackend:
             import_file_id=imp.import_file_id,
             supplier_name="Shanghai Super Machinery Ltd",
             requested_amount=5000.0,
+            currency_code="USD",
             due_date=date(2026, 9, 1),
             exchange_rate=50.0,
         )
@@ -228,6 +231,7 @@ class TestFinancialApprovalBackend:
             import_file_id=imp.import_file_id,
             supplier_name="Shanghai Super Machinery Ltd",
             requested_amount=7000.0,
+            currency_code="USD",
             due_date=date(2026, 9, 1),
             exchange_rate=50.0,
         )
@@ -518,6 +522,7 @@ class TestFinancialApprovalBackend:
             supplier_name="Global Supplier A",
             payment_type="Advance Payment",
             requested_amount=3000.0,
+            currency_code="USD",
             due_date=date(2026, 9, 1),
             exchange_rate=50.0,
         )
@@ -531,6 +536,7 @@ class TestFinancialApprovalBackend:
             supplier_name="Global Supplier A",
             payment_type="Against B/L",
             requested_amount=7000.0,
+            currency_code="USD",
             due_date=date(2026, 10, 1),
             exchange_rate=50.0,
         )
@@ -545,6 +551,7 @@ class TestFinancialApprovalBackend:
             title="Status Transition Test",
             supplier_name="Transition Supplier",
             requested_amount=1000.0,
+            currency_code="USD",
             exchange_rate=50.0,
             due_date=date(2026, 9, 1),
         )
