@@ -9827,6 +9827,9 @@ abstract class AppLocalizations {
   String get ccInsYardLabel;
   String get ccInsYardHint;
   String get ccInsYardRequired;
+  String get ccInsResultRequired;
+  String get ccInsBodiesRequired;
+  String get ccInsSamplingNoRequired;
   String get ccInsDateLabel;
   String get ccInsTypeLabel;
   String get ccInsType1;
