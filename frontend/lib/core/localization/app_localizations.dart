@@ -3646,6 +3646,10 @@ abstract class AppLocalizations {
   String projectCompanyFallback(int id);
   String projectSupplierFallback(int id);
   String projectSupplierLabel(String supplier);
+  String get projectCommitmentsLabel;
+  String get projectRemainingBudgetLabel;
+  String projectMissingRateCurrencies(String currencies);
+  String get projectUtilizationLabel;
   String get capMultiShipment;
   String get capMultiCompany;
   String projectPrintSnack(String name, String code);

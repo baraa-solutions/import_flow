@@ -3525,6 +3525,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String projectCompanyFallback(int id) => 'Company #$id';
   @override String projectSupplierFallback(int id) => 'Supplier #$id';
   @override String projectSupplierLabel(String supplier) => 'Supplier: $supplier';
+  @override String get projectCommitmentsLabel => 'Commitments';
+  @override String get projectRemainingBudgetLabel => 'Remaining Budget';
+  @override String projectMissingRateCurrencies(String currencies) => 'Missing exchange rates for: $currencies';
+  @override String get projectUtilizationLabel => 'Utilization';
   @override String get capMultiShipment => 'Multi-Shipment';
   @override String get capMultiCompany => 'Multi-Company';
   @override String projectPrintSnack(String name, String code) => 'Printing project & cost center details: $name ($code)';

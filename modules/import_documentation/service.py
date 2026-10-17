@@ -30,6 +30,7 @@ from modules.import_documentation.validators import (
     validate_acid_expiry,
     validate_no_duplicate_acid_session,
     validate_no_duplicate_form4_session,
+    validate_unique_po_lines,
 )
 import modules.import_documentation.repository as repo
 from modules.customs_tariff.model import CustomsTariff
@@ -1237,66 +1238,71 @@ def reconcile_po_final_adjustments_service(
         if negative:
             raise _bad_request(f"لا يمكن أن تكون القيم سالبة للبند '{itm.item_code}': {', '.join(negative)}")
 
-    po_item_ids = [itm.po_item_id for itm in request.items if itm.po_item_id]
-    packing_item_ids = [pid for pid in (getattr(itm, "packing_item_id", None) for itm in request.items) if pid]
+    # BE03-T01: Split into line items and packing items
+    line_items = [i for i in request.items if not i.packing_item_id]
+    packing_items = [i for i in request.items if i.packing_item_id]
+
+    # Reject duplicate po_item_id in line items (400)
+    validate_unique_po_lines(line_items)
+
+    po_item_ids = [itm.po_item_id for itm in line_items if itm.po_item_id]
+    packing_item_ids = [itm.packing_item_id for itm in packing_items if itm.packing_item_id]
     lines, packs, open_pos = _load_owned_po_rows(db, request.import_file_id, po_item_ids, packing_item_ids)
 
     updated_items = []
     touched_po_ids: Set[int] = set()
     line_po_ids: Set[int] = set()
-    total_net_weight = 0.0
-    total_gross_weight = 0.0
-    total_cbm = 0.0
+    packing_po_ids: Set[int] = set()
     total_final_amount = 0.0
+    total_final_amount_by_currency: Dict[str, float] = {}
 
     for itm in request.items:
         final_price = itm.final_unit_price if itm.final_unit_price > 0 else itm.unit_price
         itm.unit_price = final_price
         itm.final_unit_price = final_price
 
-        db_po_item = lines.get(itm.po_item_id) if itm.po_item_id else None
-        # A zero final value means "unchanged": the stored line value is kept and counted (review #9).
-        line_price = final_price if final_price > 0 else (float(db_po_item.unit_price or 0.0) if db_po_item is not None else 0.0)
-        line_total = round(itm.final_quantity * line_price, 2) if line_price > 0 else 0.0
-        if db_po_item is not None:
-            db_po_item.quantity = itm.final_quantity
-            if line_price > 0:
-                db_po_item.unit_price = line_price
-                db_po_item.total_price = line_total
-            if itm.final_net_weight_kg > 0:
-                db_po_item.net_weight_kg = itm.final_net_weight_kg
-            if itm.final_gross_weight_kg > 0:
-                db_po_item.gross_weight_kg = itm.final_gross_weight_kg
-            if itm.final_cbm > 0:
-                db_po_item.total_cbm = itm.final_cbm
-            touched_po_ids.add(db_po_item.po_id)
-            line_po_ids.add(db_po_item.po_id)
+        if itm.packing_item_id:
+            # DOC-02 a / BE03-T01: packing row is updated only through its own id, never PO line id
+            db_pl_item = packs.get(itm.packing_item_id)
+            if db_pl_item is not None:
+                if itm.final_packages_count > 0:
+                    db_pl_item.qty_pkg = itm.final_packages_count
+                if itm.final_net_weight_kg > 0:
+                    db_pl_item.total_net_weight_kg = itm.final_net_weight_kg
+                if itm.final_gross_weight_kg > 0:
+                    db_pl_item.total_gross_weight_kg = itm.final_gross_weight_kg
+                if itm.final_cbm > 0:
+                    db_pl_item.total_cbm = itm.final_cbm
+                if itm.package_type:
+                    db_pl_item.package_type = itm.package_type
+                touched_po_ids.add(db_pl_item.po_id)
+                packing_po_ids.add(db_pl_item.po_id)
+        else:
+            # BE03-T01: PO line writes only from items without packing_item_id
+            db_po_item = lines.get(itm.po_item_id) if itm.po_item_id else None
+            # A zero final value means "unchanged": the stored line value is kept and counted (review #9).
+            line_price = final_price if final_price > 0 else (float(db_po_item.unit_price or 0.0) if db_po_item is not None else 0.0)
+            line_total = round(itm.final_quantity * line_price, 2) if line_price > 0 else 0.0
+            if db_po_item is not None:
+                db_po_item.quantity = itm.final_quantity
+                if line_price > 0:
+                    db_po_item.unit_price = line_price
+                    db_po_item.total_price = line_total
+                if itm.final_net_weight_kg > 0:
+                    db_po_item.net_weight_kg = itm.final_net_weight_kg
+                if itm.final_gross_weight_kg > 0:
+                    db_po_item.gross_weight_kg = itm.final_gross_weight_kg
+                if itm.final_cbm > 0:
+                    db_po_item.total_cbm = itm.final_cbm
+                touched_po_ids.add(db_po_item.po_id)
+                line_po_ids.add(db_po_item.po_id)
 
-        # DOC-02 a: a packing row is updated only through its own id, never through the PO line id.
-        packing_item_id = getattr(itm, "packing_item_id", None)
-        db_pl_item = packs.get(packing_item_id) if packing_item_id else None
-        if db_pl_item is not None:
-            if itm.final_packages_count > 0:
-                db_pl_item.qty_pkg = itm.final_packages_count
-            if itm.final_net_weight_kg > 0:
-                db_pl_item.total_net_weight_kg = itm.final_net_weight_kg
-            if itm.final_gross_weight_kg > 0:
-                db_pl_item.total_gross_weight_kg = itm.final_gross_weight_kg
-            if itm.final_cbm > 0:
-                db_pl_item.total_cbm = itm.final_cbm
-            if itm.package_type:
-                db_pl_item.package_type = itm.package_type
-            touched_po_ids.add(db_pl_item.po_id)
-
-        def _final_or_stored(final_value: float, column: str) -> float:
-            if final_value > 0 or db_po_item is None:
-                return final_value
-            return float(getattr(db_po_item, column) or 0.0)
-
-        total_net_weight += _final_or_stored(itm.final_net_weight_kg, "net_weight_kg")
-        total_gross_weight += _final_or_stored(itm.final_gross_weight_kg, "gross_weight_kg")
-        total_cbm += _final_or_stored(itm.final_cbm, "total_cbm")
-        total_final_amount += line_total  # sum of rounded line totals (review #8)
+                po = open_pos.get(db_po_item.po_id)
+                curr_code = getattr(getattr(po, "currency", None), "currency_code", None) or getattr(itm, "currency", None) or getattr(imp_file, "estimated_cost_currency", None) or "UNKNOWN"
+                total_final_amount_by_currency[curr_code] = round(
+                    total_final_amount_by_currency.get(curr_code, 0.0) + line_total, 2
+                )
+            total_final_amount += line_total  # sum of rounded line totals from line_items only
 
         qty_variance = 0.0
         if itm.initial_quantity > 0:
@@ -1315,6 +1321,37 @@ def reconcile_po_final_adjustments_service(
 
         updated_items.append(itm.model_dump())
 
+    # BE03-T01: Weights/CBM per PO: use packing_items for POs that have them, else line_items
+    pos_with_packing = {
+        packs[itm.packing_item_id].po_id
+        for itm in packing_items
+        if itm.packing_item_id and itm.packing_item_id in packs
+    }
+    weight_sources = [
+        itm for itm in packing_items
+        if itm.packing_item_id and itm.packing_item_id in packs
+    ] + [
+        itm for itm in line_items
+        if not itm.po_item_id or (itm.po_item_id in lines and lines[itm.po_item_id].po_id not in pos_with_packing)
+    ]
+    total_net_weight = 0.0
+    total_gross_weight = 0.0
+    total_cbm = 0.0
+    for itm in weight_sources:
+        if itm.packing_item_id:
+            db_row = packs.get(itm.packing_item_id)
+            nw = itm.final_net_weight_kg if itm.final_net_weight_kg > 0 or db_row is None else float(getattr(db_row, "total_net_weight_kg", 0.0) or 0.0)
+            gw = itm.final_gross_weight_kg if itm.final_gross_weight_kg > 0 or db_row is None else float(getattr(db_row, "total_gross_weight_kg", 0.0) or 0.0)
+            cbm = itm.final_cbm if itm.final_cbm > 0 or db_row is None else float(getattr(db_row, "total_cbm", 0.0) or 0.0)
+        else:
+            db_row = lines.get(itm.po_item_id) if itm.po_item_id else None
+            nw = itm.final_net_weight_kg if itm.final_net_weight_kg > 0 or db_row is None else float(getattr(db_row, "net_weight_kg", 0.0) or 0.0)
+            gw = itm.final_gross_weight_kg if itm.final_gross_weight_kg > 0 or db_row is None else float(getattr(db_row, "gross_weight_kg", 0.0) or 0.0)
+            cbm = itm.final_cbm if itm.final_cbm > 0 or db_row is None else float(getattr(db_row, "total_cbm", 0.0) or 0.0)
+        total_net_weight += nw
+        total_gross_weight += gw
+        total_cbm += cbm
+
     # DOC-02 c: one version bump + audit stamp per touched PO. Header totals follow the adjusted lines (lead
     # decision on Q2): plain sums of the stored line values, the line math itself is not recomputed.
     now = datetime.now(timezone.utc)
@@ -1326,6 +1363,9 @@ def reconcile_po_final_adjustments_service(
             po.total_gross_weight_kg = sum(float(l.gross_weight_kg or 0.0) for l in po_lines)
             po.total_net_weight_kg = sum(float(l.net_weight_kg or 0.0) for l in po_lines)
             po.total_cbm = sum(float(l.total_cbm or 0.0) for l in po_lines)
+        if po_id in packing_po_ids:
+            # BE03-T01: Recompute total_packages_count from packing rows
+            po.total_packages_count = int(sum(float(pl.qty_pkg or 0.0) for pl in (po.packing_list_items or [])))
         po.version = (po.version or 1) + 1
         po.updated_at = now
         po.updated_by = actor
@@ -1346,6 +1386,7 @@ def reconcile_po_final_adjustments_service(
         "total_gross_weight_kg": round(total_gross_weight, 2),
         "total_cbm": round(total_cbm, 3),
         "total_final_amount": round(total_final_amount, 2),
+        "total_final_amount_by_currency": total_final_amount_by_currency,
         "items": updated_items,
     }
 

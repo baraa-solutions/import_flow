@@ -60,11 +60,15 @@ class LifecycleSyncRequest(BaseModel):
     import_file_code: Optional[str] = Field(None, min_length=2, max_length=50, description="Import file business code (e.g. IMP-2026-0001)")
     import_file_id: Optional[int] = Field(None, description="Import file database primary key ID")
     target_step_codes: Optional[List[str]] = Field(None, description="Target step codes to activate as In-Progress (None = auto-infer next)")
-    auto_complete_prior: bool = Field(True, description="Automatically mark all prior steps up to completed_step as Completed")
-    assigned_user: Optional[str] = None
+    assigned_user: Optional[str] = Field(
+        None,
+        description="Deprecated: acting user is derived from the JWT authentication token.",
+        json_schema_extra={"deprecated": True},
+    )
     action_data: Optional[Dict[str, Any]] = None
     notes: Optional[str] = None
     source_module: Optional[str] = None
+    auto_complete_prior: bool = Field(True, description="Auto-complete prior steps (honoured for ADMIN only)")
 
 
 
