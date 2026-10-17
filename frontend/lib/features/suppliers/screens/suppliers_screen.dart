@@ -414,6 +414,11 @@ ${l10n.supplierTsvHeaderBrands}: ${s.brands ?? '-'}
           context: context,
           globalPosition: details.globalPosition,
           codeToCopy: supplier.supplierCode,
+          onView: () => SupplierDetailsDialog.show(
+            context,
+            supplier: supplier,
+            onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
+          ),
           onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
           onHistory: () => RowHistoryDialog.show(
             context,
