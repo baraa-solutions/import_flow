@@ -111,6 +111,8 @@ void main() {
     portOfLoading: 'Genoa Port (IT)',
     acidNumber: '8912345678901234567',
     form4No: 'F4-BNK-99881',
+    form46No: '46-ALX-IMP-2026-0010',
+    form46Date: '2026-08-25',
     customFileNumber: 'MEDUST-IT-0099',
     estimatedCost: 15000.0,
     estimatedCostCurrency: 'EUR',

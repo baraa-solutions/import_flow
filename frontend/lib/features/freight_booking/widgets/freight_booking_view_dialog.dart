@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/cc_dialog_shell.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../models/freight_booking_model.dart';
@@ -74,7 +73,7 @@ class FreightBookingViewDialog extends StatelessWidget {
         runSpacing: 10,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          CcStatusChip(label: st.label, severity: st.severity, icon: st.icon),
+          AppStatusBadge(label: st.label, severity: st.severity, icon: st.icon),
           _fact(l.freightBookingViewShippingLine, FbkFormat.orDash(b.shippingLineName)),
           _fact(l.freightBookingViewConfirmNo, FbkFormat.orDash(b.bookingConfirmationNo), mono: true),
           if (b.billOfLadingNo != null) _fact('B/L', b.billOfLadingNo!, mono: true),

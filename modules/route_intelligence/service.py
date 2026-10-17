@@ -251,13 +251,22 @@ def get_supplier_route_intelligence_service(
 
     # 6. Advisory Recommendation
     country_name = getattr(supplier, "foreign_exporter_country", None) or getattr(supplier, "country_name", None) or "الصين / دولي"
-    advisory = (
+    
+    advisory_points_ar = [
+        f"سجل الاستيراد والمسار: المورد [{supplier.company_name}] ({country_name}) مسجل له {len(import_files)} ملفات شحن استيرادية.",
+        f"مؤشرات النولون والشحن البحري: آخر نولون مسجل للمسار هو ${last_freight:,.2f} مع الخط الملاحي [{shipping_line}].",
+        f"أداء التخليص الجمركي: أنجز أعمال التخليص المستخلص [{broker_name}] في {clearance_days} أيام.",
+        "شروط التفاوض وأيام السماح: يوصى بطلب 21 يوماً سماح وتأكيد مستندات الفحص المسبق للرقابة لتفادي أي أرضيات مينائية.",
+    ]
+    advisory_ar = "تقرير استشاري ذكي:\n\n" + "\n\n".join(f"{i+1}. {pt}" for i, pt in enumerate(advisory_points_ar))
 
-        f"تقرير استشاري ذكي: المورد [{supplier.company_name}] ({country_name}) مسجل له {len(import_files)} ملف استيراد. "
-        f"آخر نولون مسجل للمسار هو ${last_freight:,.2f} مع الخط [{shipping_line}]. "
-        f"أنجز أعمال التخليص المستخلص [{broker_name}] في {clearance_days} أيام. "
-        f"يوصى بطلب 21 يوماً سماح وتأكيد مستندات الفحص المسبق للرقابة لتفادي أي أرضيات مينائية."
-    )
+    advisory_points_en = [
+        f"Import History & Route: Supplier [{supplier.company_name}] ({country_name}) has {len(import_files)} recorded import shipment files.",
+        f"Freight & Ocean Transit Benchmark: Last recorded ocean freight on route is ${last_freight:,.2f} with shipping line [{shipping_line}].",
+        f"Customs Clearance Performance: Customs clearance handled by [{broker_name}] in {clearance_days} days.",
+        "Recommended Negotiation Terms: Request 21 free demurrage days and verify pre-inspection documents to prevent port demurrage fees.",
+    ]
+    advisory_en = "Executive AI Advisory:\n\n" + "\n\n".join(f"{i+1}. {pt}" for i, pt in enumerate(advisory_points_en))
 
     return SupplierRouteIntelligenceResponse(
         supplier_id=supplier.supplier_id,
@@ -285,6 +294,11 @@ def get_supplier_route_intelligence_service(
         last_actual_lead_time_days=actual_lead_time_days,
         average_cycle_days=actual_lead_time_days,
         lead_time_breakdown_ar=lead_breakdown,
-        advisory_recommendation_ar=advisory,
-        executive_recommendation_ar=advisory,
+        advisory_recommendation_ar=advisory_ar,
+        executive_recommendation_ar=advisory_ar,
+        advisory_recommendation_en=advisory_en,
+        executive_recommendation_en=advisory_en,
+        advisory_points_ar=advisory_points_ar,
+        advisory_points_en=advisory_points_en,
     )
+

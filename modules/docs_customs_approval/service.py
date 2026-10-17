@@ -9,7 +9,7 @@ only for internal callers (tests, other services): they keep the legacy payload 
 
 import logging
 import re
-from typing import Callable, Iterable, List, Optional, Dict, Any, Tuple
+from typing import Callable, Iterable, List, Optional, Dict, Any, Tuple, Union
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
@@ -111,6 +111,8 @@ def _check_version(db: Session, record, submitted_version: Optional[int], entity
 
 
 def _po_for_file(db: Session, import_file: ImportFile) -> Optional[PurchaseOrder]:
+    if not import_file or not import_file.import_file_id:
+        return None
     query = db.query(PurchaseOrder).filter(
         PurchaseOrder.import_file_id == import_file.import_file_id,
         PurchaseOrder.is_active == True,
@@ -226,8 +228,21 @@ def list_approvals_service(
     document_type: Optional[str] = None,
     overall_status: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[CustomsDocumentApproval]:
-    return repo.list_approvals(db, include_inactive, import_file_id, document_type, overall_status, search)
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[CustomsDocumentApproval], Tuple[List[CustomsDocumentApproval], int]]:
+    return repo.list_approvals(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        document_type=document_type,
+        overall_status=overall_status,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 
 def soft_delete_approval_service(db: Session, approval_id: int) -> bool:
@@ -886,18 +901,41 @@ def list_rectification_tickets_service(
     status: Optional[str] = None,
     severity: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[DiscrepancyRectificationTicket]:
-    return repo.list_tickets(db, include_inactive, import_file_id, approval_id, status, severity, search)
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[DiscrepancyRectificationTicket], Tuple[List[DiscrepancyRectificationTicket], int]]:
+    return repo.list_tickets(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        approval_id=approval_id,
+        status=status,
+        severity=severity,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 
 # --- Docs Customs Approval Sessions Services (STEP-09) ---
 
-def _session_not_ready(missing_statuses: List[str], open_tickets: int) -> HTTPException:
+def _session_not_ready(
+    missing_statuses: List[str],
+    open_tickets: int,
+    unapproved_documents: Optional[List[str]] = None,
+    unapproved_statuses: Optional[List[str]] = None,
+) -> HTTPException:
     parts = []
     if missing_statuses:
         parts.append(f"حالات المستندات غير محددة: {', '.join(missing_statuses)}")
+    if unapproved_statuses:
+        parts.append(f"حالات المستندات غير معتمدة: {', '.join(unapproved_statuses)}")
     if open_tickets:
         parts.append(f"توجد {open_tickets} تذكرة استدراك مفتوحة")
+    if unapproved_documents:
+        parts.append(f"مستندات غير معتمدة في المركز: {', '.join(unapproved_documents)}")
     return HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail={
@@ -905,6 +943,8 @@ def _session_not_ready(missing_statuses: List[str], open_tickets: int) -> HTTPEx
             "message": "لا يمكن اعتماد جلسة الموافقة الجمركية نهائياً: " + "؛ ".join(parts) + ".",
             "missing_statuses": missing_statuses,
             "open_tickets_count": open_tickets,
+            "unapproved_documents": unapproved_documents or [],
+            "unapproved_statuses": unapproved_statuses or [],
         },
     )
 
@@ -916,11 +956,13 @@ def create_customs_approval_session_service(
     Save the file's customs-approval session as draft, or certify it (``is_draft=False``, DCA-04 / Q3):
     - a certified (final) session is locked: any further save -> 409 ``DCA_SESSION_FINAL_LOCKED``;
     - certification needs ``customs_clearance.update`` (router passes the user), the five document statuses sent
-      explicitly (schema defaults are not accepted on a final save) and no open rectification ticket on the
-      file -> otherwise 400 ``DCA_SESSION_NOT_READY``;
+      explicitly (schema defaults are not accepted on a final save), all five document statuses Approved (coc also
+      Waived / Not Required), active CustomsDocumentApproval rows in DCA hub Approved for Clearance, and no open
+      rectification ticket on the file -> otherwise 400 ``DCA_SESSION_NOT_READY``;
     - the author and the sign-offs come from the logged-in user, never from the payload (DCA-03);
     - STEP_09 -> STEP_10: a lifecycle failure propagates (the request fails, nothing is reported as certified).
     """
+    validators.validate_session_status_values(payload)
     import_file = validators.validate_import_file_exists(db, payload.import_file_id)
     file_code = import_file.custom_file_number or import_file.import_file_code or f"IMP-{payload.import_file_id}"
     actor = current_user.username if current_user is not None else (payload.created_by or "SYSTEM")
@@ -949,13 +991,55 @@ def create_customs_approval_session_service(
     open_tickets = repo.count_tickets_with_status(db, payload.import_file_id, validators.OPEN_TICKET_STATUSES)
     if final:
         missing = [f for f in validators.SESSION_DOCUMENT_STATUS_FIELDS if f not in payload.model_fields_set]
-        if missing or open_tickets:
-            raise _session_not_ready(missing, open_tickets)
+
+        unapproved_statuses = []
+        if payload.final_invoice_status != "Approved":
+            unapproved_statuses.append("final_invoice_status")
+        if payload.final_pl_status != "Approved":
+            unapproved_statuses.append("final_pl_status")
+        if payload.draft_bl_status != "Approved":
+            unapproved_statuses.append("draft_bl_status")
+        if payload.coo_status != "Approved":
+            unapproved_statuses.append("coo_status")
+        if payload.coc_status not in ("Approved", "Waived / Not Required"):
+            unapproved_statuses.append("coc_status")
+
+        unapproved_documents = []
+        req_doc_types = [
+            "Commercial Invoice",
+            "Packing List",
+            "Bill of Lading",
+            "Certificate of Origin",
+        ]
+        if payload.coc_status != "Waived / Not Required":
+            req_doc_types.append("Inspection Certificate")
+
+        for doc_type in req_doc_types:
+            approval = repo.get_approval_by_type(db, payload.import_file_id, [doc_type])
+            if approval is None or approval.overall_status != "Approved for Clearance":
+                unapproved_documents.append(doc_type)
+
+        if missing or unapproved_statuses or open_tickets or unapproved_documents:
+            raise _session_not_ready(
+                missing_statuses=missing,
+                open_tickets=open_tickets,
+                unapproved_documents=unapproved_documents,
+                unapproved_statuses=unapproved_statuses,
+            )
 
     data = payload.model_dump(exclude_unset=True)
-    for ignored in ("version", "created_by", "commercial_signoff_by", "customs_signoff_by", "open_tickets_count"):
+    for ignored in (
+        "version",
+        "created_by",
+        "commercial_signoff_by",
+        "customs_signoff_by",
+        "open_tickets_count",
+        "overall_status",
+    ):
         data.pop(ignored, None)
+    data["overall_status"] = "APPROVED" if final else "DRAFT"
     data["open_tickets_count"] = open_tickets
+
     today = cairo_today()
     if "commercial_signoff_date" in payload.model_fields_set or "commercial_signoff_by" in payload.model_fields_set:
         data["commercial_signoff_by"] = actor
@@ -1017,8 +1101,19 @@ def list_customs_approval_sessions_service(
     import_file_id: Optional[int] = None,
     is_draft: Optional[bool] = None,
     search: Optional[str] = None,
-) -> List[DocsCustomsApprovalSession]:
-    return repo.list_sessions(db, import_file_id, is_draft, search)
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[DocsCustomsApprovalSession], Tuple[List[DocsCustomsApprovalSession], int]]:
+    return repo.list_sessions(
+        db,
+        import_file_id=import_file_id,
+        is_draft=is_draft,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 
 def get_customs_approval_session_service(

@@ -4,7 +4,7 @@ Business Validation Rules for Import Documentation & ACI (Phase 3 - BP-014 to BP
 
 import os
 from datetime import date
-from typing import Dict, FrozenSet, Optional
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -44,6 +44,88 @@ def validate_acid_expiry(expiry_date: date | None, issue_date: date | None = Non
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"ACID Expiry Date ({expiry_date}) must be after Issue/Requested Date ({ref_date}).",
         )
+
+
+def acid_flags(
+    discrepancies_data: Optional[Any],
+) -> Tuple[bool, bool, bool, bool, bool]:
+    """
+    Derives (importer_matched, exporter_matched, invoice_matched, ports_matched, has_discrepancies)
+    from discrepancies_data (BE03-T06).
+    A key counts as a mismatch when its entry has match False / is_matched False / status not "MATCH".
+    """
+    importer_matched = True
+    exporter_matched = True
+    invoice_matched = True
+    ports_matched = True
+    has_discrepancies = False
+
+    if not discrepancies_data:
+        return importer_matched, exporter_matched, invoice_matched, ports_matched, has_discrepancies
+
+    def _is_mismatch(val: Any) -> bool:
+        if isinstance(val, bool):
+            return not val
+        if isinstance(val, dict):
+            if "match" in val and val["match"] is False:
+                return True
+            if "is_matched" in val and val["is_matched"] is False:
+                return True
+            if "is_match" in val and val["is_match"] is False:
+                return True
+            if "status" in val and val["status"] is not None:
+                s = str(val["status"]).strip().upper()
+                if s not in ("MATCH", "MATCHED", "OK", "CORRECT"):
+                    return True
+            if val.get("severity") in ("error", "critical") and val.get("match") is not True and val.get("is_matched") is not True:
+                return True
+            return False
+        if isinstance(val, str):
+            s = val.strip().upper()
+            return s in ("MISMATCH", "ERROR", "CRITICAL", "FAILED", "FALSE")
+        return False
+
+    raw_items: List[Any] = []
+    if isinstance(discrepancies_data, dict):
+        if "all_matched" in discrepancies_data and discrepancies_data["all_matched"] is False:
+            has_discrepancies = True
+        if discrepancies_data.get("has_critical_error") is True:
+            has_discrepancies = True
+        if (discrepancies_data.get("discrepant_count") or 0) > 0:
+            has_discrepancies = True
+
+        if "items" in discrepancies_data and isinstance(discrepancies_data["items"], list):
+            raw_items = discrepancies_data["items"]
+        else:
+            summary_keys = {"all_matched", "has_critical_error", "discrepant_count"}
+            raw_items = [
+                {"field": k, "entry": v} for k, v in discrepancies_data.items() if k not in summary_keys
+            ]
+    elif isinstance(discrepancies_data, list):
+        raw_items = discrepancies_data
+
+    for item in raw_items:
+        if isinstance(item, dict):
+            field = item.get("field") or item.get("key") or item.get("field_key")
+            val = item.get("entry") if "entry" in item else item
+            if _is_mismatch(val):
+                has_discrepancies = True
+                k = str(field or "").lower()
+                if "importer" in k:
+                    importer_matched = False
+                elif any(w in k for w in ("exporter", "supplier", "cargox")):
+                    exporter_matched = False
+                elif any(w in k for w in ("invoice", "proforma")):
+                    invoice_matched = False
+                elif any(w in k for w in ("port", "pol", "pod")):
+                    ports_matched = False
+        elif _is_mismatch(item):
+            has_discrepancies = True
+
+    if not (importer_matched and exporter_matched and invoice_matched and ports_matched):
+        has_discrepancies = True
+
+    return importer_matched, exporter_matched, invoice_matched, ports_matched, has_discrepancies
 
 
 def validate_no_duplicate_acid_session(
@@ -113,6 +195,62 @@ def validate_no_duplicate_form4_session(
                 f"يرجى التوجه إلى سجل النماذج للتعديل على الطلب الحالي بدلاً من إنشاء طلب جديد."
             ),
         )
+
+
+def validate_no_duplicate_declaration_draft(
+    db: Session,
+    import_file_id: int | None,
+    current_declaration_id: int | None = None,
+) -> None:
+    """
+    Prevents creating duplicate active Customs Declaration 46 drafts for the same Import File (BE03-F14).
+    """
+    if not import_file_id:
+        return
+
+    from modules.import_documentation.model import CustomsDeclarationDraft
+
+    query = db.query(CustomsDeclarationDraft).filter(
+        CustomsDeclarationDraft.import_file_id == import_file_id,
+        CustomsDeclarationDraft.is_active == True,
+    )
+    if current_declaration_id is not None:
+        query = query.filter(CustomsDeclarationDraft.declaration_id != current_declaration_id)
+
+    existing = query.first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"يوجد بالفعل مسودة إقرار جمركي (شهادة 46) نشطة لهذا الملف ({existing.declaration_code}). "
+                f"لا يمكن إنشاء أكثر من مسودة نشطة لنفس الملف."
+            ),
+        )
+
+
+# --- BE03-F15: Allowed Banking Document Types ---
+BANKING_DOC_TYPES: FrozenSet[str] = frozenset({"Form 4", "Form 9", "Letter of Credit (L/C)"})
+
+
+def validate_currency_code(db: Session, value: Any) -> str:
+    """Active ISO currency code or 400 (DOC-13 / BE03-F15)."""
+    from modules.currencies.model import Currency
+    from modules.common import enum_codes
+
+    code = str(enum_codes.normalize_currency(value) or "").strip().upper()
+    found = (
+        db.query(Currency.currency_id)
+        .filter(Currency.currency_code == code, Currency.is_active == True)
+        .first()
+        if code
+        else None
+    )
+    if not found:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"رمز العملة '{value}' غير معروف أو غير نشط في جدول العملات.",
+        )
+    return code
 
 
 # --- DOC-14: status whitelists (today's exact stored values; no recoding in this wave) ---------------------
@@ -216,4 +354,18 @@ def validate_unique_po_lines(line_items: list) -> None:
                     detail=f"بند أمر الشراء رقم {po_item_id} مكرر في طلب المطابقة.",
                 )
             seen_po_item_ids.add(po_item_id)
+
+
+# --- BE03-T14: raw text limits ---------------------------------------------------------------------------------
+MAX_RAW_TEXT_CHARS = 200_000
+
+
+def validate_raw_text_length(text: Optional[str], field_name: str = "raw_text") -> Optional[str]:
+    """Ensures raw text does not exceed MAX_RAW_TEXT_CHARS (422 otherwise)."""
+    if text and len(text) > MAX_RAW_TEXT_CHARS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"النص المدخل في الحقل '{field_name}' يتجاوز الحد الأقصى المسموح به ({MAX_RAW_TEXT_CHARS:,} حرف).",
+        )
+    return text
 

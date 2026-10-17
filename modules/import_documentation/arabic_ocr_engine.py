@@ -171,7 +171,7 @@ def process_image_boxes_to_lines(
                 lines.append(" : ".join(b["txt"] for b in current_band if b["txt"]))
             else:
                 current_band.sort(key=lambda b: b["x_min"])
-                lines.append(" : ".join(b["txt"] for b in current_band if b["txt"]))
+                lines.append(" ".join(b["txt"] for b in current_band if b["txt"]))
 
             current_band = [it]
             last_y = it["y"]
@@ -182,12 +182,12 @@ def process_image_boxes_to_lines(
             lines.append(" : ".join(b["txt"] for b in current_band if b["txt"]))
         else:
             current_band.sort(key=lambda b: b["x_min"])
-            lines.append(" : ".join(b["txt"] for b in current_band if b["txt"]))
+            lines.append(" ".join(b["txt"] for b in current_band if b["txt"]))
 
     return lines
 
 
-def extract_arabic_ocr_text(filename: str, content_bytes: bytes) -> str:
+def extract_arabic_ocr_text(filename: str, content_bytes: bytes, two_column_table: bool = False) -> str:
     """
     Performs full OCR on a document (PDF or Image) using the Arabic-capable RapidOCR engine.
     Renders PDF pages at scale=2.5 for sharp character segmentation.
@@ -200,6 +200,7 @@ def extract_arabic_ocr_text(filename: str, content_bytes: bytes) -> str:
 
     lower = filename.lower()
     extracted_lines: List[str] = []
+    y_thresh = 35.0 if two_column_table else 15.0
 
     try:
         if lower.endswith(".pdf"):
@@ -213,7 +214,7 @@ def extract_arabic_ocr_text(filename: str, content_bytes: bytes) -> str:
                 img_np = np.array(pil_img)
                 ocr_res, _ = engine(img_np)
                 if ocr_res:
-                    page_lines = process_image_boxes_to_lines(ocr_res, y_threshold=35.0, two_column_table=True)
+                    page_lines = process_image_boxes_to_lines(ocr_res, y_threshold=y_thresh, two_column_table=two_column_table)
                     if max_pages > 1:
                         extracted_lines.append(f"--- PAGE {i+1} ---")
                     extracted_lines.extend(page_lines)
@@ -223,7 +224,7 @@ def extract_arabic_ocr_text(filename: str, content_bytes: bytes) -> str:
             img_np = np.array(pil_img)
             ocr_res, _ = engine(img_np)
             if ocr_res:
-                lines = process_image_boxes_to_lines(ocr_res, y_threshold=35.0, two_column_table=True)
+                lines = process_image_boxes_to_lines(ocr_res, y_threshold=y_thresh, two_column_table=two_column_table)
                 extracted_lines.extend(lines)
 
     except Exception as e:

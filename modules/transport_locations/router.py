@@ -124,11 +124,8 @@ def export_locations_excel(db: Session = Depends(get_db)):
             loc.notes or '',
         ])
     content = MasterDataExportImportHelper.export_to_excel("Transport Locations", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Transport_Locations_Report.xlsx"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Transport_Locations", "xlsx")
+    return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @router.get("/export-pdf")
@@ -148,11 +145,8 @@ def export_locations_pdf(db: Session = Depends(get_db)):
             'Active' if loc.is_active else 'Inactive',
         ])
     content = MasterDataExportImportHelper.export_to_pdf("Transport Locations & Ports (MD-009)", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=Transport_Locations_Report.pdf"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Transport_Locations", "pdf")
+    return MasterDataExportImportHelper.as_pdf_response(filename, content)
 
 
 @router.get("/{location_id}", response_model=TransportLocationResponse)

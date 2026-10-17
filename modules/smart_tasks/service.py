@@ -216,8 +216,8 @@ def sync_all_active_shipments_tasks(db: Session) -> int:
 
     return processed_count
 
-def get_all_tasks_service(db: Session, include_inactive: bool = False, task_type: str = None, status: str = None, priority: str = None, import_file_id: int = None, search: str = None):
-    return repo.get_all_tasks(db, include_inactive=include_inactive, task_type=task_type, status=status, priority=priority, import_file_id=import_file_id, search=search)
+def get_all_tasks_service(db: Session, include_inactive: bool = False, task_type: str = None, status: str = None, priority: str = None, import_file_id: int = None, search: str = None, order_by_priority: bool = False):
+    return repo.get_all_tasks(db, include_inactive=include_inactive, task_type=task_type, status=status, priority=priority, import_file_id=import_file_id, search=search, order_by_priority=order_by_priority)
 
 def get_due_and_overdue_tasks_service(db: Session, target_date_str: str = None):
     return repo.get_due_and_overdue_tasks(db, target_date_str=target_date_str)

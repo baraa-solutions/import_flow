@@ -32,6 +32,7 @@ from .validators import (
     STATUS_CARGOX_DONE,
     STATUS_COMPLETED,
     STATUS_DUAL_APPROVED,
+    _status_rank,
     resolve_manual_status,
     validate_crd_against_cutoff,
     validate_dual_approval_sequence,
@@ -44,6 +45,9 @@ from .validators import (
     validate_level2_allowed,
     validate_checklist_rerun_allowed,
     validate_deletable,
+    validate_documents_editable,
+    validate_booking_link,
+    containers_or_seals_changed,
 )
 from modules.common.errors import best_effort
 from modules.common.validators import not_found
@@ -139,6 +143,10 @@ def create_cargo_shipping_service(
     if not imp_file:
         raise HTTPException(status_code=404, detail="ملف الشحنة الاستيرادية المرتكز عليه غير موجود أو محذوف.")
 
+    # Validate booking link if provided
+    if schema.booking_id is not None:
+        validate_booking_link(db, schema.booking_id, schema.import_file_id)
+
     # 2. Duplicate Prevention / Auto-Upsert
     existing = get_cargo_shipping_by_import_file(db, schema.import_file_id, include_inactive=True)
     if existing:
@@ -225,6 +233,7 @@ def update_container_loading_tracking_service(
     user: Optional[str] = None,
 ) -> CargoShippingRecord:
     record = _active_record(db, record_id)
+    validate_documents_editable(record.status, record.cargo_shipping_code)
     actor = user or payload.updated_by
     containers = list(record.containers_loading_data or [])
 
@@ -232,6 +241,17 @@ def update_container_loading_tracking_service(
     for idx, c in enumerate(containers):
         if c.get("container_no", "").strip().upper() == container_no.strip().upper():
             found = True
+            seal_changed = (
+                payload.seal_no is not None
+                and payload.seal_no.strip() != (c.get("seal_no") or "").strip()
+            )
+            if seal_changed and record.level1_approval_status == "Approved":
+                record.level1_approval_status = "Pending"
+                record.level2_approval_status = "Pending"
+                record.dual_approval_status = "Pending"
+                reset_note = "تمت إعادة تعيين الاعتماد لتعديل رقم السيل (Seal No)."
+                record.level1_notes = f"{record.level1_notes}\n{reset_note}" if record.level1_notes else reset_note
+
             updated_item = dict(c)
             if payload.container_assignment_date is not None:
                 updated_item["container_assignment_date"] = payload.container_assignment_date
@@ -296,6 +316,7 @@ def update_lcl_loading_tracking_service(
     user: str = "system",
 ) -> CargoShippingRecord:
     record = _active_record(db, record_id)
+    validate_documents_editable(record.status, record.cargo_shipping_code)
     record.lcl_tracking_data = _process_lcl_item(payload)
     flag_modified(record, "lcl_tracking_data")
     record.updated_at = datetime.now(timezone.utc)
@@ -402,6 +423,32 @@ def execute_cargox_checklist_service(
         invoice_rule["confirmed_by"] = user
         invoice_rule["confirmed_at"] = datetime.now(timezone.utc).isoformat()
 
+    shipment_type = (record.shipment_type or "FCL").strip().upper()
+    if shipment_type == "AIR":
+        bl_passed = True
+        bl_details = "NOT_APPLICABLE"
+    elif shipment_type == "LCL":
+        lcl_data = record.lcl_tracking_data or {}
+        bl_passed = bool(lcl_data.get("port_gate_in_at"))
+        bl_details = (
+            "LCL CFS consolidation gated in at port."
+            if bl_passed
+            else "LCL port gate-in date is missing."
+        )
+    else:  # FCL or default
+        containers = record.containers_loading_data or []
+        has_containers = len(containers) > 0
+        all_have_seals = has_containers and all(
+            bool((c.get("seal_no") or "").strip()) for c in containers
+        )
+        bl_passed = has_containers and all_have_seals
+        if not has_containers:
+            bl_details = "Container list is empty."
+        elif not all_have_seals:
+            bl_details = "One or more containers are missing seal numbers."
+        else:
+            bl_details = "Container numbers & seal numbers populated."
+
     checklist = [
         {
             "rule_name": "ACID Number Validity & Verification",
@@ -411,8 +458,8 @@ def execute_cargox_checklist_service(
         invoice_rule,
         {
             "rule_name": "Bill of Lading (BL) & Container List Match",
-            "passed": len(record.containers_loading_data or []) > 0,
-            "details": "Container numbers & seal numbers populated.",
+            "passed": bl_passed,
+            "details": bl_details,
         },
         {
             "rule_name": "Dual Approval Level 1 & Level 2 Status",
@@ -481,6 +528,28 @@ def update_cargo_shipping_service(
     user: str = "system",
 ) -> CargoShippingRecord:
     record = _active_record(db, record_id)
+
+    if schema.booking_id is not None:
+        validate_booking_link(db, schema.booking_id, record.import_file_id)
+
+    if (
+        schema.containers_loading_data is not None
+        or schema.lcl_tracking_data is not None
+        or schema.shipment_type is not None
+    ):
+        validate_documents_editable(record.status, record.cargo_shipping_code)
+
+    if _status_rank(record.status) < _status_rank(STATUS_DUAL_APPROVED) and record.level1_approval_status == "Approved":
+        shipment_type_changed = schema.shipment_type is not None and schema.shipment_type != record.shipment_type
+        containers_changed = schema.containers_loading_data is not None and containers_or_seals_changed(
+            record.containers_loading_data, schema.containers_loading_data
+        )
+        if shipment_type_changed or containers_changed:
+            record.level1_approval_status = "Pending"
+            record.level2_approval_status = "Pending"
+            record.dual_approval_status = "Pending"
+            reset_note = "تمت إعادة تعيين الاعتماد لتعديل بيانات الحاويات أو السيل."
+            record.level1_notes = f"{record.level1_notes}\n{reset_note}" if record.level1_notes else reset_note
 
     processed_containers = None
     if schema.containers_loading_data is not None:

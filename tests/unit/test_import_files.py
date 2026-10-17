@@ -200,7 +200,7 @@ class TestImportFilesBackend:
         )
         reopened_file = service.reopen_shipment_service(db_session, created.import_file_id, reopen_payload)
 
-        assert reopened_file.status == "Active"
+        assert reopened_file.status == "In Progress"
         assert reopened_file.current_module == "Phase 4 - Freight Booking"
         assert reopened_file.closure_reason is None
         assert reopened_file.closed_at_phase is None

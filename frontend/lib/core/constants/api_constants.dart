@@ -145,6 +145,7 @@ class ApiConstants {
   static String get auth => '$baseUrl/auth';
   static String get login => '$auth/token';
   static String get currentUser => '$auth/me';
+  static String get myPermissions => '$auth/me/permissions';
   static String get changeMyPassword => '$auth/me/change-password';
   static String get users => '$auth/users';
 }

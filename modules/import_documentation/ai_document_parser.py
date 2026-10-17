@@ -1012,7 +1012,7 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
     }
 
     # 1. ACID Number (19 digits, handle OCR 'L'/'I' for 1, 'O' for 0)
-    acid_pat = r'(?:ACID|ACI\s+NO|ADVANCE\s+CARGO\s+INFO|ACID:\s*|ACID\s+#|ACID\s+NR\.?|ACID\s+HR\.?|ACID\s+NO\.?)[:\s#,-]*([0-9a-zA-Z]{19})'
+    acid_pat = r'(?:ACID|ACI\s+NO|ADVANCE\s+CARGO\s+INFO|ACID:\s*|ACID\s+#|ACID\s+NR\.?|ACID\s+HR\.?|ACID\s+NO\.?|رقم\s*التسجيل\s*المسبق|رقم\s*الاسيد|رقم\s*الإسيد)[:\s#,-]*([0-9a-zA-Z]{19})'
     m_acid = re.search(acid_pat, raw_text, re.IGNORECASE)
     if m_acid:
         cand = m_acid.group(1).upper().replace('L', '1').replace('I', '1').replace('O', '0')
@@ -1025,7 +1025,7 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
 
     # 2. Importer Tax ID (9 digits)
     m_tax = re.search(
-        r'(?:IMPORTER\s+TAX\s+ID|TAX\s+ID|VAT\s+ID|VAT\s+No|TAX\s+REG|EGYPTIAN\s+IMPORTER\s+TAX\s+ID)[:\s#]*(\d{3}[-\s]?\d{3}[-\s]?\d{3}|\d{9})',
+        r'(?:IMPORTER\s+TAX\s+ID|TAX\s+ID|VAT\s+ID|VAT\s+No|TAX\s+REG|EGYPTIAN\s+IMPORTER\s+TAX\s+ID|الرقم\s*الضريبي(?:\s*للمستورد)?|البطاقة\s*الضريبية|السجل\s*الضريبي)(?:\s*\([^\)]*\))?[:\s#]*(\d{3}[-\s]?\d{3}[-\s]?\d{3}|\d{9})',
         raw_text,
         re.IGNORECASE,
     )
@@ -1036,7 +1036,7 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
 
     # 3. Exporter Registration Number (Foreign Tax / VAT / Reg No)
     m_exp_reg = re.search(
-        r'(?:EXPORTER\s+REGISTRATION\s+(?:NUMBER|MUMBER)|EXPORTER\s+ID|AUTHORIZATION\s+NO\.?)[:\s#]+([A-Z0-9/_-]+)',
+        r'(?:EXPORTER\s+REGISTRATION\s+(?:NUMBER|MUMBER)|EXPORTER\s+ID|AUTHORIZATION\s+NO\.?|رقم\s*تسجيل\s*المصدر|رقم\s*المصدر)[:\s#]+([A-Z0-9/_-]+)',
         raw_text,
         re.IGNORECASE,
     )
@@ -1047,7 +1047,7 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
 
     # 4. Invoice Number / Order Number
     m_inv = re.search(
-        r'(?:INV\.?\s*NO\.?|INVOICE\s+NO\.?|INVOICE\s+NUMBER|COMMERCIAL\s+INVOICE\s+NO\.?|INV\s*#|BILL\s+NO\.?)[:\s]*([A-Z0-9/_-]+)',
+        r'(?:INV\.?\s*NO\.?|INVOICE\s+NO\.?|INVOICE\s+NUMBER|COMMERCIAL\s+INVOICE\s+NO\.?|INV\s*#|BILL\s+NO\.?|رقم\s*الفاتورة|رقم\s*فاتورة)[:\s]*([A-Z0-9/_\- ]+)',
         raw_text,
         re.IGNORECASE,
     )
@@ -1063,30 +1063,35 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
                 if m_inv:
                     break
     if m_inv:
-        inv_str = m_inv.group(1).strip()
+        inv_str = m_inv.group(1).strip().rstrip('.')
         if inv_str.upper() not in ["ACID", "DATE", "PAGE", "CLIENT", "DELIVERY", "TERMS", "ORDER", "SOLD", "TOTAL"]:
             parsed["invoice_number"] = inv_str
 
     # 5. Invoice Date / Order Date
-    m_date = re.search(r'(?:COMMERCIAL\s+INVOICE[^\n]*\s+)(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})', raw_text, re.IGNORECASE)
+    m_date = re.search(r'(?:تاريخ\s*الفاتورة|تاريخ\s*الإصدار|Invoice\s+Date|Date\s+of\s+Issue)[:\s]+(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})', raw_text, re.IGNORECASE)
     if not m_date:
-        m_date = re.search(r'(?:Invoice\s+Date|Date|Order\s+Date|INV\.DATE)[:\s]+(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}|[A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?,\s*\d{4})', raw_text, re.IGNORECASE)
+        m_date = re.search(r'(?:COMMERCIAL\s+INVOICE[^\n]*\s+)(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})', raw_text, re.IGNORECASE)
+    if not m_date:
+        m_date = re.search(r'(?:Invoice\s+Date|Date|Order\s+Date|INV\.DATE|تاريخ)[:\s]+(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}|[A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?,\s*\d{4})', raw_text, re.IGNORECASE)
     if m_date:
         parsed["invoice_date"] = m_date.group(1).strip()
 
     # 6. Purchase Order / Reference
-    m_po = re.search(r'(?:VOSTRO\s+ORDINE\s*/\s*YOUR\s+ORDER|Purchase\s+Order|PO\s+Number|PO\s*#|PO\s+REF|Your\s+order|PO\s+NO\.?)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    m_po = re.search(r'(?:VOSTRO\s+ORDINE\s*/\s*YOUR\s+ORDER|Purchase\s+Order|PO\s+Number|PO\s*#|PO\s+REF|Your\s+order|PO\s+NO\.?|أمر\s*شراء\s*(?:العميل)?|أمر\s*الشراء|رقم\s*أمر\s*الشراء)(?:\s*\([^\)]*\))?[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
     if m_po:
-        parsed["purchase_order"] = m_po.group(1).strip()
+        parsed["purchase_order"] = m_po.group(1).strip().rstrip('.')
 
     # 7. Currency & Totals
-    m_curr_explicit = re.search(r'\b(?:USD|\$)\b|Amount\s*\(USD\)|Unit\s+price\s*[（(]USD[）)]|TOTAL\s+USD', raw_text, re.IGNORECASE)
-    m_curr_eur = re.search(r'\b(?:EUR|€)\b|Amount\s*\(EUR\)|Unit\s+price\s*[（(]EUR[）)]|TOTAL\s+EUR', raw_text, re.IGNORECASE)
+    m_curr_explicit = re.search(r'\b(?:USD|\$)\b|Amount\s*\(USD\)|Unit\s+price\s*[（(]USD[）)]|TOTAL\s+USD|دولار', raw_text, re.IGNORECASE)
+    m_curr_eur = re.search(r'\b(?:EUR|€)\b|Amount\s*\(EUR\)|Unit\s+price\s*[（(]EUR[）)]|TOTAL\s+EUR|يورو', raw_text, re.IGNORECASE)
+    m_curr_egp = re.search(r'\b(?:EGP)\b|جنيه', raw_text, re.IGNORECASE)
 
     if m_curr_explicit and not m_curr_eur:
         parsed["currency"] = "USD"
     elif m_curr_eur and not m_curr_explicit:
         parsed["currency"] = "EUR"
+    elif m_curr_egp and not m_curr_explicit and not m_curr_eur:
+        parsed["currency"] = "EGP"
     elif "£" in raw_text or "GBP" in raw_text:
         parsed["currency"] = "GBP"
     elif m_curr_explicit:
@@ -1094,11 +1099,22 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
     elif m_curr_eur:
         parsed["currency"] = "EUR"
     else:
-        m_curr = re.search(r'(?:Currency)[:\s]+([A-Z]{3})', raw_text, re.IGNORECASE)
-        parsed["currency"] = m_curr.group(1).strip().upper() if m_curr else "USD"
+        m_curr = re.search(r'(?:Currency|العملة)[:\s]+([A-Za-z\u0600-\u06FF]{3,10})', raw_text, re.IGNORECASE)
+        if m_curr:
+            c_val = m_curr.group(1).strip().upper()
+            if 'EUR' in c_val or 'يورو' in c_val:
+                parsed["currency"] = "EUR"
+            elif 'USD' in c_val or 'دولار' in c_val:
+                parsed["currency"] = "USD"
+            elif 'EGP' in c_val or 'جنيه' in c_val:
+                parsed["currency"] = "EGP"
+            else:
+                parsed["currency"] = c_val[:3]
+        else:
+            parsed["currency"] = "USD"
 
     m_tot = re.search(
-        r'(?:TOTAL\s+INVOICE\s+AMOUNT|Total\s+goods|Order\s+Total|Total\s+Amount|Invoice\s+Total|Line\s+Total)[:\s]*[$€£]?\s*([\d.,\s]+(?:\s*[A-Z]{3})?)',
+        r'(?:TOTAL\s+INVOICE\s+AMOUNT|Total\s+goods|Order\s+Total|Total\s+Amount|Invoice\s+Total|Line\s+Total|القيمة\s*الإجمالية(?:\s*للفاتورة)?|إجمالي\s*الفاتورة|الإجمالي|المبلغ\s*الإجمالي)[:\s]*[$€£]?\s*([\d.,\s]+(?:\s*[A-Z]{3})?)',
         raw_text,
         re.IGNORECASE,
     )
@@ -1113,7 +1129,7 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
 
     # 8. Incoterms & Location
     m_inco = re.search(
-        r'(?:INCOTERMS[®\s\d]*|Incoterms|Inco\s+Terms|Shipping\s*-\s*Delivery\s*terms)[:\s\n-]*(EX\s*WORKS|EXW|FOB|CFR|CIF|DAP|DDP|FCA|CPT|CIP)',
+        r'(?:INCOTERMS[®\s\d]*|Incoterms|Inco\s+Terms|Shipping\s*-\s*Delivery\s*terms|شرط\s*التسليم|شروط\s*التسليم)[:\s\n-]*(?:(?:\([^\)]*\))[:\s]*)?(EX\s*WORKS|EXW|FOB|CFR|CIF|DAP|DDP|FCA|CPT|CIP)',
         raw_text,
         re.IGNORECASE,
     )
@@ -1130,6 +1146,14 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
     if m_shp:
         clean_shp = _INVOICE_PAGE_MARKER_RE.sub('', m_shp.group(0).strip()).strip()
     if not clean_shp:
+        m_shp_ar = re.search(
+            r'(?:المُصدِّر\s*(?:\(البائع\))?|البائع|المصدر|المورد)[:\s]+(?:شركة\s+)?([^\n\r,(]+)',
+            raw_text,
+            re.IGNORECASE,
+        )
+        if m_shp_ar:
+            clean_shp = m_shp_ar.group(1).strip()
+    if not clean_shp:
         clean_shp = _first_non_header_line(
             raw_text,
             _INVOICE_PAGE_MARKER_RE,
@@ -1145,6 +1169,15 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
 
     # 10. Consignee / Importer / Sold To (SOLD TO / Messers / Bill To / Ship To / Buyer / Customer / Importer)
     clean_c = _extract_sold_to_party(raw_text, extra_excluded="COMMERCIAL")
+
+    if not clean_c:
+        m_c_ar = re.search(
+            r'(?:المستورد\s*(?:\(المشتري\))?|المشتري|المستورد|العميل)[:\s]+(?:شركة\s+)?([^\n\r,(]+)',
+            raw_text,
+            re.IGNORECASE,
+        )
+        if m_c_ar:
+            clean_c = m_c_ar.group(1).strip()
 
     if not clean_c:
         m_csg = re.search(r'(?:Messers|Messrs|Bill\s+To|Ship\s+To|NOTIFY)[:\s\n]+([A-Z0-9\s.,&-]{3,60})', raw_text, re.IGNORECASE)
@@ -1170,19 +1203,27 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
         parsed["container_summary"] = f"{c_no}{' (Seal: ' + s_no + ')' if s_no else ''}"
 
     # 12. Weights & Packages (often on Page 2 or summary section)
-    gw_matches = re.findall(r'(?:Gross\s+weight|Gros\s+weight|TOTAL\s+GROSS\s+WEIGHT)(?:\s*kgs?|\s*kg|kg)?[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
+    gw_matches = re.findall(r'(?:الوزن\s*(?:الإجمالي[/\s]*القائم|القائم|الإجمالي)|Gross\s+weight|Gros\s+weight|TOTAL\s+GROSS\s+WEIGHT)(?:\s*\([^\)]*\))?(?:\s*kgs?|\s*kg|kg)?[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
     for m in gw_matches:
         val = _parse_flexible_number(m)
         if val > 0:
             parsed["total_gross_weight_kg"] = val
             break
 
-    nw_matches = re.findall(r'(?:Net\s+weight|Ndt\s+weighk|TOTAL\s+NET\s+WEIGHT)(?:\s*kgs?|\s*kg|kg)?[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
+    nw_matches = re.findall(r'(?:الوزن\s*الصافي|Net\s+weight|Ndt\s+weighk|TOTAL\s+NET\s+WEIGHT)(?:\s*\([^\)]*\))?(?:\s*kgs?|\s*kg|kg)?[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
     for m in nw_matches:
         val = _parse_flexible_number(m)
         if val > 0:
             parsed["total_net_weight_kg"] = val
             break
+
+    # 12.B Payment Terms & Origin Country
+    m_pay = re.search(r'(?:شروط\s*الدفع|طريقة\s*الدفع|Payment\s+Terms?|Payment\s+Condition|Terms\s+of\s+Payment)[:\s]+([^\n\r(]+)', raw_text, re.IGNORECASE)
+    if m_pay:
+        parsed["payment_terms"] = m_pay.group(1).strip().rstrip('.')
+    m_orig = re.search(r'(?:بلد\s*المنشأ|المنشأ|Country\s+of\s+Origin|Origin)[:\s]+([^\n\r,.(]+)', raw_text, re.IGNORECASE)
+    if m_orig:
+        parsed["origin_country"] = m_orig.group(1).strip()
 
     m_pkg_pal = re.search(r'(\d+)\s*(?:boxes|cartons|pkgs)\s*/\s*(\d+)\s*(?:pallets?|pallet\(s\))', raw_text, re.IGNORECASE)
     if m_pkg_pal:
@@ -1202,6 +1243,52 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
     # 13. Multi-Page Line Items Extraction (Across Page 1, Page 2, ..., Page N)
     raw_lines = [ln.strip() for ln in raw_text.split('\n') if ln.strip()]
     items: List[Dict[str, Any]] = []
+
+    # Strategy 0: Labeled/structured item blocks (Arabic or English key-value format)
+    labeled_item_matches = list(re.finditer(r'(?:كود\s*الصنف|Item\s*(?:Code|No|Number))[:\s]*([^\n\r.]+)', raw_text, re.IGNORECASE))
+    if labeled_item_matches:
+        for idx, m in enumerate(labeled_item_matches):
+            start = m.start()
+            end = labeled_item_matches[idx + 1].start() if idx + 1 < len(labeled_item_matches) else len(raw_text)
+            block = raw_text[start:end]
+            code = m.group(1).strip().rstrip('.')
+
+            m_desc = re.search(r'(?:الوصف|Description)[:\s]+([^\n\r]+)', block, re.IGNORECASE)
+            desc = m_desc.group(1).strip().rstrip('.') if m_desc else f"Product Item {len(items) + 1}"
+
+            m_hs = re.search(r'(?:البند\s*الجمركي|HS\s*Code)(?:\s*\([^\)]*\))?[:\s]*([0-9]{4,10})', block, re.IGNORECASE)
+            hs = m_hs.group(1).strip() if m_hs else ''
+
+            m_qty = re.search(r'(?:الكمية|Quantity|Qty)[:\s]*([0-9,]+\.?\d*)', block, re.IGNORECASE)
+            qty = _parse_flexible_number(m_qty.group(1)) if m_qty else 1.0
+
+            m_price = re.search(r'(?:سعر\s*الوحدة|Unit\s*Price)[:\s]*[$€£]?\s*([0-9,]+\.?\d*)', block, re.IGNORECASE)
+            price = _parse_flexible_number(m_price.group(1)) if m_price else 0.0
+
+            m_tot = re.search(r'(?:الإجمالي\s*للبند|Total\s*Price|Line\s*Total|الإجمالي)[:\s]*[$€£]?\s*([0-9,]+\.?\d*)', block, re.IGNORECASE)
+            tot = _parse_flexible_number(m_tot.group(1)) if m_tot else (qty * price)
+
+            m_nw = re.search(r'(?:الوزن\s*الصافي|Net\s*Weight)(?:\s*\([^\)]*\))?[:\s]*([0-9,]+\.?\d*)', block, re.IGNORECASE)
+            nw = _parse_flexible_number(m_nw.group(1)) if m_nw else None
+
+            m_gw = re.search(r'(?:الوزن\s*(?:الإجمالي[/\s]*القائم|القائم)|Gross\s*Weight)(?:\s*\([^\)]*\))?[:\s]*([0-9,]+\.?\d*)', block, re.IGNORECASE)
+            gw = _parse_flexible_number(m_gw.group(1)) if m_gw else None
+
+            m_cty = re.search(r'(?:بلد\s*المنشأ|Origin|Country)[:\s]*([^\n\r(.]+)', block, re.IGNORECASE)
+            cty = m_cty.group(1).strip() if m_cty else ''
+
+            items.append({
+                "item_code": code or f"ITEM-{len(items) + 1}",
+                "description": desc,
+                "hs_code": hs,
+                "quantity": qty if qty > 0 else 1.0,
+                "unit": "PCS",
+                "unit_price": price,
+                "total_price": tot,
+                "net_weight_kg": nw,
+                "gross_weight_kg": gw,
+                "country_of_origin": cty,
+            })
 
     # Regex for an item row with quantities and prices
     item_row_re = re.compile(
@@ -1223,7 +1310,8 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
         re.IGNORECASE
     )
 
-    for idx, line in enumerate(raw_lines):
+    scan_lines = [] if items else raw_lines
+    for idx, line in enumerate(scan_lines):
         # Ignore obvious summary/header rows
         if any(h in line.upper() for h in [
             "TOTAL INVOICE", "TOTAL GOODS", "V.A.T. EXEMPTION", "ADVANCED PAYMENTS",
@@ -1849,33 +1937,36 @@ def reconcile_po_documents_with_system(
     # 1.6 Total Amount & Currency Check
     inv_tot = float(invoice_data.get("total_amount") or 0.0)
     sys_tot = float(file_meta.get("total_amount") or 0.0)
-    sys_curr = file_meta.get("currency") or "USD"
-    inv_curr = invoice_data.get("currency") or sys_curr
-    curr_match = (inv_curr.upper() == sys_curr.upper())
+    sys_curr = (file_meta.get("currency") or "").strip() or None
+    inv_curr = (invoice_data.get("currency") or "").strip() or None
+    curr_match = bool(sys_curr and inv_curr and sys_curr.upper() == inv_curr.upper())
 
     amt_match, amt_pct, amt_diff = _numeric_tolerance_match(sys_tot, inv_tot, tolerance_pct=0.01)
     if (not curr_match) or (not amt_match and sys_tot > 0 and inv_tot > 0):
         has_warning = True
 
-    is_amount_matched = (amt_match and curr_match) or (sys_tot == 0.0 and inv_tot == 0.0)
+    is_amount_matched = (amt_match and curr_match)
     details_fields = coded_text("details", "DOC_CHK_AMOUNT_MATCH")
     if not curr_match:
         details_fields = coded_text(
-            "details", "DOC_CHK_CURRENCY_MISMATCH", system_currency=sys_curr, document_currency=inv_curr
+            "details", "DOC_CHK_CURRENCY_MISMATCH", system_currency=sys_curr or "—", document_currency=inv_curr or "—"
         )
     elif not amt_match and sys_tot > 0:
         details_fields = coded_text(
             "details", "DOC_CHK_AMOUNT_VARIANCE",
-            variance_amount=round(amt_diff, 2), currency=sys_curr, variance_pct=round(amt_pct, 2),
+            variance_amount=round(amt_diff, 2), currency=sys_curr or "—", variance_pct=round(amt_pct, 2),
         )
+
+    sys_curr_display = f" {sys_curr}" if sys_curr else ""
+    inv_curr_display = f" {inv_curr}" if inv_curr else ""
 
     discrepancies.append(_header_row(
         "CHK_TOTAL_AMOUNT", "total_amount", "إجمالي قيمة الفاتورة (Total Invoice Amount)",
-        f"{sys_tot:,.2f} {sys_curr}",
-        f"{inv_tot:,.2f} {inv_curr}",
-        f"{sys_tot:,.2f} {sys_curr}",
+        f"{sys_tot:,.2f}{sys_curr_display}",
+        f"{inv_tot:,.2f}{inv_curr_display}",
+        f"{sys_tot:,.2f}{sys_curr_display}",
         Placeholder("NOT_IN_PACKING_LIST"),
-        f"{inv_tot:,.2f} {inv_curr}",
+        f"{inv_tot:,.2f}{inv_curr_display}",
         "—",
         "MATCH" if is_amount_matched else "MINOR_VARIANCE",
         details_fields,
@@ -2030,7 +2121,7 @@ def reconcile_po_documents_with_system(
         final_net = matched_pl.get("net_weight_kg", s_net) if matched_pl else s_net
         final_gross = matched_pl.get("gross_weight_kg", s_gross) if matched_pl else s_gross
         final_cbm = matched_pl.get("calculated_cbm", s_cbm) if matched_pl else s_cbm
-        pkg_type = matched_pl.get("package_type", sys_itm.get("package_type", "Carton")) if matched_pl else sys_itm.get("package_type", "Carton")
+        pkg_type = (matched_pl.get("package_type") or sys_itm.get("package_type")) if matched_pl else sys_itm.get("package_type")
 
         # Variances
         qty_var = round(((final_qty - s_qty) / s_qty) * 100.0, 2) if s_qty > 0 else 0.0
@@ -2075,7 +2166,7 @@ def reconcile_po_documents_with_system(
         p_net = float(sys_pl.get("initial_net_weight_kg") or sys_pl.get("total_net_weight_kg") or 0.0)
         p_gross = float(sys_pl.get("initial_gross_weight_kg") or sys_pl.get("total_gross_weight_kg") or 0.0)
         p_cbm = float(sys_pl.get("initial_cbm") or sys_pl.get("total_cbm") or 0.0)
-        p_type = sys_pl.get("package_type") or "Carton"
+        p_type = sys_pl.get("package_type") or None
         p_hs = sys_pl.get("hs_code") or ""
 
         # Try to match with uploaded packing list item

@@ -8,6 +8,11 @@ final comprehensiveDossierServiceProvider = Provider<ComprehensiveDossierService
   return ComprehensiveDossierService(dio);
 });
 
+final comprehensiveDossierProvider = FutureProvider.autoDispose.family<ComprehensiveShipmentDossierModel, int>((ref, fileId) async {
+  final service = ref.watch(comprehensiveDossierServiceProvider);
+  return service.fetchComprehensiveDossier(fileId);
+});
+
 class ComprehensiveDossierService {
   final Dio _dio;
 

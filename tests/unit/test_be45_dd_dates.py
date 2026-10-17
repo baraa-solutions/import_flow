@@ -106,11 +106,13 @@ def _create_file(db, file_id: int, code: str, current_step_code: str = "STEP_18"
 def _setup_tracking(db, file_id: int, bl_no: str = "BL-MSC-12345") -> DemurrageTracking:
     today = cairo_today()
     discharge = today - timedelta(days=20)
+    gate_out = today - timedelta(days=5)
     tracking_req = DemurrageTrackingCreate(
         import_file_id=file_id,
         bill_of_lading_no=bl_no,
         carrier_name="MSC",
         discharge_date=discharge,
+        gate_out_date=gate_out,
         exchange_rate=50.0,
         containers=[
             ContainerItemInput(
