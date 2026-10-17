@@ -42,6 +42,7 @@ import '../services/customs_export_service.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../widgets/search_and_clone_consultation_dialog.dart';
 export '../widgets/search_and_clone_consultation_dialog.dart';
+import '../utils/customs_consultation_payload_builder.dart';
 import '../../financial_approval/providers/financial_approval_provider.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
 import '../../../core/localization/domain_enum_labels.dart';
@@ -1486,6 +1487,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     }
 
     if (!widget.isTaxReviewMode && _selectedBrokerId == null) {
+      _formKey.currentState?.validate();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚠️ ${l.customsBrokerFieldIssue}'),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
       validationErrors.add(ValidationIssueItem(
         fieldName: l.customsBrokerFieldValidation,
         issueDescription: l.customsBrokerFieldIssue,
@@ -1584,21 +1592,22 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
     setState(() => _isSaving = true);
     try {
-      final payload = {
-        'title': titleToSave,
-        'broker_id': _selectedBrokerId ?? 1,
-        'broker_name': _selectedBrokerName.isNotEmpty ? _selectedBrokerName : 'Customs Review',
-        'broker_contact_person': _brokerContactPerson,
-        if (_selectedImportFileId != null) 'import_file_id': _selectedImportFileId,
-        if (_selectedPoId != null) 'po_id': _selectedPoId,
-        if (_selectedProjectId != null) 'project_id': _selectedProjectId,
-        'estimated_duties_egp': estimatedDuties,
-        'total_broker_fees_egp': totalBrokerFees,
-        if (_brokerPriceListId != null && !widget.isTaxReviewMode) 'broker_price_list_id': _brokerPriceListId,
-        'notes': _notesController.text.trim(),
-        'checklist_items': _checklist.map((item) => item.toJson()).toList(),
-        'broker_quote_items': widget.isTaxReviewMode ? [] : _brokerQuoteItems.map((item) => item.toJson()).toList(),
-      };
+      final payload = CustomsConsultationPayloadBuilder.buildSavePayload(
+        title: titleToSave,
+        brokerId: _selectedBrokerId,
+        brokerName: _selectedBrokerName,
+        brokerContactPerson: _brokerContactPerson,
+        brokerPriceListId: _brokerPriceListId,
+        importFileId: _selectedImportFileId,
+        poId: _selectedPoId,
+        projectId: _selectedProjectId,
+        estimatedDutiesEgp: estimatedDuties,
+        totalBrokerFeesEgp: totalBrokerFees,
+        notes: _notesController.text.trim(),
+        checklistItems: _checklist.map((item) => item.toJson()).toList(),
+        brokerQuoteItems: _brokerQuoteItems.map((item) => item.toJson()).toList(),
+        isTaxReviewMode: widget.isTaxReviewMode,
+      );
 
       if (_editingConsultationId != null) {
         final updated = await ref

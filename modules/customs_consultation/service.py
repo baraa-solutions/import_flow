@@ -382,7 +382,8 @@ class CustomsConsultationService:
     def create_consultation(
         db: Session, session_in: CustomsConsultationCreate, modified_by: str = "System"
     ) -> CustomsConsultationResponse:
-        validate_broker_exists(db, session_in.broker_id)
+        if session_in.broker_id is not None:
+            validate_broker_exists(db, session_in.broker_id)
         validate_checklist_items(session_in.checklist_items)
 
         if session_in.import_file_id:

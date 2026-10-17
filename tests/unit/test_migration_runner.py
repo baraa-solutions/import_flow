@@ -27,7 +27,7 @@ from utils.migration_linter import MigrationLinter
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS_HEAD = "d3e4f5a6b7c8"
 # Current Alembic head (users.must_change_password). BASELINE_REVISION is the stamp baseline before it.
-HEAD_REVISION = "b2c3d4e5f6a7"
+HEAD_REVISION = "c7e1f2a3b4d5"
 
 
 class _SpyMasterData:
@@ -382,8 +382,10 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     # -> e5f6a7b8c9d0 (system_parameters, PO created_by/updated_by)
     # -> f6a7b8c9d0e1 (CBM shipment_mode, planning sessions created_by/updated_by)
     # -> a0b1c2d3e4f5 (audit & soft-delete columns across models)
-    # -> head b2c3d4e5f6a7 (shipped_on_board_date on shipment_bookings)
-    assert script.get_revision(HEAD_REVISION).down_revision == "a0b1c2d3e4f5"
+    # -> b2c3d4e5f6a7 (shipped_on_board_date on shipment_bookings)
+    # -> head c7e1f2a3b4d5 (customs_consultation_sessions broker_id / broker_name nullable)
+    assert script.get_revision(HEAD_REVISION).down_revision == "b2c3d4e5f6a7"
+    assert script.get_revision("b2c3d4e5f6a7").down_revision == "a0b1c2d3e4f5"
     assert script.get_revision("a0b1c2d3e4f5").down_revision == "f6a7b8c9d0e1"
     assert script.get_revision("f6a7b8c9d0e1").down_revision == "e5f6a7b8c9d0"
     assert script.get_revision("e5f6a7b8c9d0").down_revision == "d9e4f5a6b7c8"
