@@ -12,13 +12,14 @@ Rules (Phase 3a, DOC-07 / DOC-08 / DOC-10 / DOC-22):
 """
 
 from datetime import datetime, date, timedelta, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from modules.common.sequence_generator import next_yearly_code
 from modules.common.validators import not_null_columns
+from modules.import_documentation.validators import acid_flags
 from modules.import_documentation.model import (
     AcidRegistrationSession,
     BankingDocumentSession,
@@ -102,6 +103,14 @@ def create_acid_session(db: Session, schema: AcidRegistrationCreate, commit: boo
     # never "today" (which made every new session show EXPIRED at once).
     exp_date = schema.expiry_date or ((gen_date or req_date) + timedelta(days=ACID_DEFAULT_VALIDITY_DAYS))
     is_placeholder = acid_number.upper() in ACID_PLACEHOLDER_NUMBERS
+    imp_m, exp_m, inv_m, port_m, has_disc = acid_flags(schema.discrepancies_data)
+    is_issued_acid = (not is_placeholder) and len(acid_number) == 19 and acid_number.isdigit()
+    initial_status = "Requested"
+    if is_issued_acid and gen_date:
+        if not has_disc:
+            initial_status = "Verified"
+        elif schema.discrepancy_override_reason and schema.discrepancy_override_reason.strip():
+            initial_status = "Discrepancy_Accepted"
 
     db_item = AcidRegistrationSession(
         acid_code=code,
@@ -141,13 +150,13 @@ def create_acid_session(db: Session, schema: AcidRegistrationCreate, commit: boo
         generated_data=schema.generated_data,
         discrepancies_data=schema.discrepancies_data,
         discrepancy_override_reason=schema.discrepancy_override_reason,
-        is_importer_matched=True,
-        is_exporter_matched=True,
-        is_invoice_matched=True,
-        is_ports_matched=True,
-        has_discrepancies=False,
+        is_importer_matched=imp_m,
+        is_exporter_matched=exp_m,
+        is_invoice_matched=inv_m,
+        is_ports_matched=port_m,
+        has_discrepancies=has_disc,
         verification_notes=schema.verification_notes,
-        status="Requested" if (is_placeholder or not gen_date) else "Verified",
+        status=initial_status,
         is_active=True,
     )
     db.add(db_item)
@@ -211,11 +220,24 @@ def get_all_acid_sessions(
     return query.order_by(AcidRegistrationSession.acid_id.desc()).all()
 
 
+_SERVER_OWNED_ACID_FIELDS = frozenset({
+    "status",
+    "is_importer_matched",
+    "is_exporter_matched",
+    "is_invoice_matched",
+    "is_ports_matched",
+    "has_discrepancies",
+})
+
+
 def update_acid_session(
-    db: Session, db_item: AcidRegistrationSession, schema: AcidRegistrationUpdate, commit: bool = True
+    db: Session, db_item: AcidRegistrationSession, schema: Union[AcidRegistrationUpdate, Dict[str, Any]], commit: bool = True
 ) -> AcidRegistrationSession:
     """``db_item`` must be an active row loaded by the service (``get_acid_session_active``)."""
-    _apply(db_item, schema.model_dump(exclude_unset=True))
+    data = schema.copy() if isinstance(schema, dict) else schema.model_dump(exclude_unset=True)
+    for field in _SERVER_OWNED_ACID_FIELDS:
+        data.pop(field, None)
+    _apply(db_item, data)
     db_item.updated_at = _now()
     return _save(db, db_item, commit)
 

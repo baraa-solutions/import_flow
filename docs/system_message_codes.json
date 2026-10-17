@@ -716,6 +716,16 @@
       "body"
     ]
   },
+  "DOC_ACID_CONFLICT": {
+    "params": [
+      "acid_number",
+      "current_acid_number",
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "DOC_ACID_REGISTERED": {
     "params": [
       "acid_number",

@@ -1244,6 +1244,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "SDU_ACID_CONFLICT": {
         "note": "The extracted ACID {acid_number} differs from the ACID on file {import_file_code} ({current_acid_number}).",
     },
+    "DOC_ACID_CONFLICT": {
+        "note": "ACID number {acid_number} differs from the ACID on file {import_file_code} ({current_acid_number}).",
+    },
     "SDU_INVOICE_NUMBER_REQUIRED": {
         "note": "Invoice number is required to link invoice data to the import file.",
     },

@@ -26,6 +26,7 @@ from modules.import_documentation.model import (
 from modules.import_documentation.schemas import *
 
 from modules.import_documentation.validators import (
+    acid_flags,
     validate_acid_number,
     validate_acid_expiry,
     validate_no_duplicate_acid_session,
@@ -125,6 +126,31 @@ def _get_active_import_file(db: Session, import_file_id: Any) -> Optional[Import
     if not import_file_id:
         return None
     return db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id, ImportFile.is_active == True).first()
+
+
+def _check_acid_conflict(db: Session, import_file_id: Optional[int], acid_number: Optional[str]) -> None:
+    """Rejects linking or updating an ACID session with a different 19-digit number than the file has (BE03-T06)."""
+    if not import_file_id or not acid_number:
+        return
+    acid_clean = acid_number.strip()
+    if len(acid_clean) != 19 or not acid_clean.isdigit():
+        return
+    imp = _get_active_import_file(db, import_file_id)
+    if not imp:
+        return
+    current_acid = (imp.acid_number or "").strip()
+    if len(current_acid) == 19 and current_acid.isdigit() and current_acid != acid_clean:
+        file_code = imp.import_file_code or imp.custom_file_number or f"IMP-{imp.import_file_id}"
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "DOC_ACID_CONFLICT",
+                "message": f"رقم الـ ACID ({acid_clean}) يختلف عن الرقم المسجل على الملف ({current_acid}).",
+                "acid_number": acid_clean,
+                "current_acid_number": current_acid,
+                "import_file_code": file_code,
+            },
+        )
 
 
 def _require_active_po(db: Session, po_id: Any) -> None:
@@ -427,6 +453,8 @@ def _handle_acid_verification_workflow(
 
     # 1. Synchronize to ImportFile
     if is_issued_acid:
+        _check_acid_conflict(db, db_item.import_file_id, acid_num)
+
         def _sync_file() -> None:
             imp.acid_number = acid_num
             if db_item.requested_date:
@@ -442,8 +470,8 @@ def _handle_acid_verification_workflow(
 
         _commit_follow_up(db, _sync_file, "ACID import file sync")
 
-    # Only advance lifecycle and dispatch next tasks if it's verified/issued
-    if not (is_issued_acid and db_item.status in ["Verified", "Discrepancy_Accepted", "Generated", "Issued", "ACID Issued"]):
+    # Only advance lifecycle and dispatch next tasks if it's verified/issued (BE03-T06)
+    if not (is_issued_acid and db_item.status in ["Verified", "Discrepancy_Accepted"]):
         return
 
     imp = _get_active_import_file(db, file_id)
@@ -545,17 +573,50 @@ def _acid_number_is_pending(acid_number: Optional[str]) -> bool:
 
 
 def _apply_acid_derived_fields(item: AcidRegistrationSession) -> bool:
-    """Server-derived ACID fields (DOC-15): execution days from the dates, and a pending/empty number can never
-    carry an issued status. Returns True when something changed."""
+    """Server-derived ACID fields (DOC-15 / BE03-T06): execution days from the dates,
+    match flags from discrepancies_data, and server-owned verification status.
+    Returns True when something changed."""
     changed = False
     if item.generated_date and item.requested_date:
         days = max(0, (item.generated_date - item.requested_date).days)
         if item.execution_days != days:
             item.execution_days = days
             changed = True
-    if _acid_number_is_pending(item.acid_number) and item.status in _ACID_ISSUED_STATUSES:
-        item.status = "Requested"
+
+    # 1. Server-derived match flags from discrepancies_data
+    imp_m, exp_m, inv_m, port_m, has_disc = acid_flags(item.discrepancies_data)
+    if (
+        item.is_importer_matched != imp_m
+        or item.is_exporter_matched != exp_m
+        or item.is_invoice_matched != inv_m
+        or item.is_ports_matched != port_m
+        or item.has_discrepancies != has_disc
+    ):
+        item.is_importer_matched = imp_m
+        item.is_exporter_matched = exp_m
+        item.is_invoice_matched = inv_m
+        item.is_ports_matched = port_m
+        item.has_discrepancies = has_disc
         changed = True
+
+    # 2. Server-derived status
+    target_status: str
+    if _acid_number_is_pending(item.acid_number) or not item.generated_date:
+        target_status = "Requested"
+    elif not item.has_discrepancies:
+        target_status = "Verified"
+    elif item.discrepancy_override_reason and item.discrepancy_override_reason.strip():
+        target_status = "Discrepancy_Accepted"
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="يوجد اختلافات في بيانات الـ ACID: يجب كتابة مبرر قبول الاختلافات.",
+        )
+
+    if item.status != target_status:
+        item.status = target_status
+        changed = True
+
     return changed
 
 
@@ -566,6 +627,7 @@ def create_acid_session_service(
     validate_acid_expiry(schema.expiry_date, schema.requested_date)
     if schema.import_file_id is not None:
         _active_import_file(db, schema.import_file_id)
+        _check_acid_conflict(db, schema.import_file_id, schema.acid_number)
     _require_active_po(db, schema.po_id)
 
     # Check if an active session already exists for this import file - if so, seamlessly update it (Upsert)
@@ -580,6 +642,8 @@ def create_acid_session_service(
         )
         if existing:
             update_data = schema.model_dump(exclude_unset=True)
+            for f in repo._SERVER_OWNED_ACID_FIELDS:
+                update_data.pop(f, None)
             for k, v in update_data.items():
                 if hasattr(existing, k) and v is not None:
                     setattr(existing, k, v)
@@ -594,20 +658,18 @@ def create_acid_session_service(
             _handle_acid_verification_workflow(db, existing)
             return enrich_acid_response(db, existing)
 
-    db_item = repo.create_acid_session(db, schema)
+    db_item = repo.create_acid_session(db, schema, commit=False)
 
     # DOC-15: no expiry sent -> issue (or request) date + ACID_DEFAULT_VALIDITY_DAYS, the same default the tracker
     # uses. The column is NOT NULL, so "leave it null" needs a schema change (deferred); never "today" any more.
-    changed = False
     if schema.expiry_date is None:
         base = db_item.generated_date or db_item.requested_date or date.today()
         default_expiry = base + timedelta(days=ACID_DEFAULT_VALIDITY_DAYS)
         if db_item.expiry_date != default_expiry:
             db_item.expiry_date = default_expiry
-            changed = True
-    if _apply_acid_derived_fields(db_item) or changed:
-        db.commit()
-        db.refresh(db_item)
+    _apply_acid_derived_fields(db_item)
+    db.commit()
+    db.refresh(db_item)
 
     # Trigger ACID verification and synchronization workflow
     _handle_acid_verification_workflow(db, db_item)
@@ -621,6 +683,10 @@ def update_acid_session_service(
     db_item = repo.get_acid_session_by_id(db, acid_id)
     if not db_item:
         raise not_found(LABEL_ACID_SESSION, acid_id)
+
+    target_file_id = schema.import_file_id if schema.import_file_id is not None else db_item.import_file_id
+    target_acid_num = schema.acid_number if schema.acid_number else db_item.acid_number
+    _check_acid_conflict(db, target_file_id, target_acid_num)
 
     if schema.import_file_id is not None:
         _active_import_file(db, schema.import_file_id)
@@ -637,11 +703,16 @@ def update_acid_session_service(
         new_requested = schema.requested_date if "requested_date" in schema.model_fields_set else db_item.requested_date
         validate_acid_expiry(new_expiry, new_requested)
 
-    updated = repo.update_acid_session(db, db_item, schema)
+    # BE03-T06: Drop status and match flags before repo update
+    payload_data = schema.model_dump(exclude_unset=True)
+    for f in repo._SERVER_OWNED_ACID_FIELDS:
+        payload_data.pop(f, None)
 
-    if _apply_acid_derived_fields(updated):
-        db.commit()
-        db.refresh(updated)
+    updated = repo.update_acid_session(db, db_item, payload_data, commit=False)
+
+    _apply_acid_derived_fields(updated)
+    db.commit()
+    db.refresh(updated)
 
     # Trigger ACID verification and synchronization workflow
     _handle_acid_verification_workflow(db, updated)
