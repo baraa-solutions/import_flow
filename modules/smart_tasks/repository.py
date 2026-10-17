@@ -91,6 +91,7 @@ def get_all_tasks(
     priority: Optional[str] = None,
     import_file_id: Optional[int] = None,
     search: Optional[str] = None,
+    order_by_priority: bool = False,
 ) -> List[SmartTask]:
     query = db.query(SmartTask)
 
@@ -119,6 +120,17 @@ def get_all_tasks(
                 SmartTask.import_file_code.ilike(term),
             )
         )
+
+    if order_by_priority:
+        from sqlalchemy import case
+        p_order = case(
+            (SmartTask.priority == "Critical", 1),
+            (SmartTask.priority == "High", 2),
+            (SmartTask.priority == "Medium", 3),
+            (SmartTask.priority == "Low", 4),
+            else_=5,
+        )
+        return query.order_by(p_order, SmartTask.task_id.desc()).all()
 
     return query.order_by(SmartTask.task_id.desc()).all()
 

@@ -105,6 +105,7 @@ const int _totalScreens = 71; // indices 0–70
 
 
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
+final selectedComprehensiveReportFileIdProvider = StateProvider<int?>((ref) => null);
 
 class _ScreenTabInfo {
   final String title;
@@ -332,6 +333,9 @@ void _liveRefreshScreenData(WidgetRef ref, int index) {
       break;
     case 44:
       ref.read(demurrageProvider.notifier).loadInitialData();
+      break;
+    case 47:
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
       break;
     case 49:
       ref.read(freightQuotationsProvider.notifier).fetchRFQs();
