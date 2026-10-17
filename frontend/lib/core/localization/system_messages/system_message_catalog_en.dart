@@ -1310,6 +1310,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'SDU_ACID_CONFLICT': {
     'note': 'The extracted ACID {acid_number} differs from the ACID on file {import_file_code} ({current_acid_number}).',
   },
+  'SDU_INVOICE_NUMBER_REQUIRED': {
+    'note': 'Invoice number is required to link invoice data to the import file.',
+  },
   'SDU_FILE_CLOSED': {
     'note': 'Import file {import_file_code} is {status}: extracted data cannot be applied to it.',
   },
