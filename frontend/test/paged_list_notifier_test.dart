@@ -88,6 +88,13 @@ void main() {
       expect(updated.search, 'test');
       expect(updated.sort, 'name');
     });
+
+    test('copyWith(sort: null) clears existing sort and removes sort key from params', () {
+      const query = ListQuery(page: 1, sort: '-score');
+      final cleared = query.copyWith(sort: null);
+      expect(cleared.sort, isNull);
+      expect(cleared.toQueryParameters().containsKey('sort'), isFalse);
+    });
   });
 
   group('PageResult unit tests', () {
@@ -305,6 +312,26 @@ void main() {
       await notifier.refresh();
       expect(notifier.state.query.filters['status'], 'Open');
       expect(notifier.state.data!.items.first.status, 'Open');
+
+      notifier.dispose();
+    });
+
+    test('setSort("-score") then setSort(null) clears sort and removes from query parameters', () async {
+      final items = [
+        const _TestItem(id: 1, name: 'A', status: 'Open', score: 10),
+        const _TestItem(id: 2, name: 'B', status: 'Open', score: 20),
+      ];
+      final source = ClientPagedSource<_TestItem>.fromList(items);
+      final notifier = DefaultPagedListNotifier<_TestItem>(source);
+      await pumpEventQueue();
+
+      notifier.setSort('-score');
+      expect(notifier.state.query.sort, '-score');
+      expect(notifier.state.query.toQueryParameters()['sort'], '-score');
+
+      notifier.setSort(null);
+      expect(notifier.state.query.sort, isNull);
+      expect(notifier.state.query.toQueryParameters().containsKey('sort'), isFalse);
 
       notifier.dispose();
     });

@@ -17,3 +17,14 @@ db=None now 422, is_active checked. FE now tags sea-freight lines with the first
 row 0 across sizes (40HC -> 20GP) silently drops the 40ft freight line, and with mixed 40+20 quotes the 20ft rate gets
 priced at the 40ft count. Ruled MAJOR (silent understated freight, user-driven off-quote edit), not BLOCKER. No 40GP widget test.
 Still open minors: zero commercial rate -> amount_usd 0, plain-string 422s, ref date not Cairo.
+
+Re-review 2026-10-08 at 52841331: BookingChargeBuilder keeps the quoted line (fallback tag 40HC/20GP) and sets mismatchError;
+_submitWithContainerValidation and _doSave block on it -> silent-drop BLOCKER fixed (no wrong money reaches backend).
+Builder unit tests (40GP, 45HC, mixed, size change) pass. But widget test "40HC -> 40GP allows save" FAILS: it edits
+bookingId 1 so save goes to updateBooking, recorder only captures createBooking; the sibling "20GP blocks save" test passes
+vacuously for the same reason. Ruled MAJOR (red required test, block not proven). Mismatch text hard-coded English (minor).
+
+Re-review 2026-10-10 at 8d66d7c9: recorder now overrides updateBooking; 40GP test asserts updated payload (40GP, total 4000);
+20GP test asserts created AND updated empty + notice shown -> block now proven. Mismatch text moved to 3 l10n keys (abstract/en/ar),
+builder exposes only flags. No money-path change. flutter test hung >50 min (two concurrent runs in the same scratch worktree
+behind the global flutter lock) -> counts not obtained; verified statically. Leftover: stale [mismatchError] doc comment.

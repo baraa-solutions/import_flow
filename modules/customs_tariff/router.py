@@ -1,11 +1,12 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from modules.auth.router import get_current_user
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from database.database import get_db
+from modules.auth.permissions import require_permission
+from modules.auth.router import get_current_user
 from utils.cache_manager import memory_cache
 
 from .schemas import (
@@ -14,35 +15,56 @@ from .schemas import (
     CustomsTariffCreate,
     CustomsTariffResponse,
     CustomsTariffUpdate,
-    MultiItemCustomsBreakdown,
-    MultiItemCustomsEstimateRequest,
-    PreferentialAgreementCreate,
-    PreferentialAgreementResponse,
-    TariffVerificationRequest,
+    FeeCodeCreate,
+    FeeCodeResponse,
     ImportFileCustomsSimulationRequest,
     ImportFileCustomsSimulationResponse,
+    MultiItemCustomsBreakdown,
+    MultiItemCustomsEstimateRequest,
+    OriginDutyCheckRequest,
+    OriginDutyCheckResponse,
+    PreferentialAgreementCreate,
+    PreferentialAgreementResponse,
+    SmartTariffParseRequest,
+    SmartTariffParseResponse,
+    TariffAgreementBulkSaveRequest,
+    TariffVerificationRequest,
 )
 from .service import (
     bulk_import_tariffs_service,
+    create_fee_code_service,
     create_preferential_agreement_service,
     create_tariff_service,
     delete_tariff_service,
     estimate_customs_duty_service,
     estimate_multi_item_customs_duty_service,
-    simulate_import_file_customs_duty_service,
+    evaluate_duty_by_origin_and_document_service,
     get_agreements_by_hs_code_service,
+    get_all_fee_codes_service,
     get_all_tariffs_service,
     get_tariff_by_hs_code_service,
     get_tariff_by_id_service,
+    get_tariff_version_history_service,
+    parse_smart_nafeza_tariff_text_service,
     restore_tariff_service,
+    save_tariff_with_agreements_service,
+    simulate_import_file_customs_duty_service,
     update_tariff_service,
     verify_and_update_tariff_service,
 )
 
-customs_tariff_router = APIRouter(prefix="/api/v1/customs-tariff", tags=["Customs Tariff"], dependencies=[Depends(get_current_user)])
+customs_tariff_router = APIRouter(
+    prefix="/api/v1/customs-tariff",
+    tags=["Customs Tariff"],
+    dependencies=[Depends(get_current_user)],
+)
+
+can_view = Depends(require_permission("customs_tariff.view"))
+can_edit = Depends(require_permission("customs_tariff.edit"))
+can_simulate = Depends(require_permission("customs_clearance.update"))
 
 
-@customs_tariff_router.get("", response_model=List[CustomsTariffResponse])
+@customs_tariff_router.get("", response_model=List[CustomsTariffResponse], dependencies=[can_view])
 def get_all_tariffs(
     include_inactive: bool = Query(False),
     search: Optional[str] = Query(None),
@@ -65,7 +87,7 @@ def get_all_tariffs(
     return res
 
 
-@customs_tariff_router.post("", response_model=CustomsTariffResponse)
+@customs_tariff_router.post("", response_model=CustomsTariffResponse, dependencies=[can_edit])
 def create_tariff(data: CustomsTariffCreate, db: Session = Depends(get_db)):
     try:
         res = create_tariff_service(db, data)
@@ -75,7 +97,7 @@ def create_tariff(data: CustomsTariffCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@customs_tariff_router.get("/", response_model=List[CustomsTariffResponse])
+@customs_tariff_router.get("/", response_model=List[CustomsTariffResponse], dependencies=[can_view])
 def list_tariffs(
     include_inactive: bool = Query(False),
     search: Optional[str] = Query(None),
@@ -98,7 +120,7 @@ def list_tariffs(
     return res
 
 
-@customs_tariff_router.post("/estimate", response_model=CustomsDutyBreakdown)
+@customs_tariff_router.post("/estimate", response_model=CustomsDutyBreakdown, dependencies=[can_view])
 def estimate_customs_duty(request: CustomsDutyEstimateRequest, db: Session = Depends(get_db)):
     """
     Egyptian Customs Calculation Engine API Endpoint.
@@ -107,7 +129,7 @@ def estimate_customs_duty(request: CustomsDutyEstimateRequest, db: Session = Dep
     return estimate_customs_duty_service(db, request)
 
 
-@customs_tariff_router.post("/estimate-multi", response_model=MultiItemCustomsBreakdown)
+@customs_tariff_router.post("/estimate-multi", response_model=MultiItemCustomsBreakdown, dependencies=[can_view])
 def estimate_multi_item_customs_duty(
     request: MultiItemCustomsEstimateRequest, db: Session = Depends(get_db)
 ):
@@ -118,8 +140,7 @@ def estimate_multi_item_customs_duty(
     return estimate_multi_item_customs_duty_service(db, request)
 
 
-
-@customs_tariff_router.get("/hs/{hs_code}", response_model=CustomsTariffResponse)
+@customs_tariff_router.get("/hs/{hs_code}", response_model=CustomsTariffResponse, dependencies=[can_view])
 def get_tariff_by_hs_code(hs_code: str, db: Session = Depends(get_db)):
     cache_key = f"customs_tariff:hs:{hs_code}"
     cached = memory_cache.get(cache_key)
@@ -130,82 +151,9 @@ def get_tariff_by_hs_code(hs_code: str, db: Session = Depends(get_db)):
     return res
 
 
-@customs_tariff_router.get("/{tariff_id}", response_model=CustomsTariffResponse)
-def get_tariff(tariff_id: int, db: Session = Depends(get_db)):
-    return get_tariff_by_id_service(db, tariff_id)
-
-
-@customs_tariff_router.put("/{tariff_id}", response_model=CustomsTariffResponse)
-def update_tariff(tariff_id: int, data: CustomsTariffUpdate, db: Session = Depends(get_db)):
-    try:
-        res = update_tariff_service(db, tariff_id, data)
-        memory_cache.clear_prefix("customs_tariff:")
-        return res
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@customs_tariff_router.delete("/{tariff_id}", response_model=CustomsTariffResponse)
-def delete_tariff(tariff_id: int, db: Session = Depends(get_db)):
-    res = delete_tariff_service(db, tariff_id)
-    memory_cache.clear_prefix("customs_tariff:")
-    return res
-
-
-@customs_tariff_router.patch("/{tariff_id}/restore", response_model=CustomsTariffResponse)
-def restore_tariff(tariff_id: int, db: Session = Depends(get_db)):
-    res = restore_tariff_service(db, tariff_id)
-    memory_cache.clear_prefix("customs_tariff:")
-    return res
-
-
-@customs_tariff_router.post("/hs/{hs_code}/verify", response_model=CustomsTariffResponse)
-def verify_and_update_tariff(
-    hs_code: str, request: TariffVerificationRequest, db: Session = Depends(get_db)
-):
-    """
-    تسجيل مراجعة يدوية وتحديث لبيانات البند الجمركي (Addendum 3 Workflow).
-    في حال تغيير نسب الضرائب، يتم إنشاء إيراد جديد أوتوماتيكياً والحفاظ على السجل التاريخي.
-    """
-    res = verify_and_update_tariff_service(db, hs_code, request)
-    memory_cache.clear_prefix("customs_tariff:")
-    return res
-
-
-@customs_tariff_router.get("/hs/{hs_code}/agreements", response_model=List[PreferentialAgreementResponse])
-def get_agreements_by_hs_code(
-    hs_code: str, origin_country: Optional[str] = Query(None), db: Session = Depends(get_db)
-):
-    """
-    استرجاع الاتفاقيات التجارية التفضيلية الخاصة ببند جمركي معين.
-    """
-    return get_agreements_by_hs_code_service(db, hs_code, origin_country)
-
-
-@customs_tariff_router.post("/agreements", response_model=PreferentialAgreementResponse)
-def create_preferential_agreement(
-    data: PreferentialAgreementCreate, db: Session = Depends(get_db)
-):
-    """
-    إضافة اتفاقية تفضيلية جديدة مرتبط بدولة منشأ وبند جمركي.
-    """
-    res = create_preferential_agreement_service(db, data)
-    memory_cache.clear_prefix("customs_tariff:")
-    return res
-
-
-@customs_tariff_router.post("/upload-excel")
-async def upload_customs_tariffs(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """
-    Upload Excel/CSV file containing Nafeza/Egyptian Customs Tariffs (HS Codes) for bulk creation or update.
-    """
-    contents = await file.read()
-    res = bulk_import_tariffs_service(db, contents, file.filename or "uploaded.csv")
-    memory_cache.clear_prefix("customs_tariff:")
-    return res
-
-
-@customs_tariff_router.get("/export-template")
+# Note: Specific routes (/export-template, /fee-codes) defined before /{tariff_id}
+# to prevent /{tariff_id} from capturing those string path segments as an integer id.
+@customs_tariff_router.get("/export-template", dependencies=[can_view])
 def export_customs_tariff_template():
     """
     Download sample CSV template for Egyptian Customs Tariff (MD-008).
@@ -223,11 +171,7 @@ def export_customs_tariff_template():
     )
 
 
-from .schemas import FeeCodeCreate, FeeCodeResponse
-from .service import create_fee_code_service, get_all_fee_codes_service
-
-
-@customs_tariff_router.get("/fee-codes", response_model=List[FeeCodeResponse])
+@customs_tariff_router.get("/fee-codes", response_model=List[FeeCodeResponse], dependencies=[can_view])
 def get_all_fee_codes(include_inactive: bool = Query(False), db: Session = Depends(get_db)):
     """
     استرجاع رسوم الإقرارات والنافذة الموحدة الرسمية.
@@ -235,7 +179,7 @@ def get_all_fee_codes(include_inactive: bool = Query(False), db: Session = Depen
     return get_all_fee_codes_service(db, include_inactive)
 
 
-@customs_tariff_router.post("/fee-codes", response_model=FeeCodeResponse)
+@customs_tariff_router.post("/fee-codes", response_model=FeeCodeResponse, dependencies=[can_edit])
 def create_fee_code(data: FeeCodeCreate, db: Session = Depends(get_db)):
     """
     إضافة كود رسم جديد لقائمة تحصيل نافذة والجمارك المصرية.
@@ -243,26 +187,82 @@ def create_fee_code(data: FeeCodeCreate, db: Session = Depends(get_db)):
     return create_fee_code_service(db, data)
 
 
-# ==================================================
-# Smart Nafeza Text Parser & Origin Check Endpoints
-# ==================================================
-
-from .schemas import (
-    SmartTariffParseRequest,
-    SmartTariffParseResponse,
-    TariffAgreementBulkSaveRequest,
-    OriginDutyCheckRequest,
-    OriginDutyCheckResponse,
-)
-from .service import (
-    parse_smart_nafeza_tariff_text_service,
-    save_tariff_with_agreements_service,
-    evaluate_duty_by_origin_and_document_service,
-    get_tariff_version_history_service,
-)
+@customs_tariff_router.get("/{tariff_id}", response_model=CustomsTariffResponse, dependencies=[can_view])
+def get_tariff(tariff_id: int, db: Session = Depends(get_db)):
+    return get_tariff_by_id_service(db, tariff_id)
 
 
-@customs_tariff_router.post("/parse-text", response_model=SmartTariffParseResponse)
+@customs_tariff_router.put("/{tariff_id}", response_model=CustomsTariffResponse, dependencies=[can_edit])
+def update_tariff(tariff_id: int, data: CustomsTariffUpdate, db: Session = Depends(get_db)):
+    try:
+        res = update_tariff_service(db, tariff_id, data)
+        memory_cache.clear_prefix("customs_tariff:")
+        return res
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@customs_tariff_router.delete("/{tariff_id}", response_model=CustomsTariffResponse, dependencies=[can_edit])
+def delete_tariff(tariff_id: int, db: Session = Depends(get_db)):
+    res = delete_tariff_service(db, tariff_id)
+    memory_cache.clear_prefix("customs_tariff:")
+    return res
+
+
+@customs_tariff_router.patch("/{tariff_id}/restore", response_model=CustomsTariffResponse, dependencies=[can_edit])
+def restore_tariff(tariff_id: int, db: Session = Depends(get_db)):
+    res = restore_tariff_service(db, tariff_id)
+    memory_cache.clear_prefix("customs_tariff:")
+    return res
+
+
+@customs_tariff_router.post("/hs/{hs_code}/verify", response_model=CustomsTariffResponse, dependencies=[can_edit])
+def verify_and_update_tariff(
+    hs_code: str, request: TariffVerificationRequest, db: Session = Depends(get_db)
+):
+    """
+    تسجيل مراجعة يدوية وتحديث لبيانات البند الجمركي (Addendum 3 Workflow).
+    في حال تغيير نسب الضرائب، يتم إنشاء إيراد جديد أوتوماتيكياً والحفاظ على السجل التاريخي.
+    """
+    res = verify_and_update_tariff_service(db, hs_code, request)
+    memory_cache.clear_prefix("customs_tariff:")
+    return res
+
+
+@customs_tariff_router.get("/hs/{hs_code}/agreements", response_model=List[PreferentialAgreementResponse], dependencies=[can_view])
+def get_agreements_by_hs_code(
+    hs_code: str, origin_country: Optional[str] = Query(None), db: Session = Depends(get_db)
+):
+    """
+    استرجاع الاتفاقيات التجارية التفضيلية الخاصة ببند جمركي معين.
+    """
+    return get_agreements_by_hs_code_service(db, hs_code, origin_country)
+
+
+@customs_tariff_router.post("/agreements", response_model=PreferentialAgreementResponse, dependencies=[can_edit])
+def create_preferential_agreement(
+    data: PreferentialAgreementCreate, db: Session = Depends(get_db)
+):
+    """
+    إضافة اتفاقية تفضيلية جديدة مرتبط بدولة منشأ وبند جمركي.
+    """
+    res = create_preferential_agreement_service(db, data)
+    memory_cache.clear_prefix("customs_tariff:")
+    return res
+
+
+@customs_tariff_router.post("/upload-excel", dependencies=[can_edit])
+async def upload_customs_tariffs(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """
+    Upload Excel/CSV file containing Nafeza/Egyptian Customs Tariffs (HS Codes) for bulk creation or update.
+    """
+    contents = await file.read()
+    res = bulk_import_tariffs_service(db, contents, file.filename or "uploaded.csv")
+    memory_cache.clear_prefix("customs_tariff:")
+    return res
+
+
+@customs_tariff_router.post("/parse-text", response_model=SmartTariffParseResponse, dependencies=[can_view])
 def parse_smart_nafeza_tariff_text(payload: SmartTariffParseRequest, db: Session = Depends(get_db)):
     """
     محلل وصائغ النصوص الجمركية الذكي (Smart Nafeza Tariff Text Parser).
@@ -275,7 +275,7 @@ def parse_smart_nafeza_tariff_text(payload: SmartTariffParseRequest, db: Session
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@customs_tariff_router.post("/with-agreements")
+@customs_tariff_router.post("/with-agreements", dependencies=[can_edit])
 def save_tariff_with_agreements(payload: TariffAgreementBulkSaveRequest, db: Session = Depends(get_db)):
     """
     حفظ/تحديث البند الجمركي مع كافة الاتفاقيات التفضيلية الخاصة به مع الحفاظ الكامل على السجلات واللقطات التاريخية.
@@ -283,7 +283,7 @@ def save_tariff_with_agreements(payload: TariffAgreementBulkSaveRequest, db: Ses
     return save_tariff_with_agreements_service(db, payload)
 
 
-@customs_tariff_router.post("/check-duty-for-origin", response_model=OriginDutyCheckResponse)
+@customs_tariff_router.post("/check-duty-for-origin", response_model=OriginDutyCheckResponse, dependencies=[can_view])
 def check_duty_for_origin_and_document(payload: OriginDutyCheckRequest, db: Session = Depends(get_db)):
     """
     استعلام وتقييم فئة الضريبة الجمركية والتنبيهات حسب بلد المنشأ وتأكيد المستند المطلوب (EUR.1).
@@ -291,7 +291,7 @@ def check_duty_for_origin_and_document(payload: OriginDutyCheckRequest, db: Sess
     return evaluate_duty_by_origin_and_document_service(db, payload)
 
 
-@customs_tariff_router.get("/history/{hs_code}")
+@customs_tariff_router.get("/history/{hs_code}", dependencies=[can_view])
 def get_tariff_version_history(hs_code: str, db: Session = Depends(get_db)):
     """
     استعلام سجل تاريخ السريان والإصدارات السابقة والحالية للبند الجمركي (HS Code Tariff History).
@@ -299,7 +299,7 @@ def get_tariff_version_history(hs_code: str, db: Session = Depends(get_db)):
     return get_tariff_version_history_service(db, hs_code)
 
 
-@customs_tariff_router.post("/simulate-file/{import_file_id}", response_model=ImportFileCustomsSimulationResponse)
+@customs_tariff_router.post("/simulate-file/{import_file_id}", response_model=ImportFileCustomsSimulationResponse, dependencies=[can_simulate])
 def simulate_import_file_customs_duties(
     import_file_id: int,
     payload: Optional[ImportFileCustomsSimulationRequest] = None,
@@ -310,5 +310,3 @@ def simulate_import_file_customs_duties(
     تستخرج بنود أمر الشراء أو الفواتير والنولون المعتمد وأسعار الصرف، وتحسب الرسوم وتحدث دراسة الاستشارة.
     """
     return simulate_import_file_customs_duty_service(db, import_file_id, payload)
-
-
