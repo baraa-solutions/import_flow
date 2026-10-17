@@ -694,3 +694,44 @@ def test_repository_never_raises_value_error():
     assert "raise ValueError" not in src
     # only the explicit restore paths reactivate: restore_acid_session + reactivate_po_reconciliation_session
     assert src.count(".is_active = True") == 2
+
+
+def test_acid_sessions_pagination_returns_subset_and_header(client, users, auth_env):
+    session_factory = auth_env[0]
+    db = session_factory()
+    try:
+        for i in range(3):
+            repo.create_acid_session(
+                db,
+                _acid_schema(acid_number=f"123456789012345678{i}", proforma_invoice_no=f"PI-PAGINATE-{i}"),
+            )
+    finally:
+        db.close()
+
+    h = _bearer(users["viewer"])
+    resp = client.get(f"{PREFIX}/acid-sessions?limit=2&skip=0", headers=h)
+    assert resp.status_code == 200, resp.text
+    assert len(resp.json()) == 2
+    assert resp.headers.get("x-total-count") == "3"
+
+    resp2 = client.get(f"{PREFIX}/acid-sessions?limit=2&skip=2", headers=h)
+    assert resp2.status_code == 200, resp2.text
+    assert len(resp2.json()) == 1
+    assert resp2.headers.get("x-total-count") == "3"
+
+
+def test_raw_text_limit_validation(client, users):
+    h = _bearer(users["viewer"])
+    # 200_001 characters should fail schema validation with 422
+    huge_text = "A" * 200_001
+    resp = client.post(f"{PREFIX}/acid/parse-text", json={"raw_text": huge_text}, headers=h)
+    assert resp.status_code == 422
+
+    # Form text limit check
+    h_op = _bearer(users["operator"])
+    resp_form = client.post(
+        f"{PREFIX}/po-reconciliation/extract-files-and-compare",
+        data={"invoice_text": huge_text},
+        headers=h_op,
+    )
+    assert resp_form.status_code == 422

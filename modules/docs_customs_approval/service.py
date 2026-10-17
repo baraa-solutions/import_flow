@@ -9,7 +9,7 @@ only for internal callers (tests, other services): they keep the legacy payload 
 
 import logging
 import re
-from typing import Callable, Iterable, List, Optional, Dict, Any, Tuple
+from typing import Callable, Iterable, List, Optional, Dict, Any, Tuple, Union
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
@@ -228,8 +228,21 @@ def list_approvals_service(
     document_type: Optional[str] = None,
     overall_status: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[CustomsDocumentApproval]:
-    return repo.list_approvals(db, include_inactive, import_file_id, document_type, overall_status, search)
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[CustomsDocumentApproval], Tuple[List[CustomsDocumentApproval], int]]:
+    return repo.list_approvals(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        document_type=document_type,
+        overall_status=overall_status,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 
 def soft_delete_approval_service(db: Session, approval_id: int) -> bool:
@@ -888,8 +901,22 @@ def list_rectification_tickets_service(
     status: Optional[str] = None,
     severity: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[DiscrepancyRectificationTicket]:
-    return repo.list_tickets(db, include_inactive, import_file_id, approval_id, status, severity, search)
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[DiscrepancyRectificationTicket], Tuple[List[DiscrepancyRectificationTicket], int]]:
+    return repo.list_tickets(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        approval_id=approval_id,
+        status=status,
+        severity=severity,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 
 # --- Docs Customs Approval Sessions Services (STEP-09) ---
@@ -1074,8 +1101,19 @@ def list_customs_approval_sessions_service(
     import_file_id: Optional[int] = None,
     is_draft: Optional[bool] = None,
     search: Optional[str] = None,
-) -> List[DocsCustomsApprovalSession]:
-    return repo.list_sessions(db, import_file_id, is_draft, search)
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[DocsCustomsApprovalSession], Tuple[List[DocsCustomsApprovalSession], int]]:
+    return repo.list_sessions(
+        db,
+        import_file_id=import_file_id,
+        is_draft=is_draft,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 
 def get_customs_approval_session_service(

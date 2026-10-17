@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from modules.common.legacy_rows import read_model
+from modules.import_documentation.validators import MAX_RAW_TEXT_CHARS
 
 _ACID_STATUS_WORDS = ("PENDING", "REQUESTED", "DRAFT", "")
 
@@ -61,7 +62,7 @@ class AcidRegistrationBase(BaseModel):
     expiry_date: Optional[date] = None
     execution_days: Optional[int] = None
 
-    raw_nafeza_text: Optional[str] = None
+    raw_nafeza_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     requested_data: Optional[Dict[str, Any]] = None
     generated_data: Optional[Dict[str, Any]] = None
     discrepancies_data: Optional[Dict[str, Any]] = None
@@ -106,7 +107,7 @@ class AcidRegistrationUpdate(BaseModel):
     generated_date: Optional[date] = None
     expiry_date: Optional[date] = None
     execution_days: Optional[int] = None
-    raw_nafeza_text: Optional[str] = None
+    raw_nafeza_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     requested_data: Optional[Dict[str, Any]] = None
     generated_data: Optional[Dict[str, Any]] = None
     discrepancies_data: Optional[Dict[str, Any]] = None
@@ -149,7 +150,7 @@ class AcidRegistrationResponse(AcidRegistrationBase):
 
 
 class AcidTextParseRequest(BaseModel):
-    raw_text: str = Field(..., min_length=10, description="Raw MTS / Nafeza approval notification text")
+    raw_text: str = Field(..., min_length=10, max_length=MAX_RAW_TEXT_CHARS, description="Raw MTS / Nafeza approval notification text")
     import_file_id: Optional[int] = None
 
 
@@ -598,7 +599,7 @@ class DualApprovalRequest(BaseModel):
 class NewDraftVersionRequest(BaseModel):
     parent_session_id: int
     draft_source: str = "SMART_TEXT"
-    raw_draft_text: Optional[str] = None
+    raw_draft_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     draft_fields: Optional[Dict[str, Any]] = None
 
 
@@ -710,8 +711,8 @@ class DraftBLReviewResponse(DraftBLReviewBase):
 class DraftBLComparisonRequest(BaseModel):
     import_file_id: int
     draft_source: str = "SMART_TEXT"
-    raw_draft_text: Optional[str] = None
-    raw_text: Optional[str] = None
+    raw_draft_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
+    raw_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     draft_fields: Optional[Dict[str, Any]] = None
 
 
@@ -728,7 +729,7 @@ class CertificateOfOriginReviewBase(BaseModel):
     transport_details: Optional[str] = None
     invoice_number: Optional[str] = None
     invoice_date: Optional[date] = None
-    raw_input_text: Optional[str] = None
+    raw_input_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     system_snapshot_data: Optional[Dict[str, Any]] = None
     draft_input_data: Optional[Dict[str, Any]] = None
     comparison_matrix: Optional[List[Dict[str, Any]]] = None
@@ -756,7 +757,7 @@ class CertificateOfOriginReviewUpdate(BaseModel):
     transport_details: Optional[str] = None
     invoice_number: Optional[str] = None
     invoice_date: Optional[date] = None
-    raw_input_text: Optional[str] = None
+    raw_input_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     draft_input_data: Optional[Dict[str, Any]] = None
     comparison_matrix: Optional[List[Dict[str, Any]]] = None
     has_discrepancies: Optional[bool] = None
@@ -785,7 +786,7 @@ class CertificateOfOriginReviewResponse(CertificateOfOriginReviewBase):
 class COOComparisonRequest(BaseModel):
     import_file_id: int
     certificate_type: str = "EUR.1"
-    raw_text: Optional[str] = None
+    raw_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     draft_fields: Optional[Dict[str, Any]] = None
 
 
@@ -815,7 +816,7 @@ class InspectionCertificateReviewBase(BaseModel):
     expiry_date: Optional[date] = None
     regulatory_authority: str = "GOEIC (الرقابة على الصادرات والواردات)"
     standard_specification: Optional[str] = "Egyptian Standard ES Egyptian Conformity"
-    raw_input_text: Optional[str] = None
+    raw_input_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     system_snapshot_data: Optional[Dict[str, Any]] = None
     draft_input_data: Optional[Dict[str, Any]] = None
     comparison_matrix: Optional[List[Dict[str, Any]]] = None
@@ -839,7 +840,7 @@ class InspectionCertificateReviewUpdate(BaseModel):
     expiry_date: Optional[date] = None
     regulatory_authority: Optional[str] = None
     standard_specification: Optional[str] = None
-    raw_input_text: Optional[str] = None
+    raw_input_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     draft_input_data: Optional[Dict[str, Any]] = None
     comparison_matrix: Optional[List[Dict[str, Any]]] = None
     has_discrepancies: Optional[bool] = None
@@ -867,7 +868,7 @@ class InspectionComparisonRequest(BaseModel):
     import_file_id: int
     inspection_type: str = "COC (Certificate of Conformity)"
     inspection_agency: str = "SGS"
-    raw_text: Optional[str] = None
+    raw_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     draft_fields: Optional[Dict[str, Any]] = None
 
 
@@ -885,7 +886,7 @@ class InspectionDraftTemplateResponse(BaseModel):
 
 class DocumentExtractRequest(BaseModel):
     document_type: str  # 'CHINA_COO', 'EUR1', 'INSPECTION_VOC', 'DRAFT_BL', 'COMMERCIAL_INVOICE'
-    raw_text: Optional[str] = None
+    raw_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     import_file_id: Optional[int] = None
 
 
@@ -974,9 +975,9 @@ class InvoiceBLDiscrepancyMatrixItem(BaseModel):
 
 class InvoiceBLExtractAndMatchRequest(BaseModel):
     import_file_id: Optional[int] = None
-    invoice_raw_text: Optional[str] = None
-    bl_raw_text: Optional[str] = None
-    packing_list_raw_text: Optional[str] = None
+    invoice_raw_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
+    bl_raw_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
+    packing_list_raw_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     invoice_fields: Optional[Dict[str, Any]] = None
     bl_fields: Optional[Dict[str, Any]] = None
     packing_list_fields: Optional[Dict[str, Any]] = None
@@ -1018,8 +1019,8 @@ class POHeaderDiscrepancyItem(BaseModel):
 
 class POExtractAndCompareRequest(BaseModel):
     import_file_id: Optional[int] = None
-    invoice_raw_text: Optional[str] = None
-    packing_list_raw_text: Optional[str] = None
+    invoice_raw_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
+    packing_list_raw_text: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     invoice_data: Optional[Dict[str, Any]] = None
     packing_data: Optional[Dict[str, Any]] = None
     system_items: Optional[List[Dict[str, Any]]] = None
@@ -1188,7 +1189,7 @@ class CentralArchiveDocumentSummary(BaseModel):
     document_reference: Optional[str] = None
     details: Dict[str, Any] = {}
     discrepancies: List[Dict[str, Any]] = []
-    raw_content: Optional[str] = None
+    raw_content: Optional[str] = Field(None, max_length=MAX_RAW_TEXT_CHARS)
     last_updated: Optional[datetime] = None
 
 

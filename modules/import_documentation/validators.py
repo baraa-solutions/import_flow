@@ -355,3 +355,17 @@ def validate_unique_po_lines(line_items: list) -> None:
                 )
             seen_po_item_ids.add(po_item_id)
 
+
+# --- BE03-T14: raw text limits ---------------------------------------------------------------------------------
+MAX_RAW_TEXT_CHARS = 200_000
+
+
+def validate_raw_text_length(text: Optional[str], field_name: str = "raw_text") -> Optional[str]:
+    """Ensures raw text does not exceed MAX_RAW_TEXT_CHARS (422 otherwise)."""
+    if text and len(text) > MAX_RAW_TEXT_CHARS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"النص المدخل في الحقل '{field_name}' يتجاوز الحد الأقصى المسموح به ({MAX_RAW_TEXT_CHARS:,} حرف).",
+        )
+    return text
+

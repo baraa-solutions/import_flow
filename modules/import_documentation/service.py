@@ -761,15 +761,31 @@ def list_acid_sessions_service(
     search: Optional[str] = None,
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
-) -> List[AcidRegistrationResponse]:
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[AcidRegistrationResponse], Tuple[List[AcidRegistrationResponse], int]]:
     """ACID sessions with the import file code, one bulk file query (DOC-17 / DOC-24)."""
-    items = repo.get_all_acid_sessions(
-        db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, status=status
+    res = repo.get_all_acid_sessions(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        status=status,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
     )
+    if return_total:
+        items, total = res
+    else:
+        items, total = res, len(res)
+
     if not items:
-        return []
+        return ([], total) if return_total else []
     import_files_map = get_import_files_map(db, [item.import_file_id for item in items])
-    return [enrich_acid_response(db, item, import_files_map=import_files_map) for item in items]
+    enriched = [enrich_acid_response(db, item, import_files_map=import_files_map) for item in items]
+    return (enriched, total) if return_total else enriched
 
 
 def get_acid_session_service(db: Session, acid_id: int) -> AcidRegistrationResponse:
@@ -1321,11 +1337,25 @@ def delete_banking_document_service(db: Session, bank_doc_id: int, user: Optiona
     return {"status": "success", "message": f"Banking Document {bank_doc_id} deleted"}
 
 
-def list_banking_documents_service(db: Session, import_file_id: Optional[int] = None) -> List[Any]:
+def list_banking_documents_service(
+    db: Session,
+    import_file_id: Optional[int] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[Any], Tuple[List[Any], int]]:
     """Banking documents with import file details, one bulk file query (DOC-17 / DOC-24)."""
-    items = repo.get_all_banking_documents(db, import_file_id=import_file_id)
+    res = repo.get_all_banking_documents(
+        db, import_file_id=import_file_id, skip=skip, limit=limit, return_total=return_total
+    )
+    if return_total:
+        items, total = res
+    else:
+        items, total = res, len(res)
+
     import_files_map = get_import_files_map(db, [item.import_file_id for item in items])
-    return [enrich_banking_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
+    enriched = [enrich_banking_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
+    return (enriched, total) if return_total else enriched
 
 
 def get_banking_document_service(db: Session, bank_doc_id: int):
@@ -1609,10 +1639,24 @@ def create_shipment_document_service(
     return enrich_shipment_doc_response(db, item)
 
 
-def list_shipment_documents_service(db: Session, import_file_id: Optional[int] = None) -> List[Any]:
-    items = repo.get_all_shipment_documents(db, import_file_id=import_file_id)
+def list_shipment_documents_service(
+    db: Session,
+    import_file_id: Optional[int] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[Any], Tuple[List[Any], int]]:
+    res = repo.get_all_shipment_documents(
+        db, import_file_id=import_file_id, skip=skip, limit=limit, return_total=return_total
+    )
+    if return_total:
+        items, total = res
+    else:
+        items, total = res, len(res)
+
     import_files_map = get_import_files_map(db, [item.import_file_id for item in items])
-    return [enrich_shipment_doc_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
+    enriched = [enrich_shipment_doc_response(db, item, import_file=import_files_map.get(item.import_file_id)) for item in items]
+    return (enriched, total) if return_total else enriched
 
 
 def update_cargox_and_bl_endorsement_service(
@@ -5817,11 +5861,23 @@ def list_invoice_bl_match_sessions_service(
     import_file_id: Optional[int] = None,
     is_draft: Optional[bool] = None,
     search: Optional[str] = None,
-) -> List[InvoiceBLMatchSession]:
-    sessions = repo.list_invoice_bl_match_sessions(db, import_file_id, is_draft, search)
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[InvoiceBLMatchSession], Tuple[List[InvoiceBLMatchSession], int]]:
+    res = repo.list_invoice_bl_match_sessions(
+        db,
+        import_file_id=import_file_id,
+        is_draft=is_draft,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
+    sessions, total = res if return_total else (res, None)
     for s in sessions:
         _attach_session_currency_mismatch(db, s)
-    return sessions
+    return (sessions, total) if return_total else sessions
 
 
 def get_invoice_bl_match_session_service(
@@ -6213,12 +6269,27 @@ def get_po_reconciliation_sessions_service(
     import_file_id: int | None = None,
     overall_status: str | None = None,
     search: str | None = None,
-) -> list[POReconciliationSessionResponse]:
-    sessions = repo.get_po_reconciliation_sessions(
-        db, import_file_id=import_file_id, overall_status=overall_status, search=search
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+) -> list[POReconciliationSessionResponse] | tuple[list[POReconciliationSessionResponse], int]:
+    res = repo.get_po_reconciliation_sessions(
+        db,
+        import_file_id=import_file_id,
+        overall_status=overall_status,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
     )
+    if return_total:
+        sessions, total = res
+    else:
+        sessions, total = res, len(res)
+
     files_map = get_import_files_map(db, [s.import_file_id for s in sessions])
-    return [enrich_po_reconciliation_session_response(db, s, import_files_map=files_map) for s in sessions]
+    enriched = [enrich_po_reconciliation_session_response(db, s, import_files_map=files_map) for s in sessions]
+    return (enriched, total) if return_total else enriched
 
 
 def get_po_reconciliation_session_by_id_service(
@@ -6292,23 +6363,85 @@ def delete_po_reconciliation_session_service(db: Session, session_id: int, user:
     return {"message": f"تم حذف جلسة المطابقة رقم {session_id} بنجاح", "deleted": True}
 
 
-def get_all_acid_sessions_service(db: Session, include_inactive: bool = False, search: str = None, import_file_id: int = None, status: str = None):
-    return repo.get_all_acid_sessions(db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, status=status)
+def get_all_acid_sessions_service(
+    db: Session,
+    include_inactive: bool = False,
+    search: str = None,
+    import_file_id: int = None,
+    status: str = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_all_acid_sessions(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        status=status,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 def get_acid_session_by_id_service(db: Session, acid_id: int):
     return repo.get_acid_session_by_id(db, acid_id)
 
-def get_all_banking_documents_service(db: Session, import_file_id: int = None):
-    return repo.get_all_banking_documents(db, import_file_id=import_file_id)
+def get_all_banking_documents_service(
+    db: Session,
+    import_file_id: int = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_all_banking_documents(
+        db,
+        import_file_id=import_file_id,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 def get_banking_document_by_id_service(db: Session, bank_doc_id: int):
     return repo.get_banking_document_by_id(db, bank_doc_id)
 
-def get_all_shipment_documents_service(db: Session, import_file_id: int = None):
-    return repo.get_all_shipment_documents(db, import_file_id=import_file_id)
+def get_all_shipment_documents_service(
+    db: Session,
+    import_file_id: int = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_all_shipment_documents(
+        db,
+        import_file_id=import_file_id,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
-def get_draft_bl_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None, is_draft: bool = None):
-    return repo.get_draft_bl_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search, is_draft=is_draft)
+def get_draft_bl_reviews_service(
+    db: Session,
+    include_inactive: bool = False,
+    import_file_id: int = None,
+    status: str = None,
+    search: str = None,
+    is_draft: bool = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_draft_bl_reviews(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        is_draft=is_draft,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 def get_draft_bl_review_by_id_service(db: Session, review_id: int, include_inactive: bool = True):
     return repo.get_draft_bl_review_by_id(db, review_id, include_inactive=include_inactive)
@@ -6327,8 +6460,28 @@ def delete_draft_bl_review_service(db: Session, review_id: int, user: Optional[s
     db.commit()
     return {"message": f"تم حذف جلسة مراجعة مسودة البوليصة رقم {review_id} بنجاح", "deleted": True}
 
-def get_coo_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None, is_draft: bool = None):
-    return repo.get_coo_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search, is_draft=is_draft)
+def get_coo_reviews_service(
+    db: Session,
+    include_inactive: bool = False,
+    import_file_id: int = None,
+    status: str = None,
+    search: str = None,
+    is_draft: bool = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_coo_reviews(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        is_draft=is_draft,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 def delete_coo_review_service(db: Session, review_id: int, user: Optional[str] = None) -> dict:
     review = repo.get_coo_review_by_id(db, review_id)
@@ -6350,8 +6503,26 @@ def delete_coo_review_service(db: Session, review_id: int, user: Optional[str] =
     db.commit()
     return {"message": f"تم حذف جلسة مراجعة المنشأ رقم {review_id} بنجاح", "deleted": True}
 
-def get_inspection_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
-    return repo.get_inspection_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search)
+def get_inspection_reviews_service(
+    db: Session,
+    include_inactive: bool = False,
+    import_file_id: int = None,
+    status: str = None,
+    search: str = None,
+    skip: int = 0,
+    limit: int | None = None,
+    return_total: bool = False,
+):
+    return repo.get_inspection_reviews(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        skip=skip,
+        limit=limit,
+        return_total=return_total,
+    )
 
 def delete_inspection_review_service(db: Session, review_id: int, user: Optional[str] = None) -> dict:
     ok = repo.delete_inspection_review(db, review_id)
