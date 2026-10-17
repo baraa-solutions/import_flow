@@ -575,6 +575,15 @@ void main() {
       await tester.enterText(noField, '46-ALX-2026-8888');
       await tester.pump();
 
+      // The channel is never preselected (no invented default): the user picks it.
+      final channel = find.byKey(const Key('decl46ChannelDropdown'));
+      await tester.ensureVisible(channel);
+      await tester.pumpAndSettle();
+      await tester.tap(channel);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('(Red Channel)').last);
+      await tester.pumpAndSettle();
+
       final saveBtn = find.byKey(const Key('saveDeclaration46Btn'));
       expect(saveBtn, findsOneWidget);
       await tester.ensureVisible(saveBtn);
@@ -662,6 +671,15 @@ void main() {
       final noField = find.byKey(const Key('decl46NoField'));
       await tester.enterText(noField, '46-ALX-2026-9999');
       await tester.pump();
+
+      // The channel is never preselected (no invented default): the user picks it.
+      final channelPick = find.byKey(const Key('decl46ChannelDropdown'));
+      await tester.ensureVisible(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('(Red Channel)').last);
+      await tester.pumpAndSettle();
 
       final saveBtn = find.byKey(const Key('saveDeclaration46Btn'));
       await tester.ensureVisible(saveBtn);
@@ -857,6 +875,15 @@ void main() {
       final todayIso = DateTime.now().toIso8601String().substring(0, 10);
       final visibleDate = tester.widget<TextFormField>(dateField).controller!.text;
       expect(visibleDate, todayIso);
+
+      // The channel is never preselected (no invented default): the user picks it.
+      final channelPick = find.byKey(const Key('decl46ChannelDropdown'));
+      await tester.ensureVisible(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('(Red Channel)').last);
+      await tester.pumpAndSettle();
 
       final saveBtn = find.byKey(const Key('saveDeclaration46Btn'));
       await tester.ensureVisible(saveBtn);

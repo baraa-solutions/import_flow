@@ -146,8 +146,10 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
   final TextEditingController _notesCtrl = TextEditingController();
 
   DateTime _declarationDate = DateTime.now();
-  String _selectedOffice = 'Alexandria Port Customs';
-  String _selectedChannel = 'Red Channel';
+  // No invented defaults: the office comes from the file's port of discharge or the user's choice,
+  // the channel always from the user (both required by the form).
+  String? _selectedOffice;
+  String? _selectedChannel;
 
   static const List<String> _customsOffices = [
     'Alexandria Port Customs',
@@ -990,6 +992,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                               ),
                           ],
                           value: _selectedOffice,
+                          isRequired: true,
+                          validator: (_) => _selectedOffice == null ? l.fieldRequired : null,
                           onChanged: (val) {
                             if (val != null) setState(() => _selectedOffice = val);
                           },
@@ -1005,6 +1009,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
                               ),
                           ],
                           value: _selectedChannel,
+                          isRequired: true,
+                          validator: (_) => _selectedChannel == null ? l.fieldRequired : null,
                           onChanged: (val) {
                             if (val != null) setState(() => _selectedChannel = val);
                           },
@@ -2249,6 +2255,7 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
 
   Future<void> _saveDeclaration46(AppLocalizations l) async {
     if (!_declarationFormKey.currentState!.validate()) return;
+    if (_selectedOffice == null || _selectedChannel == null) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         AppTheme.snackBar(context, l.customsDeclSelectFileWarning, severity: AppSeverity.danger),
@@ -2262,8 +2269,8 @@ ${_hasExemption ? l.customsDeclEur1ExemptionTitle : l.customsDeclMfnExemptionTit
         'import_file_id': _selectedImportFileId!,
         'declaration_46_no': _declaration46NoCtrl.text.trim(),
         'declaration_46_date': _declarationDate.toIso8601String(),
-        'customs_office_name': _selectedOffice,
-        'channel_type': _selectedChannel,
+        'customs_office_name': _selectedOffice!,
+        'channel_type': _selectedChannel!,
         'regulatory_bodies': <String>[],
         'mts_certificate_number': null,
         'customs_tariff_items_count': _matchedTariffs.isNotEmpty ? _matchedTariffs.length : 1,
