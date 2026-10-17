@@ -25,7 +25,7 @@ class _GrnDiscrepancyReportDialogState
   final _formKey = GlobalKey<FormState>();
   String _selectedDiscrepancyType = 'Shortage and Damage';
   late TextEditingController _notesCtrl;
-  bool _quarantineAssigned = true;
+  bool _quarantineAssigned = false;
   bool _fileClaim = false;
   late TextEditingController _claimRefCtrl;
   bool _isLoading = false;

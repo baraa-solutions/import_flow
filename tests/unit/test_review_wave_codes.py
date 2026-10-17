@@ -49,8 +49,6 @@ NOT_MESSAGE_FILES = {"modules/auth/seed_rbac.py"}  # role definitions ({"code": 
 KNOWN_PARAM_GAPS = {
     # financial_settlement.validators.ensure_cost_not_approved -> SETTLEMENT_COST_ALREADY_APPROVED
     ("SETTLEMENT_NOT_EDITABLE", "modules/financial_settlement/validators.py"),
-    # warehouse_receiving.validators.validate_verdict_matches -> WR_VERDICT_INCONSISTENT_EXPECTED
-    ("WR_VERDICT_INCONSISTENT", "modules/warehouse_receiving/validators.py"),
 }
 
 REVIEW_WAVE_CODES = (

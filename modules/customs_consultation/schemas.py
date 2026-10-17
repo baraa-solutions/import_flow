@@ -158,7 +158,8 @@ class CustomsBrokerQuoteItemBase(BaseModel):
 
 
 class CustomsBrokerQuoteItemCreate(CustomsBrokerQuoteItemBase):
-    pass
+    unit_price: float = Field(0.0, ge=0)
+    qty: float = Field(1.0, gt=0)
 
 
 class CustomsBrokerQuoteItemResponse(CustomsBrokerQuoteItemBase):
@@ -213,8 +214,8 @@ class CustomsChecklistItemResponse(CustomsChecklistItemBase):
 
 class CustomsConsultationBase(BaseModel):
     title: str = Field(..., min_length=2, max_length=200)
-    broker_id: int
-    broker_name: str
+    broker_id: Optional[int] = None
+    broker_name: Optional[str] = None
     broker_contact_person: Optional[str] = None
     broker_price_list_id: Optional[int] = None
     import_file_id: Optional[int] = None

@@ -16,10 +16,17 @@ class ContainerAllocationItem(BaseModel):
 class BookingChargeItem(BaseModel):
     charge_type: str = Field(..., description="e.g. Sea Freight, THC, VGM Fee, BL Fee, EUR1")
     unit: str = Field(default="Per Container", description="Per Container or Per Shipment")
-    quantity: int = Field(default=1, ge=1)
+    quantity: float = Field(default=1.0, gt=0.0)
+    container_type: Optional[str] = Field(default=None, description="e.g. 20GP, 40HC, 45HC")
     currency: str = Field(default="USD")
     rate: float = Field(default=0.0, ge=0.0)
     total: float = Field(default=0.0, ge=0.0)
+    fx_rate_to_usd: Optional[float] = None
+    amount_usd: Optional[float] = None
+    charge_category: Optional[str] = Field(
+        default=None,
+        description="FREIGHT, ORIGIN_LOCAL, DESTINATION_LOCAL, INSURANCE, STORAGE, OTHER",
+    )
 
 
 class ShipmentBookingBase(BaseModel):
@@ -42,6 +49,7 @@ class ShipmentBookingBase(BaseModel):
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
     atd: Optional[datetime] = None
+    shipped_on_board_date: Optional[date] = None
     departure_delay_days: Optional[int] = 0
     expected_warehouse_days: Optional[int] = 7
     expected_warehouse_arrival_date: Optional[datetime] = None
@@ -84,6 +92,7 @@ class ShipmentBookingUpdate(BaseModel):
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
     atd: Optional[datetime] = None
+    shipped_on_board_date: Optional[date] = None
     departure_delay_days: Optional[int] = None
     expected_warehouse_days: Optional[int] = None
     expected_warehouse_arrival_date: Optional[datetime] = None

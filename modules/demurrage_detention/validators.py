@@ -35,8 +35,21 @@ def validate_demurrage_dates(
     discharge_date: date,
     gate_out_date: Optional[date] = None,
     empty_return_date: Optional[date] = None,
+    today: Optional[date] = None,
 ) -> None:
     """Validates chronological order of container operational milestones."""
+    if today:
+        if gate_out_date and gate_out_date > today:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="تاريخ خروج الحاوية من الميناء (Gate-Out) لا يمكن أن يكون في المستقبل.",
+            )
+        if empty_return_date and empty_return_date > today:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="تاريخ إعادة الحاوية الفارغة لا يمكن أن يكون في المستقبل.",
+            )
+
     if gate_out_date and gate_out_date < discharge_date:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
