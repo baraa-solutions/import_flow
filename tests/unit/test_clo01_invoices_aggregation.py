@@ -183,6 +183,7 @@ class TestCLO01InvoicesAggregation:
             import_file_id=imp.import_file_id,
             carrier_name="MSC",
             bill_of_lading_no="MSCU123456789",
+            port_name="Alexandria Port",
             discharge_date=date(2026, 9, 1),
             total_demurrage_fx=100.0,
             currency="USD",

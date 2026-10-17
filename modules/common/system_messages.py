@@ -1367,6 +1367,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "CCQ_RFQ_STATUS_INVALID": {
         "note": "RFQ status '{status}' is not allowed; awarding is done through the award action only.",
     },
+    "CCQ_RFQ_AWARDED": {
+        "note": "The RFQ is already awarded and cannot be modified, deleted, or awarded again.",
+    },
     "CCQ_RFQ_CANCELLED": {"note": "RFQ {rfq_code} is cancelled and cannot be awarded."},
     "CCQ_QUOTE_EXPIRED": {"note": "The quotation expired on {validity_date}."},
     "CCQ_AWARDED_QUOTE_DELETE": {"note": "The awarded quotation cannot be deleted."},

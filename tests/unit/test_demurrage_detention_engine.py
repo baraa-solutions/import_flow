@@ -307,6 +307,7 @@ class TestDemurrageDetentionEngine:
             import_file_id=501,
             carrier_name="MSC",
             bill_of_lading_no="BL-NO-GATEOUT",
+            port_name="Alexandria Port",
             discharge_date=date(2026, 9, 1),
             gate_out_date=None,
             empty_return_date=date(2026, 9, 10),
@@ -324,6 +325,7 @@ class TestDemurrageDetentionEngine:
             import_file_id=501,
             carrier_name="MSC",
             bill_of_lading_no="BL-VALID-INIT",
+            port_name="Alexandria Port",
             discharge_date=date(2026, 9, 1),
             gate_out_date=None,
             empty_return_date=None,
@@ -409,6 +411,7 @@ class TestDemurrageDetentionEngine:
             import_file_id=601,
             carrier_name="MSC",
             bill_of_lading_no="BL-EIR-TEST",
+            port_name="Alexandria Port",
             discharge_date=date(2026, 9, 1),
             containers=[
                 ContainerItemInput(container_no="MSCU001", container_type="40ft High Cube"),

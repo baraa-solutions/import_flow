@@ -72,6 +72,7 @@ def _make_tracking_req(
         import_file_code=import_file_code,
         carrier_name=carrier_name,
         bill_of_lading_no=bill_of_lading_no,
+        port_name="Alexandria",
         discharge_date=discharge_date or date(2026, 1, 1),
         containers=[
             ContainerItemInput(container_no="MSCU1111111", container_type="40ft High Cube")
@@ -207,6 +208,7 @@ def test_record_empty_container_return_multiple_active_trackings(db, test_import
         tracking_code="DND-DUP-001",
         carrier_name="MSC",
         bill_of_lading_no="BL-DUP1",
+        port_name="Alexandria",
         discharge_date=date(2026, 1, 1),
         exchange_rate=50.0,
         is_active=True,
@@ -216,6 +218,7 @@ def test_record_empty_container_return_multiple_active_trackings(db, test_import
         tracking_code="DND-DUP-002",
         carrier_name="MSC",
         bill_of_lading_no="BL-DUP2",
+        port_name="Alexandria",
         discharge_date=date(2026, 1, 1),
         exchange_rate=50.0,
         is_active=True,
@@ -266,6 +269,7 @@ def test_api_endpoint_conflict_responses(session_factory, test_import_file):
         "import_file_code": "CLI_FAKE",
         "carrier_name": "MSC",
         "bill_of_lading_no": "BL-API-1",
+        "port_name": "Alexandria",
         "discharge_date": "2026-01-01",
         "containers": [{"container_no": "MSCU1111111", "container_type": "40ft High Cube"}],
         "currency": "USD",

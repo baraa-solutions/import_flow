@@ -145,6 +145,7 @@ def test_daily_report_flagged_needs_attention_for_demurrage_risk(isolated_db):
         tracking_code="DND-TEST-001",
         carrier_name="MSC",
         bill_of_lading_no="BL-TEST-999",
+        port_name="Alexandria Port",
         discharge_date=now.date() - timedelta(days=13),
         containers=[{"container_no": "MSCU1234567", "demurrage_days": 1, "demurrage_fx": 40.0}],
         exchange_rate=50.0,  # no default rate since the review wave (NOT NULL, no fabricated 50.0)
