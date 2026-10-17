@@ -272,6 +272,7 @@ class _ImportFilePickerDialogState extends ConsumerState<ImportFilePickerDialog>
     return Form(
       key: _formKey,
       child: SearchableDropdownField<int>(
+        key: const Key('importFilePickerDropdown'),
         value: _selectedFileId,
         labelText: l.importFilePickerSelectFile,
         searchHintText: l.importFilePickerSearchHint,
@@ -330,6 +331,7 @@ class _ImportFilePickerDialogState extends ConsumerState<ImportFilePickerDialog>
           const Spacer(),
           if (hasFiles)
             AppButton(
+              key: const Key('importFilePickerContinueBtn'),
               label: l.importFilePickerContinue,
               variant: AppButtonVariant.primary,
               onPressed: _selectedFileId == null

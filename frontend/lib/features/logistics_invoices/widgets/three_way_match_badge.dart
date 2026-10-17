@@ -86,7 +86,7 @@ class ThreeWayMatchBadge extends ConsumerWidget {
               ),
               const Divider(height: 24),
               const Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 child: Text('Line-by-Line Breakdown:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               ),
               const SizedBox(height: 8),

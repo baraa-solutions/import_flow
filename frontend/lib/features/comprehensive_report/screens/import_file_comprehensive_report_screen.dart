@@ -2999,8 +2999,8 @@ class _ImportFileComprehensiveReportScreenState
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: bgGradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: AlignmentDirectional.topStart,
+            end: AlignmentDirectional.bottomEnd,
           ),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withOpacity(0.3)),

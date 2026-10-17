@@ -931,6 +931,30 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
     'title': 'تم حجز سيارات النقل الداخلي (TR-01)',
     'body': 'تم حجز الشاحنة {truck_plate_number} لنقل الشحنة {import_file_code} من {pickup_location} إلى {destination_warehouse}. السائق: {driver_name} ({driver_phone}).',
   },
+  'DOC_TASK_TAX_CODING_PULL': {
+    'title': 'سحب شيت التكويد الضريبي من نافذة - {import_file_code}',
+    'body': 'مطلوب من المستخلص الجمركي سحب شيت التكويد الضريبي من منصة نافذة تمهيداً لرفعه للمحاسب لشحنة {import_file_code}.',
+  },
+  'DOC_TASK_TAX_CODING_UPLOAD': {
+    'title': 'رفع وتكويد شيت الأصناف الضريبي على منصة نافذة - {import_file_code}',
+    'body': 'قام المستخلص بسحب شيت التكويد الضريبي. مطلوب من المحاسب استكمال التكويد ورفعه بحساب الشركة على نافذة لملف {import_file_code}.',
+  },
+  'DOC_TASK_ITEMS_VERIFY_BANK_LINK': {
+    'title': 'سحب الأصناف للتأكد من التكويد والربط على بنك: {bank_name} - {import_file_code}',
+    'body': 'تم رفع وتكويد شيت الأصناف بنجاح. مطلوب من المستخلص سحب الأصناف للتأكد من تمام التكويد، ثم ربط الشحنة على نافذة على {bank_name} لشحنة {import_file_code}.',
+  },
+  'DOC_TASK_ITEMS_VERIFY_SWIFT_BANK_LINK': {
+    'title': 'سحب الأصناف للتأكد من التكويد والربط على البنك المنفذ للسويفت - {import_file_code}',
+    'body': 'تم رفع وتكويد شيت الأصناف بنجاح. مطلوب من المستخلص سحب الأصناف للتأكد من تمام التكويد، ثم ربط الشحنة على نافذة على البنك المنفذ للسويفت لشحنة {import_file_code}.',
+  },
+  'DOC_TASK_FORM4_SUBMIT': {
+    'title': 'تقديم ملف نموذج 4 لفرع بنك: {bank_name} - {import_file_code}',
+    'body': 'تم استكمال التكويد الضريبي والربط على بنك {bank_name} على نافذة. جاهز لتقديم طلب نموذج 4 رسمياً للبنك ومتابعة الاعتماد لشحنة {import_file_code}.',
+  },
+  'DOC_REGULATORY_BODIES_DETECTED': {
+    'title': 'عروض رقابية مكتشفة لشحنة {import_file_code}',
+    'body': 'أظهر سحب الأصناف على نافذة وجود جهات عرض رقابية: {regulatory_bodies}. يرجى تجهيز ملف الفحص وسحب العينات مبكراً.',
+  },
   'TR_TASK_TRACK_ARRIVAL_GRN': {
     'title': 'متابعة وصول الشاحنة للمستودع وإصدار إذن الإضافة GRN (TR-03)',
   },
@@ -1313,6 +1337,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'DOC_INVOICE_BL_SYNCED': {
     'note': 'تمت مطابقة واعتماد الفاتورة {invoice_number} وبوليصة الشحن {draft_bl_number} ومزامنتهما مع الملف الاستيرادي والموافقات الجمركية.',
+  },
+  'DOC_INVOICE_BL_NOT_CERTIFIED': {
+    'note': 'لا توجد جلسة مطابقة معتمدة للفاتورة والبوليصة لملف الاستيراد {import_file_id}: يجب اعتماد جلسة المطابقة أولاً قبل المزامنة.',
   },
   'ODC_COURIER_NOT_FOUND': {
     'note': 'شحنة البريد السريع {courier_no} غير مسجلة في جلسة المستندات الأصلية لهذا الملف. أضفها إلى الجلسة أولاً.',
