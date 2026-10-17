@@ -27,6 +27,9 @@ from modules.financial_approval.model import (
 )
 from modules.financial_approval.schemas import (
     CloneImportBudgetRequest,
+
+
+    BudgetPrefillResponse,
     ClonePaymentRequestRequest,
     ImportBudgetCreate,
     ImportBudgetUpdate,
@@ -825,4 +828,72 @@ def test_match_swift_batch_before_confirmation_raises_409(db):
         service.match_reviewed_batch_service(db, batch.batch_id)
     assert exc.value.status_code == 409
     assert _code(exc) == "FA_SWIFT_BATCH_STATUS_INVALID"
+
+
+# ─── BE02-T18: legacy-tolerant budget money and base64 size limit ────────────
+
+def test_smart_swift_file_extract_oversize_base64_422():
+    with pytest.raises(ValidationError):
+        SmartSwiftFileExtractRequest(filename="invoice.pdf", file_base64="A" * 14_000_000)
+
+    # Valid string under limit does not raise
+    valid = SmartSwiftFileExtractRequest(filename="invoice.pdf", file_base64="A" * 100)
+    assert valid.filename == "invoice.pdf"
+
+
+def test_import_budget_legacy_null_money_response(db, api):
+    from sqlalchemy import text
+
+    officer = _user(db, "finance_officer_legacy", "FINANCE_OFFICER")
+    budget = seed_budget(db, None, status="Budget Approved")
+    # Simulate legacy row where money fields are NULL in database
+    db.execute(text(
+        "UPDATE import_budget_approvals SET invoice_amount_egp = NULL, invoice_amount_foreign = NULL, "
+        "freight_cost_egp = NULL, freight_cost_foreign = NULL, customs_duties_egp = NULL, "
+        "clearance_inland_egp = NULL, exchange_rate = NULL, total_budget_egp = NULL "
+        "WHERE budget_id = :id"
+    ), {"id": budget.budget_id})
+    db.commit()
+
+    resp = api.get(f"{BASE}/import-budgets", headers=_bearer(officer))
+    assert resp.status_code == 200, resp.text
+    rows = resp.json()
+    item = next(r for r in rows if r["budget_id"] == budget.budget_id)
+    assert item["invoice_amount_egp"] is None
+    assert item["freight_cost_egp"] is None
+    assert item["total_budget_egp"] is None
+    assert item["exchange_rate"] is None
+
+
+def test_cost_diffs_handles_legacy_null_budget_money():
+    from modules.financial_approval.service import _cost_diffs
+    from modules.financial_approval.model import ImportBudgetApproval
+
+    budget = ImportBudgetApproval(
+        budget_id=1,
+        title="Legacy Budget",
+        invoice_amount_egp=None,
+        freight_cost_egp=None,
+        customs_duties_egp=None,
+        clearance_inland_egp=None,
+    )
+    prefill = BudgetPrefillResponse(
+        import_file_id=1,
+        import_file_code="IMP-001",
+        import_file_title="Imp",
+        incoterm="FOB",
+        supplier_name="Sup",
+        payment_terms_summary="Cash",
+        total_invoice_amount_egp=1000.0,
+        estimated_freight_cost_egp=500.0,
+        estimated_customs_duties_egp=200.0,
+        estimated_clearance_fees_egp=100.0,
+    )
+    diffs = _cost_diffs(budget, prefill, threshold=5.0)
+    assert len(diffs) == 4
+    # All diffs should treat old as 0.0 and calculate 100% variance
+    for d in diffs:
+        assert d.old == 0.0
+        assert d.pct == 100.0
+        assert d.is_hard is True
 

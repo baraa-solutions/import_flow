@@ -194,7 +194,14 @@ class ImportBudgetResponse(ImportBudgetBase):
     version: int = 1
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
-    total_budget_egp: float
+    invoice_amount_egp: Optional[float] = None
+    invoice_amount_foreign: Optional[float] = None
+    freight_cost_egp: Optional[float] = None
+    freight_cost_foreign: Optional[float] = None
+    customs_duties_egp: Optional[float] = None
+    clearance_inland_egp: Optional[float] = None
+    exchange_rate: Optional[float] = None
+    total_budget_egp: Optional[float] = None
     budget_status: str
     approved_by: Optional[str] = None
     approved_date: Optional[date] = None
@@ -345,7 +352,7 @@ class SmartSwiftExtractRequest(BaseModel):
 
 class SmartSwiftFileExtractRequest(BaseModel):
     filename: str
-    file_base64: str
+    file_base64: str = Field(..., max_length=13_981_020)
     target_payment_id: Optional[int] = None
 
 

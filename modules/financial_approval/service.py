@@ -1435,11 +1435,13 @@ def _cost_diffs(budget: ImportBudgetApproval, prefill: BudgetPrefillResponse, th
     diffs: List[_CostDiff] = []
     for column, prefill_attr, label in _COST_FIELDS:
         old = getattr(budget, column)
+        old_val = float(old) if old is not None else 0.0
         new = getattr(prefill, prefill_attr)
-        diff = new - old
+        new_val = float(new) if new is not None else 0.0
+        diff = new_val - old_val
         if abs(diff) > VARIANCE_MIN_DIFF_EGP:
-            pct = 100.0 if old == 0.0 else round((abs(diff) / old) * 100.0, 2)
-            diffs.append(_CostDiff(column, label, old, new, diff, pct, pct > threshold))
+            pct = 100.0 if old_val == 0.0 else round((abs(diff) / old_val) * 100.0, 2)
+            diffs.append(_CostDiff(column, label, old_val, new_val, diff, pct, pct > threshold))
     return diffs
 
 
