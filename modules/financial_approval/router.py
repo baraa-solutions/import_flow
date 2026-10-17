@@ -9,7 +9,8 @@ The acting user always comes from the authenticated user, never from the payload
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 import modules.financial_approval.service as service
@@ -77,7 +78,8 @@ async def smart_extract_swift_from_file(
     _: User = Depends(can_manage),
 ):
     content_bytes = await file.read(service.MAX_SWIFT_FILE_BYTES + 1)  # one byte over the cap is enough for the 413
-    return service.smart_extract_swift_from_file_service(
+    return await run_in_threadpool(
+        service.smart_extract_swift_from_file_service,
         db=db,
         filename=file.filename or "uploaded_swift_document",
         content_bytes=content_bytes,
@@ -102,9 +104,9 @@ def smart_extract_swift_from_base64(
     summary="Reconcile SWIFT details against an Approved payment request and mark it Paid",
 )
 def smart_reconcile_swift(
-    payload: SmartSwiftReconcileRequest, db: Session = Depends(get_db), _: User = Depends(can_approve)
+    payload: SmartSwiftReconcileRequest, db: Session = Depends(get_db), current_user: User = Depends(can_approve)
 ):
-    return service.smart_reconcile_swift_service(db, payload)
+    return service.smart_reconcile_swift_service(db, payload, current_user_name=current_user.username)
 
 
 # --- SWIFT EXTRACTION REVIEW LAYER ENDPOINTS ---
@@ -216,6 +218,9 @@ def create_payment_request(
 
 @router.get("/payment-requests", response_model=List[PaymentRequestResponse])
 def list_payment_requests(
+    response: Response,
+    skip: int = Query(0, ge=0),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     include_inactive: bool = False,
     search: Optional[str] = None,
     po_id: Optional[int] = None,
@@ -224,9 +229,18 @@ def list_payment_requests(
     db: Session = Depends(get_db),
     _: User = Depends(can_view),
 ):
-    return service.get_all_payment_requests_service(
-        db, include_inactive=include_inactive, search=search, po_id=po_id, supplier_id=supplier_id, status=status,
+    items, total = service.get_all_payment_requests_service(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        po_id=po_id,
+        supplier_id=supplier_id,
+        status=status,
+        skip=skip,
+        limit=limit,
     )
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get("/payment-requests/{payment_id}", response_model=PaymentRequestResponse)
@@ -247,8 +261,8 @@ def update_payment_request(
 
 
 @router.post("/payment-requests/{payment_id}/approve", response_model=PaymentRequestResponse)
-def approve_payment_request(payment_id: int, db: Session = Depends(get_db), _: User = Depends(can_approve)):
-    return service.approve_payment_request_service(db, payment_id)
+def approve_payment_request(payment_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_approve)):
+    return service.approve_payment_request_service(db, payment_id, current_user_name=current_user.username)
 
 
 @router.post("/payment-requests/{payment_id}/pay", response_model=PaymentRequestResponse)
@@ -256,9 +270,9 @@ def execute_payment(
     payment_id: int,
     swift_reference_no: Optional[str] = None,
     db: Session = Depends(get_db),
-    _: User = Depends(can_approve),
+    current_user: User = Depends(can_approve),
 ):
-    return service.execute_payment_service(db, payment_id, swift_reference_no)
+    return service.execute_payment_service(db, payment_id, swift_reference_no, current_user_name=current_user.username)
 
 
 @router.post(
@@ -270,9 +284,9 @@ def reconcile_swift_payment(
     payment_id: int,
     payload: SwiftReconciliationRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(can_approve),
+    current_user: User = Depends(can_approve),
 ):
-    return service.reconcile_swift_service(db, payment_id, payload)
+    return service.reconcile_swift_service(db, payment_id, payload, current_user_name=current_user.username)
 
 
 @router.post(
@@ -285,20 +299,20 @@ def clone_payment_request(
     payment_id: int,
     payload: ClonePaymentRequestRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(can_manage),
+    current_user: User = Depends(can_manage),
 ):
-    return service.clone_payment_request_service(db, payment_id, payload)
+    return service.clone_payment_request_service(db, payment_id, payload, current_user_name=current_user.username)
 
 
 @router.delete("/payment-requests/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def soft_delete_payment_request(payment_id: int, db: Session = Depends(get_db), _: User = Depends(can_manage)):
-    service.soft_delete_payment_request_service(db, payment_id)
+def soft_delete_payment_request(payment_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_manage)):
+    service.soft_delete_payment_request_service(db, payment_id, current_user_name=current_user.username)
 
 
 @router.post("/payment-requests/{payment_id}/restore")
-def restore_payment_request(payment_id: int, db: Session = Depends(get_db), _: User = Depends(can_manage)):
-    service.restore_payment_request_service(db, payment_id)
-    return {"message": "Payment Request restored successfully"}
+def restore_payment_request(payment_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_manage)):
+    service.restore_payment_request_service(db, payment_id, current_user_name=current_user.username)
+    return {"message": "تم استعادة طلب الصرف بنجاح"}
 
 
 # --- IMPORT BUDGET ENDPOINTS (BP-013) ---
@@ -311,6 +325,9 @@ def create_import_budget(
 
 @router.get("/import-budgets", response_model=List[ImportBudgetResponse])
 def list_import_budgets(
+    response: Response,
+    skip: int = Query(0, ge=0),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     include_inactive: bool = False,
     search: Optional[str] = None,
     import_file_id: Optional[int] = None,
@@ -319,10 +336,18 @@ def list_import_budgets(
     db: Session = Depends(get_db),
     _: User = Depends(can_view),
 ):
-    return service.get_all_import_budgets_service(
-        db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, po_id=po_id,
+    items, total = service.get_all_import_budgets_service(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
         budget_status=budget_status,
+        skip=skip,
+        limit=limit,
     )
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.post("/import-budgets/{budget_id}/approve", response_model=ImportBudgetResponse)
@@ -345,9 +370,9 @@ def clone_import_budget(
     budget_id: int,
     payload: CloneImportBudgetRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(can_manage),
+    current_user: User = Depends(can_manage),
 ):
-    return service.clone_import_budget_service(db, budget_id, payload)
+    return service.clone_import_budget_service(db, budget_id, payload, current_user_name=current_user.username)
 
 
 @router.post(
@@ -429,11 +454,11 @@ def update_import_budget(
 
 
 @router.delete("/import-budgets/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)
-def soft_delete_import_budget(budget_id: int, db: Session = Depends(get_db), _: User = Depends(can_manage)):
-    service.soft_delete_import_budget_service(db, budget_id)
+def soft_delete_import_budget(budget_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_manage)):
+    service.soft_delete_import_budget_service(db, budget_id, current_user_name=current_user.username)
 
 
 @router.post("/import-budgets/{budget_id}/restore")
-def restore_import_budget(budget_id: int, db: Session = Depends(get_db), _: User = Depends(can_manage)):
-    service.restore_import_budget_service(db, budget_id)
-    return {"message": "Import Budget restored successfully"}
+def restore_import_budget(budget_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_manage)):
+    service.restore_import_budget_service(db, budget_id, current_user_name=current_user.username)
+    return {"message": "تم استعادة ميزانية الاستيراد بنجاح"}

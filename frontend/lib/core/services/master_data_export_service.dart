@@ -19,6 +19,32 @@ import '../../features/import_requirements/models/import_requirement_model.dart'
 import '../../features/demurrage_detention/models/demurrage_model.dart';
 
 class MasterDataExportService {
+  /// Standardized safe date formatting for export documents (YYYY-MM-DD).
+  static String formatDateSafe(dynamic dt) {
+    if (dt == null) return '-';
+    if (dt is DateTime) {
+      final y = dt.year.toString().padLeft(4, '0');
+      final m = dt.month.toString().padLeft(2, '0');
+      final d = dt.day.toString().padLeft(2, '0');
+      return '$y-$m-$d';
+    }
+    final str = dt.toString().trim();
+    if (str.isEmpty || str == 'null' || str == '-') return '-';
+    final parsed = DateTime.tryParse(str);
+    if (parsed != null) {
+      final y = parsed.year.toString().padLeft(4, '0');
+      final m = parsed.month.toString().padLeft(2, '0');
+      final d = parsed.day.toString().padLeft(2, '0');
+      return '$y-$m-$d';
+    }
+    if (str.length >= 10 && RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(str)) {
+      return str.substring(0, 10);
+    }
+    return str;
+  }
+
+  static String _formatDate(dynamic dt) => formatDateSafe(dt);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // 1. EGYPTIAN IMPORT COMPANIES (الشركات المستوردة)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -135,7 +161,7 @@ class MasterDataExportService {
                       children: [
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('البطاقة الاستيرادية (Importer Card)', style: const pw.TextStyle(fontSize: 9))),
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.importerId, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.importerIdExpiry.toIso8601String().split('T')[0], style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(_formatDate(company.importerIdExpiry), style: const pw.TextStyle(fontSize: 9))),
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(impStatus, style: pw.TextStyle(fontSize: 9, color: company.daysUntilImporterIdExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'), fontWeight: pw.FontWeight.bold))),
                       ],
                     ),
@@ -143,7 +169,7 @@ class MasterDataExportService {
                       children: [
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('البطاقة الضريبية (VAT / Tax ID)', style: const pw.TextStyle(fontSize: 9))),
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.vatId, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.vatIdExpiry.toIso8601String().split('T')[0], style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(_formatDate(company.vatIdExpiry), style: const pw.TextStyle(fontSize: 9))),
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(vatStatus, style: pw.TextStyle(fontSize: 9, color: company.daysUntilVatExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'), fontWeight: pw.FontWeight.bold))),
                       ],
                     ),
@@ -151,7 +177,7 @@ class MasterDataExportService {
                       children: [
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('السجل التجاري (Commercial Register)', style: const pw.TextStyle(fontSize: 9))),
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.registrationNumber, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.registrationExpiry.toIso8601String().split('T')[0], style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(_formatDate(company.registrationExpiry), style: const pw.TextStyle(fontSize: 9))),
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(regStatus, style: pw.TextStyle(fontSize: 9, color: company.daysUntilRegExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'), fontWeight: pw.FontWeight.bold))),
                       ],
                     ),
@@ -189,7 +215,11 @@ class MasterDataExportService {
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'MasterData_Import_Companies_${company.importerId}',
+      name: FileSaveHelper.sanitizeFileName(
+        company.importerName.trim().isNotEmpty
+            ? company.importerName.trim()
+            : company.importerId,
+      ),
     );
   }
 
@@ -203,21 +233,38 @@ class MasterDataExportService {
     buffer.writeln('الدولة,${company.country}');
     buffer.writeln('العنوان,"${company.address.replaceAll('"', '""')}"');
     buffer.writeln('الهاتف,${company.phone ?? "-"}');
-    buffer.writeln('البريد الإلكتروني,${company.email ?? "-"}');
+    buffer.writeln('المحمول,${company.mobileNumber ?? "-"}');
+    buffer.writeln('الفاكس,${company.faxNumber ?? "-"}');
+    buffer.writeln('البريد الإلكتروني,${company.primaryEmail ?? company.email ?? "-"}');
+    buffer.writeln('البريد الثانوي,${company.secondaryEmail ?? "-"}');
+    buffer.writeln('الموقع الإلكتروني,${company.website ?? "-"}');
+    buffer.writeln('توكن نافذة,${(company.nafezaToken != null && company.nafezaToken!.isNotEmpty) ? "****" : "-"}');
     buffer.writeln('');
 
     buffer.writeln('--- بيانات القيد والتسجيلات الرسمية ---');
     buffer.writeln('المستند,رقم القيد,تاريخ الانتهاء,الأيام المتبقية,الحالة');
-    buffer.writeln('البطاقة الاستيرادية,${company.importerId},${company.importerIdExpiry.toIso8601String().split('T')[0]},${company.daysUntilImporterIdExpiry},${company.daysUntilImporterIdExpiry > 0 ? "سارية" : "منتهية"}');
-    buffer.writeln('البطاقة الضريبية,${company.vatId},${company.vatIdExpiry.toIso8601String().split('T')[0]},${company.daysUntilVatExpiry},${company.daysUntilVatExpiry > 0 ? "سارية" : "منتهية"}');
-    buffer.writeln('السجل التجاري,${company.registrationNumber},${company.registrationExpiry.toIso8601String().split('T')[0]},${company.daysUntilRegExpiry},${company.daysUntilRegExpiry > 0 ? "سارٍ" : "منتهٍ"}');
+    buffer.writeln('البطاقة الاستيرادية,${company.importerId},${_formatDate(company.importerIdExpiry)},${company.daysUntilImporterIdExpiry},${company.daysUntilImporterIdExpiry > 0 ? "سارية" : "منتهية"}');
+    buffer.writeln('البطاقة الضريبية,${company.vatId},${_formatDate(company.vatIdExpiry)},${company.daysUntilVatExpiry},${company.daysUntilVatExpiry > 0 ? "سارية" : "منتهية"}');
+    buffer.writeln('السجل التجاري,${company.registrationNumber},${_formatDate(company.registrationExpiry)},${company.daysUntilRegExpiry},${company.daysUntilRegExpiry > 0 ? "سارٍ" : "منتهٍ"}');
+    buffer.writeln('');
+
+    buffer.writeln('--- شهادات العلامات التجارية والجودة ---');
+    buffer.writeln('WIPO Madrid Monitor,${company.hasWipo ? (company.wipoNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('EUIPO,${company.hasEuipo ? (company.euipoNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('Global Brand Database,${company.hasGlobalBrand ? (company.globalBrandNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('ISO 9001 Certificate,${company.hasIso9001 ? (company.iso9001Number ?? "معتمد") : "غير معتمد"}');
 
     if (company.notes != null && company.notes!.isNotEmpty) {
       buffer.writeln('');
       buffer.writeln('الملاحظات,"${company.notes!.replaceAll('"', '""')}"');
     }
 
-    final filename = 'MasterData_Import_Companies_${company.importerId}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final safeName = FileSaveHelper.sanitizeFileName(
+      company.importerName.trim().isNotEmpty
+          ? company.importerName.trim()
+          : company.importerId,
+    );
+    final filename = '${safeName}_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -227,30 +274,82 @@ class MasterDataExportService {
     );
   }
 
-  static String generateImporterWhatsAppText(ImportCompanyModel comp) {
+  static String generateImporterWhatsAppText(ImportCompanyModel comp, {bool isArabic = true}) {
+    if (!isArabic) {
+      return '''
+*Sorour Logistics ERP — Importer Company Profile*
+🏢 *Company Name:* ${comp.importerName}
+📍 *Address:* ${comp.address}
+🌍 *Country:* ${comp.country.isNotEmpty ? comp.country : "Egypt"}
+📞 *Phone:* ${comp.phone ?? "-"} | *Mobile:* ${comp.mobileNumber ?? "-"}
+📧 *Email:* ${comp.primaryEmail ?? comp.email ?? "-"} | *Secondary:* ${comp.secondaryEmail ?? "-"}
+🌐 *Website:* ${comp.website ?? "-"}
+
+*📋 Official Licenses & Registrations:*
+• *Importer Card:* ${comp.importerId} (Expires: ${_formatDate(comp.importerIdExpiry)})
+• *VAT / Tax ID:* ${comp.vatId} (Expires: ${_formatDate(comp.vatIdExpiry)})
+• *Commercial Register:* ${comp.registrationNumber} (Expires: ${_formatDate(comp.registrationExpiry)})
+• *Status:* ${comp.isActive ? "✅ Active" : "❌ Inactive"}
+
+*🎖️ Trademark & Quality Certificates:*
+• *WIPO Madrid:* ${comp.hasWipo ? (comp.wipoNumber ?? "Yes") : "No"} | *EUIPO:* ${comp.hasEuipo ? (comp.euipoNumber ?? "Yes") : "No"}
+• *Global Brand:* ${comp.hasGlobalBrand ? (comp.globalBrandNumber ?? "Yes") : "No"} | *ISO 9001:* ${comp.hasIso9001 ? (comp.iso9001Number ?? "Yes") : "No"}
+${comp.notes != null && comp.notes!.isNotEmpty ? "📝 *Notes:* ${comp.notes}\n" : ""}_Generated via Sorour Logistics ERP_
+'''.trim();
+    }
     return '''
 *Sorour Logistics ERP — بطاقة الشركة المستوردة*
 🏢 *اسم الشركة:* ${comp.importerName}
 📍 *العنوان:* ${comp.address}
 🇪🇬 *الدولة:* ${comp.country.isNotEmpty ? comp.country : "مصر"}
-📞 *الهاتف:* ${comp.phone ?? "-"}
-📧 *الإيميل:* ${comp.email ?? "-"}
+📞 *الهاتف:* ${comp.phone ?? "-"} | *المحمول:* ${comp.mobileNumber ?? "-"}
+📧 *الإيميل:* ${comp.primaryEmail ?? comp.email ?? "-"} | *الإيميل الثانوي:* ${comp.secondaryEmail ?? "-"}
+🌐 *الموقع الإلكتروني:* ${comp.website ?? "-"}
 
 *📋 بيانات القيد والتراخيص:*
-• *البطاقة الاستيرادية:* ${comp.importerId} (انتهاء: ${comp.importerIdExpiry.toIso8601String().split('T')[0]})
-• *البطاقة الضريبية:* ${comp.vatId} (انتهاء: ${comp.vatIdExpiry.toIso8601String().split('T')[0]})
-• *السجل التجاري:* ${comp.registrationNumber} (انتهاء: ${comp.registrationExpiry.toIso8601String().split('T')[0]})
+• *البطاقة الاستيرادية:* ${comp.importerId} (انتهاء: ${_formatDate(comp.importerIdExpiry)})
+• *البطاقة الضريبية:* ${comp.vatId} (انتهاء: ${_formatDate(comp.vatIdExpiry)})
+• *السجل التجاري:* ${comp.registrationNumber} (انتهاء: ${_formatDate(comp.registrationExpiry)})
 • *الحالة:* ${comp.isActive ? "✅ نشط" : "❌ غير نشط"}
-${comp.notes != null && comp.notes!.isNotEmpty ? "📝 *ملاحظات:* ${comp.notes}\n" : ""}
-_تم الإنشاء عبر Sorour Logistics ERP_
+
+*🎖️ شهادات العلامات التجارية والجودة:*
+• *WIPO Madrid:* ${comp.hasWipo ? (comp.wipoNumber ?? "مسجل") : "غير مسجل"} | *EUIPO:* ${comp.hasEuipo ? (comp.euipoNumber ?? "مسجل") : "غير مسجل"}
+• *Global Brand:* ${comp.hasGlobalBrand ? (comp.globalBrandNumber ?? "مسجل") : "غير مسجل"} | *ISO 9001:* ${comp.hasIso9001 ? (comp.iso9001Number ?? "معتمد") : "غير معتمد"}
+${comp.notes != null && comp.notes!.isNotEmpty ? "📝 *ملاحظات:* ${comp.notes}\n" : ""}_تم الإنشاء عبر Sorour Logistics ERP_
 '''.trim();
   }
 
-  static String generateImporterEmailSubject(ImportCompanyModel comp) {
-    return 'بيانات الشركة المستوردة [${comp.importerId}] - ${comp.importerName}';
+  static String generateImporterEmailSubject(ImportCompanyModel comp, {bool isArabic = true}) {
+    return isArabic
+        ? 'بيانات الشركة المستوردة [${comp.importerId}] - ${comp.importerName}'
+        : 'Importer Company Profile [${comp.importerId}] - ${comp.importerName}';
   }
 
-  static String generateImporterEmailBody(ImportCompanyModel comp) {
+  static String generateImporterEmailBody(ImportCompanyModel comp, {bool isArabic = true}) {
+    if (!isArabic) {
+      return '''
+Dear Partner,
+
+Please find below the official registration and license profile for the importer company registered in our system:
+
+- Company Name: ${comp.importerName}
+- Country: ${comp.country.isNotEmpty ? comp.country : "Egypt"}
+- Address: ${comp.address}
+- Phone: ${comp.phone ?? "-"}
+- Email: ${comp.email ?? "-"}
+
+Official Registrations & Licenses:
+- Importer Card ID: ${comp.importerId} (Expiry Date: ${_formatDate(comp.importerIdExpiry)})
+- VAT / Tax ID: ${comp.vatId} (Expiry Date: ${_formatDate(comp.vatIdExpiry)})
+- Commercial Register: ${comp.registrationNumber} (Expiry Date: ${_formatDate(comp.registrationExpiry)})
+- Status: ${comp.isActive ? "Active" : "Inactive"}
+
+${comp.notes != null && comp.notes!.isNotEmpty ? "Notes: ${comp.notes}\n" : ""}
+Best regards,
+Import Operations & Customs Clearance Team
+Sorour Logistics ERP
+'''.trim();
+    }
     return '''
 تحية طيبة وبعد،،،
 
@@ -263,11 +362,12 @@ _تم الإنشاء عبر Sorour Logistics ERP_
 - البريد الإلكتروني: ${comp.email ?? "-"}
 
 بيانات التسجيل والقيد:
-- رقم البطاقة الاستيرادية: ${comp.importerId} (تاريخ الانتهاء: ${comp.importerIdExpiry.toIso8601String().split('T')[0]})
-- رقم البطاقة الضريبية: ${comp.vatId} (تاريخ الانتهاء: ${comp.vatIdExpiry.toIso8601String().split('T')[0]})
-- رقم السجل التجاري: ${comp.registrationNumber} (تاريخ الانتهاء: ${comp.registrationExpiry.toIso8601String().split('T')[0]})
+- رقم البطاقة الاستيرادية: ${comp.importerId} (تاريخ الانتهاء: ${_formatDate(comp.importerIdExpiry)})
+- رقم البطاقة الضريبية: ${comp.vatId} (تاريخ الانتهاء: ${_formatDate(comp.vatIdExpiry)})
+- رقم السجل التجاري: ${comp.registrationNumber} (تاريخ الانتهاء: ${_formatDate(comp.registrationExpiry)})
 - حالة السجل: ${comp.isActive ? "نشط ومفعّل" : "غير مفعّل"}
 
+${comp.notes != null && comp.notes!.isNotEmpty ? "ملاحظات: ${comp.notes}\n" : ""}
 شاكرين حسن تعاونكم،،،
 فريق العمليات وإدارة الاستيراد
 Sorour Logistics ERP
@@ -453,7 +553,11 @@ Sorour Logistics ERP
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'MasterData_Suppliers_${supplier.supplierCode}',
+      name: FileSaveHelper.sanitizeFileName(
+        supplier.companyName.trim().isNotEmpty
+            ? supplier.companyName.trim()
+            : supplier.supplierCode,
+      ),
     );
   }
 
@@ -474,7 +578,9 @@ Sorour Logistics ERP
     buffer.writeln('العنوان,"${supplier.address.replaceAll('"', '""')}"');
     buffer.writeln('الهاتف,${supplier.phone ?? "-"}');
     buffer.writeln('الموبايل,${supplier.mobile ?? "-"}');
+    buffer.writeln('الفاكس,${supplier.fax ?? "-"}');
     buffer.writeln('البريد الإلكتروني,${supplier.email ?? "-"}');
+    buffer.writeln('البريد الإلكتروني الإضافي,${supplier.secondaryEmail ?? "-"}');
     buffer.writeln('الموقع الإلكتروني,${supplier.website ?? "-"}');
     buffer.writeln('');
 
@@ -490,8 +596,22 @@ Sorour Logistics ERP
     buffer.writeln('مسجل بقرار 43,${supplier.registeredDecree43 ? "نعم" : "لا"}');
     buffer.writeln('قائمة بيضاء,${supplier.whiteListRegistered ? "نعم" : "لا"}');
     buffer.writeln('العلامات والبراندات,"${(supplier.brands ?? "-").replaceAll('"', '""')}"');
+    buffer.writeln('WIPO Madrid Monitor,${supplier.hasWipo ? (supplier.wipoNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('EUIPO,${supplier.hasEuipo ? (supplier.euipoNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('Global Brand Database,${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? "مسجل") : "غير مسجل"}');
+    buffer.writeln('ISO 9001 Certificate,${supplier.hasIso9001 ? (supplier.iso9001Number ?? "معتمد") : "غير معتمد"}');
 
-    final filename = 'MasterData_Suppliers_${supplier.supplierCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    if (supplier.notes != null && supplier.notes!.isNotEmpty) {
+      buffer.writeln('');
+      buffer.writeln('الملاحظات,"${supplier.notes!.replaceAll('"', '""')}"');
+    }
+
+    final safeName = FileSaveHelper.sanitizeFileName(
+      supplier.companyName.trim().isNotEmpty
+          ? supplier.companyName.trim()
+          : supplier.supplierCode,
+    );
+    final filename = '${safeName}_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -501,7 +621,30 @@ Sorour Logistics ERP
     );
   }
 
-  static String generateSupplierWhatsAppText(SupplierModel sup) {
+  static String generateSupplierWhatsAppText(SupplierModel sup, {bool isArabic = true}) {
+    if (!isArabic) {
+      return '''
+*Sorour Logistics ERP — Foreign Supplier Profile*
+🏢 *Supplier Code:* ${sup.supplierCode}
+🌐 *Company Name:* ${sup.companyName}
+🌍 *Country:* ${sup.foreignExporterCountry} (${sup.foreignExporterCountryCode.toUpperCase()})
+🔖 *Type:* ${sup.supplierType} (${sup.registrationType})
+🆔 *Foreign Exporter ID:* ${sup.foreignExporterId}
+${sup.cargoxPlatformId != null && sup.cargoxPlatformId!.isNotEmpty ? "📦 *CargoX ID:* ${sup.cargoxPlatformId}\n" : ""}*🏦 Banking & Transfer Details:*
+• *Bank:* ${sup.bankName ?? "-"}
+• *SWIFT:* ${sup.swiftCode ?? "-"}
+• *Account / IBAN:* ${sup.iban ?? sup.accountNumber ?? "-"}
+
+*📞 Contact:*
+• *Phone:* ${sup.phone ?? "-"} | *Mobile:* ${sup.mobile ?? "-"}
+• *Email:* ${sup.email ?? "-"} | *Secondary:* ${sup.secondaryEmail ?? "-"}
+${sup.website != null && sup.website!.isNotEmpty ? "🌐 *Website:* ${sup.website}\n" : ""}${sup.brands != null && sup.brands!.isNotEmpty ? "🏷️ *Brands:* ${sup.brands}\n" : ""}
+*🎖️ Trademark & Quality Certificates:*
+• *WIPO Madrid:* ${sup.hasWipo ? (sup.wipoNumber ?? "Yes") : "No"} | *EUIPO:* ${sup.hasEuipo ? (sup.euipoNumber ?? "Yes") : "No"}
+• *Global Brand:* ${sup.hasGlobalBrand ? (sup.globalBrandNumber ?? "Yes") : "No"} | *ISO 9001:* ${sup.hasIso9001 ? (sup.iso9001Number ?? "Yes") : "No"}
+_Generated via Sorour Logistics ERP_
+'''.trim();
+    }
     return '''
 *Sorour Logistics ERP — بطاقة المورد الأجنبي*
 🏢 *كود المورد:* ${sup.supplierCode}
@@ -509,25 +652,63 @@ Sorour Logistics ERP
 🌍 *الدولة:* ${sup.foreignExporterCountry} (${sup.foreignExporterCountryCode.toUpperCase()})
 🔖 *النوع:* ${sup.supplierType} (${sup.registrationType})
 🆔 *معرف المصدر (نافذة):* ${sup.foreignExporterId}
-${sup.cargoxPlatformId != null && sup.cargoxPlatformId!.isNotEmpty ? "📦 *CargoX ID:* ${sup.cargoxPlatformId}\n" : ""}
-*🏦 بيانات البنك والتحويل:*
+${sup.cargoxPlatformId != null && sup.cargoxPlatformId!.isNotEmpty ? "📦 *CargoX ID:* ${sup.cargoxPlatformId}\n" : ""}*🏦 بيانات البنك والتحويل:*
 • *البنك:* ${sup.bankName ?? "-"}
 • *SWIFT:* ${sup.swiftCode ?? "-"}
 • *Account / IBAN:* ${sup.iban ?? sup.accountNumber ?? "-"}
 
 *📞 التواصل:*
-• *الهاتف:* ${sup.phone ?? sup.mobile ?? "-"}
-• *الإيميل:* ${sup.email ?? "-"}
-${sup.brands != null && sup.brands!.isNotEmpty ? "🏷️ *البراندات:* ${sup.brands}\n" : ""}
+• *الهاتف:* ${sup.phone ?? "-"} | *المحمول:* ${sup.mobile ?? "-"}
+• *الإيميل:* ${sup.email ?? "-"} | *الإيميل الثانوي:* ${sup.secondaryEmail ?? "-"}
+${sup.website != null && sup.website!.isNotEmpty ? "🌐 *الموقع:* ${sup.website}\n" : ""}${sup.brands != null && sup.brands!.isNotEmpty ? "🏷️ *البراندات:* ${sup.brands}\n" : ""}
+*🎖️ شهادات العلامات التجارية والجودة:*
+• *WIPO Madrid:* ${sup.hasWipo ? (sup.wipoNumber ?? "مسجل") : "غير مسجل"} | *EUIPO:* ${sup.hasEuipo ? (sup.euipoNumber ?? "مسجل") : "غير مسجل"}
+• *Global Brand:* ${sup.hasGlobalBrand ? (sup.globalBrandNumber ?? "مسجل") : "غير مسجل"} | *ISO 9001:* ${sup.hasIso9001 ? (sup.iso9001Number ?? "معتمد") : "غير معتمد"}
 _تم الإنشاء عبر Sorour Logistics ERP_
 '''.trim();
   }
 
-  static String generateSupplierEmailSubject(SupplierModel sup) {
-    return 'بيانات المورد الأجنبي [${sup.supplierCode}] - ${sup.companyName}';
+  static String generateSupplierEmailSubject(SupplierModel sup, {bool isArabic = true}) {
+    return isArabic
+        ? 'بيانات المورد الأجنبي [${sup.supplierCode}] - ${sup.companyName}'
+        : 'Foreign Supplier Profile [${sup.supplierCode}] - ${sup.companyName}';
   }
 
-  static String generateSupplierEmailBody(SupplierModel sup) {
+  static String generateSupplierEmailBody(SupplierModel sup, {bool isArabic = true}) {
+    if (!isArabic) {
+      return '''
+Dear Partner,
+
+Please find below the foreign exporter profile and banking details registered in our system:
+
+- Supplier Code: ${sup.supplierCode}
+- Company Name: ${sup.companyName}
+- Country: ${sup.foreignExporterCountry} (${sup.foreignExporterCountryCode.toUpperCase()})
+- Supplier Type: ${sup.supplierType} (${sup.registrationType})
+- Address: ${sup.address}
+
+Nafeza & CargoX Registration:
+- Foreign Exporter ID: ${sup.foreignExporterId}
+- CargoX ID: ${sup.cargoxPlatformId ?? "Not Registered"}
+- Decree 43: ${sup.registeredDecree43 ? "Yes" : "No"} | White List: ${sup.whiteListRegistered ? "Yes" : "No"} | ISO: ${sup.hasIso ? "Yes" : "No"}
+
+Banking & Remittance Details:
+- Bank Name: ${sup.bankName ?? "-"}
+- SWIFT Code: ${sup.swiftCode ?? "-"}
+- Account Number: ${sup.accountNumber ?? "-"}
+- IBAN: ${sup.iban ?? "-"}
+
+Contact Information:
+- Phone: ${sup.phone ?? sup.mobile ?? "-"}
+- Email: ${sup.email ?? "-"}
+- Website: ${sup.website ?? "-"}
+
+${sup.notes != null && sup.notes!.isNotEmpty ? "Notes: ${sup.notes}\n" : ""}
+Best regards,
+Import Operations & Procurement Team
+Sorour Logistics ERP
+'''.trim();
+    }
     return '''
 تحية طيبة وبعد،،،
 
@@ -553,6 +734,7 @@ _تم الإنشاء عبر Sorour Logistics ERP_
 - البريد الإلكتروني: ${sup.email ?? "-"}
 - الموقع الإلكتروني: ${sup.website ?? "-"}
 
+${sup.notes != null && sup.notes!.isNotEmpty ? "ملاحظات: ${sup.notes}\n" : ""}
 شاكرين حسن تعاونكم،،،
 فريق العمليات وإدارة الاستيراد
 Sorour Logistics ERP
@@ -739,7 +921,11 @@ Sorour Logistics ERP
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'MasterData_Partners_${partner.partnerCode}',
+      name: FileSaveHelper.sanitizeFileName(
+        partner.partnerName.trim().isNotEmpty
+            ? partner.partnerName.trim()
+            : partner.partnerCode,
+      ),
     );
   }
 
@@ -752,22 +938,59 @@ Sorour Logistics ERP
     buffer.writeln('اسم الشريك / البنك,"${partner.partnerName.replaceAll('"', '""')}"');
     buffer.writeln('تصنيف الخدمات,"${partner.partnerType.replaceAll('"', '""')}"');
     buffer.writeln('الدولة,${partner.country}');
+    buffer.writeln('حالة السجل,${partner.isActive ? "نشط" : "غير نشط"}');
+    buffer.writeln('التقييم العام,${partner.rating} / 5.0');
+    buffer.writeln('');
+
+    buffer.writeln('--- الأكواد والتراخيص والبيانات الرقابية ---');
     buffer.writeln('كود السويفت (SWIFT),${partner.swiftCode ?? "-"}');
-    buffer.writeln('كود الناقل الملاحي,${partner.scacCode ?? "-"}');
+    buffer.writeln('كود الناقل الملاحي (SCAC),${partner.scacCode ?? "-"}');
     buffer.writeln('رقم رخصة التخليص,${partner.clearanceLicenseNumber ?? "-"}');
+    buffer.writeln('الموانئ المرخصة,"${(partner.authorizedPorts ?? "-").replaceAll('"', '""')}"');
+    buffer.writeln('أيام السماح الافتراضية (Default Free Days),${partner.defaultFreeDays ?? "-"}');
+    buffer.writeln('معرّف FIATA,${partner.fiataId ?? "-"}');
+    buffer.writeln('أنماط الشحن,"${(partner.shippingModes ?? "-").replaceAll('"', '""')}"');
+    buffer.writeln('العملات المدعومة,"${(partner.supportedCurrencies ?? "-").replaceAll('"', '""')}"');
+    buffer.writeln('رقم رخصة النقل الداخلي,${partner.transportLicenseNumber ?? "-"}');
+    buffer.writeln('أنواع أسطول النقل,"${(partner.fleetTypes ?? "-").replaceAll('"', '""')}"');
+    buffer.writeln('مناطق التغطية الجغرافية,"${(partner.coverageAreas ?? "-").replaceAll('"', '""')}"');
+    buffer.writeln('رقم رخصة التأمين,${partner.insuranceLicenseNumber ?? "-"}');
+    buffer.writeln('تغطيات التأمين,"${(partner.insuranceCoverageTypes ?? "-").replaceAll('"', '""')}"');
+    buffer.writeln('رقم اعتماد الفحص,${partner.inspectionAccreditationNumber ?? "-"}');
+    buffer.writeln('نطاق الفحص,"${(partner.inspectionScope ?? "-").replaceAll('"', '""')}"');
     buffer.writeln('السجل التجاري,${partner.commercialRegister ?? "-"}');
     buffer.writeln('البطاقة الضريبية,${partner.taxId ?? "-"}');
+    buffer.writeln('');
+
+    buffer.writeln('--- شروط السداد والائتمان والحسابات ---');
     buffer.writeln('نوع السداد,${partner.paymentType}');
     buffer.writeln('الحد الائتماني,${partner.creditLimit}');
-    buffer.writeln('المسؤول الاتصال,${partner.contactPerson ?? "-"}');
+    buffer.writeln('كود البنك,${partner.bankCode ?? "-"}');
+    buffer.writeln('اسم الفرع,${partner.branchName ?? "-"}');
+    buffer.writeln('');
+
+    buffer.writeln('--- بيانات التواصل والعنوان ---');
+    buffer.writeln('مسؤول الاتصال,${partner.contactPerson ?? "-"}');
     buffer.writeln('الهاتف,${partner.phone ?? "-"}');
     buffer.writeln('الموبايل,${partner.mobile ?? "-"}');
+    buffer.writeln('الفاكس,${partner.fax ?? "-"}');
     buffer.writeln('البريد الإلكتروني,${partner.email ?? "-"}');
+    buffer.writeln('البريد الإلكتروني الإضافي,${partner.secondaryEmail ?? "-"}');
     buffer.writeln('الموقع الإلكتروني,${partner.website ?? "-"}');
+    buffer.writeln('رابط التتبع,${partner.trackingUrl ?? "-"}');
     buffer.writeln('العنوان,"${(partner.address ?? "-").replaceAll('"', '""')}"');
-    buffer.writeln('حالة السجل,${partner.isActive ? "نشط" : "غير نشط"}');
 
-    final filename = 'MasterData_Partners_${partner.partnerCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    if (partner.notes != null && partner.notes!.isNotEmpty) {
+      buffer.writeln('');
+      buffer.writeln('الملاحظات,"${partner.notes!.replaceAll('"', '""')}"');
+    }
+
+    final safeName = FileSaveHelper.sanitizeFileName(
+      partner.partnerName.trim().isNotEmpty
+          ? partner.partnerName.trim()
+          : partner.partnerCode,
+    );
+    final filename = '${safeName}_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -777,15 +1000,30 @@ Sorour Logistics ERP
     );
   }
 
-  static String generatePartnerWhatsAppText(PartnerModel p) {
+  static String generatePartnerWhatsAppText(PartnerModel p, {bool isArabic = true}) {
+    if (!isArabic) {
+      return '''
+*Sorour Logistics ERP — Partner & Service Provider Profile*
+🤝 *Partner Code:* ${p.partnerCode}
+🏢 *Partner Name:* ${p.partnerName}
+📋 *Classification:* ${p.partnerType}
+🌍 *Country:* ${p.country}
+${p.swiftCode != null && p.swiftCode!.isNotEmpty ? "🏦 *SWIFT:* ${p.swiftCode}\n" : ""}${p.scacCode != null && p.scacCode!.isNotEmpty ? "🚢 *SCAC Code:* ${p.scacCode}\n" : ""}${p.clearanceLicenseNumber != null && p.clearanceLicenseNumber!.isNotEmpty ? "📜 *Clearance License:* ${p.clearanceLicenseNumber}\n" : ""}${p.defaultFreeDays != null ? "⏳ *Default Free Days:* ${p.defaultFreeDays} days\n" : ""}*📞 Contact Details:*
+• *Contact Person:* ${p.contactPerson ?? "-"}
+• *Phone:* ${p.phone ?? p.mobile ?? "-"}
+• *Email:* ${p.email ?? "-"}
+• *Payment Terms:* ${p.paymentType} (Limit: ${p.creditLimit} EGP)
+• *Status:* ${p.isActive ? "✅ Active" : "❌ Inactive"}
+_Generated via Sorour Logistics ERP_
+'''.trim();
+    }
     return '''
 *Sorour Logistics ERP — بطاقة الشريك ومقدم الخدمات*
 🤝 *كود الشريك:* ${p.partnerCode}
 🏢 *اسم الشريك:* ${p.partnerName}
 📋 *التصنيف:* ${p.partnerType}
 🌍 *الدولة:* ${p.country}
-${p.swiftCode != null && p.swiftCode!.isNotEmpty ? "🏦 *السويفت:* ${p.swiftCode}\n" : ""}${p.scacCode != null && p.scacCode!.isNotEmpty ? "🚢 *كود الناقل:* ${p.scacCode}\n" : ""}${p.clearanceLicenseNumber != null && p.clearanceLicenseNumber!.isNotEmpty ? "📜 *رخصة التخليص:* ${p.clearanceLicenseNumber}\n" : ""}
-*📞 بيانات التواصل:*
+${p.swiftCode != null && p.swiftCode!.isNotEmpty ? "🏦 *السويفت:* ${p.swiftCode}\n" : ""}${p.scacCode != null && p.scacCode!.isNotEmpty ? "🚢 *كود الناقل:* ${p.scacCode}\n" : ""}${p.clearanceLicenseNumber != null && p.clearanceLicenseNumber!.isNotEmpty ? "📜 *رخصة التخليص:* ${p.clearanceLicenseNumber}\n" : ""}${p.defaultFreeDays != null ? "⏳ *أيام السماح الافتراضية:* ${p.defaultFreeDays} يوم\n" : ""}*📞 بيانات التواصل:*
 • *المسؤول:* ${p.contactPerson ?? "-"}
 • *الهاتف:* ${p.phone ?? p.mobile ?? "-"}
 • *الإيميل:* ${p.email ?? "-"}
@@ -795,11 +1033,45 @@ _تم الإنشاء عبر Sorour Logistics ERP_
 '''.trim();
   }
 
-  static String generatePartnerEmailSubject(PartnerModel p) {
-    return 'بيانات الشريك أو البنك [${p.partnerCode}] - ${p.partnerName}';
+  static String generatePartnerEmailSubject(PartnerModel p, {bool isArabic = true}) {
+    return isArabic
+        ? 'بيانات الشريك أو البنك [${p.partnerCode}] - ${p.partnerName}'
+        : 'Partner & Service Provider Profile [${p.partnerCode}] - ${p.partnerName}';
   }
 
-  static String generatePartnerEmailBody(PartnerModel p) {
+  static String generatePartnerEmailBody(PartnerModel p, {bool isArabic = true}) {
+    if (!isArabic) {
+      return '''
+Dear Partner,
+
+Please find below the official service provider profile registered in our system:
+
+- Partner Code: ${p.partnerCode}
+- Partner Name: ${p.partnerName}
+- Category / Type: ${p.partnerType}
+- Country: ${p.country}
+- Address: ${p.address ?? "-"}
+
+Codes & Regulatory Licenses:
+- SWIFT Code: ${p.swiftCode ?? "-"}
+- SCAC Carrier Code: ${p.scacCode ?? "-"}
+- Clearance License: ${p.clearanceLicenseNumber ?? "-"}
+- Default Free Days: ${p.defaultFreeDays ?? "-"}
+- Commercial Register: ${p.commercialRegister ?? "-"}
+- Tax ID: ${p.taxId ?? "-"}
+
+Contact & Financial Terms:
+- Contact Person: ${p.contactPerson ?? "-"}
+- Phone: ${p.phone ?? p.mobile ?? "-"}
+- Email: ${p.email ?? "-"}
+- Payment Type: ${p.paymentType} (Credit Limit: ${p.creditLimit} EGP)
+
+${p.notes != null && p.notes!.isNotEmpty ? "Notes: ${p.notes}\n" : ""}
+Best regards,
+Import Operations & Procurement Team
+Sorour Logistics ERP
+'''.trim();
+    }
     return '''
 تحية طيبة وبعد،،،
 
@@ -815,6 +1087,7 @@ _تم الإنشاء عبر Sorour Logistics ERP_
 - كود السويفت: ${p.swiftCode ?? "-"}
 - كود الخط الملاحي: ${p.scacCode ?? "-"}
 - ترخيص التخليص: ${p.clearanceLicenseNumber ?? "-"}
+- أيام السماح الافتراضية: ${p.defaultFreeDays ?? "-"}
 - السجل التجاري: ${p.commercialRegister ?? "-"}
 - البطاقة الضريبية: ${p.taxId ?? "-"}
 
@@ -824,6 +1097,7 @@ _تم الإنشاء عبر Sorour Logistics ERP_
 - البريد الإلكتروني: ${p.email ?? "-"}
 - نوع السداد: ${p.paymentType} (الحد الائتماني: ${p.creditLimit} ج.م)
 
+${p.notes != null && p.notes!.isNotEmpty ? "ملاحظات: ${p.notes}\n" : ""}
 شاكرين حسن تعاونكم،،،
 فريق العمليات وإدارة الاستيراد
 Sorour Logistics ERP
@@ -1055,7 +1329,7 @@ Sorour Logistics ERP
       buffer.writeln('"${(r.costItemName ?? "-").replaceAll('"', '""')}","${r.costCategory ?? "-"}","$party",${r.includedInIncoterm ? "نعم" : "لا"},"${(r.notes ?? "-").replaceAll('"', '""')}"');
     }
 
-    final filename = 'MasterData_Incoterm_${incoterm.incotermCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Incoterm_${incoterm.incotermCode}_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -1357,7 +1631,7 @@ Sorour Logistics ERP
       );
     }
 
-    final filename = 'Customs_Tariffs_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Customs_Tariffs_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -1591,7 +1865,7 @@ Sorour Logistics ERP
       buffer.writeln('$code,$name,$type,$country,$city,$status,$notes');
     }
 
-    final filename = 'Transport_Locations_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Transport_Locations_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -1902,7 +2176,7 @@ Sorour Logistics ERP
       buffer.writeln('$code,$name,$symbol,$isBase,$commRate,$custRate,$decimals,$status');
     }
 
-    final filename = 'Currencies_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Currencies_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -2248,7 +2522,7 @@ Sorour Logistics ERP
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'AuditLogs_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      name: 'AuditLogs_${_formatDate(DateTime.now())}.pdf',
     );
   }
 
@@ -2277,7 +2551,7 @@ Sorour Logistics ERP
       buffer.writeln('$id,$act,$entity,$code,$summary,$by,$time');
     }
 
-    final filename = 'AuditLogs_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'AuditLogs_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -2631,7 +2905,7 @@ Sorour Logistics ERP
 
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: 'SmartTasks_Report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      name: 'SmartTasks_Report_${_formatDate(DateTime.now())}.pdf',
     );
   }
 
@@ -2657,18 +2931,18 @@ Sorour Logistics ERP
       final phase = '"${(t.phaseName ?? "").replaceAll('"', '""')}"';
       final priority = '"${t.priority.replaceAll('"', '""')}"';
       final reminder = '"${t.reminderType.replaceAll('"', '""')}"';
-      final due = '"${(t.dueDate ?? "").replaceAll('"', '""')}"';
-      final alertDate = '"${(t.reminderDate ?? "").replaceAll('"', '""')}"';
+      final due = '"${formatDateSafe(t.dueDate)}"';
+      final alertDate = '"${formatDateSafe(t.reminderDate)}"';
       final status = '"${t.status.replaceAll('"', '""')}"';
       final user = '"${t.assignedUser.replaceAll('"', '""')}"';
       final notes = '"${(t.notes ?? "").replaceAll('"', '""')}"';
-      final createdAt = '"${t.createdAt.replaceAll('"', '""')}"';
+      final createdAt = '"${formatDateSafe(t.createdAt)}"';
       final createdBy = '"${t.createdBy.replaceAll('"', '""')}"';
 
       buffer.writeln('$code,$type,$title,$desc,$fileCode,$phase,$priority,$reminder,$due,$alertDate,$status,$user,$notes,$createdAt,$createdBy');
     }
 
-    final filename = 'SmartTasks_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'SmartTasks_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -2763,7 +3037,7 @@ Sorour Logistics ERP
 
     final csvContent = '$bom$headerMeta\n$headerRow\n${rows.join('\n')}';
     final prefix = fileNamePrefix ?? 'DynamicReport';
-    final filename = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = '${prefix}_${_formatDate(DateTime.now())}.csv';
 
     await FileSaveHelper.saveText(
       context: context,
@@ -2901,7 +3175,7 @@ Sorour Logistics ERP
 
     final bytes = await pdf.save();
     final prefix = fileNamePrefix ?? 'DynamicReport';
-    final filename = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = '${prefix}_${_formatDate(DateTime.now())}.pdf';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,
@@ -2984,7 +3258,7 @@ Sorour Logistics ERP
     final prefix = shipmentCode != null && shipmentCode.isNotEmpty
         ? 'ShipmentUpdates_${shipmentCode.replaceAll(RegExp(r'[^\w\-]'), '_')}'
         : 'ShipmentUpdates';
-    final filename = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = '${prefix}_${_formatDate(DateTime.now())}.csv';
 
     if (!context.mounted) return;
     await FileSaveHelper.saveText(
@@ -3151,7 +3425,7 @@ Sorour Logistics ERP
     final prefix = shipmentCode != null && shipmentCode.isNotEmpty
         ? 'ShipmentUpdates_${shipmentCode.replaceAll(RegExp(r'[^\w\-]'), '_')}'
         : 'ShipmentUpdates';
-    final filename = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = '${prefix}_${_formatDate(DateTime.now())}.pdf';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,
@@ -3366,7 +3640,7 @@ Sorour Logistics ERP
       ].join(','));
     }
 
-    final filename = 'Import_Requirements_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Import_Requirements_${_formatDate(DateTime.now())}.csv';
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
@@ -3495,7 +3769,7 @@ Sorour Logistics ERP
     );
 
     final bytes = await pdf.save();
-    final filename = 'Import_Requirements_Registry_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = 'Import_Requirements_Registry_${_formatDate(DateTime.now())}.pdf';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,
@@ -3802,7 +4076,7 @@ _Generated via Sorour Logistics ERP_
       csvContent.writeln(r.map((c) => '"${c.replaceAll('"', '""')}"').join(','));
     }
 
-    final filename = 'Demurrage_Trackings_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Demurrage_Trackings_${_formatDate(DateTime.now())}.csv';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,
@@ -3938,7 +4212,7 @@ _Generated via Sorour Logistics ERP_
     );
 
     final bytes = await pdf.save();
-    final filename = 'Demurrage_Trackings_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filename = 'Demurrage_Trackings_${_formatDate(DateTime.now())}.pdf';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,
@@ -4279,7 +4553,7 @@ _Generated via Sorour Logistics ERP_
       csvContent.writeln(r.map((c) => '"${c.replaceAll('"', '""')}"').join(','));
     }
 
-    final filename = 'Carrier_Demurrage_Policies_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final filename = 'Carrier_Demurrage_Policies_${_formatDate(DateTime.now())}.csv';
     if (!context.mounted) return;
     await FileSaveHelper.saveBytes(
       context: context,

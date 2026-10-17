@@ -45,7 +45,7 @@ class FreightQuoteExportRow {
         oceanFreight: item.oceanFreightCost,
         localCharges: item.localChargesCost,
         inlandCharges: item.inlandCost,
-        currency: item.currencyCode.trim().isNotEmpty ? item.currencyCode.trim() : 'USD',
+        currency: (item.currencyCode ?? '').trim().isNotEmpty ? item.currencyCode!.trim() : '-',
         transitDays: item.transitDays,
         sailingDate: item.sailingDate.trim().isNotEmpty ? item.sailingDate.trim() : '-',
         arrivalDate: item.estimatedArrivalDate.trim().isNotEmpty ? item.estimatedArrivalDate.trim() : '-',

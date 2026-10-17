@@ -160,6 +160,40 @@ class BankingDocumentSession(Base):
     )
     notes: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # Pre-Form 4 Readiness Pipeline Fields (Tax Coding Sheet & SWIFT Bank Linkage)
+    tax_coding_sheet_status: Mapped[str] = mapped_column(
+        String(50), default="NOT_STARTED", nullable=False, index=True
+    )  # 'NOT_STARTED', 'PULLED_BY_BROKER', 'UPLOADED_BY_ACCOUNTANT'
+    tax_coding_sheet_file_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    tax_coding_pulled_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    tax_coding_broker_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("external_service_providers.provider_id"), nullable=True
+    )
+    tax_coding_broker_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    tax_coding_uploaded_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    tax_coding_accountant_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+
+    # Items Pull & Regulatory Screening Verification
+    items_pulled_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    items_pulled_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    items_count_total: Mapped[Optional[int]] = mapped_column(Integer, default=0, nullable=True)
+    items_count_coded: Mapped[Optional[int]] = mapped_column(Integer, default=0, nullable=True)
+    regulatory_bodies_detected: Mapped[Optional[list]] = mapped_column(JSON, default=list, nullable=True)
+
+    # Nafeza Bank Linkage & SWIFT Bank Matching
+    nafeza_bank_link_status: Mapped[str] = mapped_column(
+        String(50), default="PENDING", nullable=False, index=True
+    )  # 'PENDING', 'LINKED_TO_BANK'
+    nafeza_bank_link_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    nafeza_linked_bank_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("external_service_providers.provider_id"), nullable=True
+    )
+    nafeza_linked_bank_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    swift_executing_bank_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    swift_executing_bank_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    swift_reference_no: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    is_bank_matching_swift: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False

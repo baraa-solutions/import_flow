@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
 from modules.common.sequence_generator import next_yearly_code
+from modules.purchase_orders.model import PurchaseOrder
 
 
 class CBMRepository:
@@ -133,3 +134,7 @@ class CBMRepository:
         calc.is_active = True
         db.flush()
         return calc
+
+    @staticmethod
+    def get_po(db: Session, po_id: int) -> Optional[PurchaseOrder]:
+        return db.get(PurchaseOrder, po_id)

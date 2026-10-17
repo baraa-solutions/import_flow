@@ -25,20 +25,9 @@ class SmartEmailListenerDialog extends ConsumerStatefulWidget {
 
 class _SmartEmailListenerDialogState extends ConsumerState<SmartEmailListenerDialog> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final TextEditingController _senderController = TextEditingController(text: 'arrival.notices@msc.com');
-  final TextEditingController _subjectController = TextEditingController(
-    text: 'ARRIVAL NOTICE - B/L: MEDU123456789 - MSC OSCAR',
-  );
-  final TextEditingController _bodyController = TextEditingController(
-    text: '''DEAR CUSTOMER,
-PLEASE BE ADVISED THAT VESSEL MSC OSCAR VOYAGE 2401W IS SCHEDULED TO ARRIVE AT ALEXANDRIA PORT.
-BILL OF LADING: MEDU123456789
-ESTIMATED TIME OF ARRIVAL (ETA): 2026-09-28
-CONTAINERS:
-MSCU1234567
-MSCU7654321
-KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''',
-  );
+  final TextEditingController _senderController = TextEditingController();
+  final TextEditingController _subjectController = TextEditingController();
+  final TextEditingController _bodyController = TextEditingController();
 
   bool _isProcessing = false;
   String? _errorMessage;
