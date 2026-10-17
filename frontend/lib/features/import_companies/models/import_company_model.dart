@@ -10,13 +10,32 @@ class ImportCompanyModel {
   final String registrationNumber;
   final DateTime registrationExpiry;
   final String? phone;
+  final String? mobile;
+  final String? fax;
   final String? email;
+  final String? secondaryEmail;
+  final String? website;
+  final String? nafezaToken;
+  final bool hasNafezaToken;
+  final String? maskedNafezaToken;
+  final bool hasWipo;
+  final String? wipoNumber;
+  final bool hasEuipo;
+  final String? euipoNumber;
+  final bool hasGlobalBrand;
+  final String? globalBrandNumber;
+  final bool hasIso9001;
+  final String? iso9001Number;
   final bool isActive;
   final String? notes;
 
   int get daysUntilImporterIdExpiry => importerIdExpiry.difference(DateTime.now()).inDays;
   int get daysUntilVatExpiry => vatIdExpiry.difference(DateTime.now()).inDays;
   int get daysUntilRegExpiry => registrationExpiry.difference(DateTime.now()).inDays;
+
+  String? get primaryEmail => email;
+  String? get mobileNumber => mobile;
+  String? get faxNumber => fax;
 
   ImportCompanyModel({
     this.companyId,
@@ -30,10 +49,30 @@ class ImportCompanyModel {
     required this.registrationNumber,
     required this.registrationExpiry,
     this.phone,
-    this.email,
+    String? mobile,
+    String? mobileNumber,
+    String? fax,
+    String? faxNumber,
+    String? email,
+    String? primaryEmail,
+    this.secondaryEmail,
+    this.website,
+    this.nafezaToken,
+    this.hasNafezaToken = false,
+    this.maskedNafezaToken,
+    this.hasWipo = false,
+    this.wipoNumber,
+    this.hasEuipo = false,
+    this.euipoNumber,
+    this.hasGlobalBrand = false,
+    this.globalBrandNumber,
+    this.hasIso9001 = false,
+    this.iso9001Number,
     this.isActive = true,
     this.notes,
-  });
+  }) : mobile = mobile ?? mobileNumber,
+       fax = fax ?? faxNumber,
+       email = email ?? primaryEmail;
 
   factory ImportCompanyModel.fromJson(Map<String, dynamic> json) {
     bool parseBool(dynamic val, {bool defaultValue = false}) {
@@ -46,6 +85,9 @@ class ImportCompanyModel {
       }
       return defaultValue;
     }
+
+    final maskedToken = json['masked_nafeza_token']?.toString();
+    final hasToken = parseBool(json['has_nafeza_token']) || (maskedToken != null && maskedToken.isNotEmpty);
 
     return ImportCompanyModel(
       companyId: json['company_id'] as int?,
@@ -65,7 +107,22 @@ class ImportCompanyModel {
           ? DateTime.tryParse(json['registration_expiry'].toString()) ?? DateTime.now()
           : DateTime.now(),
       phone: json['phone']?.toString(),
+      mobile: json['mobile']?.toString(),
+      fax: json['fax']?.toString(),
       email: json['email']?.toString(),
+      secondaryEmail: json['secondary_email']?.toString(),
+      website: json['website']?.toString(),
+      hasNafezaToken: hasToken,
+      maskedNafezaToken: maskedToken,
+      nafezaToken: maskedToken ?? json['nafeza_token']?.toString(),
+      hasWipo: parseBool(json['has_wipo']),
+      wipoNumber: json['wipo_number']?.toString(),
+      hasEuipo: parseBool(json['has_euipo']),
+      euipoNumber: json['euipo_number']?.toString(),
+      hasGlobalBrand: parseBool(json['has_global_brand']),
+      globalBrandNumber: json['global_brand_number']?.toString(),
+      hasIso9001: parseBool(json['has_iso_9001']),
+      iso9001Number: json['iso_9001_number']?.toString(),
       isActive: parseBool(json['is_active'], defaultValue: true),
       notes: json['notes']?.toString(),
     );
@@ -84,7 +141,21 @@ class ImportCompanyModel {
       'registration_number': registrationNumber,
       'registration_expiry': registrationExpiry.toIso8601String().split('T')[0],
       'phone': phone,
+      'mobile': mobile,
+      'fax': fax,
       'email': email,
+      'secondary_email': secondaryEmail,
+      'website': website,
+      if (nafezaToken != null && nafezaToken!.trim().isNotEmpty && !nafezaToken!.trim().startsWith('****'))
+        'nafeza_token': nafezaToken!.trim(),
+      'has_wipo': hasWipo,
+      'wipo_number': wipoNumber,
+      'has_euipo': hasEuipo,
+      'euipo_number': euipoNumber,
+      'has_global_brand': hasGlobalBrand,
+      'global_brand_number': globalBrandNumber,
+      'has_iso_9001': hasIso9001,
+      'iso_9001_number': iso9001Number,
       'is_active': isActive,
       'notes': notes,
     };

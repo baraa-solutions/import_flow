@@ -534,7 +534,7 @@ def _require_reject_permission(db: Session, item: PaymentRequestSession, changes
             and not has_user_permission(db, current_user, "financial_approval.approve")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Permission 'financial_approval.approve' required.",
+            detail="تم رفض الوصول. الصلاحية 'financial_approval.approve' مطلوبة.",
         )
 
 
@@ -850,13 +850,26 @@ def clone_payment_request_service(db: Session, payment_id: int, schema: ClonePay
 
 
 def get_all_payment_requests_service(
-    db: Session, include_inactive: bool = False, search: Optional[str] = None, po_id: Optional[int] = None,
-    supplier_id: Optional[int] = None, status: Optional[str] = None,
-) -> List[PaymentRequestSession]:
-    items = repo.get_all_payment_requests(
-        db, include_inactive=include_inactive, search=search, po_id=po_id, supplier_id=supplier_id, status=status
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    po_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[PaymentRequestSession], int]:
+    items, total = repo.get_all_payment_requests(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        po_id=po_id,
+        supplier_id=supplier_id,
+        status=status,
+        skip=skip,
+        limit=limit,
     )
-    return _attach_file_codes(db, items)
+    return _attach_file_codes(db, items), total
 
 
 def get_payment_request_by_id_service(db: Session, payment_id: int) -> PaymentRequestSession:
@@ -972,18 +985,17 @@ def approve_import_budget_service(db: Session, budget_id: int, approved_by: str 
     db_item = _get_budget(db, budget_id)
     require_budget_approvable(db_item)
 
-    if db_item.has_unresolved_variance and not db_item.variance_override_reason:
-        hard = repo.first_pending_hard_block(db, budget_id)
-        if hard is not None:
-            raise fa_error(
-                status.HTTP_400_BAD_REQUEST,
-                "FA_BUDGET_HARD_BLOCK",
-                f"لا يمكن اعتماد الميزانية لوجود فارق تكاليف غير مسوى يتجاوز العتبة المحددة "
-                f"({hard.variance_percentage:.1f}% في {hard.field_name} - Hard Block). يجب مزامنة التكاليف أولاً "
-                "أو تقديم مبرر مكتوب إجباري لتجاوز الحظر.",
-                variance_percentage=round(float(hard.variance_percentage or 0.0), 2),
-                field_name=hard.field_name,
-            )
+    hard = repo.first_pending_hard_block(db, budget_id)
+    if hard is not None:
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_BUDGET_HARD_BLOCK",
+            f"لا يمكن اعتماد الميزانية لوجود فارق تكاليف غير مسوى يتجاوز العتبة المحددة "
+            f"({hard.variance_percentage:.1f}% في {hard.field_name} - Hard Block). يجب مزامنة التكاليف أولاً "
+            "أو تقديم مبرر مكتوب إجباري لتجاوز الحظر.",
+            variance_percentage=round(float(hard.variance_percentage or 0.0), 2),
+            field_name=hard.field_name,
+        )
 
     db_item.budget_status = BUDGET_APPROVED
     db_item.approved_by = approved_by
@@ -1076,14 +1088,26 @@ def clone_import_budget_service(db: Session, budget_id: int, schema: CloneImport
 
 
 def get_all_import_budgets_service(
-    db: Session, include_inactive: bool = False, search: Optional[str] = None, import_file_id: Optional[int] = None,
-    po_id: Optional[int] = None, budget_status: Optional[str] = None,
-) -> List[ImportBudgetApproval]:
-    items = repo.get_all_import_budgets(
-        db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, po_id=po_id,
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    po_id: Optional[int] = None,
+    budget_status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[ImportBudgetApproval], int]:
+    items, total = repo.get_all_import_budgets(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
         budget_status=budget_status,
+        skip=skip,
+        limit=limit,
     )
-    return _attach_file_codes(db, items)
+    return _attach_file_codes(db, items), total
 
 
 def get_import_budget_by_id_service(db: Session, budget_id: int) -> ImportBudgetApproval:
@@ -1192,7 +1216,11 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
     from modules.shipping_scenarios.model import ShippingEvaluationSession
     from modules.suppliers.model import Supplier
 
-    imp = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    imp = (
+        db.query(ImportFile)
+        .filter(ImportFile.import_file_id == import_file_id, ImportFile.is_active == True)
+        .first()
+    )
     if not imp:
         raise not_found(L_FILE, import_file_id)
 
@@ -1387,7 +1415,7 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
 # ==============================================================================
 
 def _threshold_setting(db: Session) -> Optional[BudgetVarianceSetting]:
-    return db.query(BudgetVarianceSetting).filter(BudgetVarianceSetting.setting_key == VARIANCE_THRESHOLD_KEY).first()
+    return repo.get_setting(db, VARIANCE_THRESHOLD_KEY)
 
 
 def get_variance_threshold_service(db: Session) -> float:
@@ -1439,12 +1467,8 @@ def update_variance_threshold_service(db: Session, threshold_percentage: float, 
 
 
 def get_budget_variance_logs_service(db: Session, budget_id: int) -> List[BudgetVarianceLog]:
-    return (
-        db.query(BudgetVarianceLog)
-        .filter(BudgetVarianceLog.budget_id == budget_id)
-        .order_by(BudgetVarianceLog.detected_at.desc())
-        .all()
-    )
+    _get_budget(db, budget_id)
+    return repo.variance_logs_for_budget(db, budget_id)
 
 
 # ==============================================================================
@@ -1468,11 +1492,13 @@ def _cost_diffs(budget: ImportBudgetApproval, prefill: BudgetPrefillResponse, th
     diffs: List[_CostDiff] = []
     for column, prefill_attr, label in _COST_FIELDS:
         old = getattr(budget, column)
+        old_val = float(old) if old is not None else 0.0
         new = getattr(prefill, prefill_attr)
-        diff = new - old
+        new_val = float(new) if new is not None else 0.0
+        diff = new_val - old_val
         if abs(diff) > VARIANCE_MIN_DIFF_EGP:
-            pct = 100.0 if old == 0.0 else round((abs(diff) / old) * 100.0, 2)
-            diffs.append(_CostDiff(column, label, old, new, diff, pct, pct > threshold))
+            pct = 100.0 if old_val == 0.0 else round((abs(diff) / old_val) * 100.0, 2)
+            diffs.append(_CostDiff(column, label, old_val, new_val, diff, pct, pct > threshold))
     return diffs
 
 
@@ -1521,15 +1547,7 @@ def evaluate_and_record_budget_variance_service(
     - Budget Approved: numbers untouched, flagged, CRITICAL notification.
     A missing FX rate raises FA_FX_RATE_MISSING before any change (the caller's best_effort leaves budgets as they are).
     """
-    active_budgets = (
-        db.query(ImportBudgetApproval)
-        .filter(
-            ImportBudgetApproval.import_file_id == import_file_id,
-            ImportBudgetApproval.is_active == True,
-            ImportBudgetApproval.budget_status != BUDGET_SUPERSEDED,
-        )
-        .all()
-    )
+    active_budgets = repo.active_budgets_for_file(db, import_file_id)
     if not active_budgets:
         return []
 
@@ -1586,6 +1604,8 @@ def evaluate_and_record_budget_variance_service(
             budget.last_variance_check = now
             budget.approved_by = None
             budget.approved_date = None
+            budget.variance_override_reason = None
+            budget.variance_overridden_by = None
             budget.notes = _append_note(
                 budget.notes,
                 f"[Source change {date.today()}]: cost variance detected by {modified_by}. Status changed to 'Needs Revalidation'.",
@@ -1714,7 +1734,16 @@ def sync_budget_with_upstream_service(
         _apply_prefill(new_budget, prefill)
         repo.add_row(db, new_budget)
         open_logs = _resolve_pending_logs(db, budget.budget_id, username, override_justification, now)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise fa_error(
+                status.HTTP_409_CONFLICT,
+                "FA_CODE_GENERATION_CONFLICT",
+                f"الرقم المرجعي {rev_code} مستخدم بالفعل، يرجى إعادة المحاولة.",
+                reference_code=rev_code,
+            )
         db.refresh(new_budget)
         result_budget = new_budget
         action, message_code = "revision_created", "FA_BUDGET_SYNC_REVISION_CREATED"
@@ -1950,7 +1979,7 @@ def confirm_swift_batch_review_service(
     if not batch_resp.all_mandatory_valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot confirm SWIFT review: Mandatory fields are missing or invalid: {', '.join(batch_resp.missing_mandatory_fields)}",
+            detail=f"تعذر تأكيد مراجعة السويفت: حقول إجبارية مفقودة أو غير صالحة: {', '.join(batch_resp.missing_mandatory_fields)}",
         )
 
     repo.mark_swift_batch_reviewed(db, batch, acting_user)
@@ -1971,13 +2000,10 @@ def confirm_swift_batch_review_service(
 
 def match_reviewed_batch_service(db: Session, batch_id: int, target_payment_id: Optional[int] = None) -> SwiftBatchMatchResponse:
     """Matches a confirmed batch (``final_value`` only) against Approved requests without a SWIFT reference
-    (plus the target request). 403 before the review is confirmed."""
+    (plus the target request). 409 before the review is confirmed."""
     batch = _get_batch(db, batch_id)
     if batch.status not in (BATCH_CONFIRMED, BATCH_RECONCILED):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="يجب مراجعة وتأكيد بيانات السويفت المستخرجة قبل المطابقة.",
-        )
+        raise batch_status_error(batch)
 
     confirmed = {f.field_key: f.final_value for f in batch.fields}
     parsed = dict(confirmed)

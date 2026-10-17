@@ -5,12 +5,10 @@ import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 import '../../cargo_shipping/widgets/cargo_shipping_ui.dart';
 import '../../customs_clearance/widgets/cc_dialog_shell.dart';
-import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
@@ -820,7 +818,11 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryOf(context)),
               ),
             ),
-            CcStatusChip(label: l.freightBookingBaseCurrencyLabel(_mainQuoteCurrency), severity: AppSeverity.info),
+            AppStatusBadge(
+              label: l.freightBookingBaseCurrencyLabel(_mainQuoteCurrency),
+              severity: AppSeverity.info,
+              size: AppStatusBadgeSize.small,
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -850,9 +852,9 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
             margin: const EdgeInsets.symmetric(vertical: 4),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppTheme.orange.withOpacity(0.08),
+              color: AppTheme.orange.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppTheme.orange.withOpacity(0.3)),
+              border: Border.all(color: AppTheme.orange.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -916,7 +918,11 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
               spacing: 8,
               runSpacing: 4,
               children: [
-                CcStatusChip(label: l.freightBookingAvailableQuotesBadge(pairs.length), severity: AppSeverity.info),
+                AppStatusBadge(
+                  label: l.freightBookingAvailableQuotesBadge(pairs.length),
+                  severity: AppSeverity.info,
+                  size: AppStatusBadgeSize.small,
+                ),
                 Text(l.freightBookingApplyQuoteInstruction,
                     style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
               ],
