@@ -27,6 +27,28 @@ from modules.file_closure.service import (
     get_closure_precheck_service,
     official_close_import_file_service,
 )
+from modules.file_closure.schemas import (
+    FileClosureCreate,
+    ClosureChecklistSchema,
+    ClosurePrecheckResponse,
+    OfficialClosureCertificateResponse,
+    DossierExportConfirmRequest,
+)
+from modules.file_closure.service import (
+    get_closure_precheck_service,
+    official_close_import_file_service,
+    close_import_file_service,
+    confirm_dossier_export_service,
+)
+from modules.file_closure.model import ImportFileClosureRecord
+from modules.file_closure.repository import active_purchase_orders
+from modules.purchase_orders.model import PurchaseOrder, POLineItem
+from modules.customs_tariff.model import CustomsTariff
+from modules.inland_transport.schemas import InlandTransportBookingCreate
+from modules.inland_transport.service import create_transport_booking_service
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.transport_locations.model import TransportLocation
+from fastapi import HTTPException
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(
@@ -360,3 +382,254 @@ def test_auditor_name_from_token_not_payload(db_session, client):
     res = response.json()
     assert res["auditor_name"] == "test-admin"
     assert res["auditor_name"] != "Spoofed Auditor Name"
+
+
+def test_closure_task_tight_match_unrelated_tasks_stay_open(db_session, client):
+    """BE810-F27: Tasks with generic closing titles (e.g. LC closure) stay open; only CLO-04 is closed."""
+    imp = _seed_sample_ready_shipment(db_session, "IMP-2026-CLO04-TIGHT-MATCH")
+
+    task_lc = SmartTask(
+        task_code=f"TSK-LC-{imp.import_file_id}",
+        title="إغلاق الاعتماد المستندي",
+        task_type="Financial",
+        import_file_id=imp.import_file_id,
+        status="Pending",
+        is_active=True,
+    )
+    task_transport = SmartTask(
+        task_code=f"TSK-TR-{imp.import_file_id}",
+        title="متابعة نقل الشحنة",
+        task_type="Logistics",
+        import_file_id=imp.import_file_id,
+        status="Pending",
+        is_active=True,
+    )
+    db_session.add_all([task_lc, task_transport])
+    db_session.commit()
+
+    payload = {
+        "import_file_id": imp.import_file_id,
+        "auditor_name": "Auditor",
+        "archive_location": "Vault",
+        "closure_checklist": {
+            "docs_verified": True,
+            "customs_cleared": True,
+            "warehouse_received": True,
+            "landed_cost_settled": True,
+            "dossier_exported": True,
+            "empty_containers_returned": True,
+            "tasks_closed": True,
+        },
+        "is_draft": False,
+    }
+    response = client.post("/api/v1/file-closure/official-close", json=payload)
+    assert response.status_code == 201
+
+    db_session.refresh(task_lc)
+    db_session.refresh(task_transport)
+    assert task_lc.status == "Pending", "LC closure task must stay open (not matched by broad title)"
+    assert task_transport.status == "Pending", "Transport task must stay open"
+
+    # CLO-04 task is auto-closed
+    task_904 = db_session.query(SmartTask).filter(
+        SmartTask.import_file_id == imp.import_file_id,
+        SmartTask.task_code.ilike("%0904%"),
+    ).first()
+    assert task_904.status == "Completed"
+
+
+def test_draft_closure_has_closed_at_none(db_session, client):
+    """BE810-F30: Draft closure record has closed_at is None."""
+    imp = _seed_sample_ready_shipment(db_session, "IMP-2026-CLO04-DRAFT-NULL")
+    payload = {
+        "import_file_id": imp.import_file_id,
+        "auditor_name": "Auditor",
+        "archive_location": "Vault",
+        "closure_checklist": {
+            "docs_verified": True,
+        },
+        "is_draft": True,
+    }
+    response = client.post("/api/v1/file-closure", json=payload)
+    assert response.status_code == 201
+    res = response.json()
+    assert res["status"] == "Draft"
+    assert res["closed_at"] is None
+
+    rec = db_session.query(ImportFileClosureRecord).filter(
+        ImportFileClosureRecord.closure_id == res["closure_id"]
+    ).first()
+    assert rec.closed_at is None
+
+
+def test_precheck_closed_file_adds_already_closed_blocking_reason(db_session, client):
+    """BE810-F32: Precheck on a closed file returns can_close=False with already_closed blocking key and reason."""
+    imp = _seed_sample_ready_shipment(db_session, "IMP-2026-CLO04-ALREADY-CLOSED")
+    imp.status = "Closed"
+    db_session.commit()
+
+    response = client.get(f"/api/v1/file-closure/closure-precheck/{imp.import_file_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["can_close"] is False
+    assert "already_closed" in data["blocking_keys"]
+    assert any("مغلق" in r for r in data["blocking_reasons"])
+
+
+def test_dossier_export_reconfirmation_avoids_duplicate_notification(db_session):
+    """BE810-F35: Dossier export re-confirmation avoids duplicate notification and preserves closed task notes."""
+    imp = _seed_sample_ready_shipment(db_session, "IMP-2026-CLO04-RE-EXPORT")
+    imp.dossier_exported_at = None
+    db_session.commit()
+
+    task_903 = SmartTask(
+        task_code=f"TSK-0903-{imp.import_file_id}",
+        title="تصدير الملف الشامل (CLO-03)",
+        import_file_id=imp.import_file_id,
+        status="Pending",
+        is_active=True,
+    )
+    db_session.add(task_903)
+    db_session.commit()
+
+    req = DossierExportConfirmRequest(import_file_id=imp.import_file_id, export_format="PDF")
+    res1 = confirm_dossier_export_service(db_session, req, trusted=True)
+    assert res1.success is True
+
+    notif_count_1 = db_session.query(SystemNotification).filter(
+        SystemNotification.entity_id == imp.import_file_id,
+        SystemNotification.msg_code == "CLO_DOSSIER_EXPORTED",
+    ).count()
+    assert notif_count_1 == 1
+
+    db_session.refresh(task_903)
+    assert task_903.status == "Completed"
+    task_903.notes = "Preserved original export note"
+    db_session.commit()
+
+    # Re-confirm export
+    res2 = confirm_dossier_export_service(db_session, req, trusted=True)
+    assert res2.success is True
+
+    notif_count_2 = db_session.query(SystemNotification).filter(
+        SystemNotification.entity_id == imp.import_file_id,
+        SystemNotification.msg_code == "CLO_DOSSIER_EXPORTED",
+    ).count()
+    assert notif_count_2 == 1, "Duplicate notification should not be sent"
+
+    db_session.refresh(task_903)
+    assert task_903.notes == "Preserved original export note", "Completed task notes must not be overwritten"
+
+
+def test_inland_transport_task_assigned_to_user_and_phase_8(db_session):
+    """BE810-F28 & F27: TR-03 task assigned to acting user, phase 8, and tight TR-01 matching."""
+    imp = _seed_sample_ready_shipment(db_session, "IMP-2026-IT-HYGIENE")
+    imp.status = "Under Processing"
+    db_session.commit()
+
+    carrier = ExternalServiceProvider(
+        partner_code="PRV-IT-001",
+        partner_name="Nile Express Logistics",
+        partner_type="Inland Transport",
+        is_active=True,
+    )
+    db_session.add(carrier)
+    db_session.flush()
+
+    now_utc = datetime.now(timezone.utc)
+    schema = InlandTransportBookingCreate(
+        import_file_id=imp.import_file_id,
+        waybill_number="WB-TEST-2026-001",
+        carrier_name="Nile Express Logistics",
+        carrier_id=carrier.provider_id,
+        driver_name="Mahmoud Driver",
+        driver_phone="+201012345678",
+        truck_plate_number="ط ر ق 1234",
+        truck_type="FLATBED",
+        pickup_port_location="Alexandria Port",
+        destination_warehouse="El-Obour Warehouse",
+        planned_departure_at=now_utc,
+        expected_arrival_at=now_utc,
+        transport_fare_egp=8500.0,
+    )
+    booking = create_transport_booking_service(db_session, schema, user="logistics-specialist")
+    assert booking.transport_id is not None
+
+    downstream_task = db_session.query(SmartTask).filter(
+        SmartTask.import_file_id == imp.import_file_id,
+        SmartTask.reminder_type == "Warehouse Receiving",
+    ).first()
+    assert downstream_task is not None
+    assert downstream_task.assigned_user == "logistics-specialist"
+    assert downstream_task.phase_name == "Phase 8: Inland Transport & Warehouse Receiving"
+
+
+def test_require_any_permission_untrusted_without_actor_raises_403(db_session):
+    """BE810-F31: _require_any_permission raises 403 when actor is None and trusted=False."""
+    imp = _seed_sample_ready_shipment(db_session, "IMP-2026-AUTH-GUARD")
+    schema = FileClosureCreate(import_file_id=imp.import_file_id, is_draft=True)
+
+    with pytest.raises(HTTPException) as exc:
+        close_import_file_service(db_session, schema, actor=None, trusted=False)
+    assert exc.value.status_code == 403
+
+
+def test_active_purchase_orders_eager_loads_relationships(db_session):
+    """BE810-F33: active_purchase_orders eager-loads currency, line_items, and tariff to prevent N+1."""
+    imp = _seed_sample_ready_shipment(db_session, "IMP-2026-PO-EAGER")
+
+    tariff = CustomsTariff(
+        hs_code="8418.10.00",
+        hs_description="ثلاجات",
+        customs_duty_rate=5.0,
+        vat_rate=14.0,
+        is_active=True,
+    )
+    db_session.add(tariff)
+    db_session.flush()
+
+    project = Project(
+        project_code="PRJ-2026-001",
+        project_name="Test Project",
+        project_owner="Owner",
+        company_id=imp.company_id,
+        supplier_id=imp.supplier_id,
+        incoterm_id=1,
+        is_active=True,
+    )
+    db_session.add(project)
+    db_session.flush()
+
+    po = PurchaseOrder(
+        po_number="PO-2026-EAGER-01",
+        import_file_id=imp.import_file_id,
+        project_id=project.project_id,
+        company_id=imp.company_id,
+        supplier_id=imp.supplier_id,
+        incoterm_id=1,
+        currency_id=1,
+        total_amount_fob=50000.0,
+        is_active=True,
+    )
+    db_session.add(po)
+    db_session.flush()
+
+    item = POLineItem(
+        po_id=po.po_id,
+        item_code="ITEM-001",
+        description_ar="صنف ثلاجات",
+        tariff_id=tariff.tariff_id,
+        quantity=10,
+        unit_price=5000.0,
+        total_price=50000.0,
+    )
+    db_session.add(item)
+    db_session.commit()
+
+    pos = active_purchase_orders(db_session, imp.import_file_id)
+    assert len(pos) == 1
+    loaded_po = pos[0]
+    assert loaded_po.currency is not None
+    assert len(loaded_po.line_items) == 1
+    assert loaded_po.line_items[0].tariff is not None
+    assert loaded_po.line_items[0].tariff.hs_code == "8418.10.00"

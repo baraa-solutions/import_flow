@@ -280,15 +280,47 @@ def _fx_missing(currency_code: Optional[str]) -> HTTPException:
 
 
 def _require_rate(db: Session, currency_code: Optional[str], cache: Optional[Dict[str, float]] = None) -> float:
-    key = (currency_code or "USD").strip().upper()
+    if not currency_code or not str(currency_code).strip():
+        raise _fx_missing(currency_code)
+    key = currency_code.strip().upper()
     if cache is not None and key in cache:
         return cache[key]
-    rate = _commercial_rate_to_egp(db, currency_code or "USD")
+    rate = _commercial_rate_to_egp(db, currency_code)
     if rate is None or rate <= 0:
-        raise _fx_missing(currency_code or "USD")
+        raise _fx_missing(currency_code)
     if cache is not None:
         cache[key] = rate
     return rate
+
+
+def _budget_egp_amounts(
+    db: Session,
+    invoice_foreign: float,
+    invoice_currency: Optional[str],
+    freight_foreign: float,
+    freight_currency: Optional[str],
+    invoice_rate: float,
+) -> Tuple[float, float]:
+    """Derive invoice and freight EGP amounts for an import budget.
+    Freight converts with invoice_rate when same currency, 1.0 for EGP, or its own commercial rate."""
+    from modules.common.enum_codes import normalize_currency
+
+    inv_egp = (invoice_foreign or 0.0) * invoice_rate
+    if (freight_foreign or 0.0) <= 0:
+        return (inv_egp, 0.0)
+
+    inv_c_norm = normalize_currency(invoice_currency) if invoice_currency else None
+    frt_c_norm = normalize_currency(freight_currency) if freight_currency else None
+
+    if frt_c_norm == "EGP":
+        freight_rate = 1.0
+    elif frt_c_norm and frt_c_norm == inv_c_norm:
+        freight_rate = invoice_rate
+    else:
+        freight_rate = _require_rate(db, freight_currency)
+
+    frt_egp = (freight_foreign or 0.0) * freight_rate
+    return (inv_egp, frt_egp)
 
 
 # ==============================================================================
@@ -906,18 +938,17 @@ def approve_import_budget_service(db: Session, budget_id: int, approved_by: str 
     db_item = _get_budget(db, budget_id)
     require_budget_approvable(db_item)
 
-    if db_item.has_unresolved_variance and not db_item.variance_override_reason:
-        hard = repo.first_pending_hard_block(db, budget_id)
-        if hard is not None:
-            raise fa_error(
-                status.HTTP_400_BAD_REQUEST,
-                "FA_BUDGET_HARD_BLOCK",
-                f"لا يمكن اعتماد الميزانية لوجود فارق تكاليف غير مسوى يتجاوز العتبة المحددة "
-                f"({hard.variance_percentage:.1f}% في {hard.field_name} - Hard Block). يجب مزامنة التكاليف أولاً "
-                "أو تقديم مبرر مكتوب إجباري لتجاوز الحظر.",
-                variance_percentage=round(float(hard.variance_percentage or 0.0), 2),
-                field_name=hard.field_name,
-            )
+    hard = repo.first_pending_hard_block(db, budget_id)
+    if hard is not None:
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_BUDGET_HARD_BLOCK",
+            f"لا يمكن اعتماد الميزانية لوجود فارق تكاليف غير مسوى يتجاوز العتبة المحددة "
+            f"({hard.variance_percentage:.1f}% في {hard.field_name} - Hard Block). يجب مزامنة التكاليف أولاً "
+            "أو تقديم مبرر مكتوب إجباري لتجاوز الحظر.",
+            variance_percentage=round(float(hard.variance_percentage or 0.0), 2),
+            field_name=hard.field_name,
+        )
 
     db_item.budget_status = BUDGET_APPROVED
     db_item.approved_by = approved_by
@@ -968,8 +999,15 @@ def clone_import_budget_service(db: Session, budget_id: int, schema: CloneImport
 
     inv_foreign = orig.invoice_amount_foreign or 0.0
     frt_foreign = orig.freight_cost_foreign or 0.0
-    inv_egp = inv_foreign * rate if inv_foreign > 0 else (orig.invoice_amount_egp or 0.0)
-    frt_egp = frt_foreign * rate if frt_foreign > 0 else (orig.freight_cost_egp or 0.0)
+    if inv_foreign > 0 or frt_foreign > 0:
+        calc_inv_egp, calc_frt_egp = _budget_egp_amounts(
+            db, inv_foreign, orig.invoice_currency, frt_foreign, orig.freight_currency, rate
+        )
+        inv_egp = calc_inv_egp if inv_foreign > 0 else (orig.invoice_amount_egp or 0.0)
+        frt_egp = calc_frt_egp if frt_foreign > 0 else (orig.freight_cost_egp or 0.0)
+    else:
+        inv_egp = orig.invoice_amount_egp or 0.0
+        frt_egp = orig.freight_cost_egp or 0.0
     cust_egp = orig.customs_duties_egp or 0.0
     clr_egp = orig.clearance_inland_egp or 0.0
     notes = _append_note(orig.notes, schema.remarks) if schema.remarks else orig.notes
@@ -1490,6 +1528,8 @@ def evaluate_and_record_budget_variance_service(
             budget.last_variance_check = now
             budget.approved_by = None
             budget.approved_date = None
+            budget.variance_override_reason = None
+            budget.variance_overridden_by = None
             budget.notes = _append_note(
                 budget.notes,
                 f"[Source change {date.today()}]: cost variance detected by {modified_by}. Status changed to 'Needs Revalidation'.",

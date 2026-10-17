@@ -645,6 +645,15 @@ class MasterDataSyncService:
 
         return {"added": added}
 
+    def sync_recalculation_dependencies(self) -> int:
+        """
+        Idempotently seeds recalculation dependency map rows and retires obsolete seeds
+        (BE09-T03: deactivates financial_settlement estimated expense seeds so actual landed costs
+        are never replaced by consultation or scenario estimates).
+        """
+        from modules.recalculation.seed_dependencies import run_seed
+        return run_seed(self.db)
+
     def sync_all(self) -> Dict[str, Any]:
         """Runs complete master data non-destructive synchronization across all reference domains."""
         users_added = self.sync_system_users()
@@ -658,6 +667,7 @@ class MasterDataSyncService:
         guide_res = self.sync_experience_guide_seeds()
         tax_rates_added = self.sync_tax_rates()
         system_parameters_added = seed_default_parameters(self.db)  # insert-only, never overwrites a configured value
+        recalc_deps_seeded = self.sync_recalculation_dependencies()
 
         return {
             "status": "synchronized_cleanly",
@@ -672,5 +682,6 @@ class MasterDataSyncService:
             "experience_guide": guide_res,
             "tax_rates_added": tax_rates_added,
             "system_parameters_added": system_parameters_added,
+            "recalculation_dependencies_seeded": recalc_deps_seeded,
         }
 
