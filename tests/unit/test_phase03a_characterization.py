@@ -101,11 +101,8 @@ def db():
         )
     from modules.currencies.model import Currency
     session.add(Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
-
-
-    session.add(Currency(currency_id=1, currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
-    session.add(Currency(currency_id=2, currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True))
-    session.add(Currency(currency_id=3, currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_active=True))
+    session.add(Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True))
+    session.add(Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_active=True))
     session.commit()
     try:
         yield session
