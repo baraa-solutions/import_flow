@@ -56,7 +56,7 @@ class _CustomsDutyPaymentDialogState
 
   // Codes (DomainEnumType.paymentMethod / dutyBank); labels follow the UI language.
   String _paymentMethod = 'SADAD_EFINANCE';
-  String _bankName = 'NBE';
+  String? _bankName;
   DateTime _paymentDate = DateTime.now();
   bool _isSubmitting = false;
 
@@ -68,7 +68,7 @@ class _CustomsDutyPaymentDialogState
 
   List<String> get _bankNames => [
         ...DomainEnums.codesOf(DomainEnumType.dutyBank),
-        if (!DomainEnums.isCode(DomainEnumType.dutyBank, _bankName)) _bankName,
+        if (_bankName != null && !DomainEnums.isCode(DomainEnumType.dutyBank, _bankName!)) _bankName!,
       ];
 
   @override
@@ -77,11 +77,8 @@ class _CustomsDutyPaymentDialogState
     final rec = widget.clearanceRecord;
     final file = widget.file;
 
-    // Prefill sadad number
-    String initialSadad = rec?.sadadNumber ?? file.customsDutySadadNo ?? '';
-    if (initialSadad.isEmpty) {
-      initialSadad = 'SADAD-${DateTime.now().year}-${file.importFileId.toString().padLeft(4, '0')}';
-    }
+    // Prefill sadad number strictly from record or file
+    final initialSadad = rec?.sadadNumber ?? file.customsDutySadadNo ?? '';
     _sadadNumberController = TextEditingController(text: initialSadad);
 
     // Prefill receipt number
@@ -113,6 +110,8 @@ class _CustomsDutyPaymentDialogState
     final storedBank = rec?.payingBankName?.trim() ?? '';
     if (storedBank.isNotEmpty) {
       _bankName = DomainEnums.initialCode(DomainEnumType.dutyBank, storedBank, storedBank);
+    } else {
+      _bankName = null;
     }
 
     _receiptFileUrlController = TextEditingController(
@@ -345,18 +344,12 @@ class _CustomsDutyPaymentDialogState
                   decoration: ccInputDecoration(
                     hint: l.ccDutySadadHint,
                     prefix: Icons.pin_rounded,
-                    suffix: IconButton(
-                      icon: const Icon(Icons.autorenew_rounded, size: 18),
-                      tooltip: l.ccDutyAutoGenerate,
-                      onPressed: () {
-                        setState(() {
-                          _sadadNumberController.text =
-                              'SADAD-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-                        });
-                      },
-                    ),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? l.ccDutySadadRequired : null,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return l.ccDutySadadRequired;
+                    if (v.trim().length < 3) return l.ccDutySadadTooShort;
+                    return null;
+                  },
                 ),
               ),
               CcField(
@@ -446,6 +439,7 @@ class _CustomsDutyPaymentDialogState
                             label: DomainEnums.label(l, DomainEnumType.dutyBank, b),
                           ))
                       .toList(),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? l.ccDutyBankRequired : null,
                   onChanged: (v) {
                     if (v != null) setState(() => _bankName = v);
                   },
