@@ -196,3 +196,159 @@ def test_swift_review_layer_full_lifecycle(db_session):
     batch_in_db = db_session.query(SwiftExtractionBatch).filter_by(batch_id=batch_resp.batch_id).first()
     assert batch_in_db.status == "RECONCILED"
     assert batch_in_db.matched_payment_id == 10
+
+
+def test_batch_reconcile_missing_value_date_raises_400_and_keeps_approved(db_session):
+    """BE02-T13: A confirmed batch with value_date="" raises 400 FA_SWIFT_VALUE_DATE_INVALID
+    and the payment request remains in Approved status."""
+    batch_resp = service.extract_swift_for_review_service(
+        db=db_session,
+        raw_text=REAL_SWIFT_SAMPLE,
+        filename="swift_missing_date.txt",
+        file_type="Text File",
+    )
+    # Clear value_date field
+    service.update_swift_batch_field_service(
+        db=db_session,
+        batch_id=batch_resp.batch_id,
+        field_key="value_date",
+        payload=SwiftFieldUpdateRequest(value="", user_name="tester"),
+    )
+    # Confirmation succeeds because value_date is not in _MANDATORY_SWIFT_FIELDS
+    confirm_resp = service.confirm_swift_batch_review_service(
+        db=db_session,
+        batch_id=batch_resp.batch_id,
+        payload=SwiftBatchConfirmRequest(user_name="tester"),
+    )
+    assert confirm_resp.status == "REVIEWED_CONFIRMED"
+
+    # Attempt reconcile -> must fail with 400 FA_SWIFT_VALUE_DATE_INVALID
+    with pytest.raises(HTTPException) as exc_info:
+        service.reconcile_reviewed_batch_service(
+            db=db_session,
+            batch_id=batch_resp.batch_id,
+            payload=SwiftBatchReconcileRequest(payment_id=10),
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail["code"] == "FA_SWIFT_VALUE_DATE_INVALID"
+    assert exc_info.value.detail["batch_code"] == batch_resp.batch_code
+    assert exc_info.value.detail["value"] == ""
+
+    # Payment request must stay Approved
+    pay_in_db = db_session.query(PaymentRequestSession).filter_by(payment_id=10).first()
+    assert pay_in_db.status == "Approved"
+    assert pay_in_db.swift_receipt_date is None
+
+
+def test_batch_reconcile_invalid_value_date_format_raises_400(db_session):
+    """BE02-T13: A confirmed batch with unparseable value_date raises 400 FA_SWIFT_VALUE_DATE_INVALID."""
+    batch_resp = service.extract_swift_for_review_service(
+        db=db_session,
+        raw_text=REAL_SWIFT_SAMPLE,
+        filename="swift_bad_date.txt",
+        file_type="Text File",
+    )
+    service.update_swift_batch_field_service(
+        db=db_session,
+        batch_id=batch_resp.batch_id,
+        field_key="value_date",
+        payload=SwiftFieldUpdateRequest(value="2026/10/01", user_name="tester"),
+    )
+    service.confirm_swift_batch_review_service(
+        db=db_session,
+        batch_id=batch_resp.batch_id,
+        payload=SwiftBatchConfirmRequest(user_name="tester"),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.reconcile_reviewed_batch_service(
+            db=db_session,
+            batch_id=batch_resp.batch_id,
+            payload=SwiftBatchReconcileRequest(payment_id=10),
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail["code"] == "FA_SWIFT_VALUE_DATE_INVALID"
+    assert exc_info.value.detail["value"] == "2026/10/01"
+
+
+def test_batch_reconcile_calculates_swift_processing_days(db_session):
+    """BE02-T13: value_date='2026-10-01' with request_date=2026-09-20 calculates swift_processing_days == 11."""
+    pay = PaymentRequestSession(
+        payment_id=20,
+        payment_code="PAY-2026-020",
+        title="Payment for Raw Materials",
+        supplier_id=1,
+        supplier_name="SUZHOU YUHENG TEXTILE CO.,LTD",
+        beneficiary_name="SUZHOU YUHENG TEXTILE CO.,LTD",
+        bank_name="CHINA CONSTRUCTION BANK",
+        swift_code="PCBCCNBJJSS",
+        iban_account_no="32250198613609841015",
+        requested_amount=43704.0,
+        currency_code="USD",
+        exchange_rate=50.0,
+        requested_amount_egp=2185200.0,
+        due_date=date(2026, 10, 15),
+        request_date=date(2026, 9, 20),
+        status="Approved",
+        is_active=True,
+    )
+    db_session.add(pay)
+    db_session.commit()
+
+    batch_resp = service.extract_swift_for_review_service(
+        db=db_session,
+        raw_text=REAL_SWIFT_SAMPLE,
+        filename="swift_sample_20.txt",
+        file_type="Text File",
+    )
+    service.update_swift_batch_field_service(
+        db=db_session,
+        batch_id=batch_resp.batch_id,
+        field_key="value_date",
+        payload=SwiftFieldUpdateRequest(value="2026-10-01", user_name="tester"),
+    )
+    service.confirm_swift_batch_review_service(
+        db=db_session,
+        batch_id=batch_resp.batch_id,
+        payload=SwiftBatchConfirmRequest(user_name="tester"),
+    )
+
+    reconciled = service.reconcile_reviewed_batch_service(
+        db=db_session,
+        batch_id=batch_resp.batch_id,
+        payload=SwiftBatchReconcileRequest(payment_id=20),
+    )
+    assert reconciled.status == "Paid"
+    assert reconciled.swift_receipt_date == date(2026, 10, 1)
+    assert reconciled.swift_processing_days == 11
+
+
+def test_batch_reconcile_empty_transaction_reference_raises_400(db_session):
+    """BE02-T13: Empty transaction_reference on batch reconcile raises 400 FA_SWIFT_BATCH_STATUS_INVALID."""
+    batch_resp = service.extract_swift_for_review_service(
+        db=db_session,
+        raw_text=REAL_SWIFT_SAMPLE,
+        filename="swift_sample_empty_ref.txt",
+        file_type="Text File",
+    )
+    service.confirm_swift_batch_review_service(
+        db=db_session,
+        batch_id=batch_resp.batch_id,
+        payload=SwiftBatchConfirmRequest(user_name="tester"),
+    )
+    # Directly clear the transaction_reference field in DB
+    ref_fld = db_session.query(SwiftExtractionField).filter_by(
+        batch_id=batch_resp.batch_id,
+        field_key="transaction_reference",
+    ).first()
+    ref_fld.final_value = ""
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.reconcile_reviewed_batch_service(
+            db=db_session,
+            batch_id=batch_resp.batch_id,
+            payload=SwiftBatchReconcileRequest(payment_id=10),
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail["code"] == "FA_SWIFT_BATCH_STATUS_INVALID"

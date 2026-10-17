@@ -1232,6 +1232,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'FA_SWIFT_BATCH_STATUS_INVALID': {
     'note': 'هذا الإجراء غير مسموح على دفعة السويفت {batch_code} وهي في حالة {status}.',
   },
+  'FA_SWIFT_VALUE_DATE_INVALID': {
+    'note': "تاريخ القيمة '{value}' في دفعة السويفت {batch_code} غير صالح أو غير مدخل بصيغة YYYY-MM-DD.",
+  },
   'FA_PAYMENT_STATUS_INVALID': {
     'note': 'طلب الدفع {payment_code} في حالة {status}: الإجراء {action} غير مسموح.',
   },

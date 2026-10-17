@@ -1161,6 +1161,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "note": "SWIFT batch {batch_code} is already reconciled with payment request {payment_code}.",
     },
     "FA_SWIFT_BATCH_STATUS_INVALID": {"note": "This action is not allowed on SWIFT batch {batch_code} in status {status}."},
+    "FA_SWIFT_VALUE_DATE_INVALID": {
+        "note": "Value date '{value}' in SWIFT batch {batch_code} is missing or not in YYYY-MM-DD format.",
+    },
     "FA_PAYMENT_STATUS_INVALID": {"note": "Payment request {payment_code} is {status}: the action {action} is not allowed."},
     "FA_PAYMENT_LOCKED": {
         "note": "An approved or paid payment request ({payment_code}, {status}) cannot be changed or deleted.",
