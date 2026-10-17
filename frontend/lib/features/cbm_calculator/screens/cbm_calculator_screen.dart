@@ -10,11 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-
-import '../../../core/widgets/container_load_plan_painter.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 
 import '../../import_files/providers/import_files_provider.dart';
@@ -25,7 +21,6 @@ import '../providers/cbm_calculator_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/localization/stored_text.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 
 class CBMCalculatorScreen extends ConsumerStatefulWidget {
   const CBMCalculatorScreen({super.key});
@@ -36,7 +31,6 @@ class CBMCalculatorScreen extends ConsumerStatefulWidget {
 
 class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with SingleTickerProviderStateMixin, DisposeTrackerMixin<CBMCalculatorScreen> {
   late TabController _tabController;
-  final TextEditingController _searchController = TextEditingController();
 
   // Active Editing Session State
   int? _activeSessionId;
@@ -113,7 +107,6 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   @override
   void dispose() {
     _tabController.dispose();
-    _searchController.dispose();
     _quickTabScrollController.dispose();
     super.dispose();
   }

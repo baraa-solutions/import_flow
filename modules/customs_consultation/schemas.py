@@ -4,7 +4,8 @@ Customs Consultation & Broker Price Lists Pydantic Schemas (BP-009)
 
 from datetime import datetime, date
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing_extensions import Self
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # ==============================================================================
@@ -12,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # ==============================================================================
 
 class ClearanceExpenseTypeBase(BaseModel):
-    expense_code: str = Field(..., min_length=2, max_length=50)
+    expense_code: Optional[str] = Field(None, min_length=2, max_length=50)
     name_ar: str = Field(..., min_length=2, max_length=200)
     name_en: Optional[str] = None
     category: str = Field(..., min_length=2, max_length=100)
@@ -39,6 +40,7 @@ class ClearanceExpenseTypeUpdate(BaseModel):
 
 class ClearanceExpenseTypeResponse(ClearanceExpenseTypeBase):
     expense_id: int
+    expense_code: str
     created_at: datetime
     updated_at: datetime
 
@@ -63,7 +65,9 @@ class BrokerPriceListItemBase(BaseModel):
 
 
 class BrokerPriceListItemCreate(BrokerPriceListItemBase):
-    pass
+    standard_price: float = Field(0.0, ge=0)
+    min_price: Optional[float] = Field(None, ge=0)
+    max_price: Optional[float] = Field(None, ge=0)
 
 
 class BrokerPriceListItemUpdate(BaseModel):
@@ -71,10 +75,10 @@ class BrokerPriceListItemUpdate(BaseModel):
     expense_name: Optional[str] = None
     category: Optional[str] = None
     unit_type: Optional[str] = None
-    standard_price: Optional[float] = None
+    standard_price: Optional[float] = Field(None, ge=0)
     currency: Optional[str] = None
-    min_price: Optional[float] = None
-    max_price: Optional[float] = None
+    min_price: Optional[float] = Field(None, ge=0)
+    max_price: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -105,6 +109,12 @@ class BrokerPriceListBase(BaseModel):
 class BrokerPriceListCreate(BrokerPriceListBase):
     items: List[BrokerPriceListItemCreate] = []
 
+    @model_validator(mode="after")
+    def validate_date_range(self) -> Self:
+        if self.effective_from and self.effective_to and self.effective_to < self.effective_from:
+            raise ValueError("تاريخ انتهاء السريان يجب أن يكون بعد أو يساوي تاريخ بدء السريان.")
+        return self
+
 
 class BrokerPriceListUpdate(BaseModel):
     title: Optional[str] = None
@@ -117,6 +127,12 @@ class BrokerPriceListUpdate(BaseModel):
     is_active: Optional[bool] = None
     notes: Optional[str] = None
     items: Optional[List[BrokerPriceListItemCreate]] = None
+
+    @model_validator(mode="after")
+    def validate_date_range(self) -> Self:
+        if self.effective_from and self.effective_to and self.effective_to < self.effective_from:
+            raise ValueError("تاريخ انتهاء السريان يجب أن يكون بعد أو يساوي تاريخ بدء السريان.")
+        return self
 
 
 class BrokerPriceListResponse(BrokerPriceListBase):
@@ -137,6 +153,12 @@ class CloneBrokerPriceListRequest(BaseModel):
     effective_from: Optional[date] = None
     effective_to: Optional[date] = None
     notes: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_date_range(self) -> Self:
+        if self.effective_from and self.effective_to and self.effective_to < self.effective_from:
+            raise ValueError("تاريخ انتهاء السريان يجب أن يكون بعد أو يساوي تاريخ بدء السريان.")
+        return self
 
 
 
@@ -214,8 +236,8 @@ class CustomsChecklistItemResponse(CustomsChecklistItemBase):
 
 class CustomsConsultationBase(BaseModel):
     title: str = Field(..., min_length=2, max_length=200)
-    broker_id: int
-    broker_name: str
+    broker_id: Optional[int] = None
+    broker_name: Optional[str] = None
     broker_contact_person: Optional[str] = None
     broker_price_list_id: Optional[int] = None
     import_file_id: Optional[int] = None

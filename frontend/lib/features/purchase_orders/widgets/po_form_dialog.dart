@@ -14,6 +14,7 @@ import '../../../core/widgets/change_diff_dialog.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../customs_tariff/widgets/tariff_form_dialog.dart';
+import '../../customs_tariff/widgets/duty_calculator_dialog.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
@@ -28,6 +29,7 @@ import '../models/purchase_order_model.dart';
 import '../utils/po_row_id_matcher.dart';
 import '../utils/po_hs_tariff_matcher.dart';
 import '../utils/po_payment_terms.dart';
+import '../utils/po_fx_rate.dart';
 import '../utils/po_row_list.dart';
 import 'po_decimal_field.dart';
 import '../providers/purchase_orders_provider.dart';
@@ -65,6 +67,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   late TextEditingController _poReferenceCtrl;
   late TextEditingController _piCtrl;
   late TextEditingController _rateCtrl;
+  String? _rateHelperText;
   late TextEditingController _notesCtrl;
 
   late DateTime _selectedOrderDate;
@@ -313,24 +316,38 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (curr == null) return;
     if (curr.isBaseCurrency || curr.currencyCode == 'EGP') {
       _rateCtrl.text = '1.0';
+      if (mounted) {
+        setState(() {
+          _rateHelperText = null;
+        });
+      } else {
+        _rateHelperText = null;
+      }
       return;
     }
 
-    double? foundRate;
-    if (curr.exchangeRates != null && curr.exchangeRates!.isNotEmpty) {
-      final orderDateStr = _selectedOrderDate.toString().substring(0, 10);
-      final sortedRates = List.from(curr.exchangeRates!)
-        ..sort((a, b) => b.effectiveDate.compareTo(a.effectiveDate));
-      final matching = sortedRates.firstWhere(
-        (r) => r.effectiveDate.compareTo(orderDateStr) <= 0,
-        orElse: () => sortedRates.first,
-      );
-      foundRate = matching.commercialRate;
-    }
-
-    foundRate ??= curr.latestCommercialRate;
+    final foundRate = pickCommercialRate(curr.exchangeRates, _selectedOrderDate);
     if (foundRate != null && foundRate > 0) {
       _rateCtrl.text = foundRate.toString();
+      if (mounted) {
+        setState(() {
+          _rateHelperText = null;
+        });
+      } else {
+        _rateHelperText = null;
+      }
+    } else {
+      _rateCtrl.clear();
+      final dateStr =
+          '${_selectedOrderDate.year.toString().padLeft(4, '0')}-${_selectedOrderDate.month.toString().padLeft(2, '0')}-${_selectedOrderDate.day.toString().padLeft(2, '0')}';
+      final msg = context.l10n.poNoExchangeRateForDate(curr.currencyCode, dateStr);
+      if (mounted) {
+        setState(() {
+          _rateHelperText = msg;
+        });
+      } else {
+        _rateHelperText = msg;
+      }
     }
   }
 
@@ -579,7 +596,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final rawSupp = _getExt(ext, ['supplier_name', 'supplier name', 'supplier', 'vendor_name', 'vendor name', 'vendor', 'shipper', 'exporter_name', 'exporter name', 'exporter'])?.toString().trim().toLowerCase();
     final rawSuppTax = _getExt(ext, ['supplier_tax_id', 'supplier tax id', 'exporter_id', 'vat_number', 'tax_id'])?.toString().trim();
     final rawSuppEmail = _getExt(ext, ['supplier_email', 'supplier email', 'email'])?.toString().trim().toLowerCase();
-    if (rawSupp == null || rawSupp.isEmpty) return null;
+    if (rawSupp == null || rawSupp.length < 3) return null;
 
     final matchedSupp = suppliers.where((s) {
       final sName = s.companyName.toLowerCase();
@@ -591,12 +608,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       final noise = {'ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.', 'co', 'the', '&', 'group', 'uab'};
       final rawTokens = rawSupp.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
       final sTokens = sName.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
+      if (rawTokens.isEmpty || sTokens.isEmpty) return false;
       final intersection = rawTokens.intersection(sTokens);
-      return intersection.isNotEmpty && (intersection.isNotEmpty || intersection.length == rawTokens.length || intersection.length == sTokens.length);
+      // Require >=2 matching tokens, or intersection covers all tokens from one side.
+      return intersection.length >= 2 || intersection.length == rawTokens.length || intersection.length == sTokens.length;
     }).firstOrNull;
 
     return matchedSupp?.supplierId;
   }
+
 
   int? _matchIncotermId(dynamic extOrRaw, List<IncotermModel> incoterms) {
     if (incoterms.isEmpty) return null;
@@ -760,7 +780,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (!mounted) return;
     setState(() {
       if (targetTab == 'invoice' || targetTab == 'all') {
-        final poNum = ext['po_number']?.toString() ?? ext['proforma_invoice_number']?.toString();
+        final poNum = (ext['invoice_number'] ?? ext['po_number'] ?? ext['proforma_invoice_number'])?.toString();
         if (poNum != null && poNum.isNotEmpty) {
           _piCtrl.text = poNum;
         }
@@ -768,7 +788,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         if (poRef != null && poRef.isNotEmpty) {
           _poReferenceCtrl.text = poRef;
         }
-        final dateStr = (ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString();
+        final dateStr = (ext['order_date'] ?? ext['invoice_date'] ?? ext['po_date'] ?? ext['date'])?.toString();
         if (dateStr != null && dateStr.isNotEmpty) {
           _selectedOrderDate = _parseFlexDate(dateStr);
         }
@@ -878,9 +898,23 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
 
       if (targetTab == 'packing' || targetTab == 'all') {
-        final packingList = ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty
-            ? ext['packing_list_items'] as List
-            : (ext['items'] is List ? ext['items'] as List : []);
+        final rawPallet = ext['pallet_count'] ?? ext['pallets'];
+        if (rawPallet != null) {
+          final pCount = _numToInt(rawPallet);
+          if (pCount > 0) {
+            _palletCount = pCount;
+            _isDirectVolumeMode = true;
+          }
+        }
+        if (ext['is_pallet_stackable'] != null) {
+          _isPalletStackable = ext['is_pallet_stackable'] as bool? ?? false;
+        }
+
+        final packingList = (ext['packing_items'] is List && (ext['packing_items'] as List).isNotEmpty)
+            ? ext['packing_items'] as List
+            : (ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty
+                ? ext['packing_list_items'] as List
+                : (ext['items'] is List ? ext['items'] as List : []));
 
         if (packingList.isNotEmpty) {
           _dialogPackingItems = packingList.asMap().entries.map((entry) {
@@ -927,8 +961,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
               heightCm: (p['height_cm'] as num?)?.toDouble() ?? 0.0,
               grossWeightUnitKg: (p['gross_weight_unit_kg'] ?? p['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
               netWeightUnitKg: (p['net_weight_unit_kg'] ?? p['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
-              totalGrossWeightKg: (p['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
-              totalNetWeightKg: (p['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+              totalGrossWeightKg: (p['total_gross_weight_kg'] ?? p['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+              totalNetWeightKg: (p['total_net_weight_kg'] ?? p['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
               totalCbm: pTotCbm,
               isStackable: p['is_stackable'] as bool? ?? true,
             );
@@ -965,7 +999,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         (ext != null ? (ext['po_reference'] ?? ext['reference'] ?? ext['order_title'] ?? ext['subject'] ?? ext['po_title'])?.toString() : null) ?? '';
     _piCtrl = TextEditingController(text: defaultPiNumber);
     _poReferenceCtrl = TextEditingController(text: defaultPoRef);
-    _rateCtrl = TextEditingController(text: (po?.exchangeRate ?? 1.0).toString());
+    _rateCtrl = TextEditingController(text: po?.exchangeRate?.toString() ?? '');
     _notesCtrl = TextEditingController(text: po?.notes ?? '');
     _selectedStatus = po?.status ?? 'DRAFT';
     _palletCount = po?.palletCount ?? (ext != null ? _numToInt(ext['pallet_count']) : 0);
@@ -1183,10 +1217,24 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }).toList();
     }
 
+    // One-time sync: backfill packing-item descriptions from invoice items so that
+    // this never runs inside build() (which would remount widgets on every keystroke).
+    for (int i = 0; i < _dialogPackingItems.length && i < _dialogItems.length; i++) {
+      final p = _dialogPackingItems[i];
+      if (p.description == null || p.description!.trim().isEmpty) {
+        final item = _dialogItems[i];
+        final desc = item.descriptionAr.isNotEmpty ? item.descriptionAr : item.descriptionEn;
+        if (desc != null && desc.isNotEmpty) {
+          _dialogPackingItems.replaceAsNew(i, p.copyWith(description: desc));
+        }
+      }
+    }
+
     _poReferenceCtrl.addListener(_markDirty);
     _piCtrl.addListener(_markDirty);
     _rateCtrl.addListener(_markDirty);
     _notesCtrl.addListener(_markDirty);
+
 
     _autosaveTimer = Timer.periodic(const Duration(seconds: 45), (_) {
       if (_isDirty && mounted) {
@@ -1483,8 +1531,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             final item = _dialogItems[i];
             final desc = item.descriptionAr.isNotEmpty ? item.descriptionAr : item.descriptionEn;
             if (desc != null && desc.isNotEmpty) {
-              // As a new row: its description field must be rebuilt to show the filled-in text.
-              _dialogPackingItems.replaceAsNew(i, _dialogPackingItems[i].copyWith(description: desc));
+              // Use stable in-place assignment ([]= preserves key); replaceAsNew would
+              // remount the widget on every rebuild causing 1-keystroke focus drops.
+              _dialogPackingItems[i] = _dialogPackingItems[i].copyWith(description: desc);
             }
           }
         }
@@ -1702,7 +1751,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   ),
                                   const SizedBox(width: 12),
                                   SmartUploadButton(
-                                    module: SmartUploadModule.purchaseOrder,
+                                    module: SmartUploadModule.commercialInvoice,
                                     compact: false,
                                     label: '🚀 قراءة الفاتورة المبدئية',
                                     onDataExtracted: (result) {
@@ -2011,10 +2060,23 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   child: TextFormField(
                                     controller: _rateCtrl,
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Exchange Rate (سعر الصرف)',
-                                      helperText: '⚡ يستدعى آلياً حسب تاريخ الفاتورة والعملة',
+                                    decoration: InputDecoration(
+                                      labelText: '${l.poFXRate} *',
+                                      helperText: _rateHelperText ?? l.poExchangeRateHelper,
+                                      helperStyle: _rateHelperText != null
+                                          ? const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.w600)
+                                          : null,
                                     ),
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) {
+                                        return l.poExchangeRateRequired;
+                                      }
+                                      final val = double.tryParse(v.trim());
+                                      if (val == null || val <= 0) {
+                                        return l.poExchangeRateRequired;
+                                      }
+                                      return null;
+                                    },
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -2057,27 +2119,67 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'PO Line Items (بنود الفاتورة المبدئية) *',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                const Expanded(
+                                  child: Text(
+                                    'PO Line Items (بنود الفاتورة المبدئية) *',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                  ),
                                 ),
-                                AppButton(
-                                  label: 'Add Item',
-                                  icon: Icons.add,
-                                  variant: AppButtonVariant.secondary,
-                                  size: AppButtonSize.small,
-                                  onPressed: () {
-                                    setState(() {
-                                      _dialogItems.add(
-                                        POLineItemModel(
-                                          descriptionAr: 'بند جديد ${_dialogItems.length + 1}',
-                                          quantity: 1,
-                                          unitPrice: 0,
-                                          countryOfOrigin: _selectedCountryOfOrigin,
-                                        ),
-                                      );
-                                    });
-                                  },
+                                const SizedBox(width: 8),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_dialogItems.isNotEmpty) ...[
+                                      AppButton(
+                                        label: 'حاسبة الجمارك',
+                                        icon: Icons.calculate_outlined,
+                                        variant: AppButtonVariant.secondary,
+                                        size: AppButtonSize.small,
+                                        onPressed: () {
+                                          final extracted = _dialogItems.map((item) {
+                                            final itemHs = item.hsCode ??
+                                                (item.tariffId != null && tariffs.any((t) => t.tariffId == item.tariffId)
+                                                    ? tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsCode
+                                                    : '');
+                                            return {
+                                              'description': item.descriptionAr,
+                                              'hs_code': itemHs,
+                                              'price': (item.quantity * item.unitPrice),
+                                              'country_of_origin': item.countryOfOrigin ?? _selectedCountryOfOrigin,
+                                            };
+                                          }).toList();
+
+                                          final curr = currencies.where((c) => c.currencyId == _selectedCurrencyId).firstOrNull;
+                                          showDutyCalculatorDialog(
+                                            context,
+                                            ref,
+                                            initialCurrency: curr?.currencyCode ?? 'USD',
+                                            initialImportFileId: _selectedImportFileId,
+                                            initialExtractedLines: extracted,
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    AppButton(
+                                      label: 'Add Item',
+                                      icon: Icons.add,
+                                      variant: AppButtonVariant.secondary,
+                                      size: AppButtonSize.small,
+                                      onPressed: () {
+                                        setState(() {
+                                          _dialogItems.add(
+                                            POLineItemModel(
+                                              descriptionAr: 'بند جديد ${_dialogItems.length + 1}',
+                                              quantity: 1,
+                                              unitPrice: 0,
+                                              countryOfOrigin: _selectedCountryOfOrigin,
+                                            ),
+                                          );
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -2136,7 +2238,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                               key: ValueKey('po_item_desc_${PoRowList.keyOf(item)}'),
                                               initialValue: item.descriptionAr,
                                               decoration: const InputDecoration(labelText: 'Arabic Description *', isDense: true),
-                                              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                                              validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
                                               onChanged: (v) => _dialogItems[idx] = _dialogItems[idx].copyWith(descriptionAr: v),
                                             ),
                                           ),
@@ -2388,7 +2490,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   ),
                                   const SizedBox(width: 12),
                                   SmartUploadButton(
-                                    module: SmartUploadModule.purchaseOrder,
+                                    module: SmartUploadModule.packingList,
                                     // Icon-only on narrow windows (the text column takes the rest).
                                     compact: MediaQuery.sizeOf(context).width < 700,
                                     label: '🚀 قراءة بيان التعبئة',
@@ -3383,7 +3485,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     if (!mounted) return;
     setState(() => _isSubmitting = true);
-    final rate = double.tryParse(_rateCtrl.text.trim()) ?? 1.0;
+    final rate = double.parse(_rateCtrl.text.trim());
 
     // Build final notes with justification if provided
     String? effectiveNotes = _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim();
@@ -3795,7 +3897,17 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final proj = projects.where((p) => p.projectId == _selectedProjectId).firstOrNull;
     final impF = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
 
-    final rate = double.tryParse(_rateCtrl.text.trim()) ?? 1.0;
+    final rate = double.tryParse(_rateCtrl.text.trim());
+    if (rate == null || rate <= 0) {
+      _formKey.currentState?.validate();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.poExchangeRateRequired),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
+      return;
+    }
 
     POReportPreviewDialog.show(
       context: context,

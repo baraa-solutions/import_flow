@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from main import app
 from database.database import get_db, SessionLocal
 from modules.financial_approval.swift_file_extractor import (
+    MAX_SWIFT_OCR_PAGES,
     extract_text_from_swift_file,
     normalize_swift_ocr_text,
     extract_text_from_word,
@@ -216,4 +217,92 @@ ZA/DETAILS OF CHARGES
     assert p["pi_number"] == "YH20260730.6"
     assert p["po_number"] == "EG0010040"
     assert p["charge_details"] == "SHA"
+
+
+def test_pdf_ocr_page_cap_at_five_pages(monkeypatch):
+    """BE02-T07: A 20-page image-only PDF runs OCR on at most MAX_SWIFT_OCR_PAGES (5) pages."""
+    from PIL import Image
+
+    class FakePage:
+        def render(self, scale=2):
+            return self
+
+        def to_pil(self):
+            return Image.new("RGB", (10, 10), color="white")
+
+    class FakePdfDocument:
+        def __init__(self, content_bytes):
+            self.pages = [FakePage() for _ in range(20)]
+
+        def __len__(self):
+            return len(self.pages)
+
+        def __getitem__(self, idx):
+            return self.pages[idx]
+
+    ocr_calls = 0
+
+    def fake_ocr(img_bytes):
+        nonlocal ocr_calls
+        ocr_calls += 1
+        return [[None, f":20:FT/PAGE/{ocr_calls}"]], None
+
+    import pypdfium2 as pdfium
+    monkeypatch.setattr(pdfium, "PdfDocument", FakePdfDocument)
+    monkeypatch.setattr("modules.financial_approval.swift_file_extractor.get_ocr_engine", lambda: fake_ocr)
+
+    text = extract_text_from_pdf(b"dummy pdf bytes with no text")
+    assert ocr_calls == MAX_SWIFT_OCR_PAGES
+    assert ":20:FT/PAGE/1" in text
+    assert ":20:FT/PAGE/5" in text
+    assert ":20:FT/PAGE/6" not in text
+
+
+def test_api_smart_extract_file_pdf_20_pages_caps_at_five(client, monkeypatch):
+    """BE02-T07: POST /swift/smart-extract-file with a 20-page scanned PDF processes 5 pages and returns identical shape."""
+    from PIL import Image
+
+    class FakePage:
+        def render(self, scale=2):
+            return self
+
+        def to_pil(self):
+            return Image.new("RGB", (10, 10), color="white")
+
+    class FakePdfDocument:
+        def __init__(self, content_bytes):
+            self.pages = [FakePage() for _ in range(20)]
+
+        def __len__(self):
+            return len(self.pages)
+
+        def __getitem__(self, idx):
+            return self.pages[idx]
+
+    ocr_calls = 0
+
+    def fake_ocr(img_bytes):
+        nonlocal ocr_calls
+        ocr_calls += 1
+        if ocr_calls == 1:
+            return [[None, ":20:FT/PDF/20PAGES"], [None, ":32A:260818USD10000.00"]], None
+        return [[None, f":70:PAGE_{ocr_calls}"]], None
+
+    import pypdfium2 as pdfium
+    monkeypatch.setattr(pdfium, "PdfDocument", FakePdfDocument)
+    monkeypatch.setattr("modules.financial_approval.swift_file_extractor.get_ocr_engine", lambda: fake_ocr)
+
+    files = {"file": ("scanned_20pages.pdf", io.BytesIO(b"%PDF-1.4 dummy"), "application/pdf")}
+    response = client.post("/api/v1/financial-approval/swift/smart-extract-file", files=files)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["detected_filename"] == "scanned_20pages.pdf"
+    assert data["detected_file_type"] == "PDF Document"
+    assert data["parsed_swift"]["transaction_reference"] == "FT/PDF/20PAGES"
+    assert data["parsed_swift"]["amount"] == 10000.0
+    assert data["parsed_swift"]["currency"] == "USD"
+    assert ocr_calls == 5
+
 

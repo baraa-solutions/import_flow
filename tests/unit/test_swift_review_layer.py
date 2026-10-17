@@ -108,10 +108,10 @@ def test_swift_review_layer_full_lifecycle(db_session):
     assert "SUZHOU YUHENG TEXTILE" in field_map["beneficiary_name"].final_value
     assert field_map["beneficiary_account_or_iban"].final_value == "32250198613609841015"
 
-    # 3. Security Guard: matching before review confirmation MUST fail with 403
+    # 3. Security Guard: matching before review confirmation MUST fail with 409
     with pytest.raises(HTTPException) as exc_info:
         service.match_reviewed_batch_service(db_session, batch_resp.batch_id)
-    assert exc_info.value.status_code == 403
+    assert exc_info.value.status_code == 409
 
     # 4. Security Guard: reconciling before review confirmation MUST fail with 403
     with pytest.raises(HTTPException) as exc_info:
@@ -148,7 +148,7 @@ def test_swift_review_layer_full_lifecycle(db_session):
             payload=SwiftBatchConfirmRequest(user_name="tester"),
         )
     assert exc_info.value.status_code == 400
-    assert "Mandatory fields are missing" in exc_info.value.detail
+    assert "حقول إجبارية مفقودة" in exc_info.value.detail
 
     # 7. Re-extract single field to restore original parsed value
     restored = service.re_extract_single_field_service(

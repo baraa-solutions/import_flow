@@ -9,8 +9,8 @@ import '../providers/customs_tariff_provider.dart';
       BuildContext context, WidgetRef ref, String hsCode) {
     final l10n = context.l10n;
     final nameCtrl = TextEditingController();
-    final countriesCtrl = TextEditingController(text: 'EG,EU,TR,JO,TN,MA,GB');
-    final pctCtrl = TextEditingController(text: '100');
+    final countriesCtrl = TextEditingController();
+    final pctCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
 
     final formKey = GlobalKey<FormState>();

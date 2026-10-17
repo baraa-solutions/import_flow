@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/cc_dialog_shell.dart';
 import '../models/freight_booking_model.dart';
 import 'freight_booking_ui.dart';
@@ -16,32 +15,15 @@ class FbkPrompts {
   /// "Are you sure you want to delete booking X?" -> true when confirmed.
   static Future<bool> confirmDelete(BuildContext context, String bookingCode) async {
     final l = context.l10n;
-    final res = await showDialog<bool>(
-      context: context,
-      builder: (c) => FbkPromptDialog(
-        title: l.freightBookingDeleteConfirmTitle,
-        icon: Icons.delete_outline,
-        severity: AppSeverity.danger,
-        content: Text(
-          l.freightBookingDeleteConfirmMessage(bookingCode),
-          style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(c)),
-        ),
-        actions: [
-          AppButton(
-            label: l.cancel,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pop(c, false),
-          ),
-          AppButton(
-            label: l.delete,
-            icon: Icons.delete_outline,
-            variant: AppButtonVariant.danger,
-            onPressed: () => Navigator.pop(c, true),
-          ),
-        ],
-      ),
+    return AppConfirmDialog.show(
+      context,
+      title: l.freightBookingDeleteConfirmTitle,
+      message: l.freightBookingDeleteConfirmMessage(bookingCode),
+      confirmLabel: l.delete,
+      cancelLabel: l.cancel,
+      confirmVariant: AppButtonVariant.danger,
+      icon: Icons.delete_outline,
     );
-    return res == true;
   }
 
   /// Container allocation differs from the recommendation: proceed?
