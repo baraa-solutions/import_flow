@@ -1,8 +1,11 @@
 from datetime import datetime, date
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
+
+ShipmentType = Literal["Ocean FCL", "Ocean LCL", "Air"]
+FreightTerms = Literal["Prepaid", "Collect"]
 
 
 class ContainerAllocationItem(BaseModel):
@@ -41,7 +44,7 @@ class ShipmentBookingBase(BaseModel):
     freight_forwarder_name: Optional[str] = None
     shipping_line_id: Optional[int] = None
     shipping_line_name: Optional[str] = None
-    shipment_type: str = "Ocean FCL"
+    shipment_type: ShipmentType = "Ocean FCL"
     pol_location_id: Optional[int] = None
     pol_name: Optional[str] = None
     pod_location_id: Optional[int] = None
@@ -59,7 +62,7 @@ class ShipmentBookingBase(BaseModel):
     vessel_name: Optional[str] = None
     voyage_number: Optional[str] = None
     container_release_order_no: Optional[str] = None
-    freight_terms: str = "Collect"
+    freight_terms: FreightTerms = "Collect"
     container_mismatch_reason: Optional[str] = None
     containers_data: List[ContainerAllocationItem] = Field(default_factory=list)
     cost_charges_data: List[BookingChargeItem] = Field(default_factory=list)
@@ -81,13 +84,18 @@ class ShipmentBookingUpdate(BaseModel):
     import_file_id: Optional[int] = None
     booking_confirmation_no: Optional[str] = None
     bill_of_lading_no: Optional[str] = None
+    rfq_request_id: Optional[int] = None
     scenario_session_id: Optional[int] = None
     scenario_item_id: Optional[int] = None
     scenario_provider_name: Optional[str] = None
+    freight_forwarder_id: Optional[int] = None
     freight_forwarder_name: Optional[str] = None
+    shipping_line_id: Optional[int] = None
     shipping_line_name: Optional[str] = None
-    shipment_type: Optional[str] = None
+    shipment_type: Optional[ShipmentType] = None
+    pol_location_id: Optional[int] = None
     pol_name: Optional[str] = None
+    pod_location_id: Optional[int] = None
     pod_name: Optional[str] = None
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
@@ -102,7 +110,7 @@ class ShipmentBookingUpdate(BaseModel):
     vessel_name: Optional[str] = None
     voyage_number: Optional[str] = None
     container_release_order_no: Optional[str] = None
-    freight_terms: Optional[str] = None
+    freight_terms: Optional[FreightTerms] = None
     container_mismatch_reason: Optional[str] = None
     containers_data: Optional[List[ContainerAllocationItem]] = None
     cost_charges_data: Optional[List[BookingChargeItem]] = None
@@ -140,6 +148,8 @@ class ShipmentDepartureConfirm(BaseModel):
 class ShipmentBookingResponse(LegacyRowTolerantModel, ShipmentBookingBase):
     # free_demurrage_days is a nullable column an update may clear (PUT {"free_demurrage_days": null}).
     free_demurrage_days: Optional[int] = None
+    shipment_type: Optional[str] = "Ocean FCL"
+    freight_terms: Optional[str] = "Collect"
     booking_id: int
     booking_code: str
     booking_request_date: Optional[datetime] = None
