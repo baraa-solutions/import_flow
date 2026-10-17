@@ -3,7 +3,9 @@ from typing import List, Optional
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import IntegrityError
 
+from modules.common.sequence_generator import next_yearly_code
 from modules.projects.model import Project
 from modules.projects.schemas import ProjectCreate, ProjectUpdate
 
@@ -13,10 +15,8 @@ class ProjectRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def generate_project_code(self) -> str:
-        year = datetime.now().year
-        count = self.db.query(Project).count() + 1
-        return f"PRJ-{year}-{count:03d}"
+    def generate_project_code(self, year: Optional[int] = None) -> str:
+        return next_yearly_code(self.db, Project.project_code, "PRJ", pad=3, year=year)
 
     def get_by_id(self, project_id: int) -> Optional[Project]:
         return (
@@ -72,7 +72,7 @@ class ProjectRepository:
         return query.order_by(Project.created_at.desc()).all()
 
     def create(self, data: ProjectCreate) -> Project:
-        code = data.project_code.upper().strip() if data.project_code else self.generate_project_code()
+        explicit_code = bool(data.project_code and data.project_code.strip())
 
         primary_cid = data.company_id
         add_cids_str = None
@@ -81,30 +81,38 @@ class ProjectRepository:
             if len(data.company_ids) > 1:
                 add_cids_str = ",".join(str(cid) for cid in data.company_ids[1:])
 
-        project = Project(
-            project_code=code,
-            project_name=data.project_name.strip(),
-            project_owner=data.project_owner.strip(),
-            company_id=primary_cid,
-            additional_company_ids=add_cids_str,
-            supplier_id=data.supplier_id,
-            incoterm_id=data.incoterm_id,
-            import_type=data.import_type.strip(),
-            priority=data.priority.strip(),
-            shipment_category=data.shipment_category.strip(),
-            allow_multi_shipment=data.allow_multi_shipment,
-            allow_multi_company=data.allow_multi_company,
-            total_budget_usd=data.total_budget_usd,
-            budget_currency=data.budget_currency.strip() if getattr(data, "budget_currency", None) else "USD",
-            target_end_date=data.target_end_date.strip() if data.target_end_date else None,
-            status="Open",
-            notes=data.notes.strip() if data.notes else None,
-            is_active=True,
-        )
-        self.db.add(project)
-        self.db.commit()
-        self.db.refresh(project)
-        return project
+        for attempt in range(3):
+            code = data.project_code.upper().strip() if explicit_code else self.generate_project_code()
+
+            project = Project(
+                project_code=code,
+                project_name=data.project_name.strip(),
+                project_owner=data.project_owner.strip(),
+                company_id=primary_cid,
+                additional_company_ids=add_cids_str,
+                supplier_id=data.supplier_id,
+                incoterm_id=data.incoterm_id,
+                import_type=data.import_type.strip(),
+                priority=data.priority.strip(),
+                shipment_category=data.shipment_category.strip(),
+                allow_multi_shipment=data.allow_multi_shipment,
+                allow_multi_company=data.allow_multi_company,
+                total_budget_usd=data.total_budget_usd,
+                budget_currency=data.budget_currency.strip() if getattr(data, "budget_currency", None) else "USD",
+                target_end_date=data.target_end_date.strip() if data.target_end_date else None,
+                status="Open",
+                notes=data.notes.strip() if data.notes else None,
+                is_active=True,
+            )
+            self.db.add(project)
+            try:
+                self.db.commit()
+                self.db.refresh(project)
+                return project
+            except IntegrityError:
+                self.db.rollback()
+                if attempt == 2 or explicit_code:
+                    raise
 
     def update(self, project: Project, data: ProjectUpdate) -> Project:
         update_data = data.model_dump(exclude_unset=True)

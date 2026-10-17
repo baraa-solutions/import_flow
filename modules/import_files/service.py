@@ -314,42 +314,52 @@ def create_import_file_service(
     # 3. Validate invoice currency consistency (all invoices must share the exact same currency)
     validators.validate_invoices_currency_consistency(payload.invoices_data)
 
-    # 4. Generate file code if custom file number not given
-    file_code = repo.generate_import_file_code(db)
-    if not payload.custom_file_number:
-        custom_num = file_code.replace("IMP-", "FILE-")
-    else:
-        custom_num = payload.custom_file_number.strip()
+    explicit_custom_num = bool(payload.custom_file_number and payload.custom_file_number.strip())
 
-    # 5. Compute formulas
-    formulas = compute_file_formulas(
-        form46_no=payload.form46_no,
-        form4_no=payload.form4_no,
-        swift_no=payload.swift_no,
-        selected_scenario=payload.selected_scenario,
-        status_str=payload.status,
-        initial_step=payload.initial_starting_step,
-    )
+    created_file = None
+    for attempt in range(3):
+        # 4. Generate file code if custom file number not given
+        file_code = repo.generate_import_file_code(db)
+        if not explicit_custom_num:
+            custom_num = file_code.replace("IMP-", "FILE-")
+        else:
+            custom_num = payload.custom_file_number.strip()
 
-    data_dict = payload.model_dump()
-    data_dict["import_file_code"] = file_code
-    data_dict["custom_file_number"] = custom_num
-    if not data_dict.get("created_by"):
-        data_dict["created_by"] = current_user
-    if not data_dict.get("owner"):
-        data_dict["owner"] = current_user
-    data_dict.update(formulas)
-    # Structured stage of the starting step (legacy current_module/current_stage texts keep the formulas).
-    from modules.common.file_tracking import step_tracking_columns
-    starting_step = payload.initial_starting_step or "STEP_01"
-    data_dict.update(step_tracking_columns("STEP_08_PO" if starting_step == "STEP_08" else starting_step))
+        # 5. Compute formulas
+        formulas = compute_file_formulas(
+            form46_no=payload.form46_no,
+            form4_no=payload.form4_no,
+            swift_no=payload.swift_no,
+            selected_scenario=payload.selected_scenario,
+            status_str=payload.status,
+            initial_step=payload.initial_starting_step,
+        )
 
-    created_file = repo.create_import_file(db, data_dict)
+        data_dict = payload.model_dump()
+        data_dict["import_file_code"] = file_code
+        data_dict["custom_file_number"] = custom_num
+        if not data_dict.get("created_by"):
+            data_dict["created_by"] = current_user
+        if not data_dict.get("owner"):
+            data_dict["owner"] = current_user
+        data_dict.update(formulas)
+        # Structured stage of the starting step (legacy current_module/current_stage texts keep the formulas).
+        from modules.common.file_tracking import step_tracking_columns
+        starting_step = payload.initial_starting_step or "STEP_01"
+        data_dict.update(step_tracking_columns("STEP_08_PO" if starting_step == "STEP_08" else starting_step))
+
+        try:
+            created_file = repo.create_import_file(db, data_dict)
+            break
+        except IntegrityError:
+            db.rollback()
+            if attempt == 2 or explicit_custom_num:
+                raise
 
     # 6. Seed initial stage activities in Lifecycle Board
     try:
         from modules.lifecycle_board.service import initialize_file_lifecycle_service
-        initialize_file_lifecycle_service(db, file_code, payload.initial_starting_step or "STEP_01")
+        initialize_file_lifecycle_service(db, created_file.import_file_code, payload.initial_starting_step or "STEP_01")
     except Exception:
         logger.exception("Failed to initialize file lifecycle for %s", file_code)
 
