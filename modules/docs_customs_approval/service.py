@@ -111,6 +111,8 @@ def _check_version(db: Session, record, submitted_version: Optional[int], entity
 
 
 def _po_for_file(db: Session, import_file: ImportFile) -> Optional[PurchaseOrder]:
+    if not import_file or not import_file.import_file_id:
+        return None
     query = db.query(PurchaseOrder).filter(
         PurchaseOrder.import_file_id == import_file.import_file_id,
         PurchaseOrder.is_active == True,

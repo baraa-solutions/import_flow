@@ -868,6 +868,30 @@ def test_be03_t11_packing_rows_expose_packing_item_id_and_po_item_id(db):
     assert pkg_row.po_item_id == 2001
 
 
+def test_be03_t11_no_invented_usd_or_carton_defaults(db):
+    db.add(ImportFile(import_file_id=13, import_file_code="IMP-NO-DEFAULTS", company_name="Co", supplier_name="Sup", estimated_cost_currency=None, is_active=True))
+    db.add(PurchaseOrder(po_id=104, po_number="PO-NO-DEFAULTS", import_file_id=13, project_id=1, company_id=1, supplier_id=1,
+                         incoterm_id=1, currency_id=1, status="DRAFT", is_active=True))
+    db.add(POLineItem(item_id=2002, po_id=104, item_code="MAT-200", description_ar="Material No Defaults", quantity=10, unit_price=5.0))
+    db.commit()
+
+    req = POExtractAndCompareRequest(
+        import_file_id=13,
+        invoice_data={"invoice_number": "INV-13", "items": [{"item_code": "MAT-200", "quantity": 10, "unit_price": 5.0}]},
+        packing_data={"packing_list_number": "PL-13", "items": [{"item_code": "MAT-200", "gross_weight_kg": 20.0}]},
+    )
+    res = service.extract_and_compare_po_documents_service(db, req)
+    assert res.system_items_missing is False
+    assert len(res.reconciled_invoice_items) == 1
+    assert res.reconciled_invoice_items[0].package_type is None
+    assert res.reconciled_invoice_items[0].currency is None
+    assert len(res.reconciled_packing_items) == 1
+    assert res.reconciled_packing_items[0].package_type is None
+    amount_header = next((h for h in res.header_discrepancies if h.check_code == "CHK_TOTAL_AMOUNT"), None)
+    assert amount_header is not None
+    assert amount_header.details_code == "DOC_CHK_CURRENCY_MISMATCH"
+
+
 # --- BE03-T12: Inspection draft template without invented standards -----------------------
 def test_be03_t12_inspection_draft_no_invented_standards(db):
     # 1. No PO lines -> applicable_standards is empty list

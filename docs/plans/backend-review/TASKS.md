@@ -165,7 +165,7 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 141 | BE02-T13 | financial_approval | MAJOR | Batch reconcile without fabricated reference or date | none | no | yes: `FA_SWIFT_VALUE_DATE_INVALID` | yes | [be-02](be-02-review.md) | todo |
 | 142 | BE02-T15 | financial_approval | MAJOR | Audit wiring `created_by` / `updated_by` | BEW0-05 | via BEW0-05 | additive | yes | [be-02](be-02-review.md) | todo |
 | 143 | BE03-T09 | import_documentation | MAJOR | Document workflows fire once per transition | BE03-T06 | no | no | yes | [be-03](be-03-review.md) | done |
-| 144 | BE03-T11 | import_documentation, docs_customs_approval | MAJOR | Real PO sources in compare and DCA matrix | none | no | additive `system_items_missing` | yes | [be-03](be-03-review.md) | todo |
+| 144 | BE03-T11 | import_documentation, docs_customs_approval | MAJOR | Real PO sources in compare and DCA matrix | none | no | additive `system_items_missing` | yes | [be-03](be-03-review.md) | done (PR #156) |
 | 145 | BE03-T12 | import_documentation | MAJOR | Inspection draft template without invented standards | none | no | yes: empty `coc_number`, `missing_fields` | yes | [be-03](be-03-review.md) | todo |
 | 146 | BE03-T13 | import_documentation | MAJOR | Declaration 46 and banking document validation | BEW0-02 | no | yes: currency required, 409 | yes | [be-03](be-03-review.md) | done |
 | 147 | BE03-T14 | import_documentation, docs_customs_approval | MAJOR | `/paginated` registries + raw text limits | BEW0-04 | no | additive; 422 > 200,000 chars | yes | [be-03](be-03-review.md) | todo |
