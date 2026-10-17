@@ -922,6 +922,21 @@ def http_advance_step_service(
             import_file_code=file_rec.import_file_code,
         )
 
+    if target_step_codes and (actor is not None and not is_admin_user(actor)):
+        _, natural_next = get_step_neighbors(completed_step_code)
+        allowed_targets = {natural_next} if natural_next else set()
+        if natural_next == "STEP_08_PO":
+            allowed_targets.add("STEP_08")
+        for target in target_step_codes:
+            if target not in allowed_targets:
+                raise CodedHTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    code="LC_TARGET_STEP_INVALID",
+                    message_ar=f"لا يمكن الانتقال مباشرة إلى الخطوة {target} بدون صلاحيات المسؤول.",
+                    step_code=target,
+                    import_file_code=file_rec.import_file_code,
+                )
+
     effective_auto_complete = bool(auto_complete_prior) and is_admin_user(actor)
 
     return advance_lifecycle_step_service(
@@ -966,10 +981,66 @@ def advance_step_service(
     )
 
 
-def set_multi_active_stages_service(db: Session, payload: MultiStageSetPayload) -> Dict[str, Any]:
+def set_multi_active_stages_service(
+    db: Session,
+    payload: MultiStageSetPayload,
+    actor: Optional[User] = None,
+) -> Dict[str, Any]:
     file_rec = _resolve_and_validate_file(db, import_file_code=payload.import_file_code)
     validators.validate_multi_step_codes(payload.active_step_codes)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    existing_activities = repo.get_all_activities(db, import_file_code=file_rec.import_file_code)
+    activities_by_code = {act.step_code: act for act in existing_activities}
+
+    # 1. Reject already Completed or Skipped steps
+    for step_code in payload.active_step_codes:
+        existing_act = activities_by_code.get(step_code)
+        if existing_act and existing_act.status in ("Completed", "Skipped"):
+            raise CodedHTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                code="LC_STEP_ALREADY_COMPLETED",
+                message_ar=f"المرحلة {step_code} مكتملة أو تم تخطيها بالفعل لملف الشحنة {file_rec.import_file_code}.",
+                step_code=step_code,
+                import_file_code=file_rec.import_file_code,
+            )
+
+    # 2. Sequence check for non-admin users: only allow steps at or before the next natural step
+    if actor is not None and not is_admin_user(actor):
+        def _get_idx(code: str) -> int:
+            if code == "STEP_08":
+                code = "STEP_08_PO"
+            return ORDERED_STEP_CODES.index(code) if code in ORDERED_STEP_CODES else -1
+
+        completed_indices = [
+            _get_idx(act.step_code)
+            for act in existing_activities
+            if act.status in ("Completed", "Skipped") and _get_idx(act.step_code) >= 0
+        ]
+        active_indices = [
+            _get_idx(act.step_code)
+            for act in existing_activities
+            if act.status not in ("Completed", "Skipped") and _get_idx(act.step_code) >= 0
+        ]
+
+        if completed_indices:
+            next_natural_idx = max(completed_indices) + 1
+        else:
+            next_natural_idx = 0
+
+        max_allowed_idx = max([next_natural_idx] + active_indices)
+        max_allowed_idx = min(max_allowed_idx, len(ORDERED_STEP_CODES) - 1)
+
+        for step_code in payload.active_step_codes:
+            step_idx = _get_idx(step_code)
+            if step_idx > max_allowed_idx:
+                raise CodedHTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    code="LC_STEP_SEQUENCE_INVALID",
+                    message_ar=f"لا يمكن تفعيل المرحلة {step_code} قبل الوصول إليها في مسار الشحنة لغير المسؤولين.",
+                    step_code=step_code,
+                    import_file_code=file_rec.import_file_code,
+                )
 
     for step_code in payload.active_step_codes:
         repo.save_or_update_activity(
@@ -978,6 +1049,7 @@ def set_multi_active_stages_service(db: Session, payload: MultiStageSetPayload) 
             step_code=step_code,
             status="In-Progress",
             started_at=now_str,
+            assigned_user=actor.username if actor else None,
             notes=payload.notes or render_en("LC_MULTI_STAGE_ACTIVATED", {}, "note"),
             msg_code=None if payload.notes else "LC_MULTI_STAGE_ACTIVATED",
             msg_params=None if payload.notes else {},

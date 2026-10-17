@@ -931,9 +931,23 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
   // ===========================================================================
   void _handlePushToSettlement(DemurrageTrackingModel item) async {
     final l10n = context.l10n;
+    if (item.importFileId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(
+          context,
+          l10n.demPushNeedsLinkedFile,
+          severity: AppSeverity.warning,
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await DemurragePushToSettlementConfirmDialog.show(context, item);
+    if (confirmed != true || !mounted) return;
+
     final res = await ref.read(demurrageProvider.notifier).pushToSettlement(
           item.trackingId,
-          importFileId: item.importFileId ?? 1,
+          importFileId: item.importFileId,
         );
     if (!mounted) return;
     if (res != null && res['success'] == true) {

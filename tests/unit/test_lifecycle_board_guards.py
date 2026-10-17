@@ -343,3 +343,125 @@ def test_advance_step_with_pending_reference_status(client, test_db):
 
     act_05 = repo.get_activity(test_db, file_code, "STEP_05")
     assert act_05.status == "Completed"
+
+
+# ─── Test 7: set-active guards against already Completed or Skipped steps ───
+
+def test_set_active_rejects_completed_or_skipped_steps(client, test_db):
+    """
+    POST /stages/set-active rejects steps already marked Completed or Skipped with 409 LC_STEP_ALREADY_COMPLETED.
+    """
+    file_code = "IMP-SET-ACTIVE-01"
+    _seed_active_file(test_db, file_code)
+    repo.save_or_update_activity(test_db, file_code, "STEP_01", status="Completed")
+    repo.save_or_update_activity(test_db, file_code, "STEP_02", status="Skipped")
+
+    operator = _create_user(test_db, "op_set_act", "LOGISTICS_OPERATOR")
+    headers = _auth_headers(operator)
+
+    # Trying to re-open Completed STEP_01
+    resp = client.post("/api/v1/lifecycle-board/stages/set-active", json={
+        "import_file_code": file_code,
+        "active_step_codes": ["STEP_01"],
+    }, headers=headers)
+    assert resp.status_code == 409, resp.text
+    assert resp.json()["detail"]["code"] == "LC_STEP_ALREADY_COMPLETED"
+
+    # Trying to re-open Skipped STEP_02
+    resp2 = client.post("/api/v1/lifecycle-board/stages/set-active", json={
+        "import_file_code": file_code,
+        "active_step_codes": ["STEP_02"],
+    }, headers=headers)
+    assert resp2.status_code == 409, resp2.text
+    assert resp2.json()["detail"]["code"] == "LC_STEP_ALREADY_COMPLETED"
+
+
+# ─── Test 8: set-active sequence guards for non-admin vs admin ───────────────
+
+def test_set_active_sequence_guard_non_admin(client, test_db):
+    """
+    Non-admin cannot jump forward via set-active (409 LC_STEP_SEQUENCE_INVALID),
+    while an admin can set any valid uncompleted step active.
+    Actor's username is stored in assigned_user.
+    """
+    file_code = "IMP-SET-ACTIVE-02"
+    _seed_active_file(test_db, file_code)
+    repo.save_or_update_activity(test_db, file_code, "STEP_05", status="In-Progress")
+
+    operator = _create_user(test_db, "op_seq_guard", "LOGISTICS_OPERATOR")
+    op_headers = _auth_headers(operator)
+
+    # Non-admin attempting to jump ahead to STEP_19
+    resp = client.post("/api/v1/lifecycle-board/stages/set-active", json={
+        "import_file_code": file_code,
+        "active_step_codes": ["STEP_19"],
+    }, headers=op_headers)
+    assert resp.status_code == 409, resp.text
+    assert resp.json()["detail"]["code"] == "LC_STEP_SEQUENCE_INVALID"
+
+    # Non-admin activating current step STEP_05 (e.g. resume) succeeds and sets assigned_user
+    resp_ok = client.post("/api/v1/lifecycle-board/stages/set-active", json={
+        "import_file_code": file_code,
+        "active_step_codes": ["STEP_05"],
+    }, headers=op_headers)
+    assert resp_ok.status_code == 200, resp_ok.text
+    act_05 = repo.get_activity(test_db, file_code, "STEP_05")
+    assert act_05.assigned_user == "op_seq_guard"
+
+    # Admin attempting to activate STEP_19 succeeds
+    admin = _create_user(test_db, "admin_seq_override", "ADMIN")
+    admin_headers = _auth_headers(admin)
+
+    resp_admin = client.post("/api/v1/lifecycle-board/stages/set-active", json={
+        "import_file_code": file_code,
+        "active_step_codes": ["STEP_19"],
+    }, headers=admin_headers)
+    assert resp_admin.status_code == 200, resp_admin.text
+    act_19 = repo.get_activity(test_db, file_code, "STEP_19")
+    assert act_19.status == "In-Progress"
+    assert act_19.assigned_user == "admin_seq_override"
+
+
+# ─── Test 9: target_step_codes guard on advance / sync for non-admin ─────────
+
+def test_target_step_codes_guard_non_admin(client, test_db):
+    """
+    Non-admin cannot jump through target_step_codes on sync or advance (409 LC_TARGET_STEP_INVALID).
+    Admin can specify forward target steps.
+    """
+    file_code = "IMP-TARGET-GUARD-01"
+    _seed_active_file(test_db, file_code)
+    repo.save_or_update_activity(test_db, file_code, "STEP_05", status="In-Progress")
+
+    operator = _create_user(test_db, "op_tgt_guard", "LOGISTICS_OPERATOR")
+    op_headers = _auth_headers(operator)
+
+    # Non-admin attempting to target STEP_19 from STEP_05 on sync
+    resp_sync = client.post("/api/v1/lifecycle-board/stages/sync", json={
+        "completed_step_code": "STEP_05",
+        "import_file_code": file_code,
+        "target_step_codes": ["STEP_19"],
+    }, headers=op_headers)
+    assert resp_sync.status_code == 409, resp_sync.text
+    assert resp_sync.json()["detail"]["code"] == "LC_TARGET_STEP_INVALID"
+
+    # Non-admin advancing to natural next STEP_06 succeeds
+    resp_sync_ok = client.post("/api/v1/lifecycle-board/stages/sync", json={
+        "completed_step_code": "STEP_05",
+        "import_file_code": file_code,
+        "target_step_codes": ["STEP_06"],
+    }, headers=op_headers)
+    assert resp_sync_ok.status_code == 200, resp_sync_ok.text
+
+    # Now file is at STEP_06. Admin can advance to STEP_10 directly
+    admin = _create_user(test_db, "admin_tgt_guard", "ADMIN")
+    admin_headers = _auth_headers(admin)
+
+    resp_admin = client.post("/api/v1/lifecycle-board/stages/sync", json={
+        "completed_step_code": "STEP_06",
+        "import_file_code": file_code,
+        "target_step_codes": ["STEP_10"],
+    }, headers=admin_headers)
+    assert resp_admin.status_code == 200, resp_admin.text
+    act_10 = repo.get_activity(test_db, file_code, "STEP_10")
+    assert act_10.status == "In-Progress"

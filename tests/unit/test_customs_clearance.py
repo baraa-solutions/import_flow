@@ -22,6 +22,7 @@ from modules.customs_clearance.schemas import (
     CustomsClearanceUpdate,
     DutyPaymentSubmit,
     CompleteReleaseSubmit,
+    FinalDutyAssessmentSubmit,
 )
 from modules.customs_clearance.service import (
     create_customs_clearance_service,
@@ -31,9 +32,12 @@ from modules.customs_clearance.service import (
     complete_customs_release_service,
     soft_delete_customs_clearance_service,
     restore_customs_clearance_service,
+    update_customs_clearance_service,
+    assess_final_customs_duties_service,
 )
 from modules.customs_clearance.validators import validate_bank_receipt_no, validate_release_permit
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 class TestCustomsClearanceModule(unittest.TestCase):
     def setUp(self):
@@ -93,7 +97,12 @@ class TestCustomsClearanceModule(unittest.TestCase):
         self.assertEqual(record.total_duty_payable, 62300.0 + 95942.0 + 6230.0 + 6230.0 + 1200.0)
 
     def test_duty_payment_and_release_workflow(self):
-        schema = CustomsClearanceCreate(import_file_id=self.import_file_id, import_duty_amount=1000.0, vat_amount=140.0)
+        schema = CustomsClearanceCreate(
+            import_file_id=self.import_file_id,
+            declaration_46_no="DECL-46-99001",
+            import_duty_amount=1000.0,
+            vat_amount=140.0,
+        )
         record = create_customs_clearance_service(self.db, schema)
         self.assertEqual(record.total_duty_payable, 1140.0)
 
@@ -104,20 +113,49 @@ class TestCustomsClearanceModule(unittest.TestCase):
                 release_date=datetime.now(timezone.utc),
             ))
 
-        # Submit Bank Duty Payment
+        # Submit Bank Duty Payment payload
         payment_payload = DutyPaymentSubmit(
             bank_receipt_no="RCPT-BANK-998877",
             paying_bank_name="National Bank of Egypt (NBE)",
             payment_date=datetime.now(timezone.utc),
             payment_notes="Paid via Customs e-payment portal",
+            duty_paid_amount=1140.0,
         )
+
+        # Attempting payment without CL-02 claim raises 409 CC_DUTY_NOT_ASSESSED
+        with self.assertRaises(HTTPException) as unassessed:
+            submit_duty_payment_service(self.db, record.customs_clearance_id, payment_payload)
+        self.assertEqual(unassessed.exception.status_code, 409)
+        self.assertEqual(unassessed.exception.detail["code"], "CC_DUTY_NOT_ASSESSED")
+
+        # PUT with notes or nafeza_claim_number is ignored/does not assess record
+        update_schema = CustomsClearanceUpdate(notes="Attempted update")
+        updated = update_customs_clearance_service(self.db, record.customs_clearance_id, update_schema)
+        self.assertIsNone(updated.nafeza_claim_number)
+
+        # Run CL-02 with nafeza_claim_number="NFZ-123"
+        record = assess_final_customs_duties_service(
+            self.db,
+            FinalDutyAssessmentSubmit(
+                import_file_id=self.import_file_id,
+                nafeza_claim_number="NFZ-123",
+                cif_base_amount=10000.0,
+                import_duty_amount=1000.0,
+                vat_amount=140.0,
+            ),
+        )
+        self.assertEqual(record.nafeza_claim_number, "NFZ-123")
+        self.assertEqual(record.total_duty_payable, 1140.0)
+
         # The legacy route needs the paid amount now (CL-07) and refuses a partial payment.
         with self.assertRaises(HTTPException) as no_amount:
-            submit_duty_payment_service(self.db, record.customs_clearance_id, payment_payload)
+            submit_duty_payment_service(
+                self.db, record.customs_clearance_id, payment_payload.model_copy(update={"duty_paid_amount": None, "actual_duty_total": None})
+            )
         self.assertEqual(no_amount.exception.status_code, 400)
         with self.assertRaises(HTTPException) as partial:
             submit_duty_payment_service(
-                self.db, record.customs_clearance_id, payment_payload.model_copy(update={"duty_paid_amount": 1000.0})
+                self.db, record.customs_clearance_id, payment_payload.model_copy(update={"duty_paid_amount": 1000.0, "actual_duty_total": None})
             )
         self.assertEqual(partial.exception.detail["code"], "CC_DUTY_UNDERPAID")
 
@@ -139,6 +177,35 @@ class TestCustomsClearanceModule(unittest.TestCase):
         self.assertEqual(record.release_permit_no, "REL-PERMIT-100")
         self.assertEqual(record.status, "Final Release Granted")
         self.assertTrue(record.dispatch_authorized)
+
+    def test_negative_money_and_rate_bounds_validation(self):
+        # Create rejects negative money
+        with self.assertRaises(ValidationError):
+            CustomsClearanceCreate(import_file_id=self.import_file_id, vat_amount=-5.0)
+
+        with self.assertRaises(ValidationError):
+            CustomsClearanceCreate(import_file_id=self.import_file_id, import_duty_amount=-1.0)
+
+        # Create rejects non-positive customs_exchange_rate
+        with self.assertRaises(ValidationError):
+            CustomsClearanceCreate(import_file_id=self.import_file_id, customs_exchange_rate=0.0)
+
+        with self.assertRaises(ValidationError):
+            CustomsClearanceCreate(import_file_id=self.import_file_id, customs_exchange_rate=-1.5)
+
+        # Update rejects negative money
+        with self.assertRaises(ValidationError):
+            CustomsClearanceUpdate(vat_amount=-5.0)
+
+        with self.assertRaises(ValidationError):
+            CustomsClearanceUpdate(import_duty_amount=-100.0)
+
+        # Update rejects non-positive customs_exchange_rate
+        with self.assertRaises(ValidationError):
+            CustomsClearanceUpdate(customs_exchange_rate=0.0)
+
+        with self.assertRaises(ValidationError):
+            CustomsClearanceUpdate(customs_exchange_rate=-2.0)
 
     def test_soft_delete_and_restore(self):
         schema = CustomsClearanceCreate(import_file_id=self.import_file_id)

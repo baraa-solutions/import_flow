@@ -558,6 +558,18 @@
       "note"
     ]
   },
+  "CT_SIMULATION_NO_BROKER": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_SIMULATION_NO_LINES": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "CURRENCY_CODE_UNKNOWN": {
     "params": [
       "currency_code"
@@ -1923,6 +1935,14 @@
       "note"
     ]
   },
+  "FC_EXPORT_BLOCKED": {
+    "params": [
+      "blocking"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FC_STATUS_INVALID": {
     "params": [],
     "parts": [
@@ -2111,6 +2131,20 @@
       "note"
     ]
   },
+  "IT_DATE_IN_FUTURE": {
+    "params": [
+      "field_name"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IT_SEAL_REQUIRED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "IT_STATUS_INVALID": {
     "params": [
       "status"
@@ -2286,6 +2320,15 @@
       "note"
     ]
   },
+  "LC_STEP_ALREADY_COMPLETED": {
+    "params": [
+      "import_file_code",
+      "step_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "LC_STEP_AUTO_CLOSED_PRIOR": {
     "params": [
       "completed_step_code"
@@ -2351,6 +2394,14 @@
   },
   "LC_STEP_RESUMED_DEFAULT": {
     "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_STEP_SEQUENCE_INVALID": {
+    "params": [
+      "step_code"
+    ],
     "parts": [
       "note"
     ]
@@ -2426,6 +2477,14 @@
   },
   "LC_SYNC_FREIGHT_STUDIES_DONE": {
     "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "LC_TARGET_STEP_INVALID": {
+    "params": [
+      "step_code"
+    ],
     "parts": [
       "note"
     ]
@@ -3559,6 +3618,12 @@
       "note"
     ]
   },
+  "SDU_INVOICE_NUMBER_REQUIRED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "SDU_NO_SHIPPING_RECORD": {
     "params": [
       "import_file_code"
@@ -3661,6 +3726,17 @@
       "body"
     ]
   },
+  "TR_SEAL_BROKEN": {
+    "params": [
+      "seal_number",
+      "truck_plate_number"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
   "TR_TASK_TRACK_ARRIVAL_GRN": {
     "params": [],
     "parts": [
@@ -3741,10 +3817,24 @@
       "body"
     ]
   },
+  "WR_CLAIM_CURRENCY_INVALID": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "WR_CUSTOMS_NOT_RELEASED": {
     "params": [
       "import_file_code"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "WR_DATE_IN_FUTURE": {
+    "params": [],
     "parts": [
       "note"
     ]

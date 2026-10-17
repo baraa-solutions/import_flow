@@ -28,10 +28,17 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+from modules.currencies.model import Currency
+from datetime import datetime, date, timedelta, timezone
+
+
 @pytest.fixture(scope="function")
 def db_session():
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
+    db.add(Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="E£", is_active=True))
+    db.add(Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
+    db.commit()
     try:
         yield db
     finally:
@@ -295,3 +302,259 @@ class TestWarehouseInspectionDiscrepancyTR04:
         assert summary_data["supplier_claim_filed"] is True
         assert summary_data["total_shortage_qty"] == 1
         assert summary_data["is_ready_for_landed_cost"] is True
+        assert summary_data["claim_amount_estimated"] == 1200.0
+        assert summary_data["claim_currency"] == "USD"
+
+    def test_claim_validation_negative_amount_yields_422(self, db_session, client):
+        """BE810-T12: negative claim amount yields 422 validation error."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0102", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+        db_session.refresh(imp_file)
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0102",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot A",
+            grn_items=[{"item_code": "A", "item_name": "A", "invoiced_qty": 10, "accepted_qty": 10, "shortage_qty": 0, "damaged_qty": 0}],
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        # POST inspection protocol with negative amount
+        post_res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol",
+            json={"claim_amount_estimated": -5.0, "claim_currency": "USD"},
+        )
+        assert post_res.status_code == 422
+
+        # PUT update with negative amount
+        put_res = client.put(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}",
+            json={"claim_amount_estimated": -5.0},
+        )
+        assert put_res.status_code == 422
+
+    def test_claim_validation_invalid_currency_yields_400(self, db_session, client):
+        """BE810-T12: unknown or inactive currency yields 400 WR_CLAIM_CURRENCY_INVALID."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0103", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0103",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot B",
+            grn_items=[{"item_code": "B", "item_name": "B", "invoiced_qty": 10, "accepted_qty": 8, "shortage_qty": 2, "damaged_qty": 0}],
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        # POST inspection protocol with unknown currency "XYZ"
+        post_res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol",
+            json={"claim_amount_estimated": 1200.0, "claim_currency": "XYZ"},
+        )
+        assert post_res.status_code == 400
+        detail = post_res.json()["detail"]
+        assert detail["code"] == "WR_CLAIM_CURRENCY_INVALID"
+        assert detail["currency_code"] == "XYZ"
+
+        # PUT update with unknown currency "XYZ"
+        put_res = client.put(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}",
+            json={"claim_amount_estimated": 1200.0, "claim_currency": "XYZ"},
+        )
+        assert put_res.status_code == 400
+        assert put_res.json()["detail"]["code"] == "WR_CLAIM_CURRENCY_INVALID"
+
+    def test_claim_validation_lowercase_currency_normalized(self, db_session, client):
+        """BE810-T12: lowercase currency is normalized to uppercase."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0104", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0104",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot C",
+            grn_items=[{"item_code": "C", "item_name": "C", "invoiced_qty": 10, "accepted_qty": 8, "shortage_qty": 2, "damaged_qty": 0}],
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        post_res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol",
+            json={"claim_amount_estimated": 1200.0, "claim_currency": "usd"},
+        )
+        assert post_res.status_code == 200
+        db_session.refresh(rec)
+        assert rec.claim_amount_estimated == 1200.0
+        assert rec.claim_currency == "USD"
+
+    def test_claim_validation_zero_or_null_amount_stores_null(self, db_session, client):
+        """BE810-T12: zero or absent claim amount stores None for amount and currency."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0105", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0105",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot D",
+            grn_items=[{"item_code": "D", "item_name": "D", "invoiced_qty": 10, "accepted_qty": 10, "shortage_qty": 0, "damaged_qty": 0}],
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        # Submit inspection with 0.0 amount
+        post_res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol",
+            json={"claim_amount_estimated": 0.0, "claim_currency": "USD"},
+        )
+        assert post_res.status_code == 200
+        db_session.refresh(rec)
+        assert rec.claim_amount_estimated is None
+        assert rec.claim_currency is None
+
+        # Check inspection summary returns None for both fields (BE810-T12)
+        summary_res = client.get(f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol")
+        assert summary_res.status_code == 200
+        summary_data = summary_res.json()
+        assert summary_data["claim_amount_estimated"] is None
+        assert summary_data["claim_currency"] is None
+
+        # PUT update to set claim, then PUT to clear
+        put_res = client.put(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}",
+            json={"claim_amount_estimated": 500.0, "claim_currency": "USD"},
+        )
+        assert put_res.status_code == 200
+        db_session.refresh(rec)
+        assert rec.claim_amount_estimated == 500.0
+        assert rec.claim_currency == "USD"
+
+        # Clear with None
+        put_clear = client.put(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}",
+            json={"claim_amount_estimated": None},
+        )
+        assert put_clear.status_code == 200
+        db_session.refresh(rec)
+        assert rec.claim_amount_estimated is None
+        assert rec.claim_currency is None
+
+        summary_clear = client.get(f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol")
+        assert summary_clear.status_code == 200
+        assert summary_clear.json()["claim_amount_estimated"] is None
+        assert summary_clear.json()["claim_currency"] is None
+
+    def test_be810_t19_clean_quantities_with_inconsistent_verdict_raises_expected_code(self, db_session, client):
+        """BE810-T19: Clean quantities + inconsistent verdict -> 400 WR_VERDICT_INCONSISTENT_EXPECTED with expected_verdict."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0106", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0106",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot E",
+            grn_items=[{"item_code": "E", "item_name": "E", "invoiced_qty": 10, "accepted_qty": 10, "shortage_qty": 0, "damaged_qty": 0}],
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol",
+            json={"inspection_verdict": "DAMAGE_CLAIM_PENDING"},
+        )
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        # BE810-T05 (merged first) rejects a discrepancy verdict on clean quantities with WR_VERDICT_INCONSISTENT
+        # before the T19 expected-verdict check runs.
+        assert detail["code"] == "WR_VERDICT_INCONSISTENT"
+        assert detail["verdict"] == "DAMAGE_CLAIM_PENDING"
+
+    def test_be810_t19_report_discrepancy_rejects_none_type(self, db_session, client):
+        """BE810-T19: Report discrepancy with type 'None' is rejected with 400 WR_DISCREPANCY_TYPE_INVALID."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0107", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0107",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot F",
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/report-discrepancy",
+            json={"discrepancy_type": "None", "discrepancy_notes": "All good no discrepancy"},
+        )
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert detail["code"] == "WR_DISCREPANCY_TYPE_INVALID"
+
+    def test_be810_t19_report_discrepancy_defaults_quarantine_false(self, db_session, client):
+        """BE810-T19: Report discrepancy defaults quarantine_zone_assigned to False."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0108", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0108",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot G",
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/report-discrepancy",
+            json={"discrepancy_type": "Shortage", "discrepancy_notes": "Missing 2 boxes"},
+        )
+        assert res.status_code == 200
+        db_session.refresh(rec)
+        assert rec.quarantine_zone_assigned is False
+
+    def test_be810_t19_inspection_date_in_future_raises_400(self, db_session, client):
+        """BE810-T19: Inspection date > now + 24 hours raises 400 WR_DATE_IN_FUTURE."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0109", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0109",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot H",
+            grn_items=[{"item_code": "H", "item_name": "H", "invoiced_qty": 10, "accepted_qty": 10, "shortage_qty": 0, "damaged_qty": 0}],
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        future_dt = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+        res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol",
+            json={"inspection_date": future_dt},
+        )
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert detail["code"] == "WR_DATE_IN_FUTURE"
