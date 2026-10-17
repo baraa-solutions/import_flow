@@ -35,7 +35,9 @@ class ClearanceExpenseTypeRepository:
         return next_global_code(db, ClearanceExpenseType.expense_code, "EXP", pad=3)
 
     @staticmethod
-    def create(db: Session, schema: ClearanceExpenseTypeCreate, code: Optional[str] = None) -> ClearanceExpenseType:
+    def create(
+        db: Session, schema: ClearanceExpenseTypeCreate, code: Optional[str] = None, user: Optional[str] = None
+    ) -> ClearanceExpenseType:
         final_code = code or schema.expense_code or ClearanceExpenseTypeRepository.generate_expense_code(db)
         db_obj = ClearanceExpenseType(
             expense_code=final_code,
@@ -46,6 +48,8 @@ class ClearanceExpenseTypeRepository:
             default_currency=schema.default_currency,
             display_order=schema.display_order,
             is_active=schema.is_active,
+            created_by=user,
+            updated_by=user,
         )
         db.add(db_obj)
         db.flush()
@@ -81,18 +85,26 @@ class ClearanceExpenseTypeRepository:
         return query.order_by(ClearanceExpenseType.display_order.asc(), ClearanceExpenseType.expense_id.asc()).all()
 
     @staticmethod
-    def update(db: Session, db_obj: ClearanceExpenseType, schema: ClearanceExpenseTypeUpdate) -> ClearanceExpenseType:
+    def update(
+        db: Session, db_obj: ClearanceExpenseType, schema: ClearanceExpenseTypeUpdate, user: Optional[str] = None
+    ) -> ClearanceExpenseType:
         update_data = schema.model_dump(exclude_unset=True)
         for k, v in update_data.items():
             setattr(db_obj, k, v)
         db_obj.updated_at = datetime.now(timezone.utc)
+        if user:
+            db_obj.updated_by = user
         db.flush()
         return db_obj
 
     @staticmethod
-    def delete(db: Session, db_obj: ClearanceExpenseType) -> ClearanceExpenseType:
+    def delete(
+        db: Session, db_obj: ClearanceExpenseType, user: Optional[str] = None
+    ) -> ClearanceExpenseType:
         db_obj.is_active = False
         db_obj.updated_at = datetime.now(timezone.utc)
+        if user:
+            db_obj.updated_by = user
         db.flush()
         return db_obj
 
@@ -112,7 +124,9 @@ class BrokerPriceListRepository:
         return db.query(BrokerPriceList).filter(BrokerPriceList.price_list_code == code).first()
 
     @staticmethod
-    def create(db: Session, schema: BrokerPriceListCreate, code: Optional[str] = None) -> BrokerPriceList:
+    def create(
+        db: Session, schema: BrokerPriceListCreate, code: Optional[str] = None, user: Optional[str] = None
+    ) -> BrokerPriceList:
         final_code = code or BrokerPriceListRepository.generate_price_list_code(db)
         db_pl = BrokerPriceList(
             price_list_code=final_code,
@@ -125,6 +139,8 @@ class BrokerPriceListRepository:
             version=schema.version,
             is_active=schema.is_active,
             notes=schema.notes,
+            created_by=user,
+            updated_by=user,
         )
         db.add(db_pl)
         db.flush()
@@ -196,7 +212,9 @@ class BrokerPriceListRepository:
         return query.first()
 
     @staticmethod
-    def update(db: Session, db_pl: BrokerPriceList, schema: BrokerPriceListUpdate) -> BrokerPriceList:
+    def update(
+        db: Session, db_pl: BrokerPriceList, schema: BrokerPriceListUpdate, user: Optional[str] = None
+    ) -> BrokerPriceList:
         update_data = schema.model_dump(exclude_unset=True, exclude={"items"})
         for k, v in update_data.items():
             setattr(db_pl, k, v)
@@ -221,13 +239,17 @@ class BrokerPriceListRepository:
                 db.add(db_itm)
 
         db_pl.updated_at = datetime.now(timezone.utc)
+        if user:
+            db_pl.updated_by = user
         db.flush()
         return db_pl
 
     @staticmethod
-    def soft_delete(db: Session, db_pl: BrokerPriceList) -> BrokerPriceList:
+    def soft_delete(db: Session, db_pl: BrokerPriceList, user: Optional[str] = None) -> BrokerPriceList:
         db_pl.is_active = False
         db_pl.updated_at = datetime.now(timezone.utc)
+        if user:
+            db_pl.updated_by = user
         db.flush()
         return db_pl
 
