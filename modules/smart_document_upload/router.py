@@ -440,7 +440,7 @@ def extract_bill_of_lading_endpoint(
     status_code=status.HTTP_200_OK,
     summary="Extract Packing List, weights, packages, dimensions, and line items",
 )
-async def extract_packing_list_endpoint(
+def extract_packing_list_endpoint(
     file: Optional[UploadFile] = File(None, description="Packing List or Weight List file"),
     raw_text: Optional[str] = Form(None, description="Pasted Packing List text"),
     db: Session = Depends(get_db),
@@ -452,7 +452,7 @@ async def extract_packing_list_endpoint(
     validate_raw_text(raw_text)
     if file:
         filename = stored_filename(file.filename or "packing_list.pdf")
-        _, content_bytes = await read_validated_upload(file)
+        _, content_bytes = read_validated_upload_sync(file)
 
     return service.extract_packing_list_service(
         filename=filename,
