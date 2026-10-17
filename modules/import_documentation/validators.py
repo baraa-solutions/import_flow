@@ -97,7 +97,10 @@ def acid_flags(
         if "items" in discrepancies_data and isinstance(discrepancies_data["items"], list):
             raw_items = discrepancies_data["items"]
         else:
-            raw_items = [{"field": k, "entry": v} for k, v in discrepancies_data.items()]
+            summary_keys = {"all_matched", "has_critical_error", "discrepant_count"}
+            raw_items = [
+                {"field": k, "entry": v} for k, v in discrepancies_data.items() if k not in summary_keys
+            ]
     elif isinstance(discrepancies_data, list):
         raw_items = discrepancies_data
 
@@ -281,3 +284,18 @@ def validate_upload(filename: Optional[str], content: bytes) -> str:
             detail=f"حجم الملف '{name}' يتجاوز الحد الأقصى المسموح به ({MAX_UPLOAD_BYTES // (1024 * 1024)} ميجابايت).",
         )
     return name
+
+
+def validate_unique_po_lines(line_items: list) -> None:
+    """Each PO line must be adjusted at most once per request (BE03-T01). Duplicate -> 400."""
+    seen_po_item_ids = set()
+    for itm in line_items:
+        po_item_id = getattr(itm, "po_item_id", None)
+        if po_item_id is not None:
+            if po_item_id in seen_po_item_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"بند أمر الشراء رقم {po_item_id} مكرر في طلب المطابقة.",
+                )
+            seen_po_item_ids.add(po_item_id)
+

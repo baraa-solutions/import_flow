@@ -12,11 +12,31 @@ from fastapi import Response, HTTPException, status
 
 class MasterDataExportImportHelper:
     @staticmethod
+    def standard_export_filename(entity_prefix: str, extension: str, doc_code: Optional[str] = None) -> str:
+        """Generates standardized filename: Prefix_YYYY-MM-DD.ext or Prefix_CODE_YYYY-MM-DD.ext."""
+        date_str = date.today().strftime("%Y-%m-%d")
+        clean_prefix = entity_prefix.strip().replace(" ", "_")
+        ext = extension.lstrip(".")
+        if doc_code:
+            clean_code = str(doc_code).strip().replace(" ", "_").replace("/", "-")
+            return f"{clean_prefix}_{clean_code}_{date_str}.{ext}"
+        return f"{clean_prefix}_{date_str}.{ext}"
+
+    @staticmethod
     def as_excel_response(filename: str, content: bytes) -> Response:
         """Constructs a standard attachment response for downloadable Excel spreadsheets."""
         return Response(
             content=content,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    @staticmethod
+    def as_pdf_response(filename: str, content: bytes) -> Response:
+        """Constructs a standard attachment response for downloadable PDF reports."""
+        return Response(
+            content=content,
+            media_type="application/pdf",
             headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
 
@@ -29,6 +49,18 @@ class MasterDataExportImportHelper:
             return datetime.strptime(str(val)[:10], "%Y-%m-%d").date()
         except Exception:
             return default
+
+    @staticmethod
+    def format_date_safe(val: Any, default: str = "") -> str:
+        """Standardized YYYY-MM-DD date formatter for export outputs."""
+        if not val:
+            return default
+        if isinstance(val, (date, datetime)):
+            return val.strftime("%Y-%m-%d")
+        s = str(val).strip()
+        if len(s) >= 10 and s[4] == '-' and s[7] == '-':
+            return s[:10]
+        return s
 
     @staticmethod
     def parse_bool_safe(val: Any) -> bool:
@@ -126,7 +158,18 @@ class MasterDataExportImportHelper:
     def export_to_excel(filename_title: str, headers: List[str], rows_data: List[List[Any]]) -> bytes:
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = filename_title[:30]
+        clean_sheet_title = (
+            filename_title[:30]
+            .replace("/", "-")
+            .replace("\\", "-")
+            .replace(":", "-")
+            .replace("*", "")
+            .replace("?", "")
+            .replace("[", "")
+            .replace("]", "")
+            .strip()
+        )
+        ws.title = clean_sheet_title or "Sheet1"
 
         # Header Row
         header_fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
@@ -147,7 +190,17 @@ class MasterDataExportImportHelper:
             cell.alignment = align_center
 
         for r_idx, r_data in enumerate(rows_data, start=2):
-            ws.append([str(v) if v is not None else "" for v in r_data])
+            clean_row = []
+            for v in r_data:
+                if v is None:
+                    clean_row.append("")
+                elif isinstance(v, bool):
+                    clean_row.append("Yes" if v else "No")
+                elif isinstance(v, (date, datetime)):
+                    clean_row.append(MasterDataExportImportHelper.format_date_safe(v))
+                else:
+                    clean_row.append(str(v))
+            ws.append(clean_row)
             fill_color = "F8F9FA" if r_idx % 2 == 0 else "FFFFFF"
             row_fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
             for c_num in range(1, len(headers) + 1):
@@ -246,7 +299,18 @@ class MasterDataExportImportHelper:
         table_data = []
         table_data.append([Paragraph(h, header_cell_style) for h in headers])
         for row in rows_data:
-            table_data.append([Paragraph(str(v) if v is not None else "", cell_style) for v in row])
+            clean_cells = []
+            for v in row:
+                if v is None:
+                    txt = "-"
+                elif isinstance(v, bool):
+                    txt = "Yes" if v else "No"
+                elif isinstance(v, (date, datetime)):
+                    txt = MasterDataExportImportHelper.format_date_safe(v)
+                else:
+                    txt = str(v)
+                clean_cells.append(Paragraph(txt if txt.strip() else "-", cell_style))
+            table_data.append(clean_cells)
 
         t = Table(table_data, repeatRows=1)
         t.setStyle(TableStyle([

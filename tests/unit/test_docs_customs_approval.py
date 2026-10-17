@@ -235,3 +235,41 @@ def test_discrepancy_rectification_ticket_lifecycle(db_session, setup_import_dat
     assert resolved.status == "Resolved"
     assert resolved.resolved_by == "Customs Compliance Manager"
     assert resolved.resolved_at is not None
+
+
+def test_be03_t11_dca_po_of_another_file_sharing_po_number_hs_not_checked(db_session, setup_import_data):
+    file1 = setup_import_data
+    file2 = ImportFile(
+        import_file_id=20,
+        import_file_code="IMP-2026-9999",
+        custom_file_number="FILE-9999",
+        company_name="Al-Ahram Trading",
+        supplier_name="Shanghai Machinery Corp",
+        po_number="PO-SHARED-123",
+        acid_number="9994567890123456789",
+        status="In Progress",
+        current_stage="STAGE_05_DRAFT_DOCS",
+        is_active=True,
+    )
+    db_session.add(file2)
+    file1.po_number = "PO-SHARED-123"
+    po2 = PurchaseOrder(
+        po_id=201,
+        po_number="PO-SHARED-123",
+        project_id=1,
+        company_id=1,
+        supplier_id=1,
+        incoterm_id=1,
+        currency_id=1,
+        import_file_id=file2.import_file_id,
+        total_amount_fob=50000.0,
+        is_active=True,
+    )
+    db_session.add(po2)
+    db_session.add(POLineItem(po_id=201, item_code="ITM-99", description_ar="Item", quantity=10, unit_price=10.0))
+    db_session.commit()
+
+    audit_res = service.run_cross_document_matrix_check_service(db_session, file1.import_file_id)
+    hs_check = next((c for c in audit_res.checks if c.parameter == "HS Code Classification"), None)
+    assert hs_check is not None
+    assert hs_check.status == "Not Checked"
