@@ -327,8 +327,7 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
     }
 
     widget.onQueryChanged(widget.state.query.copyWith(
-      sort: newSort,
-      clearSort: newSort == null,
+      sort: newSort, // null clears the sort (ListQuery.copyWith sentinel)
       page: 1,
     ));
   }
