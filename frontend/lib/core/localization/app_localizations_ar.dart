@@ -184,6 +184,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get recordNotFoundOrDeleted => 'السجل غير موجود أو تم حذفه';
   @override String get entityNotFoundOrDeleted => recordNotFoundOrDeleted;
   @override String get entityDetailsTitle => 'تفاصيل السجل';
+  @override String get importFilePickerSelectFile => 'اختر ملف الاستيراد';
+  @override String get importFilePickerNoFilesFound => 'لا توجد ملفات استيراد متاحة';
+  @override String get importFilePickerFileRequired => 'يرجى اختيار ملف الاستيراد للمتابعة';
+  @override String get importFilePickerContinue => 'متابعة';
+  @override String get importFilePickerSearchHint => 'ابحث برقم الملف، المورد، الشركة...';
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   @override String get switchAsAdmin => 'تبديل كـ: مدير النظام 🔴';
