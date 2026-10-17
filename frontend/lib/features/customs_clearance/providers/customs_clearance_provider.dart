@@ -320,4 +320,12 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
     await refresh();
     return updated;
   }
+
+  /// Fetches a single clearance record by ID (read-only live load for details view).
+  Future<CustomsClearanceModel> getRecord(int recordId) async {
+    final response = await _dio.get(
+      '${ApiConstants.baseUrl}/customs-clearance/$recordId',
+    );
+    return CustomsClearanceModel.fromJson(response.data);
+  }
 }

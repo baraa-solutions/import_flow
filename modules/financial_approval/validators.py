@@ -2,9 +2,8 @@
 Business Validation Rules for Financial Approval (BP-012 & BP-013)
 
 Status sets, server-owned transitions, payment type codes and the coded error helper.
-Coded errors use plain ``{code, message, **params}`` dicts (``fa_error``): the codes are not registered in
-``modules/common/system_messages.py`` yet (see docs/plans/review-shared-needs.md "## 02 shared needs"), and
-``CodedHTTPException`` refuses unregistered codes.
+Coded errors use structured ``{"code", "message", **params}`` dicts (``fa_error``), with codes
+registered in ``modules/common/system_messages.py``.
 """
 
 import re
@@ -167,6 +166,17 @@ def validate_payment_update(item: Any, changes: Dict[str, Any]) -> None:
                 payment_code=item.payment_code,
                 status=item.status,
                 action=f"status:{new_status}",
+            )
+    if "currency_code" in changes and changes["currency_code"] is not None:
+        norm_new = enum_codes.normalize_currency(changes["currency_code"])
+        norm_old = enum_codes.normalize_currency(item.currency_code)
+        if norm_new != norm_old and ("exchange_rate" not in changes or changes.get("exchange_rate") is None):
+            raise fa_error(
+                status.HTTP_400_BAD_REQUEST,
+                "FA_PAYMENT_RATE_REQUIRED",
+                "عند تغيير عملة طلب الصرف يجب إدخال سعر الصرف الجديد.",
+                payment_code=item.payment_code,
+                currency_code=norm_new,
             )
 
 

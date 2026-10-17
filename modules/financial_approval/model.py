@@ -49,7 +49,7 @@ class PaymentRequestSession(Base):
     requested_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     advance_percentage: Mapped[float] = mapped_column(Float, nullable=True)
     currency_code: Mapped[str] = mapped_column(String(10), default="USD", nullable=False)
-    exchange_rate: Mapped[float] = mapped_column(Float, default=50.0, nullable=False)
+    exchange_rate: Mapped[float] = mapped_column(Float, nullable=False)
     requested_amount_egp: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
     due_date: Mapped[date] = mapped_column(Date, nullable=False)

@@ -104,6 +104,35 @@ def upsert_dependency(
     return dep
 
 
+def deactivate_dependency(
+    db: Session,
+    target_entity_type: str,
+    target_field: str,
+    source_entity_type: str,
+    source_field: str,
+) -> Optional[RecalculationDependencyMap]:
+    """
+    Deactivates a dependency row by setting is_active = False.
+    Idempotent: matches on (target_entity_type, target_field, source_entity_type, source_field).
+    Used by seed_dependencies.py (flush only: the caller commits).
+    """
+    dep = (
+        db.query(RecalculationDependencyMap)
+        .filter(
+            RecalculationDependencyMap.target_entity_type == target_entity_type,
+            RecalculationDependencyMap.target_field == target_field,
+            RecalculationDependencyMap.source_entity_type == source_entity_type,
+            RecalculationDependencyMap.source_field == source_field,
+        )
+        .first()
+    )
+    if dep is not None:
+        dep.is_active = False
+        db.flush()
+    return dep
+
+
+
 # ─── Recalculation Logs ──────────────────────────────────────────────────────
 
 def create_log(

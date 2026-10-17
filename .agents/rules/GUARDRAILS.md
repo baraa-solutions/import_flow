@@ -47,7 +47,10 @@ python scripts/ci/guardrails.py pr-gate
 cd frontend && flutter analyze lib/features/<feature>
 ```
 Both must pass. Report the real numbers they print. Then open a PR to `main` on the company repo; the owner reviews
-and merges. GitHub runs the same checks on the PR (`PR Checks` workflow: "Backend gate", "Flutter analyze").
+and merges. GitHub runs the same checks on the PR (`PR Checks` workflow: "Backend gate", "Flutter analyze") once
+when the PR is opened or marked ready, not on every push (Actions minutes are limited), and only for the areas the PR
+touches; the owner re-runs them with the `run-checks` label before merging. Your local gate before every push is
+therefore what keeps the PR green: paste its real numbers in the PR.
 Changing `scripts/ci/`, `.github/` or a guard test to turn a check green is treated as breaking the rules.
 
 Remote names: on a fresh clone the company repo is `origin`. Where `AI_WORKFLOW.md` says `company`, use `origin`

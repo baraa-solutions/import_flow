@@ -405,6 +405,22 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
     'reason': 'تكرار تجاوز الخط الملاحي {carrier_name} لأزمنة الترانزيت المجدولة على ميناء {port_name}.',
   },
 
+  'LC_APPROVER_ROLE_UNKNOWN': {
+    'note': 'دور المعتمد {role_code} لا يطابق أي دور معروف في النظام.',
+  },
+  'LC_CLOSURE_STEP_RESERVED': {
+    'note': 'المرحلة STEP_21 مخصصة لمنظومة إغلاق الملفات ولا يمكن إكمالها مباشرة عبر HTTP.',
+  },
+  'LC_FILE_NOT_ACTIVE': {
+    'note': 'ملف الاستيراد {import_file_code} في حالة {status} ولا يمكن تحريك مراحله على اللوحة.',
+  },
+  'LC_FILE_NOT_FOUND': {
+    'note': 'ملف الاستيراد {import_file_code} غير موجود أو غير نشط.',
+  },
+  'LC_FILE_REF_REQUIRED': {
+    'note': 'يلزم تحديد معرف ملف الاستيراد أو كود الملف.',
+  },
+
   'LC_FILE_ON_HOLD': {
     'note': 'تم إيقاف الشحنة عند مرحلة [{phase_id}]: {reason}',
   },
@@ -432,6 +448,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'LC_PENDING_REFERENCE': {
     'note': 'مرجع معلق: {reference_number} — {reason}',
   },
+  'LC_SKIP_DUAL_APPROVAL_REQUIRED': {
+    'note': 'المرحلة {step_code} تتطلب اعتماداً مزدوجاً ولا يمكن تجاوزها لغير مديري النظام.',
+  },
   'LC_STARTING_POINT_SET': {
     'note': 'نقطة البداية المحددة للشحنة: {step_code}',
   },
@@ -452,6 +471,18 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'LC_STEP_COMPLETED': {
     'note': 'تم إنجاز {step_code} بنجاح',
+  },
+  'LC_STEP_NOT_ACTIVE': {
+    'note': 'المرحلة {step_code} ليست قيد التنفيذ حالياً على ملف الاستيراد {import_file_code}.',
+  },
+  'LC_STEP_ALREADY_COMPLETED': {
+    'note': 'المرحلة {step_code} مكتملة أو تم تخطيها بالفعل لملف الشحنة {import_file_code}.',
+  },
+  'LC_STEP_SEQUENCE_INVALID': {
+    'note': 'لا يمكن تفعيل المرحلة {step_code} قبل الوصول إليها في مسار الشحنة لغير المسؤولين.',
+  },
+  'LC_TARGET_STEP_INVALID': {
+    'note': 'لا يمكن الانتقال مباشرة إلى الخطوة {step_code} بدون صلاحيات المسؤول.',
   },
   'LC_STEP_ON_HOLD': {
     'note': 'معلقة مؤقتاً: {reason}',
@@ -1171,6 +1202,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'SCENARIO_SESSION_EXISTS': {
     'note': 'توجد بالفعل دراسة سيناريوهات شحن نشطة ({session_code}) لهذا الملف الاستيرادي.',
   },
+  'SCENARIO_ITEMS_BOOKED': {
+    'note': 'لا يمكن حذف خيارات الشحن ({item_ids}) المرتبطة بحجز شحن.',
+  },
   'CONSULTATION_EXISTS': {
     'note': 'توجد بالفعل دراسة جمركية نشطة ({consultation_code}) لهذا الملف الاستيرادي.',
   },
@@ -1200,6 +1234,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'FA_PAYMENT_LOCKED': {
     'note': 'لا يمكن تعديل أو حذف طلب دفع معتمد أو مدفوع ({payment_code}، {status}).',
+  },
+  'FA_PAYMENT_RATE_REQUIRED': {
+    'note': 'عند تغيير عملة طلب الصرف {payment_code} يجب إدخال سعر الصرف الجديد للعملة {currency_code}.',
   },
   'FA_BUDGET_LOCKED': {
     'note': 'لا يمكن تعديل موازنة معتمدة أو تم استبدالها ({budget_code}، {status}): قم بمزامنتها لإنشاء مراجعة جديدة.',
@@ -1284,6 +1321,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'SDU_ACID_CONFLICT': {
     'note': 'رقم ACID المستخرج {acid_number} يختلف عن الرقم المسجل في الملف {import_file_code} ({current_acid_number}).',
+  },
+  'SDU_INVOICE_NUMBER_REQUIRED': {
+    'note': 'رقم الفاتورة مطلوب لربط بيانات الفاتورة بملف الشحنة.',
   },
   'SDU_FILE_CLOSED': {
     'note': 'الملف الاستيرادي {import_file_code} في حالة {status}: لا يمكن تطبيق البيانات المستخرجة عليه.',
@@ -1479,6 +1519,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'IMPORT_FILE_CLOSED': {
     'note': 'ملف الشحنة {import_file_code} مغلق نهائياً ولا يمكن تعديل بياناته. يلزم إعادة فتحه أولاً.',
+  },
+  'IF_STATUS_TRANSITION_INVALID': {
+    'note': 'لا يمكن تغيير حالة ملف الشحنة من \'{from}\' إلى \'{to}\'.',
   },
   'FC_CLOSURE_BLOCKED': {
     'note': 'لا يمكن إغلاق الملف: الشروط التالية غير مستوفاة: {blocking}.',
