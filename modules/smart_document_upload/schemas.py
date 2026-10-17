@@ -27,6 +27,10 @@ SUPPORTED_MODULES = {
     "warehouse-receiving",
     "demurrage",
     "financial-document",
+    "commercial-invoice",
+    "commercial_invoice",
+    "packing-list",
+    "packing_list",
     "coo-certificate",
     "inspection-certificate",
 }
@@ -269,11 +273,27 @@ class InvoiceApplyData(BaseModel):
     invoice_number: Optional[str] = Field(None, max_length=100)
     invoice_date: Optional[str] = Field(None, max_length=30)
     acid_number: Optional[str] = None
+    importer_tax_id: Optional[str] = None
+    supplier_name: Optional[str] = None
+    importer_name: Optional[str] = None
+    origin_country: Optional[str] = None
+    hs_code: Optional[str] = None
+    is_preferential_origin: Optional[bool] = False
+    preferential_origin_agreement: Optional[str] = None
+    is_free_of_charge: Optional[bool] = False
     incoterms: Optional[str] = None
     loading_port: Optional[str] = Field(None, max_length=100)
     discharge_port: Optional[str] = Field(None, max_length=100)
     invoice_value: Optional[float] = Field(None, gt=0)
+    freight_amount: Optional[float] = None
     currency: Optional[str] = None
+    total_gross_weight_kg: Optional[float] = None
+    total_net_weight_kg: Optional[float] = None
+    pallets_count: Optional[int] = None
+    packages_count: Optional[int] = None
+    container_number: Optional[str] = None
+    seal_number: Optional[str] = None
+    purchase_order: Optional[str] = None
     items: List[Dict[str, Any]] = Field(default_factory=list)
 
     @field_validator("invoice_value", mode="before")

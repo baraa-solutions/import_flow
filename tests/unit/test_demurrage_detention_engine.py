@@ -1,9 +1,10 @@
 import pytest
 from datetime import date, timedelta
+from fastapi import HTTPException, status
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from fastapi.testclient import TestClient
 
 import main  # Ensures all models and routers are registered
 from database.database import Base, get_db
@@ -14,6 +15,8 @@ from modules.demurrage_detention.schemas import (
     DemurrageTrackingCreate,
     DemurrageTrackingUpdate,
     ContainerItemInput,
+    ContainerIndividualUpdate,
+    EmptyContainerReturnSubmit,
     PushToSettlementRequest,
     TierRateItem,
 )
@@ -27,8 +30,11 @@ from modules.demurrage_detention.service import (
     get_demurrage_trackings_service,
     recalculate_and_update_tracking_service,
     push_demurrage_to_financial_settlement_service,
+    record_empty_container_return_service,
+    update_single_container_service,
     calculate_tiered_fee,
 )
+from modules.demurrage_detention.validators import validate_demurrage_dates
 from modules.import_files.model import ImportFile
 
 
@@ -274,3 +280,183 @@ class TestDemurrageDetentionEngine:
         data = resp.json()
         assert data["demurrage_days_overdue"] == 6
         assert data["status_badge"] == "DEMURRAGE_INCURRED"
+
+    def test_empty_return_without_gate_out_rejected(self, db_session):
+        # 1. Direct validator check
+        with pytest.raises(HTTPException) as exc:
+            validate_demurrage_dates(
+                discharge_date=date(2026, 9, 1),
+                gate_out_date=None,
+                empty_return_date=date(2026, 9, 10),
+            )
+        assert exc.value.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert "لا يمكن تسجيل إعادة الحاوية الفارغة بدون تاريخ خروجها من الميناء (Gate-Out)." in exc.value.detail
+
+        # 2. Create tracking with empty_return but no gate_out rejected
+        imp_file = ImportFile(
+            import_file_id=501,
+            import_file_code="IMP-2026-0501",
+            company_name="Test Co",
+            supplier_name="Global Supplier",
+            owner="tester",
+        )
+        db_session.add(imp_file)
+        db_session.commit()
+
+        req = DemurrageTrackingCreate(
+            import_file_id=501,
+            carrier_name="MSC",
+            bill_of_lading_no="BL-NO-GATEOUT",
+            discharge_date=date(2026, 9, 1),
+            gate_out_date=None,
+            empty_return_date=date(2026, 9, 10),
+            containers=[ContainerItemInput(container_no="MSCU1234567", container_type="40ft High Cube")],
+            currency="USD",
+            exchange_rate=50.0,
+        )
+        with pytest.raises(HTTPException) as exc:
+            create_demurrage_tracking_service(db_session, req, user="tester")
+        assert exc.value.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert "لا يمكن تسجيل إعادة الحاوية الفارغة بدون تاريخ خروجها من الميناء (Gate-Out)." in exc.value.detail
+
+        # 3. Update single container with empty_return but no gate_out rejected
+        req_valid = DemurrageTrackingCreate(
+            import_file_id=501,
+            carrier_name="MSC",
+            bill_of_lading_no="BL-VALID-INIT",
+            discharge_date=date(2026, 9, 1),
+            gate_out_date=None,
+            empty_return_date=None,
+            containers=[ContainerItemInput(container_no="MSCU1234567", container_type="40ft High Cube")],
+            currency="USD",
+            exchange_rate=50.0,
+        )
+        t = create_demurrage_tracking_service(db_session, req_valid, user="tester")
+
+        with pytest.raises(HTTPException) as exc:
+            update_single_container_service(
+                db_session,
+                t.tracking_id,
+                "MSCU1234567",
+                ContainerIndividualUpdate(empty_return_date=date(2026, 9, 10)),
+                user="tester",
+            )
+        assert exc.value.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert "لا يمكن تسجيل إعادة الحاوية الفارغة بدون تاريخ خروجها من الميناء (Gate-Out)." in exc.value.detail
+
+    def test_legacy_return_caps_demurrage_and_storage(self):
+        # Legacy row: return 2026-09-10, no gate-out, recalculated on 2026-10-06
+        sim = simulate_demurrage_and_detention(DemurrageSimulationRequest(
+            carrier_name="MSC",
+            container_type="40ft High Cube",
+            containers_count=1,
+            demurrage_free_days=14,
+            detention_free_days=7,
+            port_storage_free_days=5,
+            port_storage_daily_rate_egp=250.0,
+            discharge_date=date(2026, 9, 1),
+            gate_out_date=None,
+            empty_return_date=date(2026, 9, 10),
+            calculation_date=date(2026, 10, 6),
+            currency="USD",
+            exchange_rate=50.0,
+        ))
+        assert sim.demurrage_days_consumed == 9
+        assert sim.demurrage_days_overdue == 0
+        assert sim.demurrage_fee_fx == 0.0
+        assert sim.storage_days_consumed == 9
+        assert sim.storage_days_overdue == 4
+        assert sim.storage_fee_egp == 1000.0
+
+        # With gate-out 2026-09-08
+        sim_with_gate_out = simulate_demurrage_and_detention(DemurrageSimulationRequest(
+            carrier_name="MSC",
+            container_type="40ft High Cube",
+            containers_count=1,
+            demurrage_free_days=14,
+            detention_free_days=7,
+            port_storage_free_days=5,
+            port_storage_daily_rate_egp=250.0,
+            discharge_date=date(2026, 9, 1),
+            gate_out_date=date(2026, 9, 8),
+            empty_return_date=date(2026, 9, 10),
+            calculation_date=date(2026, 10, 6),
+            currency="USD",
+            exchange_rate=50.0,
+        ))
+        assert sim_with_gate_out.demurrage_days_consumed == 7
+        assert sim_with_gate_out.demurrage_fee_fx == 0.0
+        assert sim_with_gate_out.storage_days_consumed == 7
+        assert sim_with_gate_out.storage_days_overdue == 2
+        assert sim_with_gate_out.storage_fee_egp == 500.0
+        assert sim_with_gate_out.detention_days_consumed == 2
+        assert sim_with_gate_out.detention_days_overdue == 0
+        assert sim_with_gate_out.detention_fee_fx == 0.0
+
+    def test_eir_requires_gate_out_per_container(self, db_session):
+        imp_file = ImportFile(
+            import_file_id=601,
+            import_file_code="IMP-2026-0601",
+            company_name="Logistics Co",
+            supplier_name="Global Supplier",
+            owner="tester",
+        )
+        db_session.add(imp_file)
+        db_session.commit()
+
+        # Tracking with 2 containers, no gate-out
+        req = DemurrageTrackingCreate(
+            import_file_id=601,
+            carrier_name="MSC",
+            bill_of_lading_no="BL-EIR-TEST",
+            discharge_date=date(2026, 9, 1),
+            containers=[
+                ContainerItemInput(container_no="MSCU001", container_type="40ft High Cube"),
+                ContainerItemInput(container_no="MSCU002", container_type="40ft High Cube"),
+            ],
+            currency="USD",
+            exchange_rate=50.0,
+        )
+        t = create_demurrage_tracking_service(db_session, req, user="tester")
+
+        # Submitting EIR when both containers lack gate_out raises 422 listing both
+        payload = EmptyContainerReturnSubmit(
+            import_file_id=601,
+            empty_return_date=date(2026, 9, 15),
+            eir_number="EIR-001",
+        )
+        with pytest.raises(HTTPException) as exc:
+            record_empty_container_return_service(db_session, payload)
+        assert exc.value.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert "Gate-Out" in exc.value.detail
+        assert "MSCU001" in exc.value.detail
+        assert "MSCU002" in exc.value.detail
+
+        # Set gate_out on MSCU001 only
+        containers = [dict(c) for c in t.containers]
+        containers[0]["gate_out_date"] = "2026-09-08"
+        t.containers = containers
+        db_session.commit()
+
+        # EIR targeting only MSCU001 succeeds
+        payload_single = EmptyContainerReturnSubmit(
+            import_file_id=601,
+            empty_return_date=date(2026, 9, 15),
+            returned_containers=["MSCU001"],
+            eir_number="EIR-002",
+        )
+        res = record_empty_container_return_service(db_session, payload_single)
+        assert res.containers_returned_count == 1
+        assert "MSCU001" in res.returned_containers
+
+        # EIR targeting MSCU002 still fails because MSCU002 has no gate-out
+        payload_mscu2 = EmptyContainerReturnSubmit(
+            import_file_id=601,
+            empty_return_date=date(2026, 9, 15),
+            returned_containers=["MSCU002"],
+            eir_number="EIR-003",
+        )
+        with pytest.raises(HTTPException) as exc:
+            record_empty_container_return_service(db_session, payload_mscu2)
+        assert exc.value.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert "MSCU002" in exc.value.detail

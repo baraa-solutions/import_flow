@@ -24,6 +24,7 @@ from modules.import_documentation.model import (
 )
 from modules.import_documentation.schemas import (
     AcidRegistrationCreate,
+    AcidRegistrationUpdate,
     CertificateOfOriginReviewCreate,
     CertificateOfOriginReviewUpdate,
     DraftBLComparisonRequest,
@@ -32,13 +33,20 @@ from modules.import_documentation.schemas import (
     DualApprovalRequest,
     InspectionCertificateReviewCreate,
     InvoiceBLMatchSessionCreate,
+    InvoiceBLSyncRequest,
     NewDraftVersionRequest,
     POExtractAndCompareRequest,
     POFinalAdjustmentRequest,
     POReconciliationItem,
     POReconciliationSessionCreate,
+    BankingDocumentCreate,
+    BankingDocumentUpdate,
+    CustomsDeclarationCreate,
 )
+from modules.cargo_shipping.model import CargoShippingRecord
+from modules.docs_customs_approval.model import CustomsDocumentApproval
 import modules.import_documentation.service as service
+from modules.import_documentation.validators import acid_flags
 
 
 ACID_REQUIRED = dict(importer_name="Importer Co", importer_tax_id="123456789", exporter_name="Exporter Co",
@@ -55,6 +63,9 @@ def db():
                            supplier_name="Exporter Co", is_active=True))
     session.add(ImportFile(import_file_id=2, import_file_code="IMP-T-002", company_name="Other", supplier_name="Supp2", is_active=True))
     session.add(ImportFile(import_file_id=3, import_file_code="IMP-T-DEL", company_name="Del", supplier_name="Del", is_active=False))
+    session.add(curr_models.Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
+    session.add(curr_models.Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True))
+    session.add(curr_models.Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_active=True))
     session.commit()
     yield session
     session.close()
@@ -370,9 +381,9 @@ def test_doc07_missing_invoice_bl_session_gives_404(db):
 
 # --- DOC-09 -------------------------------------------------------------------------------------------------
 def test_doc09_recreate_after_delete_reactivates_row(db):
-    first = service.create_po_reconciliation_session_service(db, POReconciliationSessionCreate(import_file_id=1, final_invoice_number="A"), user="a")
+    first = service.create_po_reconciliation_session_service(db, POReconciliationSessionCreate(import_file_id=1, currency="USD", final_invoice_number="A"), user="a")
     service.delete_po_reconciliation_session_service(db, first.session_id, user="a")
-    again = service.create_po_reconciliation_session_service(db, POReconciliationSessionCreate(import_file_id=1, final_invoice_number="B"), user="b")
+    again = service.create_po_reconciliation_session_service(db, POReconciliationSessionCreate(import_file_id=1, currency="USD", final_invoice_number="B"), user="b")
     assert again.session_id == first.session_id and again.is_active and again.final_invoice_number == "B"
     assert db.query(POPackingReconciliationSession).count() == 1
 
@@ -395,8 +406,10 @@ def test_doc11_failing_lifecycle_does_not_block_following_steps(db, monkeypatch)
 
 # --- DOC-13 -------------------------------------------------------------------------------------------------
 def _seed_codes(db):
-    db.add(curr_models.Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
-    db.add(inc_models.Incoterm(incoterm_code="FOB", incoterm_name="Free On Board", is_active=True))
+    if not db.query(curr_models.Currency).filter_by(currency_code="USD").first():
+        db.add(curr_models.Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
+    if not db.query(inc_models.Incoterm).filter_by(incoterm_code="FOB").first():
+        db.add(inc_models.Incoterm(incoterm_code="FOB", incoterm_name="Free On Board", is_active=True))
     db.commit()
 
 
@@ -446,7 +459,16 @@ def test_doc13_second_certified_session_gives_409(db):
 def test_doc13_critical_without_notes_gives_400(db):
     _seed_codes(db)
     with pytest.raises(HTTPException) as exc:
-        service.create_invoice_bl_match_session_service(db, _cert_payload(critical_discrepancies_count=2, notes=" "), user="a")
+        service.create_invoice_bl_match_session_service(
+            db,
+            _cert_payload(
+                invoice_data={"invoice_number": "INV-9", "currency": "USD", "total_gross_weight_kg": 1000},
+                bl_data={"draft_bl_number": "BL-9", "total_gross_weight_kg": 1500},
+                is_safe_for_certification=True,
+                notes=" ",
+            ),
+            user="a",
+        )
     assert exc.value.status_code == 400
 
 
@@ -467,6 +489,82 @@ def test_doc15_pending_number_is_never_verified(db):
     service.create_acid_session_service(db, AcidRegistrationCreate(import_file_id=2, acid_number=None, generated_date=date.today(), **ACID_REQUIRED))
     sess = db.query(AcidRegistrationSession).filter_by(import_file_id=2).one()
     assert sess.acid_number == "PENDING" and sess.status == "Requested"
+
+
+# --- BE03-T06: ACID verification status is derived on the server ---------------------------------------------
+def test_be03_t06_acid_flags_unit():
+    assert acid_flags(None) == (True, True, True, True, False)
+    assert acid_flags({}) == (True, True, True, True, False)
+    assert acid_flags({"items": [{"field": "importer_name", "match": False}]}) == (False, True, True, True, True)
+    assert acid_flags({"items": [{"field": "exporter_name", "status": "MISMATCH"}]}) == (True, False, True, True, True)
+    assert acid_flags({"items": [{"field": "proforma_invoice_no", "is_matched": False}]}) == (True, True, False, True, True)
+    assert acid_flags({"items": [{"field": "pod_name", "is_matched": False}]}) == (True, True, True, False, True)
+    assert acid_flags({"items": [
+        {"field": "importer_name", "match": False},
+        {"field": "pol_name", "match": False},
+    ]}) == (False, True, True, False, True)
+
+
+def test_be03_t06_create_acid_with_discrepancies_requires_override_reason(db):
+    disc = {"items": [{"field": "exporter_name", "match": False}]}
+    # Without override reason -> 400
+    with pytest.raises(HTTPException) as exc:
+        service.create_acid_session_service(db, AcidRegistrationCreate(
+            import_file_id=2,
+            acid_number="1234567890123456789",
+            generated_date=date.today(),
+            discrepancies_data=disc,
+            **ACID_REQUIRED,
+        ), user="a")
+    assert exc.value.status_code == 400
+    assert "يوجد اختلافات" in exc.value.detail
+
+    # With override reason -> Discrepancy_Accepted, has_discrepancies True
+    res = service.create_acid_session_service(db, AcidRegistrationCreate(
+        import_file_id=2,
+        acid_number="1234567890123456789",
+        generated_date=date.today(),
+        discrepancies_data=disc,
+        discrepancy_override_reason="Supplier name shortened on Nafeza",
+        **ACID_REQUIRED,
+    ), user="a")
+    assert res.status == "Discrepancy_Accepted"
+    assert res.has_discrepancies is True
+    assert res.is_exporter_matched is False
+
+
+def test_be03_t06_put_status_verified_on_requested_stays_requested(db):
+    created = service.create_acid_session_service(db, AcidRegistrationCreate(
+        import_file_id=2,
+        acid_number="PENDING",
+        requested_date=date.today(),
+        **ACID_REQUIRED,
+    ), user="a")
+    assert created.status == "Requested"
+
+    # Client tries to force status="Verified" on a pending/requested session
+    updated = service.update_acid_session_service(
+        db, created.acid_id, AcidRegistrationUpdate(status="Verified")
+    )
+    assert updated.status == "Requested"
+
+
+def test_be03_t06_different_acid_on_file_gives_409_conflict(db):
+    # File 1 has acid_number="1111111111111111111"
+    f = db.query(ImportFile).filter_by(import_file_id=1).one()
+    f.acid_number = "1111111111111111111"
+    db.commit()
+
+    # Session with "2222222222222222222" -> 409 DOC_ACID_CONFLICT
+    with pytest.raises(HTTPException) as exc:
+        service.create_acid_session_service(db, AcidRegistrationCreate(
+            import_file_id=1,
+            acid_number="2222222222222222222",
+            generated_date=date.today(),
+            **ACID_REQUIRED,
+        ), user="a")
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "DOC_ACID_CONFLICT"
 
 
 def test_doc19_revision_report_uses_english_label(db):
@@ -653,6 +751,65 @@ def test_sec_delete_final_review_gives_409_and_delete_is_audited(db):
     assert log.performed_by == "eve"
 
 
+# --- BE03-T07: Draft B/L blocking flags and versions are server-owned ----------------------------------------
+def test_be03_t07_put_cannot_override_blocking_mismatch_and_dual_approval_blocked(db):
+    row = {
+        "field_key": "consignee", "field_label_ar": "المرسل إليه", "field_label_en": "Consignee",
+        "source_entity": "Booking", "system_value": "Acme Corp", "draft_value": "Wrong Consignee",
+        "status": "Incorrect", "required_correction": "Fix consignee", "reason": "Name mismatch",
+    }
+    review = service.create_draft_bl_review_service(
+        db, DraftBLReviewCreate(import_file_id=1, checklist_data=[row], is_draft=False), user="alice"
+    )
+    assert review.status == "REVISION_REQUIRED"
+    assert review.has_blocking_mismatch is True
+    assert review.open_discrepancies_count == 1
+
+    # Client tries to override blocking flags via PUT
+    updated = service.update_draft_bl_review_service(
+        db, review.bl_review_id, DraftBLReviewUpdate(
+            has_blocking_mismatch=False, open_discrepancies_count=0
+        ), user="bob"
+    )
+    assert updated.status == "REVISION_REQUIRED"
+    assert updated.has_blocking_mismatch is True
+    assert updated.open_discrepancies_count == 1
+
+    # Dual approval cannot proceed on a review with blocking mismatch / REVISION_REQUIRED
+    with pytest.raises(HTTPException) as exc:
+        service.process_dual_approval_service(
+            db, DualApprovalRequest(
+                bl_review_id=review.bl_review_id, role="importer", action="Approved", approved_by="client"
+            ), user="alice"
+        )
+    assert exc.value.status_code == 400
+
+
+def test_be03_t07_new_version_deactivates_non_terminal_parent(db):
+    row = {
+        "field_key": "consignee", "field_label_ar": "المرسل إليه", "field_label_en": "Consignee",
+        "source_entity": "Booking", "system_value": "Acme Corp", "draft_value": "Wrong Consignee",
+        "status": "Incorrect", "required_correction": "Fix consignee", "reason": "Name mismatch",
+    }
+    parent = service.create_draft_bl_review_service(
+        db, DraftBLReviewCreate(import_file_id=2, checklist_data=[row], is_draft=False), user="alice"
+    )
+    assert parent.is_active is True
+    assert parent.status == "REVISION_REQUIRED"
+
+    v2 = service.create_new_draft_version_service(
+        db, NewDraftVersionRequest(parent_session_id=parent.bl_review_id, draft_fields={}), user="bob"
+    )
+    db.refresh(parent)
+    assert parent.is_active is False
+    assert v2.is_active is True
+
+    # Exactly one active review for the file
+    active_reviews = db.query(DraftBLReviewSession).filter_by(import_file_id=2, is_active=True).all()
+    assert len(active_reviews) == 1
+    assert active_reviews[0].bl_review_id == v2.bl_review_id
+
+
 # --- BE03-T11: Real PO sources in compare and DCA matrix -----------------------------------
 def test_be03_t11_soft_deleted_po_not_used(db):
     db.add(ImportFile(import_file_id=10, import_file_code="IMP-SD-1", company_name="Co", supplier_name="Sup", is_active=True))
@@ -709,6 +866,30 @@ def test_be03_t11_packing_rows_expose_packing_item_id_and_po_item_id(db):
     pkg_row = res.reconciled_packing_items[0]
     assert pkg_row.packing_item_id == 3001
     assert pkg_row.po_item_id == 2001
+
+
+def test_be03_t11_no_invented_usd_or_carton_defaults(db):
+    db.add(ImportFile(import_file_id=13, import_file_code="IMP-NO-DEFAULTS", company_name="Co", supplier_name="Sup", estimated_cost_currency=None, is_active=True))
+    db.add(PurchaseOrder(po_id=104, po_number="PO-NO-DEFAULTS", import_file_id=13, project_id=1, company_id=1, supplier_id=1,
+                         incoterm_id=1, currency_id=1, status="DRAFT", is_active=True))
+    db.add(POLineItem(item_id=2002, po_id=104, item_code="MAT-200", description_ar="Material No Defaults", quantity=10, unit_price=5.0))
+    db.commit()
+
+    req = POExtractAndCompareRequest(
+        import_file_id=13,
+        invoice_data={"invoice_number": "INV-13", "items": [{"item_code": "MAT-200", "quantity": 10, "unit_price": 5.0}]},
+        packing_data={"packing_list_number": "PL-13", "items": [{"item_code": "MAT-200", "gross_weight_kg": 20.0}]},
+    )
+    res = service.extract_and_compare_po_documents_service(db, req)
+    assert res.system_items_missing is False
+    assert len(res.reconciled_invoice_items) == 1
+    assert res.reconciled_invoice_items[0].package_type is None
+    assert res.reconciled_invoice_items[0].currency is None
+    assert len(res.reconciled_packing_items) == 1
+    assert res.reconciled_packing_items[0].package_type is None
+    amount_header = next((h for h in res.header_discrepancies if h.check_code == "CHK_TOTAL_AMOUNT"), None)
+    assert amount_header is not None
+    assert amount_header.details_code == "DOC_CHK_CURRENCY_MISMATCH"
 
 
 # --- BE03-T12: Inspection draft template without invented standards -----------------------
@@ -839,3 +1020,497 @@ def test_be03_t16_certified_coo_put_locked_except_notes_and_delete_locked(db):
     with pytest.raises(HTTPException) as exc:
         service.delete_coo_review_service(db, saved.coo_review_id, user="alice")
     assert exc.value.status_code == 409
+
+
+# --- BE03-T13: Declaration 46 and Banking Document Validation ----------------
+def test_be03_t13_banking_create_without_currency_gives_422(db):
+    # Banking create without currency raises ValidationError (422 in FastAPI)
+    with pytest.raises(ValidationError):
+        BankingDocumentCreate(
+            import_file_id=1,
+            bank_name="Banque Misr",
+            amount=50000.0,
+            # currency_code omitted
+        )
+
+
+def test_be03_t13_banking_doc_type_and_amount_validation(db):
+    # doc_type must be one of {"Form 4", "Form 9", "Letter of Credit (L/C)"}
+    with pytest.raises(ValidationError):
+        BankingDocumentCreate(
+            doc_type="Invalid Doc Type",
+            import_file_id=1,
+            bank_name="Banque Misr",
+            amount=50000.0,
+            currency_code="USD",
+        )
+
+    # BankingDocumentUpdate amount must be gt=0
+    with pytest.raises(ValidationError):
+        BankingDocumentUpdate(amount=0.0)
+
+    with pytest.raises(ValidationError):
+        BankingDocumentUpdate(amount=-50.0)
+
+
+def test_be03_t13_banking_invalid_currency_gives_400(db):
+    # currency_code="XYZ" is not in currencies table -> 400 Bad Request
+    payload = BankingDocumentCreate(
+        import_file_id=1,
+        bank_name="Banque Misr",
+        amount=50000.0,
+        currency_code="XYZ",
+    )
+    with pytest.raises(HTTPException) as exc:
+        service.create_banking_document_service(db, payload)
+    assert exc.value.status_code == 400
+    assert "XYZ" in exc.value.detail
+
+
+def test_be03_t13_banking_receive_before_request_date_gives_400(db):
+    payload = BankingDocumentCreate(
+        doc_type="Form 4",
+        import_file_id=1,
+        bank_name="Banque Misr",
+        amount=50000.0,
+        currency_code="USD",
+        request_date=date(2026, 2, 1),
+    )
+    created = service.create_banking_document_service(db, payload)
+
+    # Received date earlier than requested date -> 400 Bad Request
+    with pytest.raises(HTTPException) as exc:
+        service.receive_banking_document_service(
+            db,
+            bank_doc_id=created.bank_doc_id,
+            form4_number="F4-VAL-001",
+            received_date=date(2026, 1, 1),
+        )
+    assert exc.value.status_code == 400
+    assert "لا يمكن أن يكون قبل تاريخ الطلب" in exc.value.detail
+
+    # Received date on or after request date -> success
+    received = service.receive_banking_document_service(
+        db,
+        bank_doc_id=created.bank_doc_id,
+        form4_number="F4-VAL-001",
+        received_date=date(2026, 2, 5),
+    )
+    assert received.status == "Received"
+    assert received.execution_days == 4
+
+
+def test_be03_t13_declaration_non_numeric_acid_gives_400(db):
+    # ACID with letters -> 400 Bad Request
+    payload = CustomsDeclarationCreate(
+        import_file_id=1,
+        acid_number="12345678901234567AB",
+    )
+    with pytest.raises(HTTPException) as exc:
+        service.create_customs_declaration_service(db, payload)
+    assert exc.value.status_code == 400
+    assert "19 numeric digits" in exc.value.detail
+
+
+def test_be03_t13_declaration_mismatched_file_acid_gives_409(db):
+    file1 = db.query(ImportFile).filter(ImportFile.import_file_id == 1).one()
+    file1.acid_number = "1111122222333334444"
+    db.commit()
+
+    # Payload with different ACID -> 409 Conflict
+    payload = CustomsDeclarationCreate(
+        import_file_id=1,
+        acid_number="9999988888777776666",
+    )
+    with pytest.raises(HTTPException) as exc:
+        service.create_customs_declaration_service(db, payload)
+    assert exc.value.status_code == 409
+    assert "لا يطابق رقم ACID المسجل للملف" in exc.value.detail
+
+
+def test_be03_t13_declaration_duplicate_draft_gives_409(db):
+    acid = "1111122222333334444"
+    file1 = db.query(ImportFile).filter(ImportFile.import_file_id == 1).one()
+    file1.acid_number = acid
+    db.commit()
+
+    # First declaration draft succeeds
+    first = service.create_customs_declaration_service(
+        db,
+        CustomsDeclarationCreate(import_file_id=1, acid_number=acid),
+    )
+    assert first.declaration_id is not None
+
+    # Second declaration draft for the same file -> 409 Conflict
+    with pytest.raises(HTTPException) as exc:
+        service.create_customs_declaration_service(
+            db,
+            CustomsDeclarationCreate(import_file_id=1, acid_number=acid),
+        )
+    assert exc.value.status_code == 409
+    assert "يوجد بالفعل مسودة إقرار جمركي" in exc.value.detail
+
+
+def test_be03_t13_declaration_amounts_entered_flag(db):
+    acid = "5555566666777778888"
+    file2 = db.query(ImportFile).filter(ImportFile.import_file_id == 2).one()
+    file2.acid_number = acid
+    db.commit()
+
+    # Case A: money fields omitted -> amounts_entered=False and total_*_egp are None
+    res_no_amounts = service.create_customs_declaration_service(
+        db,
+        CustomsDeclarationCreate(import_file_id=2, acid_number=acid),
+    )
+    assert res_no_amounts.amounts_entered is False
+    assert res_no_amounts.total_cif_val_egp is None
+    assert res_no_amounts.total_customs_duties_egp is None
+    assert res_no_amounts.total_vat_egp is None
+
+    # In DB, non-null column stores 0.0
+    from modules.import_documentation.model import CustomsDeclarationDraft
+    db_draft = db.query(CustomsDeclarationDraft).filter(CustomsDeclarationDraft.declaration_id == res_no_amounts.declaration_id).one()
+    assert db_draft.total_cif_val_egp == 0.0
+    assert db_draft.total_customs_duties_egp == 0.0
+    assert db_draft.total_vat_egp == 0.0
+
+# --- BE03-T04: Gate /invoice-bl/certify-and-sync behind certified session and container merge ---
+def test_be03_t04_no_session_gives_409_and_approvals_unchanged(db):
+    _seed_codes(db)
+    app = CustomsDocumentApproval(
+        approval_code="CDA-T-01",
+        import_file_id=1,
+        document_type="Commercial Invoice",
+        commercial_status="Pending",
+        is_active=True,
+    )
+    db.add(app)
+    db.commit()
+
+    req = InvoiceBLSyncRequest(
+        import_file_id=1,
+        invoice_data={"invoice_number": "INV-X", "currency": "USD"},
+        bl_data={"draft_bl_number": "BL-X"},
+    )
+    with pytest.raises(HTTPException) as exc:
+        service.sync_certified_invoice_bl_to_file_service(db, req, user="operator")
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail.get("code") == "DOC_INVOICE_BL_NOT_CERTIFIED"
+
+    db.refresh(app)
+    assert app.commercial_status == "Pending"
+    imp = db.get(ImportFile, 1)
+    assert imp.bl_number is None
+    assert imp.pi_number is None
+
+
+def test_be03_t04_with_certified_session_syncs_session_data_ignoring_body(db):
+    _seed_codes(db)
+    app = CustomsDocumentApproval(
+        approval_code="CDA-T-02",
+        import_file_id=1,
+        document_type="Commercial Invoice",
+        commercial_status="Pending",
+        is_active=True,
+    )
+    db.add(app)
+    db.commit()
+
+    service.create_invoice_bl_match_session_service(
+        db,
+        _cert_payload(
+            invoice_data={"invoice_number": "INV-REAL", "currency": "USD"},
+            bl_data={"draft_bl_number": "BL-REAL"},
+            notes="certified ok",
+        ),
+        user="certifier",
+    )
+
+    # Call sync endpoint sending fake/ignored body data
+    req = InvoiceBLSyncRequest(
+        import_file_id=1,
+        invoice_data={"invoice_number": "INV-FAKE"},
+        bl_data={"draft_bl_number": "BL-FAKE"},
+    )
+    res = service.sync_certified_invoice_bl_to_file_service(db, req, user="operator")
+
+    assert res["status"] == "success"
+    assert res["message_code"] == "DOC_INVOICE_BL_SYNCED"
+
+    db.expire_all()
+    imp = db.get(ImportFile, 1)
+    assert imp.bl_number == "BL-REAL"
+    assert imp.pi_number == "INV-REAL"
+
+
+def test_be03_t04_container_merge_preserves_vgm_and_tracking_status(db):
+    _seed_codes(db)
+    cargo = CargoShippingRecord(
+        cargo_shipping_code="CS-T-04",
+        import_file_id=1,
+        is_active=True,
+        containers_loading_data=[
+            {"container_no": "MSCU1", "vgm_status": "Verified", "tracking_status": "GateIn"}
+        ],
+    )
+    db.add(cargo)
+    db.commit()
+
+    service.create_invoice_bl_match_session_service(
+        db,
+        _cert_payload(
+            bl_data={
+                "draft_bl_number": "BL-CONT-1",
+                "containers": [
+                    {"container_no": "MSCU1", "seal_no": "S1"},
+                    {"container_no": "MSCU2", "seal_no": "S2", "container_type": "40HC"},
+                ],
+            },
+            notes="ok",
+        ),
+        user="certifier",
+    )
+
+    req = InvoiceBLSyncRequest(import_file_id=1, sync_to_shipping=True)
+    service.sync_certified_invoice_bl_to_file_service(db, req, user="operator")
+
+    db.expire_all()
+    updated_cargo = db.get(CargoShippingRecord, cargo.cargo_shipping_id)
+    containers = {c["container_no"]: c for c in updated_cargo.containers_loading_data}
+
+    assert "MSCU1" in containers
+    assert containers["MSCU1"]["vgm_status"] == "Verified"
+    assert containers["MSCU1"]["tracking_status"] == "GateIn"
+    assert containers["MSCU1"]["seal_no"] == "S1"
+
+    assert "MSCU2" in containers
+    assert containers["MSCU2"]["seal_no"] == "S2"
+    assert containers["MSCU2"]["container_type"] == "40HC"
+
+
+# --- BE03-T05: Server-owned gate fields for invoice/B-L and PO reconciliation sessions ---
+def test_be03_t05_po_recon_empty_post_does_not_advance_lifecycle(db, monkeypatch):
+    import modules.lifecycle_board.service as lc
+    called = []
+    monkeypatch.setattr(lc, "advance_lifecycle_step_service", lambda *args, **kwargs: called.append(kwargs))
+
+    res = service.create_po_reconciliation_session_service(
+        db,
+        POReconciliationSessionCreate(import_file_id=1, currency="USD"),
+        user="operator",
+    )
+    assert res.is_safe_for_certification is False
+    assert res.overall_status == "DRAFT"
+    assert len(called) == 0
+
+
+def test_be03_t05_po_recon_missing_currency_gives_422():
+    with pytest.raises(ValidationError):
+        POReconciliationSessionCreate(import_file_id=1)
+
+
+def test_be03_t05_po_recon_router_validation(db):
+    from fastapi.testclient import TestClient
+    from main import app
+    from database.database import get_db
+
+    def override_get_db():
+        yield db
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+
+        # Missing currency -> 422
+        resp = client.post("/api/v1/import-documentation/po-reconciliation/sessions", json={"import_file_id": 1})
+        assert resp.status_code == 422
+
+        # Inactive / unknown currency -> 400
+        resp_bad = client.post(
+            "/api/v1/import-documentation/po-reconciliation/sessions",
+            json={"import_file_id": 1, "currency": "XYZ"},
+        )
+        assert resp_bad.status_code == 400
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+def test_be03_t05_invoice_bl_server_gate_overrides_client(db):
+    _seed_codes(db)
+    # Draft session: client claims FULLY_MATCHED and is_safe=True without files
+    session_data = InvoiceBLMatchSessionCreate(
+        import_file_id=1,
+        is_draft=True,
+        is_safe_for_certification=True,
+        overall_status="FULLY_MATCHED",
+        critical_discrepancies_count=0,
+    )
+    saved = service.create_invoice_bl_match_session_service(db, session_data, user="operator")
+    assert saved.is_safe_for_certification is False
+    assert saved.overall_status == "DISCREPANCY_DETECTED"
+
+
+# --- BE03-T09: Document workflows fire once per transition ---------------------------------
+def test_be03_t09_acid_verified_workflows_fire_once(db):
+    from modules.smart_tasks.model import SmartTask
+    from modules.notifications.model import SystemNotification
+    from modules.import_documentation.schemas import AcidRegistrationUpdate
+
+    # 1. Create verified ACID session (19 digits, generated_date present -> status="Verified")
+    acid_req = AcidRegistrationCreate(
+        import_file_id=1,
+        acid_number="1234567890123456789",
+        requested_date=date.today() - timedelta(days=5),
+        generated_date=date.today(),
+        expiry_date=date.today() + timedelta(days=90),
+        **ACID_REQUIRED,
+    )
+    created = service.create_acid_session_service(db, acid_req, user="alice")
+    assert created.status == "Verified"
+
+    # Verify 1 freight-booking task and 1 notification created
+    tasks = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 1,
+        SmartTask.msg_code == "DOC_TASK_FREIGHT_BOOKING",
+    ).all()
+    assert len(tasks) == 1
+
+    notifs = db.query(SystemNotification).filter(
+        SystemNotification.entity_id == created.acid_id,
+        SystemNotification.msg_code == "DOC_ACID_REGISTERED",
+    ).all()
+    assert len(notifs) == 1
+
+    # 2. Update with broker name (saving verified ACID again) -> workflows should not fire again
+    updated = service.update_acid_session_service(
+        db, created.acid_id,
+        AcidRegistrationUpdate(customs_broker_name="Sherif El-Gammal"),
+        user="alice",
+    )
+    assert updated.customs_broker_name == "Sherif El-Gammal"
+
+    tasks_after = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 1,
+        SmartTask.msg_code == "DOC_TASK_FREIGHT_BOOKING",
+    ).all()
+    assert len(tasks_after) == 1
+
+    notifs_after = db.query(SystemNotification).filter(
+        SystemNotification.entity_id == created.acid_id,
+        SystemNotification.msg_code == "DOC_ACID_REGISTERED",
+    ).all()
+    assert len(notifs_after) == 1
+
+
+def test_be03_t09_banking_receive_twice_creates_one_declaration_task(db):
+    from modules.smart_tasks.model import SmartTask
+    from modules.notifications.model import SystemNotification
+    from modules.import_documentation.schemas import BankingDocumentCreate
+
+    # 1. Create banking document in Requested state
+    bank_req = BankingDocumentCreate(
+        doc_type="Form 4",
+        import_file_id=1,
+        bank_name="National Bank of Egypt",
+        amount=15000.0,
+        currency_code="USD",
+        doc_reference_number="PENDING",
+        request_date=date.today() - timedelta(days=2),
+    )
+    created = service.create_banking_document_service(db, bank_req, user="alice")
+
+    # Initially no declaration 46 task since it's not received yet
+    init_tasks = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 1,
+        SmartTask.msg_code == "DOC_TASK_DECLARATION_46",
+    ).all()
+    assert len(init_tasks) == 0
+
+    # 2. First receive -> moves into issued state -> fires workflow
+    rec1 = service.receive_banking_document_service(
+        db, created.bank_doc_id,
+        form4_number="FORM4-2026-999",
+        received_date=date.today(),
+        notes="First receive",
+        user="alice",
+    )
+    assert rec1.status == "Received"
+
+    tasks_after_first = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 1,
+        SmartTask.msg_code == "DOC_TASK_DECLARATION_46",
+    ).all()
+    assert len(tasks_after_first) == 1
+
+    notifs_after_first = db.query(SystemNotification).filter(
+        SystemNotification.entity_id == created.bank_doc_id,
+        SystemNotification.msg_code == "DOC_BANK_DOCUMENT_RECORDED",
+    ).all()
+    assert len(notifs_after_first) == 1
+
+    # 3. Second receive with same form4 number -> should not duplicate task or notification
+    rec2 = service.receive_banking_document_service(
+        db, created.bank_doc_id,
+        form4_number="FORM4-2026-999",
+        received_date=date.today(),
+        notes="Second receive correction",
+        user="alice",
+    )
+    assert rec2.status == "Received"
+
+    tasks_after_second = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 1,
+        SmartTask.msg_code == "DOC_TASK_DECLARATION_46",
+    ).all()
+    assert len(tasks_after_second) == 1
+
+    notifs_after_second = db.query(SystemNotification).filter(
+        SystemNotification.entity_id == created.bank_doc_id,
+        SystemNotification.msg_code == "DOC_BANK_DOCUMENT_RECORDED",
+    ).all()
+    assert len(notifs_after_second) == 1
+
+
+def test_be03_t09_acid_upsert_does_not_duplicate_workflow(db):
+    from modules.smart_tasks.model import SmartTask
+    from modules.notifications.model import SystemNotification
+
+    # First create
+    acid_req = AcidRegistrationCreate(
+        import_file_id=2,
+        acid_number="9876543210987654321",
+        requested_date=date.today() - timedelta(days=5),
+        generated_date=date.today(),
+        expiry_date=date.today() + timedelta(days=90),
+        **ACID_REQUIRED,
+    )
+    c1 = service.create_acid_session_service(db, acid_req, user="alice")
+    assert c1.status == "Verified"
+
+    # Upsert with same file_id and same acid number
+    acid_req_upsert = AcidRegistrationCreate(
+        import_file_id=2,
+        acid_number="9876543210987654321",
+        requested_date=date.today() - timedelta(days=5),
+        generated_date=date.today(),
+        expiry_date=date.today() + timedelta(days=90),
+        customs_broker_name="Broker B",
+        **ACID_REQUIRED,
+    )
+    c2 = service.create_acid_session_service(db, acid_req_upsert, user="alice")
+    assert c2.acid_id == c1.acid_id
+
+    tasks = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 2,
+        SmartTask.msg_code == "DOC_TASK_FREIGHT_BOOKING",
+    ).all()
+    assert len(tasks) == 1
+
+    notifs = db.query(SystemNotification).filter(
+        SystemNotification.entity_id == c1.acid_id,
+        SystemNotification.msg_code == "DOC_ACID_REGISTERED",
+    ).all()
+    assert len(notifs) == 1
+
+

@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,6 +19,7 @@ import '../providers/smart_tasks_provider.dart';
 import '../widgets/smart_task_dialog.dart';
 import '../widgets/smart_email_listener_dialog.dart';
 import '../widgets/email_settings_dialog.dart';
+import '../../../core/providers/navigation_provider.dart';
 
 class SmartTasksScreen extends ConsumerStatefulWidget {
   const SmartTasksScreen({super.key});
@@ -72,6 +74,22 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
       default:
         return 0;
     }
+  }
+
+  int _resolveRouteIndexForTask(SmartTaskModel task) {
+    final phase = task.phaseName ?? '';
+    final step = task.stepCode ?? '';
+    if (step.contains('STEP_01') || step.contains('STEP_02') || phase.contains('Phase 1')) return 2; // PO
+    if (step.contains('STEP_03') || phase.contains('Phase 3')) return 11; // Nafeza ACID
+    if (step.contains('STEP_05') || phase.contains('Phase 2')) return 16; // Bank Form 4
+    if (step.contains('STEP_08') || phase.contains('Phase 4')) return 18; // CargoX / Draft BL
+    if (step.contains('STEP_09') || step.contains('STEP_10') || phase.contains('Phase 5')) return 26; // Cargo Shipping
+    if (step.contains('STEP_12') || step.contains('STEP_13') || step.contains('STEP_14') || step.contains('STEP_15') || step.contains('STEP_16') || phase.contains('Phase 6') || phase.contains('Phase 7')) return 27; // Customs Clearance
+    if (step.contains('STEP_19') || phase.contains('Phase 8')) return 28; // Warehouse Receiving
+    if (step.contains('STEP_21')) return 44; // Demurrage / Empty Return
+    if (step.contains('STEP_23') || phase.contains('Phase 9')) return 29; // Landed Cost Settlement
+    if (step.contains('STEP_25') || phase.contains('Phase 10')) return 30; // File Closure
+    return 1; // Default Import Files
   }
 
   String _buildSmartTaskRowSummary(SmartTaskModel task) {
@@ -454,6 +472,16 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              IconButton(
+                icon: const Icon(Icons.open_in_new_rounded, color: AppTheme.cobalt, size: 16),
+                tooltip: Localizations.localeOf(context).languageCode == 'ar'
+                    ? 'الانتقال للمرحلة لتنفيذها أو تعديلها'
+                    : 'Navigate to stage to execute or edit',
+                onPressed: () {
+                  final routeIdx = _resolveRouteIndexForTask(t);
+                  selectNavigationIndex(ref, routeIdx);
+                },
+              ),
               if (t.status != 'Completed')
                 IconButton(
                   icon: const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 18),
@@ -802,7 +830,7 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
                           storageKey: 'smart_tasks_master_table',
                           title: l.smartTasksTableTitle,
                           titleLeading: const Icon(Icons.table_chart, color: AppTheme.cobalt, size: 20),
-                          data: state.tasks,
+                          data: [...state.tasks]..sort((a, b) => _priorityWeight(b.priority).compareTo(_priorityWeight(a.priority))),
                           columns: _buildColumns(context),
                           isLoading: state.isLoading,
                           enableSelection: true,

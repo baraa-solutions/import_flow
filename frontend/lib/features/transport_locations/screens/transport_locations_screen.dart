@@ -5,14 +5,8 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/compact_table_pagination_footer.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/transport_location_model.dart';
 import '../providers/transport_locations_provider.dart';
 
@@ -52,7 +46,11 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
     final l10n = context.l10n;
     if (locations.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.noTransportLocationsFound), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          l10n.noTransportLocationsFound,
+          severity: AppSeverity.danger,
+        ),
       );
       return;
     }
@@ -290,14 +288,19 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
             // Table Content
             Expanded(
               child: locationsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
-                error: (err, stack) => Center(
-                  child: Text(l10n.locationsFetchError(err.toString()), style: const TextStyle(color: AppTheme.crimson)),
+                loading: () => const AppLoadingState(),
+                error: (err, stack) => AppErrorState(
+                  message: l10n.locationsFetchError(err.toString()),
+                  onRetry: () => ref.read(transportLocationsProvider.notifier).fetchLocations(
+                        locationType: _selectedType,
+                        search: _searchQuery,
+                      ),
                 ),
                 data: (locations) {
                   if (locations.isEmpty) {
-                    return Center(
-                      child: Text(l10n.noTransportLocationsFound, style: const TextStyle(color: Colors.grey, fontSize: 15)),
+                    return AppEmptyState(
+                      icon: Icons.place_outlined,
+                      message: l10n.noTransportLocationsFound,
                     );
                   }
 
@@ -313,12 +316,12 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                   final isDark = Theme.of(context).brightness == Brightness.dark;
                   return Container(
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      color: AppTheme.surfaceOf(context),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0)),
+                      border: Border.all(color: AppTheme.borderOf(context)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -387,7 +390,9 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
 
                                   return TableRow(
                                     decoration: BoxDecoration(
-                                      color: isEven ? Colors.white : Colors.grey.shade50,
+                                      color: isEven
+                                          ? AppTheme.surfaceOf(context)
+                                          : (isDark ? AppTheme.darkCardBackground : Colors.grey.shade50),
                                     ),
                                     children: [
                                       // Actions: Quick Copy Summary, View, Edit, Print, Delete
@@ -408,22 +413,14 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                               onEdit: () => _showLocationDialog(context, location: loc),
                                               onPrint: () => MasterDataExportService.printOrSaveLocationPdf(loc),
                                               onDelete: () async {
-                                                final confirm = await showDialog<bool>(
-                                                  context: context,
-                                                  builder: (ctx) => AlertDialog(
-                                                    title: Text(l10n.confirmActionTitle),
-                                                    content: Text(isActive
-                                                        ? l10n.confirmDeactivateLocation(loc.locationName)
-                                                        : l10n.confirmActivateLocation(loc.locationName)),
-                                                    actions: [
-                                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                                      ElevatedButton(
-                                                        onPressed: () => Navigator.pop(ctx, true),
-                                                        style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                        child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                                                      ),
-                                                    ],
-                                                  ),
+                                                final confirm = await AppConfirmDialog.showToggleActive(
+                                                  context,
+                                                  isCurrentlyActive: isActive,
+                                                  message: isActive
+                                                      ? l10n.confirmDeactivateLocation(loc.locationName)
+                                                      : l10n.confirmActivateLocation(loc.locationName),
+                                                  confirmLabel: isActive ? l10n.deactivateBtn : l10n.activateBtn,
+                                                  cancelLabel: l10n.cancel,
                                                 );
                                                 if (confirm == true && loc.locationId != null) {
                                                   ref.read(transportLocationsProvider.notifier).toggleActive(loc.locationId!, isActive);
@@ -444,9 +441,9 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                             decoration: BoxDecoration(
-                                              color: AppTheme.cobalt.withOpacity(0.1),
+                                              color: AppTheme.cobalt.withValues(alpha: 0.12),
                                               borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                             ),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
@@ -530,20 +527,10 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                       _cell(
                                         value: isActive ? l10n.statusActive : l10n.statusInactive,
                                         rowSummary: rowSummary,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: Text(
-                                            isActive ? l10n.statusActive : l10n.statusInactive,
-                                            style: TextStyle(
-                                              color: isActive ? AppTheme.emerald : AppTheme.crimson,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
+                                        child: AppStatusBadge(
+                                          label: isActive ? l10n.statusActive : l10n.statusInactive,
+                                          severity: isActive ? AppSeverity.success : AppSeverity.danger,
+                                          size: AppStatusBadgeSize.small,
                                         ),
                                       ),
 
@@ -582,51 +569,19 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
 }
 
   Widget _typeBadge(String type, AppLocalizations l10n) {
-    Color bg;
-    Color fg;
-    IconData icon;
+    final (severity, icon) = switch (type) {
+      'Sea Port' => (AppSeverity.info, Icons.directions_boat),
+      'Airport' => (AppSeverity.warning, Icons.flight),
+      'Dry Port' => (AppSeverity.info, Icons.warehouse),
+      'Land Border' => (AppSeverity.success, Icons.border_outer),
+      _ => (AppSeverity.info, Icons.place),
+    };
 
-    switch (type) {
-      case 'Sea Port':
-        bg = AppTheme.cobalt.withOpacity(0.1);
-        fg = AppTheme.cobalt;
-        icon = Icons.directions_boat;
-        break;
-      case 'Airport':
-        bg = AppTheme.orange.withOpacity(0.1);
-        fg = AppTheme.orange;
-        icon = Icons.flight;
-        break;
-      case 'Dry Port':
-        bg = Colors.purple.withOpacity(0.1);
-        fg = Colors.purple;
-        icon = Icons.warehouse;
-        break;
-      case 'Land Border':
-        bg = AppTheme.emerald.withOpacity(0.1);
-        fg = AppTheme.emerald;
-        icon = Icons.border_outer;
-        break;
-      default:
-        bg = Colors.grey.withOpacity(0.1);
-        fg = Colors.grey.shade700;
-        icon = Icons.place;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: fg),
-          const SizedBox(width: 4),
-          Text(
-            _getLocationTypeLabel(type, l10n),
-            style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 11),
-          ),
-        ],
-      ),
+    return AppStatusBadge(
+      label: _getLocationTypeLabel(type, l10n),
+      severity: severity,
+      icon: icon,
+      size: AppStatusBadgeSize.small,
     );
   }
 
@@ -889,7 +844,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.importingLocationsDataset), backgroundColor: AppTheme.cobalt),
+      AppTheme.snackBar(context, l10n.importingLocationsDataset, severity: AppSeverity.info),
     );
 
     try {
@@ -913,13 +868,21 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res?['message'] ?? l10n.locationsImportSuccess), backgroundColor: AppTheme.emerald),
+          AppTheme.snackBar(
+            context,
+            res?['message'] ?? l10n.locationsImportSuccess,
+            severity: AppSeverity.success,
+          ),
         );
       }
     } catch (err) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err.toString()), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          err.toString(),
+          severity: AppSeverity.danger,
+        ),
       );
     }
   }
