@@ -23,8 +23,7 @@ class _MockFinancialSettlementNotifier extends FinancialSettlementNotifier {
     bool includeInactive = false,
     int? importFileId,
     String? status,
-    String? search,
-  }) async {
+    String? search, int? skip, int? limit}) async {
     state = const AsyncValue.data(<LandedCostSettlementModel>[]);
   }
 
