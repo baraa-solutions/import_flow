@@ -23,6 +23,7 @@ from database.database import Base
 from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
 from modules.import_files.model import ImportFile
+from modules.currencies.model import Currency
 from modules.import_documentation.model import (
     AcidRegistrationSession,
     BankingDocumentSession,
@@ -100,6 +101,8 @@ def db():
         )
     from modules.currencies.model import Currency
     session.add(Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
+    session.add(Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True))
+    session.add(Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_active=True))
     session.commit()
     try:
         yield session
@@ -203,7 +206,7 @@ def test_04_banking_create_with_reference_received_and_syncs_form4(db):
         db,
         BankingDocumentCreate(
             import_file_id=1, bank_name="National Bank", doc_reference_number="F4-123",
-            amount=1000.0, request_date=req, received_date=rec,
+            amount=1000.0, currency_code="USD", request_date=req, received_date=rec,
         ),
     )
     assert res.status == "Received"

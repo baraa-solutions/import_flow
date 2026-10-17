@@ -55,6 +55,8 @@ def db_session():
         is_active=True,
     )
     session.add(imp_file)
+    session.add(Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
+    session.add(Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True))
     session.commit()
     session.refresh(imp_file)
 

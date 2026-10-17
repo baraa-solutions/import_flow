@@ -167,7 +167,7 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 143 | BE03-T09 | import_documentation | MAJOR | Document workflows fire once per transition | BE03-T06 | no | no | yes | [be-03](be-03-review.md) | done |
 | 144 | BE03-T11 | import_documentation, docs_customs_approval | MAJOR | Real PO sources in compare and DCA matrix | none | no | additive `system_items_missing` | yes | [be-03](be-03-review.md) | todo |
 | 145 | BE03-T12 | import_documentation | MAJOR | Inspection draft template without invented standards | none | no | yes: empty `coc_number`, `missing_fields` | yes | [be-03](be-03-review.md) | todo |
-| 146 | BE03-T13 | import_documentation | MAJOR | Declaration 46 and banking document validation | BEW0-02 | no | yes: currency required, 409 | yes | [be-03](be-03-review.md) | todo |
+| 146 | BE03-T13 | import_documentation | MAJOR | Declaration 46 and banking document validation | BEW0-02 | no | yes: currency required, 409 | yes | [be-03](be-03-review.md) | done |
 | 147 | BE03-T14 | import_documentation, docs_customs_approval | MAJOR | `/paginated` registries + raw text limits | BEW0-04 | no | additive; 422 > 200,000 chars | yes | [be-03](be-03-review.md) | todo |
 | 148 | BE03-T15 | smart_document_upload | MAJOR | Smart-upload parsing off the event loop | none | no | no | yes | [be-03](be-03-review.md) | todo |
 | 149 | BE03-T16 | import_documentation | MAJOR | Certified COO review is locked | none | no | yes: 409 | yes | [be-03](be-03-review.md) | todo |

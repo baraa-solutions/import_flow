@@ -197,6 +197,62 @@ def validate_no_duplicate_form4_session(
         )
 
 
+def validate_no_duplicate_declaration_draft(
+    db: Session,
+    import_file_id: int | None,
+    current_declaration_id: int | None = None,
+) -> None:
+    """
+    Prevents creating duplicate active Customs Declaration 46 drafts for the same Import File (BE03-F14).
+    """
+    if not import_file_id:
+        return
+
+    from modules.import_documentation.model import CustomsDeclarationDraft
+
+    query = db.query(CustomsDeclarationDraft).filter(
+        CustomsDeclarationDraft.import_file_id == import_file_id,
+        CustomsDeclarationDraft.is_active == True,
+    )
+    if current_declaration_id is not None:
+        query = query.filter(CustomsDeclarationDraft.declaration_id != current_declaration_id)
+
+    existing = query.first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"يوجد بالفعل مسودة إقرار جمركي (شهادة 46) نشطة لهذا الملف ({existing.declaration_code}). "
+                f"لا يمكن إنشاء أكثر من مسودة نشطة لنفس الملف."
+            ),
+        )
+
+
+# --- BE03-F15: Allowed Banking Document Types ---
+BANKING_DOC_TYPES: FrozenSet[str] = frozenset({"Form 4", "Form 9", "Letter of Credit (L/C)"})
+
+
+def validate_currency_code(db: Session, value: Any) -> str:
+    """Active ISO currency code or 400 (DOC-13 / BE03-F15)."""
+    from modules.currencies.model import Currency
+    from modules.common import enum_codes
+
+    code = str(enum_codes.normalize_currency(value) or "").strip().upper()
+    found = (
+        db.query(Currency.currency_id)
+        .filter(Currency.currency_code == code, Currency.is_active == True)
+        .first()
+        if code
+        else None
+    )
+    if not found:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"رمز العملة '{value}' غير معروف أو غير نشط في جدول العملات.",
+        )
+    return code
+
+
 # --- DOC-14: status whitelists (today's exact stored values; no recoding in this wave) ---------------------
 # Each set holds every value the server writes, the workflow trigger lists react to, and the Flutter client sends.
 STATUS_WHITELISTS: Dict[str, FrozenSet[str]] = {
