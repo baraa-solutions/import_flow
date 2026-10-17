@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from modules.common import enum_codes
@@ -97,9 +98,26 @@ class ClearanceExpenseTypeService:
 
     @staticmethod
     def create_expense_type(db: Session, schema: ClearanceExpenseTypeCreate) -> ClearanceExpenseTypeResponse:
-        validate_expense_code_unique(db, schema.expense_code)
-        obj = ClearanceExpenseTypeRepository.create(db, _normalize_expense_type(schema))
-        return ClearanceExpenseTypeResponse.model_validate(obj)
+        explicit_code = bool(schema.expense_code and schema.expense_code.strip())
+        if explicit_code:
+            validate_expense_code_unique(db, schema.expense_code)
+        normalized = _normalize_expense_type(schema)
+        for attempt in range(1, 4):
+            code = schema.expense_code if explicit_code else ClearanceExpenseTypeRepository.generate_expense_code(db)
+            try:
+                obj = ClearanceExpenseTypeRepository.create(db, normalized, code=code)
+                return ClearanceExpenseTypeResponse.model_validate(obj)
+            except IntegrityError:
+                db.rollback()
+                if not ClearanceExpenseTypeRepository.get_by_code(db, code):
+                    raise
+                if explicit_code or attempt == 3:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"كود نوع المصروف '{code}' مستخدم بالفعل، يرجى إعادة المحاولة.",
+                    )
+                continue
+        raise AssertionError("unreachable")  # pragma: no cover
 
     @staticmethod
     def get_expense_type(db: Session, expense_id: int) -> ClearanceExpenseTypeResponse:
@@ -152,8 +170,23 @@ class BrokerPriceListService:
     @staticmethod
     def create_price_list(db: Session, schema: BrokerPriceListCreate) -> BrokerPriceListResponse:
         validate_broker_exists(db, schema.broker_id)
-        pl = BrokerPriceListRepository.create(db, _normalize_price_list(schema))
-        return BrokerPriceListResponse.model_validate(pl)
+        normalized = _normalize_price_list(schema)
+        for attempt in range(1, 4):
+            code = BrokerPriceListRepository.generate_price_list_code(db)
+            try:
+                pl = BrokerPriceListRepository.create(db, normalized, code=code)
+                return BrokerPriceListResponse.model_validate(pl)
+            except IntegrityError:
+                db.rollback()
+                if not BrokerPriceListRepository.get_by_code(db, code):
+                    raise
+                if attempt == 3:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"كود قائمة الأسعار '{code}' مستخدم بالفعل، يرجى إعادة المحاولة.",
+                    )
+                continue
+        raise AssertionError("unreachable")  # pragma: no cover
 
     @staticmethod
     def get_price_list(db: Session, price_list_id: int) -> BrokerPriceListResponse:
@@ -382,23 +415,37 @@ class CustomsConsultationService:
     def create_consultation(
         db: Session, session_in: CustomsConsultationCreate, modified_by: str = "System"
     ) -> CustomsConsultationResponse:
-        validate_broker_exists(db, session_in.broker_id)
+        if session_in.broker_id is not None:
+            validate_broker_exists(db, session_in.broker_id)
         validate_checklist_items(session_in.checklist_items)
 
         if session_in.import_file_id:
             _check_one_per_file(db, session_in.import_file_id)
 
-        try:
-            db_session = CustomsConsultationRepository.create(db, session_in)
-            db_session.created_by = db_session.updated_by = modified_by
-            from modules.financial_settlement.service import SettlementFx
-            _recompute_metrics(db_session, fx=SettlementFx(db, "commercial"))
-            response = CustomsConsultationService._commit_and_respond(db, db_session)
-        except Exception:
-            db.rollback()
-            raise
-        _sync_file_side_effects(db, db_session.import_file_id, modified_by)
-        return response
+        for attempt in range(1, 4):
+            code = CustomsConsultationRepository.generate_consultation_code(db)
+            try:
+                db_session = CustomsConsultationRepository.create(db, session_in, code=code)
+                db_session.created_by = db_session.updated_by = modified_by
+                from modules.financial_settlement.service import SettlementFx
+                _recompute_metrics(db_session, fx=SettlementFx(db, "commercial"))
+                response = CustomsConsultationService._commit_and_respond(db, db_session)
+                _sync_file_side_effects(db, db_session.import_file_id, modified_by)
+                return response
+            except IntegrityError:
+                db.rollback()
+                if not CustomsConsultationRepository.get_by_code(db, code):
+                    raise
+                if attempt == 3:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"كود الاستشارة الجمركية '{code}' مستخدم بالفعل، يرجى إعادة المحاولة.",
+                    )
+                continue
+            except Exception:
+                db.rollback()
+                raise
+        raise AssertionError("unreachable")  # pragma: no cover
 
     @staticmethod
     def get_consultation(db: Session, consultation_id: int) -> CustomsConsultationResponse:

@@ -33,12 +33,36 @@ class MasterDataActionHelper {
 
       if (response.data != null && response.data is List<int>) {
         if (!context.mounted) return;
+
+        // Resolve standardized filename from Content-Disposition header or ensure date format
+        String resolvedFileName = defaultFileName;
+        final disposition = response.headers.value('content-disposition');
+        if (disposition != null && disposition.contains('filename=')) {
+          final match = RegExp(r'filename=["'']?([^"'';\r\n]+)["'']?').firstMatch(disposition);
+          if (match != null && match.group(1) != null && match.group(1)!.trim().isNotEmpty) {
+            resolvedFileName = match.group(1)!.trim();
+          }
+        } else {
+          final now = DateTime.now();
+          final dateStr = '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+          if (!resolvedFileName.contains(RegExp(r'\d{4}-\d{2}-\d{2}'))) {
+            final dotIdx = resolvedFileName.lastIndexOf('.');
+            if (dotIdx != -1) {
+              final base = resolvedFileName.substring(0, dotIdx);
+              final ext = resolvedFileName.substring(dotIdx);
+              resolvedFileName = '${base}_$dateStr$ext';
+            } else {
+              resolvedFileName = '${resolvedFileName}_$dateStr';
+            }
+          }
+        }
+
         await FileSaveHelper.saveBytes(
           context: context,
           bytes: response.data as List<int>,
-          defaultFileName: defaultFileName,
+          defaultFileName: resolvedFileName,
           dialogTitle: dialogTitle,
-          allowedExtensions: defaultFileName.endsWith('.pdf') ? ['pdf'] : ['xlsx', 'csv', 'xls'],
+          allowedExtensions: resolvedFileName.endsWith('.pdf') ? ['pdf'] : ['xlsx', 'csv', 'xls'],
         );
       }
     } catch (e) {

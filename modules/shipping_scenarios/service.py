@@ -200,6 +200,15 @@ class ShippingScenarioService:
         session_obj = get_or_404(db, ShippingEvaluationSession, session_id, "دراسة سيناريوهات الشحن")
 
         ShippingScenarioValidator.validate_evaluation_update(payload, session_obj)
+        if payload.items is not None:
+            stored_ids = {it.item_id for it in session_obj.items}
+            sent_ids = [it.item_id for it in payload.items]
+            ShippingScenarioValidator.validate_item_ids_belong(stored_ids, sent_ids)
+
+            removed_ids = stored_ids - {i for i in sent_ids if i is not None}
+            if removed_ids:
+                booked = ShippingScenarioRepository.booked_item_ids(db, removed_ids)
+                ShippingScenarioValidator.validate_removed_not_booked(booked)
         ShippingScenarioValidator.validate_foreign_keys(db, payload, payload.items, stored=session_obj)
         file_id = payload.import_file_id or session_obj.import_file_id
         reactivated = not session_obj.is_active and payload.is_active is not False  # an update reactivates

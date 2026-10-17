@@ -2,33 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/import_file_picker_dialog.dart';
 import '../../../core/widgets/ltr_text.dart';
 import '../../../core/widgets/metric_card.dart';
+import '../../import_files/models/import_file_model.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../models/customs_clearance_model.dart';
 import '../services/drawing_samples_export_service.dart';
+import 'customs_inspection_sampling_dialog.dart';
 import 'customs_ui.dart';
-import 'drawing_samples_dialogs.dart';
 
 /// Screen 60: Customs Clearance - Drawing Samples & Shortage Tracking SubTab.
 class DrawingSamplesAndShortageTab extends ConsumerStatefulWidget {
   final List<CustomsClearanceModel> records;
-  final List<Map<String, dynamic>> drawnSamples;
-  final List<Map<String, dynamic>> shortageProtocols;
   final VoidCallback? onRefresh;
-  final ValueChanged<Map<String, dynamic>>? onAddSample;
-  final ValueChanged<Map<String, dynamic>>? onAddShortage;
 
   const DrawingSamplesAndShortageTab({
     super.key,
     required this.records,
-    required this.drawnSamples,
-    required this.shortageProtocols,
     this.onRefresh,
-    this.onAddSample,
-    this.onAddShortage,
   });
 
   @override
@@ -37,7 +33,7 @@ class DrawingSamplesAndShortageTab extends ConsumerStatefulWidget {
 
 class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAndShortageTab> {
   final TextEditingController _samplesSearchController = TextEditingController();
-  String _sampleStatusFilter = 'ALL'; // ALL, PASSED, PENDING
+  String _sampleStatusFilter = 'ALL'; // ALL, PASSED, PENDING, REJECTED
 
   @override
   void dispose() {
@@ -45,48 +41,75 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _filteredSamples {
-    return widget.drawnSamples.where((s) {
-      if (_sampleStatusFilter != 'ALL' && s['status'] != _sampleStatusFilter) {
-        return false;
+  String _resolveFileCode(List<ImportFileModel> allFiles, int importFileId) {
+    final match = allFiles.cast<ImportFileModel?>().firstWhere(
+          (f) => f?.importFileId == importFileId,
+          orElse: () => null,
+        );
+    return match?.importFileCode ?? '—';
+  }
+
+  List<CustomsClearanceModel> _getFilteredSamples(List<ImportFileModel> allFiles, AppLocalizations l) {
+    final drawn = widget.records.where((r) => r.hasActuallyDrawnSample).toList();
+
+    return drawn.where((s) {
+      if (_sampleStatusFilter == 'PASSED') {
+        final isPassed = s.sampleTestStatus == 'Approved' || s.labTestResult == 'CONFORMING';
+        if (!isPassed) return false;
+      } else if (_sampleStatusFilter == 'PENDING') {
+        final isPending = s.sampleTestStatus == 'Samples Under Testing' || s.labTestResult == 'PENDING';
+        if (!isPending) return false;
+      } else if (_sampleStatusFilter == 'REJECTED') {
+        final isRejected = s.sampleTestStatus == 'Rejected' || s.labTestResult == 'NON_CONFORMING';
+        if (!isRejected) return false;
       }
+
       final q = _samplesSearchController.text.trim().toLowerCase();
       if (q.isEmpty) return true;
-      final id = (s['sample_id'] ?? '').toString().toLowerCase();
-      final auth = (s['authority'] ?? '').toString().toLowerCase();
-      final receipt = (s['receipt_no'] ?? '').toString().toLowerCase();
-      final test = (s['test_type'] ?? '').toString().toLowerCase();
-      final notes = (s['notes'] ?? '').toString().toLowerCase();
-      return id.contains(q) || auth.contains(q) || receipt.contains(q) || test.contains(q) || notes.contains(q);
+
+      final recordNo = (s.samplingRecordNo ?? '').toLowerCase();
+      final fileCode = _resolveFileCode(allFiles, s.importFileId).toLowerCase();
+      final certNo = (s.goeicCertificateNo ?? '').toLowerCase();
+      final status = s.sampleTestStatus.toLowerCase();
+      final labResult = s.labTestResult.toLowerCase();
+      final notes = (s.inspectionNotes ?? '').toLowerCase();
+      final bodies = s.sampledRegulatoryBodies
+          .map((b) => DomainEnums.label(l, DomainEnumType.regulatoryBody, b).toLowerCase())
+          .join(' ');
+
+      return recordNo.contains(q) ||
+          fileCode.contains(q) ||
+          certNo.contains(q) ||
+          status.contains(q) ||
+          labResult.contains(q) ||
+          notes.contains(q) ||
+          bodies.contains(q);
     }).toList();
   }
 
   Future<void> _addSample() async {
     final l = context.l10n;
-    final sample = await showAddSampleDialog(context);
-    if (sample == null || !mounted) return;
-    if (widget.onAddSample != null) {
-      widget.onAddSample!(sample);
-    } else {
-      setState(() => widget.drawnSamples.insert(0, sample));
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      AppTheme.snackBar(context, l.customsClearanceSampleSaveSuccess, severity: AppSeverity.success),
+    final pickedFile = await showImportFilePickerDialog(
+      context,
+      ref,
+      title: l.customsClearanceAddSampleDialogTitle,
     );
-  }
+    if (pickedFile == null || !mounted) return;
 
-  Future<void> _addShortage() async {
-    final l = context.l10n;
-    final shortage = await showAddShortageDialog(context);
-    if (shortage == null || !mounted) return;
-    if (widget.onAddShortage != null) {
-      widget.onAddShortage!(shortage);
-    } else {
-      setState(() => widget.shortageProtocols.insert(0, shortage));
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      AppTheme.snackBar(context, l.drawingSamplesShortageSaveSuccess, severity: AppSeverity.success),
+    final activeRecord = widget.records.cast<CustomsClearanceModel?>().firstWhere(
+          (r) => r?.importFileId == pickedFile.importFileId,
+          orElse: () => null,
+        );
+
+    final saved = await CustomsInspectionSamplingDialog.show(
+      context,
+      pickedFile,
+      clearanceRecord: activeRecord,
     );
+
+    if (saved == true && mounted && widget.onRefresh != null) {
+      widget.onRefresh!();
+    }
   }
 
   /// Copyable code pill (LTR) used for sample / receipt / container codes.
@@ -134,10 +157,16 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final totalSamples = widget.drawnSamples.length;
-    final passedSamples = widget.drawnSamples.where((s) => s['status'] == 'PASSED').length;
-    final pendingSamples = totalSamples - passedSamples;
-    final totalShortages = widget.shortageProtocols.length;
+    final allFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final allDrawnSamples = widget.records.where((r) => r.hasActuallyDrawnSample).toList();
+
+    final totalSamples = allDrawnSamples.length;
+    final passedSamples = allDrawnSamples
+        .where((s) => s.sampleTestStatus == 'Approved' || s.labTestResult == 'CONFORMING')
+        .length;
+    final pendingSamples = allDrawnSamples
+        .where((s) => s.sampleTestStatus == 'Samples Under Testing' || s.labTestResult == 'PENDING')
+        .length;
 
     final metrics = [
       MetricCardData(
@@ -158,12 +187,6 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
         icon: Icons.hourglass_top_outlined,
         color: AppTheme.orange,
       ),
-      MetricCardData(
-        title: l.drawingSamplesKpiShortageCount,
-        value: '$totalShortages',
-        icon: Icons.warning_amber_rounded,
-        color: AppTheme.crimson,
-      ),
     ];
 
     return SelectionArea(
@@ -172,10 +195,10 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeaderCard(l),
+            _buildHeaderCard(l, allFiles, allDrawnSamples),
             CcUi.metrics(metrics),
             const SizedBox(height: 16),
-            _buildSamplesCard(l),
+            _buildSamplesCard(l, allFiles),
             const SizedBox(height: 16),
             _buildShortageCard(l),
           ],
@@ -184,7 +207,11 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
     );
   }
 
-  Widget _buildHeaderCard(AppLocalizations l) {
+  Widget _buildHeaderCard(
+    AppLocalizations l,
+    List<ImportFileModel> allFiles,
+    List<CustomsClearanceModel> drawnSamples,
+  ) {
     return CcSectionCard(
       title: l.drawingSamplesScreenTitle,
       icon: Icons.science,
@@ -206,14 +233,22 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
                 icon: Icons.copy_all_outlined,
                 variant: AppButtonVariant.secondary,
                 size: AppButtonSize.small,
-                onPressed: () => DrawingSamplesExportService.saveSamplesTsvToFile(context, widget.drawnSamples),
+                onPressed: () => DrawingSamplesExportService.saveSamplesTsvToFile(
+                  context,
+                  drawnSamples,
+                  fileCodeResolver: (id) => _resolveFileCode(allFiles, id),
+                ),
               ),
               AppButton(
                 label: l.drawingSamplesExportExcelBtn,
                 icon: Icons.file_download_outlined,
                 variant: AppButtonVariant.success,
                 size: AppButtonSize.small,
-                onPressed: () => DrawingSamplesExportService.saveSamplesCsvToFile(context, widget.drawnSamples),
+                onPressed: () => DrawingSamplesExportService.saveSamplesCsvToFile(
+                  context,
+                  drawnSamples,
+                  fileCodeResolver: (id) => _resolveFileCode(allFiles, id),
+                ),
               ),
               AppButton(
                 label: l.drawingSamplesPrintPdfBtn,
@@ -222,8 +257,9 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
                 size: AppButtonSize.small,
                 onPressed: () => DrawingSamplesExportService.printOrSaveDrawingSamplesPdf(
                   context: context,
-                  samples: widget.drawnSamples,
-                  shortages: widget.shortageProtocols,
+                  samples: drawnSamples,
+                  shortages: const [],
+                  fileCodeResolver: (id) => _resolveFileCode(allFiles, id),
                 ),
               ),
               AppButton(
@@ -233,8 +269,9 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
                 size: AppButtonSize.small,
                 onPressed: () => DrawingSamplesExportService.copyDossierToClipboard(
                   context: context,
-                  samples: widget.drawnSamples,
-                  shortages: widget.shortageProtocols,
+                  samples: drawnSamples,
+                  shortages: const [],
+                  fileCodeResolver: (id) => _resolveFileCode(allFiles, id),
                 ),
               ),
               if (widget.onRefresh != null)
@@ -250,8 +287,9 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
     );
   }
 
-  Widget _buildSamplesCard(AppLocalizations l) {
-    final filteredSamples = _filteredSamples;
+  Widget _buildSamplesCard(AppLocalizations l, List<ImportFileModel> allFiles) {
+    final filteredSamples = _getFilteredSamples(allFiles, l);
+
     return CcSectionCard(
       title: l.drawingSamplesTabDrawnSamples,
       icon: Icons.biotech,
@@ -312,13 +350,21 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
               SegmentedButton<String>(
                 segments: [
                   ButtonSegment(
-                      value: 'ALL', label: Text(l.drawingSamplesFilterAll, style: const TextStyle(fontSize: 11))),
+                    value: 'ALL',
+                    label: Text(l.drawingSamplesFilterAll, style: const TextStyle(fontSize: 11)),
+                  ),
                   ButtonSegment(
-                      value: 'PASSED',
-                      label: Text(l.drawingSamplesFilterPassed, style: const TextStyle(fontSize: 11))),
+                    value: 'PASSED',
+                    label: Text(l.drawingSamplesFilterPassed, style: const TextStyle(fontSize: 11)),
+                  ),
                   ButtonSegment(
-                      value: 'PENDING',
-                      label: Text(l.drawingSamplesFilterPending, style: const TextStyle(fontSize: 11))),
+                    value: 'PENDING',
+                    label: Text(l.drawingSamplesFilterPending, style: const TextStyle(fontSize: 11)),
+                  ),
+                  ButtonSegment(
+                    value: 'REJECTED',
+                    label: Text(l.sampleFilterRejected, style: const TextStyle(fontSize: 11)),
+                  ),
                 ],
                 selected: {_sampleStatusFilter},
                 onSelectionChanged: (set) => setState(() => _sampleStatusFilter = set.first),
@@ -338,42 +384,58 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
                 headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
                 columns: [
                   _col(l.drawingSamplesColSampleCode),
-                  _col(l.drawingSamplesFieldAuthority),
-                  _col(l.drawingSamplesFieldDrawingDate),
-                  _col(l.drawingSamplesFieldReceiptNo),
-                  _col(l.drawingSamplesFieldTestType),
-                  _col(l.drawingSamplesFieldStatus),
+                  _col(l.drawingSamplesColFileCode),
+                  _col(l.drawingSamplesColSampledBodies),
+                  _col(l.drawingSamplesColSamplingDate),
+                  _col(l.drawingSamplesColGoeicCert),
+                  _col(l.drawingSamplesColTestStatus),
+                  _col(l.drawingSamplesColLabResult),
                   _col(l.drawingSamplesFieldNotes),
                   _col(l.drawingSamplesCopyRowSummaryBtn),
                 ],
                 rows: filteredSamples.map((s) {
-                  final isPassed = s['status'] == 'PASSED';
-                  final statusStr = isPassed ? l.customsClearanceSamplePassed : l.customsClearanceSamplePending;
+                  final isPassed = s.sampleTestStatus == 'Approved' || s.labTestResult == 'CONFORMING';
+                  final isPending = s.sampleTestStatus == 'Samples Under Testing' || s.labTestResult == 'PENDING';
+                  final fileCode = _resolveFileCode(allFiles, s.importFileId);
+                  final recordNo = s.samplingRecordNo ?? '—';
+                  final bodies = s.sampledRegulatoryBodies.isEmpty
+                      ? '—'
+                      : s.sampledRegulatoryBodies
+                          .map((b) => DomainEnums.label(l, DomainEnumType.regulatoryBody, b))
+                          .join(', ');
+                  final statusStr = DrawingSamplesExportService.getSampleStatusLabel(context, s.sampleTestStatus);
                   final rowSummary =
-                      "${s['sample_id']}\t${s['authority']}\t${s['drawing_date']}\t${s['receipt_no']}\t${s['test_type']}\t$statusStr\t${s['notes'] ?? '-'}";
+                      "$recordNo\t$fileCode\t$bodies\t${s.samplingDate ?? '—'}\t${s.goeicCertificateNo ?? '—'}\t$statusStr\t${s.labTestResult}\t${s.inspectionNotes ?? '—'}";
+
                   DataCell cell(String value, Widget child) =>
                       DataCell(CopyableTableCell(value: value, rowSummary: rowSummary, child: child));
+
                   return DataRow(cells: [
-                    cell(s['sample_id'] ?? '', _codeBadge(s['sample_id'] ?? '', AppSeverity.info)),
+                    cell(recordNo, _codeBadge(recordNo, AppSeverity.info)),
+                    cell(fileCode, _codeBadge(fileCode, AppSeverity.info)),
+                    cell(bodies, Text(bodies, style: const TextStyle(fontWeight: FontWeight.w600))),
+                    cell(s.samplingDate ?? '—', LtrText(s.samplingDate ?? '—')),
                     cell(
-                      s['authority'] ?? '',
-                      Text(s['authority'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      s.goeicCertificateNo ?? '—',
+                      _codeBadge(s.goeicCertificateNo ?? '—', AppSeverity.info, isMonospace: true),
                     ),
-                    cell(s['drawing_date'] ?? '', LtrText(s['drawing_date'] ?? '')),
-                    cell(
-                      s['receipt_no'] ?? '',
-                      _codeBadge(s['receipt_no'] ?? '', AppSeverity.info, isMonospace: true),
-                    ),
-                    cell(s['test_type'] ?? '', Text(s['test_type'] ?? '')),
                     cell(
                       statusStr,
                       CcStatusChip(
                         label: statusStr,
-                        severity: isPassed ? AppSeverity.success : AppSeverity.warning,
-                        icon: isPassed ? Icons.check_circle_outline : Icons.hourglass_top_outlined,
+                        severity: isPassed
+                            ? AppSeverity.success
+                            : (isPending ? AppSeverity.warning : AppSeverity.danger),
+                        icon: isPassed
+                            ? Icons.check_circle_outline
+                            : (isPending ? Icons.hourglass_top_outlined : Icons.cancel_outlined),
                       ),
                     ),
-                    cell(s['notes'] ?? '-', Text(s['notes'] ?? '-')),
+                    cell(
+                      s.labTestResult,
+                      Text(s.labTestResult, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    cell(s.inspectionNotes ?? '—', Text(s.inspectionNotes ?? '—')),
                     DataCell(
                       IconButton(
                         icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
@@ -400,13 +462,6 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
       icon: Icons.inventory_2_outlined,
       accent: AppTheme.crimson,
       margin: EdgeInsets.zero,
-      trailing: AppButton(
-        label: l.drawingSamplesAddShortageBtn,
-        icon: Icons.add,
-        variant: AppButtonVariant.danger,
-        size: AppButtonSize.small,
-        onPressed: _addShortage,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -414,77 +469,14 @@ class _DrawingSamplesAndShortageTabState extends ConsumerState<DrawingSamplesAnd
             l.drawingSamplesShortageSectionDesc,
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
           ),
-          const SizedBox(height: 10),
-          if (widget.shortageProtocols.isEmpty)
-            SizedBox(
-              height: 150,
-              child: CcStateView.empty(message: l.drawingSamplesEmptyShortage, icon: Icons.fact_check_outlined),
-            )
-          else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
-                columns: [
-                  _col(l.drawingSamplesCopyRowSummaryBtn),
-                  _col(l.drawingSamplesColShortageCode),
-                  _col(l.drawingSamplesColContainerPkg),
-                  _col(l.drawingSamplesColItemDesc),
-                  _col(l.drawingSamplesColManifestQty, numeric: true),
-                  _col(l.drawingSamplesColLandedQty, numeric: true),
-                  _col(l.drawingSamplesColShortageQty, numeric: true),
-                  _col(l.drawingSamplesColShortagePct, numeric: true),
-                  _col(l.drawingSamplesColShortageAction),
-                  _col(l.drawingSamplesColShortageNotes),
-                ],
-                rows: widget.shortageProtocols.map((item) {
-                  final actionLabel =
-                      DrawingSamplesExportService.getShortageActionLabel(context, item['action'] as String?);
-                  final rowSummary =
-                      "${item['shortage_id']}\t${item['container_no']}\t${item['item_desc']}\t${item['manifest_qty']}\t${item['landed_qty']}\t${item['shortage_qty']}\t${item['shortage_pct']}%\t$actionLabel\t${item['notes'] ?? '-'}";
-                  DataCell cell(String value, Widget child) =>
-                      DataCell(CopyableTableCell(value: value, rowSummary: rowSummary, child: child));
-                  final manifest = (item['manifest_qty'] ?? '0').toString();
-                  final landed = (item['landed_qty'] ?? '0').toString();
-                  final shortage = (item['shortage_qty'] ?? '0').toString();
-                  final pct = '${item['shortage_pct'] ?? '0'}%';
-                  return DataRow(cells: [
-                    DataCell(
-                      IconButton(
-                        icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.crimson),
-                        tooltip: l.drawingSamplesCopyRowSummaryBtn,
-                        onPressed: () => CopyHelper.copy(
-                          context,
-                          rowSummary,
-                          customMessage: l.drawingSamplesCopyRowSummarySuccess,
-                        ),
-                      ),
-                    ),
-                    cell(item['shortage_id'] ?? '', _codeBadge(item['shortage_id'] ?? '', AppSeverity.danger)),
-                    cell(
-                      item['container_no'] ?? '',
-                      _codeBadge(item['container_no'] ?? '', AppSeverity.info, isMonospace: true),
-                    ),
-                    cell(
-                      item['item_desc'] ?? '',
-                      Text(item['item_desc'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
-                    ),
-                    cell(manifest, LtrText(manifest)),
-                    cell(landed, LtrText(landed)),
-                    cell(
-                      shortage,
-                      LtrText(
-                        shortage,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson),
-                      ),
-                    ),
-                    cell(pct, CcStatusChip(label: pct, severity: AppSeverity.danger)),
-                    cell(actionLabel, CcStatusChip(label: actionLabel, severity: AppSeverity.info)),
-                    cell(item['notes'] ?? '-', Text(item['notes'] ?? '-')),
-                  ]);
-                }).toList(),
-              ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 150,
+            child: CcStateView.empty(
+              message: l.ccShortageNotAvailable,
+              icon: Icons.inventory_2_outlined,
             ),
+          ),
         ],
       ),
     );
