@@ -171,3 +171,14 @@ class TestCustomsConsultationBackend:
             db_session, created.consultation_id
         )
         assert restored.is_active is True
+
+    def test_create_consultation_without_broker_succeeds(self, db_session):
+        session_in = CustomsConsultationCreate(
+            title="مراجعة جمركية بدون مخلص (وضع الفحص الضريبي)",
+            broker_id=None,
+            broker_name=None,
+        )
+        res = CustomsConsultationService.create_consultation(db_session, session_in)
+        assert res.consultation_id is not None
+        assert res.broker_id is None
+        assert res.broker_name is None

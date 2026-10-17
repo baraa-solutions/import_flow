@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/ltr_text.dart';
-import '../../../core/widgets/row_actions_pill.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../models/cargo_insurance_model.dart';
@@ -220,7 +218,11 @@ class InsuranceCertificatesTable extends StatelessWidget {
                   ],
                   if (shipmentCode != null) ...[
                     const SizedBox(width: 6),
-                    CcStatusChip(label: shipmentCode, severity: AppSeverity.info),
+                    AppStatusBadge(
+                      label: shipmentCode,
+                      severity: AppSeverity.info,
+                      size: AppStatusBadgeSize.small,
+                    ),
                     const SizedBox(width: 2),
                     _copyIcon(
                       context,
@@ -320,10 +322,11 @@ class InsuranceCertificatesTable extends StatelessWidget {
         DataCell(CopyableTableCell(
           value: cert.status,
           rowSummary: rowSummary,
-          child: CcStatusChip(
+          child: AppStatusBadge(
             label: insuranceStatusLabel(l, cert.status),
             severity: insuranceStatusSeverity(cert.status),
             icon: isIssued ? Icons.check_circle_outline : (isCancelled ? Icons.block : Icons.hourglass_bottom_rounded),
+            size: AppStatusBadgeSize.small,
           ),
         )),
       ],

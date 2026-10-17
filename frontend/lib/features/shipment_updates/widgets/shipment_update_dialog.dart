@@ -115,7 +115,7 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
     _noteController = TextEditingController();
     _dateController = TextEditingController(text: DateTime.now().toString().split(' ')[0]);
     _costItemController = TextEditingController();
-    _newCostController = TextEditingController(text: '0.0');
+    _newCostController = TextEditingController();
   }
 
   @override

@@ -133,6 +133,8 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
     final strengths = (_scorecard?['strengths'] as List<dynamic>?) ?? [];
     final improvements = (_scorecard?['improvement_areas'] as List<dynamic>?) ?? [];
 
+    final criteria = (_scorecard?['criteria_breakdown'] as List<dynamic>?) ?? [];
+
     Color tierColor;
     if (tier.toString().contains('Platinum')) {
       tierColor = AppTheme.emerald;
@@ -143,6 +145,8 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
     } else {
       tierColor = AppTheme.crimson;
     }
+
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
 
     return SingleChildScrollView(
       child: Column(
@@ -252,6 +256,115 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
           ),
           const SizedBox(height: 18),
 
+          // Criteria Breakdown (LOG-KPIS-005)
+          if (criteria.isNotEmpty) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isArabic ? '📊 تفصيل معايير التقييم والأوزان المعتمدة' : '📊 Evaluation Criteria & Weights Breakdown',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Table(
+                  columnWidths: const {
+                    0: FlexColumnWidth(4),
+                    1: FlexColumnWidth(1.5),
+                    2: FlexColumnWidth(2),
+                    3: FlexColumnWidth(4.5),
+                  },
+                  border: TableBorder(
+                    horizontalInside: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                  ),
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkCardBackground : const Color(0xFFF1F5F9),
+                      ),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          child: Text(
+                            isArabic ? 'المعيار' : 'Criterion',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                          child: Text(
+                            isArabic ? 'الوزن' : 'Weight',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                          child: Text(
+                            isArabic ? 'الدرجة المحققة' : 'Score',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          child: Text(
+                            isArabic ? 'مصدر البيانات الفعلي' : 'Data Source',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                          ),
+                        ),
+                      ],
+                    ),
+                    ...criteria.map((c) {
+                      final cMap = c is Map<String, dynamic> ? c : {};
+                      final name = isArabic
+                          ? (cMap['criterion_name_ar'] ?? cMap['criterion_name_en'] ?? '')
+                          : (cMap['criterion_name_en'] ?? cMap['criterion_name_ar'] ?? '');
+                      final weight = cMap['weight_pct'] ?? 0;
+                      final score = (cMap['score_achieved'] as num?)?.toDouble() ?? 0.0;
+                      final source = cMap['data_source_ar'] ?? '-';
+                      return TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            child: Text(name.toString(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                            child: Text('$weight%', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                            child: Text(
+                              '${score.toStringAsFixed(1)} / 100',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: score >= 85 ? AppTheme.emerald : (score >= 70 ? AppTheme.orange : AppTheme.crimson),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            child: Text(source.toString(), style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.black87)),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+          ],
+
           // Detailed KPI Metrics Tiles
           if (metrics.isNotEmpty) ...[
             Text('📈 ${l10n.scorecardKpiHeader}',
@@ -343,8 +456,102 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                 ),
             ],
           ),
+          const SizedBox(height: 18),
+
+          // Expandable Methodology Guide (6 Partner Types)
+          ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+            collapsedBackgroundColor: isDark ? AppTheme.darkCardBackground : const Color(0xFFF8FAFC),
+            backgroundColor: isDark ? AppTheme.darkCardBackground : const Color(0xFFF8FAFC),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            ),
+            collapsedShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            ),
+            leading: const Icon(Icons.info_outline_rounded, color: AppTheme.cobalt, size: 20),
+            title: Text(
+              isArabic ? 'ℹ️ كيف يُحسب التقييم؟ (دليل معايير وأوزان التقييم المعتمدة لكافة الشركاء)' : 'ℹ️ How is the Scorecard Calculated? (Official Criteria & Weights Guide)',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12.5,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+              ),
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(14.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMethodologyRow(
+                      context,
+                      title: isArabic ? '1. المخلص الجمركي (Customs Broker):' : '1. Customs Broker:',
+                      desc: isArabic
+                          ? '• سرعة الإفراج (35%): من سجلات الإفراج الجمركي الفعلي.\n• المسار الأخضر (25%): من منظومة نافذة MTS.\n• دقة الفواتير والرسوم (25%): مطابقة الفواتير والمصاريف.\n• تجنب الأرضيات والغرامات (15%): رادار تتبع فترات السماح.'
+                          : '• Turnaround Speed (35%): Actual clearance turnaround.\n• Green Channel Rate (25%): Nafeza MTS green routing.\n• Billing Precision (25%): Matching clearance invoices.\n• Demurrage Avoidance (15%): Free time radar compliance.',
+                    ),
+                    const Divider(height: 14),
+                    _buildMethodologyRow(
+                      context,
+                      title: isArabic ? '2. الخط الملاحي (Shipping Line):' : '2. Shipping Line:',
+                      desc: isArabic
+                          ? '• الالتزام بمواعيد الإبحار والوصول (40%): تتبع حجوزات الشحن وتأخيرات الترانزيت.\n• أيام السماح المجانية للحاويات (25%): ميزة فترات السماح المسجلة.\n• سلامة الحاويات وتفادي التلف (20%): محاضر الفحص واستلام البضائع.\n• سرعة إصدار إذن التسليم (15%): سجلات سداد واستلام D/O.'
+                          : '• Transit Schedule SLA (40%): Tracking departure delays.\n• Free Days Allowance (25%): Standard demurrage free days.\n• Equipment Integrity (20%): Container condition at discharge.\n• D/O Processing Speed (15%): Delivery order receipt speed.',
+                    ),
+                    const Divider(height: 14),
+                    _buildMethodologyRow(
+                      context,
+                      title: isArabic ? '3. وكيل الشحن (Freight Forwarder):' : '3. Freight Forwarder:',
+                      desc: isArabic
+                          ? '• الالتزام بمواعيد الشحن والتتبع (35%): حجوزات الشحن والربط مع التتبع.\n• شفافية الأسعار وثبات العروض (30%): مطابقة فواتير المصاريف مع عروض الأسعار.\n• فترة السماح التنافسية (20%): رصيد أيام السماح المسجلة.\n• سرعة إصدار بوالص الشحن (15%): مراجعة مسودة Draft B/L.'
+                          : '• Shipping SLA & Tracking (35%): Booking schedule compliance.\n• Quote Transparency (30%): Final invoices vs quotation.\n• Free Days Allowance (20%): Demurrage buffer days.\n• B/L Issuance Speed (15%): Draft bill of lading approval.',
+                    ),
+                    const Divider(height: 14),
+                    _buildMethodologyRow(
+                      context,
+                      title: isArabic ? '4. شركة النقل الداخلي (Inland Transport):' : '4. Inland Transport:',
+                      desc: isArabic
+                          ? '• الالتزام بمواعيد التحميل والتسليم (40%): أوامر النقل الداخلي ومطابقة المواعيد.\n• سلامة الحاويات والبضائع (30%): محاضر الفحص والاستلام بالمستودعات GRN.\n• توفر الأسطول وتغطية الموانئ (20%): أنواع الأسطول وتغطية الموانئ.\n• التقييم العام وجودة التنسيق (10%): تقييم مشرفي الحركة.'
+                          : '• Delivery SLA (40%): Fleet arrival vs scheduled gate-in.\n• Cargo Integrity (30%): Zero-damage reports at warehouse.\n• Fleet Availability (20%): Equipment types & port coverage.\n• Coordination (10%): Transport supervisors assessment.',
+                    ),
+                    const Divider(height: 14),
+                    _buildMethodologyRow(
+                      context,
+                      title: isArabic ? '5. شركة الفحص والرقابة (Inspection Agency):' : '5. Inspection Agency:',
+                      desc: isArabic
+                          ? '• سرعة سحب العينات وصدور شهادة المطابقة (45%): سجلات سحب العينات وصدور النتائج.\n• دقة نتائج الفحص والمواصفات (35%): تفادي قرارات الرفض الرقابي.\n• نطاق الاعتماد والاعتراف الرقابي (20%): رقم الاعتماد والاعتراف لدى GOEIC.'
+                          : '• Sampling & CoC Speed (45%): Laboratory testing turnaround.\n• Conformity Accuracy (35%): Avoiding regulatory rejection.\n• Accreditation Scope (20%): ISO 17020/17025 accredited labs.',
+                    ),
+                    const Divider(height: 14),
+                    _buildMethodologyRow(
+                      context,
+                      title: isArabic ? '6. شركة التأمين البحري (Insurance Company):' : '6. Insurance Company:',
+                      desc: isArabic
+                          ? '• شمولية وسرعة إصدار وثيقة التأمين (40%): شروط تغطية أخطار المعهد.\n• سرعة تسوية المطالبات والتعويضات (40%): سجلات تعويضات مطالبات الشحن.\n• التنافسية السعرية لنسبة القسط (20%): عروض أسعار وثائق التأمين البحري.'
+                          : '• Policy Issuance & Terms (40%): Marine cargo cover clauses.\n• Claims Settlement (40%): Claim reimbursement turnaround.\n• Premium Competitiveness (20%): Rate benchmark competitiveness.',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMethodologyRow(BuildContext context, {required String title, required String desc}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
+        const SizedBox(height: 3),
+        Text(desc, style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.black87, height: 1.35)),
+      ],
     );
   }
 }
