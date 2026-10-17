@@ -209,6 +209,8 @@ class ShipmentBookingModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? createdBy;
+  final String? updatedBy;
   final String? importFileCode;
 
   bool get hasSavings => costSavingsUsd > 0.0;
@@ -265,6 +267,8 @@ class ShipmentBookingModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.createdBy,
+    this.updatedBy,
     this.importFileCode,
   });
 
@@ -323,6 +327,8 @@ class ShipmentBookingModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      createdBy: json['created_by'],
+      updatedBy: json['updated_by'],
       importFileCode: json['import_file_code'],
     );
   }
@@ -371,6 +377,8 @@ class ShipmentBookingModel {
       'savings_notes': savingsNotes,
       'status': status,
       'owner': owner,
+      'created_by': createdBy,
+      'updated_by': updatedBy,
       'notes': notes,
     };
   }

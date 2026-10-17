@@ -236,7 +236,7 @@ void main() {
       // Verify project details rendered in table
       expect(find.text('PRJ-2026-001'), findsOneWidget);
       expect(find.text('مشروع الطاقة النظيفة بالسخنة'), findsOneWidget);
-      expect(find.text('\$150000.00'), findsOneWidget);
+      expect(find.text('USD 150000.00'), findsOneWidget); // budget shown with its budget_currency
       expect(find.text('2026-12-31'), findsOneWidget);
 
       // Verify create project button exists

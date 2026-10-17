@@ -99,6 +99,7 @@ def _setup_tracking(db, is_pushed: bool = False) -> DemurrageTracking:
         import_file_id=1,
         bill_of_lading_no="BL-MSC-12345",
         carrier_name="MSC",
+        port_name="Alexandria Port",
         discharge_date=date(2026, 9, 1),
         exchange_rate=50.0,
         containers=[

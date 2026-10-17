@@ -119,10 +119,11 @@ def test_cbm_audit_users(db):
     assert (calc.created_by, calc.updated_by) == ("creator", "creator")
     upd = CBMService.update_calculation_service(db, calc.calc_id, CBMCalculationUpdate(title="b"), user="editor")
     assert (upd.created_by, upd.updated_by) == ("creator", "editor")
-    CBMService.soft_delete_service(db, calc.calc_id, user="deleter")
-    assert db.get(CBMCalculation, calc.calc_id).updated_by == "deleter"
+    # BE01-T14: only an active calculation can be cloned, so clone before the soft delete.
     clone = CBMService.clone_cbm_calculation(db, calc.calc_id, CloneCBMCalculationRequest(), user="cloner")
     assert (clone.created_by, clone.updated_by) == ("cloner", "cloner")
+    CBMService.soft_delete_service(db, calc.calc_id, user="deleter")
+    assert db.get(CBMCalculation, calc.calc_id).updated_by == "deleter"
 
 
 def test_shipping_scenario_audit_users(db):

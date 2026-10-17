@@ -178,26 +178,26 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 154 | BE45-T15 | freight_booking, cargo_shipping | MAJOR | `/paginated` for booking and cargo shipping lists | BEW0-04 | no | additive | yes | [be-04-05](be-04-05-review.md) | done |
 | 155 | BE45-T16 | shipment_updates, demurrage_detention | MAJOR | `/paginated` for shipment updates, trackings, policies; radar cost | BE45-T15 | no | additive; radar filter | yes | [be-04-05](be-04-05-review.md) | done |
 | 156 | BE45-T17 | cargo_shipping, cargo_insurance, shipment_updates, demurrage_detention | MAJOR | Legacy-tolerant response schemas | none | no | no | yes | [be-04-05](be-04-05-review.md) | done |
-| 157 | BE45-T18 | cargo_insurance, demurrage_detention | MAJOR | Remove invented defaults | BE45-T17 | no | yes: required port / container type, nullable fields | yes | [be-04-05](be-04-05-review.md) | todo |
-| 158 | BE45-T19 | freight_booking | MAJOR | Booking FK master data on update | BE45-T12 | no | additive FK ids; Literal types | yes | [be-04-05](be-04-05-review.md) | todo |
-| 159 | BE45-T21 | freight_booking | MAJOR | Audit wiring on `shipment_bookings` | BEW0-05 | via BEW0-05 (backfill from owner) | additive | yes | [be-04-05](be-04-05-review.md) | todo |
-| 160 | BE67-T11 | customs_tariff | MAJOR | customs_tariff repository without commits | BE67-T08, BE67-T09 | no | no | yes | [be-06-07](be-06-07-review.md) | todo |
-| 161 | BE67-T15 | customs_tariff | MAJOR | `/customs-tariff/paginated` + fee code validation | BE67-T01, BEW0-04 | no | yes: paging; 409 / 422 fee codes | yes | [be-06-07](be-06-07-review.md) | todo |
-| 162 | BE67-T17 | customs_clearance | MAJOR | No invented customs values in CS-03 / CL-01 / CS-01 | BE67-T07 | no | yes: required channel / office / result | yes | [be-06-07](be-06-07-review.md) | todo |
-| 163 | BE67-T19 | customs_clearance_quotations | MAJOR | Quotation award workflow and master data | none | no | yes: 409 `CCQ_RFQ_AWARDED` | yes | [be-06-07](be-06-07-review.md) | todo |
-| 164 | BE810-T08 | file_closure | MAJOR | `closure_readiness` from the closure gate | BE810-T03, BE810-T06, BE810-T07 | no | no (values) | yes | [be-08-10](be-08-10-review.md) | todo |
-| 165 | BE810-T09 | file_closure | MAJOR | Preconditions for dossier export and draft closure | BE810-T08 | no | yes: 400 `FC_EXPORT_BLOCKED` | yes | [be-08-10](be-08-10-review.md) | todo |
-| 166 | BE810-T10 | file_closure, warehouse_receiving | MAJOR | Acting user from the token for auditor / exporter / inspector | none | no | yes: body names ignored | yes | [be-08-10](be-08-10-review.md) | todo |
-| 167 | BE810-T11 | warehouse_receiving | MAJOR | GRN create preconditions (lines, warehouse, customs release) | BE810-T02 | no | yes: 422, `WR_CUSTOMS_NOT_RELEASED` | yes | [be-08-10](be-08-10-review.md) | todo |
-| 168 | BE810-T12 | warehouse_receiving | MAJOR | Claim amount and currency validation | BEW0-02 | no | yes: `WR_CLAIM_CURRENCY_INVALID` | yes | [be-08-10](be-08-10-review.md) | todo |
-| 169 | BE810-T13 | inland_transport | MAJOR | IT create validation (status, dates, carrier, truck type, defaults) | BE810-T01 | no | yes: required fields, `IT_CARRIER_INVALID`, `IT_TRUCK_TYPE_INVALID` | yes | [be-08-10](be-08-10-review.md) | todo |
-| 170 | BE810-T14 | inland_transport | MAJOR | Keep gate-out / arrival evidence | BE810-T13 | no | yes: 400 broken seal without number | yes | [be-08-10](be-08-10-review.md) | todo |
-| 171 | BE810-T15 | inland_transport | MAJOR | IT restore endpoint | BE810-T01, BE810-T02 | no | yes: new PATCH restore | yes | [be-08-10](be-08-10-review.md) | todo |
-| 172 | BE810-T16 | warehouse_receiving | MAJOR | GRN delete guard | BE810-T02 | no | yes: 409 `WR_GRN_LOCKED` | yes | [be-08-10](be-08-10-review.md) | todo |
-| 173 | BE810-T17 | warehouse_receiving, inland_transport, file_closure | MAJOR | Audit trail for WR, IT and closure events | BE810-T01, BE810-T05, BE810-T15, BE810-T16 | no | no | yes | [be-08-10](be-08-10-review.md) | todo |
-| 174 | BE810-T18 | warehouse_receiving, inland_transport | MAJOR | `/paginated` for GRN and IT lists | BEW0-04 | no | additive | yes | [be-08-10](be-08-10-review.md) | todo |
-| 175 | BE09-T08 | financial_settlement | MAJOR | Audit rows and task closure for every settlement transition | none | no | no | yes | [be-09](be-09-review.md) | todo |
-| 176 | BE09-T12 | financial_settlement | MAJOR | Response tolerance, coded duplicate, `/paginated` | BEW0-04 | no | yes: 409 `SETTLEMENT_DUPLICATE_ACTIVE`, nullable fields | yes | [be-09](be-09-review.md) | todo |
+| 157 | BE45-T18 | cargo_insurance, demurrage_detention | MAJOR | Remove invented defaults | BE45-T17 | no | yes: required port / container type, nullable fields | yes | [be-04-05](be-04-05-review.md) | done |
+| 158 | BE45-T19 | freight_booking | MAJOR | Booking FK master data on update | BE45-T12 | no | additive FK ids; Literal types | yes | [be-04-05](be-04-05-review.md) | done |
+| 159 | BE45-T21 | freight_booking | MAJOR | Audit wiring on `shipment_bookings` | BEW0-05 | via BEW0-05 (backfill from owner) | additive | yes | [be-04-05](be-04-05-review.md) | done |
+| 160 | BE67-T11 | customs_tariff | MAJOR | customs_tariff repository without commits | BE67-T08, BE67-T09 | no | no | yes | [be-06-07](be-06-07-review.md) | done |
+| 161 | BE67-T15 | customs_tariff | MAJOR | `/customs-tariff/paginated` + fee code validation | BE67-T01, BEW0-04 | no | yes: paging; 409 / 422 fee codes | yes | [be-06-07](be-06-07-review.md) | done |
+| 162 | BE67-T17 | customs_clearance | MAJOR | No invented customs values in CS-03 / CL-01 / CS-01 | BE67-T07 | no | yes: required channel / office / result | yes | [be-06-07](be-06-07-review.md) | done |
+| 163 | BE67-T19 | customs_clearance_quotations | MAJOR | Quotation award workflow and master data | none | no | yes: 409 `CCQ_RFQ_AWARDED` | yes | [be-06-07](be-06-07-review.md) | done |
+| 164 | BE810-T08 | file_closure | MAJOR | `closure_readiness` from the closure gate | BE810-T03, BE810-T06, BE810-T07 | no | no (values) | yes | [be-08-10](be-08-10-review.md) | done (PR #36) |
+| 165 | BE810-T09 | file_closure | MAJOR | Preconditions for dossier export and draft closure | BE810-T08 | no | yes: 400 `FC_EXPORT_BLOCKED` | yes | [be-08-10](be-08-10-review.md) | done |
+| 166 | BE810-T10 | file_closure, warehouse_receiving | MAJOR | Acting user from the token for auditor / exporter / inspector | none | no | yes: body names ignored | yes | [be-08-10](be-08-10-review.md) | done (PR #17) |
+| 167 | BE810-T11 | warehouse_receiving | MAJOR | GRN create preconditions (lines, warehouse, customs release) | BE810-T02 | no | yes: 422, `WR_CUSTOMS_NOT_RELEASED` | yes | [be-08-10](be-08-10-review.md) | done (PR #28) |
+| 168 | BE810-T12 | warehouse_receiving | MAJOR | Claim amount and currency validation | BEW0-02 | no | yes: `WR_CLAIM_CURRENCY_INVALID` | yes | [be-08-10](be-08-10-review.md) | done |
+| 169 | BE810-T13 | inland_transport | MAJOR | IT create validation (status, dates, carrier, truck type, defaults) | BE810-T01 | no | yes: required fields, `IT_CARRIER_INVALID`, `IT_TRUCK_TYPE_INVALID` | yes | [be-08-10](be-08-10-review.md) | done (PR #25) |
+| 170 | BE810-T14 | inland_transport | MAJOR | Keep gate-out / arrival evidence | BE810-T13 | no | yes: 400 broken seal without number | yes | [be-08-10](be-08-10-review.md) | done |
+| 171 | BE810-T15 | inland_transport | MAJOR | IT restore endpoint | BE810-T01, BE810-T02 | no | yes: new PATCH restore | yes | [be-08-10](be-08-10-review.md) | done (PR #32) |
+| 172 | BE810-T16 | warehouse_receiving | MAJOR | GRN delete guard | BE810-T02 | no | yes: 409 `WR_GRN_LOCKED` | yes | [be-08-10](be-08-10-review.md) | done (PR #27) |
+| 173 | BE810-T17 | warehouse_receiving, inland_transport, file_closure | MAJOR | Audit trail for WR, IT and closure events | BE810-T01, BE810-T05, BE810-T15, BE810-T16 | no | no | yes | [be-08-10](be-08-10-review.md) | done |
+| 174 | BE810-T18 | warehouse_receiving, inland_transport | MAJOR | `/paginated` for GRN and IT lists | BEW0-04 | no | additive | yes | [be-08-10](be-08-10-review.md) | done (PR #24) |
+| 175 | BE09-T08 | financial_settlement | MAJOR | Audit rows and task closure for every settlement transition | none | no | no | yes | [be-09](be-09-review.md) | done |
+| 176 | BE09-T12 | financial_settlement | MAJOR | Response tolerance, coded duplicate, `/paginated` | BEW0-04 | no | yes: 409 `SETTLEMENT_DUPLICATE_ACTIVE`, nullable fields | yes | [be-09](be-09-review.md) | done (PR #175) |
 | 177 | BEX-T03 | lifecycle_board | MAJOR | No invented data, bounded live tracking | none | no | yes: nullable card fields, risk "Unknown" | yes | [be-cross](be-cross-review.md) | done (PR #66) |
 
 ## Wave 3: MINOR

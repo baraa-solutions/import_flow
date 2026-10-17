@@ -26,6 +26,7 @@ from modules.financial_settlement.schemas import (
     ExpenseInvoiceSchema,
     ItemLandedCostSchema,
     FinancialSettlementUpdate,
+    FinancialSettlementResponse,
 )
 from modules.financial_settlement.service import (
     create_settlement_service,
@@ -876,6 +877,76 @@ class TestFinancialSettlementModule(unittest.TestCase):
         # VAT = 14% of (CIF + Duty) = 14% of 5,802,500 = 812,350.00 EGP
         self.assertEqual(res.total_vat_and_fees_egp, 812350.0)
         self.assertEqual(res.total_customs_and_taxes_egp, 527500.0 + 812350.0)
+
+    def test_legacy_row_tolerance_status_null(self):
+        """A legacy row with status=NULL, created_by=NULL inserted by SQL -> list 200 and status is None (BE09-T12)."""
+        from sqlalchemy import text
+        self.db.execute(text(
+            "INSERT INTO financial_settlement_records "
+            "(settlement_code, import_file_id, incoterm_code, status, accountant_name, created_by, updated_by, created_at, updated_at, is_active, "
+            "total_fob_egp, total_expenses_egp, total_landed_cost_egp, average_markup_factor, expense_invoices, item_landed_costs) "
+            "VALUES ('LCS-LEGACY-001', :fid, 'FOB', NULL, 'Legacy User', NULL, NULL, NULL, NULL, NULL, 0.0, 0.0, 0.0, 1.0, '[]', '[]')"
+        ), {"fid": self.import_file_id})
+        self.db.commit()
+
+        rec = self.db.query(LandedCostSettlementRecord).filter_by(settlement_code="LCS-LEGACY-001").first()
+        self.assertIsNotNone(rec)
+        self.assertIsNone(rec.status)
+        self.assertIsNone(rec.created_by)
+
+        parsed = FinancialSettlementResponse.model_validate(rec)
+        self.assertIsNone(parsed.status)
+        self.assertIsNone(parsed.created_by)
+        self.assertIsNone(parsed.updated_by)
+        self.assertIsNone(parsed.created_at)
+        self.assertIsNone(parsed.updated_at)
+        self.assertIsNone(parsed.is_active)
+
+        # list_settlements_service returns this record
+        items = list_settlements_service(self.db, include_inactive=True)
+        legacy = next(r for r in items if r.settlement_code == "LCS-LEGACY-001")
+        resp = FinancialSettlementResponse.model_validate(legacy)
+        self.assertIsNone(resp.status)
+
+    def test_duplicate_settlement_create_raises_409(self):
+        """Duplicate settlement creation returns 409 SETTLEMENT_DUPLICATE_ACTIVE (BE09-T12)."""
+        from fastapi import HTTPException
+        schema = FinancialSettlementCreate(import_file_id=self.import_file_id)
+        first = create_settlement_service(self.db, schema)
+        self.assertIsNotNone(first)
+
+        with self.assertRaises(HTTPException) as ctx:
+            create_settlement_service(self.db, schema)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail.get("code"), "SETTLEMENT_DUPLICATE_ACTIVE")
+        self.assertEqual(ctx.exception.detail.get("settlement_code"), first.settlement_code)
+
+    def test_list_settlements_pagination_skip_limit(self):
+        """list_settlements supports skip and limit parameters (BE09-T12)."""
+        # Create additional files and settlements to test pagination
+        for i in range(3):
+            imp_file = ImportFile(
+                import_file_code=f"IMP-FILE-PAG-{i}",
+                company_id=1,
+                company_name="Delta Industrial Co",
+                supplier_name="Global Heavy Equipment Ltd",
+            )
+            self.db.add(imp_file)
+            self.db.commit()
+            self.db.refresh(imp_file)
+            schema = FinancialSettlementCreate(import_file_id=imp_file.import_file_id)
+            create_settlement_service(self.db, schema)
+
+        all_records = list_settlements_service(self.db, include_inactive=True)
+        self.assertGreaterEqual(len(all_records), 3)
+
+        limit1 = list_settlements_service(self.db, include_inactive=True, limit=1)
+        self.assertEqual(len(limit1), 1)
+        self.assertEqual(limit1[0].settlement_id, all_records[0].settlement_id)
+
+        skip1 = list_settlements_service(self.db, include_inactive=True, skip=1, limit=1)
+        self.assertEqual(len(skip1), 1)
+        self.assertEqual(skip1[0].settlement_id, all_records[1].settlement_id)
 
 
 if __name__ == "__main__":
