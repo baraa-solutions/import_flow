@@ -4,7 +4,7 @@ Pydantic Schemas for Financial & Management Approval (BP-012 & BP-013)
 
 from typing import Any, Dict, List, Literal, Optional
 from datetime import date, datetime
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from modules.common.legacy_rows import read_model
 from modules.financial_approval.validators import normalize_payment_type, require_payment_type
@@ -32,7 +32,7 @@ class PaymentRequestBase(BaseModel):
     requested_amount: float = Field(..., gt=0.0)
     advance_percentage: Optional[float] = Field(None, ge=0.0, le=100.0, description="Percentage of PO requested as advance")
     currency_code: str = Field(default="USD", max_length=10)
-    exchange_rate: float = Field(default=50.0, gt=0.0)
+    exchange_rate: Optional[float] = Field(default=None, gt=0.0)
     due_date: date
     request_date: Optional[date] = None
     status: Optional[str] = Field("Draft", description="Draft, Pending Approval, Approved, Paid, Rejected")
@@ -47,6 +47,7 @@ class PaymentRequestBase(BaseModel):
 class PaymentRequestCreate(PaymentRequestBase):
     # C1: no default rate. C4: ``status`` is server-owned (only Draft / Pending Approval are kept, else Draft).
     exchange_rate: float = Field(..., gt=0.0)
+    currency_code: str = Field(..., min_length=3, max_length=10)
 
     @field_validator("payment_type", mode="before")
     @classmethod
@@ -57,7 +58,7 @@ class PaymentRequestCreate(PaymentRequestBase):
 class ClonePaymentRequestRequest(BaseModel):
     new_title: Optional[str] = None
     target_supplier_id: Optional[int] = None
-    new_requested_amount: Optional[float] = None
+    new_requested_amount: Optional[float] = Field(None, gt=0.0)
     unlink_import_file: bool = False
     remarks: Optional[str] = None
 
@@ -100,7 +101,7 @@ class SwiftReconciliationRequest(BaseModel):
     swift_reference_no: str = Field(..., min_length=2, max_length=100, description="SWIFT Reference / MT103 No")
     swift_receipt_date: date = Field(..., description="Date SWIFT was received from the bank")
     swift_transferred_amount: float = Field(..., gt=0.0, description="Actual transferred amount according to SWIFT")
-    swift_transferred_currency: str = Field(default="USD", max_length=10)
+    swift_transferred_currency: str = Field(..., min_length=3, max_length=10)
     swift_reconciliation_notes: Optional[str] = None
 
 
@@ -146,25 +147,35 @@ class ImportBudgetBase(BaseModel):
     project_id: Optional[int] = None
     invoice_amount_egp: float = Field(default=0.0, ge=0.0)
     invoice_amount_foreign: float = Field(default=0.0, ge=0.0)
-    invoice_currency: str = Field(default="USD", max_length=10)
+    invoice_currency: Optional[str] = Field(default="USD", max_length=10)
     freight_cost_egp: float = Field(default=0.0, ge=0.0)
     freight_cost_foreign: float = Field(default=0.0, ge=0.0)
-    freight_currency: str = Field(default="USD", max_length=10)
+    freight_currency: Optional[str] = Field(default="USD", max_length=10)
     customs_duties_egp: float = Field(default=0.0, ge=0.0)
     clearance_inland_egp: float = Field(default=0.0, ge=0.0)
-    exchange_rate: float = Field(default=50.0, gt=0.0)
+    exchange_rate: Optional[float] = Field(default=None, gt=0.0)
     notes: Optional[str] = None
 
 
 class ImportBudgetCreate(ImportBudgetBase):
     exchange_rate: float = Field(..., gt=0.0)  # C1: no default rate
+    invoice_currency: Optional[str] = Field(None, max_length=10)
+    freight_currency: Optional[str] = Field(None, max_length=10)
+
+    @model_validator(mode="after")
+    def _validate_foreign_currencies(self) -> "ImportBudgetCreate":
+        if (self.invoice_amount_foreign or 0.0) > 0 and not (self.invoice_currency and self.invoice_currency.strip()):
+            raise ValueError("invoice_currency is required when invoice_amount_foreign > 0")
+        if (self.freight_cost_foreign or 0.0) > 0 and not (self.freight_currency and self.freight_currency.strip()):
+            raise ValueError("freight_currency is required when freight_cost_foreign > 0")
+        return self
 
 
 class CloneImportBudgetRequest(BaseModel):
     new_title: Optional[str] = None
     target_import_file_id: Optional[int] = None
     unlink_import_file: bool = False
-    new_exchange_rate: Optional[float] = None
+    new_exchange_rate: Optional[float] = Field(None, gt=0.0)
     remarks: Optional[str] = None
 
 
@@ -196,7 +207,14 @@ class ImportBudgetResponse(ImportBudgetBase):
     version: int = 1
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
-    total_budget_egp: float
+    invoice_amount_egp: Optional[float] = None
+    invoice_amount_foreign: Optional[float] = None
+    freight_cost_egp: Optional[float] = None
+    freight_cost_foreign: Optional[float] = None
+    customs_duties_egp: Optional[float] = None
+    clearance_inland_egp: Optional[float] = None
+    exchange_rate: Optional[float] = None
+    total_budget_egp: Optional[float] = None
     budget_status: str
     approved_by: Optional[str] = None
     approved_date: Optional[date] = None
@@ -223,7 +241,7 @@ class LinkedPOItemSchema(BaseModel):
     pi_number: Optional[str] = None
     project_id: Optional[int] = None
     project_name: Optional[str] = None
-    payment_terms: str
+    payment_terms: Optional[str] = None
     currency: str
     total_amount: float
     status: str
@@ -233,15 +251,15 @@ class BudgetPrefillResponse(BaseModel):
     import_file_id: int
     import_file_code: str
     import_file_title: str
-    incoterm: str
+    incoterm: Optional[str] = None
     supplier_id: Optional[int] = None
-    supplier_name: str
+    supplier_name: Optional[str] = None
     beneficiary_name: Optional[str] = None
     bank_name: Optional[str] = None
     swift_code: Optional[str] = None
     account_number: Optional[str] = None
     iban: Optional[str] = None
-    payment_terms_summary: str
+    payment_terms_summary: Optional[str] = None
     linked_pos: List[LinkedPOItemSchema] = []
     
     # Financial estimates
@@ -250,7 +268,7 @@ class BudgetPrefillResponse(BaseModel):
     total_invoice_amount_egp: float = 0.0
     
     estimated_freight_cost: float = 0.0
-    freight_currency: str = "USD"
+    freight_currency: Optional[str] = None
     estimated_freight_cost_egp: float = 0.0
     
     estimated_customs_duties_egp: float = 0.0
@@ -349,7 +367,7 @@ class SmartSwiftExtractRequest(BaseModel):
 
 class SmartSwiftFileExtractRequest(BaseModel):
     filename: str
-    file_base64: str
+    file_base64: str = Field(..., max_length=13_981_020)
     target_payment_id: Optional[int] = None
 
 
@@ -369,10 +387,10 @@ class SmartSwiftExtractResponse(BaseModel):
 class SmartSwiftReconcileRequest(BaseModel):
     payment_id: int
     raw_text: Optional[str] = None
-    swift_reference_no: str
+    swift_reference_no: str = Field(..., min_length=2, max_length=100)
     swift_receipt_date: date
-    swift_transferred_amount: float
-    swift_transferred_currency: str = "USD"
+    swift_transferred_amount: float = Field(..., gt=0.0)
+    swift_transferred_currency: str = Field(..., min_length=3, max_length=10)
     bank_name: Optional[str] = None
     swift_code: Optional[str] = None
     iban_account_no: Optional[str] = None

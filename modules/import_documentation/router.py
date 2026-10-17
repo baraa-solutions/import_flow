@@ -33,6 +33,10 @@ from modules.import_documentation.schemas import (
     BankingDocumentReceive,
     BankingDocumentResponse,
     BankingDocumentUpdate,
+    TaxCodingSheetPullRequest,
+    TaxCodingSheetUploadRequest,
+    ItemsVerificationConfirmRequest,
+    NafezaBankLinkConfirmRequest,
     CentralArchiveResponse,
     CertificateOfOriginReviewCreate,
     CertificateOfOriginReviewResponse,
@@ -262,6 +266,66 @@ def receive_banking_document(
         received_date=payload.received_date,
         notes=payload.notes,
         user=current_user.username,
+    )
+
+
+@router.post(
+    "/banking-documents/{bank_doc_id}/tax-coding-sheet/pull",
+    response_model=BankingDocumentResponse,
+)
+def record_tax_coding_sheet_pull(
+    bank_doc_id: int,
+    payload: TaxCodingSheetPullRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
+):
+    return service.record_tax_coding_sheet_pull_service(
+        db, bank_doc_id, payload, user=current_user.username
+    )
+
+
+@router.post(
+    "/banking-documents/{bank_doc_id}/tax-coding-sheet/upload",
+    response_model=BankingDocumentResponse,
+)
+def record_tax_coding_sheet_upload(
+    bank_doc_id: int,
+    payload: TaxCodingSheetUploadRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
+):
+    return service.record_tax_coding_sheet_upload_service(
+        db, bank_doc_id, payload, user=current_user.username
+    )
+
+
+@router.post(
+    "/banking-documents/{bank_doc_id}/items/verify",
+    response_model=BankingDocumentResponse,
+)
+def record_items_verification(
+    bank_doc_id: int,
+    payload: ItemsVerificationConfirmRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
+):
+    return service.record_items_verification_service(
+        db, bank_doc_id, payload, user=current_user.username
+    )
+
+
+@router.post(
+    "/banking-documents/{bank_doc_id}/nafeza-bank-link",
+    response_model=BankingDocumentResponse,
+)
+def record_nafeza_bank_link(
+    bank_doc_id: int,
+    payload: NafezaBankLinkConfirmRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
+):
+    return service.record_nafeza_bank_link_service(
+        db, bank_doc_id, payload, user=current_user.username
     )
 
 

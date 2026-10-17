@@ -17,7 +17,7 @@ from database.schema_upgrade_service import SchemaUpgradeService
 from utils import db_safety
 
 PREVIOUS = "c8d3e4f5a6b7"
-HEAD = "a0b1c2d3e4f5"  # current head; d9e4f5a6b7c8 is the revision under test
+HEAD = "e2f3a4b5c6d7"  # current head; d9e4f5a6b7c8 is the revision under test
 
 
 def _db(db_file: Path, *, drop_new: bool) -> None:

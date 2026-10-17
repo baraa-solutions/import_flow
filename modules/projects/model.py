@@ -43,6 +43,7 @@ class Project(Base):
     allow_multi_company = Column(Boolean, default=True, nullable=False)   # التعامل مع أكثر من شركة/خط شحن
 
     total_budget_usd = Column(Numeric(14, 2), nullable=True)
+    budget_currency = Column(String(10), nullable=False, default="USD", server_default="USD")
     target_end_date = Column(String(50), nullable=True)  # YYYY-MM-DD target completion date
     status = Column(String(50), nullable=False, default="Open", index=True)  # Open, Closed, On Hold
     notes = Column(Text, nullable=True)

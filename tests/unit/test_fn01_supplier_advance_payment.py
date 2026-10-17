@@ -342,6 +342,7 @@ def test_fn01_duplicate_advance_payment_prevention(db_session, seed_data):
         supplier_name=supplier.company_name,
         payment_type="Advance Payment",
         requested_amount=25500.0,
+        currency_code="USD",
         exchange_rate=48.50,
         due_date=date.today() + timedelta(days=7),
     )
@@ -354,6 +355,7 @@ def test_fn01_duplicate_advance_payment_prevention(db_session, seed_data):
         supplier_name=supplier.company_name,
         payment_type="Advance Payment",
         requested_amount=10000.0,
+        currency_code="USD",
         exchange_rate=48.50,
         due_date=date.today() + timedelta(days=7),
     )

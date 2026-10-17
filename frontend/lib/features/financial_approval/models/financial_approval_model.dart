@@ -36,7 +36,7 @@ class LinkedPOItemModel {
       piNumber: json['pi_number'],
       projectId: json['project_id'],
       projectName: json['project_name'],
-      paymentTerms: json['payment_terms'] ?? 'Standard',
+      paymentTerms: json['payment_terms'] ?? '',
       currency: json['currency'] ?? 'USD',
       totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
       status: json['status'] ?? 'Draft',
@@ -104,7 +104,7 @@ class BudgetPrefillModel {
     this.invoiceCurrency = 'USD',
     required this.totalInvoiceAmountEgp,
     required this.estimatedFreightCost,
-    this.freightCurrency = 'USD',
+    this.freightCurrency = '',
     required this.estimatedFreightCostEgp,
     required this.estimatedCustomsDutiesEgp,
     required this.estimatedClearanceFeesEgp,
@@ -124,7 +124,7 @@ class BudgetPrefillModel {
       importFileId: json['import_file_id'] ?? 0,
       importFileCode: json['import_file_code'] ?? '',
       importFileTitle: json['import_file_title'] ?? '',
-      incoterm: json['incoterm'] ?? 'FOB',
+      incoterm: json['incoterm'] ?? '',
       supplierId: json['supplier_id'],
       supplierName: json['supplier_name'] ?? '',
       beneficiaryName: json['beneficiary_name'],
@@ -141,7 +141,7 @@ class BudgetPrefillModel {
           (json['total_invoice_amount_egp'] as num?)?.toDouble() ?? 0.0,
       estimatedFreightCost:
           (json['estimated_freight_cost'] as num?)?.toDouble() ?? 0.0,
-      freightCurrency: json['freight_currency'] ?? 'USD',
+      freightCurrency: json['freight_currency'] ?? '',
       estimatedFreightCostEgp:
           (json['estimated_freight_cost_egp'] as num?)?.toDouble() ?? 0.0,
       estimatedCustomsDutiesEgp:
