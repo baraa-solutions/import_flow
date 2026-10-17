@@ -3,16 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/compact_table_pagination_footer.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/currency_model.dart';
 
 import '../providers/currencies_provider.dart';
@@ -52,7 +46,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
     final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
     if (currencies.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.noCurrenciesFound), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(context, l10n.noCurrenciesFound, severity: AppSeverity.danger),
       );
       return;
     }
@@ -114,19 +108,13 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                 : res.data['message_en']) ??
             l10n.syncRatesSuccess;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppTheme.emerald,
-            content: Text(serverMsg),
-          ),
+          AppTheme.snackBar(context, serverMsg, severity: AppSeverity.success),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppTheme.crimson,
-            content: Text(l10n.syncRatesFailed(e.toString())),
-          ),
+          AppTheme.snackBar(context, l10n.syncRatesFailed(e.toString()), severity: AppSeverity.danger),
         );
       }
     }
@@ -329,14 +317,16 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
             // Table Content
             Expanded(
               child: currenciesAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
-                error: (err, stack) => Center(
-                  child: Text(l10n.currenciesFetchError(err.toString()), style: const TextStyle(color: AppTheme.crimson)),
+                loading: () => const AppLoadingState(),
+                error: (err, stack) => AppErrorState(
+                  message: l10n.currenciesFetchError(err.toString()),
+                  onRetry: () => ref.read(currenciesProvider.notifier).fetchCurrencies(),
                 ),
                 data: (currencies) {
                   if (currencies.isEmpty) {
-                    return Center(
-                      child: Text(l10n.noCurrenciesFound, style: const TextStyle(color: Colors.grey, fontSize: 15)),
+                    return AppEmptyState(
+                      icon: Icons.currency_exchange,
+                      message: l10n.noCurrenciesFound,
                     );
                   }
 
@@ -349,15 +339,14 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       ? currencies.sublist(startIndex, endIndex)
                       : <CurrencyModel>[];
 
-                  final isDark = Theme.of(context).brightness == Brightness.dark;
                   return Container(
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                      color: AppTheme.surfaceOf(context),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0)),
+                      border: Border.all(color: AppTheme.borderOf(context)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                          color: Colors.black.withValues(alpha: AppTheme.isDark(context) ? 0.2 : 0.04),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -448,22 +437,12 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                               onDelete: c.isBaseCurrency
                                                   ? null
                                                   : () async {
-                                                      final confirm = await showDialog<bool>(
-                                                        context: context,
-                                                        builder: (ctx) => AlertDialog(
-                                                          title: Text(l10n.confirmActionTitle),
-                                                          content: Text(isActive
-                                                              ? l10n.confirmDeactivateCurrency(c.currencyCode, c.currencyName)
-                                                              : l10n.confirmActivateCurrency(c.currencyCode, c.currencyName)),
-                                                          actions: [
-                                                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                                            ElevatedButton(
-                                                              onPressed: () => Navigator.pop(ctx, true),
-                                                              style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                              child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                                                            ),
-                                                          ],
-                                                        ),
+                                                      final confirm = await AppConfirmDialog.showToggleActive(
+                                                        context,
+                                                        isCurrentlyActive: isActive,
+                                                        message: isActive
+                                                            ? l10n.confirmDeactivateCurrency(c.currencyCode, c.currencyName)
+                                                            : l10n.confirmActivateCurrency(c.currencyCode, c.currencyName),
                                                       );
                                                       if (confirm == true && c.currencyId != null) {
                                                         ref.read(currenciesProvider.notifier).toggleActive(c.currencyId!, isActive);
@@ -493,7 +472,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                 decoration: BoxDecoration(
-                                                  color: (c.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt).withOpacity(0.1),
+                                                  color: (c.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt).withValues(alpha: 0.1),
                                                   borderRadius: BorderRadius.circular(4),
                                                 ),
                                                 child: Row(
@@ -511,7 +490,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                                     Icon(
                                                       Icons.copy_rounded,
                                                       size: 11,
-                                                      color: (c.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt).withOpacity(0.7),
+                                                      color: (c.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt).withValues(alpha: 0.7),
                                                     ),
                                                   ],
                                                 ),
@@ -558,7 +537,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                                   child: Icon(
                                                     Icons.history_edu,
                                                     size: 16,
-                                                    color: AppTheme.cobalt.withOpacity(0.7),
+                                                    color: AppTheme.cobalt.withValues(alpha: 0.7),
                                                   ),
                                                 ),
                                               ],
@@ -621,20 +600,10 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                       _cell(
                                         value: isActive ? l10n.statusActive : l10n.statusInactive,
                                         rowSummary: rowSummary,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: Text(
-                                            isActive ? l10n.statusActive : l10n.statusInactive,
-                                            style: TextStyle(
-                                              color: isActive ? AppTheme.emerald : AppTheme.crimson,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
+                                        child: AppStatusBadge(
+                                          label: isActive ? l10n.statusActive : l10n.statusInactive,
+                                          severity: isActive ? AppSeverity.success : AppSeverity.danger,
+                                          size: AppStatusBadgeSize.small,
                                         ),
                                       ),
 
@@ -839,16 +808,16 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 20),
@@ -1051,7 +1020,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   // History Table
                   Expanded(
                     child: isLoading
-                        ? const Center(child: CircularProgressIndicator(color: AppTheme.cobalt))
+                        ? const AppLoadingState()
                         : (currency.isBaseCurrency
                             ? Center(
                                 child: Container(
@@ -1080,38 +1049,20 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                 ),
                               )
                             : (rates.isEmpty
-                                ? Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.history_toggle_off, size: 48, color: Colors.grey.shade400),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          l10n.noRateHistoryForCurrency(currency.currencyCode),
-                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        ElevatedButton.icon(
-                                          onPressed: () {
-                                            Navigator.pop(ctx);
-                                            _showAddRateDialog(context, preSelectedCurrencyId: currency.currencyId);
-                                          },
-                                          icon: const Icon(Icons.add, size: 16, color: Colors.white),
-                                          label: Text(l10n.recordFirstExchangeRateBtn,
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppTheme.cobalt,
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                ? AppEmptyState(
+                                    icon: Icons.history_toggle_off,
+                                    message: l10n.noRateHistoryForCurrency(currency.currencyCode),
+                                    actionLabel: l10n.recordFirstExchangeRateBtn,
+                                    onAction: () {
+                                      Navigator.pop(ctx);
+                                      _showAddRateDialog(context, preSelectedCurrencyId: currency.currencyId);
+                                    },
                                   )
                                 : Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: AppTheme.surfaceOf(context),
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: Colors.grey.shade200),
+                                      border: Border.all(color: AppTheme.borderOf(context)),
                                     ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(10),
@@ -1125,7 +1076,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                           final isLatest = idx == 0;
 
                                           return Container(
-                                            color: isLatest ? AppTheme.cobalt.withOpacity(0.04) : Colors.white,
+                                            color: isLatest ? AppTheme.cobalt.withValues(alpha: 0.04) : AppTheme.surfaceOf(context),
                                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                             child: Row(
                                               children: [
@@ -1321,16 +1272,10 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    ListTile(
-                      title: Text(l10n.effectiveDateLabel(selectedDate.toIso8601String().split('T').first)),
-                      trailing: const Icon(Icons.calendar_today, color: AppTheme.cobalt),
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                        );
+                    AppDatePickerField(
+                      value: selectedDate,
+                      label: l10n.effectiveDateLabel(selectedDate.toIso8601String().split('T').first),
+                      onChanged: (picked) {
                         if (picked != null) {
                           setDialogState(() => selectedDate = picked);
                         }
@@ -1521,9 +1466,9 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: AppTheme.cobalt.withOpacity(0.08),
+                            color: AppTheme.cobalt.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                            border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1742,10 +1687,10 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: (resultData!['is_gain'] as bool) ? AppTheme.emerald.withOpacity(0.08) : AppTheme.crimson.withOpacity(0.08),
+                            color: (resultData!['is_gain'] as bool) ? AppTheme.emerald.withValues(alpha: 0.08) : AppTheme.crimson.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: (resultData!['is_gain'] as bool) ? AppTheme.emerald.withOpacity(0.4) : AppTheme.crimson.withOpacity(0.4),
+                              color: (resultData!['is_gain'] as bool) ? AppTheme.emerald.withValues(alpha: 0.4) : AppTheme.crimson.withValues(alpha: 0.4),
                             ),
                           ),
                           child: Column(

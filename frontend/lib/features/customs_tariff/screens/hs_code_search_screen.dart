@@ -39,8 +39,8 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
   late TabController _tabController;
 
   // Duty Estimator for Selected HS Code
-  final _cifValueCtrl = TextEditingController(text: '10000');
-  final _freightCtrl = TextEditingController(text: '1000');
+  final _cifValueCtrl = TextEditingController();
+  final _freightCtrl = TextEditingController();
   String _selectedOriginCountry = 'ITALY';
   CustomsDutyBreakdownModel? _dutyBreakdown;
   bool _isCalculating = false;

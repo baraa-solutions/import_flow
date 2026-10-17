@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/core/localization/app_localizations_en.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/customs_clearance/models/customs_clearance_model.dart';
 import 'package:frontend/features/customs_clearance/providers/customs_clearance_provider.dart';
@@ -134,6 +135,8 @@ void main() {
   });
 
   group('UnderBondReleaseDialog (widget)', () {
+    const en = AppLocalizationsEn();
+
     Future<void> pump(WidgetTester tester, ProviderContainer c, {required bool lab}) async {
       await tester.binding.setSurfaceSize(const Size(1000, 1000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -154,12 +157,31 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    testWidgets('under-bond mode starts with empty bond ref and fails validation on empty submit', (tester) async {
+      final adapter = _RecordingAdapter();
+      final c = _container(adapter);
+      addTearDown(c.dispose);
+      await pump(tester, c, lab: false);
+      adapter.requests.clear();
+
+      expect(find.textContaining('BOND-EG-'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('underBondConfirmBtn')));
+      await tester.pumpAndSettle();
+
+      expect(adapter.requests.where((r) => r.method == 'POST'), isEmpty);
+      expect(find.text(en.underBondRefRequired), findsOneWidget);
+    });
+
     testWidgets('under-bond submit sends the corrected payload', (tester) async {
       final adapter = _RecordingAdapter();
       final c = _container(adapter);
       addTearDown(c.dispose);
       await pump(tester, c, lab: false);
       adapter.requests.clear();
+
+      await tester.enterText(find.byKey(const Key('underBondRefField')), 'BOND-2026-001');
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const Key('underBondConfirmBtn')));
       await tester.pumpAndSettle();
@@ -168,8 +190,48 @@ void main() {
       expect(post.path, endsWith('/customs-clearance/7/under-bond-release'));
       final data = post.data as Map;
       expect(data['temporary_release_date'], isNotNull);
-      expect(data['bond_guarantee_ref'], isNotEmpty);
+      expect(data['bond_guarantee_ref'], 'BOND-2026-001');
       expect(data.containsKey('quarantine_location'), isFalse);
+    });
+
+    testWidgets('lab mode starts with empty cert, unselected verdict, and fails validation on empty submit', (tester) async {
+      final adapter = _RecordingAdapter();
+      final c = _container(adapter);
+      addTearDown(c.dispose);
+      await pump(tester, c, lab: true);
+      adapter.requests.clear();
+
+      expect(find.textContaining('LAB-GOEIC-'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('underBondLabSubmitBtn')));
+      await tester.pumpAndSettle();
+
+      expect(adapter.requests.where((r) => r.method == 'POST'), isEmpty);
+      expect(find.text(en.underBondCertRequired), findsOneWidget);
+      expect(find.text(en.underBondLabVerdictRequired), findsOneWidget);
+    });
+
+    testWidgets('conforming verdict asks for confirmation; cancelling sends nothing', (tester) async {
+      final adapter = _RecordingAdapter();
+      final c = _container(adapter);
+      addTearDown(c.dispose);
+      await pump(tester, c, lab: true);
+      adapter.requests.clear();
+
+      await tester.enterText(find.byKey(const Key('underBondLabCertField')), 'LAB-CERT-123');
+      await tester.tap(find.byKey(const Key('underBondVerdictConformingRadio')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('underBondLabSubmitBtn')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(en.underBondConfirmLiftTitle), findsOneWidget);
+      expect(find.text(en.underBondConfirmLiftBody), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('underBondConfirmLiftCancelBtn')));
+      await tester.pumpAndSettle();
+
+      expect(adapter.requests.where((r) => r.method == 'POST'), isEmpty);
     });
 
     testWidgets('lab submit sends lab_test_result and shows the backend message on failure', (tester) async {
@@ -178,7 +240,15 @@ void main() {
       addTearDown(c.dispose);
       await pump(tester, c, lab: true);
 
+      await tester.enterText(find.byKey(const Key('underBondLabCertField')), 'LAB-CERT-999');
+      await tester.tap(find.byKey(const Key('underBondVerdictConformingRadio')));
+      await tester.pumpAndSettle();
+
       await tester.tap(find.byKey(const Key('underBondLabSubmitBtn')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(en.underBondConfirmLiftTitle), findsOneWidget);
+      await tester.tap(find.byKey(const Key('underBondConfirmLiftConfirmBtn')));
       await tester.pumpAndSettle();
 
       final post = adapter.requests.firstWhere((r) => r.method == 'POST');

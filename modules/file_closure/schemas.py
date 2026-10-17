@@ -101,6 +101,8 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
 
     # Purchase Orders & FOB values
     purchase_orders: List[Dict[str, Any]] = Field(default_factory=list)
+    pos_count: int = 0
+    invoices_count: int = 0
     fob_by_currency: Dict[str, float] = Field(default_factory=dict, description="FOB sums grouped by currency code")
     total_fob_fc: Optional[float] = Field(None, description="null when multi-currency or unknown currency")
     total_fob_egp: Optional[float] = Field(None, description="null when no customs exchange rate is configured or unknown currency")
@@ -160,6 +162,16 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
     sections: List[DossierSectionSummary] = Field(default_factory=list)
     closure_readiness: Dict[str, bool] = Field(default_factory=dict)
     summary_notes: Optional[str] = None
+
+    # Enhanced Master Dossier Details
+    containers: List[Dict[str, Any]] = Field(default_factory=list, description="Container loading and seal details (liner_seal_no, customs_seal_no)")
+    fx_reconciliation: Optional[Dict[str, Any]] = Field(None, description="Customs vs commercial bank FX reconciliation")
+    timeline_events: List[Dict[str, Any]] = Field(default_factory=list, description="Chronological timeline events with SLA differences")
+    eta_revisions_log: List[Dict[str, Any]] = Field(default_factory=list, description="Historical log of ETA tracking changes and arrival drifts")
+    cargo_physical_summary: Optional[Dict[str, Any]] = Field(None, description="Physical KPI breakdown (CBM, weights, invoice/PO counts)")
+    similar_past_shipments: List[Dict[str, Any]] = Field(default_factory=list, description="Historical similar matching shipments with cost and time variance")
+    recurring_patterns: List[Dict[str, Any]] = Field(default_factory=list, description="Recurring operational patterns discovered for supplier, line, or port")
+    institutional_knowledge: Optional[Dict[str, Any]] = Field(None, description="Matched institutional knowledge, alerts, and operational patterns")
 
     model_config = ConfigDict(from_attributes=True)
 

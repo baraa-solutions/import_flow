@@ -449,7 +449,7 @@ def test_engine_trigger_values_are_whitelisted():
         ("put", "/banking-documents/1", {"status": "Bogus"}),
         ("post", "/coo", {"import_file_id": 1, "status": "Bogus"}),
         ("put", "/inspection/1", {"status": "Bogus"}),
-        ("post", "/po-reconciliation/sessions", {"import_file_id": 1, "overall_status": "Bogus"}),
+        ("post", "/po-reconciliation/sessions", {"import_file_id": 1, "currency": "USD", "overall_status": "Bogus"}),
         ("put", "/po-reconciliation/sessions/1", {"overall_status": "Bogus"}),
         ("post", "/invoice-bl/sessions", {"import_file_id": 1, "overall_status": "Bogus"}),
     ],
@@ -598,7 +598,7 @@ def test_inactive_reconciliation_lookup_and_reactivate(db):
     found = repo.get_inactive_po_reconciliation_by_file(db, 5)
     assert found.session_id == row.session_id
     again = repo.reactivate_po_reconciliation_session(
-        db, found, POReconciliationSessionCreate(import_file_id=5, final_invoice_number="NEW")
+        db, found, POReconciliationSessionCreate(import_file_id=5, currency="USD", final_invoice_number="NEW")
     )
     assert again.is_active is True
     assert again.session_code == f"REC-{YEAR}-0003"

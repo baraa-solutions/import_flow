@@ -26,8 +26,11 @@ from utils.migration_linter import MigrationLinter
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS_HEAD = "d3e4f5a6b7c8"
+
+
+
 # Current Alembic head (users.must_change_password). BASELINE_REVISION is the stamp baseline before it.
-HEAD_REVISION = "b2c3d4e5f6a7"
+HEAD_REVISION = "73cee71ca978"
 
 
 class _SpyMasterData:
@@ -379,11 +382,30 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     assert migration_runner.get_head_revision() == HEAD_REVISION
     # baseline -> f7a1c3e5b9d2 (users.must_change_password) -> b7c1d2e3f4a5 (system message codes)
     # -> c8d3e4f5a6b7 (email listener message codes) -> d9e4f5a6b7c8 (tax rates, B/L blocking codes)
-    # -> e5f6a7b8c9d0 (system_parameters, PO created_by/updated_by)
     # -> f6a7b8c9d0e1 (CBM shipment_mode, planning sessions created_by/updated_by)
     # -> a0b1c2d3e4f5 (audit & soft-delete columns across models)
-    # -> head b2c3d4e5f6a7 (shipped_on_board_date on shipment_bookings)
-    assert script.get_revision(HEAD_REVISION).down_revision == "a0b1c2d3e4f5"
+    # -> b2c3d4e5f6a7 (shipped_on_board_date on shipment_bookings)
+    # -> c7e1f2a3b4d5 (customs_consultation_sessions broker_id / broker_name nullable)
+    # -> d1a2b3c4e5f6 (MD02 and MD04 fields)
+    # -> c3d4e5f6a7b8 (trademark and contact fields)
+    # -> d4e5f6a7b8c9 (logistics service invoices and insurance policies)
+    # -> e4f5a6b7c8d9 (pre-Form 4 readiness pipeline)
+    # -> a1b2c3d4e5f6 (budget_currency in projects)
+    # -> e2f3a4b5c6d7 (legacy budget column backfill)
+    # -> f3a4b5c6d7e8 (partial shipments linkage DEV-OPS-04)
+    # -> head 73cee71ca978 (shipment_containers table DEV-OPS-01)
+    assert script.get_revision(HEAD_REVISION).down_revision == "f3a4b5c6d7e8"
+    assert script.get_revision("f3a4b5c6d7e8").down_revision == "e2f3a4b5c6d7"
+    assert script.get_revision("e2f3a4b5c6d7").down_revision == "a1b2c3d4e5f6"
+    assert script.get_revision("a1b2c3d4e5f6").down_revision == "e4f5a6b7c8d9"
+    assert script.get_revision("e4f5a6b7c8d9").down_revision == "d4e5f6a7b8c9"
+    assert script.get_revision("d4e5f6a7b8c9").down_revision == "c3d4e5f6a7b8"
+    assert script.get_revision("c3d4e5f6a7b8").down_revision == "d1a2b3c4e5f6"
+    assert script.get_revision("d1a2b3c4e5f6").down_revision == "c7e1f2a3b4d5"
+    assert script.get_revision("c7e1f2a3b4d5").down_revision == "b2c3d4e5f6a7"
+    assert script.get_revision("b2c3d4e5f6a7").down_revision == "a0b1c2d3e4f5"
+
+
     assert script.get_revision("a0b1c2d3e4f5").down_revision == "f6a7b8c9d0e1"
     assert script.get_revision("f6a7b8c9d0e1").down_revision == "e5f6a7b8c9d0"
     assert script.get_revision("e5f6a7b8c9d0").down_revision == "d9e4f5a6b7c8"

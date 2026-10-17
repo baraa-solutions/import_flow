@@ -11,6 +11,7 @@ class ApiErrorCode {
   static const customsFxRateMissing = 'CUSTOMS_FX_RATE_MISSING';
   static const irAssessmentExists = 'IR_ASSESSMENT_EXISTS';
   static const scenarioSessionExists = 'SCENARIO_SESSION_EXISTS';
+  static const scenarioItemsBooked = 'SCENARIO_ITEMS_BOOKED';
   static const consultationExists = 'CONSULTATION_EXISTS';
   static const ccSettlementLocked = 'CC_SETTLEMENT_LOCKED';
   static const wrClaimCurrencyInvalid = 'WR_CLAIM_CURRENCY_INVALID';
@@ -19,6 +20,7 @@ class ApiErrorCode {
   static const currencyRateMissing = 'CURRENCY_RATE_MISSING';
   static const ctCustomsRateMissing = 'CT_CUSTOMS_RATE_MISSING';
   static const importFileClosed = 'IMPORT_FILE_CLOSED';
+  static const ifStatusTransitionInvalid = 'IF_STATUS_TRANSITION_INVALID';
   static const wrFieldNotEditable = 'WR_FIELD_NOT_EDITABLE';
   static const wrStatusChangeNotAllowed = 'WR_STATUS_CHANGE_NOT_ALLOWED';
   static const wrCustomsNotReleased = 'WR_CUSTOMS_NOT_RELEASED';

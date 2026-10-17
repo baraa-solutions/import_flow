@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' as io;
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
@@ -43,5 +44,23 @@ class FilePickerHelper {
   /// Resolves an entire list of [PlatformFile] items ensuring each valid file has its [bytes] loaded.
   static List<PlatformFile> resolveFilesWithBytes(List<PlatformFile> files) {
     return files.map((f) => withBytes(f)).where((f) => f.bytes != null && f.bytes!.isNotEmpty).toList();
+  }
+
+  static const List<String> _plainTextExtensions = ['txt', 'csv', 'json', 'xml', 'log'];
+
+  /// Whether [name]'s extension (text after the last `.`, case-insensitive)
+  /// is a plain-text format whose content can be shown directly in a text field.
+  static bool isPlainTextFile(String name) =>
+      _plainTextExtensions.contains(name.split('.').last.toLowerCase());
+
+  /// Decodes [bytes] as UTF-8 (malformed sequences allowed).
+  /// Returns `null` when [bytes] is null, and an empty string if decoding throws.
+  static String? tryDecodeText(Uint8List? bytes) {
+    if (bytes == null) return null;
+    try {
+      return utf8.decode(bytes, allowMalformed: true);
+    } catch (_) {
+      return '';
+    }
   }
 }
