@@ -13213,6 +13213,10 @@ class AppLocalizationsAr extends AppLocalizations {
       'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 20 قدم، ولكن لم يتم تخصيص أي حاوية 20 قدم). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
   @override String get fbkQuoteEquipmentMismatchBoth =>
       'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 40 و20 قدم، ولكن الحاويات المطابقة غير موجودة). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
+  @override String get customsFxRateRequired => 'سعر الصرف الجمركي مطلوب لاحتساب الرسوم والضرائب.';
+  @override String get addPoLinesWithHsToEstimateDuties => 'يرجى إضافة بنود أوامر الشراء مصحوبة بالبنود الجمركية (HS Codes) لاحتساب الرسوم والضرائب بدقة.';
+  @override String get customsMissingTariffBlockSave => 'تعذر الحفظ: بعض البنود لا تحتوي على تعريفة جمركية. يرجى تعيين التعريفة الجمركية أولاً.';
+  @override String get missingTariffLinesWarning => 'بنود بدون تعريفة جمركية';
   // === end review phase08_10 keys ===
 }
 

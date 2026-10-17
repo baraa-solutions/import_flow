@@ -10491,6 +10491,10 @@ abstract class AppLocalizations {
   String get fbkQuoteEquipmentMismatch40ft;
   String get fbkQuoteEquipmentMismatch20ft;
   String get fbkQuoteEquipmentMismatchBoth;
+  String get customsFxRateRequired;
+  String get addPoLinesWithHsToEstimateDuties;
+  String get customsMissingTariffBlockSave;
+  String get missingTariffLinesWarning;
   // === end review phase08_10 keys ===
 }
 

@@ -13212,6 +13212,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The allocated equipment does not match the quoted container sizes (quoted 20ft, but no 20ft container is allocated). Please adjust equipment or re-apply quote.';
   @override String get fbkQuoteEquipmentMismatchBoth =>
       'The allocated equipment does not match the quoted container sizes (quoted 40ft and 20ft, but matching containers are missing). Please adjust equipment or re-apply quote.';
+  @override String get customsFxRateRequired => 'Customs exchange rate is required to calculate duties.';
+  @override String get addPoLinesWithHsToEstimateDuties => 'Add PO lines with HS codes to estimate duties and taxes.';
+  @override String get customsMissingTariffBlockSave => 'Cannot save: Some lines are missing customs tariff. Please assign tariffs first.';
+  @override String get missingTariffLinesWarning => 'Lines missing customs tariffs';
   // === end review phase08_10 keys ===
 }
 
