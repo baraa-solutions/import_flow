@@ -930,6 +930,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         }
 
         if (isDraftProgressive) {
+          ref.read(cargoShippingProvider.notifier).fetchRecords(includeInactive: true);
           ScaffoldMessenger.of(context).showSnackBar(
             AppTheme.snackBar(context, context.l10n.cargoShippingDraftSaveSuccess, severity: AppSeverity.success),
           );
@@ -953,7 +954,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       }
     } catch (e) {
       if (mounted) {
-        final errorMsg = e.toString().replaceAll('Exception:', '').trim();
+        final errorMsg = e is DioException
+            ? (e.response?.data is Map && e.response?.data?['detail'] != null
+                ? e.response!.data['detail'].toString()
+                : (e.message ?? 'Server error'))
+            : e.toString().replaceAll('Exception:', '').trim();
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
