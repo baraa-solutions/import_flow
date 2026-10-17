@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../auth/models/rbac_models.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/providers/rbac_provider.dart';
@@ -313,26 +313,20 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
 
                       if (!ctx.mounted) return;
                       if (error != null) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                          content: Row(children: [
-                            const Icon(Icons.error_outline, color: Colors.white),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(error)),
-                          ]),
-                          backgroundColor: AppTheme.crimson,
-                          behavior: SnackBarBehavior.floating,
-                        ));
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          AppTheme.snackBar(ctx, error, severity: AppSeverity.danger),
+                        );
                       } else {
                         Navigator.pop(ctx);
-                        messenger.showSnackBar(SnackBar(
-                          content: Row(children: [
-                            const Icon(Icons.check_circle_outline, color: Colors.white),
-                            const SizedBox(width: 8),
-                            Text(isEdit ? l.usersMgmtSuccessUpdated : l.usersMgmtSuccessCreated),
-                          ]),
-                          backgroundColor: AppTheme.emerald,
-                          behavior: SnackBarBehavior.floating,
-                        ));
+                        if (mounted) {
+                          messenger.showSnackBar(
+                            AppTheme.snackBar(
+                              context,
+                              isEdit ? l.usersMgmtSuccessUpdated : l.usersMgmtSuccessCreated,
+                              severity: AppSeverity.success,
+                            ),
+                          );
+                        }
                       }
                     },
               icon: isSaving
@@ -360,91 +354,32 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
 
   // ─── Toggle Status Confirm Dialog ──────────────────────────────────────────
 
-  void _showToggleConfirmDialog(UserDetail user) {
+  Future<void> _showToggleConfirmDialog(UserDetail user) async {
     final l = context.l10n;
     final isActivating = !user.isActive;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              isActivating ? Icons.check_circle_outline : Icons.block_outlined,
-              color: isActivating ? AppTheme.emerald : AppTheme.crimson,
-            ),
-            const SizedBox(width: 10),
-            Text(isActivating ? l.usersMgmtConfirmActivateTitle : l.usersMgmtConfirmDeactivateTitle),
-          ],
-        ),
-        content: SelectionArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isActivating
-                    ? l.usersMgmtConfirmActivatePrompt
-                    : l.usersMgmtConfirmDeactivatePrompt,
-                style: TextStyle(color: Colors.grey.shade700),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: _roleColor(user.role).withOpacity(0.15),
-                      radius: 18,
-                      child: Icon(_roleIcon(user.role), color: _roleColor(user.role), size: 18),
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text('@${user.username}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.usersMgmtBtnCancel)),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final error = await ref.read(usersProvider.notifier).toggleUserStatus(user.userId);
-              if (!mounted) return;
-              if (error != null) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(error),
-                  backgroundColor: AppTheme.crimson,
-                  behavior: SnackBarBehavior.floating,
-                ));
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(isActivating ? l.usersMgmtSuccessActivated : l.usersMgmtSuccessDeactivated),
-                  backgroundColor: isActivating ? AppTheme.emerald : AppTheme.orange,
-                  behavior: SnackBarBehavior.floating,
-                ));
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isActivating ? AppTheme.emerald : AppTheme.crimson,
-            ),
-            child: Text(isActivating ? l.usersMgmtBtnActivate : l.usersMgmtBtnDeactivate),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.showToggleActive(
+      context,
+      isCurrentlyActive: user.isActive,
+      entityName: '${user.fullName} (@${user.username})',
+      confirmLabel: isActivating ? l.usersMgmtBtnActivate : l.usersMgmtBtnDeactivate,
+      cancelLabel: l.usersMgmtBtnCancel,
     );
+    if (!confirmed || !mounted) return;
+    final error = await ref.read(usersProvider.notifier).toggleUserStatus(user.userId);
+    if (!mounted) return;
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(context, error, severity: AppSeverity.danger),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(
+          context,
+          isActivating ? l.usersMgmtSuccessActivated : l.usersMgmtSuccessDeactivated,
+          severity: isActivating ? AppSeverity.success : AppSeverity.warning,
+        ),
+      );
+    }
   }
 
   // ─── User Permissions Dialog ────────────────────────────────────────────────
@@ -473,11 +408,9 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
     Navigator.of(context).pop(); // close loading indicator
 
     if (userPerms == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(l.usersMgmtPermLoadError),
-        backgroundColor: AppTheme.crimson,
-        behavior: SnackBarBehavior.floating,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(context, l.usersMgmtPermLoadError, severity: AppSeverity.danger),
+      );
       return;
     }
 
@@ -822,20 +755,22 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
 
                                   if (!ctx.mounted) return;
                                   if (error != null) {
-                                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                                      content: Text(error),
-                                      backgroundColor: AppTheme.crimson,
-                                      behavior: SnackBarBehavior.floating,
-                                    ));
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      AppTheme.snackBar(ctx, error, severity: AppSeverity.danger),
+                                    );
                                   } else {
                                     Navigator.pop(ctx);
-                                    // Refresh user list to reflect role_id change
-                                    ref.read(usersProvider.notifier).fetchUsers();
-                                    messenger.showSnackBar(SnackBar(
-                                      content: Text(l.usersMgmtPermSavedSuccess),
-                                      backgroundColor: AppTheme.emerald,
-                                      behavior: SnackBarBehavior.floating,
-                                    ));
+                                    if (mounted) {
+                                      // Refresh user list to reflect role_id change
+                                      ref.read(usersProvider.notifier).fetchUsers();
+                                      messenger.showSnackBar(
+                                        AppTheme.snackBar(
+                                          context,
+                                          l.usersMgmtPermSavedSuccess,
+                                          severity: AppSeverity.success,
+                                        ),
+                                      );
+                                    }
                                   }
                                 },
                           icon: isSaving
@@ -902,7 +837,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
             // ── Table Area ──────────────────────────────────────────────────
             Expanded(
               child: usersState.isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppLoadingState()
                   : usersState.error != null
                       ? _buildErrorState(usersState.error!)
                       : filtered.isEmpty
@@ -922,8 +857,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        color: AppTheme.surfaceOf(context),
+        border: Border(bottom: BorderSide(color: AppTheme.borderOf(context))),
       ),
       child: Wrap(
         spacing: 8,
@@ -1002,8 +937,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        color: AppTheme.surfaceOf(context),
+        border: Border(bottom: BorderSide(color: AppTheme.borderOf(context))),
         boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: Row(
@@ -1011,7 +946,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.cobalt.withOpacity(0.10),
+              color: AppTheme.cobalt.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.manage_accounts_rounded, color: AppTheme.cobalt, size: 22),
@@ -1022,11 +957,11 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
             children: [
               Text(
                 l.usersMgmtTitle,
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context)),
               ),
               Text(
                 l.usersMgmtSubtitle(state.users.length),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
               ),
             ],
           ),
@@ -1186,9 +1121,9 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: AppTheme.charcoal.withOpacity(0.06),
+              color: AppTheme.surfaceAltOf(context),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: AppTheme.borderOf(context)),
             ),
             child: Row(
               children: [
@@ -1206,9 +1141,9 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           // Rows
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surfaceOf(context),
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: AppTheme.borderOf(context)),
             ),
             child: ListView.separated(
               physics: const NeverScrollableScrollPhysics(),
@@ -1436,41 +1371,10 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
             child: CopyableTableCell(
               value: user.isActive ? l.usersMgmtStatusActive : l.usersMgmtStatusInactive,
               rowSummary: rowSummary,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: user.isActive
-                      ? AppTheme.emerald.withOpacity(0.10)
-                      : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: user.isActive
-                        ? AppTheme.emerald.withOpacity(0.4)
-                        : Colors.grey.shade300,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      user.isActive ? Icons.circle : Icons.circle_outlined,
-                      size: 7,
-                      color: user.isActive ? AppTheme.emerald : Colors.grey.shade400,
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        user.isActive ? l.usersMgmtStatusActive : l.usersMgmtStatusInactive,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: user.isActive ? AppTheme.emerald : Colors.grey.shade500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              child: AppStatusBadge(
+                label: user.isActive ? l.usersMgmtStatusActive : l.usersMgmtStatusInactive,
+                severity: user.isActive ? AppSeverity.success : AppSeverity.info,
+                size: AppStatusBadgeSize.small,
               ),
             ),
           ),
@@ -1496,37 +1400,17 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
 
   Widget _buildEmptyState() {
     final l = context.l10n;
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.group_outlined, size: 56, color: Colors.grey.shade300),
-          const SizedBox(height: 12),
-          Text(l.usersMgmtNoResults, style: TextStyle(fontSize: 15, color: Colors.grey.shade500)),
-          const SizedBox(height: 6),
-          Text(l.usersMgmtNoResultsHint, style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
-        ],
-      ),
+    return AppEmptyState(
+      icon: Icons.group_outlined,
+      message: l.usersMgmtNoResults,
+      subtitle: l.usersMgmtNoResultsHint,
     );
   }
 
   Widget _buildErrorState(String error) {
-    final l = context.l10n;
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: AppTheme.crimson),
-          const SizedBox(height: 12),
-          Text(error, style: const TextStyle(color: AppTheme.crimson), textAlign: TextAlign.center),
-          const SizedBox(height: 14),
-          ElevatedButton.icon(
-            onPressed: () => ref.read(usersProvider.notifier).fetchUsers(),
-            icon: const Icon(Icons.refresh),
-            label: Text(l.usersMgmtRetryBtn),
-          ),
-        ],
-      ),
+    return AppErrorState(
+      message: error,
+      onRetry: () => ref.read(usersProvider.notifier).fetchUsers(),
     );
   }
 
@@ -1567,17 +1451,6 @@ class _RoleBadge extends StatelessWidget {
   final String role;
   const _RoleBadge({required this.role});
 
-  Color get _color {
-    switch (role.toUpperCase()) {
-      case 'ADMIN':
-        return AppTheme.crimson;
-      case 'MANAGER':
-        return AppTheme.cobalt;
-      default:
-        return AppTheme.emerald;
-    }
-  }
-
   IconData get _icon {
     switch (role.toUpperCase()) {
       case 'ADMIN':
@@ -1603,21 +1476,16 @@ class _RoleBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: _color.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _color.withOpacity(0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(_icon, size: 12, color: _color),
-          const SizedBox(width: 4),
-          Text(_label(context), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _color)),
-        ],
-      ),
+    final severity = switch (role.toUpperCase()) {
+      'ADMIN' => AppSeverity.danger,
+      'MANAGER' => AppSeverity.info,
+      _ => AppSeverity.success,
+    };
+    return AppStatusBadge(
+      label: _label(context),
+      severity: severity,
+      size: AppStatusBadgeSize.small,
+      icon: _icon,
     );
   }
 }

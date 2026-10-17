@@ -9,6 +9,8 @@ import 'package:frontend/features/customs_tariff/models/customs_tariff_model.dar
 import 'package:frontend/features/purchase_orders/models/purchase_order_model.dart';
 import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 import 'package:frontend/features/customs_tariff/providers/customs_tariff_provider.dart';
+import 'package:frontend/features/customs_clearance/models/customs_clearance_model.dart';
+import 'package:frontend/features/customs_clearance/providers/customs_clearance_provider.dart';
 import 'package:frontend/features/import_documentation/screens/customs_declaration46_screen.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
@@ -87,9 +89,58 @@ CurrencyModel _currency(String code, double? customsRate) => CurrencyModel(
       latestCustomsRate: customsRate,
     );
 
+ImportFileModel _simpleFile(int id, String code, String supplier) => ImportFileModel(
+      importFileId: id,
+      importFileCode: code,
+      companyName: 'Company 1',
+      supplierName: supplier,
+      currentModule: 'Customs Clearance',
+      currentStage: 'Declaration 46',
+      nextAction: 'Submit Form 46',
+      createdAt: '2026-08-20T00:00:00Z',
+      updatedAt: '2026-08-20T00:00:00Z',
+    );
+
 class _FakeRef implements Ref {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockCustomsClearanceNotifier extends CustomsClearanceNotifier {
+  final List<Map<String, dynamic>> registeredCalls = [];
+  bool shouldThrow = false;
+  String? errorMessage;
+
+  _MockCustomsClearanceNotifier({List<CustomsClearanceModel> initial = const []})
+      : super(Dio(), ref: _FakeRef()) {
+    state = AsyncValue.data(initial);
+  }
+
+  @override
+  Future<void> fetchRecords({
+    bool includeInactive = false,
+    int? importFileId,
+    String? status,
+    String? search,
+  }) async {
+    // no-op
+  }
+
+  @override
+  Future<CustomsClearanceModel?> registerDeclaration46(Map<String, dynamic> payload) async {
+    registeredCalls.add(payload);
+    if (shouldThrow) {
+      throw DioException(
+        requestOptions: RequestOptions(path: '/customs-clearance/register-declaration-46'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/customs-clearance/register-declaration-46'),
+          statusCode: 400,
+          data: {'detail': errorMessage ?? 'صلاحية رقم القيد المسبق منتهية'},
+        ),
+      );
+    }
+    return null;
+  }
 }
 
 void main() {
@@ -263,6 +314,20 @@ void main() {
         updatedAt: DateTime(2026, 1, 1),
       );
 
+      final mockClearance = CustomsClearanceModel(
+        customsClearanceId: 1,
+        clearanceCode: 'CC-001',
+        importFileId: 7,
+        declaration46No: '46-ALX-FILE-2026-007',
+        declaration46Date: '2026-08-25T00:00:00',
+        customsOfficeName: 'جمرك الإسكندرية',
+        channelType: 'Yellow',
+        status: 'Under Customs Clearance',
+        totalDutyPayable: 12500.0,
+        createdAt: '2026-08-25T00:00:00Z',
+        updatedAt: '2026-08-25T00:00:00Z',
+      );
+
       tester.view.physicalSize = const Size(1400, 950);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -274,6 +339,7 @@ void main() {
         ProviderScope(
           overrides: [
             importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([mockFile])),
+            customsClearanceProvider.overrideWith((ref) => _MockCustomsClearanceNotifier(initial: [mockClearance])),
             customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([mockTariff])),
             purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([_poWithHs(7, '8471.30.00')])),
             currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([_currency('EUR', 55.0)])),
@@ -300,14 +366,13 @@ void main() {
 
       // 1. Verify SubTab 1 KPI Metrics Cards
       expect(find.text('إجمالي الإقرارات'), findsOneWidget);
-      expect(find.text('إجمالي القيمة الجمركية (سيف)'), findsOneWidget);
       expect(find.text('إجمالي الضرائب والرسوم'), findsOneWidget);
+      expect(find.text('إجمالي الرسوم التقديرية'), findsOneWidget);
       expect(find.text('إعفاءات الشراكة الأوروبية'), findsOneWidget);
 
       // 2. Verify Registry Table Columns and Data
       expect(find.text('46-ALX-FILE-2026-007'), findsOneWidget);
       expect(find.text('Siemens Industrial Automation AG'), findsOneWidget);
-      expect(find.text('8471.30.00'), findsOneWidget);
 
       // 3. Verify Assessment Action Button and Tap to Open Dialog
       final assessmentBtn = find.byTooltip('معاينة التقييم الجمركي وبنود التعريفة');
@@ -319,9 +384,77 @@ void main() {
 
       // 4. Verify Assessment Dialog Content
       expect(find.text('التقييم الجمركي وبنود التعريفة — شهادة 46 ك.م'), findsOneWidget);
+      expect(find.textContaining('8471.30.00'), findsWidgets);
       expect(find.text('تفصيل وعاء القيمة للأغراض الجمركية (سيف)'), findsOneWidget);
       expect(find.text('جدول الضرائب والرسوم الجمركية المقررة'), findsOneWidget);
       expect(find.text('بيانات الشحنة والإقرار الجمركي'), findsOneWidget);
+    });
+
+    testWidgets('FE06-T02: given 3 import files and 1 clearance record with declaration_46_no=46-X-1, registry shows exactly 1 row with 46-X-1 and no 46-ALX-', (tester) async {
+      final file1 = _simpleFile(101, 'IMP-2026-0101', 'Supplier A');
+      final file2 = _simpleFile(102, 'IMP-2026-0102', 'Supplier B');
+      final file3 = _simpleFile(103, 'IMP-2026-0103', 'Supplier C');
+
+      final clearance1 = CustomsClearanceModel(
+        customsClearanceId: 50,
+        clearanceCode: 'CC-050',
+        importFileId: 101,
+        declaration46No: '46-X-1',
+        declaration46Date: '2026-08-25T00:00:00',
+        customsOfficeName: 'جمرك الإسكندرية',
+        channelType: 'Green',
+        status: 'Under Customs Clearance',
+        totalDutyPayable: 5000.0,
+        createdAt: '2026-08-25T00:00:00Z',
+        updatedAt: '2026-08-25T00:00:00Z',
+      );
+
+      tester.view.physicalSize = const Size(1400, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([file1, file2, file3])),
+            customsClearanceProvider.overrideWith((ref) => _MockCustomsClearanceNotifier(initial: [clearance1])),
+            customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
+            currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([])),
+          ],
+          child: const MaterialApp(
+            locale: Locale('ar'),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: CustomsDeclaration46Screen(
+                    initialSubTab: 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Exactly 1 row with 46-X-1
+      expect(find.text('46-X-1'), findsOneWidget);
+      expect(find.text('Supplier A'), findsOneWidget);
+
+      // Other suppliers should not appear as rows in the registry table
+      expect(find.text('Supplier B'), findsNothing);
+      expect(find.text('Supplier C'), findsNothing);
+
+      // Verify no fabricated '46-ALX-' appears anywhere in the UI
+      expect(find.textContaining('46-ALX-'), findsNothing);
     });
 
     testWidgets('Missing tariff and customs FX rate show the missing banner and no computed duties', (tester) async {
@@ -387,6 +520,475 @@ void main() {
       expect(find.textContaining('Missing:'), findsOneWidget);
       final cif = tester.widget<TextFormField>(find.byKey(const Key('decl46CifField')));
       expect(cif.controller!.text, isEmpty, reason: 'no fake CIF/duty number may be shown');
+    });
+
+    testWidgets('FE06-T01: Selecting file with no form46No leaves field empty; submitting empty triggers required validation and makes no API call', (tester) async {
+      final mockClearance = _MockCustomsClearanceNotifier();
+      final mockFile = ImportFileModel(
+        importFileId: 5,
+        importFileCode: 'IMP-2026-0005',
+        companyId: 1,
+        companyName: 'Al-Sorour Logistics',
+        supplierId: 2,
+        supplierName: 'Milano Industrial SpA',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'FOB',
+        priority: 'Normal',
+        shipmentCategory: 'Commercial',
+        acidNumber: '8912345678901234567',
+        status: 'Active',
+        owner: 'Admin',
+        currentModule: 'Customs Clearance',
+        currentStage: 'Declaration 46',
+        nextAction: 'Submit Form 46',
+        invoicesData: [],
+        packingListsData: [],
+        projectIds: [],
+        skippedStages: [],
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+      );
+
+      tester.view.physicalSize = const Size(1400, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([mockFile])),
+            customsClearanceProvider.overrideWith((ref) => mockClearance),
+            customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
+            currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([])),
+          ],
+          child: const MaterialApp(
+            locale: Locale('ar'),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: CustomsDeclaration46Screen(
+                    initialSubTab: 0,
+                    initialImportFileId: 5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final noField = find.byKey(const Key('decl46NoField'));
+      expect(tester.widget<TextFormField>(noField).controller!.text, isEmpty);
+
+      final saveBtn = find.byKey(const Key('saveDeclaration46Btn'));
+      await tester.ensureVisible(saveBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      expect(mockClearance.registeredCalls, isEmpty);
+      expect(find.text('هذا الحقل إلزامي'), findsOneWidget);
+    });
+
+    testWidgets('FE06-T01: Saving declaration 46 submits real payload to registerDeclaration46 and shows success', (tester) async {
+      final mockClearance = _MockCustomsClearanceNotifier();
+      final mockFile = ImportFileModel(
+        importFileId: 5,
+        importFileCode: 'IMP-2026-0005',
+        companyId: 1,
+        companyName: 'Al-Sorour Logistics',
+        supplierId: 2,
+        supplierName: 'Milano Industrial SpA',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'FOB',
+        priority: 'Normal',
+        shipmentCategory: 'Commercial',
+        portOfDischarge: 'Alexandria Port',
+        acidNumber: '8912345678901234567',
+        status: 'Active',
+        owner: 'Admin',
+        currentModule: 'Customs Clearance',
+        currentStage: 'Declaration 46',
+        nextAction: 'Submit Form 46',
+        invoicesData: [],
+        packingListsData: [],
+        projectIds: [],
+        skippedStages: [],
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+      );
+
+      tester.view.physicalSize = const Size(1400, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([mockFile])),
+            customsClearanceProvider.overrideWith((ref) => mockClearance),
+            customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
+            currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([])),
+          ],
+          child: const MaterialApp(
+            locale: Locale('ar'),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: CustomsDeclaration46Screen(
+                    initialSubTab: 0,
+                    initialImportFileId: 5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final noField = find.byKey(const Key('decl46NoField'));
+      expect(noField, findsOneWidget);
+      await tester.enterText(noField, '46-ALX-2026-8888');
+      await tester.pump();
+
+      // The channel is never preselected (no invented default): the user picks it.
+      final channel = find.byKey(const Key('decl46ChannelDropdown'));
+      await tester.ensureVisible(channel);
+      await tester.pumpAndSettle();
+      await tester.tap(channel);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('(Red Channel)').last);
+      await tester.pumpAndSettle();
+
+      final saveBtn = find.byKey(const Key('saveDeclaration46Btn'));
+      expect(saveBtn, findsOneWidget);
+      await tester.ensureVisible(saveBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      expect(mockClearance.registeredCalls.length, 1);
+      final payload = mockClearance.registeredCalls.first;
+      expect(payload['import_file_id'], 5);
+      expect(payload['declaration_46_no'], '46-ALX-2026-8888');
+      expect(payload['customs_office_name'], 'Alexandria Port Customs');
+      expect(payload['channel_type'], 'Red Channel');
+      expect(payload['customs_tariff_items_count'], 1);
+
+      expect(find.text('تم قيد وحفظ مسودة الإقرار الجمركي (46 ك.م) بنجاح'), findsOneWidget);
+    });
+
+    testWidgets('FE06-T01: Backend error displays Arabic error SnackBar and preserves form inputs', (tester) async {
+      final mockClearance = _MockCustomsClearanceNotifier()
+        ..shouldThrow = true
+        ..errorMessage = 'صلاحية رقم القيد المسبق منتهية';
+      final mockFile = ImportFileModel(
+        importFileId: 5,
+        importFileCode: 'IMP-2026-0005',
+        companyId: 1,
+        companyName: 'Al-Sorour Logistics',
+        supplierId: 2,
+        supplierName: 'Milano Industrial SpA',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'FOB',
+        priority: 'Normal',
+        shipmentCategory: 'Commercial',
+        acidNumber: '8912345678901234567',
+        status: 'Active',
+        owner: 'Admin',
+        currentModule: 'Customs Clearance',
+        currentStage: 'Declaration 46',
+        nextAction: 'Submit Form 46',
+        invoicesData: [],
+        packingListsData: [],
+        projectIds: [],
+        skippedStages: [],
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+      );
+
+      tester.view.physicalSize = const Size(1400, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([mockFile])),
+            customsClearanceProvider.overrideWith((ref) => mockClearance),
+            customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
+            currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([])),
+          ],
+          child: const MaterialApp(
+            locale: Locale('ar'),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: CustomsDeclaration46Screen(
+                    initialSubTab: 0,
+                    initialImportFileId: 5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final noField = find.byKey(const Key('decl46NoField'));
+      await tester.enterText(noField, '46-ALX-2026-9999');
+      await tester.pump();
+
+      // The channel is never preselected (no invented default): the user picks it.
+      final channelPick = find.byKey(const Key('decl46ChannelDropdown'));
+      await tester.ensureVisible(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('(Red Channel)').last);
+      await tester.pumpAndSettle();
+
+      final saveBtn = find.byKey(const Key('saveDeclaration46Btn'));
+      await tester.ensureVisible(saveBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      expect(mockClearance.registeredCalls.length, 1);
+      expect(find.textContaining('صلاحية رقم القيد المسبق منتهية'), findsOneWidget);
+      expect(tester.widget<TextFormField>(noField).controller!.text, '46-ALX-2026-9999');
+    });
+
+    testWidgets('FE06-T01: Date field is read-only and opens DatePickerDialog on tap', (tester) async {
+      final mockFile = ImportFileModel(
+        importFileId: 5,
+        importFileCode: 'IMP-2026-0005',
+        companyId: 1,
+        companyName: 'Al-Sorour Logistics',
+        supplierId: 2,
+        supplierName: 'Milano Industrial SpA',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'FOB',
+        priority: 'Normal',
+        shipmentCategory: 'Commercial',
+        acidNumber: '8912345678901234567',
+        status: 'Active',
+        owner: 'Admin',
+        currentModule: 'Customs Clearance',
+        currentStage: 'Declaration 46',
+        nextAction: 'Submit Form 46',
+        invoicesData: [],
+        packingListsData: [],
+        projectIds: [],
+        skippedStages: [],
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+      );
+
+      tester.view.physicalSize = const Size(1400, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([mockFile])),
+            customsClearanceProvider.overrideWith((ref) => _MockCustomsClearanceNotifier()),
+            customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
+            currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([])),
+          ],
+          child: const MaterialApp(
+            locale: Locale('ar'),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: CustomsDeclaration46Screen(
+                    initialSubTab: 0,
+                    initialImportFileId: 5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final dateField = find.byKey(const Key('decl46DateField'));
+      expect(dateField, findsOneWidget);
+      final editable = tester.widget<EditableText>(find.descendant(of: dateField, matching: find.byType(EditableText)));
+      expect(editable.readOnly, isTrue);
+
+      await tester.tap(dateField);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+    });
+
+    testWidgets('FE06-T01: Selecting file with form46Date then file without one resets declaration date and matches payload', (tester) async {
+      final mockClearance = _MockCustomsClearanceNotifier();
+      final fileWithDate = ImportFileModel(
+        importFileId: 5,
+        importFileCode: 'IMP-2026-0005',
+        companyId: 1,
+        companyName: 'Al-Sorour Logistics',
+        supplierId: 2,
+        supplierName: 'Milano Industrial SpA',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'FOB',
+        priority: 'Normal',
+        shipmentCategory: 'Commercial',
+        acidNumber: '8912345678901234567',
+        status: 'Active',
+        owner: 'Admin',
+        currentModule: 'Customs Clearance',
+        currentStage: 'Declaration 46',
+        nextAction: 'Submit Form 46',
+        form46No: '46-ALX-2026-1111',
+        form46Date: '2026-05-10',
+        invoicesData: [],
+        packingListsData: [],
+        projectIds: [],
+        skippedStages: [],
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+      );
+
+      final fileWithoutDate = ImportFileModel(
+        importFileId: 6,
+        importFileCode: 'IMP-2026-0006',
+        companyId: 1,
+        companyName: 'Al-Sorour Logistics',
+        supplierId: 2,
+        supplierName: 'Milano Industrial SpA',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'FOB',
+        priority: 'Normal',
+        shipmentCategory: 'Commercial',
+        acidNumber: '8912345678901234568',
+        status: 'Active',
+        owner: 'Admin',
+        currentModule: 'Customs Clearance',
+        currentStage: 'Declaration 46',
+        nextAction: 'Submit Form 46',
+        form46No: '46-ALX-2026-2222',
+        form46Date: null,
+        invoicesData: [],
+        packingListsData: [],
+        projectIds: [],
+        skippedStages: [],
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+      );
+
+      tester.view.physicalSize = const Size(1400, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([fileWithDate, fileWithoutDate])),
+            customsClearanceProvider.overrideWith((ref) => mockClearance),
+            customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
+            currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([])),
+          ],
+          child: const MaterialApp(
+            locale: Locale('ar'),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: CustomsDeclaration46Screen(
+                    initialSubTab: 0,
+                    initialImportFileId: 5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final dateField = find.byKey(const Key('decl46DateField'));
+      expect(dateField, findsOneWidget);
+      expect(tester.widget<TextFormField>(dateField).controller!.text, '2026-05-10');
+
+      final dropdown = find.byKey(const Key('decl46FileDropdown'));
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+
+      final itemFile6 = find.textContaining('IMP-2026-0006');
+      expect(itemFile6, findsWidgets);
+      await tester.tap(itemFile6.first);
+      await tester.pumpAndSettle();
+
+      final todayIso = DateTime.now().toIso8601String().substring(0, 10);
+      final visibleDate = tester.widget<TextFormField>(dateField).controller!.text;
+      expect(visibleDate, todayIso);
+
+      // The channel is never preselected (no invented default): the user picks it.
+      final channelPick = find.byKey(const Key('decl46ChannelDropdown'));
+      await tester.ensureVisible(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('(Red Channel)').last);
+      await tester.pumpAndSettle();
+
+      final saveBtn = find.byKey(const Key('saveDeclaration46Btn'));
+      await tester.ensureVisible(saveBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      expect(mockClearance.registeredCalls.length, 1);
+      final payload = mockClearance.registeredCalls.first;
+      expect(payload['import_file_id'], 6);
+      expect((payload['declaration_46_date'] as String).startsWith(visibleDate), isTrue);
     });
   });
 }

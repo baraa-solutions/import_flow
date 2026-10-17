@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 from modules.import_requirements.schemas import (
@@ -418,6 +418,7 @@ NOT_REQUIRED = "Not Required"
 # Prefill message codes (ImportRequirementPrefillResponse.messages).
 PREFILL_NO_HS = "PREFILL_NO_HS"
 PREFILL_LINE_NO_HS = "PREFILL_LINE_NO_HS"
+PREFILL_MIXED_CURRENCY = "PREFILL_MIXED_CURRENCY"
 
 # Decree 43 (factory registration) is administered by GOEIC. There is no tariff flag column yet
 # (backlog): detection uses the REGULATORY_BODY code of the tariff authority / checklist agency.
@@ -576,78 +577,98 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
     pillars = _consultation_pillars(consultation, foreign_exporter_id)
     primary_hs_code = _first_checklist_hs(consultation)
 
-    hs_items: Dict[str, Dict[str, Any]] = {}
+    hs_items: Dict[Tuple[str, Optional[str]], Dict[str, Any]] = {}
+    totals: Dict[str, float] = {}
 
     # 1. Purchase order lines (HS from the line's tariff only)
     pos = _linked_purchase_orders(db, import_file)
-    po_calculated_total = 0.0
+    po_has_lines = False
     for po in pos:
-        po_curr = po.currency.currency_code if po.currency else currency
+        po_curr = po.currency.currency_code if po.currency else None
         for line in po.line_items:
-            item_val = float(line.total_price or 0.0) or float((line.unit_price or 0.0) * (line.quantity or 1.0))
-            po_calculated_total += item_val
+            po_has_lines = True
+            qty = float(line.quantity or 0.0)
+            item_val = float(line.total_price or 0.0) or (float(line.unit_price or 0.0) * qty)
+            if po_curr:
+                totals[po_curr] = totals.get(po_curr, 0.0) + item_val
             tariff = line.tariff
             if not tariff:
                 messages.append(to_item(PREFILL_LINE_NO_HS, po_number=po.po_number, item_code=line.item_code))
                 continue
             hs = tariff.hs_code
-            if hs in hs_items:
-                hs_items[hs]["item_value"] += item_val
-                hs_items[hs]["quantity"] += float(line.quantity or 0.0)
+            key = (hs, po_curr)
+            if key in hs_items:
+                hs_items[key]["item_value"] += item_val
+                hs_items[key]["quantity"] += qty
                 continue
-            hs_items[hs] = _hs_item(
+            hs_items[key] = _hs_item(
                 hs, tariff, pillars,
                 commodity_description=line.description_ar or tariff.hs_description or line.description_en,
                 item_code=line.item_code,
                 country_of_origin=line.country_of_origin or po.country_of_origin or country_of_origin,
                 currency=po_curr,
                 item_value=item_val,
-                quantity=float(line.quantity or 0.0),
+                quantity=qty,
                 unit_of_measure=line.unit_of_measure,
             )
 
     # 2. Invoice rows (HS as written on the invoice, else the consultation's HS)
     if import_file.invoices_data:
-        inv_sum = 0.0
         for inv in import_file.invoices_data:
             val = float(inv.get("amount", 0.0) or 0.0)
-            inv_sum += val
+            inv_curr = inv.get("currency")
+            if not po_has_lines and inv_curr and val > 0.0:
+                totals[inv_curr] = totals.get(inv_curr, 0.0) + val
             hs = inv.get("hs_code") or primary_hs_code
             if not hs:
                 continue
-            if hs in hs_items:
-                if hs_items[hs]["item_value"] == 0.0:
-                    hs_items[hs]["item_value"] = val
+            key = (hs, inv_curr)
+            if key in hs_items:
+                if hs_items[key]["item_value"] == 0.0:
+                    hs_items[key]["item_value"] = val
                 continue
             tariff = get_tariff_by_hs_code(db, hs)
-            hs_items[hs] = _hs_item(
+            hs_items[key] = _hs_item(
                 hs, tariff, pillars,
                 commodity_description=inv.get("description") or (tariff.hs_description if tariff else None),
                 item_code=inv.get("item_code"),
                 country_of_origin=country_of_origin,
-                currency=inv.get("currency") or currency,
+                currency=inv_curr,
                 item_value=val,
                 quantity=0.0,
                 unit_of_measure=None,
             )
-        if total_val == 0.0:
-            total_val = inv_sum
 
-    if po_calculated_total > 0.0:
-        total_val = po_calculated_total
-        if pos and pos[0].currency:
-            currency = pos[0].currency.currency_code
+    # Resolve shipment_value and currency from totals
+    shipment_value: Optional[float] = None
+    if len(totals) == 1:
+        c = next(iter(totals.keys()))
+        shipment_value = round(totals[c], 2)
+        currency = c
+    elif len(totals) > 1:
+        shipment_value = None
+        currency = None
+        sorted_currs = ", ".join(sorted(totals.keys()))
+        messages.append(to_item(PREFILL_MIXED_CURRENCY, currencies=sorted_currs))
+    else:
+        # No PO line / invoice totals: fall back to estimated cost if available
+        if total_val > 0.0:
+            shipment_value = total_val
+        else:
+            shipment_value = None
+            currency = None
 
     # 3. Only the consultation's HS code is known: use it (real data). Never a default HS.
     if not hs_items and primary_hs_code:
         tariff = get_tariff_by_hs_code(db, primary_hs_code)
-        hs_items[primary_hs_code] = _hs_item(
+        key = (primary_hs_code, currency)
+        hs_items[key] = _hs_item(
             primary_hs_code, tariff, pillars,
             commodity_description=tariff.hs_description if tariff else None,
             item_code=None,
             country_of_origin=country_of_origin,
             currency=currency,
-            item_value=total_val,
+            item_value=shipment_value or 0.0,
             quantity=0.0,
             unit_of_measure=None,
         )
@@ -657,9 +678,6 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
     if hs_code_items_list:
         primary_hs_code = hs_code_items_list[0].hs_code
         primary_commodity_desc = hs_code_items_list[0].commodity_description
-        if not total_val:
-            total_val = sum(i.item_value for i in hs_code_items_list)
-        currency = hs_code_items_list[0].currency
     else:
         messages.append(to_item(PREFILL_NO_HS, import_file_code=import_file.import_file_code))
 
@@ -672,7 +690,7 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
         country_of_origin=country_of_origin,
         foreign_exporter_id=foreign_exporter_id,
         currency=currency,
-        shipment_value=total_val,
+        shipment_value=shipment_value,
         po_number=import_file.po_number,
         pi_number=import_file.pi_number,
         acid_number=import_file.acid_number,

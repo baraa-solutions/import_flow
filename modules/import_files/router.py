@@ -24,6 +24,7 @@ from modules.import_files.schemas import (
     HoldShipmentPayload,
     ResumeShipmentPayload,
     CloneImportFileRequest,
+    CreatePartialBatchRequest,
 )
 import modules.import_files.service as service
 from modules.auth.permissions import require_permission
@@ -67,6 +68,8 @@ def list_import_files(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.view")),
 ):
@@ -86,6 +89,8 @@ def list_import_files(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
     )
 
 
@@ -110,6 +115,8 @@ def list_paginated_import_files(
     carrier: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.view")),
 ):
@@ -130,9 +137,12 @@ def list_paginated_import_files(
         carrier=carrier,
         date_from=date_from,
         date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
     )
     response.headers["X-Total-Count"] = str(result["total"])
     return result
+
 
 
 @router.get(
@@ -221,11 +231,8 @@ def export_import_files_excel(
             f.form46_no or '',
         ])
     content = MasterDataExportImportHelper.export_to_excel("Import Files Master Tracking", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Import_Files_Report.xlsx"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Import_Files_Master", "xlsx")
+    return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @router.get("/export-pdf", summary="Export all import files to PDF")
@@ -250,11 +257,8 @@ def export_import_files_pdf(
             f.status,
         ])
     content = MasterDataExportImportHelper.export_to_pdf("Import Files & Shipment Tracking", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=Import_Files_Report.pdf"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Import_Files_Master", "pdf")
+    return MasterDataExportImportHelper.as_pdf_response(filename, content)
 
 
 @router.get(
@@ -271,8 +275,6 @@ def get_freight_rfq_data(
     if import_file_id.isdigit():
         fid = int(import_file_id)
         item = service.get_import_file_by_id_service(db, fid)
-        if not item:
-            item = service.get_import_file_by_code_service(db, import_file_id)
     else:
         item = service.get_import_file_by_code_service(db, import_file_id)
 
@@ -296,8 +298,6 @@ def get_import_file(
 ):
     if import_file_id.isdigit():
         item = service.get_import_file_by_id_service(db, int(import_file_id))
-        if not item:
-            item = service.get_import_file_by_code_service(db, import_file_id)
     else:
         item = service.get_import_file_by_code_service(db, import_file_id)
 
@@ -320,7 +320,7 @@ def update_import_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.edit")),
 ):
-    return service.update_import_file_service(db, import_file_id, payload)
+    return service.update_import_file_service(db, import_file_id, payload, actor=current_user)
 
 
 @router.delete(
@@ -352,7 +352,7 @@ def close_shipment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.close")),
 ):
-    return service.close_shipment_service(db, import_file_id, payload)
+    return service.close_shipment_service(db, import_file_id, payload, actor=current_user)
 
 
 @router.post(
@@ -366,7 +366,7 @@ def reopen_shipment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.close")),
 ):
-    return service.reopen_shipment_service(db, import_file_id, payload)
+    return service.reopen_shipment_service(db, import_file_id, payload, actor=current_user)
 
 
 @router.post(
@@ -430,6 +430,41 @@ def clone_shipment(
         payload=payload,
         current_user=user_name,
     )
+
+
+@router.post(
+    "/{import_file_id}/create-partial-batch",
+    response_model=ImportFileResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new independent partial shipment file linked to parent file (DEV-OPS-04)",
+)
+def create_partial_batch(
+    import_file_id: int,
+    payload: CreatePartialBatchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.create")),
+):
+    user_name = current_user.username if (current_user and hasattr(current_user, "username")) else "System"
+    return service.create_partial_batch_service(
+        db,
+        parent_file_id=import_file_id,
+        payload=payload,
+        current_user=user_name,
+    )
+
+
+@router.get(
+    "/{import_file_id}/partial-batches",
+    response_model=List[ImportFileResponse],
+    summary="List all linked partial shipment files for a given import file (DEV-OPS-04)",
+)
+def list_partial_batches(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
+):
+    return service.get_partial_batches_service(db, import_file_id=import_file_id)
+
 
 
 

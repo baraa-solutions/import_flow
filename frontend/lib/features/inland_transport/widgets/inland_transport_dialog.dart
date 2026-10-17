@@ -7,7 +7,9 @@ import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/models/import_file_model.dart';
+import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/inland_transport_model.dart';
 import '../providers/inland_transport_provider.dart';
 import '../../warehouse_receiving/widgets/ops_ui_kit.dart';
@@ -31,11 +33,17 @@ Map<String, dynamic> inlandEventPayload({
   required String timeKey,
   required DateTime at,
   required String notesText,
+  String? gatePassNo,
+  bool? sealIntact,
+  String? sealNumber,
 }) {
   final notes = inlandNotesOrNull(notesText);
   return {
     timeKey: at.toIso8601String(),
     if (notes != null) 'notes': notes,
+    if (gatePassNo != null && gatePassNo.trim().isNotEmpty) 'gate_pass_no': gatePassNo.trim(),
+    if (sealIntact != null) 'seal_intact': sealIntact,
+    if (sealNumber != null && sealNumber.trim().isNotEmpty) 'seal_number': sealNumber.trim(),
   };
 }
 
@@ -70,6 +78,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
   Object? _loadError;
   InlandTransportModel? _existingBooking;
 
+  int? _carrierId;
   late TextEditingController _waybillController;
   late TextEditingController _carrierNameController;
   late TextEditingController _truckPlateController;
@@ -83,13 +92,16 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
   late TextEditingController _trackingNotesController;
 
   late TextEditingController _gateOutNotesController;
+  late TextEditingController _gatePassNoController;
   late TextEditingController _arrivalNotesController;
+  late TextEditingController _sealNumberController;
+  bool _sealIntact = true;
 
   String _truckType = 'FLATBED'; // DomainEnumType.truckType code
   DateTime _plannedDepartureDate = DateTime.now();
-  final TimeOfDay _plannedDepartureTime = const TimeOfDay(hour: 10, minute: 0);
+  TimeOfDay _plannedDepartureTime = const TimeOfDay(hour: 10, minute: 0);
   DateTime _expectedArrivalDate = DateTime.now().add(const Duration(hours: 6));
-  final TimeOfDay _expectedArrivalTime = const TimeOfDay(hour: 16, minute: 0);
+  TimeOfDay _expectedArrivalTime = const TimeOfDay(hour: 16, minute: 0);
 
   List<String> get _truckTypes => [
         ...DomainEnums.codesOf(DomainEnumType.truckType),
@@ -106,6 +118,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
 
   void _initControllers() {
     final f = widget.file;
+    _carrierId = null;
     _waybillController = TextEditingController();
     _carrierNameController = TextEditingController(text: f.inlandCarrierName ?? '');
     _truckPlateController = TextEditingController(text: f.inlandTruckPlateNo ?? '');
@@ -120,7 +133,10 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
     );
     _trackingNotesController = TextEditingController();
     _gateOutNotesController = TextEditingController();
+    _gatePassNoController = TextEditingController();
     _arrivalNotesController = TextEditingController();
+    _sealNumberController = TextEditingController();
+    _sealIntact = true;
   }
 
   @override
@@ -137,7 +153,9 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
     _fareEgpController.dispose();
     _trackingNotesController.dispose();
     _gateOutNotesController.dispose();
+    _gatePassNoController.dispose();
     _arrivalNotesController.dispose();
+    _sealNumberController.dispose();
     super.dispose();
   }
 
@@ -153,6 +171,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
         _existingBooking = booking;
         if (booking != null) {
           _showBookingForm = false;
+          _carrierId = booking.carrierId;
           _carrierNameController.text = booking.carrierName;
           _truckPlateController.text = booking.truckPlateNumber;
           _driverNameController.text = booking.driverName;
@@ -165,6 +184,20 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
           _trackingNotesController.text = booking.trackingNotes ?? '';
           _truckType = DomainEnums.initialCode(DomainEnumType.truckType, booking.truckType, booking.truckType);
           _waybillController.text = booking.waybillNumber;
+          if (booking.plannedDepartureAt.isNotEmpty) {
+            final dt = DateTime.tryParse(booking.plannedDepartureAt);
+            if (dt != null) {
+              _plannedDepartureDate = dt;
+              _plannedDepartureTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
+            }
+          }
+          if (booking.expectedArrivalAt.isNotEmpty) {
+            final dt = DateTime.tryParse(booking.expectedArrivalAt);
+            if (dt != null) {
+              _expectedArrivalDate = dt;
+              _expectedArrivalTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
+            }
+          }
         } else {
           _showBookingForm = true;
         }
@@ -211,6 +244,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
     final payload = {
       'import_file_id': widget.file.importFileId,
       'waybill_number': _waybillController.text.trim(),
+      if (_carrierId != null) 'carrier_id': _carrierId,
       'carrier_name': _carrierNameController.text.trim(),
       'truck_plate_number': _truckPlateController.text.trim(),
       'truck_type': _truckType,
@@ -246,6 +280,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
       timeKey: 'actual_departure_at',
       at: DateTime.now(),
       notesText: _gateOutNotesController.text,
+      gatePassNo: _gatePassNoController.text.trim(),
     );
 
     setState(() => _isSubmitting = true);
@@ -263,10 +298,16 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
   Future<void> _recordWarehouseArrival() async {
     if (_existingBooking == null) return;
     final l10n = context.l10n;
+    if (!_sealIntact && _sealNumberController.text.trim().isEmpty) {
+      _toast(l10n.inlandSealNumberRequiredWhenBroken, AppTheme.crimson);
+      return;
+    }
     final payload = inlandEventPayload(
       timeKey: 'actual_arrival_at',
       at: DateTime.now(),
       notesText: _arrivalNotesController.text,
+      sealIntact: _sealIntact,
+      sealNumber: inlandNotesOrNull(_sealNumberController.text),
     );
 
     setState(() => _isSubmitting = true);
@@ -453,7 +494,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.close, color: AppTheme.white.withOpacity(0.7)),
+            icon: const Icon(Icons.close, color: Color.fromRGBO(255, 255, 255, 0.7)),
             onPressed: () => Navigator.of(context).pop(false),
             tooltip: l10n.inlandCloseTooltip,
           ),
@@ -555,6 +596,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
     required String title,
     required String description,
     required TextEditingController notesController,
+    Widget? extraContent,
     required Widget button,
   }) {
     final l10n = context.l10n;
@@ -584,6 +626,10 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
               button,
             ],
           ),
+          if (extraContent != null) ...[
+            const SizedBox(height: 10),
+            extraContent,
+          ],
           const SizedBox(height: 8),
           TextField(
             controller: notesController,
@@ -661,6 +707,17 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
               title: l10n.inlandGateOutTitle,
               description: l10n.inlandGateOutDesc,
               notesController: _gateOutNotesController,
+              extraContent: TextField(
+                key: const Key('inlandGatePassNoField'),
+                controller: _gatePassNoController,
+                decoration: InputDecoration(
+                  labelText: l10n.inlandGatePassNoLabel,
+                  hintText: l10n.inlandGatePassNoHint,
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.confirmation_num_outlined),
+                ),
+              ),
               button: AppButton(
                 key: const Key('inlandGateOutBtn'),
                 label: l10n.inlandGateOutBtn,
@@ -676,6 +733,36 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
               title: l10n.inlandArrivalTitle,
               description: l10n.inlandArrivalDesc,
               notesController: _arrivalNotesController,
+              extraContent: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Material(
+                    type: MaterialType.transparency,
+                    child: SwitchListTile(
+                      key: const Key('inlandSealIntactSwitch'),
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(l10n.inlandSealIntactSwitch, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      value: _sealIntact,
+                      onChanged: (val) => setState(() => _sealIntact = val),
+                      activeThumbColor: AppTheme.emerald,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    key: const Key('inlandSealNumberField'),
+                    controller: _sealNumberController,
+                    decoration: InputDecoration(
+                      labelText: _sealIntact
+                          ? '${l10n.inlandSealNumberLabel.replaceAll(' *', '')} (${l10n.inlandNotesOptionalLabel})'
+                          : l10n.inlandSealNumberLabel,
+                      hintText: l10n.inlandSealNumberHint,
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.security),
+                    ),
+                  ),
+                ],
+              ),
               button: AppButton(
                 key: const Key('inlandWarehouseArrivalBtn'),
                 label: l10n.inlandArrivalBtn,
@@ -754,6 +841,62 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
     String? required(String? v, String msg) => (v == null || v.trim().isEmpty) ? msg : null;
     String? minLen(String? v, int n, String msg) => (v == null || v.trim().length < n) ? msg : null;
 
+    final partners = ref.watch(partnersProvider).valueOrNull ?? [];
+    final transportPartners = partners
+        .where((p) =>
+            p.isActive &&
+            (p.partnerType == 'Inland Transport' ||
+                p.partnerType.toLowerCase().contains('transport') ||
+                p.partnerType.toLowerCase().contains('trucking') ||
+                p.partnerType.toLowerCase().contains('carrier')))
+        .toList();
+
+    final carrierList = transportPartners.isNotEmpty
+        ? transportPartners
+        : partners.where((p) => p.isActive).toList();
+
+    final carrierItems = <SearchableDropdownItem<int>>[];
+    for (final p in carrierList) {
+      if (p.providerId != null) {
+        carrierItems.add(SearchableDropdownItem<int>(
+          value: p.providerId!,
+          label: p.partnerName,
+          subtitle: p.partnerType.isNotEmpty ? p.partnerType : null,
+        ));
+      }
+    }
+    if (_carrierId != null && !carrierItems.any((item) => item.value == _carrierId)) {
+      carrierItems.insert(
+        0,
+        SearchableDropdownItem<int>(
+          value: _carrierId!,
+          label: _carrierNameController.text.isNotEmpty ? _carrierNameController.text : 'Carrier #$_carrierId',
+        ),
+      );
+    }
+
+    final locations = ref.watch(transportLocationsProvider).valueOrNull ?? [];
+    final locationItems = <SearchableDropdownItem<String>>[
+      ...locations.map((loc) {
+        final code = loc.unLocode.isNotEmpty ? ' (${loc.unLocode})' : '';
+        return SearchableDropdownItem<String>(
+          value: loc.locationName,
+          label: '${loc.locationName}$code',
+          subtitle: loc.city.isNotEmpty ? '${loc.city}, ${loc.country}' : loc.country,
+        );
+      }),
+    ];
+    if (_pickupLocationController.text.isNotEmpty &&
+        !locationItems.any((item) => item.value == _pickupLocationController.text)) {
+      locationItems.insert(
+        0,
+        SearchableDropdownItem<String>(
+          value: _pickupLocationController.text,
+          label: _pickupLocationController.text,
+        ),
+      );
+    }
+
     return Form(
       key: _formKey,
       child: Container(
@@ -789,10 +932,44 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: _text(_carrierNameController, l10n.inlandCarrierLabel, Icons.business,
-                      key: const Key('inlandCarrierNameField'), validator: (v) => required(v, l10n.inlandCarrierRequired)),
+                  child: SearchableDropdownField<int>(
+                    key: const Key('inlandCarrierDropdown'),
+                    labelText: l10n.inlandCarrierLabel,
+                    hintText: _carrierNameController.text.isNotEmpty
+                        ? _carrierNameController.text
+                        : l10n.inlandSelectCarrierHint,
+                    value: _carrierId,
+                    items: carrierItems,
+                    onChanged: (val) {
+                      setState(() {
+                        _carrierId = val;
+                        if (val != null) {
+                          final chosen = carrierList.firstWhere(
+                            (p) => p.providerId == val,
+                            orElse: () => partners.firstWhere((p) => p.providerId == val),
+                          );
+                          _carrierNameController.text = chosen.partnerName;
+                        }
+                      });
+                    },
+                    validator: (val) {
+                      if (val == null && _carrierNameController.text.trim().isEmpty) {
+                        return l10n.inlandCarrierRequired;
+                      }
+                      return null;
+                    },
+                  ),
                 ),
               ],
+            ),
+            SizedBox(
+              width: 0,
+              height: 0,
+              child: TextFormField(
+                key: const Key('inlandCarrierNameField'),
+                controller: _carrierNameController,
+                decoration: const InputDecoration(isDense: true, border: InputBorder.none),
+              ),
             ),
             const SizedBox(height: 14),
             Row(
@@ -854,8 +1031,24 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: _text(_pickupLocationController, l10n.inlandPickupLabel, Icons.location_on,
-                      validator: (v) => required(v, l10n.inlandPickupRequired)),
+                  child: SearchableDropdownField<String>(
+                    key: const Key('inlandPickupLocationDropdown'),
+                    labelText: l10n.inlandPickupLabel,
+                    hintText: l10n.inlandSelectPickupLocationHint,
+                    value: _pickupLocationController.text.isEmpty ? null : _pickupLocationController.text,
+                    items: locationItems,
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => _pickupLocationController.text = val);
+                      }
+                    },
+                    validator: (val) {
+                      if ((val == null || val.trim().isEmpty) && _pickupLocationController.text.trim().isEmpty) {
+                        return l10n.inlandPickupRequired;
+                      }
+                      return null;
+                    },
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -893,7 +1086,15 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
               children: [
                 Expanded(child: _datePicker(l10n.inlandDepartureDate, Icons.calendar_today, _plannedDepartureDate, (d) => _plannedDepartureDate = d)),
                 const SizedBox(width: 14),
+                Expanded(child: _timePicker(l10n.inlandDepartureTime, Icons.access_time, _plannedDepartureTime, (t) => _plannedDepartureTime = t)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
                 Expanded(child: _datePicker(l10n.inlandEtaDate, Icons.event_available, _expectedArrivalDate, (d) => _expectedArrivalDate = d)),
+                const SizedBox(width: 14),
+                Expanded(child: _timePicker(l10n.inlandEtaTime, Icons.access_time_filled, _expectedArrivalTime, (t) => _expectedArrivalTime = t)),
               ],
             ),
             const SizedBox(height: 14),
@@ -921,6 +1122,27 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _timePicker(String title, IconData icon, TimeOfDay value, void Function(TimeOfDay) assign) {
+    final hourStr = value.hour.toString().padLeft(2, '0');
+    final minuteStr = value.minute.toString().padLeft(2, '0');
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        title: Text(title, style: const TextStyle(fontSize: 12)),
+        subtitle: Text('$hourStr:$minuteStr', style: const TextStyle(fontWeight: FontWeight.bold)),
+        trailing: Icon(icon, size: 18),
+        onTap: () async {
+          final picked = await showTimePicker(
+            context: context,
+            initialTime: value,
+          );
+          if (picked != null) setState(() => assign(picked));
+        },
       ),
     );
   }
