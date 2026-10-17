@@ -1,5 +1,5 @@
 from datetime import date, datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
@@ -832,9 +832,16 @@ def get_comprehensive_shipment_dossier_service(
         )
 
     dossier_net_weight: Optional[float] = None
-    if getattr(imp, "net_weight_kg", None) is not None and float(imp.net_weight_kg) > 0:
-        dossier_net_weight = float(imp.net_weight_kg)
+    # Priority 1: sum net weight from purchase_orders (most reliable source — FC-07 / BE810-T07)
+    po_nw = sum(
+        float(p["total_net_weight_kg"])
+        for p in po_summaries
+        if p.get("total_net_weight_kg") is not None
+    )
+    if po_nw > 0:
+        dossier_net_weight = round(po_nw, 2)
     else:
+        # Priority 2: sum net weight from individual PO items
         po_items_nw = sum(
             float(itm["net_weight_kg"])
             for itm in items_detail
@@ -842,14 +849,409 @@ def get_comprehensive_shipment_dossier_service(
         )
         if po_items_nw > 0:
             dossier_net_weight = round(po_items_nw, 2)
-        else:
-            po_nw = sum(
-                float(p["total_net_weight_kg"])
-                for p in po_summaries
-                if p.get("total_net_weight_kg") is not None
+        elif getattr(imp, "net_weight_kg", None) is not None and float(imp.net_weight_kg) > 0:
+            # Priority 3: import file record (may be stale — use as last resort)
+            dossier_net_weight = float(imp.net_weight_kg)
+
+    # 8. Container loading & seal matrix
+    cargo_ship = repo.latest_active_cargo_shipping(db, import_file_id)
+    containers_list: List[Dict[str, Any]] = []
+    if cargo_ship and cargo_ship.containers_loading_data:
+        for idx, c in enumerate(cargo_ship.containers_loading_data):
+            c_no = c.get("container_no") or f"CONT-{idx+1}"
+            l_seal = c.get("liner_seal_no") or c.get("seal_no") or ""
+            c_seal = c.get("customs_seal_no") or ""
+            containers_list.append({
+                "container_no": c_no,
+                "container_type": c.get("container_type"),
+                "seal_no": c.get("seal_no") or l_seal,
+                "liner_seal_no": l_seal,
+                "customs_seal_no": c_seal,
+                "tare_weight_kg": float(c.get("tare_weight_kg") or 0.0),
+                "net_weight_kg": float(c.get("net_weight_kg") or 0.0),
+                "gross_weight_kg": float(c.get("gross_weight_kg") or 0.0),
+                "vgm_status": c.get("vgm_status"),
+                "tracking_status": c.get("tracking_status"),
+            })
+    elif getattr(imp, "container_number", None) or getattr(imp, "seal_number", None):
+        containers_list.append({
+            "container_no": getattr(imp, "container_number", None),
+            "container_type": None,
+            "seal_no": getattr(imp, "seal_number", "") or "",
+            "liner_seal_no": getattr(imp, "seal_number", "") or "",
+            "customs_seal_no": "",
+            "tare_weight_kg": 0.0,
+            "net_weight_kg": float(getattr(imp, "net_weight_kg", 0.0) or 0.0),
+            "gross_weight_kg": float(getattr(imp, "gross_weight_kg", 0.0) or 0.0),
+            "vgm_status": None,
+            "tracking_status": None,
+        })
+
+    # 9. FX Reconciliation (Customs vs Commercial Bank)
+    from modules.financial_settlement.service import get_shipment_fx_reconciliation
+    try:
+        fx_recon = get_shipment_fx_reconciliation(db, import_file_id)
+    except Exception:
+        fx_recon = None
+
+    # 10. Operational Timeline Events & SLA tracking
+    form4_req = imp.form4_request_date
+    form4_rec = imp.form4_received_date
+    form4_sla_days = (form4_rec - form4_req).days if (form4_req and form4_rec) else None
+
+    do_req_str = clearance.nafeza_assessment_json.get("delivery_order_requested_at") if (clearance and clearance.nafeza_assessment_json) else None
+    do_paid_dt = clearance.delivery_order_date if clearance else None
+    do_sla_hours = None
+    if do_req_str and do_paid_dt:
+        try:
+            do_req_dt = datetime.fromisoformat(do_req_str)
+            do_sla_hours = round((do_paid_dt - do_req_dt).total_seconds() / 3600.0, 1)
+        except Exception:
+            pass
+
+    timeline_events = [
+        {
+            "event_code": "EVT_PO",
+            "stage_code": "STEP_01",
+            "stage_name_ar": "أمر الشراء والتعاقد الخارجي",
+            "stage_name_en": "Purchase Order & Commercial Contract",
+            "planned_date": imp.contract_date.isoformat() if getattr(imp, "contract_date", None) else None,
+            "actual_date": imp.contract_date.isoformat() if getattr(imp, "contract_date", None) else None,
+            "status": "COMPLETED" if pos else "PENDING",
+            "details": f"أوامر شراء: {len(pos)}",
+            "sla_label": None,
+        },
+        {
+            "event_code": "EVT_ACID",
+            "stage_code": "STEP_03",
+            "stage_name_ar": "إصدار رقم القيد الجمركي نافذة ACID",
+            "stage_name_en": "Nafeza ACID Number Issuance",
+            "planned_date": str(imp.acid_issue_date or ""),
+            "actual_date": str(imp.acid_issue_date or ""),
+            "status": "COMPLETED" if imp.acid_number else "PENDING",
+            "details": imp.acid_number or "بانتظار الإصدار",
+            "sla_label": f"ساري حتى {imp.acid_expiry_date}" if imp.acid_expiry_date else None,
+        },
+        {
+            "event_code": "EVT_FORM4",
+            "stage_code": "STEP_05",
+            "stage_name_ar": "تقديم واستلام نموذج 4 البنكي",
+            "stage_name_en": "Form 4 Submission & Bank Endorsement",
+            "planned_date": str(form4_req or ""),
+            "actual_date": str(form4_rec or ""),
+            "status": "COMPLETED" if imp.form4_no else "PENDING",
+            "details": f"نموذج 4 رقم: {imp.form4_no or '—'}",
+            "sla_label": f"استغرق {form4_sla_days} يوم عمل" if form4_sla_days is not None else None,
+        },
+        {
+            "event_code": "EVT_CARGOX",
+            "stage_code": "STEP_08",
+            "stage_name_ar": "رفع المستندات عبر كارجو إكس",
+            "stage_name_en": "CargoX Blockchain Document Transfer",
+            "planned_date": None,
+            "actual_date": imp.cargox_transferred_at.isoformat() if imp.cargox_transferred_at else None,
+            "status": "COMPLETED" if imp.cargox_transferred_at else "PENDING",
+            "details": f"Envelope ID: {imp.cargox_envelope_id or '—'}",
+            "sla_label": "تم النقل الرقمي والمطابقة" if imp.cargox_transferred_at else None,
+        },
+        {
+            "event_code": "EVT_DEPARTURE",
+            "stage_code": "STEP_09",
+            "stage_name_ar": "إبحار السفينة من ميناء الشحن (ETD/ATD)",
+            "stage_name_en": "Vessel Departure & ATD Confirmation",
+            "planned_date": imp.departure_date.isoformat() if getattr(imp, "departure_date", None) else None,
+            "actual_date": imp.actual_departure_date.isoformat() if getattr(imp, "actual_departure_date", None) else None,
+            "status": "COMPLETED" if getattr(imp, "actual_departure_date", None) else "PENDING",
+            "details": f"الباخرة: {imp.vessel_name or '—'} | بوليصة: {imp.bl_number or '—'}",
+            "sla_label": None,
+        },
+        {
+            "event_code": "EVT_ARRIVAL",
+            "stage_code": "STEP_11",
+            "stage_name_ar": "وصول السفينة لميناء المقصد (ETA/ATA)",
+            "stage_name_en": "Port Arrival (ETA/ATA)",
+            "planned_date": imp.required_eta.isoformat() if getattr(imp, "required_eta", None) else None,
+            "actual_date": imp.actual_arrival_date.isoformat() if getattr(imp, "actual_arrival_date", None) else (clearance.port_arrival_date.isoformat() if clearance and clearance.port_arrival_date else None),
+            "status": "COMPLETED" if (getattr(imp, "actual_arrival_date", None) or (clearance and clearance.port_arrival_date)) else "IN_TRANSIT",
+            "details": f"ميناء الوصول: {imp.port_of_discharge or '—'}",
+            "sla_label": "وصلت الميناء" if (getattr(imp, "actual_arrival_date", None) or (clearance and clearance.port_arrival_date)) else "مبحرة في البحر",
+        },
+        {
+            "event_code": "EVT_DELIVERY_ORDER",
+            "stage_code": "STEP_12",
+            "stage_name_ar": "طلب وسداد إذن التسليم الملاحي D/O",
+            "stage_name_en": "Delivery Order Request & Payment",
+            "planned_date": do_req_str,
+            "actual_date": clearance.delivery_order_date.isoformat() if (clearance and clearance.delivery_order_date) else None,
+            "status": "COMPLETED" if (clearance and clearance.delivery_order_number) else "PENDING",
+            "details": f"إذن تسليم: {(clearance.delivery_order_number if clearance else None) or '—'}",
+            "sla_label": f"خلال {do_sla_hours} ساعة" if do_sla_hours is not None else None,
+        },
+        {
+            "event_code": "EVT_DECLARATION_46",
+            "stage_code": "STEP_13",
+            "stage_name_ar": "تسجيل إقرار 46 وتعيين المسار الجمركي",
+            "stage_name_en": "Customs Declaration 46 & Channel Routing",
+            "planned_date": None,
+            "actual_date": imp.form46_date.isoformat() if imp.form46_date else None,
+            "status": "COMPLETED" if imp.form46_no else "PENDING",
+            "details": f"رقم الإقرار: {imp.form46_no or '—'} | المسار: {customs_channel or '—'}",
+            "sla_label": None,
+        },
+        {
+            "event_code": "EVT_RELEASE_PERMIT",
+            "stage_code": "STEP_16",
+            "stage_name_ar": "سداد الرسوم والإفراج الجمركي النهائي",
+            "stage_name_en": "Customs Duty Payment & Release Permit",
+            "planned_date": None,
+            "actual_date": customs_released_at_str,
+            "status": "COMPLETED" if customs_released else "PENDING",
+            "details": f"تصريح إفراج رقم: {customs_release_permit_no or '—'}",
+            "sla_label": f"إجمالي المسدد: {total_customs_paid:,.2f} ج.م",
+        },
+        {
+            "event_code": "EVT_WAREHOUSE_GRN",
+            "stage_code": "STEP_19",
+            "stage_name_ar": "وصول المخازن وفحص الجودة وإذن GRN",
+            "stage_name_en": "Warehouse Inbound & GRN Acceptance",
+            "planned_date": inland_arrival_str,
+            "actual_date": (wh.receiving_date.isoformat() if wh and getattr(wh, "receiving_date", None) else None),
+            "status": "COMPLETED" if wh else "PENDING",
+            "details": f"إذن GRN: {wh_grn_code or '—'} (مقبول: {wh_acc_qty}، عجز: {wh_short_qty})",
+            "sla_label": None,
+        },
+        {
+            "event_code": "EVT_CONTAINER_RETURN",
+            "stage_code": "STEP_21",
+            "stage_name_ar": "إعادة الحاويات الفارغة وإيصالات EIR",
+            "stage_name_en": "Empty Container Return & EIR Receipts",
+            "planned_date": None,
+            "actual_date": imp.empty_containers_returned_at.isoformat() if imp.empty_containers_returned_at else None,
+            "status": "COMPLETED" if containers_returned else "PENDING",
+            "details": f"إيصال EIR: {imp.empty_containers_eir_numbers or '—'}",
+            "sla_label": "تمت إعادة الحاويات" if containers_returned else "بانتظار الإعادة للمستودع",
+        },
+        {
+            "event_code": "EVT_LANDED_COST_SETTLEMENT",
+            "stage_code": "STEP_23",
+            "stage_name_ar": "تسوية واعتماد تكلفة الوصول الفعلية",
+            "stage_name_en": "Actual Landed Cost Approval & Settlement",
+            "planned_date": None,
+            "actual_date": calc_at.isoformat() if calc_at else None,
+            "status": "COMPLETED" if settlement_done else "PENDING",
+            "details": f"الإجمالي الفعلي: {actual_landed_egp:,.2f} ج.م",
+            "sla_label": f"معامل الزيادة {markup_fac:.3f}x" if markup_fac is not None else None,
+        },
+    ]
+
+    # 11. Cargo Physical Breakdown & KPI Summary
+    final_total_packages = int(getattr(imp, "total_packages_count", 0) or sum(p.get("total_packages", 0) for p in po_summaries) or 0)
+    final_gross_weight = float(getattr(imp, "gross_weight_kg", 0.0) or sum(p.get("total_gross_weight_kg", 0.0) for p in po_summaries) or 0.0)
+    final_total_cbm = float(getattr(imp, "total_cbm", 0.0) or sum(p.get("total_cbm", 0.0) for p in po_summaries) or 0.0)
+
+    unique_invoices = set()
+    if imp.pi_number:
+        unique_invoices.add(imp.pi_number)
+    for p in po_summaries:
+        if p.get("proforma_invoice_number"):
+            unique_invoices.add(p["proforma_invoice_number"])
+    if getattr(imp, "invoices_data", None):
+        for inv in (imp.invoices_data or []):
+            inv_no = inv.get("invoice_no") or inv.get("number")
+            if inv_no:
+                unique_invoices.add(str(inv_no))
+
+    invoices_list = sorted(list(unique_invoices))
+    effective_invoices_count = max(len(invoices_list), inv_count, 1 if imp.pi_number else 0)
+
+    cargo_physical_summary = {
+        "total_cbm": round(final_total_cbm, 4),
+        "total_gross_weight_kg": round(final_gross_weight, 2),
+        "total_net_weight_kg": round(dossier_net_weight, 2) if dossier_net_weight else None,
+        "total_packages": final_total_packages,
+        "invoices_count": effective_invoices_count,
+        "invoices_numbers": invoices_list,
+        "pos_count": len(pos),
+        "pos_numbers": [p.get("po_number") for p in po_summaries if p.get("po_number")],
+    }
+
+    # 12. ETA Tracking Revisions Log
+    eta_revisions_log = []
+    try:
+        from modules.shipment_updates.model import ShipmentUpdateLog
+        up_logs = (
+            db.query(ShipmentUpdateLog)
+            .filter(
+                ShipmentUpdateLog.import_file_id == import_file_id,
+                ShipmentUpdateLog.is_active == True,
             )
-            if po_nw > 0:
-                dossier_net_weight = round(po_nw, 2)
+            .order_by(ShipmentUpdateLog.created_at.asc())
+            .all()
+        )
+        for log in up_logs:
+            note_lower = (log.note or "").lower()
+            if any(k in note_lower for k in ["eta", "تأخير", "وصول", "arrival", "drift", "تأخر"]):
+                eta_revisions_log.append({
+                    "logged_at": log.created_at.isoformat() if log.created_at else str(log.log_date),
+                    "note": log.note,
+                    "target_phase": log.target_phase,
+                    "update_category": log.update_category,
+                    "recorded_by": log.created_by,
+                })
+    except Exception:
+        eta_revisions_log = []
+
+    if imp.required_eta:
+        req_eta_str = str(imp.required_eta)
+        act_arrival_str = imp.inland_actual_arrival_date.date().isoformat() if imp.inland_actual_arrival_date else (
+            imp.inland_expected_arrival_date.date().isoformat() if imp.inland_expected_arrival_date else None
+        )
+        drift = None
+        if imp.inland_actual_arrival_date:
+            drift = (imp.inland_actual_arrival_date.date() - imp.required_eta).days
+        elif imp.inland_expected_arrival_date:
+            drift = (imp.inland_expected_arrival_date.date() - imp.required_eta).days
+
+        if not eta_revisions_log:
+            eta_revisions_log.append({
+                "logged_at": imp.created_at.isoformat() if imp.created_at else req_eta_str,
+                "previous_eta": req_eta_str,
+                "revised_eta": req_eta_str,
+                "drift_days": 0,
+                "reason": "الموعد المخطط المبدئي (Initial Target ETA)",
+                "recorded_by": imp.owner or "Logistics Team",
+            })
+            if act_arrival_str and act_arrival_str != req_eta_str:
+                eta_revisions_log.append({
+                    "logged_at": imp.updated_at.isoformat() if imp.updated_at else act_arrival_str,
+                    "previous_eta": req_eta_str,
+                    "revised_eta": act_arrival_str,
+                    "drift_days": drift,
+                    "reason": f"رصد حركة السفينة وتعديل موعد الوصول ({'تأخير' if drift and drift > 0 else 'تقديم'} {abs(drift or 0)} أيام)",
+                    "recorded_by": "Tracking Engine",
+                })
+
+    # 13. Institutional Knowledge, Past Similar Shipments, and Recurring Patterns
+    institutional_knowledge = None
+    similar_past_shipments = []
+    recurring_patterns = []
+    try:
+        from modules.experience_guide.service import ExperienceGuideService
+        from modules.experience_guide.schemas import GuideMatchRequest
+        guide_svc = ExperienceGuideService(db)
+        # Collect HS codes and categories from file and PO line items
+        file_hs = imp.hs_code or (po_summaries[0].get("hs_code") if po_summaries else None)
+        file_category = imp.product_category or (po_summaries[0].get("product_category") if po_summaries else None)
+        all_hs = [file_hs] if file_hs else []
+        all_cats = [file_category] if file_category else []
+        for itm in (items_detail or []):
+            if itm.get("hs_code") and itm.get("hs_code") not in all_hs:
+                all_hs.append(itm.get("hs_code"))
+            if itm.get("product_category") and itm.get("product_category") not in all_cats:
+                all_cats.append(itm.get("product_category"))
+
+        match_req = GuideMatchRequest(
+            hs_code=file_hs,
+            hs_codes=all_hs or None,
+            product_category=file_category,
+            product_categories=all_cats or None,
+            supplier=supplier_name,
+            port_of_loading=imp.port_of_loading,
+            port_of_discharge=imp.port_of_discharge,
+            destination_port=imp.port_of_discharge,
+            shipping_line=getattr(imp, "shipping_line", None) or getattr(imp, "selected_scenario", None),
+            incoterm=imp.incoterm_code,
+            import_file_id=imp.import_file_id,
+            import_file_reference=imp.import_file_code,
+        )
+        matched_guide = guide_svc.match_shipment(match_req)
+
+        try:
+            raw_sim = guide_svc.get_similar_shipments(imp.import_file_id)
+            similar_past_shipments = [
+                {
+                    "import_file_id": s.import_file_id,
+                    "import_file_code": s.import_file_code,
+                    "company_name": s.company_name,
+                    "supplier_name": s.supplier_name,
+                    "port_of_loading": s.port_of_loading,
+                    "port_of_discharge": s.port_of_discharge,
+                    "shipping_line": s.shipping_line,
+                    "status": s.status,
+                    "opening_date": s.opening_date,
+                    "clearance_duration_days": s.clearance_duration_days,
+                    "cost_variance_pct": s.cost_variance_pct,
+                    "matched_dimensions": s.matched_dimensions,
+                }
+                for s in raw_sim
+            ]
+        except Exception:
+            similar_past_shipments = []
+
+        try:
+            raw_pat = guide_svc.get_detected_patterns()
+            recurring_patterns = [
+                {
+                    "pattern_id": p.pattern_id,
+                    "pattern_type": p.pattern_type,
+                    "dimension_type": p.dimension_type,
+                    "dimension_value": p.dimension_value,
+                    "occurrence_count": p.occurrence_count,
+                    "suggested_title": p.suggested_title,
+                    "suggested_content": p.suggested_content,
+                    "suggested_severity": p.suggested_severity,
+                    "evidence_shipments": p.evidence_shipments,
+                }
+                for p in raw_pat
+            ]
+        except Exception:
+            recurring_patterns = []
+
+        institutional_knowledge = {
+            "has_critical_alert": matched_guide.has_critical_alert,
+            "has_warning_alert": matched_guide.has_warning_alert,
+            "mandatory_ports": matched_guide.mandatory_ports,
+            "required_documents": matched_guide.required_documents,
+            "suggested_notes": matched_guide.suggested_notes,
+            "matched_entries": [
+                {
+                    "entry_id": e.entry_id,
+                    "title": e.title,
+                    "content": e.content,
+                    "entry_type": e.entry_type,
+                    "severity": e.severity,
+                    "department": e.department,
+                    "source_type": e.source_type,
+                    "confidence_level": e.confidence_level,
+                    "is_system_inferred": e.is_system_inferred,
+                }
+                for e in matched_guide.matched_entries
+            ],
+            "critical_entries": [
+                {
+                    "entry_id": e.entry_id,
+                    "title": e.title,
+                    "content": e.content,
+                    "severity": e.severity,
+                }
+                for e in matched_guide.critical_entries
+            ],
+            "warning_entries": [
+                {
+                    "entry_id": e.entry_id,
+                    "title": e.title,
+                    "content": e.content,
+                    "severity": e.severity,
+                }
+                for e in matched_guide.warning_entries
+            ],
+            "similar_past_shipments": similar_past_shipments,
+            "recurring_patterns": recurring_patterns,
+        }
+    except Exception:
+        institutional_knowledge = None
+        similar_past_shipments = []
+        recurring_patterns = []
 
     return ComprehensiveShipmentDossierResponse(
         import_file_id=imp.import_file_id,
@@ -878,12 +1280,14 @@ def get_comprehensive_shipment_dossier_service(
         commodity=imp.product_category or imp.notes,
         port_of_loading=imp.port_of_loading,
         port_of_discharge=imp.port_of_discharge,
-        total_packages=int(getattr(imp, "total_packages_count", 0) or sum(p.get("total_packages", 0) for p in po_summaries) or 0),
-        gross_weight_kg=float(getattr(imp, "gross_weight_kg", 0.0) or sum(p.get("total_gross_weight_kg", 0.0) for p in po_summaries) or 0.0),
+        total_packages=final_total_packages,
+        gross_weight_kg=final_gross_weight,
         net_weight_kg=dossier_net_weight,
-        total_cbm=float(getattr(imp, "total_cbm", 0.0) or sum(p.get("total_cbm", 0.0) for p in po_summaries) or 0.0),
+        total_cbm=final_total_cbm,
         target_free_days=int(imp.target_free_days or 0),
         purchase_orders=po_summaries,
+        pos_count=len(pos),
+        invoices_count=effective_invoices_count,
         fob_by_currency=fob_by_currency,
         total_fob_fc=total_fob_fc,
         total_fob_egp=total_fob_egp,
@@ -933,6 +1337,14 @@ def get_comprehensive_shipment_dossier_service(
         sections=sections,
         closure_readiness=closure_readiness,
         summary_notes=summary_notes,
+        containers=containers_list,
+        fx_reconciliation=fx_recon,
+        timeline_events=timeline_events,
+        eta_revisions_log=eta_revisions_log,
+        cargo_physical_summary=cargo_physical_summary,
+        similar_past_shipments=similar_past_shipments,
+        recurring_patterns=recurring_patterns,
+        institutional_knowledge=institutional_knowledge,
     )
 
 

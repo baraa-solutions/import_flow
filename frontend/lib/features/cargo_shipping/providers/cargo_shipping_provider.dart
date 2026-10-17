@@ -24,11 +24,18 @@ class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingM
     super.dispose();
   }
 
+  int? totalCount;
+  bool _isLoadingMore = false;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMore => totalCount != null && (state.valueOrNull?.length ?? 0) < totalCount!;
+
   Future<void> fetchRecords({
     bool includeInactive = true,
     int? importFileId,
     String? status,
     String? search,
+    int skip = 0,
+    int limit = 200,
   }) async {
     if (state.valueOrNull == null) {
       state = const AsyncValue.loading();
@@ -37,7 +44,11 @@ class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingM
     _cancelToken = CancelToken();
 
     try {
-      final queryParams = <String, dynamic>{'include_inactive': includeInactive};
+      final queryParams = <String, dynamic>{
+        'include_inactive': includeInactive,
+        'skip': skip,
+        'limit': limit,
+      };
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
       if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
@@ -48,6 +59,11 @@ class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingM
         cancelToken: _cancelToken,
       );
 
+      final totalHeader = response.headers.value('x-total-count');
+      if (totalHeader != null) {
+        totalCount = int.tryParse(totalHeader);
+      }
+
       final List data = response.data;
       final list = data.map((json) => CargoShippingModel.fromJson(json)).toList();
       state = AsyncValue.data(list);
@@ -56,6 +72,46 @@ class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingM
         return;
       }
       state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> loadMore({
+    bool includeInactive = true,
+    int? importFileId,
+    String? status,
+    String? search,
+    int limit = 200,
+  }) async {
+    if (_isLoadingMore || !hasMore) return;
+    final currentList = state.valueOrNull ?? [];
+    _isLoadingMore = true;
+    try {
+      final queryParams = <String, dynamic>{
+        'include_inactive': includeInactive,
+        'skip': currentList.length,
+        'limit': limit,
+      };
+      if (importFileId != null) queryParams['import_file_id'] = importFileId;
+      if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/cargo-shipping',
+        queryParameters: queryParams,
+      );
+
+      final totalHeader = response.headers.value('x-total-count');
+      if (totalHeader != null) {
+        totalCount = int.tryParse(totalHeader);
+      }
+
+      final List data = response.data;
+      final nextItems = data.map((json) => CargoShippingModel.fromJson(json)).toList();
+      state = AsyncValue.data([...currentList, ...nextItems]);
+    } catch (e) {
+      // Keep existing data on pagination failure
+    } finally {
+      _isLoadingMore = false;
     }
   }
 

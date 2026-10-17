@@ -30,7 +30,7 @@ class _RecordingBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBo
   final List<Map<String, dynamic>> updated = [];
 
   @override
-  Future<void> fetchBookings({bool includeInactive = false, int? importFileId, String? status, String? search}) async {}
+  Future<void> fetchBookings({bool includeInactive = false, int? importFileId, String? status, String? search, int skip = 0, int limit = 200}) async {}
 
   @override
   Future<ShipmentBookingModel?> createBooking(Map<String, dynamic> payload) async {

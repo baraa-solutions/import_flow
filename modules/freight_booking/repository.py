@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from modules.common.sequence_generator import next_yearly_code
@@ -80,8 +80,10 @@ def list_bookings(
     include_inactive: bool = False,
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
-    search: Optional[str] = None
-) -> List[ShipmentBooking]:
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[ShipmentBooking], int]:
     query = db.query(ShipmentBooking)
     if not include_inactive:
         query = query.filter(ShipmentBooking.is_active == True)
@@ -98,7 +100,9 @@ def list_bookings(
             (ShipmentBooking.vessel_name.like(pattern)) |
             (ShipmentBooking.freight_forwarder_name.like(pattern))
         )
-    return query.order_by(ShipmentBooking.created_at.desc()).all()
+    total = query.count()
+    items = query.order_by(ShipmentBooking.created_at.desc()).offset(skip).limit(limit).all()
+    return items, total
 
 
 def apply_booking_update(booking: ShipmentBooking, payload: ShipmentBookingUpdate) -> None:

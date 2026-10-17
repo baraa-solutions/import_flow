@@ -210,8 +210,14 @@ class ImportFileModel {
   final bool isActive;
   final int? clonedFromId;
   final String? clonedFromCode;
+  final int? parentImportFileId;
+  final String? parentFileCode;
+  final bool isPartialShipment;
   final String createdAt;
   final String updatedAt;
+
+  bool get isChildPartial => parentImportFileId != null;
+  bool get isParentPartial => isPartialShipment && parentImportFileId == null;
 
   String get displayName => (customFileNumber != null && customFileNumber!.trim().isNotEmpty)
       ? customFileNumber!.trim()
@@ -354,6 +360,9 @@ class ImportFileModel {
     this.isActive = true,
     this.clonedFromId,
     this.clonedFromCode,
+    this.parentImportFileId,
+    this.parentFileCode,
+    this.isPartialShipment = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -528,6 +537,9 @@ class ImportFileModel {
       isActive: json['is_active'] ?? true,
       clonedFromId: json['cloned_from_id'],
       clonedFromCode: json['cloned_from_code'],
+      parentImportFileId: json['parent_import_file_id'] as int?,
+      parentFileCode: json['parent_file_code'] as String?,
+      isPartialShipment: json['is_partial_shipment'] as bool? ?? false,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
     );
@@ -539,6 +551,9 @@ class ImportFileModel {
       'import_file_code': importFileCode,
       if (clonedFromId != null) 'cloned_from_id': clonedFromId,
       if (clonedFromCode != null) 'cloned_from_code': clonedFromCode,
+      if (parentImportFileId != null) 'parent_import_file_id': parentImportFileId,
+      if (parentFileCode != null) 'parent_file_code': parentFileCode,
+      'is_partial_shipment': isPartialShipment,
       if (hsCode != null) 'hs_code': hsCode,
       if (productCategory != null) 'product_category': productCategory,
       'custom_file_number': customFileNumber,

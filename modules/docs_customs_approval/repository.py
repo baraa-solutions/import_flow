@@ -4,7 +4,7 @@ Queries only: writes flush, the service owns the transaction and commits once (D
 """
 
 from datetime import datetime, timezone
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple, Union
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, desc, func
 
@@ -59,7 +59,10 @@ def list_approvals(
     document_type: Optional[str] = None,
     overall_status: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[CustomsDocumentApproval]:
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[CustomsDocumentApproval], Tuple[List[CustomsDocumentApproval], int]]:
     query = db.query(CustomsDocumentApproval)
     if not include_inactive:
         query = query.filter(CustomsDocumentApproval.is_active == True)
@@ -79,7 +82,16 @@ def list_approvals(
                 CustomsDocumentApproval.customs_broker_name.ilike(s),
             )
         )
-    return query.order_by(desc(CustomsDocumentApproval.approval_id)).all()
+    total = query.order_by(None).count() if return_total else 0
+    query = query.order_by(desc(CustomsDocumentApproval.approval_id))
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    items = query.all()
+    if return_total:
+        return items, total
+    return items
 
 
 def create_approval(db: Session, approval: CustomsDocumentApproval) -> CustomsDocumentApproval:
@@ -141,7 +153,10 @@ def list_tickets(
     status: Optional[str] = None,
     severity: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[DiscrepancyRectificationTicket]:
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[DiscrepancyRectificationTicket], Tuple[List[DiscrepancyRectificationTicket], int]]:
     query = db.query(DiscrepancyRectificationTicket)
     if not include_inactive:
         query = query.filter(DiscrepancyRectificationTicket.is_active == True)
@@ -162,7 +177,16 @@ def list_tickets(
                 DiscrepancyRectificationTicket.issue_category.ilike(s),
             )
         )
-    return query.order_by(desc(DiscrepancyRectificationTicket.ticket_id)).all()
+    total = query.order_by(None).count() if return_total else 0
+    query = query.order_by(desc(DiscrepancyRectificationTicket.ticket_id))
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    items = query.all()
+    if return_total:
+        return items, total
+    return items
 
 
 def create_ticket(db: Session, ticket: DiscrepancyRectificationTicket) -> DiscrepancyRectificationTicket:
@@ -206,7 +230,10 @@ def list_sessions(
     import_file_id: Optional[int] = None,
     is_draft: Optional[bool] = None,
     search: Optional[str] = None,
-) -> List[DocsCustomsApprovalSession]:
+    skip: int = 0,
+    limit: Optional[int] = None,
+    return_total: bool = False,
+) -> Union[List[DocsCustomsApprovalSession], Tuple[List[DocsCustomsApprovalSession], int]]:
     query = db.query(DocsCustomsApprovalSession).filter(DocsCustomsApprovalSession.is_active == True)
     if import_file_id is not None:
         query = query.filter(DocsCustomsApprovalSession.import_file_id == import_file_id)
@@ -221,7 +248,16 @@ def list_sessions(
                 DocsCustomsApprovalSession.customs_broker_name.ilike(s),
             )
         )
-    return query.order_by(desc(DocsCustomsApprovalSession.session_id)).all()
+    total = query.order_by(None).count() if return_total else 0
+    query = query.order_by(desc(DocsCustomsApprovalSession.session_id))
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    items = query.all()
+    if return_total:
+        return items, total
+    return items
 
 
 def create_session(db: Session, session_obj: DocsCustomsApprovalSession) -> DocsCustomsApprovalSession:

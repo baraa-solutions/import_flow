@@ -177,3 +177,14 @@ def customs_rate_to_egp(db: Session, currency_code: Optional[str], on_date: date
     if rate is None or not rate.customs_rate or float(rate.customs_rate) <= 0:
         return None
     return float(rate.customs_rate)
+
+
+def latest_active_cargo_shipping(db: Session, import_file_id: int):
+    from modules.cargo_shipping.model import CargoShippingRecord
+    return (
+        db.query(CargoShippingRecord)
+        .filter(CargoShippingRecord.import_file_id == import_file_id, CargoShippingRecord.is_active == True)
+        .order_by(CargoShippingRecord.cargo_shipping_id.desc())
+        .first()
+    )
+

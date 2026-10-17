@@ -7,15 +7,9 @@ import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/metric_card.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
 import '../services/cargo_insurance_export_service.dart';
-import '../../../core/widgets/smart_upload_button.dart';
-import '../../../core/widgets/universal_entity_extractor_dialog.dart';
-import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../cargo_shipping/providers/cargo_shipping_provider.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -196,11 +190,10 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
     return certificatesAsync.when(
-      loading: () => const CcStateView.loading(),
-      error: (err, _) => CcStateView.error(
+      loading: () => const AppLoadingState(),
+      error: (err, _) => AppErrorState(
         message: l.insuranceFetchError(ApiErrorText.of(l, err)),
-        actionLabel: l.insuranceRetryBtn,
-        onAction: _refreshData,
+        onRetry: _refreshData,
       ),
       data: (certificates) {
         final totalCount = certificates.length;
@@ -379,7 +372,11 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                     children: [
                       ConstrainedBox(
                         constraints: const BoxConstraints(minWidth: 260, maxWidth: 420),
-                        child: _buildSearchField(l),
+                        child: AppSearchField(
+                          controller: _searchController,
+                          hint: l.insuranceSearchHint,
+                          onChanged: (_) => setState(() {}),
+                        ),
                       ),
                       Wrap(
                         spacing: 6,
@@ -410,7 +407,11 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                         checkmarkColor: AppTheme.crimson,
                         onSelected: (val) => setState(() => _showInactive = val),
                       ),
-                      CcStatusChip(label: '${filteredCertificates.length}', severity: AppSeverity.info),
+                      AppStatusBadge(
+                        label: '${filteredCertificates.length}',
+                        severity: AppSeverity.info,
+                        size: AppStatusBadgeSize.small,
+                      ),
                     ],
                   ),
                 ),
@@ -419,7 +420,7 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
               // ─── Data Table ───────────────────────────────────────────────────
               Expanded(
                 child: filteredCertificates.isEmpty
-                    ? CcStateView.empty(
+                    ? AppEmptyState(
                         message: _searchController.text.isNotEmpty || _selectedStatusFilter != 'All'
                             ? l.insuranceNoMatchingFound
                             : l.insuranceNoDataFound,
@@ -448,51 +449,6 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
     );
   }
 
-  Widget _buildSearchField(AppLocalizations l) {
-    return TextField(
-      controller: _searchController,
-      decoration: InputDecoration(
-        hintText: l.insuranceSearchHint,
-        prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
-        suffixIcon: ValueListenableBuilder<TextEditingValue>(
-          valueListenable: _searchController,
-          builder: (context, value, _) {
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (value.text.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.copy_rounded, size: 18),
-                    tooltip: l.insuranceCopyFieldTooltip,
-                    onPressed: () => CopyHelper.copy(
-                      context,
-                      _searchController.text,
-                      customMessage: l.insuranceSearchCopied,
-                    ),
-                  ),
-                if (value.text.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() {});
-                    },
-                  ),
-              ],
-            );
-          },
-        ),
-        filled: true,
-        fillColor: AppTheme.surfaceAltOf(context),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg), borderSide: BorderSide(color: AppTheme.borderOf(context))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg), borderSide: BorderSide(color: AppTheme.borderOf(context))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
-        isDense: true,
-      ),
-      onChanged: (_) => setState(() {}),
-    );
-  }
 
   bool _isLoadingMore = false;
 
@@ -556,35 +512,16 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
 
   Future<void> _confirmIssueCertificate(CargoInsuranceModel cert) async {
     final l = context.l10n;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.verified_rounded, color: AppTheme.emerald, size: 24),
-            const SizedBox(width: 8),
-            Expanded(child: Text(l.insuranceConfirmIssueTitle)),
-          ],
-        ),
-        content: Text(l.insuranceConfirmIssueMsg(cert.certificateCode)),
-        actions: [
-          AppButton(
-            label: l.cancel,
-            variant: AppButtonVariant.secondary,
-            size: AppButtonSize.small,
-            onPressed: () => Navigator.pop(ctx, false),
-          ),
-          AppButton(
-            label: l.insuranceConfirmIssueBtn,
-            icon: Icons.verified_rounded,
-            variant: AppButtonVariant.success,
-            size: AppButtonSize.small,
-            onPressed: () => Navigator.pop(ctx, true),
-          ),
-        ],
-      ),
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: l.insuranceConfirmIssueTitle,
+      message: l.insuranceConfirmIssueMsg(cert.certificateCode),
+      confirmLabel: l.insuranceConfirmIssueBtn,
+      cancelLabel: l.cancel,
+      confirmVariant: AppButtonVariant.success,
+      icon: Icons.verified_rounded,
     );
-    if (confirm == true) {
+    if (confirm) {
       try {
         await ref.read(cargoInsuranceProvider.notifier).issueCertificate(cert.certificateId);
         ref.invalidate(importFilesProvider);
@@ -605,28 +542,16 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
 
   Future<void> _confirmDeleteCertificate(CargoInsuranceModel cert) async {
     final l = context.l10n;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 24),
-            const SizedBox(width: 8),
-            Text(l.insuranceConfirmDeleteTitle),
-          ],
-        ),
-        content: Text(l.insuranceConfirmDeleteMsg),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l.insuranceDeleteBtn, style: const TextStyle(color: AppTheme.white)),
-          ),
-        ],
-      ),
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: l.insuranceConfirmDeleteTitle,
+      message: l.insuranceConfirmDeleteMsg,
+      confirmLabel: l.insuranceDeleteBtn,
+      cancelLabel: l.cancel,
+      confirmVariant: AppButtonVariant.danger,
+      icon: Icons.delete_outline_rounded,
     );
-    if (confirm == true) {
+    if (confirm) {
       try {
         await ref.read(cargoInsuranceProvider.notifier).deleteCertificate(cert.certificateId);
       } catch (e) {

@@ -59,3 +59,35 @@ def next_yearly_code(
         .scalar()
     )
     return f"{head}{(highest or 0) + 1:0{pad}d}"
+
+
+def next_global_code(
+    db: Session,
+    column: Any,
+    prefix: str,
+    pad: int = 6,
+) -> str:
+    """
+    Next ``<prefix>-<NNNNNN>`` code for a String column (e.g. ``Supplier.supplier_code`` -> "SUP-000017",
+    ``ClearanceExpenseType.expense_code`` -> "EXP-001").
+
+    Continues from the highest numeric suffix already used across all records,
+    so user-typed codes in the same pattern are skipped and deletions never reuse a number.
+    Suffixes that are not plain digits are ignored. The unique constraint on the column stays
+    the final guard: callers retry on IntegrityError.
+    """
+    head = f"{prefix}-"
+    suffix = func.substr(column, len(head) + 1)
+    highest = (
+        db.query(func.max(cast(suffix, Integer)))
+        .filter(
+            and_(
+                column.like(f"{head}%"),
+                suffix != "",
+                suffix.op("NOT GLOB")("*[^0-9]*"),  # SQLite: digits only
+            )
+        )
+        .scalar()
+    )
+    return f"{head}{(highest or 0) + 1:0{pad}d}"
+
