@@ -1135,6 +1135,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "SCENARIO_SESSION_EXISTS": {
         "note": "An active shipping-scenario study ({session_code}) already exists for this import file.",
     },
+    "SCENARIO_ITEMS_BOOKED": {
+        "note": "Cannot delete shipping options ({item_ids}) referenced by a freight booking.",
+    },
     # ── Customs consultation (409 detail.code; detail also carries consultation_id) ──
     "CONSULTATION_EXISTS": {
         "note": "An active customs consultation ({consultation_code}) already exists for this import file.",

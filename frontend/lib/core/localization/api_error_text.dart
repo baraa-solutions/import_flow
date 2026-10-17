@@ -11,6 +11,7 @@ class ApiErrorCode {
   static const customsFxRateMissing = 'CUSTOMS_FX_RATE_MISSING';
   static const irAssessmentExists = 'IR_ASSESSMENT_EXISTS';
   static const scenarioSessionExists = 'SCENARIO_SESSION_EXISTS';
+  static const scenarioItemsBooked = 'SCENARIO_ITEMS_BOOKED';
   static const consultationExists = 'CONSULTATION_EXISTS';
   static const ccSettlementLocked = 'CC_SETTLEMENT_LOCKED';
   static const wrClaimCurrencyInvalid = 'WR_CLAIM_CURRENCY_INVALID';

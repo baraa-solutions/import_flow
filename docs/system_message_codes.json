@@ -3559,6 +3559,14 @@
       "body"
     ]
   },
+  "SCENARIO_ITEMS_BOOKED": {
+    "params": [
+      "item_ids"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "SCENARIO_SESSION_EXISTS": {
     "params": [
       "session_code"

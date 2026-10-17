@@ -1202,6 +1202,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'SCENARIO_SESSION_EXISTS': {
     'note': 'توجد بالفعل دراسة سيناريوهات شحن نشطة ({session_code}) لهذا الملف الاستيرادي.',
   },
+  'SCENARIO_ITEMS_BOOKED': {
+    'note': 'لا يمكن حذف خيارات الشحن ({item_ids}) المرتبطة بحجز شحن.',
+  },
   'CONSULTATION_EXISTS': {
     'note': 'توجد بالفعل دراسة جمركية نشطة ({consultation_code}) لهذا الملف الاستيرادي.',
   },
