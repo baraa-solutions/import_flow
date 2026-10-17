@@ -32,7 +32,7 @@ class PaymentRequestBase(BaseModel):
     requested_amount: float = Field(..., gt=0.0)
     advance_percentage: Optional[float] = Field(None, ge=0.0, le=100.0, description="Percentage of PO requested as advance")
     currency_code: str = Field(default="USD", max_length=10)
-    exchange_rate: float = Field(default=50.0, gt=0.0)
+    exchange_rate: Optional[float] = Field(default=None, gt=0.0)
     due_date: date
     request_date: Optional[date] = None
     status: Optional[str] = Field("Draft", description="Draft, Pending Approval, Approved, Paid, Rejected")
@@ -150,7 +150,7 @@ class ImportBudgetBase(BaseModel):
     freight_currency: str = Field(default="USD", max_length=10)
     customs_duties_egp: float = Field(default=0.0, ge=0.0)
     clearance_inland_egp: float = Field(default=0.0, ge=0.0)
-    exchange_rate: float = Field(default=50.0, gt=0.0)
+    exchange_rate: Optional[float] = Field(default=None, gt=0.0)
     notes: Optional[str] = None
 
 

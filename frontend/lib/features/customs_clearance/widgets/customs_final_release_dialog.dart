@@ -60,8 +60,8 @@ class _CustomsFinalReleaseDialogState
   /// Release type code (DomainEnumType.releaseType); the label follows the UI language.
   String _releaseType = 'FINAL_GREEN';
   DateTime _releaseDate = DateTime.now();
-  DateTime? _portGateOutDate = DateTime.now();
-  bool _dispatchAuthorized = true;
+  DateTime? _portGateOutDate;
+  bool _dispatchAuthorized = false;
   bool _isSubmitting = false;
 
   final List<String> _releaseTypes = DomainEnums.codesOf(DomainEnumType.releaseType);
@@ -72,11 +72,8 @@ class _CustomsFinalReleaseDialogState
     final rec = widget.clearanceRecord;
     final file = widget.file;
 
-    // Prefill release permit number
-    String initialPermit = rec?.releasePermitNo ?? file.customsReleasePermitNo ?? '';
-    if (initialPermit.isEmpty) {
-      initialPermit = 'REL-${DateTime.now().year}-${file.importFileId.toString().padLeft(4, '0')}';
-    }
+    // Prefill release permit number strictly from record or file
+    final initialPermit = rec?.releasePermitNo ?? file.customsReleasePermitNo ?? '';
     _releasePermitNoController = TextEditingController(text: initialPermit);
 
     // Prefill officer name
@@ -84,17 +81,14 @@ class _CustomsFinalReleaseDialogState
       text: rec?.releaseOfficerName ?? file.customsReleaseOfficer ?? '',
     );
 
-    // Prefill gate pass number
-    String initialGatePass = rec?.gatePassNumber ?? file.customsGatePassNo ?? '';
-    if (initialGatePass.isEmpty) {
-      initialGatePass = 'GP-${DateTime.now().year}-${file.importFileId.toString().padLeft(4, '0')}';
-    }
+    // Prefill gate pass number strictly from record or file
+    final initialGatePass = rec?.gatePassNumber ?? file.customsGatePassNo ?? '';
     _gatePassNoController = TextEditingController(text: initialGatePass);
 
     // Prefill demurrage fees
-    double demurrage = rec?.demurrageStorageFees ?? 0.0;
+    final demurrage = rec?.demurrageStorageFees;
     _demurrageFeesController = TextEditingController(
-      text: demurrage > 0 ? demurrage.toStringAsFixed(2) : '0.00',
+      text: (demurrage != null && demurrage > 0) ? demurrage.toStringAsFixed(2) : '',
     );
 
     // Prefill release type
@@ -112,11 +106,15 @@ class _CustomsFinalReleaseDialogState
           'Direct delivery to company warehouses - verify customs seal integrity before opening the container',
     );
 
-    _notesController = TextEditingController(
-      text: rec?.notes ?? '',
-    );
+    _notesController = TextEditingController();
 
-    _dispatchAuthorized = rec?.dispatchAuthorized ?? true;
+    if (rec?.portGateOutDate != null) {
+      _portGateOutDate = DateTime.tryParse(rec!.portGateOutDate!);
+    } else {
+      _portGateOutDate = null;
+    }
+
+    _dispatchAuthorized = rec?.dispatchAuthorized ?? false;
   }
 
   @override
@@ -129,24 +127,6 @@ class _CustomsFinalReleaseDialogState
     _transportInstructionsController.dispose();
     _notesController.dispose();
     super.dispose();
-  }
-
-  void _generatePermitNumber() {
-    final year = DateTime.now().year;
-    final id = widget.file.importFileId.toString().padLeft(4, '0');
-    final rand = DateTime.now().millisecond.toString().padLeft(3, '0');
-    setState(() {
-      _releasePermitNoController.text = 'REL-$year-$id-$rand';
-    });
-  }
-
-  void _generateGatePassNumber() {
-    final year = DateTime.now().year;
-    final id = widget.file.importFileId.toString().padLeft(4, '0');
-    final rand = DateTime.now().millisecond.toString().padLeft(3, '0');
-    setState(() {
-      _gatePassNoController.text = 'GP-$year-$id-$rand';
-    });
   }
 
   Future<void> _pickReleaseDate() async {
@@ -327,11 +307,6 @@ class _CustomsFinalReleaseDialogState
                           l.ccRelPermitNoLabel,
                           hint: l.ccRelPermitNoHint,
                           icon: Icons.confirmation_number_outlined,
-                          suffix: IconButton(
-                            icon: const Icon(Icons.auto_awesome, color: AppTheme.emerald),
-                            tooltip: l.ccRelPermitAuto,
-                            onPressed: _generatePermitNumber,
-                          ),
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) return l.ccRelPermitRequired;
@@ -396,11 +371,6 @@ class _CustomsFinalReleaseDialogState
                           l.ccRelGatePassLabel,
                           hint: l.ccRelGatePassHint,
                           icon: Icons.vpn_key_outlined,
-                          suffix: IconButton(
-                            icon: const Icon(Icons.auto_awesome, color: AppTheme.emerald),
-                            tooltip: l.ccRelGatePassAuto,
-                            onPressed: _generateGatePassNumber,
-                          ),
                         ),
                       ),
                       InkWell(
@@ -454,11 +424,13 @@ class _CustomsFinalReleaseDialogState
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if ((widget.clearanceRecord?.notes ?? '').trim().isNotEmpty)
+                    CcPreviousNotesBox(notes: widget.clearanceRecord!.notes!),
                   TextFormField(
                     key: const Key('notesField'),
                     controller: _notesController,
                     maxLines: 2,
-                    decoration: _dec(l.ccRelNotesLabel, hint: l.ccRelNotesHint, icon: Icons.notes_outlined),
+                    decoration: _dec(l.ccStepNotesLabel, hint: l.ccRelNotesHint, icon: Icons.notes_outlined),
                   ),
                 ],
               ),

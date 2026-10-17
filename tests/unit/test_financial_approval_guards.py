@@ -579,11 +579,11 @@ def test_highest_freight_is_compared_in_egp(db):
 def test_list_returns_import_file_code_and_searches_it(db):
     imp = seed_file(db, import_file_code="IMP-2026-4242")
     p = _payment(db, import_file_id=imp.import_file_id)
-    rows = service.get_all_payment_requests_service(db, search="4242")
+    rows, _ = service.get_all_payment_requests_service(db, search="4242")
     assert [r.payment_id for r in rows] == [p.payment_id]
     assert rows[0].import_file_code == "IMP-2026-4242"
     budget = seed_budget(db, imp.import_file_id)
-    brows = service.get_all_import_budgets_service(db, search="IMP-2026-4242")
+    brows, _ = service.get_all_import_budgets_service(db, search="IMP-2026-4242")
     assert [r.budget_id for r in brows] == [budget.budget_id]
     assert brows[0].import_file_code == "IMP-2026-4242"
 
@@ -740,6 +740,51 @@ def test_swift_edit_author_is_token_user(api, db):
     assert resp.status_code == 200, resp.text
     assert db.query(OcrCorrectionsLog).filter_by(batch_id=batch.batch_id).one().corrected_by == "finance_officer3"
     assert db.query(SwiftExtractionBatch).filter_by(batch_id=batch.batch_id).one().status == "EXTRACTED_PENDING_REVIEW"
+
+
+def test_be02_t12_currency_change_requires_new_rate(api, db):
+    """BE02-T12: Changing a payment's currency requires a new rate."""
+    officer = _user(db, "finance_officer_t12", "FINANCE_OFFICER")
+    p = _payment(db, amount=10000.0, currency="USD", exchange_rate=50.0)
+    assert p.requested_amount_egp == 500000.0
+
+    # 1. PUT with a different currency_code and no exchange_rate -> 400 FA_PAYMENT_RATE_REQUIRED
+    resp = api.put(
+        f"{BASE}/payment-requests/{p.payment_id}",
+        headers=_bearer(officer),
+        json={"currency_code": "EUR"},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["code"] == "FA_PAYMENT_RATE_REQUIRED"
+    assert "سعر الصرف الجديد" in resp.json()["detail"]["message"]
+
+    # Also test directly via service
+    with pytest.raises(HTTPException) as exc:
+        service.update_payment_request_service(
+            db, p.payment_id, PaymentRequestUpdate(currency_code="EUR")
+        )
+    assert exc.value.status_code == 400
+    assert _code(exc) == "FA_PAYMENT_RATE_REQUIRED"
+
+    # 2. PUT with different currency_code and exchange_rate=55 -> requested_amount_egp == 550000.0
+    resp_ok = api.put(
+        f"{BASE}/payment-requests/{p.payment_id}",
+        headers=_bearer(officer),
+        json={"currency_code": "EUR", "exchange_rate": 55.0},
+    )
+    assert resp_ok.status_code == 200
+    data = resp_ok.json()
+    assert data["currency_code"] == "EUR"
+    assert data["exchange_rate"] == 55.0
+    assert data["requested_amount_egp"] == 550000.0
+
+    # Same currency update without exchange_rate -> succeeds without 400
+    resp_same = api.put(
+        f"{BASE}/payment-requests/{p.payment_id}",
+        headers=_bearer(officer),
+        json={"currency_code": "EUR", "title": "Updated Title"},
+    )
+    assert resp_same.status_code == 200
 
 
 # ─── BE02-T16: hygiene & validation guards ───────────────────────────────────

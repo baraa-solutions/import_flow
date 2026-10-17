@@ -1,0 +1,1 @@
+- [import_documentation mapping](reference_import_documentation_mapping.md) — extra files, Flutter registration, auth check tips

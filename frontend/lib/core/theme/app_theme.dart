@@ -165,6 +165,7 @@ class AppTheme {
       isDark(context) ? darkTextSecondary : textCaption;
   static Color textMutedOf(BuildContext context) =>
       isDark(context) ? darkTextMuted : textMuted;
+  static Color primaryOf(BuildContext context) => cobalt;
 
   /// Foreground colour of a [AppSeverity].
   static Color severityColor(AppSeverity severity, {bool dark = false}) {

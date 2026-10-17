@@ -833,13 +833,26 @@ def clone_payment_request_service(db: Session, payment_id: int, schema: ClonePay
 
 
 def get_all_payment_requests_service(
-    db: Session, include_inactive: bool = False, search: Optional[str] = None, po_id: Optional[int] = None,
-    supplier_id: Optional[int] = None, status: Optional[str] = None,
-) -> List[PaymentRequestSession]:
-    items = repo.get_all_payment_requests(
-        db, include_inactive=include_inactive, search=search, po_id=po_id, supplier_id=supplier_id, status=status
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    po_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[PaymentRequestSession], int]:
+    items, total = repo.get_all_payment_requests(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        po_id=po_id,
+        supplier_id=supplier_id,
+        status=status,
+        skip=skip,
+        limit=limit,
     )
-    return _attach_file_codes(db, items)
+    return _attach_file_codes(db, items), total
 
 
 def get_payment_request_by_id_service(db: Session, payment_id: int) -> PaymentRequestSession:
@@ -938,18 +951,17 @@ def approve_import_budget_service(db: Session, budget_id: int, approved_by: str 
     db_item = _get_budget(db, budget_id)
     require_budget_approvable(db_item)
 
-    if db_item.has_unresolved_variance and not db_item.variance_override_reason:
-        hard = repo.first_pending_hard_block(db, budget_id)
-        if hard is not None:
-            raise fa_error(
-                status.HTTP_400_BAD_REQUEST,
-                "FA_BUDGET_HARD_BLOCK",
-                f"لا يمكن اعتماد الميزانية لوجود فارق تكاليف غير مسوى يتجاوز العتبة المحددة "
-                f"({hard.variance_percentage:.1f}% في {hard.field_name} - Hard Block). يجب مزامنة التكاليف أولاً "
-                "أو تقديم مبرر مكتوب إجباري لتجاوز الحظر.",
-                variance_percentage=round(float(hard.variance_percentage or 0.0), 2),
-                field_name=hard.field_name,
-            )
+    hard = repo.first_pending_hard_block(db, budget_id)
+    if hard is not None:
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_BUDGET_HARD_BLOCK",
+            f"لا يمكن اعتماد الميزانية لوجود فارق تكاليف غير مسوى يتجاوز العتبة المحددة "
+            f"({hard.variance_percentage:.1f}% في {hard.field_name} - Hard Block). يجب مزامنة التكاليف أولاً "
+            "أو تقديم مبرر مكتوب إجباري لتجاوز الحظر.",
+            variance_percentage=round(float(hard.variance_percentage or 0.0), 2),
+            field_name=hard.field_name,
+        )
 
     db_item.budget_status = BUDGET_APPROVED
     db_item.approved_by = approved_by
@@ -1042,14 +1054,26 @@ def clone_import_budget_service(db: Session, budget_id: int, schema: CloneImport
 
 
 def get_all_import_budgets_service(
-    db: Session, include_inactive: bool = False, search: Optional[str] = None, import_file_id: Optional[int] = None,
-    po_id: Optional[int] = None, budget_status: Optional[str] = None,
-) -> List[ImportBudgetApproval]:
-    items = repo.get_all_import_budgets(
-        db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, po_id=po_id,
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    po_id: Optional[int] = None,
+    budget_status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[ImportBudgetApproval], int]:
+    items, total = repo.get_all_import_budgets(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
         budget_status=budget_status,
+        skip=skip,
+        limit=limit,
     )
-    return _attach_file_codes(db, items)
+    return _attach_file_codes(db, items), total
 
 
 def get_import_budget_by_id_service(db: Session, budget_id: int) -> ImportBudgetApproval:
@@ -1521,6 +1545,8 @@ def evaluate_and_record_budget_variance_service(
             budget.last_variance_check = now
             budget.approved_by = None
             budget.approved_date = None
+            budget.variance_override_reason = None
+            budget.variance_overridden_by = None
             budget.notes = _append_note(
                 budget.notes,
                 f"[Source change {date.today()}]: cost variance detected by {modified_by}. Status changed to 'Needs Revalidation'.",
