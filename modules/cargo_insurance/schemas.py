@@ -78,7 +78,7 @@ class CargoInsuranceCertificateCreate(BaseModel):
     package_type: Optional[str] = None
     gross_weight_kg: Optional[float] = None
     survey_agent_in_destination: Optional[str] = None
-    claims_payable_at: Optional[str] = "Cairo, Egypt"
+    claims_payable_at: Optional[str] = None
     remarks: Optional[str] = None
 
 

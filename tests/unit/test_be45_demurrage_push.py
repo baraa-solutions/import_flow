@@ -103,6 +103,7 @@ def test_be45_t02_recalculate_before_push_and_dual_clock(db, monkeypatch):
         import_file_id=1,
         bill_of_lading_no="BL-MSC-4501",
         carrier_name="MSC",
+        port_name="Alexandria Port",
         discharge_date=date(2026, 9, 1),
         exchange_rate=50.0,
         containers=[
@@ -188,6 +189,7 @@ def test_be45_t02_is_provisional_false_when_containers_returned(db, monkeypatch)
         import_file_id=1,
         bill_of_lading_no="BL-MSC-4502",
         carrier_name="MSC",
+        port_name="Alexandria Port",
         discharge_date=date(2026, 9, 1),
         gate_out_date=date(2026, 9, 10),
         empty_return_date=date(2026, 9, 15),
