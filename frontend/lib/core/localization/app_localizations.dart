@@ -6823,6 +6823,7 @@ abstract class AppLocalizations {
   String get swiftEnterSwiftRefError;
   String get swiftEnterAmountError;
   String get swiftAmountGreaterThanZeroError;
+  String get swiftCurrencyRequiredError;
 
   String get swiftFileReadErrorSnack;
   String swiftExtractSuccessSnack(String filename, String type);
@@ -6833,6 +6834,12 @@ abstract class AppLocalizations {
   String swiftConnectionErrorSnack(String error);
   String swiftReconcileSuccessSnack(String swiftRef, String paymentCode);
   String swiftReconcileErrorSnack(String error);
+  String swiftReconcileMissingFields(String fields);
+  String get swiftBatchNotConfirmed;
+  String get swiftFieldRef;
+  String get swiftFieldValueDate;
+  String get swiftFieldAmount;
+  String get swiftFieldCurrency;
 
   String get swiftExportTsvBtn;
   String get swiftExportTsvSuccess;

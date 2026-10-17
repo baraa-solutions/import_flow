@@ -8322,6 +8322,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get swiftEnterAmountError => 'Please enter transferred amount';
   @override
   String get swiftAmountGreaterThanZeroError => 'Transferred amount must be greater than zero';
+  @override
+  String get swiftCurrencyRequiredError => 'Currency is required';
 
   @override
   String get swiftFileReadErrorSnack => 'Failed to read the selected file';
@@ -8341,6 +8343,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String swiftReconcileSuccessSnack(String swiftRef, String paymentCode) => 'SWIFT ($swiftRef) successfully reconciled with payment request ($paymentCode) and import file updated!';
   @override
   String swiftReconcileErrorSnack(String error) => 'Error during reconciliation: $error';
+  @override
+  String swiftReconcileMissingFields(String fields) =>
+      'Missing required SWIFT fields for smart reconciliation: $fields';
+  @override
+  String get swiftBatchNotConfirmed =>
+      'Cannot reconcile SWIFT batch before it is reviewed and confirmed';
+  @override
+  String get swiftFieldRef => 'SWIFT reference';
+  @override
+  String get swiftFieldValueDate => 'Value date';
+  @override
+  String get swiftFieldAmount => 'Amount';
+  @override
+  String get swiftFieldCurrency => 'Currency';
 
   @override
   String get swiftExportTsvBtn => 'Export TSV';
