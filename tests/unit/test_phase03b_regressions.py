@@ -322,6 +322,72 @@ def test_final_session_locked_and_signed_by_user(db, imp, customs_officer):
     assert db.query(DocsCustomsApprovalSession).count() == 1
 
 
+def test_final_session_failure_before_lifecycle_rolls_back(db, imp, customs_officer, monkeypatch):
+    """BE03-T17: Failure before lifecycle call leaves session uncertified and lifecycle not advanced."""
+    def fail_tracking(*args, **kwargs):
+        raise RuntimeError("simulated set_file_tracking failure")
+
+    monkeypatch.setattr(dca_service, "set_file_tracking", fail_tracking)
+
+    with pytest.raises(RuntimeError, match="simulated set_file_tracking failure"):
+        dca_service.create_customs_approval_session_service(
+            db, DocsCustomsApprovalSessionCreate(import_file_id=imp.import_file_id, is_draft=False,
+                                                 customs_signoff_by="spoof", created_by="spoof", **FIVE),
+            current_user=customs_officer)
+
+    db.rollback()
+    assert db.query(DocsCustomsApprovalSession).filter_by(import_file_id=imp.import_file_id).count() == 0
+    db.refresh(imp)
+    assert "STEP_10" not in (imp.current_module or "")
+
+
+def test_soft_delete_and_restore_transaction_hygiene(db, imp):
+    """BE03-T17: repo flushes only; rollback undoes soft delete or restore."""
+    from modules.import_documentation.repository import soft_delete_acid_session, restore_acid_session
+    from modules.import_documentation.model import AcidRegistrationSession
+
+    acid = AcidRegistrationSession(
+        acid_code="ACID-2026-999",
+        acid_number="1234567890123456789",
+        importer_name="Imp",
+        importer_tax_id="123",
+        exporter_name="Exp",
+        exporter_reg_id="EXP-1",
+        exporter_country="US",
+        proforma_invoice_no="PI-1",
+        pol_name="POL",
+        pod_name="POD",
+        expiry_date=date(2026, 12, 31),
+        is_active=True,
+    )
+    db.add(acid)
+    db.commit()
+    db.refresh(acid)
+
+    # 1. soft_delete flushes; rollback reverts it
+    ok = soft_delete_acid_session(db, acid.acid_id)
+    assert ok is True
+    assert acid.is_active is False
+    db.rollback()
+    db.refresh(acid)
+    assert acid.is_active is True
+
+    # 2. soft delete and commit
+    ok = soft_delete_acid_session(db, acid.acid_id)
+    assert ok is True
+    db.commit()
+    db.refresh(acid)
+    assert acid.is_active is False
+
+    # 3. restore_acid_session flushes; rollback reverts it
+    restored = restore_acid_session(db, acid.acid_id)
+    assert restored is not None
+    assert restored.is_active is True
+    db.rollback()
+    db.refresh(acid)
+    assert acid.is_active is False
+
+
 def test_final_session_needs_customs_permission(client, operator, imp):
     r = client.post("/api/v1/docs-customs-approval/sessions", headers=_h(operator),
                     json={"import_file_id": imp.import_file_id, "is_draft": False, **FIVE})
@@ -498,22 +564,30 @@ def test_apply_invoice_validation(client, operator, db, imp):
     url = "/api/v1/smart-upload/apply/commercial-invoice"
     base = {"import_file_id": imp.import_file_id}
     r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"acid_number": "123"}})
+    assert r.status_code == 400 and r.json()["detail"]["code"] == "SDU_INVOICE_NUMBER_REQUIRED"
+    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_number": "INV-1", "acid_number": "123"}})
     assert r.status_code == 400 and r.json()["detail"]["code"] == "SDU_ACID_INVALID"
-    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"acid_number": "9" * 19}})
+    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_number": "INV-1", "acid_number": "9" * 19}})
     assert r.status_code == 409 and r.json()["detail"]["code"] == "SDU_ACID_CONFLICT"
-    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"incoterms": "XYZ"}})
+    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_number": "INV-1", "incoterms": "XYZ"}})
     assert r.status_code == 400
-    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_value": "abc"}})
+    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_number": "INV-1", "invoice_value": "abc"}})
     assert r.status_code == 422
-    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_value": -5}})
+    r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {"invoice_number": "INV-1", "invoice_value": -5}})
     assert r.status_code == 422
+    orig_currency = imp.estimated_cost_currency
+    orig_cost = imp.estimated_cost
     r = client.post(url, headers=_h(operator), json={**base, "invoice_data": {
-        "acid_number": ACID, "incoterms": "cif", "invoice_value": 100.0, "currency": "eur", "extra_key": 1}})
+        "invoice_number": "INV-1", "acid_number": ACID, "incoterms": "cif", "invoice_value": 100.0, "currency": "eur", "extra_key": 1}})
     assert r.status_code == 200
     body = r.json()
     assert body["applied"] is True and body["msg_code"] == "SDU_INVOICE_APPLIED" and "message_ar" in body
     db.refresh(imp)
-    assert imp.incoterm_code == "CIF" and imp.estimated_cost_currency == "EUR"
+    assert imp.incoterm_code == "CIF"
+    assert imp.estimated_cost_currency == orig_currency
+    assert imp.estimated_cost == orig_cost
+    assert imp.invoices_data[0]["currency"] == "EUR"
+    assert imp.invoices_data[0]["invoice_no"] == "INV-1"
 
 
 def test_apply_invoice_inactive_file_404(client, operator, db, imp):
@@ -678,7 +752,7 @@ def test_apply_rejects_closed_file_and_records_user(client, operator, db, imp):
     db.add(CargoShippingRecord(cargo_shipping_code="SHP-CL", import_file_id=imp.import_file_id))
     db.commit()
     r = client.post("/api/v1/smart-upload/apply/commercial-invoice", headers=_h(operator),
-                    json={"import_file_id": imp.import_file_id, "invoice_data": {"invoice_value": 10}})
+                    json={"import_file_id": imp.import_file_id, "invoice_data": {"invoice_number": "INV-CL", "invoice_value": 10}})
     assert r.status_code == 200
     db.refresh(imp)
     assert imp.updated_by == operator.username
@@ -691,7 +765,7 @@ def test_apply_rejects_closed_file_and_records_user(client, operator, db, imp):
 
     imp.status = "Closed"
     db.commit()
-    for path, body in (("commercial-invoice", {"invoice_data": {"invoice_value": 10}}),
+    for path, body in (("commercial-invoice", {"invoice_data": {"invoice_number": "INV-CL", "invoice_value": 10}}),
                        ("bill-of-lading", {"bl_data": {"containers": [{"container_no": "TGHU7654321"}]}})):
         r = client.post(f"/api/v1/smart-upload/apply/{path}", headers=_h(operator),
                         json={"import_file_id": imp.import_file_id, **body})

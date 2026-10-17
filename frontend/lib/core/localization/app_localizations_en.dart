@@ -157,6 +157,38 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get systemInfoTooltip => 'System Version & Info';
   @override String get backToDashboardTooltip => 'Back to Dashboard';
   @override String get languageToggleTooltip => 'Switch Language (AR / EN)';
+  @override String get confirmDeleteTitle => 'Confirm Deletion';
+  @override String confirmDeleteMessage(String code) => code.isNotEmpty ? 'Are you sure you want to delete "$code"? This action cannot be undone.' : 'Are you sure you want to delete this record? This action cannot be undone.';
+  @override String get deletedSuccessfully => 'Deleted successfully';
+  @override String get copyCode => 'Copy Code';
+  @override String get moreActionsTooltip => 'More Actions';
+  @override String get deactivateRecord => 'Deactivate Record';
+  @override String get restoreRecord => 'Restore Record';
+  @override String get viewActivityLog => 'View Activity Log';
+  @override String get editRecord => 'Edit Record';
+  @override String get genericErrorMessage => 'An unexpected error occurred. Please try again.';
+  @override String get tableSearchHint => 'Search...';
+  @override String get tableNoData => 'No records found';
+  @override String get tableNoResults => 'No records match search or filters';
+  @override String get tableClearFilters => 'Clear Filters';
+  @override String get tableCustomizeColumns => 'Customize Columns';
+  @override String get tableExportCsv => 'Export CSV';
+  @override String get tableExportExcel => 'Export Excel';
+  @override String get tableRowCopied => 'Row data copied to clipboard';
+  @override String get tableRetry => 'Retry';
+  @override String get tableActions => 'Actions';
+  @override String tableTotalCount(int count) => 'Total: $count records';
+  @override String tableSelectedCount(int count) => '$count selected';
+  @override String get resetToDefaults => 'Reset to Defaults';
+  @override String get apply => 'Apply';
+  @override String get recordNotFoundOrDeleted => 'Record not found or deleted';
+  @override String get entityNotFoundOrDeleted => recordNotFoundOrDeleted;
+  @override String get entityDetailsTitle => 'Record Details';
+  @override String get importFilePickerSelectFile => 'Select Import File';
+  @override String get importFilePickerNoFilesFound => 'No import files available';
+  @override String get importFilePickerFileRequired => 'Please select an import file to continue';
+  @override String get importFilePickerContinue => 'Continue';
+  @override String get importFilePickerSearchHint => 'Search by file code, supplier, company...';
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   @override String get switchAsAdmin => 'Switch as: Admin 🔴';
@@ -2698,8 +2730,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get ccShortageNotAvailable => 'Shortage protocols will be saved after the backend registry is added';
   @override String get importFilePickerTitle => 'Select Import Shipment';
   @override String get importFilePickerSelectPrompt => 'Please select an import file to continue';
-  @override String get importFilePickerNoFilesFound => 'No active shipment files available';
-  @override String get importFilePickerContinue => 'Continue';
   @override String get ccActionNeedsAssessment => 'Duties must be assessed first';
   @override String get ccActionNeedsPayment => 'Duties must be paid first';
   @override String get ccActionQuarantineLocked => 'Shipment is under quarantine lock — quarantine must be lifted first';
@@ -3560,6 +3590,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String projectCompanyFallback(int id) => 'Company #$id';
   @override String projectSupplierFallback(int id) => 'Supplier #$id';
   @override String projectSupplierLabel(String supplier) => 'Supplier: $supplier';
+  @override String get projectCommitmentsLabel => 'Commitments';
+  @override String get projectRemainingBudgetLabel => 'Remaining Budget';
+  @override String projectMissingRateCurrencies(String currencies) => 'Missing exchange rates for: $currencies';
+  @override String get projectUtilizationLabel => 'Utilization';
   @override String get capMultiShipment => 'Multi-Shipment';
   @override String get capMultiCompany => 'Multi-Company';
   @override String projectPrintSnack(String name, String code) => 'Printing project & cost center details: $name ($code)';
@@ -8347,6 +8381,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get swiftEnterAmountError => 'Please enter transferred amount';
   @override
   String get swiftAmountGreaterThanZeroError => 'Transferred amount must be greater than zero';
+  @override
+  String get swiftCurrencyRequiredError => 'Currency is required';
 
   @override
   String get swiftFileReadErrorSnack => 'Failed to read the selected file';
@@ -8366,6 +8402,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String swiftReconcileSuccessSnack(String swiftRef, String paymentCode) => 'SWIFT ($swiftRef) successfully reconciled with payment request ($paymentCode) and import file updated!';
   @override
   String swiftReconcileErrorSnack(String error) => 'Error during reconciliation: $error';
+  @override
+  String swiftReconcileMissingFields(String fields) =>
+      'Missing required SWIFT fields for smart reconciliation: $fields';
+  @override
+  String get swiftBatchNotConfirmed =>
+      'Cannot reconcile SWIFT batch before it is reviewed and confirmed';
+  @override
+  String get swiftFieldRef => 'SWIFT reference';
+  @override
+  String get swiftFieldValueDate => 'Value date';
+  @override
+  String get swiftFieldAmount => 'Amount';
+  @override
+  String get swiftFieldCurrency => 'Currency';
 
   @override
   String get swiftExportTsvBtn => 'Export TSV';
@@ -11376,6 +11426,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get poProjectCostCenter => 'Project & Cost Center';
   @override String get poIncoterms => 'Incoterms';
   @override String get poFXRate => 'FX Rate';
+  @override String get poExchangeRateRequired => 'Exchange rate is required and must be greater than zero';
+  @override String get poExchangeRateHelper => '⚡ Auto-retrieved based on invoice date and currency';
+  @override String poNoExchangeRateForDate(String code, String date) => 'No exchange rate found for $code on $date';
   @override String get poPaymentTerms => 'Payment Terms';
   @override String get poTotalCBM => 'Total CBM';
   @override String get poGrossNetWeight => 'Gross / Net Weight';
@@ -13265,6 +13318,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The allocated equipment does not match the quoted container sizes (quoted 20ft, but no 20ft container is allocated). Please adjust equipment or re-apply quote.';
   @override String get fbkQuoteEquipmentMismatchBoth =>
       'The allocated equipment does not match the quoted container sizes (quoted 40ft and 20ft, but matching containers are missing). Please adjust equipment or re-apply quote.';
+  @override String get customsFxRateRequired => 'Customs exchange rate is required to calculate duties.';
+  @override String get addPoLinesWithHsToEstimateDuties => 'Add PO lines with HS codes to estimate duties and taxes.';
+  @override String get customsMissingTariffBlockSave => 'Cannot save: Some lines are missing customs tariff. Please assign tariffs first.';
+  @override String get missingTariffLinesWarning => 'Lines missing customs tariffs';
   // === end review phase08_10 keys ===
 }
 

@@ -381,7 +381,9 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     # -> e5f6a7b8c9d0 (system_parameters, PO created_by/updated_by)
     # -> f6a7b8c9d0e1 (CBM shipment_mode, planning sessions created_by/updated_by)
     # -> a0b1c2d3e4f5 (audit & soft-delete columns across models)
-    # -> b2c3d4e5f6a7 (MD02 and MD04 fields)
+    # -> b2c3d4e5f6a7 (shipped_on_board_date on shipment_bookings)
+    # -> c7e1f2a3b4d5 (customs_consultation_sessions broker_id / broker_name nullable)
+    # -> d1a2b3c4e5f6 (MD02 and MD04 fields)
     # -> c3d4e5f6a7b8 (trademark and contact fields)
     # -> d4e5f6a7b8c9 (logistics service invoices and insurance policies)
     # -> e4f5a6b7c8d9 (pre-Form 4 readiness pipeline)
@@ -389,7 +391,10 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     assert script.get_revision(HEAD_REVISION).down_revision == "e4f5a6b7c8d9"
     assert script.get_revision("e4f5a6b7c8d9").down_revision == "d4e5f6a7b8c9"
     assert script.get_revision("d4e5f6a7b8c9").down_revision == "c3d4e5f6a7b8"
-    assert script.get_revision("c3d4e5f6a7b8").down_revision == "b2c3d4e5f6a7"
+    assert script.get_revision("c3d4e5f6a7b8").down_revision == "d1a2b3c4e5f6"
+    assert script.get_revision("d1a2b3c4e5f6").down_revision == "c7e1f2a3b4d5"
+    assert script.get_revision("c7e1f2a3b4d5").down_revision == "b2c3d4e5f6a7"
+    assert script.get_revision("b2c3d4e5f6a7").down_revision == "a0b1c2d3e4f5"
     assert script.get_revision("a0b1c2d3e4f5").down_revision == "f6a7b8c9d0e1"
     assert script.get_revision("f6a7b8c9d0e1").down_revision == "e5f6a7b8c9d0"
     assert script.get_revision("e5f6a7b8c9d0").down_revision == "d9e4f5a6b7c8"

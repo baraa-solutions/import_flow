@@ -500,7 +500,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                 2: FlexColumnWidth(3),
                                 3: FlexColumnWidth(2.5),
                                 4: FlexColumnWidth(2),
-                                5: FixedColumnWidth(160),
+                                5: FixedColumnWidth(190),
                                 6: FixedColumnWidth(130),
                                 7: FixedColumnWidth(95),
                               },
@@ -714,21 +714,87 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                                 color: p.totalBudgetUsd != null ? AppTheme.emerald : Colors.grey,
                                               ),
                                             ),
-                                            if (p.totalCommittedUsd != null && p.totalCommittedUsd! > 0) ...[
+                                            if (p.totalCommittedUsd != null && (p.totalCommittedUsd! > 0 || (p.poCount ?? 0) > 0)) ...[
                                               const SizedBox(height: 2),
                                               Text(
-                                                'الالتزامات: \$${p.totalCommittedUsd!.toStringAsFixed(2)}',
+                                                '${l10n.projectCommitmentsLabel}: \$${p.totalCommittedUsd!.toStringAsFixed(2)}',
                                                 style: const TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.w600),
                                               ),
                                               if (p.remainingBudgetUsd != null)
                                                 Text(
-                                                  'المتبقي: \$${p.remainingBudgetUsd!.toStringAsFixed(2)}',
+                                                  '${l10n.projectRemainingBudgetLabel}: \$${p.remainingBudgetUsd!.toStringAsFixed(2)}',
                                                   style: TextStyle(
                                                     fontSize: 10,
                                                     color: p.remainingBudgetUsd! >= 0 ? AppTheme.emerald : AppTheme.crimson,
                                                     fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
+                                              if (p.budgetUtilizationPercent != null && p.budgetUtilizationPercent! > 0)
+                                                Text(
+                                                  '${l10n.projectUtilizationLabel}: ${p.budgetUtilizationPercent!.toStringAsFixed(1)}%',
+                                                  style: TextStyle(
+                                                    fontSize: 9.5,
+                                                    color: AppTheme.textSecondaryOf(context),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                            ] else if ((p.poCount ?? 0) > 0 && p.totalCommittedUsd == null) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                '${l10n.projectCommitmentsLabel}: —',
+                                                style: TextStyle(
+                                                  fontSize: 10.5,
+                                                  color: AppTheme.severityForegroundOf(context, AppSeverity.warning),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              Text(
+                                                '${l10n.projectRemainingBudgetLabel}: —',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: AppTheme.textSecondaryOf(context),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              if (p.missingRateCurrencies.isNotEmpty) ...[
+                                                const SizedBox(height: 1),
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.warning_amber_rounded,
+                                                      size: 12,
+                                                      color: AppTheme.severityForegroundOf(context, AppSeverity.warning),
+                                                    ),
+                                                    const SizedBox(width: 3),
+                                                    Flexible(
+                                                      child: Text(
+                                                        l10n.projectMissingRateCurrencies(p.missingRateCurrencies.join(', ')),
+                                                        style: TextStyle(
+                                                          fontSize: 9.5,
+                                                          color: AppTheme.severityForegroundOf(context, AppSeverity.warning),
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                              if (p.committedByCurrency.isNotEmpty) ...[
+                                                const SizedBox(height: 1),
+                                                Text(
+                                                  p.committedByCurrency.entries
+                                                      .map((e) => '${e.value.toStringAsFixed(2)} ${e.key}')
+                                                      .join(' + '),
+                                                  style: TextStyle(
+                                                    fontSize: 9.5,
+                                                    color: AppTheme.textSecondaryOf(context),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ],
                                             ],
                                             if (p.targetEndDate != null && p.targetEndDate!.isNotEmpty) ...[
                                               const SizedBox(height: 2),

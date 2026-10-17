@@ -410,6 +410,11 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
           context: context,
           globalPosition: details.globalPosition,
           codeToCopy: company.importerId,
+          onView: () => ImportCompanyDetailsDialog.show(
+            context,
+            company,
+            onEdit: () => _showCompanyDialog(context, company),
+          ),
           onEdit: () => _showCompanyDialog(context, company),
           onHistory: () => RowHistoryDialog.show(
             context,

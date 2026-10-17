@@ -141,3 +141,32 @@ def test_api_apply_invoice_and_bl():
         assert res_bl.json()["applied"] is True
     finally:
         db.close()
+
+
+def test_be03_t15_routes_are_synchronous():
+    import inspect
+    import modules.smart_document_upload.router as sdu_router
+
+    routes = [
+        sdu_router.upload_document_form,
+        sdu_router.upload_document_path,
+        sdu_router.parse_document_for_module,
+        sdu_router.parse_multiple_documents_for_module,
+        sdu_router.parse_text_for_module,
+        sdu_router.extract_commercial_invoice_endpoint,
+        sdu_router.extract_bill_of_lading_endpoint,
+    ]
+    for route_fn in routes:
+        assert inspect.iscoroutinefunction(route_fn) is False, f"{route_fn.__name__} should not be a coroutine function"
+
+
+def test_be03_t15_read_validated_upload_sync_rejects_oversized():
+    import io
+    from fastapi import UploadFile, HTTPException
+    from modules.smart_document_upload.validators import read_validated_upload_sync, MAX_FILE_SIZE_BYTES
+
+    fake_file = UploadFile(filename="test.pdf", file=io.BytesIO(b"%PDF-1.4" + b"A" * (MAX_FILE_SIZE_BYTES + 2)))
+    with pytest.raises(HTTPException) as exc:
+        read_validated_upload_sync(fake_file)
+    assert exc.value.status_code == 413
+

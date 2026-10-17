@@ -1778,6 +1778,37 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 768;
+        final docTypeField = SearchableDropdownField<String>(
+          labelText: context.l10n.idocBBankDocTypeLabel,
+          hintText: context.l10n.idocBBankDocTypeHint,
+          value: _bankDocType,
+          isRequired: true,
+          items: [
+            SearchableDropdownItem<String>(
+              value: 'Form 4',
+              label: context.l10n.idocBBankTypeForm4,
+            ),
+            SearchableDropdownItem<String>(
+              value: 'Letter of Credit (L/C)',
+              label: context.l10n.idocBBankTypeLc,
+            ),
+            SearchableDropdownItem<String>(
+              value: 'Form 9',
+              label: context.l10n.idocBBankTypeForm9,
+            ),
+          ],
+          onChanged: (val) => setState(() => _bankDocType = val ?? 'Form 4'),
+        );
+        final refNoField = TextFormField(
+          controller: _docReferenceNumberCtrl,
+          style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+          decoration: InputDecoration(
+            labelText: context.l10n.idocBBankRefLabel,
+            hintText: context.l10n.idocBBankRefHint,
+            prefixIcon: const Icon(Icons.pin_outlined),
+            border: const OutlineInputBorder(),
+          ),
+        );
 
         return Form(
           key: _bankFormKey,
@@ -1912,78 +1943,16 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
 
                     // Inputs Row 0: Doc Type & Reference Number (DC-03)
                     if (isMobile) ...[
-                      SearchableDropdownField<String>(
-                        labelText: context.l10n.idocBBankDocTypeLabel,
-                        hintText: context.l10n.idocBBankDocTypeHint,
-                        value: _bankDocType,
-                        isRequired: true,
-                        items: [
-                          SearchableDropdownItem<String>(
-                            value: 'Form 4',
-                            label: context.l10n.idocBBankTypeForm4,
-                          ),
-                          SearchableDropdownItem<String>(
-                            value: 'Letter of Credit (L/C)',
-                            label: context.l10n.idocBBankTypeLc,
-                          ),
-                          SearchableDropdownItem<String>(
-                            value: 'Form 9',
-                            label: context.l10n.idocBBankTypeForm9,
-                          ),
-                        ],
-                        onChanged: (val) => setState(() => _bankDocType = val ?? 'Form 4'),
-                      ),
+                      docTypeField,
                       const SizedBox(height: 14),
-                      TextFormField(
-                        controller: _docReferenceNumberCtrl,
-                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
-                        decoration: InputDecoration(
-                          labelText: context.l10n.idocBBankRefLabel,
-                          hintText: context.l10n.idocBBankRefHint,
-                          prefixIcon: const Icon(Icons.pin_outlined),
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
+                      refNoField,
                       const SizedBox(height: 14),
                     ] else ...[
                       Row(
                         children: [
-                          Expanded(
-                            child: SearchableDropdownField<String>(
-                              labelText: context.l10n.idocBBankDocTypeLabel,
-                              hintText: context.l10n.idocBBankDocTypeHint,
-                              value: _bankDocType,
-                              isRequired: true,
-                              items: [
-                                SearchableDropdownItem<String>(
-                                  value: 'Form 4',
-                                  label: context.l10n.idocBBankTypeForm4,
-                                ),
-                                SearchableDropdownItem<String>(
-                                  value: 'Letter of Credit (L/C)',
-                                  label: context.l10n.idocBBankTypeLc,
-                                ),
-                                SearchableDropdownItem<String>(
-                                  value: 'Form 9',
-                                  label: context.l10n.idocBBankTypeForm9,
-                                ),
-                              ],
-                              onChanged: (val) => setState(() => _bankDocType = val ?? 'Form 4'),
-                            ),
-                          ),
+                          Expanded(child: docTypeField),
                           const SizedBox(width: 14),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _docReferenceNumberCtrl,
-                              style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
-                              decoration: InputDecoration(
-                                labelText: context.l10n.idocBBankRefLabel,
-                                hintText: context.l10n.idocBBankRefHint,
-                                prefixIcon: const Icon(Icons.pin_outlined),
-                                border: const OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
+                          Expanded(child: refNoField),
                         ],
                       ),
                       const SizedBox(height: 16),

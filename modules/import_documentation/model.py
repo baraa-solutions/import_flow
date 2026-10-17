@@ -452,6 +452,14 @@ class CertificateOfOriginReviewSession(Base):
     has_critical_mismatch: Mapped[bool] = mapped_column(Boolean, default=False)
     override_reason: Mapped[str] = mapped_column(Text, nullable=True)
 
+    @property
+    def notes(self) -> Optional[str]:
+        return self.override_reason
+
+    @notes.setter
+    def notes(self, value: Optional[str]) -> None:
+        self.override_reason = value
+
     # Status: 'Draft Generated', 'Draft Inputted', 'Verified', 'Discrepancy_Accepted', 'Correction Requested', 'Approved'
     status: Mapped[str] = mapped_column(
         String(50), default="Draft Generated", nullable=False, index=True

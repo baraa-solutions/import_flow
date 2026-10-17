@@ -22,7 +22,7 @@ from modules.smart_document_upload.schemas import (
     UploadSessionResponse,
 )
 from modules.smart_document_upload.validators import (
-    read_validated_upload,
+    read_validated_upload_sync,
     stored_filename,
     validate_files_count,
     validate_module_name,
@@ -133,7 +133,7 @@ router = APIRouter(
     status_code=status.HTTP_200_OK,
     summary="Upload a document and extract fields (module_name passed in form data)",
 )
-async def upload_document_form(
+def upload_document_form(
     file: UploadFile = File(..., description="PDF, Word, or image file"),
     module_name: str = Form("clearance-quotation", description="Module name"),
     save_session: bool = Form(True, description="Save session record"),
@@ -142,7 +142,7 @@ async def upload_document_form(
 ):
     validate_module_name(module_name)
     check_module_extract_permission(db, current_user, module_name)
-    file_type, content_bytes = await read_validated_upload(file)
+    file_type, content_bytes = read_validated_upload_sync(file)
     result = service.parse_uploaded_document(
         db=db,
         module_name=module_name,
@@ -161,7 +161,7 @@ async def upload_document_form(
     status_code=status.HTTP_200_OK,
     summary="Upload a document with module in path",
 )
-async def upload_document_path(
+def upload_document_path(
     module: str,
     file: UploadFile = File(..., description="PDF, Word, or image file"),
     save_session: bool = Form(True, description="Save session record"),
@@ -170,7 +170,7 @@ async def upload_document_path(
 ):
     validate_module_name(module)
     check_module_extract_permission(db, current_user, module)
-    file_type, content_bytes = await read_validated_upload(file)
+    file_type, content_bytes = read_validated_upload_sync(file)
     result = service.parse_uploaded_document(
         db=db,
         module_name=module,
@@ -189,7 +189,7 @@ async def upload_document_path(
     status_code=status.HTTP_200_OK,
     summary="Upload a document and extract fields for a specific module",
 )
-async def parse_document_for_module(
+def parse_document_for_module(
     module: str,
     file: UploadFile = File(..., description="PDF, Word (.docx), or Excel (.xlsx) file"),
     save_session: bool = Form(True, description="Save this upload as a session record"),
@@ -220,7 +220,7 @@ async def parse_document_for_module(
     check_module_extract_permission(db, current_user, module)
 
     # Validate type, bounded read (413 above 20 MB), size + magic bytes
-    file_type, content_bytes = await read_validated_upload(file)
+    file_type, content_bytes = read_validated_upload_sync(file)
 
     # Parse & extract
     result = service.parse_uploaded_document(
@@ -242,7 +242,7 @@ async def parse_document_for_module(
     status_code=status.HTTP_200_OK,
     summary="Upload multiple documents (e.g., Commercial Invoice + Packing List) and merge extracted fields",
 )
-async def parse_multiple_documents_for_module(
+def parse_multiple_documents_for_module(
     module: str,
     files: List[UploadFile] = File(..., description="List of PDF, Word (.docx), or Excel (.xlsx) files"),
     save_session: bool = Form(True, description="Save this multi-upload as a session record"),
@@ -259,7 +259,7 @@ async def parse_multiple_documents_for_module(
     files_data = []
 
     for f in files:
-        file_type, content_bytes = await read_validated_upload(f)
+        file_type, content_bytes = read_validated_upload_sync(f)
         files_data.append((stored_filename(f.filename), file_type, content_bytes))
 
     result = service.parse_multiple_uploaded_documents(
@@ -282,7 +282,7 @@ async def parse_multiple_documents_for_module(
     status_code=status.HTTP_200_OK,
     summary="Parse raw text directly to extract structured entity or document fields",
 )
-async def parse_text_for_module(
+def parse_text_for_module(
     module: str,
     raw_text: str = Form(..., description="Raw text block pasted by the user"),
     save_session: bool = Form(False, description="Save parse session"),
@@ -384,7 +384,7 @@ def list_supported_modules():
     status_code=status.HTTP_200_OK,
     summary="Extract Commercial Invoice header, totals, and line items",
 )
-async def extract_commercial_invoice_endpoint(
+def extract_commercial_invoice_endpoint(
     file: Optional[UploadFile] = File(None, description="Invoice file (PDF, Excel, Word)"),
     raw_text: Optional[str] = Form(None, description="Pasted invoice text"),
     db: Session = Depends(get_db),
@@ -397,7 +397,7 @@ async def extract_commercial_invoice_endpoint(
     if file:
         filename = stored_filename(file.filename or "invoice.pdf")
         # Same chain as /parse (SDU-02): extension whitelist, bounded read, 20 MB, magic bytes.
-        _, content_bytes = await read_validated_upload(file)
+        _, content_bytes = read_validated_upload_sync(file)
 
     return service.extract_commercial_invoice_service(
         filename=filename,
@@ -412,7 +412,7 @@ async def extract_commercial_invoice_endpoint(
     status_code=status.HTTP_200_OK,
     summary="Extract Bill of Lading (Ocean / Air) and containers list",
 )
-async def extract_bill_of_lading_endpoint(
+def extract_bill_of_lading_endpoint(
     file: Optional[UploadFile] = File(None, description="Bill of Lading or AWB file"),
     raw_text: Optional[str] = Form(None, description="Pasted B/L text"),
     db: Session = Depends(get_db),
@@ -425,7 +425,7 @@ async def extract_bill_of_lading_endpoint(
     if file:
         filename = stored_filename(file.filename or "bill_of_lading.pdf")
         # Same chain as /parse (SDU-02): extension whitelist, bounded read, 20 MB, magic bytes.
-        _, content_bytes = await read_validated_upload(file)
+        _, content_bytes = read_validated_upload_sync(file)
 
     return service.extract_bill_of_lading_service(
         filename=filename,

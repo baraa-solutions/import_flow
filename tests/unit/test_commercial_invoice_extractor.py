@@ -78,6 +78,8 @@ class TestCommercialInvoiceExtractor:
                 supplier_name="Shanghai Machinery Co., Ltd.",
                 shipment_mode="Sea FCL",
                 incoterm_code="EXW",
+                estimated_cost=25000.0,
+                estimated_cost_currency="EUR",
             )
             db.add(import_file)
             db.commit()
@@ -100,6 +102,7 @@ class TestCommercialInvoiceExtractor:
 
             assert apply_res["applied"] is True
             assert apply_res["import_file_id"] == import_file.import_file_id
+            assert apply_res["params"]["replaced"] is False
 
             # Verify db update
             db.refresh(import_file)
@@ -107,8 +110,24 @@ class TestCommercialInvoiceExtractor:
             assert import_file.incoterm_code == "FOB"
             assert import_file.port_of_loading == "Shanghai Port"
             assert import_file.port_of_discharge == "Alexandria Port"
-            assert import_file.estimated_cost == 50000.0
+            assert import_file.estimated_cost == 25000.0  # BE03-T03: estimate unchanged
+            assert import_file.estimated_cost_currency == "EUR"  # BE03-T03: currency unchanged
             assert import_file.invoices_count == 1
+
+            # Second apply with updated amount is idempotent: updates in place, does not duplicate
+            data["invoice_value"] = 60000.0
+            apply_res_2 = apply_extracted_invoice_service(
+                db=db,
+                payload=ApplyInvoiceRequest(import_file_id=import_file.import_file_id, invoice_data=data),
+                user="tester",
+            )
+            assert apply_res_2["applied"] is True
+            assert apply_res_2["params"]["replaced"] is True
+            db.refresh(import_file)
+            assert import_file.invoices_count == 1
+            assert len(import_file.invoices_data) == 1
+            assert import_file.invoices_data[0]["amount"] == 60000.0
+            assert import_file.estimated_cost == 25000.0
         finally:
             db.close()
 

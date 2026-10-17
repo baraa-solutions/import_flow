@@ -669,6 +669,15 @@ void main() {
       await tester.enterText(noField, '46-ALX-2026-8888');
       await tester.pump();
 
+      // The channel is never preselected (no invented default): the user picks it.
+      final channel = find.byKey(const Key('decl46ChannelDropdown'));
+      await tester.ensureVisible(channel);
+      await tester.pumpAndSettle();
+      await tester.tap(channel);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('(Red Channel)').last);
+      await tester.pumpAndSettle();
+
       final saveBtn = find.byKey(const Key('saveDeclaration46Btn'));
       expect(saveBtn, findsOneWidget);
       await tester.ensureVisible(saveBtn);
@@ -757,6 +766,15 @@ void main() {
       await tester.enterText(noField, '46-ALX-2026-9999');
       await tester.pump();
 
+      // The channel is never preselected (no invented default): the user picks it.
+      final channelPick = find.byKey(const Key('decl46ChannelDropdown'));
+      await tester.ensureVisible(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('(Red Channel)').last);
+      await tester.pumpAndSettle();
+
       final saveBtn = find.byKey(const Key('saveDeclaration46Btn'));
       await tester.ensureVisible(saveBtn);
       await tester.pumpAndSettle();
@@ -840,6 +858,137 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(DatePickerDialog), findsOneWidget);
+    });
+
+    testWidgets('FE06-T01: Selecting file with form46Date then file without one resets declaration date and matches payload', (tester) async {
+      final mockClearance = _MockCustomsClearanceNotifier();
+      final fileWithDate = ImportFileModel(
+        importFileId: 5,
+        importFileCode: 'IMP-2026-0005',
+        companyId: 1,
+        companyName: 'Al-Sorour Logistics',
+        supplierId: 2,
+        supplierName: 'Milano Industrial SpA',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'FOB',
+        priority: 'Normal',
+        shipmentCategory: 'Commercial',
+        acidNumber: '8912345678901234567',
+        status: 'Active',
+        owner: 'Admin',
+        currentModule: 'Customs Clearance',
+        currentStage: 'Declaration 46',
+        nextAction: 'Submit Form 46',
+        form46No: '46-ALX-2026-1111',
+        form46Date: '2026-05-10',
+        invoicesData: [],
+        packingListsData: [],
+        projectIds: [],
+        skippedStages: [],
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+      );
+
+      final fileWithoutDate = ImportFileModel(
+        importFileId: 6,
+        importFileCode: 'IMP-2026-0006',
+        companyId: 1,
+        companyName: 'Al-Sorour Logistics',
+        supplierId: 2,
+        supplierName: 'Milano Industrial SpA',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'FOB',
+        priority: 'Normal',
+        shipmentCategory: 'Commercial',
+        acidNumber: '8912345678901234568',
+        status: 'Active',
+        owner: 'Admin',
+        currentModule: 'Customs Clearance',
+        currentStage: 'Declaration 46',
+        nextAction: 'Submit Form 46',
+        form46No: '46-ALX-2026-2222',
+        form46Date: null,
+        invoicesData: [],
+        packingListsData: [],
+        projectIds: [],
+        skippedStages: [],
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+      );
+
+      tester.view.physicalSize = const Size(1400, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([fileWithDate, fileWithoutDate])),
+            customsClearanceProvider.overrideWith((ref) => mockClearance),
+            customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([])),
+            currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier([])),
+          ],
+          child: const MaterialApp(
+            locale: Locale('ar'),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: CustomsDeclaration46Screen(
+                    initialSubTab: 0,
+                    initialImportFileId: 5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final dateField = find.byKey(const Key('decl46DateField'));
+      expect(dateField, findsOneWidget);
+      expect(tester.widget<TextFormField>(dateField).controller!.text, '2026-05-10');
+
+      final dropdown = find.byKey(const Key('decl46FileDropdown'));
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+
+      final itemFile6 = find.textContaining('IMP-2026-0006');
+      expect(itemFile6, findsWidgets);
+      await tester.tap(itemFile6.first);
+      await tester.pumpAndSettle();
+
+      final todayIso = DateTime.now().toIso8601String().substring(0, 10);
+      final visibleDate = tester.widget<TextFormField>(dateField).controller!.text;
+      expect(visibleDate, todayIso);
+
+      // The channel is never preselected (no invented default): the user picks it.
+      final channelPick = find.byKey(const Key('decl46ChannelDropdown'));
+      await tester.ensureVisible(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(channelPick);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('(Red Channel)').last);
+      await tester.pumpAndSettle();
+
+      final saveBtn = find.byKey(const Key('saveDeclaration46Btn'));
+      await tester.ensureVisible(saveBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      expect(mockClearance.registeredCalls.length, 1);
+      final payload = mockClearance.registeredCalls.first;
+      expect(payload['import_file_id'], 6);
+      expect((payload['declaration_46_date'] as String).startsWith(visibleDate), isTrue);
     });
   });
 }

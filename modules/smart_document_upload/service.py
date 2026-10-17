@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import HTTPException, status as http_status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from modules.common.enum_codes import normalize_currency
 from modules.common.errors import best_effort
@@ -675,10 +676,11 @@ def _currency_or_400(raw: Optional[str]) -> Optional[str]:
 
 def apply_extracted_invoice_service(db: Session, payload: ApplyInvoiceRequest, user: str = "SYSTEM") -> Dict[str, Any]:
     """
-    Apply validated invoice data to an active ImportFile (SDU-01): ACID must be 19 digits and never replaces a
+    Apply validated invoice data to an active ImportFile (SDU-01 / BE03-T03): ACID must be 19 digits and never replaces a
     different ACID already on the file (409 ``SDU_ACID_CONFLICT``); the Incoterm must exist in the master table;
-    the currency is an ISO code; the value is a positive number (schema). Without an import file the data is
-    only returned for a new file (``SDU_EXTRACTED_ONLY``).
+    the currency is an ISO code; the invoice number is required (400 ``SDU_INVOICE_NUMBER_REQUIRED``). Applying the same
+    invoice replaces its record idempotently and does not overwrite the file's estimated cost or currency. Without an
+    import file the data is only returned for a new file (``SDU_EXTRACTED_ONLY``).
     """
     from modules.import_files.model import ImportFile
 
@@ -693,6 +695,7 @@ def apply_extracted_invoice_service(db: Session, payload: ApplyInvoiceRequest, u
         }
     file_record = get_or_404(db, ImportFile, payload.import_file_id, "ملف الاستيراد", active_only=True)
     validators.ensure_import_file_open(file_record)
+    inv_no = validators.ensure_invoice_number_present(data.invoice_number)
 
     acid = _acid_or_400(data.acid_number)
     incoterm = _incoterm_or_400(db, data.incoterms)
@@ -718,23 +721,29 @@ def apply_extracted_invoice_service(db: Session, payload: ApplyInvoiceRequest, u
         file_record.port_of_loading = data.loading_port.strip()
     if data.discharge_port and data.discharge_port.strip():
         file_record.port_of_discharge = data.discharge_port.strip()
-    if data.invoice_value is not None:
-        file_record.estimated_cost = data.invoice_value
-    if currency:
-        file_record.estimated_cost_currency = currency
 
+    inv_key = inv_no.upper()
     existing_invoices = list(file_record.invoices_data or [])
-    inv_no = (data.invoice_number or "").strip() or f"INV-{len(existing_invoices) + 1}"
-    existing_invoices.append({
+    replaced = False
+    new_entry = {
         "invoice_no": inv_no,
         "date": data.invoice_date,
         "amount": data.invoice_value or 0.0,
         "currency": currency or file_record.estimated_cost_currency,  # no invented default currency
         "items_count": len(data.items),
-    })
+    }
+    for idx, item in enumerate(existing_invoices):
+        if isinstance(item, dict) and (item.get("invoice_no") or "").strip().upper() == inv_key:
+            existing_invoices[idx] = new_entry
+            replaced = True
+            break
+    if not replaced:
+        existing_invoices.append(new_entry)
+
     file_record.invoices_data = existing_invoices
     file_record.invoices_count = len(existing_invoices)
     file_record.updated_by = user
+    flag_modified(file_record, "invoices_data")
     db.commit()
     db.refresh(file_record)
     return {
@@ -742,9 +751,14 @@ def apply_extracted_invoice_service(db: Session, payload: ApplyInvoiceRequest, u
         "import_file_id": file_record.import_file_id,
         "import_file_code": file_record.import_file_code,
         "msg_code": "SDU_INVOICE_APPLIED",
-        "params": {"import_file_code": file_record.import_file_code, "invoice_no": inv_no},
+        "params": {
+            "import_file_code": file_record.import_file_code,
+            "invoice_no": inv_no,
+            "replaced": replaced,
+        },
         "message_ar": f"تم ربط بيانات الفاتورة بنجاح مع الملف {file_record.import_file_code}",  # kept one release
     }
+
 
 
 def apply_extracted_bl_service(db: Session, payload: ApplyBLRequest, user: str = "SYSTEM") -> Dict[str, Any]:

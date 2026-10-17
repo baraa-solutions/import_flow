@@ -29,7 +29,7 @@ MD-08 (external_service_providers):
 - payment_terms VARCHAR(100), nullable
 
 Revision ID: c3d4e5f6a7b8
-Revises: b2c3d4e5f6a7
+Revises: d1a2b3c4e5f6
 Create Date: 2026-10-09 20:00:00.000000
 """
 from typing import Sequence, Union
@@ -37,7 +37,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "c3d4e5f6a7b8"
-down_revision: Union[str, Sequence[str], None] = "b2c3d4e5f6a7"
+down_revision: Union[str, Sequence[str], None] = "d1a2b3c4e5f6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

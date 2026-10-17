@@ -18,6 +18,7 @@ import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
 import '../providers/docs_customs_approval_provider.dart';
 import '../services/coo_export_service.dart';
+import 'extraction_match_status_chip.dart';
 import 'search_and_clone_coo_dialog.dart';
 import 'visual_draft_coo_sheet.dart';
 import '../../../core/helpers/table_copy_helper.dart';
@@ -1521,18 +1522,9 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                     DataCell(CopyableTableCell(
                       value: matchStatus,
                       rowSummary: rowSummary,
-                      child: Chip(
-                        label: Text(
-                          matchStatus == 'EXTRACTION_FAILED'
-                              ? context.l10n.idocBNotExtracted
-                              : (matchStatus == 'MATCH' ? context.l10n.idocBMatched : matchStatus),
-                          style: const TextStyle(fontSize: 11, color: AppTheme.white),
-                        ),
-                        backgroundColor: matchStatus == 'EXTRACTION_FAILED'
-                            ? AppTheme.charcoal
-                            : (m['severity'] == 'BLOCKING'
-                                ? AppTheme.crimson
-                                : (m['severity'] == 'WARNING' ? AppTheme.orange : AppTheme.emerald)),
+                      child: ExtractionMatchStatusChip(
+                        matchStatus: matchStatus,
+                        severity: m['severity'],
                       ),
                     )),
                     DataCell(CopyableTableCell(

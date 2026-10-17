@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from modules.projects.model import Project
 from modules.projects.schemas import ProjectCreate, ProjectUpdate
@@ -19,7 +19,16 @@ class ProjectRepository:
         return f"PRJ-{year}-{count:03d}"
 
     def get_by_id(self, project_id: int) -> Optional[Project]:
-        return self.db.query(Project).filter(Project.project_id == project_id).first()
+        return (
+            self.db.query(Project)
+            .options(
+                joinedload(Project.company),
+                joinedload(Project.supplier),
+                joinedload(Project.incoterm),
+            )
+            .filter(Project.project_id == project_id)
+            .first()
+        )
 
     def get_by_code(self, project_code: str) -> Optional[Project]:
         return self.db.query(Project).filter(Project.project_code == project_code.upper().strip()).first()
@@ -32,7 +41,11 @@ class ProjectRepository:
         supplier_id: Optional[int] = None,
         search: Optional[str] = None,
     ) -> List[Project]:
-        query = self.db.query(Project)
+        query = self.db.query(Project).options(
+            joinedload(Project.company),
+            joinedload(Project.supplier),
+            joinedload(Project.incoterm),
+        )
 
         if not include_inactive:
             query = query.filter(Project.is_active.is_(True))

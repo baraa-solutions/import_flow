@@ -432,6 +432,11 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
           context: context,
           globalPosition: details.globalPosition,
           codeToCopy: supplier.supplierCode,
+          onView: () => SupplierDetailsDialog.show(
+            context,
+            supplier,
+            onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
+          ),
           onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
           onHistory: () => RowHistoryDialog.show(
             context,

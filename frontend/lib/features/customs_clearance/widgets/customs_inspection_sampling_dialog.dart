@@ -62,7 +62,7 @@ class _CustomsInspectionSamplingDialogState
   String _selectedInspectionType = 'Physical & Sampling';
   String? _selectedYard;
   String? _selectedResult;
-  bool _isSampleDrawn = true;
+  bool _isSampleDrawn = false;
   String _selectedSampleTestStatus = 'Samples Under Testing';
 
   final Set<String> _selectedSampledBodies = {};
@@ -87,23 +87,25 @@ class _CustomsInspectionSamplingDialogState
   void initState() {
     super.initState();
     final rec = widget.clearanceRecord;
-    _inspectorController = TextEditingController(
-      text: rec?.inspectorName ?? '',
-    );
-    _samplingRecordController = TextEditingController(
-      text: rec?.samplingRecordNo ?? '',
-    );
-    _goeicCertController = TextEditingController(
-      text: rec?.goeicCertificateNo ?? '',
-    );
-    _labFeesController = TextEditingController(
-      text: rec?.labServiceFees != null ? rec!.labServiceFees.toString() : '0',
-    );
-    _inspectionNotesController = TextEditingController(
-      text: rec?.inspectionNotes ?? '',
-    );
+    final bool hasExistingInspection = rec != null && rec.inspectionDate != null;
 
-    if (rec != null) {
+    if (hasExistingInspection) {
+      _inspectorController = TextEditingController(
+        text: rec.inspectorName ?? '',
+      );
+      _samplingRecordController = TextEditingController(
+        text: rec.samplingRecordNo ?? '',
+      );
+      _goeicCertController = TextEditingController(
+        text: rec.goeicCertificateNo ?? '',
+      );
+      _labFeesController = TextEditingController(
+        text: rec.labServiceFees != null ? rec.labServiceFees.toString() : '0',
+      );
+      _inspectionNotesController = TextEditingController(
+        text: rec.inspectionNotes ?? '',
+      );
+
       if (rec.inspectionYard != null && rec.inspectionYard!.isNotEmpty) {
         _selectedYard = rec.inspectionYard;
       }
@@ -121,13 +123,24 @@ class _CustomsInspectionSamplingDialogState
         _selectedSampledBodies.addAll(rec.sampledRegulatoryBodies);
       }
 
-      _inspectionDate = rec.inspectionDate != null
-          ? (DateTime.tryParse(rec.inspectionDate!) ?? DateTime.now())
-          : DateTime.now();
+      _inspectionDate = DateTime.tryParse(rec.inspectionDate!) ?? DateTime.now();
       _samplingDate = rec.samplingDate != null
           ? (DateTime.tryParse(rec.samplingDate!) ?? DateTime.now())
           : DateTime.now();
     } else {
+      _inspectorController = TextEditingController();
+      _samplingRecordController = TextEditingController();
+      _goeicCertController = TextEditingController();
+      _labFeesController = TextEditingController(text: '0');
+      _inspectionNotesController = TextEditingController();
+
+      _selectedYard = null;
+      _selectedResult = null;
+      _selectedInspectionType = 'Physical & Sampling';
+      _isSampleDrawn = false;
+      _selectedSampleTestStatus = 'Samples Under Testing';
+      _selectedSampledBodies.clear();
+
       _inspectionDate = DateTime.now();
       _samplingDate = DateTime.now();
     }

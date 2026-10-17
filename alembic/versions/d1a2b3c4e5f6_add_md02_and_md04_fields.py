@@ -16,16 +16,16 @@ MD-04 (external_service_providers):
 - local_agent_name VARCHAR(200), nullable
 - booking_email VARCHAR(150), nullable
 
-Revision ID: b2c3d4e5f6a7
-Revises: a0b1c2d3e4f5
+Revision ID: d1a2b3c4e5f6
+Revises: c7e1f2a3b4d5
 Create Date: 2026-10-09 19:30:00.000000
 """
 from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "b2c3d4e5f6a7"
-down_revision: Union[str, Sequence[str], None] = "a0b1c2d3e4f5"
+revision: str = "d1a2b3c4e5f6"
+down_revision: Union[str, Sequence[str], None] = "c7e1f2a3b4d5"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
