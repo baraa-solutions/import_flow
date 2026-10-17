@@ -578,11 +578,11 @@ def test_highest_freight_is_compared_in_egp(db):
 def test_list_returns_import_file_code_and_searches_it(db):
     imp = seed_file(db, import_file_code="IMP-2026-4242")
     p = _payment(db, import_file_id=imp.import_file_id)
-    rows = service.get_all_payment_requests_service(db, search="4242")
+    rows, _ = service.get_all_payment_requests_service(db, search="4242")
     assert [r.payment_id for r in rows] == [p.payment_id]
     assert rows[0].import_file_code == "IMP-2026-4242"
     budget = seed_budget(db, imp.import_file_id)
-    brows = service.get_all_import_budgets_service(db, search="IMP-2026-4242")
+    brows, _ = service.get_all_import_budgets_service(db, search="IMP-2026-4242")
     assert [r.budget_id for r in brows] == [budget.budget_id]
     assert brows[0].import_file_code == "IMP-2026-4242"
 

@@ -14,6 +14,28 @@ class TestMasterDataExportImportHelper(unittest.TestCase):
         self.assertIn(f"filename={filename}", response.headers.get("content-disposition", ""))
         self.assertEqual(response.body, content)
 
+    def test_as_pdf_response(self):
+        content = b"fake-pdf-data"
+        filename = "test_export.pdf"
+        response = MasterDataExportImportHelper.as_pdf_response(filename, content)
+
+        self.assertEqual(response.media_type, "application/pdf")
+        self.assertIn(f"filename={filename}", response.headers.get("content-disposition", ""))
+        self.assertEqual(response.body, content)
+
+    def test_standard_export_filename(self):
+        today_str = date.today().strftime("%Y-%m-%d")
+        fn1 = MasterDataExportImportHelper.standard_export_filename("Egyptian Import Companies", "xlsx")
+        self.assertEqual(fn1, f"Egyptian_Import_Companies_{today_str}.xlsx")
+
+        fn2 = MasterDataExportImportHelper.standard_export_filename("Incoterm", ".csv", doc_code="FOB")
+        self.assertEqual(fn2, f"Incoterm_FOB_{today_str}.csv")
+
+    def test_format_date_safe(self):
+        self.assertEqual(MasterDataExportImportHelper.format_date_safe(date(2026, 10, 9)), "2026-10-09")
+        self.assertEqual(MasterDataExportImportHelper.format_date_safe(None), "")
+        self.assertEqual(MasterDataExportImportHelper.format_date_safe(None, default="-"), "-")
+
     def test_parse_date_safe(self):
         # Valid date strings
         self.assertEqual(MasterDataExportImportHelper.parse_date_safe("2026-09-14"), date(2026, 9, 14))

@@ -16,7 +16,7 @@
 
 ## Skills (source: `.claude/skills/`, copies in `.agents/skills/`)
 
-`ui-screen-standards` · `screen-audit` · `erp-module-generator` · `customs-landed-cost-engine` · `cbm-calculator` ·
+`ui-screen-standards` · `widget-unification` · `screen-audit` · `erp-module-generator` · `customs-landed-cost-engine` · `cbm-calculator` ·
 `acid-expiry-tracker` · `smart-nafeza-parser` · `history-logger` · `spec` · `release-check` · `ci-status` · `git-sync`
 
 ## System context

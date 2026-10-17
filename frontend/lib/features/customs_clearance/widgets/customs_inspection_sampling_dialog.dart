@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/ltr_text.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
+import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
 import 'cc_dialog_shell.dart';
 import 'customs_ui.dart';
@@ -19,17 +18,26 @@ import 'customs_ui.dart';
 /// (field inspection, sampling and regulatory conformity).
 class CustomsInspectionSamplingDialog extends ConsumerStatefulWidget {
   final ImportFileModel file;
+  final CustomsClearanceModel? clearanceRecord;
 
   const CustomsInspectionSamplingDialog({
     super.key,
     required this.file,
+    this.clearanceRecord,
   });
 
-  static Future<bool?> show(BuildContext context, ImportFileModel file) {
+  static Future<bool?> show(
+    BuildContext context,
+    ImportFileModel file, {
+    CustomsClearanceModel? clearanceRecord,
+  }) {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => CustomsInspectionSamplingDialog(file: file),
+      builder: (context) => CustomsInspectionSamplingDialog(
+        file: file,
+        clearanceRecord: clearanceRecord,
+      ),
     );
   }
 
@@ -48,16 +56,16 @@ class _CustomsInspectionSamplingDialogState
   late TextEditingController _labFeesController;
   late TextEditingController _inspectionNotesController;
 
-  DateTime _inspectionDate = DateTime.now();
-  DateTime _samplingDate = DateTime.now();
+  late DateTime _inspectionDate;
+  late DateTime _samplingDate;
 
   String _selectedInspectionType = 'Physical & Sampling';
-  String _selectedYard = 'ALEXANDRIA_BERTH_42';
-  String _selectedResult = 'Conforming';
-  bool _isSampleDrawn = true;
+  String? _selectedYard;
+  String? _selectedResult;
+  bool _isSampleDrawn = false;
   String _selectedSampleTestStatus = 'Samples Under Testing';
 
-  final Set<String> _selectedSampledBodies = {'GOEIC'};
+  final Set<String> _selectedSampledBodies = {};
 
   bool _isSubmitting = false;
 
@@ -78,15 +86,64 @@ class _CustomsInspectionSamplingDialogState
   @override
   void initState() {
     super.initState();
-    _inspectorController = TextEditingController(
-      text: 'Joint Customs Inspection Committee',
-    );
-    _samplingRecordController = TextEditingController(
-      text: _generateSamplingRecordNo(),
-    );
-    _goeicCertController = TextEditingController();
-    _labFeesController = TextEditingController(text: '0');
-    _inspectionNotesController = TextEditingController();
+    final rec = widget.clearanceRecord;
+    final bool hasExistingInspection = rec != null && rec.inspectionDate != null;
+
+    if (hasExistingInspection) {
+      _inspectorController = TextEditingController(
+        text: rec.inspectorName ?? '',
+      );
+      _samplingRecordController = TextEditingController(
+        text: rec.samplingRecordNo ?? '',
+      );
+      _goeicCertController = TextEditingController(
+        text: rec.goeicCertificateNo ?? '',
+      );
+      _labFeesController = TextEditingController(
+        text: rec.labServiceFees != null ? rec.labServiceFees.toString() : '0',
+      );
+      _inspectionNotesController = TextEditingController(
+        text: rec.inspectionNotes ?? '',
+      );
+
+      if (rec.inspectionYard != null && rec.inspectionYard!.isNotEmpty) {
+        _selectedYard = rec.inspectionYard;
+      }
+      if (rec.inspectionResult.isNotEmpty) {
+        _selectedResult = rec.inspectionResult;
+      }
+      if (rec.inspectionType.isNotEmpty) {
+        _selectedInspectionType = rec.inspectionType;
+      }
+      _isSampleDrawn = rec.isSampleDrawn;
+      if (rec.sampleTestStatus.isNotEmpty) {
+        _selectedSampleTestStatus = rec.sampleTestStatus;
+      }
+      if (rec.sampledRegulatoryBodies.isNotEmpty) {
+        _selectedSampledBodies.addAll(rec.sampledRegulatoryBodies);
+      }
+
+      _inspectionDate = DateTime.tryParse(rec.inspectionDate!) ?? DateTime.now();
+      _samplingDate = rec.samplingDate != null
+          ? (DateTime.tryParse(rec.samplingDate!) ?? DateTime.now())
+          : DateTime.now();
+    } else {
+      _inspectorController = TextEditingController();
+      _samplingRecordController = TextEditingController();
+      _goeicCertController = TextEditingController();
+      _labFeesController = TextEditingController(text: '0');
+      _inspectionNotesController = TextEditingController();
+
+      _selectedYard = null;
+      _selectedResult = null;
+      _selectedInspectionType = 'Physical & Sampling';
+      _isSampleDrawn = false;
+      _selectedSampleTestStatus = 'Samples Under Testing';
+      _selectedSampledBodies.clear();
+
+      _inspectionDate = DateTime.now();
+      _samplingDate = DateTime.now();
+    }
   }
 
   @override
@@ -97,12 +154,6 @@ class _CustomsInspectionSamplingDialogState
     _labFeesController.dispose();
     _inspectionNotesController.dispose();
     super.dispose();
-  }
-
-  String _generateSamplingRecordNo() {
-    final year = DateTime.now().year;
-    final rand = Random().nextInt(9000) + 1000;
-    return 'SMP-$year-ALX-$rand';
   }
 
   Future<void> _pickDate({required bool isSampling}) async {
@@ -161,7 +212,7 @@ class _CustomsInspectionSamplingDialogState
             ? _inspectionNotesController.text.trim()
             : null,
       };
-      final result = _selectedResult;
+      final result = _selectedResult ?? '';
 
       await ref
           .read(customsClearanceProvider.notifier)
@@ -204,6 +255,24 @@ class _CustomsInspectionSamplingDialogState
   Widget build(BuildContext context) {
     final l = context.l10n;
     final file = widget.file;
+
+    final channel = widget.clearanceRecord?.channelType;
+    final channelInfo = channel != null && channel.trim().isNotEmpty
+        ? CcUi.channelStyle(l, channel)
+        : null;
+    final channelLabel = channelInfo?.label ?? '—';
+    final channelIcon = channelInfo?.icon ?? Icons.security_rounded;
+    final channelColor = channelInfo != null
+        ? AppTheme.severityForegroundOf(context, channelInfo.severity)
+        : AppTheme.charcoal;
+
+    final String dateValue;
+    if (file.form46Date != null && file.form46Date!.trim().isNotEmpty) {
+      final trimmed = file.form46Date!.trim();
+      dateValue = trimmed.length >= 10 ? trimmed.substring(0, 10) : trimmed;
+    } else {
+      dateValue = '—';
+    }
 
     final inspectionTypes = <String, String>{
       'Physical & Sampling': l.ccInsType1,
@@ -255,15 +324,13 @@ class _CustomsInspectionSamplingDialogState
                 ),
                 _buildInfoBadge(
                   title: l.ccInsBadgeChannel,
-                  value: l.ccInsBadgeChannelValue,
-                  icon: Icons.security_rounded,
-                  accentColor: AppTheme.crimson,
+                  value: channelLabel,
+                  icon: channelIcon,
+                  accentColor: channelColor,
                 ),
                 _buildInfoBadge(
                   title: l.ccInsBadgeDate,
-                  value: file.form46Date != null && file.form46Date!.length >= 10
-                      ? file.form46Date!.substring(0, 10)
-                      : DateTime.now().toIso8601String().substring(0, 10),
+                  value: dateValue,
                   icon: Icons.calendar_today_rounded,
                   accentColor: AppTheme.charcoal,
                   ltr: true,
@@ -356,7 +423,42 @@ class _CustomsInspectionSamplingDialogState
                   const SizedBox(height: 16),
                   Text(l.ccInsResultLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
-                  _buildResultCards(l),
+                  FormField<String>(
+                    validator: (_) {
+                      if (_selectedResult == null || _selectedResult!.isEmpty) {
+                        return l.ccInsResultRequired;
+                      }
+                      return null;
+                    },
+                    builder: (state) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildResultCards(
+                            l,
+                            selectedResult: _selectedResult,
+                            onSelected: (val) {
+                              setState(() => _selectedResult = val);
+                              state.didChange(val);
+                            },
+                          ),
+                          if (state.hasError) ...[
+                            const SizedBox(height: 6),
+                            Padding(
+                              padding: const EdgeInsetsDirectional.only(start: 4),
+                              child: Text(
+                                state.errorText!,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -383,9 +485,6 @@ class _CustomsInspectionSamplingDialogState
                     onChanged: (val) {
                       setState(() {
                         _isSampleDrawn = val;
-                        if (val && _samplingRecordController.text.trim().isEmpty) {
-                          _samplingRecordController.text = _generateSamplingRecordNo();
-                        }
                       });
                     },
                   ),
@@ -403,19 +502,10 @@ class _CustomsInspectionSamplingDialogState
                               l.ccInsSampleRecordLabel,
                               hint: l.ccInsSampleRecordHint,
                               icon: Icons.numbers_rounded,
-                              suffix: IconButton(
-                                icon: const Icon(Icons.refresh_rounded, size: 20),
-                                tooltip: l.ccInsSampleRecordNew,
-                                onPressed: () {
-                                  setState(() {
-                                    _samplingRecordController.text = _generateSamplingRecordNo();
-                                  });
-                                },
-                              ),
                             ),
                             validator: (val) {
                               if (_isSampleDrawn && (val == null || val.trim().length < 3)) {
-                                return l.ccInsSampleRecordRequired;
+                                return l.ccInsSamplingNoRequired;
                               }
                               return null;
                             },
@@ -439,30 +529,59 @@ class _CustomsInspectionSamplingDialogState
                     const SizedBox(height: 14),
                     Text(l.ccInsBodiesLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: _regulatoryAgencyOptions.map((agency) {
-                        final isSelected = _selectedSampledBodies.contains(agency);
-                        return FilterChip(
-                          label: Text(
-                            DomainEnums.label(l, DomainEnumType.regulatoryBody, agency),
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          selected: isSelected,
-                          selectedColor: AppTheme.cobaltMedium,
-                          checkmarkColor: AppTheme.cobalt,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _selectedSampledBodies.add(agency);
-                              } else {
-                                _selectedSampledBodies.remove(agency);
-                              }
-                            });
-                          },
+                    FormField<Set<String>>(
+                      validator: (_) {
+                        if (_isSampleDrawn && _selectedSampledBodies.isEmpty) {
+                          return l.ccInsBodiesRequired;
+                        }
+                        return null;
+                      },
+                      builder: (state) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: _regulatoryAgencyOptions.map((agency) {
+                                final isSelected = _selectedSampledBodies.contains(agency);
+                                return FilterChip(
+                                  label: Text(
+                                    DomainEnums.label(l, DomainEnumType.regulatoryBody, agency),
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  selected: isSelected,
+                                  selectedColor: AppTheme.cobaltMedium,
+                                  checkmarkColor: AppTheme.cobalt,
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      if (selected) {
+                                        _selectedSampledBodies.add(agency);
+                                      } else {
+                                        _selectedSampledBodies.remove(agency);
+                                      }
+                                    });
+                                    state.didChange(_selectedSampledBodies);
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                            if (state.hasError) ...[
+                              const SizedBox(height: 6),
+                              Padding(
+                                padding: const EdgeInsetsDirectional.only(start: 4),
+                                child: Text(
+                                  state.errorText!,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         );
-                      }).toList(),
+                      },
                     ),
                     const SizedBox(height: 14),
                     Row(
@@ -527,7 +646,11 @@ class _CustomsInspectionSamplingDialogState
     );
   }
 
-  Widget _buildResultCards(AppLocalizations l) {
+  Widget _buildResultCards(
+    AppLocalizations l, {
+    required ValueChanged<String> onSelected,
+    String? selectedResult,
+  }) {
     final results = <({String id, String label, String desc, AppSeverity severity, IconData icon})>[
       (
         id: 'Conforming',
@@ -562,13 +685,13 @@ class _CustomsInspectionSamplingDialogState
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: results.map((result) {
-        final isSelected = _selectedResult == result.id;
+        final isSelected = selectedResult == result.id;
         final color = AppTheme.severityForegroundOf(context, result.severity);
         return Expanded(
           child: Padding(
             padding: const EdgeInsetsDirectional.symmetric(horizontal: 4),
             child: InkWell(
-              onTap: () => setState(() => _selectedResult = result.id),
+              onTap: () => onSelected(result.id),
               borderRadius: BorderRadius.circular(AppTheme.radiusLg),
               child: Container(
                 padding: const EdgeInsetsDirectional.all(12),
