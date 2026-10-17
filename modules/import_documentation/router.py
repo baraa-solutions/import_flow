@@ -33,6 +33,10 @@ from modules.import_documentation.schemas import (
     BankingDocumentReceive,
     BankingDocumentResponse,
     BankingDocumentUpdate,
+    TaxCodingSheetPullRequest,
+    TaxCodingSheetUploadRequest,
+    ItemsVerificationConfirmRequest,
+    NafezaBankLinkConfirmRequest,
     CentralArchiveResponse,
     CertificateOfOriginReviewCreate,
     CertificateOfOriginReviewResponse,
@@ -178,7 +182,7 @@ def list_acid_sessions(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
@@ -240,7 +244,7 @@ def list_banking_documents(
     response: Response,
     import_file_id: Optional[int] = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
@@ -288,6 +292,66 @@ def receive_banking_document(
     )
 
 
+@router.post(
+    "/banking-documents/{bank_doc_id}/tax-coding-sheet/pull",
+    response_model=BankingDocumentResponse,
+)
+def record_tax_coding_sheet_pull(
+    bank_doc_id: int,
+    payload: TaxCodingSheetPullRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
+):
+    return service.record_tax_coding_sheet_pull_service(
+        db, bank_doc_id, payload, user=current_user.username
+    )
+
+
+@router.post(
+    "/banking-documents/{bank_doc_id}/tax-coding-sheet/upload",
+    response_model=BankingDocumentResponse,
+)
+def record_tax_coding_sheet_upload(
+    bank_doc_id: int,
+    payload: TaxCodingSheetUploadRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
+):
+    return service.record_tax_coding_sheet_upload_service(
+        db, bank_doc_id, payload, user=current_user.username
+    )
+
+
+@router.post(
+    "/banking-documents/{bank_doc_id}/items/verify",
+    response_model=BankingDocumentResponse,
+)
+def record_items_verification(
+    bank_doc_id: int,
+    payload: ItemsVerificationConfirmRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
+):
+    return service.record_items_verification_service(
+        db, bank_doc_id, payload, user=current_user.username
+    )
+
+
+@router.post(
+    "/banking-documents/{bank_doc_id}/nafeza-bank-link",
+    response_model=BankingDocumentResponse,
+)
+def record_nafeza_bank_link(
+    bank_doc_id: int,
+    payload: NafezaBankLinkConfirmRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_upload),
+):
+    return service.record_nafeza_bank_link_service(
+        db, bank_doc_id, payload, user=current_user.username
+    )
+
+
 @router.delete("/banking-documents/{bank_doc_id}")
 def delete_banking_document(bank_doc_id: int, db: Session = Depends(get_db), current_user: User = Depends(can_upload)):
     return service.delete_banking_document_service(db, bank_doc_id, user=current_user.username)
@@ -310,7 +374,7 @@ def list_shipment_documents(
     response: Response,
     import_file_id: Optional[int] = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
@@ -437,7 +501,7 @@ def get_po_reconciliation_sessions(
     overall_status: Optional[str] = None,
     search: Optional[str] = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
@@ -553,7 +617,7 @@ def list_draft_bl_reviews(
     search: Optional[str] = None,
     is_draft: Optional[bool] = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
@@ -652,7 +716,7 @@ def list_coo_reviews(
     search: Optional[str] = None,
     is_draft: Optional[bool] = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
@@ -736,7 +800,7 @@ def list_inspection_reviews(
     status: Optional[str] = None,
     search: Optional[str] = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
@@ -941,7 +1005,7 @@ def list_invoice_bl_sessions(
     is_draft: Optional[bool] = None,
     search: Optional[str] = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):

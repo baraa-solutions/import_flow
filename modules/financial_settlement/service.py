@@ -1826,6 +1826,44 @@ def aggregate_shipment_invoices_service(
             notes="إجمالي مصاريف التخليص والخدمات بالميناء",
         ))
 
+    # 5.1 Logistics Service Invoices (modules.logistics_invoices.model.LogisticsServiceInvoice)
+    from modules.logistics_invoices.model import LogisticsServiceInvoice
+    lsi_invoices = db.query(LogisticsServiceInvoice).filter(
+        LogisticsServiceInvoice.shipment_id == import_file_id,
+        LogisticsServiceInvoice.is_active == True,
+    ).all()
+    for lsi in lsi_invoices:
+        pt_map = {
+            "freight": ("SHIPPING_LINE", "خط الشحن / وكيل النولون", "Freight Forwarding"),
+            "clearance": ("BROKER", "مخلص جمركي", "Customs Clearance"),
+            "inspection": ("INSPECTION", "شركة فحص وتفتيش", "Inspection & Testing"),
+            "insurance": ("INSURANCE", "شركة تأمين بحري", "Marine Insurance"),
+        }
+        pt_code, pt_ar, cat_desc = pt_map.get(lsi.partner_type, ("OTHER", "شريك لوجستي", "Logistics Service"))
+        invoices.append(AggregatedInvoiceItemSchema(
+            invoice_id=f"LSI-{lsi.invoice_id}",
+            invoice_no=lsi.invoice_number or lsi.invoice_code,
+            invoice_date=str(lsi.invoice_date.date() if hasattr(lsi.invoice_date, "date") else lsi.invoice_date),
+            party_type=pt_code,
+            party_type_ar=pt_ar,
+            party_name=lsi.partner_name,
+            category=cat_desc,
+            category_ar=cat_desc,
+            currency=lsi.currency,
+            exchange_rate=float(lsi.exchange_rate or 1.0),
+            amount_fc=float(lsi.total_amount_fx or 0.0),
+            amount_egp=float(lsi.total_amount_egp or 0.0),
+            paid_amount_egp=float(lsi.paid_amount_egp or 0.0),
+            remaining_amount_egp=float(lsi.remaining_amount_egp or 0.0),
+            payment_status=lsi.payment_status.upper(),
+            payment_reference=lsi.invoice_code,
+            withholding_tax_rate=0.0,
+            withholding_tax_amount_egp=float(lsi.wht_amount or 0.0),
+            net_payable_egp=float(lsi.net_payable_egp or 0.0),
+            source_module="Logistics Service Invoice LSI",
+            notes=lsi.notes or f"فاتورة خدمات لوجستية {lsi.partner_type} رقم {lsi.invoice_number}",
+        ))
+
     # 6. Inland Transport (TR-01: InlandTransportBooking)
     transports = db.query(InlandTransportBooking).filter(
         InlandTransportBooking.import_file_id == import_file_id,
@@ -2769,3 +2807,43 @@ def approve_actual_landed_cost_service(
         next_task_title=render_en("FS_TASK_EXPORT_DOSSIER", {}, "title"),
         message=f"تم اعتماد تكلفة الوصول الفعلية للشحنة {imp.import_file_code} بنجاح بإجمالي {calc.actual_total_landed_cost_egp:,.2f} جنيه وإطلاق مهمة الملف الشامل.",
     )
+
+
+def get_shipment_fx_reconciliation(db: Session, import_file_id: int) -> Dict[str, Any]:
+    """
+    Reconciles customs exchange rate (applied by customs authority for duties/VAT)
+    vs commercial bank settlement exchange rates (applied by commercial bank for wire transfers).
+    Calculates the resulting foreign exchange variance impact.
+    """
+    from modules.customs_clearance.model import CustomsClearanceRecord
+    from modules.financial_approval.model import PaymentRequestSession
+
+    customs_rec = db.query(CustomsClearanceRecord).filter(
+        CustomsClearanceRecord.import_file_id == import_file_id,
+        CustomsClearanceRecord.is_active == True,
+    ).first()
+    customs_rate = customs_rec.customs_exchange_rate if customs_rec and customs_rec.customs_exchange_rate else None
+
+    payments = db.query(PaymentRequestSession).filter(
+        PaymentRequestSession.import_file_id == import_file_id,
+        PaymentRequestSession.is_active == True,
+        PaymentRequestSession.status.in_(["Approved", "Paid"]),
+    ).all()
+
+    total_fx = sum(p.requested_amount for p in payments if p.currency_code != "EGP")
+    total_egp = sum(p.requested_amount_egp for p in payments if p.currency_code != "EGP")
+    weighted_bank_rate = round(total_egp / total_fx, 4) if total_fx > 0 else None
+
+    fx_variance_rate = round(weighted_bank_rate - customs_rate, 4) if (weighted_bank_rate and customs_rate) else 0.0
+    fx_variance_total_egp = round(fx_variance_rate * total_fx, 2) if total_fx > 0 else 0.0
+
+    return {
+        "import_file_id": import_file_id,
+        "customs_exchange_rate": customs_rate,
+        "commercial_bank_exchange_rate": weighted_bank_rate,
+        "fx_variance_rate": fx_variance_rate,
+        "fx_variance_total_egp": fx_variance_total_egp,
+        "has_variance": abs(fx_variance_total_egp) > 0.01,
+        "total_foreign_currency_paid": total_fx,
+    }
+

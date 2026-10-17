@@ -343,6 +343,34 @@ class BankingDocumentModel {
   final String? supplierName;
   final String? poNumber;
 
+  // Pre-Form 4 Readiness Pipeline Fields
+  final String taxCodingSheetStatus;
+  final String? taxCodingSheetFileUrl;
+  final String? taxCodingPulledDate;
+  final int? taxCodingBrokerId;
+  final String? taxCodingBrokerName;
+  final String? taxCodingUploadedDate;
+  final String? taxCodingAccountantName;
+
+  final bool itemsPulledVerified;
+  final String? itemsPulledDate;
+  final int itemsCountTotal;
+  final int itemsCountCoded;
+  final List<String> regulatoryBodiesDetected;
+
+  final String nafezaBankLinkStatus;
+  final String? nafezaBankLinkDate;
+  final int? nafezaLinkedBankId;
+  final String? nafezaLinkedBankName;
+  final int? swiftExecutingBankId;
+  final String? swiftExecutingBankName;
+  final String? swiftReferenceNo;
+  final bool isBankMatchingSwift;
+
+  final bool canSubmitForm4;
+  final List<String> blockers;
+  final Map<String, dynamic>? swiftCoverage;
+
   BankingDocumentModel({
     required this.bankDocId,
     required this.bankDocCode,
@@ -368,6 +396,29 @@ class BankingDocumentModel {
     this.importerName,
     this.supplierName,
     this.poNumber,
+    this.taxCodingSheetStatus = 'NOT_STARTED',
+    this.taxCodingSheetFileUrl,
+    this.taxCodingPulledDate,
+    this.taxCodingBrokerId,
+    this.taxCodingBrokerName,
+    this.taxCodingUploadedDate,
+    this.taxCodingAccountantName,
+    this.itemsPulledVerified = false,
+    this.itemsPulledDate,
+    this.itemsCountTotal = 0,
+    this.itemsCountCoded = 0,
+    this.regulatoryBodiesDetected = const [],
+    this.nafezaBankLinkStatus = 'PENDING',
+    this.nafezaBankLinkDate,
+    this.nafezaLinkedBankId,
+    this.nafezaLinkedBankName,
+    this.swiftExecutingBankId,
+    this.swiftExecutingBankName,
+    this.swiftReferenceNo,
+    this.isBankMatchingSwift = true,
+    this.canSubmitForm4 = false,
+    this.blockers = const [],
+    this.swiftCoverage,
   });
 
   factory BankingDocumentModel.fromJson(Map<String, dynamic> json) {
@@ -396,6 +447,37 @@ class BankingDocumentModel {
       importerName: json['importer_name'],
       supplierName: json['supplier_name'],
       poNumber: json['po_number'],
+      taxCodingSheetStatus: json['tax_coding_sheet_status'] ?? 'NOT_STARTED',
+      taxCodingSheetFileUrl: json['tax_coding_sheet_file_url'],
+      taxCodingPulledDate: json['tax_coding_pulled_date']?.toString(),
+      taxCodingBrokerId: json['tax_coding_broker_id'],
+      taxCodingBrokerName: json['tax_coding_broker_name'],
+      taxCodingUploadedDate: json['tax_coding_uploaded_date']?.toString(),
+      taxCodingAccountantName: json['tax_coding_accountant_name'],
+      itemsPulledVerified: json['items_pulled_verified'] ?? false,
+      itemsPulledDate: json['items_pulled_date']?.toString(),
+      itemsCountTotal: (json['items_count_total'] as num?)?.toInt() ?? 0,
+      itemsCountCoded: (json['items_count_coded'] as num?)?.toInt() ?? 0,
+      regulatoryBodiesDetected: (json['regulatory_bodies_detected'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      nafezaBankLinkStatus: json['nafeza_bank_link_status'] ?? 'PENDING',
+      nafezaBankLinkDate: json['nafeza_bank_link_date']?.toString(),
+      nafezaLinkedBankId: json['nafeza_linked_bank_id'],
+      nafezaLinkedBankName: json['nafeza_linked_bank_name'],
+      swiftExecutingBankId: json['swift_executing_bank_id'],
+      swiftExecutingBankName: json['swift_executing_bank_name'],
+      swiftReferenceNo: json['swift_reference_no'],
+      isBankMatchingSwift: json['is_bank_matching_swift'] ?? true,
+      canSubmitForm4: json['can_submit_form4'] ?? false,
+      blockers: (json['blockers'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      swiftCoverage: json['swift_coverage'] is Map<String, dynamic>
+          ? json['swift_coverage'] as Map<String, dynamic>
+          : null,
     );
   }
 
@@ -419,6 +501,28 @@ class BankingDocumentModel {
       'status': status,
       'notes': notes,
       'is_active': isActive,
+      'tax_coding_sheet_status': taxCodingSheetStatus,
+      'tax_coding_sheet_file_url': taxCodingSheetFileUrl,
+      'tax_coding_pulled_date': taxCodingPulledDate,
+      'tax_coding_broker_id': taxCodingBrokerId,
+      'tax_coding_broker_name': taxCodingBrokerName,
+      'tax_coding_uploaded_date': taxCodingUploadedDate,
+      'tax_coding_accountant_name': taxCodingAccountantName,
+      'items_pulled_verified': itemsPulledVerified,
+      'items_pulled_date': itemsPulledDate,
+      'items_count_total': itemsCountTotal,
+      'items_count_coded': itemsCountCoded,
+      'regulatory_bodies_detected': regulatoryBodiesDetected,
+      'nafeza_bank_link_status': nafezaBankLinkStatus,
+      'nafeza_bank_link_date': nafezaBankLinkDate,
+      'nafeza_linked_bank_id': nafezaLinkedBankId,
+      'nafeza_linked_bank_name': nafezaLinkedBankName,
+      'swift_executing_bank_id': swiftExecutingBankId,
+      'swift_executing_bank_name': swiftExecutingBankName,
+      'swift_reference_no': swiftReferenceNo,
+      'is_bank_matching_swift': isBankMatchingSwift,
+      'can_submit_form4': canSubmitForm4,
+      'blockers': blockers,
     };
   }
 }
@@ -883,6 +987,7 @@ class POReconciliationResultModel {
   final double totalGrossWeightKg;
   final double totalCbm;
   final double totalFinalAmount;
+  final Map<String, double>? totalFinalAmountByCurrency;
   final List<POReconciliationItemModel> items;
 
   POReconciliationResultModel({
@@ -896,11 +1001,18 @@ class POReconciliationResultModel {
     required this.totalGrossWeightKg,
     required this.totalCbm,
     required this.totalFinalAmount,
+    this.totalFinalAmountByCurrency,
     required this.items,
   });
 
   factory POReconciliationResultModel.fromJson(Map<String, dynamic> json) {
     var rawItems = json['items'] as List<dynamic>? ?? [];
+    Map<String, double>? curTotals;
+    if (json['total_final_amount_by_currency'] is Map) {
+      curTotals = (json['total_final_amount_by_currency'] as Map).map(
+        (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
+      );
+    }
     return POReconciliationResultModel(
       status: json['status'] ?? 'success',
       message: json['message'] ?? '',
@@ -912,6 +1024,7 @@ class POReconciliationResultModel {
       totalGrossWeightKg: (json['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
       totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
       totalFinalAmount: (json['total_final_amount'] as num?)?.toDouble() ?? 0.0,
+      totalFinalAmountByCurrency: curTotals,
       items: rawItems.map((i) => POReconciliationItemModel.fromJson(i)).toList(),
     );
   }
@@ -927,6 +1040,8 @@ class POReconciliationResultModel {
     'total_gross_weight_kg': totalGrossWeightKg,
     'total_cbm': totalCbm,
     'total_final_amount': totalFinalAmount,
+    if (totalFinalAmountByCurrency != null)
+      'total_final_amount_by_currency': totalFinalAmountByCurrency,
     'items': items.map((i) => i.toJson()).toList(),
   };
 }

@@ -12,13 +12,14 @@ Rules (Phase 3a, DOC-07 / DOC-08 / DOC-10 / DOC-22):
 """
 
 from datetime import datetime, date, timedelta, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from modules.common.sequence_generator import next_yearly_code
 from modules.common.validators import not_null_columns
+from modules.import_documentation.validators import acid_flags
 from modules.import_documentation.model import (
     AcidRegistrationSession,
     BankingDocumentSession,
@@ -102,6 +103,14 @@ def create_acid_session(db: Session, schema: AcidRegistrationCreate, commit: boo
     # never "today" (which made every new session show EXPIRED at once).
     exp_date = schema.expiry_date or ((gen_date or req_date) + timedelta(days=ACID_DEFAULT_VALIDITY_DAYS))
     is_placeholder = acid_number.upper() in ACID_PLACEHOLDER_NUMBERS
+    imp_m, exp_m, inv_m, port_m, has_disc = acid_flags(schema.discrepancies_data)
+    is_issued_acid = (not is_placeholder) and len(acid_number) == 19 and acid_number.isdigit()
+    initial_status = "Requested"
+    if is_issued_acid and gen_date:
+        if not has_disc:
+            initial_status = "Verified"
+        elif schema.discrepancy_override_reason and schema.discrepancy_override_reason.strip():
+            initial_status = "Discrepancy_Accepted"
 
     db_item = AcidRegistrationSession(
         acid_code=code,
@@ -141,13 +150,13 @@ def create_acid_session(db: Session, schema: AcidRegistrationCreate, commit: boo
         generated_data=schema.generated_data,
         discrepancies_data=schema.discrepancies_data,
         discrepancy_override_reason=schema.discrepancy_override_reason,
-        is_importer_matched=True,
-        is_exporter_matched=True,
-        is_invoice_matched=True,
-        is_ports_matched=True,
-        has_discrepancies=False,
+        is_importer_matched=imp_m,
+        is_exporter_matched=exp_m,
+        is_invoice_matched=inv_m,
+        is_ports_matched=port_m,
+        has_discrepancies=has_disc,
         verification_notes=schema.verification_notes,
-        status="Requested" if (is_placeholder or not gen_date) else "Verified",
+        status=initial_status,
         is_active=True,
     )
     db.add(db_item)
@@ -223,11 +232,24 @@ def get_all_acid_sessions(
     return items
 
 
+_SERVER_OWNED_ACID_FIELDS = frozenset({
+    "status",
+    "is_importer_matched",
+    "is_exporter_matched",
+    "is_invoice_matched",
+    "is_ports_matched",
+    "has_discrepancies",
+})
+
+
 def update_acid_session(
-    db: Session, db_item: AcidRegistrationSession, schema: AcidRegistrationUpdate, commit: bool = True
+    db: Session, db_item: AcidRegistrationSession, schema: Union[AcidRegistrationUpdate, Dict[str, Any]], commit: bool = True
 ) -> AcidRegistrationSession:
     """``db_item`` must be an active row loaded by the service (``get_acid_session_active``)."""
-    _apply(db_item, schema.model_dump(exclude_unset=True))
+    data = schema.copy() if isinstance(schema, dict) else schema.model_dump(exclude_unset=True)
+    for field in _SERVER_OWNED_ACID_FIELDS:
+        data.pop(field, None)
+    _apply(db_item, data)
     db_item.updated_at = _now()
     return _save(db, db_item, commit)
 
@@ -270,6 +292,26 @@ def create_banking_document(db: Session, schema: BankingDocumentCreate, commit: 
         expiry_date=schema.expiry_date,
         status=initial_status,
         notes=schema.notes,
+        tax_coding_sheet_status=schema.tax_coding_sheet_status or "NOT_STARTED",
+        tax_coding_sheet_file_url=schema.tax_coding_sheet_file_url,
+        tax_coding_pulled_date=schema.tax_coding_pulled_date,
+        tax_coding_broker_id=schema.tax_coding_broker_id,
+        tax_coding_broker_name=schema.tax_coding_broker_name,
+        tax_coding_uploaded_date=schema.tax_coding_uploaded_date,
+        tax_coding_accountant_name=schema.tax_coding_accountant_name,
+        items_pulled_verified=schema.items_pulled_verified or False,
+        items_pulled_date=schema.items_pulled_date,
+        items_count_total=schema.items_count_total or 0,
+        items_count_coded=schema.items_count_coded or 0,
+        regulatory_bodies_detected=schema.regulatory_bodies_detected or [],
+        nafeza_bank_link_status=schema.nafeza_bank_link_status or "PENDING",
+        nafeza_bank_link_date=schema.nafeza_bank_link_date,
+        nafeza_linked_bank_id=schema.nafeza_linked_bank_id,
+        nafeza_linked_bank_name=schema.nafeza_linked_bank_name,
+        swift_executing_bank_id=schema.swift_executing_bank_id,
+        swift_executing_bank_name=schema.swift_executing_bank_name,
+        swift_reference_no=schema.swift_reference_no,
+        is_bank_matching_swift=schema.is_bank_matching_swift if schema.is_bank_matching_swift is not None else True,
         is_active=True,
     )
     db.add(db_item)
@@ -410,9 +452,9 @@ def create_customs_declaration(
         acid_number=schema.acid_number,
         form4_number=schema.form4_number,
         bl_number=schema.bl_number,
-        total_cif_val_egp=schema.total_cif_val_egp,
-        total_customs_duties_egp=schema.total_customs_duties_egp,
-        total_vat_egp=schema.total_vat_egp,
+        total_cif_val_egp=schema.total_cif_val_egp if schema.total_cif_val_egp is not None else 0.0,
+        total_customs_duties_egp=schema.total_customs_duties_egp if schema.total_customs_duties_egp is not None else 0.0,
+        total_vat_egp=schema.total_vat_egp if schema.total_vat_egp is not None else 0.0,
         declaration_status="Draft Prepared",
         is_active=True,
     )

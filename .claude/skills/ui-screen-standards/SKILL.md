@@ -127,6 +127,17 @@ description: >
 
 > **قاعدة 11px Floor:** يُحظر أي نص أقل من 11px — يُطبّق `DisplayDensityMode.clampFontSize(size)`.
 
+### 6. المكونات الموحدة الإلزامية (Canonical Core Widgets)
+> استورد جميع المكونات عبر: `import 'package:frontend/core/widgets/widgets.dart';`
+* **شارات الحالة:** `AppStatusBadge.fromStatus(status: ...)` — تمنع إنشاء Containers محلية.
+* **تأكيد الحذف/التفعيل:** `AppConfirmDialog.showDelete(...)` و `showToggleActive(...)` — بديل لـ AlertDialog اليدوي.
+* **حقول التواريخ:** `AppDatePickerField(...)` — تلغي تكرار showDatePicker و InputDecorator.
+* **البحث المستقل:** `AppSearchField(...)` — للنوافذ المنبثقة والفلاتر المنفصلة.
+* **حالات البيانات:** `AppLoadingState` و `AppEmptyState` و `AppErrorState` — بديل CircularProgressIndicator و Column المكرر.
+* **رسائل التنبيه:** `AppTheme.snackBar(context, msg, severity: ...)` — بديل ScaffoldMessenger المكرر.
+* **الجداول المتقدمة:** `EnterpriseDataTable<T>` — يمنع تماماً الـ Dual-DataTable Hack.
+* **حقول الإدخال:** `CustomTextField` — حقل الإدخال القياسي بدلاً من TextFormField الخام.
+
 ---
 
 ## 1. 📐 Screen Anatomy — هيكل كل شاشة

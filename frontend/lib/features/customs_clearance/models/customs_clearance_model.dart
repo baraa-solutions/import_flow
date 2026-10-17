@@ -415,4 +415,11 @@ class CustomsClearanceModel {
       'notes': notes,
     };
   }
+
+  /// Returns true only if a sample was actually recorded as drawn by CL-01,
+  /// preventing pre-CL-01 records from being fabricated as pending drawn samples.
+  bool get hasActuallyDrawnSample =>
+      isSampleDrawn &&
+      ((samplingRecordNo != null && samplingRecordNo!.trim().isNotEmpty) ||
+          (inspectionDate != null && inspectionDate!.trim().isNotEmpty));
 }

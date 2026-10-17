@@ -88,5 +88,65 @@ void main() {
       expect(find.text('Document or Image File'), findsOneWidget);
       expect(find.textContaining('Importing Company'), findsWidgets);
     });
+
+    testWidgets('renders specialized importer fields in company mode',
+        (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: UniversalEntityExtractorDialog(
+                    initialTarget: EntityTarget.company,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Verify manager/legal representative and Nafeza token fields
+      expect(find.text('الممثل القانوني / مدير الاستيراد'), findsOneWidget);
+      expect(find.text('معرف توكن نافذة المعتمد'), findsOneWidget);
+      expect(find.text('بيانات البنك المعتمد للتعاملات الجمركية'), findsOneWidget);
+    });
+
+    testWidgets('renders supplier compliance and cargoX fields in supplier mode',
+        (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: UniversalEntityExtractorDialog(
+                    initialTarget: EntityTarget.supplier,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('معرف منصة كارجو إكس المعتمد'), findsOneWidget);
+      expect(find.text('شهادة آيزو العالمية'), findsOneWidget);
+      expect(find.text('قرار 43'), findsOneWidget);
+      expect(find.text('القائمة البيضاء'), findsOneWidget);
+    });
   });
 }

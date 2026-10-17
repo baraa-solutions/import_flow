@@ -66,7 +66,7 @@ def list_approvals(
     overall_status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
     res = service.list_approvals_service(
@@ -120,7 +120,7 @@ def list_tickets(
     severity: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
     res = service.list_rectification_tickets_service(
@@ -209,7 +209,7 @@ def list_customs_approval_sessions(
     is_draft: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
     res = service.list_customs_approval_sessions_service(

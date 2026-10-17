@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from fastapi import HTTPException, status
@@ -33,8 +33,11 @@ from modules.lifecycle_board.schemas import (
 )
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
+from modules.common.errors import CodedHTTPException
 from modules.common.system_messages import SysMsg, msg, render_en
 from modules.common.file_tracking import phase_title_en, set_file_tracking
+from modules.auth.permissions import is_admin_user
+from modules.users.model import Role, User
 
 logger = logging.getLogger(__name__)
 
@@ -163,13 +166,10 @@ def get_step_neighbors(step_code: str):
 
 
 def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
-    # 1. Ensure any unseeded active import files have at least 1 stage
-    _ensure_initial_stages(db)
-
-    # 2. Get step counts
+    # 1. Get step counts
     counts = repo.get_step_counts(db)
 
-    # 3. Build phase summaries
+    # 2. Build phase summaries
     phases_res: List[PhaseSummary] = []
     for p in PHASES_DEFINITION:
         total_p = sum(counts.get(c, 0) for c in p["step_codes"])
@@ -185,7 +185,7 @@ def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
             )
         )
 
-    # 4. Fetch all active shipment stage cards
+    # 3. Fetch all active shipment stage cards
     records = repo.get_active_shipments_with_details(db)
     all_shipment_cards: List[ShipmentStageCard] = []
     unique_files = set()
@@ -217,11 +217,11 @@ def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
                 company_name=file_rec.company_name or "N/A",
                 supplier_name=file_rec.supplier_name or "N/A",
                 po_number=file_rec.po_number,
-                shipment_mode=file_rec.shipment_mode or "Sea FCL",
-                incoterm_code=file_rec.incoterm_code or "FOB",
-                priority=file_rec.priority or "High",
-                estimated_cost=file_rec.estimated_cost or 0.0,
-                estimated_cost_currency=file_rec.estimated_cost_currency or "USD",
+                shipment_mode=file_rec.shipment_mode,
+                incoterm_code=file_rec.incoterm_code,
+                priority=file_rec.priority,
+                estimated_cost=file_rec.estimated_cost,
+                estimated_cost_currency=file_rec.estimated_cost_currency,
                 step_code=act.step_code,
                 step_name_en=names[0],
                 step_name_ar=names[1],
@@ -292,6 +292,7 @@ def advance_lifecycle_step_service(
     notes_msg: Optional[SysMsg] = None,
     next_action_msg: Optional[SysMsg] = None,
     stage_code: Optional[str] = None,
+    commit: bool = True,
 ) -> Dict[str, Any]:
     """
     Single-language storage (Phase B):
@@ -327,8 +328,24 @@ def advance_lifecycle_step_service(
     elif import_file_code:
         file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == import_file_code).first()
 
+    if not import_file_code and not import_file_id:
+        raise CodedHTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="LC_FILE_REF_REQUIRED",
+            message_ar="يلزم تحديد معرف ملف الشحنة أو كود الشحنة.",
+        )
+
+    code_label = import_file_code or (f"#{import_file_id}" if import_file_id else "")
+    if file_rec is None or not getattr(file_rec, "is_active", True):
+        raise CodedHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="LC_FILE_NOT_FOUND",
+            message_ar=f"ملف الشحنة {code_label} غير موجود أو غير نشط.",
+            import_file_code=code_label,
+        )
+
     if not import_file_code:
-        raise ValueError("Either import_file_code or a valid import_file_id must be provided for lifecycle sync.")
+        import_file_code = file_rec.import_file_code
 
     # 2. Validate completed step
     validators.validate_step_code(completed_step_code)
@@ -372,7 +389,6 @@ def advance_lifecycle_step_service(
                 _append_system_note(
                     existing_act, msg("LC_STEP_AUTO_CLOSED_PRIOR", completed_step_code=completed_step_code)
                 )
-                db.commit()
                 auto_completed_steps.append(prior_code)
 
     # 5. Complete current step
@@ -477,8 +493,12 @@ def advance_lifecycle_step_service(
                 created_by=source_module or "Lifecycle Operations Board",
             )
 
+    if commit:
         db.commit()
-        db.refresh(file_rec)
+        if file_rec:
+            db.refresh(file_rec)
+    else:
+        db.flush()
 
     return {
         "message": f"تم إكمال الخطوة {completed_step_code} وتفعيل الخطوات التالية بنجاح.",
@@ -810,10 +830,146 @@ def _sync_import_file_and_tasks_on_advance(
         set_file_tracking(file_rec, step_code="STEP_21", phase_id="6", next_action=msg("NA_FILE_CLOSED"))
         file_rec.progress_percent = 100.0
 
-    db.commit()
+    db.flush()
 
 
-def advance_step_service(db: Session, payload: StepAdvancePayload) -> Dict[str, Any]:
+def _resolve_and_validate_file(
+    db: Session,
+    import_file_code: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+) -> ImportFile:
+    """Resolve ImportFile by id or exact code; enforce active file and open/in-progress status.
+
+    Raises:
+        CodedHTTPException (422): LC_FILE_REF_REQUIRED when neither code nor id is given.
+        CodedHTTPException (404): LC_FILE_NOT_FOUND when file does not exist or is_active=False.
+        CodedHTTPException (409): LC_FILE_NOT_ACTIVE when file status in (Closed, Archived, On Hold).
+    """
+    if not import_file_code and not import_file_id:
+        raise CodedHTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="LC_FILE_REF_REQUIRED",
+            message_ar="يلزم تحديد معرف ملف الشحنة أو كود الشحنة.",
+        )
+
+    file_rec: Optional[ImportFile] = None
+    if import_file_id:
+        file_rec = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+        if file_rec and not import_file_code:
+            import_file_code = file_rec.import_file_code
+    elif import_file_code:
+        file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == import_file_code).first()
+
+    code_label = import_file_code or (f"#{import_file_id}" if import_file_id else "")
+    if file_rec is None or not getattr(file_rec, "is_active", True):
+        raise CodedHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="LC_FILE_NOT_FOUND",
+            message_ar=f"ملف الشحنة {code_label} غير موجود أو غير نشط.",
+            import_file_code=code_label,
+        )
+
+    if file_rec.status in ("Closed", "Archived", "On Hold"):
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="LC_FILE_NOT_ACTIVE",
+            message_ar=f"ملف الشحنة {file_rec.import_file_code} في حالة '{file_rec.status}' ولا يمكن تحريك مراحله على اللوحة.",
+            import_file_code=file_rec.import_file_code,
+            status=file_rec.status,
+        )
+
+    return file_rec
+
+
+def http_advance_step_service(
+    db: Session,
+    *,
+    completed_step_code: str,
+    import_file_code: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    target_step_codes: Optional[List[str]] = None,
+    auto_complete_prior: bool = True,
+    action_data: Optional[Any] = None,
+    notes: Optional[str] = None,
+    actor: User,
+) -> Dict[str, Any]:
+    """HTTP entry point for advancing lifecycle steps (BEX-T01).
+
+    Enforces:
+    - File exists, is active, not Closed/Archived/On Hold.
+    - STEP_21 cannot be completed from HTTP (reserved for file_closure).
+    - completed_step_code must currently be In-Progress or Reference recorded on that file.
+    - auto_complete_prior is honoured only for ADMIN users.
+    - assigned_user is taken strictly from actor.username (token).
+    """
+    file_rec = _resolve_and_validate_file(db, import_file_code=import_file_code, import_file_id=import_file_id)
+
+    if completed_step_code == "STEP_21":
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="LC_CLOSURE_STEP_RESERVED",
+            message_ar="خطوة إغلاق الملف STEP_21 مخصصة لمنظومة إغلاق الملفات الرسمية ولا يمكن إكمالها من اللوحة.",
+        )
+
+    act = repo.get_activity(db, file_rec.import_file_code, completed_step_code)
+    valid_statuses = {"In-Progress", "Reference recorded – pending full documentation"}
+    if not act or act.status not in valid_statuses:
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="LC_STEP_NOT_ACTIVE",
+            message_ar=f"الخطوة {completed_step_code} ليست قيد التنفيذ حالياً على ملف الشحنة {file_rec.import_file_code}.",
+            step_code=completed_step_code,
+            import_file_code=file_rec.import_file_code,
+        )
+
+    if target_step_codes and (actor is not None and not is_admin_user(actor)):
+        _, natural_next = get_step_neighbors(completed_step_code)
+        allowed_targets = {natural_next} if natural_next else set()
+        if natural_next == "STEP_08_PO":
+            allowed_targets.add("STEP_08")
+        for target in target_step_codes:
+            if target not in allowed_targets:
+                raise CodedHTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    code="LC_TARGET_STEP_INVALID",
+                    message_ar=f"لا يمكن الانتقال مباشرة إلى الخطوة {target} بدون صلاحيات المسؤول.",
+                    step_code=target,
+                    import_file_code=file_rec.import_file_code,
+                )
+
+    effective_auto_complete = bool(auto_complete_prior) and is_admin_user(actor)
+
+    return advance_lifecycle_step_service(
+        db=db,
+        completed_step_code=completed_step_code,
+        import_file_code=file_rec.import_file_code,
+        import_file_id=file_rec.import_file_id,
+        target_step_codes=target_step_codes,
+        auto_complete_prior=effective_auto_complete,
+        assigned_user=actor.username,
+        action_data=action_data,
+        notes=notes,
+        source_module="Lifecycle Operations Board",
+    )
+
+
+def advance_step_service(
+    db: Session,
+    payload: StepAdvancePayload,
+    actor: Optional[User] = None,
+) -> Dict[str, Any]:
+    if actor is not None:
+        return http_advance_step_service(
+            db=db,
+            completed_step_code=payload.current_step_code,
+            import_file_code=payload.import_file_code,
+            import_file_id=None,
+            target_step_codes=payload.next_step_codes if payload.next_step_codes else None,
+            auto_complete_prior=getattr(payload, "auto_complete_prior", True),
+            action_data=payload.action_data,
+            notes=payload.notes,
+            actor=actor,
+        )
     return advance_lifecycle_step_service(
         db=db,
         completed_step_code=payload.current_step_code,
@@ -825,24 +981,83 @@ def advance_step_service(db: Session, payload: StepAdvancePayload) -> Dict[str, 
     )
 
 
-def set_multi_active_stages_service(db: Session, payload: MultiStageSetPayload) -> Dict[str, Any]:
+def set_multi_active_stages_service(
+    db: Session,
+    payload: MultiStageSetPayload,
+    actor: Optional[User] = None,
+) -> Dict[str, Any]:
+    file_rec = _resolve_and_validate_file(db, import_file_code=payload.import_file_code)
     validators.validate_multi_step_codes(payload.active_step_codes)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    existing_activities = repo.get_all_activities(db, import_file_code=file_rec.import_file_code)
+    activities_by_code = {act.step_code: act for act in existing_activities}
+
+    # 1. Reject already Completed or Skipped steps
+    for step_code in payload.active_step_codes:
+        existing_act = activities_by_code.get(step_code)
+        if existing_act and existing_act.status in ("Completed", "Skipped"):
+            raise CodedHTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                code="LC_STEP_ALREADY_COMPLETED",
+                message_ar=f"المرحلة {step_code} مكتملة أو تم تخطيها بالفعل لملف الشحنة {file_rec.import_file_code}.",
+                step_code=step_code,
+                import_file_code=file_rec.import_file_code,
+            )
+
+    # 2. Sequence check for non-admin users: only allow steps at or before the next natural step
+    if actor is not None and not is_admin_user(actor):
+        def _get_idx(code: str) -> int:
+            if code == "STEP_08":
+                code = "STEP_08_PO"
+            return ORDERED_STEP_CODES.index(code) if code in ORDERED_STEP_CODES else -1
+
+        completed_indices = [
+            _get_idx(act.step_code)
+            for act in existing_activities
+            if act.status in ("Completed", "Skipped") and _get_idx(act.step_code) >= 0
+        ]
+        active_indices = [
+            _get_idx(act.step_code)
+            for act in existing_activities
+            if act.status not in ("Completed", "Skipped") and _get_idx(act.step_code) >= 0
+        ]
+
+        if completed_indices:
+            next_natural_idx = max(completed_indices) + 1
+        else:
+            next_natural_idx = 0
+
+        max_allowed_idx = max([next_natural_idx] + active_indices)
+        max_allowed_idx = min(max_allowed_idx, len(ORDERED_STEP_CODES) - 1)
+
+        for step_code in payload.active_step_codes:
+            step_idx = _get_idx(step_code)
+            if step_idx > max_allowed_idx:
+                raise CodedHTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    code="LC_STEP_SEQUENCE_INVALID",
+                    message_ar=f"لا يمكن تفعيل المرحلة {step_code} قبل الوصول إليها في مسار الشحنة لغير المسؤولين.",
+                    step_code=step_code,
+                    import_file_code=file_rec.import_file_code,
+                )
 
     for step_code in payload.active_step_codes:
         repo.save_or_update_activity(
             db,
-            import_file_code=payload.import_file_code,
+            import_file_code=file_rec.import_file_code,
             step_code=step_code,
             status="In-Progress",
             started_at=now_str,
+            assigned_user=actor.username if actor else None,
             notes=payload.notes or render_en("LC_MULTI_STAGE_ACTIVATED", {}, "note"),
             msg_code=None if payload.notes else "LC_MULTI_STAGE_ACTIVATED",
             msg_params=None if payload.notes else {},
         )
 
+    db.commit()
     return {
-        "message": f"تم تفعيل {len(payload.active_step_codes)} مرحلة بالتوازي للشحنة {payload.import_file_code}.",
+        "message": f"تم تفعيل {len(payload.active_step_codes)} مرحلة بالتوازي للشحنة {file_rec.import_file_code}.",
         "active_steps": payload.active_step_codes,
     }
 
@@ -916,14 +1131,16 @@ def update_step_config_service(
     payload: StepConfigUpdateRequest,
     current_user_role: Optional[str] = None,
     current_username: Optional[str] = None,
+    actor: Optional[User] = None,
 ) -> StepConfigResponse:
-    # 1. Manager Role Authorization (Section 10.7)
-    role_normalized = (current_user_role or "").strip().upper()
-    if role_normalized not in ["MANAGER", "GENERAL_MANAGER", "ADMIN"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="فقط دور المدير (Manager) مخول بالاطلاع على وتعديل سياسات وقواعد تصنيف المراحل (Section 10.7)."
-        )
+    # 1. Fallback role guard for direct callers passing role string without actor (Section 10.7)
+    if current_user_role is not None and actor is None:
+        role_normalized = current_user_role.strip().upper()
+        if role_normalized not in ["MANAGER", "GENERAL_MANAGER", "ADMIN"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="فقط دور المدير (Manager) مخول بالاطلاع على وتعديل سياسات وقواعد تصنيف المراحل (Section 10.7)."
+            )
 
     # 2. Mandatory Justification (Section 10.3 & 10.7)
     if not payload.justification or len(payload.justification.strip()) < 5:
@@ -931,6 +1148,29 @@ def update_step_config_service(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="يجب تقديم سبب تبريري إلزامي لتعديل تصنيف المرحلة (لا يقل عن 5 أحرف)."
         )
+
+    # 3. Validate approver_roles against active roles table (BEX-T02)
+    if payload.approver_roles is not None:
+        if db.query(Role).first() is None:
+            from modules.auth.seed_rbac import seed_rbac
+            seed_rbac(db)
+
+        for r in payload.approver_roles:
+            cleaned_role = (r or "").strip().upper()
+            target_role = "GENERAL_MANAGER" if cleaned_role == "MANAGER" else cleaned_role
+            role_exists = db.query(Role).filter(
+                or_(
+                    func.upper(Role.role_code) == cleaned_role,
+                    func.upper(Role.role_code) == target_role,
+                )
+            ).first()
+            if not role_exists:
+                raise CodedHTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    code="LC_APPROVER_ROLE_UNKNOWN",
+                    message_ar=f"دور الاعتماد '{r}' غير معروف في أدوار النظام.",
+                    role_code=r,
+                )
 
     validators.validate_step_code(step_code)
     _ensure_step_configs(db)
@@ -950,8 +1190,6 @@ def update_step_config_service(
             supports_pending_reference=False,
         )
         db.add(cfg)
-        db.commit()
-        db.refresh(cfg)
 
     # Store old values for audit trail
     old_policy = cfg.skip_policy
@@ -969,11 +1207,9 @@ def update_step_config_service(
         cfg.supports_pending_reference = payload.supports_pending_reference
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    username = current_username or "Manager"
+    username = current_username or (actor.username if actor else "Manager")
     cfg.last_modified_by = username
     cfg.last_modified_at = now_str
-    db.commit()
-    db.refresh(cfg)
 
     # Log rule change in audit trail (Section 10.3)
     audit_entry = StepConfigAuditLog(
@@ -991,6 +1227,9 @@ def update_step_config_service(
     )
     repo.save_step_config_audit_log(db, audit_entry)
 
+    db.commit()
+    db.refresh(cfg)
+
     return StepConfigResponse.model_validate(cfg)
 
 
@@ -1004,6 +1243,7 @@ def register_pending_reference_service(
     payload: RegisterPendingReferenceRequest,
     current_username: Optional[str] = None,
 ) -> RegisterPendingReferenceResponse:
+    file_rec = _resolve_and_validate_file(db, import_file_code=payload.import_file_code)
     validators.validate_step_code(payload.step_code)
 
     # 1. Live Step Config Eligibility Check (Section 10.4)
@@ -1021,7 +1261,7 @@ def register_pending_reference_service(
 
     # 2. Record in PendingReferenceRecord table
     pending_rec = PendingReferenceRecord(
-        import_file_code=payload.import_file_code,
+        import_file_code=file_rec.import_file_code,
         step_code=payload.step_code,
         reference_number=payload.reference_number.strip(),
         reason_text=payload.reason_text.strip(),
@@ -1050,7 +1290,7 @@ def register_pending_reference_service(
     )
     repo.save_or_update_activity(
         db,
-        import_file_code=payload.import_file_code,
+        import_file_code=file_rec.import_file_code,
         step_code=payload.step_code,
         status="Reference recorded – pending full documentation",
         assigned_user=username,
@@ -1061,31 +1301,28 @@ def register_pending_reference_service(
     )
 
     # 4. Central Audit Log
-    try:
-        file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == payload.import_file_code).first()
-        audit_log = AuditLog(
-            entity_type="LifecycleStep",
-            entity_id=file_rec.import_file_id if file_rec else 0,
-            entity_code=payload.import_file_code,
-            action="REGISTER_PENDING_REFERENCE",
-            changes_summary=f"Registered pending reference '{payload.reference_number}' for step {payload.step_code}. Step remains incomplete pending docs.",
-            old_values=json.dumps({"step_code": payload.step_code, "status": "In-Progress"}),
-            new_values=json.dumps({
-                "step_code": payload.step_code,
-                "status": "Reference recorded – pending full documentation",
-                "reference_number": payload.reference_number,
-                "expected_completion_date": payload.expected_completion_date,
-            }),
-            performed_by=username,
-        )
-        db.add(audit_log)
-        db.commit()
-    except Exception:
-        pass
+    audit_log = AuditLog(
+        entity_type="LifecycleStep",
+        entity_id=file_rec.import_file_id,
+        entity_code=file_rec.import_file_code,
+        action="REGISTER_PENDING_REFERENCE",
+        changes_summary=f"Registered pending reference '{payload.reference_number}' for step {payload.step_code}. Step remains incomplete pending docs.",
+        old_values=json.dumps({"step_code": payload.step_code, "status": "In-Progress"}),
+        new_values=json.dumps({
+            "step_code": payload.step_code,
+            "status": "Reference recorded – pending full documentation",
+            "reference_number": payload.reference_number,
+            "expected_completion_date": payload.expected_completion_date,
+        }),
+        performed_by=username,
+    )
+    db.add(audit_log)
+    db.commit()
+    db.refresh(pending_rec)
 
     return RegisterPendingReferenceResponse(
         message=f"تم تسجيل المرجع المعلق '{payload.reference_number}' للمرحلة {payload.step_code} بنجاح. تظل المرحلة غير مكتملة امتثالياً حتى استيفاء المستندات.",
-        import_file_code=payload.import_file_code,
+        import_file_code=file_rec.import_file_code,
         step_code=payload.step_code,
         reference_number=payload.reference_number,
         reason_text=payload.reason_text,
@@ -1098,9 +1335,11 @@ def register_pending_reference_service(
 def skip_step_service(
     db: Session,
     payload: SkipStepPayload,
+    actor: Optional[User] = None,
     current_user_role: Optional[str] = None,
     current_username: Optional[str] = None,
 ) -> Dict[str, Any]:
+    file_rec = _resolve_and_validate_file(db, import_file_code=payload.import_file_code)
     validators.validate_step_code(payload.current_step_code)
 
     # Mandatory Reason Check (Section 9.3 & 10.1)
@@ -1120,20 +1359,35 @@ def skip_step_service(
             detail=f"الخطوة '{payload.current_step_code}' محظورة من التخطي حسب سياسة النظام المعتمدة (Policy: blocked). يتطلب التخطي تعديل سياسة المرحلة من قبل المدير أولاً."
         )
 
+    if skip_policy == "dual_approval" and not is_admin_user(actor):
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="LC_SKIP_DUAL_APPROVAL_REQUIRED",
+            message_ar=f"الخطوة '{payload.current_step_code}' تتطلب موافقة مزدوجة لتخطيها، وهو مقصور حالياً على مدير النظام (ADMIN).",
+            step_code=payload.current_step_code,
+        )
+
     # Role validation is mandatory: the caller role comes from the authenticated user (never a header)
-    if not current_user_role or not current_user_role.strip():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="تعذر تحديد دور المستخدم."
-        )
-    user_role_norm = current_user_role.strip().upper()
-    allowed_roles = [r.strip().upper() for r in (cfg.approver_roles if cfg else ["Manager"])]
-    is_authorized = user_role_norm in allowed_roles or user_role_norm in ["ADMIN", "MANAGER", "GENERAL_MANAGER"]
-    if not is_authorized:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"دورك '{current_user_role}' غير مخول باعتماد تخطي هذه الخطوة. الأدوار المعتمدة: {cfg.approver_roles if cfg else ['Manager']}."
-        )
+    effective_role = current_user_role or (
+        actor.assigned_role.role_code
+        if actor and getattr(actor, "assigned_role", None)
+        else getattr(actor, "role", None)
+    )
+    is_admin = is_admin_user(actor)
+    if not is_admin:
+        if not effective_role or not effective_role.strip():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="تعذر تحديد دور المستخدم."
+            )
+        user_role_norm = effective_role.strip().upper()
+        allowed_roles = [r.strip().upper() for r in (cfg.approver_roles if cfg else ["Manager"])]
+        is_authorized = user_role_norm in allowed_roles or user_role_norm in ["ADMIN", "MANAGER", "GENERAL_MANAGER"]
+        if not is_authorized:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"دورك '{effective_role}' غير مخول باعتماد تخطي هذه الخطوة. الأدوار المعتمدة: {cfg.approver_roles if cfg else ['Manager']}."
+            )
 
     # Auto-infer next step from sequence if not explicitly provided
     if not payload.next_step_codes:
@@ -1150,7 +1404,7 @@ def skip_step_service(
     skipped_msg = msg("LC_STEP_SKIPPED", reason=payload.skip_reason)
     repo.save_or_update_activity(
         db,
-        import_file_code=payload.import_file_code,
+        import_file_code=file_rec.import_file_code,
         step_code=payload.current_step_code,
         status="Skipped",
         completed_at=now_str,
@@ -1164,7 +1418,7 @@ def skip_step_service(
     for next_code in payload.next_step_codes:
         repo.save_or_update_activity(
             db,
-            import_file_code=payload.import_file_code,
+            import_file_code=file_rec.import_file_code,
             step_code=next_code,
             status="In-Progress",
             started_at=now_str,
@@ -1174,18 +1428,15 @@ def skip_step_service(
         )
 
     # Update ImportFile record's skipped_stages list
-    file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == payload.import_file_code).first()
-    if file_rec:
-        current_skipped = list(file_rec.skipped_stages or [])
-        if payload.current_step_code not in current_skipped:
-            current_skipped.append(payload.current_step_code)
-            file_rec.skipped_stages = current_skipped
-            db.commit()
+    current_skipped = list(file_rec.skipped_stages or [])
+    if payload.current_step_code not in current_skipped:
+        current_skipped.append(payload.current_step_code)
+        file_rec.skipped_stages = current_skipped
 
     # Sync ImportFile stage, module, progress, and Smart Tasks
     _sync_import_file_and_tasks_on_advance(
         db,
-        file_code=payload.import_file_code,
+        file_code=file_rec.import_file_code,
         completed_step_code=payload.current_step_code,
         activated_step_codes=payload.next_step_codes,
         is_skipped=True,
@@ -1193,21 +1444,20 @@ def skip_step_service(
     )
 
     # Write permanent central audit log entry
-    try:
-        audit_log = AuditLog(
-            entity_type="LifecycleStep",
-            entity_id=file_rec.import_file_id if file_rec else 0,
-            entity_code=payload.import_file_code,
-            action="SKIP_STAGE",
-            changes_summary=f"Skipped {payload.current_step_code} -> Activated {payload.next_step_codes}. Reason: {payload.skip_reason}",
-            old_values=json.dumps({"step_code": payload.current_step_code, "status": "In-Progress"}),
-            new_values=json.dumps({"step_code": payload.current_step_code, "status": "Skipped", "reason": payload.skip_reason, "policy": skip_policy}),
-            performed_by=current_username or "System",
-        )
-        db.add(audit_log)
-        db.commit()
-    except Exception:
-        pass
+    audit_username = current_username or (actor.username if actor else "System")
+    audit_log = AuditLog(
+        entity_type="LifecycleStep",
+        entity_id=file_rec.import_file_id,
+        entity_code=file_rec.import_file_code,
+        action="SKIP_STAGE",
+        changes_summary=f"Skipped {payload.current_step_code} -> Activated {payload.next_step_codes}. Reason: {payload.skip_reason}",
+        old_values=json.dumps({"step_code": payload.current_step_code, "status": "In-Progress"}),
+        new_values=json.dumps({"step_code": payload.current_step_code, "status": "Skipped", "reason": payload.skip_reason, "policy": skip_policy}),
+        performed_by=audit_username,
+    )
+    db.add(audit_log)
+    db.commit()
+    db.refresh(file_rec)
 
     return {
         "message": f"تم تخطي الخطوة {payload.current_step_code} وتفعيل الخطوات اللاحقة بنجاح.",
@@ -1270,6 +1520,7 @@ def initialize_file_lifecycle_service(db: Session, import_file_code: str, starti
         msg_code=start_msg.code,
         msg_params=start_msg.params,
     )
+    db.commit()
 
 
 def _append_system_note(act: Any, message: SysMsg) -> None:
@@ -1339,26 +1590,6 @@ def resume_shipment_activities_service(db: Session, import_file_code: str, resum
     db.commit()
 
 
-def _ensure_initial_stages(db: Session):
-    # If no stage activities exist for open import files, seed default stages
-    count = db.query(repo.ShipmentStageActivity).count()
-    if count == 0:
-        files = db.query(ImportFile).filter(ImportFile.is_active == True).limit(5).all()
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        for i, f in enumerate(files):
-            step_code = getattr(f, 'initial_starting_step', None) or f"STEP_{str((i % 6) + 1).zfill(2)}"
-            repo.save_or_update_activity(
-                db,
-                import_file_code=f.import_file_code,
-                step_code=step_code,
-                status="In-Progress",
-                started_at=now_str,
-                notes=render_en("LC_INITIAL_ACTIVITY", {}, "note"),
-                msg_code="LC_INITIAL_ACTIVITY",
-                msg_params={},
-            )
-
-
 def get_all_activities_service(db: Session, import_file_code: str):
     return repo.get_all_activities(db, import_file_code=import_file_code)
 
@@ -1380,22 +1611,37 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
 
     today = date.today()
     active_files = db.query(ImportFile).filter(ImportFile.is_active == True).all()
+    active_ids = [f.import_file_id for f in active_files if f.import_file_id is not None]
+    active_codes = [f.import_file_code for f in active_files if f.import_file_code]
 
-    # Pre-fetch demurrage sessions
-    demurrage_records = db.query(DemurrageTracking).filter(DemurrageTracking.is_active == True).all()
+    # Pre-fetch demurrage sessions (bounded to active files)
+    if active_ids:
+        demurrage_records = (
+            db.query(DemurrageTracking)
+            .filter(
+                DemurrageTracking.is_active == True,
+                or_(
+                    DemurrageTracking.import_file_id.in_(active_ids),
+                    DemurrageTracking.import_file_code.in_(active_codes),
+                ),
+            )
+            .all()
+        )
+    else:
+        demurrage_records = []
     dem_by_file_id = {d.import_file_id: d for d in demurrage_records if d.import_file_id}
     dem_by_file_code = {d.import_file_code: d for d in demurrage_records if d.import_file_code}
 
-    # Pre-fetch bookings
-    bookings = db.query(ShipmentBooking).all()
+    # Pre-fetch bookings (bounded to active files)
+    bookings = db.query(ShipmentBooking).filter(ShipmentBooking.import_file_id.in_(active_ids)).all() if active_ids else []
     booking_by_file_id = {b.import_file_id: b for b in bookings if b.import_file_id}
 
-    # Pre-fetch shipping records
-    cargos = db.query(CargoShippingRecord).all()
+    # Pre-fetch shipping records (bounded to active files)
+    cargos = db.query(CargoShippingRecord).filter(CargoShippingRecord.import_file_id.in_(active_ids)).all() if active_ids else []
     cargo_by_file_id = {c.import_file_id: c for c in cargos if c.import_file_id}
 
-    # Pre-fetch customs clearance records
-    customs_decs = db.query(CustomsClearanceRecord).all()
+    # Pre-fetch customs clearance records (bounded to active files)
+    customs_decs = db.query(CustomsClearanceRecord).filter(CustomsClearanceRecord.import_file_id.in_(active_ids)).all() if active_ids else []
     customs_by_file_id = {cd.import_file_id: cd for cd in customs_decs if cd.import_file_id}
 
     items: List[LiveLogisticsTrackingItem] = []
@@ -1412,12 +1658,21 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
         cargo = cargo_by_file_id.get(f.import_file_id)
         customs = customs_by_file_id.get(f.import_file_id)
 
-        # 1. B/L, Carrier, Vessel, and Ports
-        bl_no = getattr(f, 'custom_file_number', None) or (dem.bill_of_lading_no if dem else None) or (booking.booking_confirmation_no if booking else None)
-        carrier_name = (dem.carrier_name if dem else None) or (booking.shipping_line_name if booking else None) or f.selected_scenario or "MSC Line"
-        vessel_name = (booking.vessel_name if booking else None) or "Ever Given / Vessel"
-        pol_name = f.port_of_loading or (booking.pol_name if booking else None) or "Shanghai Port"
-        pod_name = f.port_of_discharge or (booking.pod_name if booking else None) or (dem.port_name if dem else None) or "El Dekheila Port"
+        # 1. B/L, Carrier, Vessel, and Ports (No invented data)
+        bl_no = (
+            getattr(f, 'bl_number', None)
+            or getattr(f, 'custom_file_number', None)
+            or (dem.bill_of_lading_no if dem else None)
+            or (booking.bill_of_lading_no if booking and booking.bill_of_lading_no else None)
+            or (booking.booking_confirmation_no if booking else None)
+        )
+        carrier_name = (
+            (dem.carrier_name if dem and dem.carrier_name else None)
+            or (booking.shipping_line_name if booking and booking.shipping_line_name else None)
+        )
+        vessel_name = (booking.vessel_name if booking and booking.vessel_name else None) or getattr(f, 'vessel_name', None)
+        pol_name = f.port_of_loading or (booking.pol_name if booking and booking.pol_name else None)
+        pod_name = f.port_of_discharge or (booking.pod_name if booking and booking.pod_name else None) or (dem.port_name if dem and dem.port_name else None)
 
         # 2. ETA & Arrival Status
         eta_obj = None
@@ -1447,12 +1702,15 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
         else:
             arrival_status = "Pre-Shipment"
 
-        # 3. Demurrage & Free Time Radar
-        free_days_total = f.target_free_days or (booking.free_demurrage_days if booking else 14) or 14
-        free_days_rem = free_days_total
+        # 3. Demurrage & Free Time Radar (Bounded and no invented free time)
+        free_days_total = f.target_free_days or (booking.free_demurrage_days if booking and booking.free_demurrage_days else None)
+        if free_days_total is None and dem and getattr(dem, 'policy', None):
+            free_days_total = getattr(dem.policy, 'demurrage_free_days', None)
+
+        free_days_rem = None
         used_free = 0
         dem_status = "No Active Session"
-        risk_level = "Low"
+        risk_level = "Unknown"
         acc_fx = 0.0
         acc_egp = 0.0
         dem_code = None
@@ -1463,47 +1721,67 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
             acc_fx = (dem.total_demurrage_fx or 0.0) + (dem.total_detention_fx or 0.0)
             acc_egp = dem.total_cost_egp or 0.0
 
-            if dem.discharge_date:
-                days_since_disc = (today - dem.discharge_date).days
-                used_free = max(0, days_since_disc)
+            if free_days_total is not None:
+                if dem.discharge_date:
+                    days_since_disc = (today - dem.discharge_date).days
+                    used_free = max(0, days_since_disc)
+                    free_days_rem = max(0, free_days_total - used_free)
+                else:
+                    used_free = 0
+                    free_days_rem = free_days_total
+
+                if acc_fx > 0 or free_days_rem == 0:
+                    risk_level = "Critical"
+                    dem_status = "Demurrage Incurred"
+                    high_risk_demurrage_count += 1
+                elif free_days_rem <= 3:
+                    risk_level = "High"
+                    dem_status = "Warning"
+                    high_risk_demurrage_count += 1
+                elif free_days_rem <= 7:
+                    risk_level = "Medium"
+                    dem_status = "Warning"
+                else:
+                    risk_level = "Low"
+                    dem_status = "Safe"
+            else:
+                if acc_fx > 0:
+                    risk_level = "Critical"
+                    dem_status = "Demurrage Incurred"
+                    high_risk_demurrage_count += 1
+                else:
+                    risk_level = "Unknown"
+        elif free_days_total is not None:
+            if arrival_status == "In Port / Clearing":
+                days_in_port = abs(eta_countdown) if (eta_countdown is not None and eta_countdown < 0) else 0
+                used_free = days_in_port
                 free_days_rem = max(0, free_days_total - used_free)
+
+                if free_days_rem == 0:
+                    risk_level = "Critical"
+                    dem_status = "Demurrage Incurred"
+                    high_risk_demurrage_count += 1
+                elif free_days_rem <= 3:
+                    risk_level = "High"
+                    dem_status = "Warning"
+                    high_risk_demurrage_count += 1
+                elif free_days_rem <= 7:
+                    risk_level = "Medium"
+                    dem_status = "Warning"
+                else:
+                    risk_level = "Low"
+                    dem_status = "Safe"
             else:
                 used_free = 0
                 free_days_rem = free_days_total
-
-            if acc_fx > 0 or free_days_rem == 0:
-                risk_level = "Critical"
-                dem_status = "Demurrage Incurred"
-                high_risk_demurrage_count += 1
-            elif free_days_rem <= 3:
-                risk_level = "High"
-                dem_status = "Warning"
-                high_risk_demurrage_count += 1
-            elif free_days_rem <= 7:
-                risk_level = "Medium"
-                dem_status = "Warning"
-            else:
+                dem_status = "No Active Session"
                 risk_level = "Low"
-                dem_status = "Safe"
-        elif arrival_status == "In Port / Clearing":
-            days_in_port = abs(eta_countdown) if (eta_countdown is not None and eta_countdown < 0) else 0
-            used_free = days_in_port
-            free_days_rem = max(0, free_days_total - used_free)
-
-            if free_days_rem == 0:
-                risk_level = "Critical"
-                dem_status = "Demurrage Incurred"
-                high_risk_demurrage_count += 1
-            elif free_days_rem <= 3:
-                risk_level = "High"
-                dem_status = "Warning"
-                high_risk_demurrage_count += 1
-            elif free_days_rem <= 7:
-                risk_level = "Medium"
-                dem_status = "Warning"
-            else:
-                risk_level = "Low"
-                dem_status = "Safe"
+        else:
+            # free_days_total is None and no demurrage record exists
+            free_days_rem = None
+            used_free = 0
+            dem_status = "No Active Session"
+            risk_level = "Unknown"
 
         # 4. Regulatory Testing & Samples
         sample_status = "Not Applicable"
@@ -1600,9 +1878,9 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
                 company_name=f.company_name or "N/A",
                 supplier_name=f.supplier_name or "N/A",
                 po_number=f.po_number,
-                shipment_mode=f.shipment_mode or "Sea FCL",
-                incoterm_code=f.incoterm_code or "FOB",
-                priority=f.priority or "High",
+                shipment_mode=f.shipment_mode,
+                incoterm_code=f.incoterm_code,
+                priority=f.priority,
                 bl_number=bl_no,
                 carrier_name=carrier_name,
                 vessel_name=vessel_name,

@@ -1,56 +1,121 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/widgets/metric_card.dart';
+import 'package:frontend/features/customs_clearance/models/customs_clearance_model.dart';
 import 'package:frontend/features/customs_clearance/widgets/drawing_samples_and_shortage_tab.dart';
+import 'package:frontend/features/import_files/models/import_file_model.dart';
+import 'package:frontend/features/import_files/providers/import_files_provider.dart';
+
+class _MockImportFilesNotifier extends ImportFilesNotifier {
+  _MockImportFilesNotifier(List<ImportFileModel> files) : super(Dio()) {
+    state = AsyncValue.data(files);
+  }
+
+  @override
+  Future<void> fetchImportFiles({
+    bool includeInactive = false,
+    String? search,
+    int? companyId,
+    int? supplierId,
+    String? status,
+    String? owner,
+  }) async {}
+}
+
+ImportFileModel _makeFile({
+  required int id,
+  required String code,
+  required String supplier,
+}) {
+  return ImportFileModel(
+    importFileId: id,
+    importFileCode: code,
+    companyName: 'شركة السويس للاستيراد',
+    supplierName: supplier,
+    shipmentMode: 'SEA',
+    incotermCode: 'FOB',
+    priority: 'Normal',
+    shipmentCategory: 'Commercial',
+    currentModule: 'Customs Clearance',
+    currentStage: 'Phase 7 - Customs Clearance',
+    nextAction: 'Sample Inspection',
+    status: 'Open',
+    createdAt: '2026-01-01',
+    updatedAt: '2026-01-01',
+  );
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  final mockSamples = [
-    {
-      'sample_id': 'SMP-1001',
-      'authority': 'الهيئة العامة للرقابة على الصادرات والواردات',
-      'drawing_date': '2026-09-05',
-      'receipt_no': 'REC-9911',
-      'test_type': 'فحص كيميائي شامل',
-      'status': 'PASSED',
-      'notes': 'مطابق للمواصفات القياسية المصرية',
-    },
-    {
-      'sample_id': 'SMP-1002',
-      'authority': 'الهيئة القومية لسلامة الغذاء',
-      'drawing_date': '2026-09-06',
-      'receipt_no': 'REC-9912',
-      'test_type': 'تحليل بكتيري',
-      'status': 'PENDING',
-      'notes': 'قيد المعايرة المعملية',
-    },
+  final mockFiles = [
+    _makeFile(id: 101, code: 'IMP-2026-0101', supplier: 'المورد الألماني'),
+    _makeFile(id: 102, code: 'IMP-2026-0102', supplier: 'المورد الإيطالي'),
   ];
 
-  final mockShortages = [
-    {
-      'shortage_id': 'SHR-501',
-      'container_no': 'CMAU-4567890',
-      'item_desc': 'قطع غيار توربينات',
-      'manifest_qty': '80',
-      'landed_qty': '75',
-      'shortage_qty': '5',
-      'shortage_pct': '6.3',
-      'action': 'DEDUCT_DUTY',
-      'notes': 'محضر كسر رصاص بالميناء',
-    },
+  final mockRecords = <CustomsClearanceModel>[
+    CustomsClearanceModel(
+      customsClearanceId: 1,
+      clearanceCode: 'CC-1',
+      importFileId: 101,
+      declaration46No: 'DEC-101',
+      status: 'Inspection Scheduled',
+      channelType: 'YELLOW',
+      inspectionType: 'Physical Examination',
+      inspectionResult: 'PENDING',
+      assessmentStatus: 'PENDING',
+      isSampleDrawn: true,
+      samplingRecordNo: 'SMP-1001',
+      samplingDate: '2026-09-05',
+      goeicCertificateNo: 'REC-9911',
+      sampleTestStatus: 'Approved',
+      labTestResult: 'CONFORMING',
+      inspectionNotes: 'مطابق للمواصفات القياسية المصرية',
+      sampledRegulatoryBodies: const ['GOEIC'],
+      createdAt: '2026-09-05',
+      updatedAt: '2026-09-05',
+    ),
+    CustomsClearanceModel(
+      customsClearanceId: 2,
+      clearanceCode: 'CC-2',
+      importFileId: 102,
+      declaration46No: 'DEC-102',
+      status: 'Inspection Scheduled',
+      channelType: 'RED',
+      inspectionType: 'Physical Examination',
+      inspectionResult: 'PENDING',
+      assessmentStatus: 'PENDING',
+      isSampleDrawn: true,
+      samplingRecordNo: 'SMP-1002',
+      samplingDate: '2026-09-06',
+      goeicCertificateNo: 'REC-9912',
+      sampleTestStatus: 'Samples Under Testing',
+      labTestResult: 'PENDING',
+      inspectionNotes: 'تحليل بكتيري - قيد المعايرة',
+      sampledRegulatoryBodies: const ['NFSA'],
+      createdAt: '2026-09-06',
+      updatedAt: '2026-09-06',
+    ),
   ];
 
-  Widget buildTestWidget({Locale locale = const Locale('ar')}) {
-    return MaterialApp(
-      home: AppLocalizationsProvider(
-        locale: locale,
-        child: Scaffold(
-          body: DrawingSamplesAndShortageTab(
-            records: const [],
-            drawnSamples: List.from(mockSamples),
-            shortageProtocols: List.from(mockShortages),
+  Widget buildTestWidget({
+    List<CustomsClearanceModel>? records,
+    Locale locale = const Locale('ar'),
+  }) {
+    return ProviderScope(
+      overrides: [
+        importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier(mockFiles)),
+      ],
+      child: MaterialApp(
+        home: AppLocalizationsProvider(
+          locale: locale,
+          child: Scaffold(
+            body: DrawingSamplesAndShortageTab(
+              records: records ?? mockRecords,
+            ),
           ),
         ),
       ),
@@ -75,7 +140,7 @@ void main() {
       expect(find.text('نسخ ملف الحافظة الشامل'), findsOneWidget);
     });
 
-    testWidgets('Displays 4 KPI cards with proper counts', (tester) async {
+    testWidgets('Displays 3 real KPI cards with proper counts and no fabricated shortage KPI', (tester) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -87,13 +152,16 @@ void main() {
       expect(find.text('إجمالي العينات المسحوبة'), findsOneWidget);
       expect(find.text('عينات مطابقة للمواصفات'), findsOneWidget);
       expect(find.text('عينات قيد الفحص والتحليل'), findsOneWidget);
-      expect(find.text('حالات العجز المثبتة'), findsOneWidget);
+      // Fabricated shortage KPI must NOT be present
+      expect(find.text('حالات العجز المثبتة'), findsNothing);
 
-      expect(find.text('2'), findsWidgets);
-      expect(find.text('1'), findsWidgets);
+      final metricStrip = find.byType(MetricCardStrip);
+      expect(metricStrip, findsOneWidget);
+      expect(find.descendant(of: metricStrip, matching: find.text('2')), findsOneWidget); // Total
+      expect(find.descendant(of: metricStrip, matching: find.text('1')), findsNWidgets(2)); // Passed & Pending
     });
 
-    testWidgets('Displays samples and shortages with clickable copy badges', (tester) async {
+    testWidgets('Displays real sample badges and resolved file codes', (tester) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -102,17 +170,15 @@ void main() {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
 
-      // Sample Badges
+      // Sample Record Badges
       expect(find.text('SMP-1001'), findsOneWidget);
       expect(find.text('SMP-1002'), findsOneWidget);
       expect(find.text('REC-9911'), findsOneWidget);
       expect(find.text('REC-9912'), findsOneWidget);
 
-      // Shortage Badges
-      expect(find.text('SHR-501'), findsOneWidget);
-      expect(find.text('CMAU-4567890'), findsOneWidget);
-      expect(find.text('قطع غيار توربينات'), findsOneWidget);
-      expect(find.text('6.3%'), findsOneWidget);
+      // File codes resolved
+      expect(find.text('IMP-2026-0101'), findsOneWidget);
+      expect(find.text('IMP-2026-0102'), findsOneWidget);
 
       // Row summary copy buttons
       expect(find.byIcon(Icons.copy_rounded), findsWidgets);
@@ -140,8 +206,8 @@ void main() {
       expect(find.text('SMP-1002'), findsOneWidget);
     });
 
-    testWidgets('Opens Add Sample and Add Shortage dialogs with copy suffix buttons', (tester) async {
-      tester.view.physicalSize = const Size(1280, 1000);
+    testWidgets('Displays shortage empty state placeholder', (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -149,33 +215,10 @@ void main() {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
 
-      // Tap Add Sample
-      final addSampleBtn = find.text('تسجيل سحب عينة');
-      expect(addSampleBtn, findsOneWidget);
-      await tester.tap(addSampleBtn);
-      await tester.pumpAndSettle();
-
-      expect(find.text('تسجيل سحب عينة معملية جديدة'), findsOneWidget);
-      expect(find.byIcon(Icons.copy), findsWidgets);
-
-      // Cancel dialog
-      await tester.tap(find.text('إلغاء'));
-      await tester.pumpAndSettle();
-
-      // Scroll and Tap Add Shortage
-      final addShortageBtn = find.text('إثبات محضر عجز جديد');
-      expect(addShortageBtn, findsOneWidget);
-      await tester.scrollUntilVisible(addShortageBtn, 400, scrollable: find.byType(Scrollable).first);
-      await tester.pumpAndSettle();
-      await tester.tap(addShortageBtn);
-      await tester.pumpAndSettle();
-
-      expect(find.text('تسجيل محضر إثبات عجز بضائع مفرغة'), findsOneWidget);
-      expect(find.byIcon(Icons.copy), findsWidgets);
-
-      // Cancel dialog
-      await tester.tap(find.text('إلغاء'));
-      await tester.pumpAndSettle();
+      expect(find.text('سجل إثبات ومطابقة عجز البضائع المفرغة'), findsOneWidget);
+      expect(find.text('سيتم حفظ محاضر النقص فور ربط سجل النقص بقاعدة البيانات'), findsOneWidget);
+      // No Add Shortage button
+      expect(find.text('إثبات محضر عجز جديد'), findsNothing);
     });
 
     testWidgets('Renders cleanly in English mode with 0 Arabic stacking', (tester) async {
@@ -193,14 +236,12 @@ void main() {
       expect(find.text('Print PDF Dossier'), findsOneWidget);
       expect(find.text('Copy Complete Dossier'), findsOneWidget);
       expect(find.text('Total Drawn Samples'), findsOneWidget);
-      // The same label is also the PASSED status badge in the samples table,
-      // so scope the KPI assertion to the metric strip.
       expect(
         find.descendant(of: find.byType(MetricCardStrip), matching: find.text('Compliant & Passed')),
         findsOneWidget,
       );
       expect(find.text('Pending Laboratory Analysis'), findsOneWidget);
-      expect(find.text('Documented Shortage Cases'), findsOneWidget);
+      expect(find.text('Shortage protocols will be saved after the backend registry is added'), findsOneWidget);
     });
   });
 }
