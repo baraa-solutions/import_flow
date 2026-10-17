@@ -104,5 +104,38 @@ void main() {
       expect((json['expense_invoices'] as List).length, 1);
       expect((json['item_landed_costs'] as List).length, 1);
     });
+
+    test('Should safely parse LandedCostSettlementModel with null fields (legacy tolerance)', () {
+      final json = <String, dynamic>{
+        'settlement_id': null,
+        'settlement_code': null,
+        'import_file_id': null,
+        'expense_invoices': null,
+        'total_fob_egp': null,
+        'total_expenses_egp': null,
+        'total_landed_cost_egp': null,
+        'average_markup_factor': null,
+        'item_landed_costs': null,
+        'status': null,
+        'accountant_name': null,
+        'notes': null,
+        'is_active': null,
+        'created_at': null,
+        'updated_at': null,
+      };
+
+      final model = LandedCostSettlementModel.fromJson(json);
+
+      expect(model.settlementId, 0);
+      expect(model.settlementCode, '');
+      expect(model.importFileId, 0);
+      expect(model.status, 'Draft');
+      expect(model.accountantName, '');
+      expect(model.isActive, isTrue);
+      expect(model.createdAt, '');
+      expect(model.updatedAt, '');
+      expect(model.expenseInvoices, isEmpty);
+      expect(model.itemLandedCosts, isEmpty);
+    });
   });
 }

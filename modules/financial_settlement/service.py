@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import List, Optional, Dict, Any, Tuple
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from .model import LandedCostSettlementRecord
 from .schemas import (
@@ -44,7 +44,9 @@ from .repository import (
 )
 from .model import WHT_CLEARANCE_SERVICES, WHT_TRANSPORT_SERVICES
 from .validators import (
+    SETTLEMENT_DUPLICATE_ACTIVE,
     SETTLEMENT_FX_RATE_MISSING,
+    coded_error,
     ensure_cost_not_approved,
     ensure_file_open,
     ensure_invoices_not_settled,
@@ -712,9 +714,11 @@ def create_settlement_service(
 
     existing = get_settlement_by_import_file_id(db, schema.import_file_id)
     if existing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"يوجد بالفعل تسوية مالية وتكلفة وصول (Landed Cost) مسجلة لهذا الملف الاستيرادي (كود التسوية: {existing.settlement_code}). يرجى مراجعة وتحديث التسوية الحالية بدلاً من إنشاء تسوية مكررة.",
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            SETTLEMENT_DUPLICATE_ACTIVE,
+            f"يوجد بالفعل تسوية مالية وتكلفة وصول (Landed Cost) مسجلة لهذا الملف الاستيرادي (كود التسوية: {existing.settlement_code}). يرجى مراجعة وتحديث التسوية الحالية بدلاً من إنشاء تسوية مكررة.",
+            settlement_code=existing.settlement_code,
         )
 
     incoterm = (schema.incoterm_code or imp_file.incoterm_code or "FOB").upper()
@@ -872,8 +876,18 @@ def list_settlements_service(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
 ) -> List[LandedCostSettlementRecord]:
-    return list_settlements(db, include_inactive, import_file_id, status, search)
+    return list_settlements(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
 
 def soft_delete_settlement_service(db: Session, settlement_id: int, actor: str = "System") -> bool:
     record = get_settlement_service(db, settlement_id)

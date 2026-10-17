@@ -36,6 +36,8 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
     int? importFileId,
     String? status,
     String? search,
+    int? skip,
+    int? limit,
   }) async {
     _cancelToken?.cancel('Cancelled by new fetchSettlements request');
     _cancelToken = CancelToken();
@@ -50,6 +52,8 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
       if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (skip != null) queryParams['skip'] = skip;
+      if (limit != null) queryParams['limit'] = limit;
 
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/financial-settlement',

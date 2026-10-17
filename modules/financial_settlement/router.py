@@ -57,10 +57,20 @@ def list_settlements(
     import_file_id: Optional[int] = Query(None, description="Filter by import file ID"),
     status_filter: Optional[str] = Query(None, alias="status", description="Filter by operational status"),
     search: Optional[str] = Query(None, description="Search term"),
+    skip: int = Query(0, ge=0, description="Records to skip"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Max records to return"),
     db: Session = Depends(get_db),
     current_user: User = Depends(VIEW),
 ):
-    return list_settlements_service(db, include_inactive, import_file_id, status_filter, search)
+    return list_settlements_service(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status_filter,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
 
 @router.post("", response_model=FinancialSettlementResponse, status_code=status.HTTP_201_CREATED)
 def create_settlement(
