@@ -310,7 +310,7 @@ def soft_delete_payment_request(payment_id: int, db: Session = Depends(get_db), 
 @router.post("/payment-requests/{payment_id}/restore")
 def restore_payment_request(payment_id: int, db: Session = Depends(get_db), _: User = Depends(can_manage)):
     service.restore_payment_request_service(db, payment_id)
-    return {"message": "Payment Request restored successfully"}
+    return {"message": "تم استعادة طلب الصرف بنجاح"}
 
 
 # --- IMPORT BUDGET ENDPOINTS (BP-013) ---
@@ -459,4 +459,4 @@ def soft_delete_import_budget(budget_id: int, db: Session = Depends(get_db), _: 
 @router.post("/import-budgets/{budget_id}/restore")
 def restore_import_budget(budget_id: int, db: Session = Depends(get_db), _: User = Depends(can_manage)):
     service.restore_import_budget_service(db, budget_id)
-    return {"message": "Import Budget restored successfully"}
+    return {"message": "تم استعادة ميزانية الاستيراد بنجاح"}
