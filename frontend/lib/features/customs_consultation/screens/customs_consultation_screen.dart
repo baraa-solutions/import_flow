@@ -477,9 +477,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     String highestCurrency = 'USD';
     for (final session in linkedSessions) {
       for (final item in session.items) {
-        if (item.totalQuotationAmount > highestQuotation) {
-          highestQuotation = item.totalQuotationAmount;
-          highestCurrency = item.quotationCurrency;
+        final amount = item.totalQuotationAmount;
+        final currency = item.quotationCurrency;
+        // A quote without an amount or currency cannot be compared (no invented currency).
+        if (amount != null && currency != null && amount > highestQuotation) {
+          highestQuotation = amount;
+          highestCurrency = currency;
         }
       }
     }

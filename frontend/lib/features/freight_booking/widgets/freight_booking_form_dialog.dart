@@ -411,7 +411,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
       final parsedEta = DateTime.tryParse(item.estimatedArrivalDate);
       if (parsedEta != null) _eta = parsedEta;
       _freeDemurrageController.text = item.freeTimeDays.toString();
-      _mainQuoteCurrency = item.quotationCurrency;
+      if (item.quotationCurrency != null) _mainQuoteCurrency = item.quotationCurrency!;
       _originalQuoteTotalUsd = item.totalQuotationAmount;
       _originalContainer40ftPrice = item.container40ftPrice;
       _originalContainer20ftPrice = item.container20ftPrice;
