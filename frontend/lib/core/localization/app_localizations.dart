@@ -10051,6 +10051,13 @@ abstract class AppLocalizations {
   String get customsDeclMinLength;
   String get customsDeclChannelLabel;
   String get customsDeclPickDateTooltip;
+  String get customsDeclMetricEstimatedDuties;
+  String get customsDeclColTariffEstimate;
+  String get customsDeclRegistryEmptyMessage;
+  String get customsDeclExportSubtitle;
+  String get customsDeclExportMetaTotal;
+  String get customsDeclExportMetaGeneratedAt;
+  String customsDeclExportSubtitleWithFile(String declNo, String fileCode);
   // === end review phase06_07 keys ===
 
   // === review phase08_10 keys (append below this line) ===

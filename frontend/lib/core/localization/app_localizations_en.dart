@@ -12778,6 +12778,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get customsDeclMinLength => 'Customs declaration number must be at least 3 characters';
   @override String get customsDeclChannelLabel => 'Customs Channel';
   @override String get customsDeclPickDateTooltip => 'Select declaration registration date';
+  @override String get customsDeclMetricEstimatedDuties => 'Total Estimated Duties';
+  @override String get customsDeclColTariffEstimate => 'Estimated Duties';
+  @override String get customsDeclRegistryEmptyMessage => 'No registered declarations yet';
+  @override String get customsDeclExportSubtitle => 'Sorour Logistics ERP — Customs Clearance Follow-up';
+  @override String get customsDeclExportMetaTotal => 'Total Declarations';
+  @override String get customsDeclExportMetaGeneratedAt => 'Generated At';
+  @override String customsDeclExportSubtitleWithFile(String declNo, String fileCode) => 'Declaration 46: $declNo — Import File: $fileCode';
   // === end review phase06_07 keys ===
 
   // === review phase08_10 keys (append below this line) ===

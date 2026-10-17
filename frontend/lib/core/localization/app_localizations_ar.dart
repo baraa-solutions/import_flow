@@ -12779,6 +12779,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get customsDeclMinLength => 'رقم الإقرار الجمركي يجب ألا يقل عن 3 أحرف أو أرقام';
   @override String get customsDeclChannelLabel => 'المسار الجمركي';
   @override String get customsDeclPickDateTooltip => 'اختيار تاريخ قيد الإقرار';
+  @override String get customsDeclMetricEstimatedDuties => 'إجمالي الرسوم التقديرية';
+  @override String get customsDeclColTariffEstimate => 'الرسوم التقديرية';
+  @override String get customsDeclRegistryEmptyMessage => 'لا توجد إقرارات جمركية مسجلة حتى الآن';
+  @override String get customsDeclExportSubtitle => 'نظام سرور لإدارة الاستيراد — متابعة التخليص الجمركي';
+  @override String get customsDeclExportMetaTotal => 'إجمالي الإقرارات';
+  @override String get customsDeclExportMetaGeneratedAt => 'تاريخ التقرير';
+  @override String customsDeclExportSubtitleWithFile(String declNo, String fileCode) => 'إقرار جمركي 46: $declNo — ملف الشحنة: $fileCode';
   // === end review phase06_07 keys ===
 
   // === review phase08_10 keys (append below this line) ===
