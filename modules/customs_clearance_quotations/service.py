@@ -98,8 +98,9 @@ def recalculate_rfq_metrics(db: Session, rfq: CustomsClearanceRFQ) -> CustomsCle
 def _prepare_quote(db: Session, data: CustomsClearanceQuotationCreate) -> dict:
     """CCQ-06: the same validation + normalization for standalone and nested quotes."""
     val.validate_quotation_create(data)
-    val.validate_quotation_provider(db, data.provider_id)
+    provider = val.validate_quotation_provider(db, data.provider_id)
     q_data = _normalize_quote_fields(data.model_dump())
+    q_data["provider_name"] = provider.partner_name
     q_data["total_cost"] = quote_total(q_data)
     return q_data
 
@@ -175,6 +176,14 @@ def update_rfq_service(db: Session, rfq_id: int, data: CustomsClearanceRFQUpdate
 
 
 def delete_rfq_service(db: Session, rfq_id: int) -> bool:
+    rfq = _rfq_or_404(db, rfq_id)
+    if rfq.status == val.RFQ_STATUS_AWARDED:
+        raise val.coded_error(
+            status.HTTP_409_CONFLICT,
+            "CCQ_RFQ_AWARDED",
+            "لا يمكن حذف طلب عرض أسعار تمت ترسيته بالفعل.",
+            rfq_code=rfq.rfq_code,
+        )
     success = repo.delete_rfq(db, rfq_id, soft=True)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="السجل غير موجود")
@@ -186,6 +195,7 @@ def add_quotation_service(
     db: Session, rfq_id: int, data: CustomsClearanceQuotationCreate
 ) -> CustomsClearanceQuotationItem:
     rfq = _rfq_or_404(db, rfq_id)
+    val.validate_rfq_open(rfq)
     quotation = repo.add_quotation_to_rfq(db, rfq, _prepare_quote(db, data))
     recalculate_rfq_metrics(db, rfq)
     db.commit()
@@ -196,12 +206,14 @@ def add_quotation_service(
 def update_quotation_service(
     db: Session, quotation_id: int, data: CustomsClearanceQuotationUpdate
 ) -> CustomsClearanceQuotationItem:
-    _quote_or_404(db, quotation_id)
+    quote = _quote_or_404(db, quotation_id)
+    rfq = _rfq_or_404(db, quote.rfq_id)
+    val.validate_rfq_open(rfq)
     q_data = _normalize_quote_fields(data.model_dump(exclude_unset=True))
     q_data.pop("total_cost", None)  # always server-computed
     updated = repo.update_quotation(db, quotation_id, q_data)
     updated.total_cost = quote_total(updated)
-    recalculate_rfq_metrics(db, repo.get_rfq_by_id(db, updated.rfq_id))
+    recalculate_rfq_metrics(db, rfq)
     db.commit()
     db.refresh(updated)
     return updated
@@ -210,9 +222,11 @@ def update_quotation_service(
 def delete_quotation_service(db: Session, quotation_id: int) -> bool:
     """Soft delete (CCQ-02); the awarded quote cannot be deleted (409)."""
     quote = _quote_or_404(db, quotation_id)
+    rfq = _rfq_or_404(db, quote.rfq_id)
+    val.validate_rfq_open(rfq)
     val.validate_quote_deletable(quote)
     repo.soft_delete_quotation(db, quote)
-    recalculate_rfq_metrics(db, repo.get_rfq_by_id(db, quote.rfq_id))
+    recalculate_rfq_metrics(db, rfq)
     db.commit()
     return True
 
@@ -270,7 +284,10 @@ def create_price_item_service(
     db: Session, data: ClearancePriceListItemCreate
 ) -> ClearanceServicePriceListItem:
     val.validate_price_item_create(data)
-    item = repo.create_price_item(db, _normalize_quote_fields(data.model_dump()))
+    provider = val.validate_quotation_provider(db, data.provider_id)
+    p_data = _normalize_quote_fields(data.model_dump())
+    p_data["provider_name"] = provider.partner_name
+    item = repo.create_price_item(db, p_data)
     db.commit()
     db.refresh(item)
     return item
@@ -283,6 +300,10 @@ def update_price_item_service(
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="بند قائمة الأسعار غير موجود")
     changes = data.model_dump(exclude_unset=True)
+    provider_id = changes.get("provider_id", item.provider_id)
+    provider = val.validate_quotation_provider(db, provider_id)
+    if "provider_id" in changes:
+        changes["provider_name"] = provider.partner_name
     val.validate_price_item_update(
         changes.get("port_name"),
         changes.get("effective_from") or item.effective_from,
