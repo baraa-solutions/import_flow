@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from fastapi import HTTPException, status
 from modules.cargo_insurance.schemas import CargoInsuranceCertificateCreate, CargoInsuranceCertificateUpdate
 
