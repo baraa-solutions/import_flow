@@ -1235,6 +1235,7 @@ def test_payment_request_audit_columns_api(api, db):
         "supplier_name": "Audit Supplier",
         "payment_type": "Against B/L",
         "requested_amount": 1500.0,
+        "currency_code": "USD",
         "exchange_rate": 50.0,
         "due_date": str(date.today() + timedelta(days=7)),
         "import_file_id": imp.import_file_id,
@@ -1274,7 +1275,9 @@ def test_import_budget_audit_columns_api(api, db):
         "import_file_id": imp.import_file_id,
         "exchange_rate": 50.0,
         "invoice_amount_foreign": 1000.0,
+        "invoice_currency": "USD",
         "freight_cost_foreign": 200.0,
+        "freight_currency": "USD",
         "customs_duties_egp": 5000.0,
         "clearance_inland_egp": 1500.0,
     }
