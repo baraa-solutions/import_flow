@@ -667,6 +667,43 @@ def _audit(db: Session, record: LandedCostSettlementRecord, action: str, actor: 
     )
 
 
+def _audit_import_file(
+    db: Session,
+    record: ImportFile,
+    action: str,
+    actor: str,
+    new_data: Optional[Dict[str, Any]] = None,
+    old_data: Optional[Dict[str, Any]] = None,
+) -> None:
+    from modules.audit_logs.service import AuditLogService
+    AuditLogService(db).log_activity(
+        entity_type="ImportFile",
+        entity_id=record.import_file_id,
+        entity_code=record.import_file_code,
+        action=action,
+        old_data=old_data,
+        new_data=new_data,
+        performed_by=actor,
+    )
+
+
+def _settlement_snapshot_dict(record: Optional[LandedCostSettlementRecord]) -> Dict[str, Any]:
+    if not record:
+        return {
+            "status": None,
+            "total_expenses_egp": 0.0,
+            "total_landed_cost_egp": 0.0,
+            "rows": 0,
+        }
+    rows = record.expense_invoices if isinstance(record.expense_invoices, list) else []
+    return {
+        "status": record.status,
+        "total_expenses_egp": float(record.total_expenses_egp or 0.0),
+        "total_landed_cost_egp": float(record.total_landed_cost_egp or 0.0),
+        "rows": len(rows),
+    }
+
+
 def create_settlement_service(
     db: Session, schema: FinancialSettlementCreate, actor: str = "System"
 ) -> LandedCostSettlementRecord:
@@ -776,9 +813,15 @@ def recalculate_settlement_service(db: Session, settlement_id: int, actor: str =
         raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
     ensure_file_open(record.import_file or db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first())
     ensure_settlement_editable(record)
+    old_data = _settlement_snapshot_dict(record)
     _recalculate_in_place(record, actor)
     db.commit()
     db.refresh(record)
+    new_data = _settlement_snapshot_dict(record)
+    best_effort(
+        db, _audit, "AuditLog for LandedCostSettlementRecord recalculate", db, record, "RECALCULATE", actor,
+        new_data=new_data, old_data=old_data,
+    )
     return record
 
 
@@ -836,8 +879,14 @@ def soft_delete_settlement_service(db: Session, settlement_id: int, actor: str =
     record = get_settlement_service(db, settlement_id)
     ensure_file_open(record.import_file or db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first())
     ensure_settlement_editable(record)
+    old_data = _settlement_snapshot_dict(record)
     soft_delete_settlement(db, record, actor)
     db.commit()
+    new_data = _settlement_snapshot_dict(record)
+    best_effort(
+        db, _audit, "AuditLog for LandedCostSettlementRecord delete", db, record, "SOFT_DELETE", actor,
+        new_data=new_data, old_data=old_data,
+    )
     return True
 
 def restore_settlement_service(db: Session, settlement_id: int, actor: str = "System") -> LandedCostSettlementRecord:
@@ -847,9 +896,15 @@ def restore_settlement_service(db: Session, settlement_id: int, actor: str = "Sy
     ensure_file_open(record.import_file or db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first())
     if not record.is_active:
         ensure_no_other_active_settlement(get_settlement_by_import_file_id(db, record.import_file_id), settlement_id)
+    old_data = _settlement_snapshot_dict(record)
     restore_settlement(db, record, actor)
     db.commit()
     db.refresh(record)
+    new_data = _settlement_snapshot_dict(record)
+    best_effort(
+        db, _audit, "AuditLog for LandedCostSettlementRecord restore", db, record, "RESTORE", actor,
+        new_data=new_data, old_data=old_data,
+    )
     return record
 
 
@@ -2076,6 +2131,13 @@ def confirm_invoices_settlement_service(
     today_date = datetime.now(timezone.utc).date()
     today_str = str(today_date)
 
+    old_data = {
+        "status": imp.financial_settlement_status,
+        "total_expenses_egp": float(imp.financial_settlement_total_egp or 0.0),
+        "total_landed_cost_egp": float(imp.actual_landed_cost_total_egp or 0.0),
+        "rows": int(imp.financial_settlement_invoices_count or 0),
+    }
+
     # 1. Update ImportFile
     imp.financial_settlement_status = "INVOICES_SETTLED"
     imp.financial_settlement_date = today_date
@@ -2150,6 +2212,24 @@ def confirm_invoices_settlement_service(
 
     db.commit()
     db.refresh(imp)
+
+    new_data = {
+        "status": imp.financial_settlement_status,
+        "total_expenses_egp": float(imp.financial_settlement_total_egp or 0.0),
+        "total_landed_cost_egp": float(imp.actual_landed_cost_total_egp or 0.0),
+        "rows": int(imp.financial_settlement_invoices_count or 0),
+    }
+    best_effort(
+        db,
+        _audit_import_file,
+        "AuditLog for ImportFile confirm invoices",
+        db,
+        imp,
+        "CONFIRM_INVOICES",
+        actor,
+        new_data=new_data,
+        old_data=old_data,
+    )
 
     return ConfirmInvoicesSettlementResponse(
         success=True,
@@ -2649,6 +2729,7 @@ def approve_actual_landed_cost_service(
 
     # 1. Update or create LandedCostSettlementRecord
     settlement = get_settlement_by_import_file_id(db, imp.import_file_id)
+    old_data = _settlement_snapshot_dict(settlement)
 
     rules_used = {c.category: c.allocation_rule for c in calc.categories_breakdown}
     items_json = [settlement_item_row(itm) for itm in calc.items_breakdown]
@@ -2707,7 +2788,8 @@ def approve_actual_landed_cost_service(
     # 3. Resolve SmartTask TSK-0902
     tasks_902 = db.query(SmartTask).filter(
         SmartTask.import_file_id == imp.import_file_id,
-        (SmartTask.task_code.ilike("%0902%") | SmartTask.title.ilike("%تكلفة الوصول الفعلية%") | SmartTask.title.ilike("%CLO-02%"))
+        SmartTask.status != "Completed",
+        SmartTask.task_code.ilike("TSK-0902%"),
     ).all()
     for t in tasks_902:
         t.status = "Completed"
@@ -2769,6 +2851,19 @@ def approve_actual_landed_cost_service(
     db.commit()
     settlement_id = settlement.settlement_id
     settlement_code = settlement.settlement_code
+
+    new_data = _settlement_snapshot_dict(settlement)
+    best_effort(
+        db,
+        _audit,
+        "AuditLog for LandedCostSettlementRecord approve",
+        db,
+        settlement,
+        "APPROVE",
+        actor,
+        new_data=new_data,
+        old_data=old_data,
+    )
 
     # 6. Advance lifecycle board step: a follow-up that never undoes the approval (FS-13)
     from modules.lifecycle_board.service import advance_lifecycle_step_service

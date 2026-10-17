@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 import modules.auth.permissions as permissions
 from database.database import get_db
+from modules.audit_logs.model import AuditLog
 from modules.currencies.model import Currency, ExchangeRate
 from modules.freight_booking.model import ShipmentBooking
 from modules.import_files.model import ImportFile
@@ -799,3 +800,124 @@ def test_actual_items_use_the_po_rate_and_report_the_header_difference(db):
     assert res.reconciliation_difference_egp == round(
         res.actual_total_landed_cost_egp - sum(i.actual_total_landed_cost_egp for i in res.items_breakdown), 2)
     assert res.reconciliation_difference_egp == -35000.0  # 20,000 x (48.5 - 50.25), reported, not redistributed
+
+
+# ── BE09-T08 ─────────────────────────────────────────────────────────────────
+
+def test_settlement_audit_rows_for_all_transitions(db):
+    """BE09-T08: Audit rows for recalculate, delete, restore, confirm, and approve."""
+    imp = seed_shipment(db, cbm=(12.0, 4.0))
+    rec = LandedCostSettlementRecord(
+        settlement_code=f"LCS-AUDIT-{imp.import_file_id}",
+        import_file_id=imp.import_file_id,
+        incoterm_code="FOB",
+        expense_invoices=[
+            {
+                "invoice_no": "F1",
+                "category": "Freight",
+                "provider_name": "A",
+                "currency": "EGP",
+                "amount_fx": 12000.0,
+                "exchange_rate": 1.0,
+                "amount_egp": 12000.0,
+                "allocation_rule": "Volume-Based",
+            },
+        ],
+        item_landed_costs=[
+            {"item_code": "I", "item_name": "I", "qty": 10, "fob_unit_egp": 10000.0, "cbm": 1.0, "gross_weight_kg": 1.0}
+        ],
+        total_fob_egp=100000.0,
+        total_expenses_egp=12000.0,
+        total_landed_cost_egp=112000.0,
+        average_markup_factor=1.12,
+        status="Draft",
+        accountant_name="tester",
+        is_active=True,
+    )
+    db.add(rec)
+    db.commit()
+
+    # 1. Recalculate
+    fs.recalculate_settlement_service(db, rec.settlement_id, actor="audit_user")
+
+    # 2. Soft delete
+    fs.soft_delete_settlement_service(db, rec.settlement_id, actor="audit_user")
+
+    # 3. Restore
+    fs.restore_settlement_service(db, rec.settlement_id, actor="audit_user")
+
+    # 4. Confirm invoices
+    seed_actual_sources(db, imp)
+    fs.confirm_invoices_settlement_service(
+        db, ConfirmInvoicesSettlementRequest(import_file_id=imp.import_file_id), actor="audit_user"
+    )
+
+    # 5. Approve
+    fs.approve_actual_landed_cost_service(
+        db, ApproveActualLandedCostRequest(import_file_id=imp.import_file_id), actor="audit_user"
+    )
+
+    # Check AuditLog entries
+    logs = db.query(AuditLog).filter(AuditLog.performed_by == "audit_user").all()
+    actions = {l.action: l for l in logs}
+    assert {"RECALCULATE", "SOFT_DELETE", "RESTORE", "CONFIRM_INVOICES", "APPROVE"}.issubset(set(actions.keys()))
+
+    for act in ("RECALCULATE", "SOFT_DELETE", "RESTORE", "CONFIRM_INVOICES", "APPROVE"):
+        log = actions[act]
+        assert log.old_values is not None and len(log.old_values) > 0
+        assert log.new_values is not None and len(log.new_values) > 0
+        if act == "CONFIRM_INVOICES":
+            assert log.entity_type == "ImportFile"
+            assert log.entity_id == imp.import_file_id
+        else:
+            assert log.entity_type == "LandedCostSettlementRecord"
+            assert log.entity_id == rec.settlement_id
+
+
+def test_approve_task_closure_behavior(db):
+    """BE09-T08: Pre-completed tasks keep notes; non-completed TSK-0902 variants are resolved."""
+    imp = seed_shipment(db, cbm=(12.0, 4.0))
+    seed_actual_sources(db, imp)
+    fs.confirm_invoices_settlement_service(
+        db, ConfirmInvoicesSettlementRequest(import_file_id=imp.import_file_id), actor="user1"
+    )
+
+    # 1. Update the existing TSK-0902 task (created by confirm_invoices) to Completed
+    completed_task = db.query(SmartTask).filter(
+        SmartTask.task_code == f"TSK-0902-{imp.import_file_id}"
+    ).first()
+    completed_task.status = "Completed"
+    completed_task.notes = "Pre-existing completed notes by user"
+    completed_task.is_auto_closed = False
+
+    # 2. A non-completed revision / subtask should be marked Completed
+    open_subtask = SmartTask(
+        task_code=f"TSK-0902-{imp.import_file_id}-REV1",
+        title="Revision Task",
+        description="Revision Desc",
+        step_code="STEP_20",
+        task_type="System Generated",
+        import_file_id=imp.import_file_id,
+        status="In Progress",
+        notes="Initial notes",
+        is_auto_closed=False,
+    )
+    db.add(open_subtask)
+    db.commit()
+
+    fs.approve_actual_landed_cost_service(
+        db, ApproveActualLandedCostRequest(import_file_id=imp.import_file_id), actor="finance_lead"
+    )
+
+    db.refresh(completed_task)
+    db.refresh(open_subtask)
+
+    # Completed task untouched
+    assert completed_task.status == "Completed"
+    assert completed_task.notes == "Pre-existing completed notes by user"
+    assert completed_task.is_auto_closed is False
+
+    # Open task resolved
+    assert open_subtask.status == "Completed"
+    assert open_subtask.is_auto_closed is True
+    assert "approved by finance_lead" in open_subtask.notes
