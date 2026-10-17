@@ -2703,6 +2703,15 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get drawingSamplesFilterPending => 'قيد الفحص فقط';
   @override String get drawingSamplesEmptySamples => 'لا توجد سجلات عينات مسحوبة مسجلة';
   @override String get drawingSamplesEmptyShortage => 'لا توجد محاضر عجز مسجلة';
+  @override String get drawingSamplesColFileCode => 'كود الملف';
+  @override String get drawingSamplesColSampledBodies => 'الجهات الرقابية المسحوبة';
+  @override String get drawingSamplesColSamplingDate => 'تاريخ السحب';
+  @override String get drawingSamplesColGoeicCert => 'شهادة الفحص أو الرقابة';
+  @override String get drawingSamplesColTestStatus => 'حالة الفحص';
+  @override String get drawingSamplesColLabResult => 'نتيجة المعمل';
+  @override String get ccShortageNotAvailable => 'سيتم حفظ محاضر النقص فور ربط سجل النقص بقاعدة البيانات';
+  @override String get importFilePickerTitle => 'اختيار ملف الشحنة';
+  @override String get importFilePickerSelectPrompt => 'يرجى اختيار ملف الشحنة للمتابعة';
   @override String get drawingSamplesShortageSectionTitle => 'سجل إثبات ومطابقة عجز البضائع المفرغة';
   @override String get drawingSamplesShortageSectionDesc => 'مقارنة أوزان وطرود المانيفست بالبضائع المفرغة فعلياً لإثبات العجز واستنزال الرسوم الجمركية أو مطالبة الناقل';
   @override String get drawingSamplesAddShortageBtn => 'إثبات محضر عجز جديد';

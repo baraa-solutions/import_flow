@@ -2703,6 +2703,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get drawingSamplesFilterPending => 'Pending Analysis';
   @override String get drawingSamplesEmptySamples => 'No drawn sample records found';
   @override String get drawingSamplesEmptyShortage => 'No shortage reconciliation records found';
+  @override String get drawingSamplesColFileCode => 'File Code';
+  @override String get drawingSamplesColSampledBodies => 'Sampled Regulatory Bodies';
+  @override String get drawingSamplesColSamplingDate => 'Sampling Date';
+  @override String get drawingSamplesColGoeicCert => 'GOEIC Certificate';
+  @override String get drawingSamplesColTestStatus => 'Test Status';
+  @override String get drawingSamplesColLabResult => 'Lab Result';
+  @override String get ccShortageNotAvailable => 'Shortage protocols will be saved after the backend registry is added';
+  @override String get importFilePickerTitle => 'Select Import Shipment';
+  @override String get importFilePickerSelectPrompt => 'Please select an import file to continue';
   @override String get drawingSamplesShortageSectionTitle => 'Cargo Examination & Shortage Protocols';
   @override String get drawingSamplesShortageSectionDesc => 'Compare manifest weights and packages against landed physical cargo to document shortages and apply customs duty deductions or carrier claims';
   @override String get drawingSamplesAddShortageBtn => 'Record Shortage Protocol';
