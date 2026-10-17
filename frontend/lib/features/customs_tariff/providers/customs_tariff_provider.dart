@@ -51,18 +51,27 @@ class CustomsTariffNotifier
     _cancelToken = CancelToken();
     state = const AsyncValue.loading();
     try {
-      final response = await _dio.get(
-        '${ApiConstants.baseUrl}/customs-tariff',
-        queryParameters: {
-          'include_inactive': showInactive,
-          if (search.isNotEmpty) 'search': search,
-          'limit': 500,
-        },
-        cancelToken: _cancelToken,
-      );
-      final list = (response.data as List)
-          .map((json) => CustomsTariffModel.fromJson(json))
-          .toList();
+      // BE67-T15: the list endpoint is paginated; HS code pickers need every row, so read all pages.
+      const pageSize = 5000;
+      final list = <CustomsTariffModel>[];
+      while (true) {
+        final response = await _dio.get(
+          '${ApiConstants.baseUrl}/customs-tariff',
+          queryParameters: {
+            'include_inactive': showInactive,
+            if (search.isNotEmpty) 'search': search,
+            'skip': list.length,
+            'limit': pageSize,
+          },
+          cancelToken: _cancelToken,
+        );
+        final page = (response.data as List)
+            .map((json) => CustomsTariffModel.fromJson(json))
+            .toList();
+        list.addAll(page);
+        final total = int.tryParse(response.headers.value('x-total-count') ?? '');
+        if (page.length < pageSize || (total != null && list.length >= total)) break;
+      }
       state = AsyncValue.data(list);
     } catch (e, stack) {
       if (e is DioException && CancelToken.isCancel(e)) return;
