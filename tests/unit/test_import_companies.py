@@ -89,5 +89,69 @@ class TestImportCompaniesBackend(unittest.TestCase):
         active = get_all_companies(self.db)
         self.assertEqual(len(active), 1)
 
+    def test_nafeza_token_encrypted_at_rest_and_audit_sanitized(self):
+        from modules.audit_logs.model import AuditLog
+        from modules.import_companies.schemas import ImportCompanyResponse, ImportCompanyUpdate
+        from modules.import_companies.service import update_import_company
+
+        # 1. Create company with token
+        c = create_import_company(self.db, ImportCompanyCreate(
+            importer_name="Secure Importer Ltd",
+            address="Free Zone, Alexandria",
+            country="Egypt",
+            importer_id="IMP-SEC-01",
+            importer_id_expiry=date.today(),
+            vat_id="VAT-SEC-01",
+            vat_id_expiry=date.today(),
+            registration_number="REG-SEC-01",
+            registration_expiry=date.today(),
+            nafeza_token="NFT-SECRET-TOKEN-9988",
+        ))
+
+        # Check DB column is encrypted
+        self.assertIsNotNone(c.nafeza_token)
+        self.assertTrue(c.nafeza_token.startswith("enc:"))
+        self.assertNotEqual(c.nafeza_token, "NFT-SECRET-TOKEN-9988")
+        self.assertTrue(c.has_nafeza_token)
+        self.assertEqual(c.masked_nafeza_token, "****9988")
+
+        # Check response schema sanitization
+        resp = ImportCompanyResponse.model_validate(c)
+        self.assertIsNone(resp.nafeza_token)
+        self.assertTrue(resp.has_nafeza_token)
+        self.assertEqual(resp.masked_nafeza_token, "****9988")
+
+        # Check audit log does not leak the secret token
+        create_audit = self.db.query(AuditLog).filter(
+            AuditLog.entity_type == "ImportCompany",
+            AuditLog.entity_id == c.company_id,
+            AuditLog.action == "CREATE"
+        ).first()
+        self.assertIsNotNone(create_audit)
+        import json
+        audit_data = json.loads(create_audit.new_values)
+        self.assertNotIn("nafeza_token", audit_data)
+        self.assertTrue(audit_data.get("has_nafeza_token"))
+
+        # 2. Update company with new token
+        updated = update_import_company(self.db, c.company_id, ImportCompanyUpdate(
+            nafeza_token="NFT-UPDATED-KEY-7766"
+        ))
+        self.assertIsNotNone(updated)
+        self.assertTrue(updated.nafeza_token.startswith("enc:"))
+        self.assertEqual(updated.masked_nafeza_token, "****7766")
+
+        # Check update audit log
+        update_audit = self.db.query(AuditLog).filter(
+            AuditLog.entity_type == "ImportCompany",
+            AuditLog.entity_id == c.company_id,
+            AuditLog.action == "UPDATE"
+        ).first()
+        self.assertIsNotNone(update_audit)
+        upd_new = json.loads(update_audit.new_values)
+        self.assertNotIn("nafeza_token", upd_new)
+        self.assertTrue(upd_new.get("has_nafeza_token"))
+
+
 if __name__ == "__main__":
     unittest.main()

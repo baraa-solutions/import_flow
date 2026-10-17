@@ -337,7 +337,7 @@ class TestPL06FreightRFQScenarios:
                     ],
                 ),
             )
-        assert "not found" in exc3.value.detail
+        assert "غير موجود" in exc3.value.detail or "not found" in exc3.value.detail
 
         # 4. Inactive / Non-existent Import File ID
         with pytest.raises(HTTPException) as exc4:

@@ -117,6 +117,45 @@ void main() {
       expect(confirmedModel.voyageNumber, '024E');
       expect(confirmedModel.freeDemurrageDays, 21);
     });
+
+    test('ShipmentBookingModel preserves null freeDemurrageDays when omitted or null', () {
+      final json = {
+        'booking_id': 101,
+        'booking_code': 'BK-2026-0101',
+        'shipping_line_name': 'MSC',
+        'free_demurrage_days': null,
+        'status': 'Draft',
+      };
+
+      final model = ShipmentBookingModel.fromJson(json);
+      expect(model.freeDemurrageDays, isNull);
+      expect(model.toJson()['free_demurrage_days'], isNull);
+
+      final jsonWithoutKey = {
+        'booking_id': 102,
+        'booking_code': 'BK-2026-0102',
+        'shipping_line_name': 'MSC',
+        'status': 'Draft',
+      };
+      final model2 = ShipmentBookingModel.fromJson(jsonWithoutKey);
+      expect(model2.freeDemurrageDays, isNull);
+      expect(model2.toJson()['free_demurrage_days'], isNull);
+    });
+
+    test('ShipmentBookingModel preserves 0 freeDemurrageDays when agreed as zero', () {
+      final json = {
+        'booking_id': 103,
+        'booking_code': 'BK-2026-0103',
+        'shipping_line_name': 'Hapag-Lloyd',
+        'free_demurrage_days': 0,
+        'status': 'Draft',
+      };
+
+      final model = ShipmentBookingModel.fromJson(json);
+      expect(model.freeDemurrageDays, 0);
+      expect(model.toJson()['free_demurrage_days'], 0);
+    });
   });
 }
+
 

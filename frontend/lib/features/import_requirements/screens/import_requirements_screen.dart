@@ -124,7 +124,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   final _descCtrl = TextEditingController();
   final _originCtrl = TextEditingController();
   final _currencyCtrl = TextEditingController(text: 'USD');
-  final _valueCtrl = TextEditingController(text: '0.0');
+  final _valueCtrl = TextEditingController();
   final _acidNumberCtrl = TextEditingController();
   final _factoryRegCtrl = TextEditingController();
   final _cooNotesCtrl = TextEditingController();
@@ -137,7 +137,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   final _coaNotesCtrl = TextEditingController();
   final _specialNotesCtrl = TextEditingController();
   final _sailingDateCtrl = TextEditingController();
-  final _assessedByCtrl = TextEditingController(text: 'Kamal (Import Compliance Mgr)');
+  final _assessedByCtrl = TextEditingController();
 
   // Pillar Form State Variables
   bool _decree43Applicable = false;
