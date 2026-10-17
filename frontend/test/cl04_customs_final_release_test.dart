@@ -200,18 +200,152 @@ void main() {
       expect(find.byKey(const Key('customsFinalReleaseSubmitBtn')), findsOneWidget);
       expect(find.text('إصدار إذن الإفراج النهائي وتفويض النقل'), findsOneWidget);
 
-      // Test Auto-generator for Gate Pass
-      final gatePassField = find.byKey(const Key('gatePassNoField'));
-      expect(gatePassField, findsOneWidget);
-      await tester.ensureVisible(gatePassField);
+      // Verify no auto-generator buttons exist
+      expect(find.byIcon(Icons.auto_awesome), findsNothing);
+    });
+
+    testWidgets('CL-04 starts with empty permit, gate pass, demurrage and unset gate out date, requires permit on submit', (tester) async {
+      final sampleFile = ImportFileModel(
+        importFileId: 95,
+        importFileCode: 'IMP-2026-0095',
+        customFileNumber: 'Industrial Machinery',
+        companyName: 'Delta Industrial Machinery LLC',
+        supplierName: 'Bavaria Tech GmbH',
+        portOfDischarge: 'El Dekheila Port',
+        deliveryOrderNo: 'DO-2026-HAPAG-5511',
+        form46No: 'DEC-2026-DKH-5511',
+        form46Date: '2026-09-18T10:00:00Z',
+        form46Status: 'REGISTERED',
+        customsDutySadadNo: 'SADAD-2026-998811',
+        customsDutyPaidAmount: 165801.50,
+        customsReleasePermitNo: null,
+        customsGatePassNo: null,
+        currentModule: 'Phase 7 - Customs Clearance & Inspection',
+        currentStage: 'Customs Duties Paid - Awaiting Final Release',
+        progressPercent: 92.0,
+        nextAction: 'صدور إذن الإفراج النهائي (CL-04)',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T13:00:00Z',
+      );
+
+      final clearanceRecord = CustomsClearanceModel(
+        customsClearanceId: 504,
+        clearanceCode: 'CLR-2026-0504',
+        importFileId: 95,
+        declaration46No: 'DEC-2026-DKH-5511',
+        declaration46Date: '2026-09-18T10:00:00Z',
+        customsOfficeName: 'El Dekheila Port Customs',
+        channelType: 'Red Channel',
+        nafezaClaimNumber: 'CLM-MTS-2026-987654',
+        actualDutyTotal: 165801.50,
+        totalDutyPayable: 165801.50,
+        dutyPaidAmount: 165801.50,
+        sadadNumber: 'SADAD-2026-998811',
+        paymentStatus: 'Paid & Verified',
+        releasePermitNo: null,
+        gatePassNumber: null,
+        demurrageStorageFees: null,
+        portGateOutDate: null,
+        dispatchAuthorized: false,
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T13:00:00Z',
+      );
+
+      await tester.binding.setSurfaceSize(const Size(1200, 950));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              home: Scaffold(
+                body: CustomsFinalReleaseDialog(
+                  file: sampleFile,
+                  clearanceRecord: clearanceRecord,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
       await tester.pumpAndSettle();
 
-      final autoGenButtons = find.byIcon(Icons.auto_awesome);
-      expect(autoGenButtons, findsNWidgets(2));
-      await tester.ensureVisible(autoGenButtons.at(1));
-      await tester.tap(autoGenButtons.at(1));
+      // Verify fields start empty and no invented references with file ID
+      final permitField = tester.widget<TextFormField>(find.byKey(const Key('releasePermitNoField')));
+      expect(permitField.controller?.text, isEmpty);
+      expect(permitField.controller?.text.contains('0095'), isFalse);
+
+      final gatePassField = tester.widget<TextFormField>(find.byKey(const Key('gatePassNoField')));
+      expect(gatePassField.controller?.text, isEmpty);
+      expect(gatePassField.controller?.text.contains('0095'), isFalse);
+
+      final demurrageField = tester.widget<TextFormField>(find.byKey(const Key('demurrageFeesField')));
+      expect(demurrageField.controller?.text, isEmpty);
+
+      // Verify gate-out date is not set
+      expect(find.text('غير محدد'), findsOneWidget);
+
+      // Verify submit triggers permit validator
+      await tester.tap(find.byKey(const Key('customsFinalReleaseSubmitBtn')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('GP-'), findsWidgets);
+
+      expect(find.text('رقم إذن الإفراج إلزامي'), findsOneWidget);
+    });
+
+    testWidgets('CL-04: Dialog with previous notes displays them read-only and starts with empty notes controller', (tester) async {
+      final sampleFile = ImportFileModel(
+        importFileId: 95,
+        importFileCode: 'IMP-2026-0095',
+        companyName: 'Delta Industrial Machinery LLC',
+        supplierName: 'Bavaria Tech GmbH',
+        currentModule: 'Phase 7 - Customs Clearance & Inspection',
+        currentStage: 'Stage 7 - Customs Clearance',
+        nextAction: 'Action',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T13:00:00Z',
+      );
+
+      final clearanceRecord = CustomsClearanceModel(
+        customsClearanceId: 504,
+        clearanceCode: 'CLR-2026-0504',
+        importFileId: 95,
+        notes: 'R1-PRIOR-NOTES',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T13:00:00Z',
+      );
+
+      await tester.binding.setSurfaceSize(const Size(1200, 950));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              home: Scaffold(
+                body: CustomsFinalReleaseDialog(
+                  file: sampleFile,
+                  clearanceRecord: clearanceRecord,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Read-only previous notes box is visible and contains 'R1-PRIOR-NOTES'
+      expect(find.text('R1-PRIOR-NOTES'), findsOneWidget);
+
+      // Notes input field controller starts empty
+      final notesFieldFinder = find.byKey(const Key('notesField'));
+      expect(notesFieldFinder, findsOneWidget);
+      final formField = tester.widget<TextFormField>(notesFieldFinder);
+      expect(formField.controller?.text, '');
     });
   });
 }
+

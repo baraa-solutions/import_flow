@@ -176,53 +176,34 @@ Total Items: 31 Total: 20,030.000 kgs.
         final resolvedFiles = FilePickerHelper.resolveFilesWithBytes(result.files);
         final file = resolvedFiles.isNotEmpty ? resolvedFiles.first : result.files.first;
         final count = resolvedFiles.length;
-        final ext = (file.name.split('.').last).toLowerCase();
-        final isTextFormat = ['txt', 'csv', 'json', 'xml', 'log'].contains(ext);
         final fileBytes = file.bytes ?? FilePickerHelper.getBytes(file);
+        // Single plain-text file: show its content; otherwise a "files loaded" notice.
+        final decodedText = FilePickerHelper.isPlainTextFile(file.name) && count == 1
+            ? FilePickerHelper.tryDecodeText(fileBytes)
+            : null;
+        // Keeps the existing "(+N)" label, including "(+0)" when no file could be read.
+        final displayName = count == 1 ? file.name : '${file.name} (+$count)';
+        final fileNames = resolvedFiles.map((f) => f.name).join(", ");
 
         if (!mounted) return;
         final l = context.l10n;
         setState(() {
           if (docType == 'invoice') {
             _invoiceFiles = resolvedFiles;
-            _invoiceFileName = count == 1 ? file.name : '${file.name} (+$count)';
+            _invoiceFileName = displayName;
             _invoiceFileBytes = fileBytes;
-            if (isTextFormat && fileBytes != null && count == 1) {
-              try {
-                _invoiceTextCtrl.text = utf8.decode(fileBytes, allowMalformed: true);
-              } catch (_) {
-                _invoiceTextCtrl.text = '';
-              }
-            } else {
-              _invoiceTextCtrl.text = l.invoiceBlMatcherInvoiceFilesLoaded(count, resolvedFiles.map((f) => f.name).join(", "));
-            }
+            _invoiceTextCtrl.text = decodedText ?? l.invoiceBlMatcherInvoiceFilesLoaded(count, fileNames);
           } else if (docType == 'packing') {
             _showPackingList = true;
             _packingFiles = resolvedFiles;
-            _packingFileName = count == 1 ? file.name : '${file.name} (+$count)';
+            _packingFileName = displayName;
             _packingFileBytes = fileBytes;
-            if (isTextFormat && fileBytes != null && count == 1) {
-              try {
-                _packingTextCtrl.text = utf8.decode(fileBytes, allowMalformed: true);
-              } catch (_) {
-                _packingTextCtrl.text = '';
-              }
-            } else {
-              _packingTextCtrl.text = l.invoiceBlMatcherPackingFilesLoaded(count, resolvedFiles.map((f) => f.name).join(", "));
-            }
+            _packingTextCtrl.text = decodedText ?? l.invoiceBlMatcherPackingFilesLoaded(count, fileNames);
           } else {
             _blFiles = resolvedFiles;
-            _blFileName = count == 1 ? file.name : '${file.name} (+$count)';
+            _blFileName = displayName;
             _blFileBytes = fileBytes;
-            if (isTextFormat && fileBytes != null && count == 1) {
-              try {
-                _blTextCtrl.text = utf8.decode(fileBytes, allowMalformed: true);
-              } catch (_) {
-                _blTextCtrl.text = '';
-              }
-            } else {
-              _blTextCtrl.text = l.invoiceBlMatcherBlFilesLoaded(count, resolvedFiles.map((f) => f.name).join(", "));
-            }
+            _blTextCtrl.text = decodedText ?? l.invoiceBlMatcherBlFilesLoaded(count, fileNames);
           }
         });
 
@@ -272,6 +253,17 @@ Total Items: 31 Total: 20,030.000 kgs.
     }
   }
 
+  /// Appends every file under [field]. The lists come from
+  /// [FilePickerHelper.resolveFilesWithBytes], so each file already has bytes.
+  static void _addFiles(FormData fd, String field, List<PlatformFile> files) {
+    for (final f in files) {
+      final b = f.bytes;
+      if (b != null) {
+        fd.files.add(MapEntry(field, MultipartFile.fromBytes(b, filename: f.name)));
+      }
+    }
+  }
+
   Future<void> _runCrossMatching() async {
     final hasInvoiceFile = _invoiceFiles.isNotEmpty || _invoiceFileBytes != null;
     final hasBlFile = _blFiles.isNotEmpty || _blFileBytes != null;
@@ -311,15 +303,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         }
 
         if (_invoiceFiles.isNotEmpty) {
-          for (final f in _invoiceFiles) {
-            final b = f.bytes ?? FilePickerHelper.getBytes(f);
-            if (b != null) {
-              formData.files.add(MapEntry(
-                'invoice_files',
-                MultipartFile.fromBytes(b, filename: f.name),
-              ));
-            }
-          }
+          _addFiles(formData, 'invoice_files', _invoiceFiles);
         } else if (_invoiceFileBytes != null) {
           formData.files.add(MapEntry(
             'invoice_file',
@@ -330,15 +314,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         }
 
         if (_packingFiles.isNotEmpty) {
-          for (final f in _packingFiles) {
-            final b = f.bytes ?? FilePickerHelper.getBytes(f);
-            if (b != null) {
-              formData.files.add(MapEntry(
-                'packing_list_files',
-                MultipartFile.fromBytes(b, filename: f.name),
-              ));
-            }
-          }
+          _addFiles(formData, 'packing_list_files', _packingFiles);
         } else if (_packingFileBytes != null) {
           formData.files.add(MapEntry(
             'packing_list_file',
@@ -349,15 +325,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         }
 
         if (_blFiles.isNotEmpty) {
-          for (final f in _blFiles) {
-            final b = f.bytes ?? FilePickerHelper.getBytes(f);
-            if (b != null) {
-              formData.files.add(MapEntry(
-                'bl_files',
-                MultipartFile.fromBytes(b, filename: f.name),
-              ));
-            }
-          }
+          _addFiles(formData, 'bl_files', _blFiles);
         } else if (_blFileBytes != null) {
           formData.files.add(MapEntry(
             'bl_file',
@@ -1433,46 +1401,38 @@ Total Items: 31 Total: 20,030.000 kgs.
         ? Map<String, dynamic>.from(_matchResult!['bl_data'] as Map)
         : <String, dynamic>{};
 
-    final List<Widget> cards = [
-      Expanded(
-        child: _buildDataSummaryCard(
-          title: l.invoiceBlMatcherExtractedInvoiceTitle,
-          icon: Icons.receipt_long,
-          color: AppTheme.cobalt,
-          data: inv,
-        ),
-      ),
-    ];
-
-    if (pl.isNotEmpty || _showPackingList) {
-      cards.add(const SizedBox(width: 16));
-      cards.add(
-        Expanded(
-          child: _buildDataSummaryCard(
-            title: context.l10n.idocAExtractedPackingList,
-            icon: Icons.inventory_2,
-            color: AppTheme.wcagCobalt,
-            data: pl,
-          ),
-        ),
-      );
-    }
-
-    cards.add(const SizedBox(width: 16));
-    cards.add(
-      Expanded(
-        child: _buildDataSummaryCard(
-          title: l.invoiceBlMatcherExtractedBlTitle,
-          icon: Icons.directions_boat,
-          color: AppTheme.emerald,
-          data: bl,
-        ),
-      ),
-    );
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: cards,
+      children: [
+        Expanded(
+          child: _buildDataSummaryCard(
+            title: l.invoiceBlMatcherExtractedInvoiceTitle,
+            icon: Icons.receipt_long,
+            color: AppTheme.cobalt,
+            data: inv,
+          ),
+        ),
+        if (pl.isNotEmpty || _showPackingList) ...[
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildDataSummaryCard(
+              title: context.l10n.idocAExtractedPackingList,
+              icon: Icons.inventory_2,
+              color: AppTheme.wcagCobalt,
+              data: pl,
+            ),
+          ),
+        ],
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildDataSummaryCard(
+            title: l.invoiceBlMatcherExtractedBlTitle,
+            icon: Icons.directions_boat,
+            color: AppTheme.emerald,
+            data: bl,
+          ),
+        ),
+      ],
     );
   }
 

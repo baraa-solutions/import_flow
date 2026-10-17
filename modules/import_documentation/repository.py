@@ -49,6 +49,7 @@ from modules.import_documentation.schemas import (
     InspectionCertificateReviewCreate,
     InspectionCertificateReviewUpdate,
 )
+from modules.purchase_orders.model import PurchaseOrder
 
 # ACID validity used when the request carries no expiry date (same default as the ACID tracker, DOC-15/DOC-21).
 ACID_DEFAULT_VALIDITY_DAYS = 90
@@ -257,6 +258,26 @@ def create_banking_document(db: Session, schema: BankingDocumentCreate, commit: 
         expiry_date=schema.expiry_date,
         status=initial_status,
         notes=schema.notes,
+        tax_coding_sheet_status=schema.tax_coding_sheet_status or "NOT_STARTED",
+        tax_coding_sheet_file_url=schema.tax_coding_sheet_file_url,
+        tax_coding_pulled_date=schema.tax_coding_pulled_date,
+        tax_coding_broker_id=schema.tax_coding_broker_id,
+        tax_coding_broker_name=schema.tax_coding_broker_name,
+        tax_coding_uploaded_date=schema.tax_coding_uploaded_date,
+        tax_coding_accountant_name=schema.tax_coding_accountant_name,
+        items_pulled_verified=schema.items_pulled_verified or False,
+        items_pulled_date=schema.items_pulled_date,
+        items_count_total=schema.items_count_total or 0,
+        items_count_coded=schema.items_count_coded or 0,
+        regulatory_bodies_detected=schema.regulatory_bodies_detected or [],
+        nafeza_bank_link_status=schema.nafeza_bank_link_status or "PENDING",
+        nafeza_bank_link_date=schema.nafeza_bank_link_date,
+        nafeza_linked_bank_id=schema.nafeza_linked_bank_id,
+        nafeza_linked_bank_name=schema.nafeza_linked_bank_name,
+        swift_executing_bank_id=schema.swift_executing_bank_id,
+        swift_executing_bank_name=schema.swift_executing_bank_name,
+        swift_reference_no=schema.swift_reference_no,
+        is_bank_matching_swift=schema.is_bank_matching_swift if schema.is_bank_matching_swift is not None else True,
         is_active=True,
     )
     db.add(db_item)
@@ -868,3 +889,23 @@ def update_invoice_bl_match_session(
 
 def delete_invoice_bl_match_session(db: Session, session_id: int) -> bool:
     return _soft_delete(db, get_invoice_bl_match_session_active(db, session_id))
+
+
+# --- PURCHASE ORDER LOOKUP FOR PO / PACKING RECONCILIATION (BP-016) ---
+def get_active_purchase_orders_for_file(
+    db: Session, import_file_id: int, po_number: Optional[str]
+) -> List[PurchaseOrder]:
+    """
+    Active purchase orders backing an import file: every active PO linked through import_file_id,
+    otherwise every active PO whose po_number equals the file's PO number. Returns [] when none is found.
+    """
+    pos = db.query(PurchaseOrder).filter(
+        PurchaseOrder.import_file_id == import_file_id,
+        PurchaseOrder.is_active == True,
+    ).all()
+    if not pos and po_number:
+        pos = db.query(PurchaseOrder).filter(
+            PurchaseOrder.po_number == po_number,
+            PurchaseOrder.is_active == True,
+        ).all()
+    return pos

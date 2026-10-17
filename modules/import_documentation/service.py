@@ -30,6 +30,7 @@ from modules.import_documentation.validators import (
     validate_acid_expiry,
     validate_no_duplicate_acid_session,
     validate_no_duplicate_form4_session,
+    validate_unique_po_lines,
 )
 import modules.import_documentation.repository as repo
 from modules.customs_tariff.model import CustomsTariff
@@ -254,6 +255,96 @@ def enrich_acid_response(db: Session, item: AcidRegistrationSession, import_file
     )
 
 
+def get_swift_coverage_for_file(db: Session, import_file_id: Optional[int]) -> Optional[Any]:
+    if not import_file_id:
+        return None
+    from modules.import_documentation.schemas import SwiftCoverageSummary
+    from modules.import_files.model import ImportFile
+    from modules.financial_approval.model import PaymentRequestSession
+    from modules.external_service_providers.model import ExternalServiceProvider
+
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not imp:
+        return None
+
+    # Calculate total invoice amount
+    invoice_amount = 0.0
+    invoice_currency = "USD"
+    if imp.invoices_data and isinstance(imp.invoices_data, list):
+        for inv in imp.invoices_data:
+            if isinstance(inv, dict):
+                invoice_amount += float(inv.get("amount", 0.0) or 0.0)
+                if inv.get("currency"):
+                    invoice_currency = inv.get("currency")
+    if invoice_amount == 0.0 and imp.estimated_cost:
+        invoice_amount = float(imp.estimated_cost)
+        invoice_currency = imp.estimated_cost_currency or "USD"
+
+    # Query payment requests
+    payments = (
+        db.query(PaymentRequestSession)
+        .filter(
+            PaymentRequestSession.import_file_id == import_file_id,
+            PaymentRequestSession.is_active == True,
+        )
+        .all()
+    )
+
+    total_transferred = 0.0
+    swift_refs: List[str] = []
+    exec_bank_id: Optional[int] = None
+    exec_bank_name: Optional[str] = None
+
+    for p in payments:
+        if p.swift_transferred_amount:
+            total_transferred += float(p.swift_transferred_amount)
+        elif p.status == "Paid":
+            total_transferred += float(p.requested_amount)
+
+        if p.swift_reference_no and p.swift_reference_no not in swift_refs:
+            swift_refs.append(p.swift_reference_no)
+
+        # Detect executing bank from swift reconciliation notes
+        if not exec_bank_name and p.swift_reconciliation_notes:
+            import re
+            m = re.search(r"Executing bank in Egypt:\s*([^\(]+)", p.swift_reconciliation_notes, re.IGNORECASE)
+            if m:
+                exec_bank_name = m.group(1).strip()
+
+    # Fallback to imp.swift_no
+    if imp.swift_no and imp.swift_no not in swift_refs:
+        swift_refs.append(imp.swift_no)
+
+    # If executing bank found by name, resolve its ID from external_service_providers
+    if exec_bank_name:
+        bank_p = (
+            db.query(ExternalServiceProvider)
+            .filter(
+                ExternalServiceProvider.partner_type == "Bank",
+                ExternalServiceProvider.partner_name.ilike(f"%{exec_bank_name}%"),
+                ExternalServiceProvider.is_active == True,
+            )
+            .first()
+        )
+        if bank_p:
+            exec_bank_id = bank_p.provider_id
+            exec_bank_name = bank_p.partner_name
+
+    coverage_pct = round((total_transferred / invoice_amount) * 100, 2) if invoice_amount > 0 else (100.0 if total_transferred > 0 else 0.0)
+    is_fully_covered = coverage_pct >= 99.0 or (total_transferred > 0 and invoice_amount == 0.0)
+
+    return SwiftCoverageSummary(
+        invoice_amount=invoice_amount,
+        invoice_currency=invoice_currency,
+        total_swift_transferred_amount=total_transferred,
+        coverage_percent=coverage_pct,
+        is_fully_covered=is_fully_covered,
+        executing_bank_id=exec_bank_id,
+        executing_bank_name=exec_bank_name,
+        swift_references=swift_refs,
+    )
+
+
 def enrich_banking_response(db: Session, item: BankingDocumentSession, import_file: Optional[Any] = None):
     import_file_code = None
     importer_name = None
@@ -268,12 +359,29 @@ def enrich_banking_response(db: Session, item: BankingDocumentSession, import_fi
             supplier_name = imp.supplier_name
             po_number = imp.po_number
 
+    swift_cov = get_swift_coverage_for_file(db, item.import_file_id)
+
+    blockers: List[str] = []
+    if (item.tax_coding_sheet_status or "NOT_STARTED") != "UPLOADED_BY_ACCOUNTANT":
+        blockers.append("شيت التكويد الضريبي لم يتم رفعه وتكويده على منصة نافذة بواسطة محاسب الشركة بعد.")
+    if not item.items_pulled_verified:
+        blockers.append("لم يقم المستخلص الجمركي بسحب الأصناف على نافذة للتحقق من نجاح التكويد.")
+    if (item.nafeza_bank_link_status or "PENDING") != "LINKED_TO_BANK":
+        blockers.append("لم يتم ربط الشحنة على البنك في منصة نافذة بواسطة المستخلص الجمركي.")
+    if not item.is_bank_matching_swift:
+        blockers.append("البنك المربوط عليه في نافذة لا يطابق البنك المنفذ لسويفت التحويل.")
+
+    can_submit = len(blockers) == 0
+
     from modules.import_documentation.schemas import BankingDocumentResponse
     res = BankingDocumentResponse.model_validate(item)
     res.import_file_code = import_file_code
     res.importer_name = importer_name
     res.supplier_name = supplier_name
     res.po_number = po_number
+    res.swift_coverage = swift_cov
+    res.can_submit_form4 = can_submit
+    res.blockers = blockers
     return res
 
 
@@ -962,7 +1070,46 @@ def create_banking_document_service(
     if schema.doc_type == "Form 4":
         validate_no_duplicate_form4_session(db, schema.import_file_id)
 
+    # Auto-resolve SWIFT executing bank if not explicitly provided
+    if schema.import_file_id and (not schema.swift_executing_bank_name or not schema.swift_reference_no):
+        swift_cov = get_swift_coverage_for_file(db, schema.import_file_id)
+        if swift_cov:
+            if not schema.swift_executing_bank_name and swift_cov.executing_bank_name:
+                schema.swift_executing_bank_id = swift_cov.executing_bank_id
+                schema.swift_executing_bank_name = swift_cov.executing_bank_name
+            if not schema.swift_reference_no and swift_cov.swift_references:
+                schema.swift_reference_no = swift_cov.swift_references[0]
+            if (not schema.bank_id or schema.bank_name in ["", "PENDING"]) and swift_cov.executing_bank_name:
+                schema.bank_id = swift_cov.executing_bank_id
+                schema.bank_name = swift_cov.executing_bank_name
+
     item = repo.create_banking_document(db, schema)
+
+    # Dispatch initial SmartTask for Broker to pull Tax Coding Sheet
+    if item.import_file_id and item.tax_coding_sheet_status == "NOT_STARTED":
+        def _dispatch_pull_task():
+            from modules.smart_tasks.repository import create_task as create_smart_task
+            from modules.smart_tasks.schemas import SmartTaskCreate
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+            f_code = imp.import_file_code if imp else f"IMP-{item.import_file_id}"
+            task_schema = SmartTaskCreate(
+                title=f"سحب شيت التكويد الضريبي من نافذة - {f_code}",
+                description=f"مطلوب من المستخلص الجمركي سحب شيت التكويد الضريبي من منصة نافذة تمهيداً لرفعه للمحاسب لشحنة {f_code}.",
+                task_type="System Generated",
+                import_file_id=item.import_file_id,
+                import_file_code=f_code,
+                phase_name="Phase 4: Digital & Banking",
+                assigned_user="Customs Broker",
+                priority="High",
+                reminder_type="Tax Coding Sheet",
+                due_date=str(date.today() + timedelta(days=2)),
+                status="Pending",
+                notes=f"ACTION:TAX_CODING_PULL | BankDoc: {item.bank_doc_code}",
+            )
+            create_smart_task(db, task_schema, created_by="Banking Documents Engine", commit=False)
+
+        _commit_follow_up(db, _dispatch_pull_task, "Dispatch tax coding sheet pull task")
 
     # Sync and trigger workflow
     _handle_banking_document_verification_workflow(db, item)
@@ -1038,6 +1185,272 @@ def list_banking_documents_service(db: Session, import_file_id: Optional[int] = 
 
 def get_banking_document_service(db: Session, bank_doc_id: int):
     return enrich_banking_response(db, _get_banking_document_or_404(db, bank_doc_id))
+
+
+def record_tax_coding_sheet_pull_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    item.tax_coding_sheet_status = "PULLED_BY_BROKER"
+    item.tax_coding_pulled_date = schema.pulled_date
+    if schema.broker_id:
+        item.tax_coding_broker_id = schema.broker_id
+    if schema.broker_name:
+        item.tax_coding_broker_name = schema.broker_name
+    if schema.file_url:
+        item.tax_coding_sheet_file_url = schema.file_url
+    if schema.notes:
+        item.notes = f"{item.notes}\n[شيت التكويد] سحب المستخلص: {schema.notes}" if item.notes else f"[شيت التكويد] سحب المستخلص: {schema.notes}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # Smart Tasks: close broker pull task, dispatch accountant upload task
+    def _handle_pull_tasks():
+        from modules.smart_tasks.model import SmartTask
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+        from modules.import_files.model import ImportFile
+
+        f_id = item.import_file_id
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == f_id).first() if f_id else None
+        f_code = imp.import_file_code if imp else f"IMP-{f_id}"
+
+        # Close pending broker pull tasks
+        pending = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == f_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .all()
+        )
+        for t in pending:
+            if "سحب شيت التكويد" in (t.title or "") or (t.notes and "ACTION:TAX_CODING_PULL" in t.notes):
+                t.status = "Completed"
+                t.completion_notes = f"تم سحب شيت التكويد الضريبي بواسطة المستخلص في {schema.pulled_date}."
+
+        # Create task for Company Accountant
+        acc_task = SmartTaskCreate(
+            title=f"رفع وتكويد شيت الأصناف الضريبي على منصة نافذة - {f_code}",
+            description=f"قام المستخلص بسحب شيت التكويد الضريبي. مطلوب من المحاسب استكمال التكويد ورفعه بحساب الشركة على نافذة لملف {f_code}.",
+            task_type="System Generated",
+            import_file_id=f_id,
+            import_file_code=f_code,
+            phase_name="Phase 4: Digital & Banking",
+            assigned_user="Company Accountant",
+            priority="High",
+            reminder_type="Tax Coding Upload",
+            due_date=str(date.today() + timedelta(days=2)),
+            status="Pending",
+            notes=f"ACTION:TAX_CODING_UPLOAD | BankDoc: {item.bank_doc_code}",
+        )
+        create_smart_task(db, acc_task, created_by="Banking Documents Engine", commit=False)
+
+    _commit_follow_up(db, _handle_pull_tasks, "Tax coding pull smart tasks")
+    return enrich_banking_response(db, item)
+
+
+def record_tax_coding_sheet_upload_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    item.tax_coding_sheet_status = "UPLOADED_BY_ACCOUNTANT"
+    item.tax_coding_uploaded_date = schema.uploaded_date
+    item.tax_coding_accountant_name = schema.accountant_name
+    if schema.items_count_coded is not None:
+        item.items_count_coded = schema.items_count_coded
+    if schema.items_count_total is not None:
+        item.items_count_total = schema.items_count_total
+    if schema.file_url:
+        item.tax_coding_sheet_file_url = schema.file_url
+    if schema.notes:
+        item.notes = f"{item.notes}\n[شيت التكويد] رفع المحاسب: {schema.notes}" if item.notes else f"[شيت التكويد] رفع المحاسب: {schema.notes}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # Smart Tasks: close accountant upload task, dispatch broker verify & link task
+    def _handle_upload_tasks():
+        from modules.smart_tasks.model import SmartTask
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+        from modules.import_files.model import ImportFile
+
+        f_id = item.import_file_id
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == f_id).first() if f_id else None
+        f_code = imp.import_file_code if imp else f"IMP-{f_id}"
+
+        # Close pending accountant upload tasks
+        pending = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == f_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .all()
+        )
+        for t in pending:
+            if "رفع وتكويد شيت" in (t.title or "") or (t.notes and "ACTION:TAX_CODING_UPLOAD" in t.notes):
+                t.status = "Completed"
+                t.completion_notes = f"تم رفع وتكويد شيت الأصناف على نافذة بواسطة المحاسب {schema.accountant_name} في {schema.uploaded_date}."
+
+        target_bank = item.swift_executing_bank_name or item.bank_name or "البنك المنفذ للسويفت"
+        # Create task for Customs Broker to pull items & link bank
+        broker_task = SmartTaskCreate(
+            title=f"سحب الأصناف للتأكد من التكويد والربط على بنك: {target_bank} - {f_code}",
+            description=f"تم رفع وتكويد شيت الأصناف بنجاح. مطلوب من المستخلص سحب الأصناف للتأكد من تمام التكويد، ثم ربط الشحنة على نافذة على {target_bank} لشحنة {f_code}.",
+            task_type="System Generated",
+            import_file_id=f_id,
+            import_file_code=f_code,
+            phase_name="Phase 4: Digital & Banking",
+            assigned_user="Customs Broker",
+            priority="High",
+            reminder_type="Items Verification & Bank Linkage",
+            due_date=str(date.today() + timedelta(days=1)),
+            status="Pending",
+            notes=f"ACTION:ITEMS_VERIFY_AND_BANK_LINK | BankDoc: {item.bank_doc_code}",
+        )
+        create_smart_task(db, broker_task, created_by="Banking Documents Engine", commit=False)
+
+    _commit_follow_up(db, _handle_upload_tasks, "Tax coding upload smart tasks")
+    return enrich_banking_response(db, item)
+
+
+def record_items_verification_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    item.items_pulled_verified = schema.verified
+    item.items_pulled_date = schema.verified_date
+    if schema.items_count_total is not None:
+        item.items_count_total = schema.items_count_total
+    if schema.items_count_coded is not None:
+        item.items_count_coded = schema.items_count_coded
+    if schema.regulatory_bodies_detected is not None:
+        item.regulatory_bodies_detected = schema.regulatory_bodies_detected
+    if schema.notes:
+        item.notes = f"{item.notes}\n[سحب الأصناف] تأكيد المستخلص: {schema.notes}" if item.notes else f"[سحب الأصناف] تأكيد المستخلص: {schema.notes}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # If regulatory bodies detected (e.g. GOEIC, NFSA, etc.), emit notification / alert
+    if schema.regulatory_bodies_detected:
+        def _regulatory_alert():
+            from modules.notifications.model import SystemNotification
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first() if item.import_file_id else None
+            f_code = imp.import_file_code if imp else f"IMP-{item.import_file_id}"
+            bodies_str = "، ".join(schema.regulatory_bodies_detected)
+            db.add(SystemNotification(
+                title=f"عروض رقابية مكتشفة لشحنة {f_code}",
+                message=f"أظهر سحب الأصناف على نافذة وجود جهات عرض رقابية: {bodies_str}. يرجى تجهيز ملف الفحص وسحب العينات مبكراً.",
+                target_role="Customs Broker",
+            ))
+
+        _commit_follow_up(db, _regulatory_alert, "Regulatory screening alert")
+
+    return enrich_banking_response(db, item)
+
+
+def record_nafeza_bank_link_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    from fastapi import HTTPException
+    from modules.external_service_providers.model import ExternalServiceProvider
+
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    bank_p = db.query(ExternalServiceProvider).filter(
+        ExternalServiceProvider.provider_id == schema.bank_id,
+        ExternalServiceProvider.is_active == True,
+    ).first()
+    if not bank_p:
+        raise not_found("Bank", schema.bank_id)
+
+    bank_name = bank_p.partner_name
+
+    # Check match against SWIFT executing bank
+    is_matching = True
+    if item.swift_executing_bank_name:
+        clean_target = (item.swift_executing_bank_name or "").strip().lower()
+        clean_selected = bank_name.strip().lower()
+        is_matching = (clean_target in clean_selected) or (clean_selected in clean_target)
+
+    if not is_matching and not getattr(schema, "override_swift_mismatch", False):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"عدم تطابق بنكي: البنك المختار للربط ({bank_name}) لا يطابق البنك المنفذ لسويفت التحويل "
+                f"({item.swift_executing_bank_name}). يجب الربط على نفس بنك السويفت، أو تفعيل خيار التخطي بمبرر."
+            ),
+        )
+
+    item.nafeza_bank_link_status = "LINKED_TO_BANK"
+    item.nafeza_bank_link_date = schema.link_date
+    item.nafeza_linked_bank_id = schema.bank_id
+    item.nafeza_linked_bank_name = bank_name
+    item.is_bank_matching_swift = is_matching
+
+    # Lock session bank_id and bank_name to the linked bank
+    item.bank_id = schema.bank_id
+    item.bank_name = bank_name
+    if schema.notes:
+        item.notes = f"{item.notes}\n[الربط البنكي نافذة] {schema.notes}" if item.notes else f"[الربط البنكي نافذة] {schema.notes}"
+    if getattr(schema, "override_reason", None):
+        item.notes = f"{item.notes}\n[تخطي عدم تطابق بنك السويفت]: {schema.override_reason}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # Smart Tasks: close items verify & link task, dispatch Bank Form 4 application task
+    def _handle_link_tasks():
+        from modules.smart_tasks.model import SmartTask
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+        from modules.import_files.model import ImportFile
+
+        f_id = item.import_file_id
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == f_id).first() if f_id else None
+        f_code = imp.import_file_code if imp else f"IMP-{f_id}"
+
+        # Close broker items verify and link task
+        pending = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == f_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .all()
+        )
+        for t in pending:
+            if "سحب الأصناف" in (t.title or "") or (t.notes and "ACTION:ITEMS_VERIFY_AND_BANK_LINK" in t.notes):
+                t.status = "Completed"
+                t.completion_notes = f"تم التحقق من الأصناف والربط على بنك {bank_name} على نافذة في {schema.link_date}."
+
+        # Create task for Import / Banking Officer to submit Form 4 to bank
+        bank_task = SmartTaskCreate(
+            title=f"تقديم ملف نموذج 4 لفرع بنك: {bank_name} - {f_code}",
+            description=f"تم استكمال التكويد الضريبي والربط على بنك {bank_name} على نافذة. جاهز لتقديم طلب نموذج 4 رسمياً للبنك ومتابعة الاعتماد لشحنة {f_code}.",
+            task_type="System Generated",
+            import_file_id=f_id,
+            import_file_code=f_code,
+            phase_name="Phase 4: Digital & Banking",
+            assigned_user="Bank Specialist",
+            priority="High",
+            reminder_type="Bank Form 4 Application",
+            due_date=str(date.today() + timedelta(days=2)),
+            status="Pending",
+            notes=f"ACTION:FORM4_SUBMIT | BankDoc: {item.bank_doc_code}",
+        )
+        create_smart_task(db, bank_task, created_by="Banking Documents Engine", commit=False)
+
+    _commit_follow_up(db, _handle_link_tasks, "Nafeza bank link smart tasks")
+    return enrich_banking_response(db, item)
 
 
 # --- SHIPMENT DOCUMENTS SERVICE ---
@@ -1237,66 +1650,71 @@ def reconcile_po_final_adjustments_service(
         if negative:
             raise _bad_request(f"لا يمكن أن تكون القيم سالبة للبند '{itm.item_code}': {', '.join(negative)}")
 
-    po_item_ids = [itm.po_item_id for itm in request.items if itm.po_item_id]
-    packing_item_ids = [pid for pid in (getattr(itm, "packing_item_id", None) for itm in request.items) if pid]
+    # BE03-T01: Split into line items and packing items
+    line_items = [i for i in request.items if not i.packing_item_id]
+    packing_items = [i for i in request.items if i.packing_item_id]
+
+    # Reject duplicate po_item_id in line items (400)
+    validate_unique_po_lines(line_items)
+
+    po_item_ids = [itm.po_item_id for itm in line_items if itm.po_item_id]
+    packing_item_ids = [itm.packing_item_id for itm in packing_items if itm.packing_item_id]
     lines, packs, open_pos = _load_owned_po_rows(db, request.import_file_id, po_item_ids, packing_item_ids)
 
     updated_items = []
     touched_po_ids: Set[int] = set()
     line_po_ids: Set[int] = set()
-    total_net_weight = 0.0
-    total_gross_weight = 0.0
-    total_cbm = 0.0
+    packing_po_ids: Set[int] = set()
     total_final_amount = 0.0
+    total_final_amount_by_currency: Dict[str, float] = {}
 
     for itm in request.items:
         final_price = itm.final_unit_price if itm.final_unit_price > 0 else itm.unit_price
         itm.unit_price = final_price
         itm.final_unit_price = final_price
 
-        db_po_item = lines.get(itm.po_item_id) if itm.po_item_id else None
-        # A zero final value means "unchanged": the stored line value is kept and counted (review #9).
-        line_price = final_price if final_price > 0 else (float(db_po_item.unit_price or 0.0) if db_po_item is not None else 0.0)
-        line_total = round(itm.final_quantity * line_price, 2) if line_price > 0 else 0.0
-        if db_po_item is not None:
-            db_po_item.quantity = itm.final_quantity
-            if line_price > 0:
-                db_po_item.unit_price = line_price
-                db_po_item.total_price = line_total
-            if itm.final_net_weight_kg > 0:
-                db_po_item.net_weight_kg = itm.final_net_weight_kg
-            if itm.final_gross_weight_kg > 0:
-                db_po_item.gross_weight_kg = itm.final_gross_weight_kg
-            if itm.final_cbm > 0:
-                db_po_item.total_cbm = itm.final_cbm
-            touched_po_ids.add(db_po_item.po_id)
-            line_po_ids.add(db_po_item.po_id)
+        if itm.packing_item_id:
+            # DOC-02 a / BE03-T01: packing row is updated only through its own id, never PO line id
+            db_pl_item = packs.get(itm.packing_item_id)
+            if db_pl_item is not None:
+                if itm.final_packages_count > 0:
+                    db_pl_item.qty_pkg = itm.final_packages_count
+                if itm.final_net_weight_kg > 0:
+                    db_pl_item.total_net_weight_kg = itm.final_net_weight_kg
+                if itm.final_gross_weight_kg > 0:
+                    db_pl_item.total_gross_weight_kg = itm.final_gross_weight_kg
+                if itm.final_cbm > 0:
+                    db_pl_item.total_cbm = itm.final_cbm
+                if itm.package_type:
+                    db_pl_item.package_type = itm.package_type
+                touched_po_ids.add(db_pl_item.po_id)
+                packing_po_ids.add(db_pl_item.po_id)
+        else:
+            # BE03-T01: PO line writes only from items without packing_item_id
+            db_po_item = lines.get(itm.po_item_id) if itm.po_item_id else None
+            # A zero final value means "unchanged": the stored line value is kept and counted (review #9).
+            line_price = final_price if final_price > 0 else (float(db_po_item.unit_price or 0.0) if db_po_item is not None else 0.0)
+            line_total = round(itm.final_quantity * line_price, 2) if line_price > 0 else 0.0
+            if db_po_item is not None:
+                db_po_item.quantity = itm.final_quantity
+                if line_price > 0:
+                    db_po_item.unit_price = line_price
+                    db_po_item.total_price = line_total
+                if itm.final_net_weight_kg > 0:
+                    db_po_item.net_weight_kg = itm.final_net_weight_kg
+                if itm.final_gross_weight_kg > 0:
+                    db_po_item.gross_weight_kg = itm.final_gross_weight_kg
+                if itm.final_cbm > 0:
+                    db_po_item.total_cbm = itm.final_cbm
+                touched_po_ids.add(db_po_item.po_id)
+                line_po_ids.add(db_po_item.po_id)
 
-        # DOC-02 a: a packing row is updated only through its own id, never through the PO line id.
-        packing_item_id = getattr(itm, "packing_item_id", None)
-        db_pl_item = packs.get(packing_item_id) if packing_item_id else None
-        if db_pl_item is not None:
-            if itm.final_packages_count > 0:
-                db_pl_item.qty_pkg = itm.final_packages_count
-            if itm.final_net_weight_kg > 0:
-                db_pl_item.total_net_weight_kg = itm.final_net_weight_kg
-            if itm.final_gross_weight_kg > 0:
-                db_pl_item.total_gross_weight_kg = itm.final_gross_weight_kg
-            if itm.final_cbm > 0:
-                db_pl_item.total_cbm = itm.final_cbm
-            if itm.package_type:
-                db_pl_item.package_type = itm.package_type
-            touched_po_ids.add(db_pl_item.po_id)
-
-        def _final_or_stored(final_value: float, column: str) -> float:
-            if final_value > 0 or db_po_item is None:
-                return final_value
-            return float(getattr(db_po_item, column) or 0.0)
-
-        total_net_weight += _final_or_stored(itm.final_net_weight_kg, "net_weight_kg")
-        total_gross_weight += _final_or_stored(itm.final_gross_weight_kg, "gross_weight_kg")
-        total_cbm += _final_or_stored(itm.final_cbm, "total_cbm")
-        total_final_amount += line_total  # sum of rounded line totals (review #8)
+                po = open_pos.get(db_po_item.po_id)
+                curr_code = getattr(getattr(po, "currency", None), "currency_code", None) or getattr(itm, "currency", None) or getattr(imp_file, "estimated_cost_currency", None) or "UNKNOWN"
+                total_final_amount_by_currency[curr_code] = round(
+                    total_final_amount_by_currency.get(curr_code, 0.0) + line_total, 2
+                )
+            total_final_amount += line_total  # sum of rounded line totals from line_items only
 
         qty_variance = 0.0
         if itm.initial_quantity > 0:
@@ -1315,6 +1733,37 @@ def reconcile_po_final_adjustments_service(
 
         updated_items.append(itm.model_dump())
 
+    # BE03-T01: Weights/CBM per PO: use packing_items for POs that have them, else line_items
+    pos_with_packing = {
+        packs[itm.packing_item_id].po_id
+        for itm in packing_items
+        if itm.packing_item_id and itm.packing_item_id in packs
+    }
+    weight_sources = [
+        itm for itm in packing_items
+        if itm.packing_item_id and itm.packing_item_id in packs
+    ] + [
+        itm for itm in line_items
+        if not itm.po_item_id or (itm.po_item_id in lines and lines[itm.po_item_id].po_id not in pos_with_packing)
+    ]
+    total_net_weight = 0.0
+    total_gross_weight = 0.0
+    total_cbm = 0.0
+    for itm in weight_sources:
+        if itm.packing_item_id:
+            db_row = packs.get(itm.packing_item_id)
+            nw = itm.final_net_weight_kg if itm.final_net_weight_kg > 0 or db_row is None else float(getattr(db_row, "total_net_weight_kg", 0.0) or 0.0)
+            gw = itm.final_gross_weight_kg if itm.final_gross_weight_kg > 0 or db_row is None else float(getattr(db_row, "total_gross_weight_kg", 0.0) or 0.0)
+            cbm = itm.final_cbm if itm.final_cbm > 0 or db_row is None else float(getattr(db_row, "total_cbm", 0.0) or 0.0)
+        else:
+            db_row = lines.get(itm.po_item_id) if itm.po_item_id else None
+            nw = itm.final_net_weight_kg if itm.final_net_weight_kg > 0 or db_row is None else float(getattr(db_row, "net_weight_kg", 0.0) or 0.0)
+            gw = itm.final_gross_weight_kg if itm.final_gross_weight_kg > 0 or db_row is None else float(getattr(db_row, "gross_weight_kg", 0.0) or 0.0)
+            cbm = itm.final_cbm if itm.final_cbm > 0 or db_row is None else float(getattr(db_row, "total_cbm", 0.0) or 0.0)
+        total_net_weight += nw
+        total_gross_weight += gw
+        total_cbm += cbm
+
     # DOC-02 c: one version bump + audit stamp per touched PO. Header totals follow the adjusted lines (lead
     # decision on Q2): plain sums of the stored line values, the line math itself is not recomputed.
     now = datetime.now(timezone.utc)
@@ -1326,6 +1775,9 @@ def reconcile_po_final_adjustments_service(
             po.total_gross_weight_kg = sum(float(l.gross_weight_kg or 0.0) for l in po_lines)
             po.total_net_weight_kg = sum(float(l.net_weight_kg or 0.0) for l in po_lines)
             po.total_cbm = sum(float(l.total_cbm or 0.0) for l in po_lines)
+        if po_id in packing_po_ids:
+            # BE03-T01: Recompute total_packages_count from packing rows
+            po.total_packages_count = int(sum(float(pl.qty_pkg or 0.0) for pl in (po.packing_list_items or [])))
         po.version = (po.version or 1) + 1
         po.updated_at = now
         po.updated_by = actor
@@ -1346,6 +1798,7 @@ def reconcile_po_final_adjustments_service(
         "total_gross_weight_kg": round(total_gross_weight, 2),
         "total_cbm": round(total_cbm, 3),
         "total_final_amount": round(total_final_amount, 2),
+        "total_final_amount_by_currency": total_final_amount_by_currency,
         "items": updated_items,
     }
 
@@ -1575,22 +2028,16 @@ def _group_ocr_boxes_into_lines(ocr_res, y_threshold: float = 15.0) -> List[str]
     return lines
 
 
-def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
+def _ocr_pdf_or_image(filename: str, content_bytes: bytes, two_column_table: bool = False) -> str:
     """
     High-accuracy optical character recognition (OCR) for scanned PDFs and images.
-    Uses ArabicRapidOCREngine (with Arabic ONNX model + RTL support) with default RapidOCR and pytesseract fallbacks.
+    Uses multilingual RapidOCR with natural reading order line grouping,
+    with ArabicRapidOCREngine and pytesseract fallbacks.
     """
-    try:
-        from modules.import_documentation.arabic_ocr_engine import extract_arabic_ocr_text
-        arabic_text = extract_arabic_ocr_text(filename, content_bytes)
-        if arabic_text and len(arabic_text.strip()) > 30:
-            return arabic_text
-    except Exception as e:
-        logger.warning(f"Arabic OCR engine failed for '{filename}': {e}. Falling back to default RapidOCR.")
-
     lower = filename.lower()
     extracted_lines: List[str] = []
 
+    # 1. Primary Engine: Multilingual RapidOCR with natural line grouping
     try:
         from rapidocr_onnxruntime import RapidOCR
         import numpy as np
@@ -1602,10 +2049,10 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
             max_pages = min(len(pdf), 8)
             for i in range(max_pages):
                 page = pdf.get_page(i)
-                pil_img = page.render(scale=1.5).to_pil()
+                pil_img = page.render(scale=2.0).to_pil()
                 ocr_res, _ = engine(np.array(pil_img))
                 if ocr_res:
-                    page_lines = _group_ocr_boxes_into_lines(ocr_res)
+                    page_lines = _group_ocr_boxes_into_lines(ocr_res, y_threshold=15.0)
                     extracted_lines.append(f"--- PAGE {i+1} ---")
                     extracted_lines.extend(page_lines)
 
@@ -1614,7 +2061,7 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
             pil_img = Image.open(io.BytesIO(content_bytes)).convert("RGB")
             ocr_res, _ = engine(np.array(pil_img))
             if ocr_res:
-                image_lines = _group_ocr_boxes_into_lines(ocr_res)
+                image_lines = _group_ocr_boxes_into_lines(ocr_res, y_threshold=15.0)
                 extracted_lines.extend(image_lines)
 
     except Exception as e:
@@ -1622,7 +2069,18 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
 
     result_text = "\n".join(extracted_lines)
 
-    # Fallback to pytesseract if RapidOCR produced insufficient output for images
+    # 2. If RapidOCR produced insufficient output or document is Arabic-heavy, try ArabicRapidOCR
+    has_arabic = bool(re.search(r"[\u0600-\u06FF]", result_text))
+    if len(result_text.strip()) < 30 or (has_arabic and len(result_text.strip()) < 80):
+        try:
+            from modules.import_documentation.arabic_ocr_engine import extract_arabic_ocr_text
+            arabic_text = extract_arabic_ocr_text(filename, content_bytes, two_column_table=two_column_table)
+            if arabic_text and len(arabic_text.strip()) > len(result_text.strip()):
+                result_text = arabic_text
+        except Exception as e:
+            logger.warning(f"Arabic OCR engine fallback note for '{filename}': {e}")
+
+    # 3. Fallback to pytesseract if RapidOCR produced insufficient output for images
     if len(result_text.strip()) < 15 and lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
         try:
             import pytesseract
@@ -2642,6 +3100,19 @@ def _compare_origins(sys_origin: str, drf_origin: str) -> Tuple[bool, float]:
 
 
 # --- 3. CERTIFICATE OF ORIGIN (COO / EUR.1) VERIFICATION ENGINE ---
+def _extraction_failed_row(key: str, label_ar: str, sys_val: Any, severity: str, details_code: str) -> Dict[str, Any]:
+    """Comparison-matrix row for a certificate field that could not be read from the uploaded draft."""
+    return finalize_structured_values({
+        "field_key": key,
+        "field_label_ar": label_ar,
+        "system_value": sys_val,
+        "draft_value": Placeholder("NOT_EXTRACTED"),
+        "match_status": "EXTRACTION_FAILED",
+        "severity": severity,
+        **coded_text("details", details_code),
+    })
+
+
 def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
     imp_file = _active_import_file(db, request.import_file_id, status_code=status.HTTP_404_NOT_FOUND)
     company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
@@ -2684,7 +3155,6 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
     ]
 
     from modules.import_documentation.ai_document_parser import clean_exporter_name, clean_consignee_name
-    cert_type_str = str(request.certificate_type or "").upper()
 
     for key, label_ar, is_critical in coo_checks:
         sys_val = sys_snapshot.get(key)
@@ -2705,25 +3175,15 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
                 matched = True
                 ratio = 1.0
             else:
-                matched = False
-                ratio = 0.0
-                match_status = "EXTRACTION_FAILED"
-                severity = "BLOCKING" if is_critical else "WARNING"
                 has_discrepancies = True
                 if is_critical:
                     has_critical = True
-                matrix.append(finalize_structured_values({
-                    "field_key": key,
-                    "field_label_ar": label_ar,
-                    "system_value": sys_val,
-                    "draft_value": Placeholder("NOT_EXTRACTED"),
-                    "match_status": match_status,
-                    "severity": severity,
-                    **coded_text("details", "DOC_COO_VALUE_NOT_FOUND"),
-                }))
+                matrix.append(_extraction_failed_row(
+                    key, label_ar, sys_val,
+                    severity="BLOCKING" if is_critical else "WARNING",
+                    details_code="DOC_COO_VALUE_NOT_FOUND",
+                ))
                 continue
-        elif key == "exporter_reg_id":
-            matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
         else:
             matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
         
@@ -3069,21 +3529,13 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
                     **coded_text("details", "DOC_INSPECTION_OPTIONAL_NOT_INCLUDED"),
                 }))
                 continue
-            matched = False
-            ratio = 0.0
-            match_status = "EXTRACTION_FAILED"
-            severity = "BLOCKING"
             has_discrepancies = True
             has_critical = True
-            matrix.append(finalize_structured_values({
-                "field_key": key,
-                "field_label_ar": label_ar,
-                "system_value": sys_val,
-                "draft_value": Placeholder("NOT_EXTRACTED"),
-                "match_status": match_status,
-                "severity": severity,
-                **coded_text("details", "DOC_INSPECTION_VALUE_NOT_FOUND"),
-            }))
+            matrix.append(_extraction_failed_row(
+                key, label_ar, sys_val,
+                severity="BLOCKING",
+                details_code="DOC_INSPECTION_VALUE_NOT_FOUND",
+            ))
             continue
         elif key == "regulatory_authority":
             sys_is_goeic = bool(re.search(r'GOEIC|Export and Import Control|الصادرات والواردات', str(sys_val), re.I))
@@ -4903,11 +5355,12 @@ def _validate_incoterm_code(db: Session, value: Any) -> str:
 
 def _apply_invoice_bl_sync(
     db: Session, imp_file: ImportFile, inv: Dict[str, Any], bl: Dict[str, Any], sync_to_shipping: bool, actor: str
-) -> None:
+) -> bool:
     """Validated invoice / B/L values onto the import file and the cargo shipping record. No commit: the caller
-    commits them together with its own entity (DOC-13). Every value is checked before anything is written."""
+    commits them together with its own entity (DOC-13). Every value is checked before anything is written.
+    Returns True when invoice currency differs from the file's estimated_cost_currency."""
     # ImportFile has no amount column: the invoice amount stays in the session's invoice_data (deferred: column +
-    # migration). Currency -> estimated_cost_currency, incoterm -> incoterm_code.
+    # migration). Incoterm -> incoterm_code. Currency is validated; estimated_cost_currency is NEVER overwritten (BE03-T02).
     incoterm = _validate_incoterm_code(db, inv["incoterm"]) if inv.get("incoterm") else None
     currency = _validate_currency_code(db, inv["currency"]) if inv.get("currency") else None
     if bl.get("total_gross_weight_kg"):
@@ -4918,8 +5371,6 @@ def _apply_invoice_bl_sync(
         imp_file.pi_number = str(inv["invoice_number"])
     if incoterm:
         imp_file.incoterm_code = incoterm
-    if currency:
-        imp_file.estimated_cost_currency = currency
 
     # Sync B/L fields
     if bl.get("draft_bl_number"):
@@ -4940,6 +5391,9 @@ def _apply_invoice_bl_sync(
         # (deferred: schema change) and are kept on the import file / session data.
         if cargo_shp and bl.get("containers"):
             cargo_shp.containers_loading_data = bl["containers"]
+
+    currency_mismatch = currency is not None and currency != imp_file.estimated_cost_currency
+    return currency_mismatch
 
 
 def _invoice_bl_sync_follow_ups(db: Session, file_id: int, inv: Dict[str, Any], bl: Dict[str, Any], actor: str) -> None:
@@ -4999,6 +5453,19 @@ def _invoice_bl_sync_follow_ups(db: Session, file_id: int, inv: Dict[str, Any], 
     _commit_follow_up(db, _track, "Invoice/B-L file tracking")
 
 
+def _attach_session_currency_mismatch(
+    db: Session, session: InvoiceBLMatchSession, file_currency: Optional[str] = None
+) -> None:
+    if session and session.import_file_id:
+        if file_currency is None:
+            f = db.query(ImportFile.estimated_cost_currency).filter(ImportFile.import_file_id == session.import_file_id).first()
+            file_currency = f[0] if f else None
+        inv_c = (session.invoice_data or {}).get("currency") if isinstance(session.invoice_data, dict) else None
+        from modules.common import enum_codes
+        code = str(enum_codes.normalize_currency(inv_c) or "").strip().upper()
+        session.currency_mismatch = bool(code) and code != (file_currency or "").upper()
+
+
 def sync_certified_invoice_bl_to_file_service(
     db: Session, request: InvoiceBLSyncRequest, user: Optional[str] = None
 ) -> dict:
@@ -5007,13 +5474,14 @@ def sync_certified_invoice_bl_to_file_service(
     inv = request.invoice_data or {}
     bl = request.bl_data or {}
 
-    _apply_invoice_bl_sync(db, imp_file, inv, bl, request.sync_to_shipping, actor)
+    currency_mismatch = _apply_invoice_bl_sync(db, imp_file, inv, bl, request.sync_to_shipping, actor)
     db.commit()
     _invoice_bl_sync_follow_ups(db, imp_file.import_file_id, inv, bl, actor)
     imp_file = _get_active_import_file(db, request.import_file_id) or imp_file
 
     invoice_number = inv.get('invoice_number', 'N/A')
     draft_bl_number = bl.get('draft_bl_number', 'N/A')
+    validated_currency = _validate_currency_code(db, inv["currency"]) if inv.get("currency") else None
     return {
         "status": "success",
         "message": f"تمت مطابقة واعتماد الفاتورة ({invoice_number}) والبوليصة ({draft_bl_number}) ومزامنة بياناتهما مع ملف الشحنة والموافقة الجمركية بنجاح.",
@@ -5025,9 +5493,10 @@ def sync_certified_invoice_bl_to_file_service(
         "synced_invoice_number": imp_file.pi_number,
         "synced_bl_number": imp_file.bl_number,
         "synced_incoterm_code": imp_file.incoterm_code,
-        # Kept for old clients: the file has no amount column (deferred), the currency is estimated_cost_currency.
+        # Kept for old clients: the file has no amount column (deferred), the currency is the invoice currency as sent.
         "total_amount": None,
-        "currency": imp_file.estimated_cost_currency,
+        "currency": validated_currency or imp_file.estimated_cost_currency,
+        "currency_mismatch": currency_mismatch,
     }
 
 
@@ -5047,6 +5516,7 @@ def create_invoice_bl_match_session_service(
             f"يوجد بالفعل جلسة مطابقة معتمدة للفاتورة والبوليصة لهذا الملف ({existing_certified.session_code}): "
             f"لا يمكن حفظ مسودة فوقها."
         )
+    currency_mismatch: Optional[bool] = None
     if certify:
         if existing_certified:
             raise _conflict(
@@ -5058,7 +5528,7 @@ def create_invoice_bl_match_session_service(
         payload.certified_by = actor
         if payload.invoice_data and payload.bl_data:
             # Validated and applied before the session save: one commit for session + file sync (DOC-13).
-            _apply_invoice_bl_sync(db, imp_file, payload.invoice_data, payload.bl_data, True, actor)
+            currency_mismatch = _apply_invoice_bl_sync(db, imp_file, payload.invoice_data, payload.bl_data, True, actor)
 
     if existing and (existing.is_draft or payload.is_draft):
         update_schema = InvoiceBLMatchSessionUpdate(**payload.model_dump())
@@ -5069,6 +5539,11 @@ def create_invoice_bl_match_session_service(
     if certify and payload.invoice_data and payload.bl_data:
         _invoice_bl_sync_follow_ups(db, payload.import_file_id, payload.invoice_data, payload.bl_data, actor)
         db.refresh(session_res)
+
+    if currency_mismatch is not None:
+        session_res.currency_mismatch = currency_mismatch
+    else:
+        _attach_session_currency_mismatch(db, session_res, file_currency=imp_file.estimated_cost_currency)
     return session_res
 
 
@@ -5078,7 +5553,10 @@ def list_invoice_bl_match_sessions_service(
     is_draft: Optional[bool] = None,
     search: Optional[str] = None,
 ) -> List[InvoiceBLMatchSession]:
-    return repo.list_invoice_bl_match_sessions(db, import_file_id, is_draft, search)
+    sessions = repo.list_invoice_bl_match_sessions(db, import_file_id, is_draft, search)
+    for s in sessions:
+        _attach_session_currency_mismatch(db, s)
+    return sessions
 
 
 def get_invoice_bl_match_session_service(
@@ -5087,6 +5565,7 @@ def get_invoice_bl_match_session_service(
     session = repo.get_invoice_bl_match_session_by_id(db, session_id)
     if not session:
         raise not_found(LABEL_INVOICE_BL_SESSION, session_id)
+    _attach_session_currency_mismatch(db, session)
     return session
 
 
@@ -5126,26 +5605,11 @@ def extract_and_compare_po_documents_service(
             ImportFile.is_active == True,
         ).first()
         if imp_file:
-            from modules.purchase_orders.model import PurchaseOrder
-            active_pos = db.query(PurchaseOrder).filter(
-                PurchaseOrder.import_file_id == request.import_file_id,
-                PurchaseOrder.is_active == True,
-            ).all()
-            if not active_pos and imp_file.po_number:
-                active_pos = db.query(PurchaseOrder).filter(
-                    PurchaseOrder.po_number == imp_file.po_number,
-                    PurchaseOrder.is_active == True,
-                ).all()
-
+            active_pos = repo.get_active_purchase_orders_for_file(db, request.import_file_id, imp_file.po_number)
             po = active_pos[0] if active_pos else None
+            company = imp_file.company
 
-            tax_no = None
-            if imp_file.company:
-                tax_no = (
-                    getattr(imp_file.company, 'vat_id', None)
-                    or getattr(imp_file.company, 'tax_card_number', None)
-                    or getattr(imp_file.company, 'tax_id', None)
-                )
+            tax_no = (company.vat_id or None) if company else None
 
             po_curr = None
             if po and po.currency and getattr(po.currency, 'currency_code', None):
@@ -5162,17 +5626,10 @@ def extract_and_compare_po_documents_service(
             # Resolve supplier name
             supplier_name_val = ""
             if po and po.supplier:
-                supplier_name_val = (getattr(po.supplier, 'company_name', '') or getattr(po.supplier, 'name', '') or "").strip()
+                supplier_name_val = (po.supplier.company_name or "").strip()
 
             # Resolve importer name
-            importer_name_val = ""
-            if imp_file.company:
-                importer_name_val = (
-                    getattr(imp_file.company, 'importer_name', '')
-                    or getattr(imp_file.company, 'company_name', '')
-                    or getattr(imp_file.company, 'name', '')
-                    or ""
-                ).strip()
+            importer_name_val = (company.importer_name or "").strip() if company else ""
             if not importer_name_val:
                 importer_name_val = (imp_file.company_name or "").strip()
 
@@ -5180,8 +5637,8 @@ def extract_and_compare_po_documents_service(
             hs_code_val = ""
             if po and po.line_items:
                 first_item = po.line_items[0]
-                if hasattr(first_item, 'tariff') and first_item.tariff:
-                    hs_code_val = getattr(first_item.tariff, 'hs_code', '') or ""
+                if first_item.tariff:
+                    hs_code_val = first_item.tariff.hs_code or ""
                 if not hs_code_val and po.packing_list_items:
                     hs_code_val = po.packing_list_items[0].hs_code or ""
 
@@ -5202,62 +5659,59 @@ def extract_and_compare_po_documents_service(
                 "importer_name": importer_name_val,
                 "hs_code": hs_code_val,
             }
-            if not system_items:
-                for p_rec in active_pos:
-                    pkg_map = {}
-                    for p_item in p_rec.packing_list_items:
-                        if p_item.item_code:
-                            pkg_map[p_item.item_code.strip().upper()] = p_item
+            # system_packing_items always come from the DB packing list (real weights, not PO line item values);
+            # system_items are built from PO line items only when the caller did not supply them.
+            build_system_items = not system_items
+            for p_rec in active_pos:
+                line_map = {}
+                for itm in p_rec.line_items:
+                    if itm.item_code:
+                        line_map[itm.item_code.strip().upper()] = itm.item_id
 
-                    for itm in p_rec.line_items:
-                        code_key = (itm.item_code or "").strip().upper()
-                        pkg_info = pkg_map.get(code_key)
+                pkg_map = {}
+                for p_item in p_rec.packing_list_items:
+                    code_key = (p_item.item_code or "").strip().upper()
+                    if p_item.item_code:
+                        pkg_map[code_key] = p_item
+                    system_packing_items.append({
+                        "packing_item_id": p_item.packing_item_id,
+                        "po_item_id": line_map.get(code_key),
+                        "item_code": p_item.item_code or "",
+                        "description": p_item.description or p_item.item_code or "",
+                        "hs_code": p_item.hs_code or "",
+                        "package_type": p_item.package_type if p_item.package_type else None,
+                        "initial_quantity": float(p_item.qty_pcs) if p_item.qty_pcs is not None else None,
+                        "initial_packages_count": float(p_item.qty_pkg) if p_item.qty_pkg is not None else None,
+                        "initial_net_weight_kg": float(p_item.total_net_weight_kg) if p_item.total_net_weight_kg is not None else 0.0,
+                        "initial_gross_weight_kg": float(p_item.total_gross_weight_kg) if p_item.total_gross_weight_kg is not None else 0.0,
+                        "initial_cbm": float(p_item.total_cbm) if p_item.total_cbm is not None else 0.0,
+                    })
 
-                        pkg_count = float(pkg_info.qty_pkg) if (pkg_info and pkg_info.qty_pkg is not None) else None
-                        net_w = float(pkg_info.total_net_weight_kg) if (pkg_info and pkg_info.total_net_weight_kg is not None) else (float(itm.net_weight_kg) if itm.net_weight_kg is not None else 0.0)
-                        gross_w = float(pkg_info.total_gross_weight_kg) if (pkg_info and pkg_info.total_gross_weight_kg is not None) else (float(itm.gross_weight_kg) if itm.gross_weight_kg is not None else 0.0)
-                        cbm_val = float(pkg_info.total_cbm) if (pkg_info and pkg_info.total_cbm is not None) else (float(itm.total_cbm) if itm.total_cbm is not None else 0.0)
-                        pkg_type = pkg_info.package_type if (pkg_info and pkg_info.package_type) else None
+                if not build_system_items:
+                    continue
+                for itm in p_rec.line_items:
+                    code_key = (itm.item_code or "").strip().upper()
+                    pkg_info = pkg_map.get(code_key)
 
-                        system_items.append({
-                            "po_item_id": itm.item_id,
-                            "item_code": itm.item_code or str(itm.item_id),
-                            "description": itm.description_ar or itm.description_en or itm.main_description or "PO line item",
-                            "hs_code": (itm.tariff.hs_code if (hasattr(itm, 'tariff') and itm.tariff) else "") or (pkg_info.hs_code if pkg_info else ""),
-                            "package_type": pkg_type,
-                            "initial_quantity": float(itm.quantity) if itm.quantity is not None else 0.0,
-                            "initial_unit_price": float(itm.unit_price) if itm.unit_price is not None else 0.0,
-                            "initial_packages_count": pkg_count,
-                            "initial_net_weight_kg": net_w,
-                            "initial_gross_weight_kg": gross_w,
-                            "initial_cbm": cbm_val,
-                        })
+                    pkg_count = float(pkg_info.qty_pkg) if (pkg_info and pkg_info.qty_pkg is not None) else None
+                    net_w = float(pkg_info.total_net_weight_kg) if (pkg_info and pkg_info.total_net_weight_kg is not None) else (float(itm.net_weight_kg) if itm.net_weight_kg is not None else 0.0)
+                    gross_w = float(pkg_info.total_gross_weight_kg) if (pkg_info and pkg_info.total_gross_weight_kg is not None) else (float(itm.gross_weight_kg) if itm.gross_weight_kg is not None else 0.0)
+                    cbm_val = float(pkg_info.total_cbm) if (pkg_info and pkg_info.total_cbm is not None) else (float(itm.total_cbm) if itm.total_cbm is not None else 0.0)
+                    pkg_type = pkg_info.package_type if (pkg_info and pkg_info.package_type) else None
 
-            # Always build system_packing_items from DB packing_list_items (real weights, not dummy PO line item values)
-            if not system_packing_items:
-                for p_rec in active_pos:
-                    line_map = {}
-                    for itm in p_rec.line_items:
-                        if itm.item_code:
-                            line_map[itm.item_code.strip().upper()] = itm.item_id
-
-                    if p_rec and p_rec.packing_list_items:
-                        for p_item in p_rec.packing_list_items:
-                            code_key = (p_item.item_code or "").strip().upper()
-                            matching_po_item_id = line_map.get(code_key)
-                            system_packing_items.append({
-                                "packing_item_id": p_item.packing_item_id,
-                                "po_item_id": matching_po_item_id,
-                                "item_code": p_item.item_code or "",
-                                "description": p_item.description or p_item.item_code or "",
-                                "hs_code": p_item.hs_code or "",
-                                "package_type": p_item.package_type if p_item.package_type else None,
-                                "initial_quantity": float(p_item.qty_pcs) if p_item.qty_pcs is not None else None,
-                                "initial_packages_count": float(p_item.qty_pkg) if p_item.qty_pkg is not None else None,
-                                "initial_net_weight_kg": float(p_item.total_net_weight_kg) if p_item.total_net_weight_kg is not None else 0.0,
-                                "initial_gross_weight_kg": float(p_item.total_gross_weight_kg) if p_item.total_gross_weight_kg is not None else 0.0,
-                                "initial_cbm": float(p_item.total_cbm) if p_item.total_cbm is not None else 0.0,
-                            })
+                    system_items.append({
+                        "po_item_id": itm.item_id,
+                        "item_code": itm.item_code or str(itm.item_id),
+                        "description": itm.description_ar or itm.description_en or itm.main_description or "PO line item",
+                        "hs_code": (itm.tariff.hs_code if itm.tariff else "") or (pkg_info.hs_code if pkg_info else ""),
+                        "package_type": pkg_type,
+                        "initial_quantity": float(itm.quantity) if itm.quantity is not None else 0.0,
+                        "initial_unit_price": float(itm.unit_price) if itm.unit_price is not None else 0.0,
+                        "initial_packages_count": pkg_count,
+                        "initial_net_weight_kg": net_w,
+                        "initial_gross_weight_kg": gross_w,
+                        "initial_cbm": cbm_val,
+                    })
 
     system_items_missing = not bool(system_items)
 
@@ -5375,6 +5829,23 @@ def _po_recon_lifecycle(db: Session, session: POPackingReconciliationSession, ms
             notes_msg=msg(msg_code, session_code=code),
             assigned_user=actor,
         )
+
+        def _close_po_recon_tasks() -> None:
+            from modules.smart_tasks.model import SmartTask
+            tasks = db.query(SmartTask).filter(
+                SmartTask.import_file_id == file_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+                SmartTask.is_active == True,
+            ).all()
+            for t in tasks:
+                title_s = (t.title or "").lower()
+                step_s = (t.step_code or "").lower()
+                if "step_08_po" in title_s or "step_08_po" in step_s or "مطابقة الفاتورة" in (t.title or ""):
+                    t.status = "Completed"
+                    t.is_auto_closed = True
+            db.commit()
+
+        best_effort(db, _close_po_recon_tasks, "Auto-close STEP_08_PO smart tasks")
         db.refresh(session)
 
 
