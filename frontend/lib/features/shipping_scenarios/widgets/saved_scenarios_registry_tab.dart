@@ -685,12 +685,15 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     ],
                     rows: sess.items.asMap().entries.map((e) {
                       final item = e.value;
-                      final rowSummary = '${item.providerName} | ${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency} | ${item.expectedTotalDaysToWarehouse}d | ${item.polName ?? "-"} ➔ ${item.podName ?? "-"} | ${item.vesselName}';
+                      final totalText = item.totalQuotationAmount != null
+                          ? '${item.totalQuotationAmount!.toStringAsFixed(0)} ${item.quotationCurrency ?? ""}'
+                          : '—';
+                      final rowSummary = '${item.providerName} | $totalText | ${item.expectedTotalDaysToWarehouse}d | ${item.polName ?? "-"} ➔ ${item.podName ?? "-"} | ${item.vesselName}';
                       return DataRow(
                         cells: [
                           DataCell(CopyableTableCell(value: '${e.key + 1}', rowSummary: rowSummary, child: Text('${e.key + 1}'))),
                           DataCell(CopyableTableCell(value: item.providerName, rowSummary: rowSummary, child: Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                          DataCell(CopyableTableCell(value: '${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', rowSummary: rowSummary, child: Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)))),
+                          DataCell(CopyableTableCell(value: totalText, rowSummary: rowSummary, child: Text(totalText, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)))),
                           DataCell(CopyableTableCell(value: '${item.expectedTotalDaysToWarehouse} d', rowSummary: rowSummary, child: Text('${item.expectedTotalDaysToWarehouse} d', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
                           DataCell(CopyableTableCell(value: item.customsBrokerName ?? '-', rowSummary: rowSummary, child: Text(item.customsBrokerName ?? '-'))),
                           DataCell(CopyableTableCell(value: '${item.vesselName} (${item.voyageNumber ?? "-"})', rowSummary: rowSummary, child: Text('${item.vesselName} (${item.voyageNumber ?? "-"})'))),
@@ -1294,7 +1297,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     buffer.writeln('--- سيناريوهات الشحن المقارنة ---');
     buffer.writeln('الخط الملاحي / الناقل,الباخرة,ميناء الشحن,ميناء الوصول,مدة الإبحار (أيام),تاريخ الإبحار,تاريخ الوصول التقديري ETA,تاريخ وصول المخزن المتوقع,التكلفة التقديرية,العملة,مستوى المخاطر,موصى به');
     for (final it in sess.items) {
-      buffer.writeln('"${it.providerName.replaceAll('"', '""')}","${it.vesselName.replaceAll('"', '""')}","${it.polName ?? '-'}","${it.podName ?? '-'}","${it.vesselLeadTimeDays}","${it.sailingDate}","${it.estimatedArrivalDate}","${it.expectedWarehouseArrivalDate}","${it.totalQuotationAmount}","${it.quotationCurrency}","${it.riskLevel}","${it.isRecommended ? "نعم" : "لا"}"');
+      buffer.writeln('"${it.providerName.replaceAll('"', '""')}","${it.vesselName.replaceAll('"', '""')}","${it.polName ?? '-'}","${it.podName ?? '-'}","${it.vesselLeadTimeDays}","${it.sailingDate}","${it.estimatedArrivalDate}","${it.expectedWarehouseArrivalDate}","${it.totalQuotationAmount ?? '-'}","${it.quotationCurrency ?? '-'}","${it.riskLevel}","${it.isRecommended ? "نعم" : "لا"}"');
     }
 
     final filename = 'Phase1_Shipping_Evaluation_${sess.sessionCode}_${DateTime.now().millisecondsSinceEpoch}.csv';

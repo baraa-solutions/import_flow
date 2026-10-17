@@ -759,6 +759,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get quoteDetails => 'Freight Quote Details';
   @override String get hideQuote => 'Hide Quote';
   @override String get totalQuoteValue => 'Total Quote Value';
+  @override String rateMissingWarning(String codes) => 'Rate missing: $codes';
+  @override String scenarioSaveRateMissingError(int index, String provider, String codes) => 'Cannot save shipping study: exchange rate missing for ($codes) in scenario $index ($provider).';
   @override String get container40ftItem => 'Container 40ft Freight';
   @override String get container20ftItem => 'Container 20ft Freight';
   @override String get lclCbmItem => 'LCL CBM Freight';

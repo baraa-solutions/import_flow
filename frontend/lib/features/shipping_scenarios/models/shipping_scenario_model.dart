@@ -27,8 +27,8 @@ class ShippingScenarioItemModel {
 
   // Quotation breakdown fields
   final int freeTimeDays;
-  final String quotationCurrency;
-  final double totalQuotationAmount;
+  final String? quotationCurrency;
+  final double? totalQuotationAmount;
 
   final bool container40ftApplicable;
   final double container40ftPrice;
@@ -147,8 +147,8 @@ class ShippingScenarioItemModel {
     
     // Quotation defaults
     this.freeTimeDays = 14,
-    this.quotationCurrency = 'USD',
-    this.totalQuotationAmount = 0.0,
+    this.quotationCurrency,
+    this.totalQuotationAmount,
     
     this.container40ftApplicable = false,
     this.container40ftPrice = 0.0,
@@ -278,8 +278,8 @@ class ShippingScenarioItemModel {
 
       // Quotation values
       freeTimeDays: toInt(json['free_time_days'] ?? 14),
-      quotationCurrency: json['quotation_currency'] ?? 'USD',
-      totalQuotationAmount: toDouble(json['total_quotation_amount']),
+      quotationCurrency: json['quotation_currency'] as String?,
+      totalQuotationAmount: json['total_quotation_amount'] != null ? toDouble(json['total_quotation_amount']) : null,
       
       container40ftApplicable: json['container_40ft_applicable'] ?? false,
       container40ftPrice: toDouble(json['container_40ft_price']),
@@ -511,6 +511,7 @@ class ShippingScenarioItemModel {
     int? freeTimeDays,
     String? quotationCurrency,
     double? totalQuotationAmount,
+    bool clearTotalQuotationAmount = false,
     bool? container40ftApplicable,
     double? container40ftPrice,
     String? container40ftCurrency,
@@ -613,7 +614,7 @@ class ShippingScenarioItemModel {
       
       freeTimeDays: freeTimeDays ?? this.freeTimeDays,
       quotationCurrency: quotationCurrency ?? this.quotationCurrency,
-      totalQuotationAmount: totalQuotationAmount ?? this.totalQuotationAmount,
+      totalQuotationAmount: clearTotalQuotationAmount ? null : (totalQuotationAmount ?? this.totalQuotationAmount),
       container40ftApplicable: container40ftApplicable ?? this.container40ftApplicable,
       container40ftPrice: container40ftPrice ?? this.container40ftPrice,
       container40ftCurrency: container40ftCurrency ?? this.container40ftCurrency,

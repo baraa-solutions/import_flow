@@ -766,6 +766,8 @@ abstract class AppLocalizations {
   String get quoteDetails;
   String get hideQuote;
   String get totalQuoteValue;
+  String rateMissingWarning(String codes);
+  String scenarioSaveRateMissingError(int index, String provider, String codes);
   String get container40ftItem;
   String get container20ftItem;
   String get lclCbmItem;
