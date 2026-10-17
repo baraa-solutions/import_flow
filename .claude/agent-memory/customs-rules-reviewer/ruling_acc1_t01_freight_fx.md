@@ -18,3 +18,7 @@ PR #43 (base fix/be67-t02-preferential-agreement-rate) reviewed 2026-10-07: appr
 Re-review 2026-10-07 at ad536f9f: backend guard `request.has_freight_document and ...` (service.py:690) fixes the deemed 422; test 6 added, 6/6 pass.
 Flutter fix broke duty_calculator_dialog.dart: removed `} else {`/closing `}` in syncCalculatedFields (l.87-102) and InputDecoration `),` (l.765)
 -> dart analyze: duplicate 'deemedFrt' l.109, expected '}' l.118. Ruled BLOCKER (breaks Flutter build). Always run dart analyze on dialog diffs.
+
+Re-review 2026-10-08 at cc0d4f8f (fix 08dceb30, dart-only +4 lines): else branch + InputDecoration `isDense/),` restored;
+dart analyze = 0 errors (29 infos); backend unchanged since ad536f9f; freight_fx 6/6, agreement_rate+currency_rates 19/19.
+All prior items fixed -> approve_with_minor. Leftover minors: pre-existing Flutter literals (50.7917 invoice fallback, 0.020/0.025 deemed preview).

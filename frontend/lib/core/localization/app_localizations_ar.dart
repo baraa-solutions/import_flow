@@ -157,6 +157,38 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get systemInfoTooltip => 'معلومات الإصدار والنظام';
   @override String get backToDashboardTooltip => 'العودة إلى لوحة التحكم';
   @override String get languageToggleTooltip => 'تغيير اللغة (عربي / إنجليزي)';
+  @override String get confirmDeleteTitle => 'تأكيد الحذف';
+  @override String confirmDeleteMessage(String code) => code.isNotEmpty ? 'هل أنت متأكد من حذف "$code"؟ لا يمكن التراجع عن هذا الإجراء.' : 'هل أنت متأكد من الحذف؟ لا يمكن التراجع عن هذا الإجراء.';
+  @override String get deletedSuccessfully => 'تم الحذف بنجاح';
+  @override String get copyCode => 'نسخ الكود';
+  @override String get moreActionsTooltip => 'إجراءات إضافية';
+  @override String get deactivateRecord => 'تعطيل السجل';
+  @override String get restoreRecord => 'استعادة السجل';
+  @override String get viewActivityLog => 'سجل النشاطات';
+  @override String get editRecord => 'تعديل السجل';
+  @override String get genericErrorMessage => 'حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى.';
+  @override String get tableSearchHint => 'بحث...';
+  @override String get tableNoData => 'لا توجد سجلات';
+  @override String get tableNoResults => 'لا توجد نتائج مطابقة للبحث أو الفلاتر';
+  @override String get tableClearFilters => 'إعادة ضبط الفلاتر';
+  @override String get tableCustomizeColumns => 'تخصيص الأعمدة';
+  @override String get tableExportCsv => 'تصدير CSV';
+  @override String get tableExportExcel => 'تصدير Excel';
+  @override String get tableRowCopied => 'تم نسخ بيانات الصف إلى الحافظة';
+  @override String get tableRetry => 'إعادة المحاولة';
+  @override String get tableActions => 'الإجراءات';
+  @override String tableTotalCount(int count) => 'الإجمالي: $count سجل';
+  @override String tableSelectedCount(int count) => 'تم تحديد $count';
+  @override String get resetToDefaults => 'استعادة الافتراضي';
+  @override String get apply => 'تطبيق';
+  @override String get recordNotFoundOrDeleted => 'السجل غير موجود أو تم حذفه';
+  @override String get entityNotFoundOrDeleted => recordNotFoundOrDeleted;
+  @override String get entityDetailsTitle => 'تفاصيل السجل';
+  @override String get importFilePickerSelectFile => 'اختر ملف الاستيراد';
+  @override String get importFilePickerNoFilesFound => 'لا توجد ملفات استيراد متاحة';
+  @override String get importFilePickerFileRequired => 'يرجى اختيار ملف الاستيراد للمتابعة';
+  @override String get importFilePickerContinue => 'متابعة';
+  @override String get importFilePickerSearchHint => 'ابحث برقم الملف، المورد، الشركة...';
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   @override String get switchAsAdmin => 'تبديل كـ: مدير النظام 🔴';
@@ -2892,6 +2924,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get freightBookingItemVgmNotif => '7. إخطار إقرار الوزن';
   @override String get freightBookingItemTelex => '8. إطلاق الفاكس الملاحي';
   @override String get freightBookingItemInsurance => '9. بوليصة التأمين البحري';
+  @override String get freightBookingInsuranceHint => 'سجل التأمين البحري في شاشة وثائق التأمين، فهو لا يدخل ضمن تكاليف الحجز.';
   @override String get freightBookingItemCancellation => '10. غرامة إلغاء الحجز';
   @override String get freightBookingItemIcs2 => '11. رسوم بيان الحمول المسبقة (ICS2)';
   @override String get freightBookingItemOther => '12. مصاريف ورسوم أخرى';
@@ -3524,6 +3557,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String projectCompanyFallback(int id) => 'الشركة #$id';
   @override String projectSupplierFallback(int id) => 'المورد #$id';
   @override String projectSupplierLabel(String supplier) => 'المورد: $supplier';
+  @override String get projectCommitmentsLabel => 'الالتزامات';
+  @override String get projectRemainingBudgetLabel => 'المتبقي من الميزانية';
+  @override String projectMissingRateCurrencies(String currencies) => 'أسعار الصرف غير متوفرة لعملات: $currencies';
+  @override String get projectUtilizationLabel => 'نسبة الاستهلاك';
   @override String get capMultiShipment => 'متعدد الشحنات';
   @override String get capMultiCompany => 'متعدد الشركات';
   @override String projectPrintSnack(String name, String code) => 'طباعة بيانات المشروع ومراكز التكلفة: $name ($code)';
@@ -8286,6 +8323,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get swiftEnterAmountError => 'يرجى إدخال المبلغ';
   @override
   String get swiftAmountGreaterThanZeroError => 'المبلغ يجب أن يكون أكبر من 0';
+  @override
+  String get swiftCurrencyRequiredError => 'العملة مطلوبة';
 
   @override
   String get swiftFileReadErrorSnack => 'تعذر قراءة بيانات الملف المحدد';
@@ -8305,6 +8344,20 @@ class AppLocalizationsAr extends AppLocalizations {
   String swiftReconcileSuccessSnack(String swiftRef, String paymentCode) => 'تم تأكيد مطابقة السويفت ($swiftRef) واعتماد سداد الطلب ($paymentCode) وتحديث ملف الاستيراد بنجاح!';
   @override
   String swiftReconcileErrorSnack(String error) => 'خطأ أثناء تأكيد المطابقة: $error';
+  @override
+  String swiftReconcileMissingFields(String fields) =>
+      'الحقول التالية مطلوبة لإتمام المطابقة الذكية للسويفت: $fields';
+  @override
+  String get swiftBatchNotConfirmed =>
+      'لا يمكن مطابقة حزمة السويفت قبل مراجعتها وتأكيدها';
+  @override
+  String get swiftFieldRef => 'الرقم المرجعي للسويفت (SWIFT reference)';
+  @override
+  String get swiftFieldValueDate => 'تاريخ الاستحقاق (Value date)';
+  @override
+  String get swiftFieldAmount => 'المبلغ (Amount)';
+  @override
+  String get swiftFieldCurrency => 'العملة (Currency)';
 
   @override
   String get swiftExportTsvBtn => 'تصدير جدول نصوص';
@@ -11315,6 +11368,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poProjectCostCenter => 'المشروع ومركز التكلفة';
   @override String get poIncoterms => 'الشرط التجاري';
   @override String get poFXRate => 'سعر الصرف';
+  @override String get poExchangeRateRequired => 'سعر الصرف مطلوب ويجب أن يكون أكبر من الصفر';
+  @override String get poExchangeRateHelper => '⚡ يستدعى آلياً حسب تاريخ الفاتورة والعملة';
+  @override String poNoExchangeRateForDate(String code, String date) => 'لا يوجد سعر صرف للعملة $code بتاريخ $date';
   @override String get poPaymentTerms => 'شروط الدفع';
   @override String get poTotalCBM => 'إجمالي الحجم CBM';
   @override String get poGrossNetWeight => 'الوزن القائم / الصافي';
@@ -12307,6 +12363,17 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String fbkDepSuccess(String bl) => 'تم تأكيد الإبحار الفعلي بنجاح وتسجيل بوليصة الشحن رقم ($bl) وانتقال الشحنة لحالة In-Transit';
   @override String fbkDepError(String error) => 'تعذر تأكيد الإبحار: $error';
   @override String get fbkStatusCancelled => 'ملغي';
+  @override String get fbkMixedCurrencyError => 'يجب أن تستخدم كافة بنود التكلفة عملة واحدة حتى تتوفر ميزة تحويل العملات';
+  @override String get demPushNeedsLinkedFile => 'لا يمكن الترحيل للتسوية المالية: يجب ربط ملف استيراد أولاً';
+  @override String get demPushConfirmTitle => 'تأكيد الترحيل للتسوية المالية';
+  @override String get demPushConfirmMessage => 'هل أنت متأكد من ترحيل مصاريف الأرضيات وغرامات التأخير إلى ملف التسوية المالية؟';
+  @override String get demPushConfirmFileCode => 'ملف الاستيراد';
+  @override String get demPushConfirmDemurrageFx => 'إجمالي غرامات التأخير';
+  @override String get demPushConfirmDetentionFx => 'إجمالي غرامات الحاويات';
+  @override String get demPushConfirmStorageEgp => 'إجمالي رسوم التخزين';
+  @override String get demPushConfirmRate => 'سعر الصرف';
+  @override String get demPushConfirmTotalEgp => 'إجمالي تكلفة التسوية';
+  @override String get demPushConfirmBtn => 'تأكيد والترحيل';
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===
@@ -13174,6 +13241,16 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String settlementReconciliationNote(String amount) => 'فرق التسوية بين الإجمالي ومجموع الأصناف: $amount';
   @override String get settlementEstKpiDuty => 'ضريبة الوارد';
   @override String get settlementEstKpiVatFees => 'القيمة المضافة والرسوم';
+  @override String get fbkQuoteEquipmentMismatch40ft =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 40 قدم، ولكن لم يتم تخصيص أي حاوية 40/45 قدم). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
+  @override String get fbkQuoteEquipmentMismatch20ft =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 20 قدم، ولكن لم يتم تخصيص أي حاوية 20 قدم). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
+  @override String get fbkQuoteEquipmentMismatchBoth =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 40 و20 قدم، ولكن الحاويات المطابقة غير موجودة). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
+  @override String get customsFxRateRequired => 'سعر الصرف الجمركي مطلوب لاحتساب الرسوم والضرائب.';
+  @override String get addPoLinesWithHsToEstimateDuties => 'يرجى إضافة بنود أوامر الشراء مصحوبة بالبنود الجمركية (HS Codes) لاحتساب الرسوم والضرائب بدقة.';
+  @override String get customsMissingTariffBlockSave => 'تعذر الحفظ: بعض البنود لا تحتوي على تعريفة جمركية. يرجى تعيين التعريفة الجمركية أولاً.';
+  @override String get missingTariffLinesWarning => 'بنود بدون تعريفة جمركية';
   // === end review phase08_10 keys ===
 }
 

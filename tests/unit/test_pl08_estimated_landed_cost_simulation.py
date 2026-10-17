@@ -55,8 +55,26 @@ def client(db_session):
         finally:
             pass
 
+    from modules.auth.security import create_access_token, hash_password
+    from modules.users.model import User
+
+    user = User(
+        username="admin_pl08_test",
+        email="admin_pl08@test.com",
+        full_name="Admin PL08",
+        hashed_password=hash_password("Admin@123"),
+        role="ADMIN",
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    token = create_access_token({"sub": str(user.user_id), "role": user.role})
+    headers = {"Authorization": f"Bearer {token}"}
+
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
+    with TestClient(app, headers=headers) as test_client:
         yield test_client
     app.dependency_overrides.clear()
 
@@ -285,6 +303,7 @@ def test_estimated_landed_cost_with_awarded_rfq(db_session, base_test_data):
         rfq_id=rfq.rfq_id,
         provider_id=1,
         provider_name="Maersk Line",
+        ocean_freight_cost=2500.0,
         total_cost=2500.0,
         currency_code="USD",
         sailing_date=date.today(),

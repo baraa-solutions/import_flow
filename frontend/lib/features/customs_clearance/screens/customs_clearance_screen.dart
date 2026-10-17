@@ -112,15 +112,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     }
 
     try {
-      final res = await ref.read(experienceGuideProvider.notifier).matchShipment(
-            supplier: file.supplierName,
-            hsCode: file.hsCode,
-            productCategory: file.productCategory,
-            portOfLoading: file.portOfLoading,
-            portOfDischarge: file.portOfDischarge,
-            incoterm: file.incotermCode,
-            importFileReference: file.importFileCode,
-          );
+      final res = await ref.read(experienceGuideProvider.notifier).matchImportFile(file);
       if (mounted) {
         setState(() => _clearanceGuideMatchResult = res);
       }
