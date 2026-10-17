@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from modules.common import enum_codes
 from modules.common.errors import CodedHTTPException, best_effort
-from modules.common.validators import get_or_404
+from modules.common.validators import get_or_404, require_active
 from modules.import_files.model import ImportFile
 from modules.customs_consultation.model import (
     BrokerPriceList,
@@ -46,9 +46,11 @@ from modules.customs_consultation.schemas import (
 )
 from modules.import_files.repository import codes_by_ids
 from modules.customs_consultation.validators import (
+    reject_cleared_not_null_fields,
     validate_broker_exists,
     validate_checklist_items,
     validate_expense_code_unique,
+    validate_references,
 )
 
 logger = logging.getLogger(__name__)
@@ -149,6 +151,7 @@ class ClearanceExpenseTypeService:
         db: Session, expense_id: int, schema: ClearanceExpenseTypeUpdate
     ) -> ClearanceExpenseTypeResponse:
         obj = get_or_404(db, ClearanceExpenseType, expense_id, "نوع المصروف")
+        reject_cleared_not_null_fields(ClearanceExpenseType, schema, "نوع المصروف")
         if schema.expense_code and schema.expense_code != obj.expense_code:
             validate_expense_code_unique(db, schema.expense_code, current_id=expense_id)
         updated = ClearanceExpenseTypeRepository.update(db, obj, _normalize_expense_type(schema))
@@ -170,6 +173,12 @@ class BrokerPriceListService:
     @staticmethod
     def create_price_list(db: Session, schema: BrokerPriceListCreate) -> BrokerPriceListResponse:
         validate_broker_exists(db, schema.broker_id)
+        expense_type_ids = [
+            itm.expense_type_id
+            for itm in (schema.items or [])
+            if itm.expense_type_id is not None
+        ]
+        validate_references(db, expense_type_ids=expense_type_ids)
         normalized = _normalize_price_list(schema)
         for attempt in range(1, 4):
             code = BrokerPriceListRepository.generate_price_list_code(db)
@@ -219,8 +228,24 @@ class BrokerPriceListService:
         db: Session, price_list_id: int, schema: BrokerPriceListUpdate
     ) -> BrokerPriceListResponse:
         pl = get_or_404(db, BrokerPriceList, price_list_id, "قائمة أسعار المخلص")
-        if schema.broker_id:
+        reject_cleared_not_null_fields(BrokerPriceList, schema, "قائمة أسعار المخلص")
+        if schema.broker_id is not None:
             validate_broker_exists(db, schema.broker_id)
+        sent = schema.model_dump(exclude_unset=True)
+        eff_from = schema.effective_from if "effective_from" in sent else pl.effective_from
+        eff_to = schema.effective_to if "effective_to" in sent else pl.effective_to
+        if eff_from and eff_to and eff_to < eff_from:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="تاريخ انتهاء السريان يجب أن يكون بعد أو يساوي تاريخ بدء السريان.",
+            )
+        if schema.items is not None:
+            expense_type_ids = [
+                itm.expense_type_id
+                for itm in schema.items
+                if itm.expense_type_id is not None
+            ]
+            validate_references(db, expense_type_ids=expense_type_ids)
         updated = BrokerPriceListRepository.update(db, pl, _normalize_price_list(schema))
         return BrokerPriceListResponse.model_validate(updated)
 
@@ -235,6 +260,14 @@ class BrokerPriceListService:
         db: Session, price_list_id: int, schema: CloneBrokerPriceListRequest
     ) -> BrokerPriceListResponse:
         original = get_or_404(db, BrokerPriceList, price_list_id, "قائمة أسعار المخلص")
+
+        eff_from = schema.effective_from or date.today()
+        eff_to = schema.effective_to
+        if eff_from and eff_to and eff_to < eff_from:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="تاريخ انتهاء السريان يجب أن يكون بعد أو يساوي تاريخ بدء السريان.",
+            )
 
         target_code = schema.new_price_list_code
         if not target_code:
@@ -418,6 +451,19 @@ class CustomsConsultationService:
         if session_in.broker_id is not None:
             validate_broker_exists(db, session_in.broker_id)
         validate_checklist_items(session_in.checklist_items)
+        expense_type_ids = [
+            q.expense_type_id
+            for q in (session_in.broker_quote_items or [])
+            if q.expense_type_id is not None
+        ]
+        validate_references(
+            db,
+            import_file_id=session_in.import_file_id,
+            po_id=session_in.po_id,
+            project_id=session_in.project_id,
+            broker_price_list_id=session_in.broker_price_list_id,
+            expense_type_ids=expense_type_ids,
+        )
 
         if session_in.import_file_id:
             _check_one_per_file(db, session_in.import_file_id)
@@ -484,11 +530,28 @@ class CustomsConsultationService:
         modified_by: str = "System",
     ) -> CustomsConsultationResponse:
         db_session = get_or_404(db, CustomsConsultationSession, consultation_id, "دراسة الاستشارة الجمركية")
+        reject_cleared_not_null_fields(CustomsConsultationSession, update_in, "دراسة الاستشارة الجمركية")
 
         if update_in.broker_id is not None:
             validate_broker_exists(db, update_in.broker_id)
         if update_in.checklist_items is not None:
             validate_checklist_items(update_in.checklist_items)
+
+        sent = update_in.model_dump(exclude_unset=True)
+        expense_type_ids = (
+            [q.expense_type_id for q in update_in.broker_quote_items if q.expense_type_id is not None]
+            if update_in.broker_quote_items is not None
+            else None
+        )
+        validate_references(
+            db,
+            import_file_id=update_in.import_file_id if "import_file_id" in sent else None,
+            po_id=update_in.po_id if "po_id" in sent else None,
+            project_id=update_in.project_id if "project_id" in sent else None,
+            broker_price_list_id=update_in.broker_price_list_id if "broker_price_list_id" in sent else None,
+            expense_type_ids=expense_type_ids,
+        )
+
         if update_in.import_file_id and update_in.import_file_id != db_session.import_file_id and db_session.is_active:
             _check_one_per_file(db, update_in.import_file_id, consultation_id)
 
@@ -530,6 +593,11 @@ class CustomsConsultationService:
     ) -> CustomsConsultationResponse:
         original = get_or_404(db, CustomsConsultationSession, consultation_id, "دراسة الاستشارة الجمركية")
 
+        target_file_id = schema.target_import_file_id or original.import_file_id
+        if target_file_id:
+            require_active(db, ImportFile, target_file_id, "ملف الاستيراد")
+            _check_one_per_file(db, target_file_id)
+
         target_code = schema.new_consultation_code
         if not target_code:
             target_code = f"{original.consultation_code}-COPY"
@@ -552,7 +620,7 @@ class CustomsConsultationService:
             broker_name=original.broker_name,
             broker_contact_person=original.broker_contact_person,
             broker_price_list_id=original.broker_price_list_id,
-            import_file_id=schema.target_import_file_id or original.import_file_id,
+            import_file_id=target_file_id,
             po_id=None,
             project_id=original.project_id,
             overall_status="Draft",
