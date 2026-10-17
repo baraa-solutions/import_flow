@@ -4,7 +4,7 @@ Business Validation Rules for Import Documentation & ACI (Phase 3 - BP-014 to BP
 
 import os
 from datetime import date
-from typing import Dict, FrozenSet, Optional
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -44,6 +44,88 @@ def validate_acid_expiry(expiry_date: date | None, issue_date: date | None = Non
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"ACID Expiry Date ({expiry_date}) must be after Issue/Requested Date ({ref_date}).",
         )
+
+
+def acid_flags(
+    discrepancies_data: Optional[Any],
+) -> Tuple[bool, bool, bool, bool, bool]:
+    """
+    Derives (importer_matched, exporter_matched, invoice_matched, ports_matched, has_discrepancies)
+    from discrepancies_data (BE03-T06).
+    A key counts as a mismatch when its entry has match False / is_matched False / status not "MATCH".
+    """
+    importer_matched = True
+    exporter_matched = True
+    invoice_matched = True
+    ports_matched = True
+    has_discrepancies = False
+
+    if not discrepancies_data:
+        return importer_matched, exporter_matched, invoice_matched, ports_matched, has_discrepancies
+
+    def _is_mismatch(val: Any) -> bool:
+        if isinstance(val, bool):
+            return not val
+        if isinstance(val, dict):
+            if "match" in val and val["match"] is False:
+                return True
+            if "is_matched" in val and val["is_matched"] is False:
+                return True
+            if "is_match" in val and val["is_match"] is False:
+                return True
+            if "status" in val and val["status"] is not None:
+                s = str(val["status"]).strip().upper()
+                if s not in ("MATCH", "MATCHED", "OK", "CORRECT"):
+                    return True
+            if val.get("severity") in ("error", "critical") and val.get("match") is not True and val.get("is_matched") is not True:
+                return True
+            return False
+        if isinstance(val, str):
+            s = val.strip().upper()
+            return s in ("MISMATCH", "ERROR", "CRITICAL", "FAILED", "FALSE")
+        return False
+
+    raw_items: List[Any] = []
+    if isinstance(discrepancies_data, dict):
+        if "all_matched" in discrepancies_data and discrepancies_data["all_matched"] is False:
+            has_discrepancies = True
+        if discrepancies_data.get("has_critical_error") is True:
+            has_discrepancies = True
+        if (discrepancies_data.get("discrepant_count") or 0) > 0:
+            has_discrepancies = True
+
+        if "items" in discrepancies_data and isinstance(discrepancies_data["items"], list):
+            raw_items = discrepancies_data["items"]
+        else:
+            summary_keys = {"all_matched", "has_critical_error", "discrepant_count"}
+            raw_items = [
+                {"field": k, "entry": v} for k, v in discrepancies_data.items() if k not in summary_keys
+            ]
+    elif isinstance(discrepancies_data, list):
+        raw_items = discrepancies_data
+
+    for item in raw_items:
+        if isinstance(item, dict):
+            field = item.get("field") or item.get("key") or item.get("field_key")
+            val = item.get("entry") if "entry" in item else item
+            if _is_mismatch(val):
+                has_discrepancies = True
+                k = str(field or "").lower()
+                if "importer" in k:
+                    importer_matched = False
+                elif any(w in k for w in ("exporter", "supplier", "cargox")):
+                    exporter_matched = False
+                elif any(w in k for w in ("invoice", "proforma")):
+                    invoice_matched = False
+                elif any(w in k for w in ("port", "pol", "pod")):
+                    ports_matched = False
+        elif _is_mismatch(item):
+            has_discrepancies = True
+
+    if not (importer_matched and exporter_matched and invoice_matched and ports_matched):
+        has_discrepancies = True
+
+    return importer_matched, exporter_matched, invoice_matched, ports_matched, has_discrepancies
 
 
 def validate_no_duplicate_acid_session(
@@ -258,3 +340,18 @@ def validate_upload(filename: Optional[str], content: bytes) -> str:
             detail=f"حجم الملف '{name}' يتجاوز الحد الأقصى المسموح به ({MAX_UPLOAD_BYTES // (1024 * 1024)} ميجابايت).",
         )
     return name
+
+
+def validate_unique_po_lines(line_items: list) -> None:
+    """Each PO line must be adjusted at most once per request (BE03-T01). Duplicate -> 400."""
+    seen_po_item_ids = set()
+    for itm in line_items:
+        po_item_id = getattr(itm, "po_item_id", None)
+        if po_item_id is not None:
+            if po_item_id in seen_po_item_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"بند أمر الشراء رقم {po_item_id} مكرر في طلب المطابقة.",
+                )
+            seen_po_item_ids.add(po_item_id)
+

@@ -75,6 +75,8 @@ class ComprehensiveShipmentDossierModel {
   final int targetFreeDays;
 
   final List<Map<String, dynamic>> purchaseOrders;
+  final int posCount;
+  final int invoicesCount;
   final Map<String, double> fobByCurrency;
   final double? totalFobFc;
   /// Null when the backend has no customs rate for the FOB currency (no fabricated conversion).
@@ -131,6 +133,15 @@ class ComprehensiveShipmentDossierModel {
   final Map<String, bool> closureReadiness;
   final String? summaryNotes;
 
+  final List<Map<String, dynamic>> containers;
+  final Map<String, dynamic>? fxReconciliation;
+  final List<Map<String, dynamic>> timelineEvents;
+  final List<Map<String, dynamic>> etaRevisionsLog;
+  final Map<String, dynamic>? cargoPhysicalSummary;
+  final List<Map<String, dynamic>> similarPastShipments;
+  final List<Map<String, dynamic>> recurringPatterns;
+  final Map<String, dynamic>? institutionalKnowledge;
+
   ComprehensiveShipmentDossierModel({
     required this.importFileId,
     required this.importFileCode,
@@ -164,6 +175,8 @@ class ComprehensiveShipmentDossierModel {
     this.totalCbm = 0.0,
     this.targetFreeDays = 21,
     this.purchaseOrders = const [],
+    this.posCount = 0,
+    this.invoicesCount = 0,
     this.fobByCurrency = const {},
     this.totalFobFc,
     this.totalFobEgp,
@@ -213,6 +226,14 @@ class ComprehensiveShipmentDossierModel {
     this.sections = const [],
     this.closureReadiness = const {},
     this.summaryNotes,
+    this.containers = const [],
+    this.fxReconciliation,
+    this.timelineEvents = const [],
+    this.etaRevisionsLog = const [],
+    this.cargoPhysicalSummary,
+    this.similarPastShipments = const [],
+    this.recurringPatterns = const [],
+    this.institutionalKnowledge,
   });
 
   factory ComprehensiveShipmentDossierModel.fromJson(Map<String, dynamic> json) {
@@ -220,6 +241,12 @@ class ComprehensiveShipmentDossierModel {
     var rawReadiness = json['closure_readiness'] as Map<String, dynamic>? ?? {};
     var rawPos = json['purchase_orders'] as List<dynamic>? ?? [];
     var rawItems = json['items_detail'] as List<dynamic>? ?? [];
+    var rawContainers = json['containers'] as List<dynamic>? ?? [];
+    var rawTimeline = json['timeline_events'] as List<dynamic>? ?? [];
+    var rawEta = json['eta_revisions_log'] as List<dynamic>? ?? [];
+    var rawSimilar = json['similar_past_shipments'] as List<dynamic>? ?? [];
+    var rawPatterns = json['recurring_patterns'] as List<dynamic>? ?? [];
+    var rawFx = json['fx_reconciliation'] as Map<String, dynamic>?;
     var rawFobByCurrency = json['fob_by_currency'] as Map<String, dynamic>? ?? {};
     Map<String, double> parsedFobByCurrency = rawFobByCurrency.map(
       (k, v) => MapEntry(k, (v as num?)?.toDouble() ?? 0.0),
@@ -258,6 +285,8 @@ class ComprehensiveShipmentDossierModel {
       totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
       targetFreeDays: json['target_free_days'] as int? ?? 21,
       purchaseOrders: rawPos.map((p) => p as Map<String, dynamic>).toList(),
+      posCount: json['pos_count'] as int? ?? (rawPos.isNotEmpty ? rawPos.length : 0),
+      invoicesCount: json['invoices_count'] as int? ?? 0,
       fobByCurrency: parsedFobByCurrency,
       totalFobFc: (json['total_fob_fc'] as num?)?.toDouble(),
       totalFobEgp: (json['total_fob_egp'] as num?)?.toDouble(),
@@ -307,6 +336,14 @@ class ComprehensiveShipmentDossierModel {
       sections: rawSections.map((s) => DossierSectionSummaryModel.fromJson(s as Map<String, dynamic>)).toList(),
       closureReadiness: rawReadiness.map((k, v) => MapEntry(k, v == true)),
       summaryNotes: json['summary_notes'],
+      containers: rawContainers.map((c) => c as Map<String, dynamic>).toList(),
+      fxReconciliation: rawFx,
+      timelineEvents: rawTimeline.map((t) => t as Map<String, dynamic>).toList(),
+      etaRevisionsLog: rawEta.map((e) => e as Map<String, dynamic>).toList(),
+      cargoPhysicalSummary: json['cargo_physical_summary'] as Map<String, dynamic>?,
+      similarPastShipments: rawSimilar.map((s) => s as Map<String, dynamic>).toList(),
+      recurringPatterns: rawPatterns.map((p) => p as Map<String, dynamic>).toList(),
+      institutionalKnowledge: json['institutional_knowledge'] as Map<String, dynamic>?,
     );
   }
 
@@ -344,6 +381,8 @@ class ComprehensiveShipmentDossierModel {
       'total_cbm': totalCbm,
       'target_free_days': targetFreeDays,
       'purchase_orders': purchaseOrders,
+      'pos_count': posCount,
+      'invoices_count': invoicesCount,
       'fob_by_currency': fobByCurrency,
       if (totalFobFc != null) 'total_fob_fc': totalFobFc,
       if (totalFobEgp != null) 'total_fob_egp': totalFobEgp,
@@ -364,6 +403,14 @@ class ComprehensiveShipmentDossierModel {
       'sections': sections.map((s) => s.toJson()).toList(),
       'closure_readiness': closureReadiness,
       if (summaryNotes != null) 'summary_notes': summaryNotes,
+      'containers': containers,
+      if (fxReconciliation != null) 'fx_reconciliation': fxReconciliation,
+      'timeline_events': timelineEvents,
+      'eta_revisions_log': etaRevisionsLog,
+      if (cargoPhysicalSummary != null) 'cargo_physical_summary': cargoPhysicalSummary,
+      'similar_past_shipments': similarPastShipments,
+      'recurring_patterns': recurringPatterns,
+      if (institutionalKnowledge != null) 'institutional_knowledge': institutionalKnowledge,
     };
   }
 }

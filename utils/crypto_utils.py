@@ -15,6 +15,7 @@ Security Specifications:
 import os
 import secrets
 import hashlib
+import base64
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -179,3 +180,82 @@ def decrypt_backup_file(input_path: Path, output_path: Path, key: Optional[bytes
         f.write(plaintext)
 
     return True
+
+
+# ==============================================================================
+# Sensitive Secret String Encryption & Token Masking (AES-256-GCM)
+# ==============================================================================
+
+TOKEN_ASSOCIATED_DATA = b"SorourLogistics_Token_v1"
+
+
+def encrypt_secret_text(plaintext: Optional[str], key: Optional[bytes] = None) -> Optional[str]:
+    """
+    Encrypts sensitive text using AES-256-GCM authenticated encryption.
+    Returns base64-encoded string: nonce (12 bytes) + ciphertext + tag (16 bytes).
+    Prefixed with 'enc:' to distinguish from legacy plaintext.
+    """
+    if not plaintext or not plaintext.strip():
+        return None
+    cleaned = plaintext.strip()
+    if cleaned.startswith("enc:"):
+        return cleaned  # already encrypted
+
+    if key is None:
+        key = get_backup_encryption_key()
+
+    aesgcm = AESGCM(key)
+    nonce = secrets.token_bytes(12)
+    ciphertext = aesgcm.encrypt(nonce, cleaned.encode("utf-8"), associated_data=TOKEN_ASSOCIATED_DATA)
+    payload = nonce + ciphertext
+    return "enc:" + base64.b64encode(payload).decode("ascii")
+
+
+def decrypt_secret_text(encrypted_text: Optional[str], key: Optional[bytes] = None) -> Optional[str]:
+    """
+    Decrypts sensitive text encrypted with encrypt_secret_text.
+    If text does not start with 'enc:', it returns the text as-is (legacy compatibility).
+    """
+    if not encrypted_text or not encrypted_text.strip():
+        return None
+    cleaned = encrypted_text.strip()
+    if not cleaned.startswith("enc:"):
+        return cleaned
+
+    raw_b64 = cleaned[4:]
+    try:
+        payload = base64.b64decode(raw_b64)
+    except Exception:
+        return None
+
+    if len(payload) < 28:  # 12-byte nonce + 16-byte tag minimum
+        return None
+
+    nonce = payload[:12]
+    ciphertext = payload[12:]
+
+    if key is None:
+        key = get_backup_encryption_key()
+
+    aesgcm = AESGCM(key)
+    try:
+        decrypted = aesgcm.decrypt(nonce, ciphertext, associated_data=TOKEN_ASSOCIATED_DATA)
+        return decrypted.decode("utf-8")
+    except InvalidTag:
+        return None
+
+
+def mask_secret_token(token: Optional[str]) -> Optional[str]:
+    """
+    Returns masked token format '****1234' showing only the last 4 characters.
+    Transparently decrypts if stored encrypted with 'enc:'.
+    """
+    if not token or not token.strip():
+        return None
+    plain = decrypt_secret_text(token) if token.strip().startswith("enc:") else token.strip()
+    if not plain:
+        return None
+    if len(plain) <= 4:
+        return "****"
+    return "****" + plain[-4:]
+

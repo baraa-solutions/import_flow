@@ -689,6 +689,10 @@ def record_delivery_order_payment_service(
             record.delivery_order_file_url = payload.delivery_order_file_url
         if payload.notes:
             record.delivery_order_notes = payload.notes
+        if payload.delivery_order_requested_at:
+            assess_json = dict(record.nafeza_assessment_json or {})
+            assess_json["delivery_order_requested_at"] = payload.delivery_order_requested_at.isoformat()
+            record.nafeza_assessment_json = assess_json
         if record.status in ("Inspection In Progress", "Open", "Draft", "Broker Authorized - Ready for 46"):
             record.status = "D/O Received - Ready for 46"
         _touch(record, user)

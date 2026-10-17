@@ -27,6 +27,7 @@ import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
 import 'search_and_clone_po_reconciliation_dialog.dart';
+import '../utils/po_reconciliation_payload_builder.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 import '../../purchase_orders/utils/po_packing_matcher.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
@@ -880,8 +881,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         _packingItems = rawRecPl
             .map((j) => POReconciliationItemModel.fromJson(j as Map<String, dynamic>))
             .toList();
-      } else if (_invoiceItems.isNotEmpty) {
-        _packingItems = List.from(_invoiceItems);
+      } else {
+        _packingItems = [];
       }
     });
 
@@ -987,8 +988,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           );
           plList.add(plRecItem);
         }
-      } else {
-        plList.addAll(invList);
       }
     }
 
@@ -1246,30 +1245,34 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
     setState(() => _isSubmitting = true);
     try {
-      final combined = [..._invoiceItems, ..._packingItems];
-      final payload = {
-        'import_file_id': _selectedImportFileId,
-        'final_invoice_number': _finalInvNumberCtrl.text.trim(),
-        'final_packing_list_number': _finalPLNumberCtrl.text.trim(),
-        'items': combined.map((i) => i.toJson()).toList(),
-      };
+      final payload = POReconciliationPayloadBuilder.buildPayload(
+        importFileId: _selectedImportFileId!,
+        finalInvoiceNumber: _finalInvNumberCtrl.text,
+        finalPackingListNumber: _finalPLNumberCtrl.text,
+        invoiceItems: _invoiceItems,
+        packingItems: _packingItems,
+      );
 
-      await ref.read(poReconciliationProvider).submitPOFinalReconciliation(payload);
+      final result = await ref.read(poReconciliationProvider).submitPOFinalReconciliation(payload);
 
       ref.invalidate(importFilesProvider);
       ref.invalidate(purchaseOrdersProvider);
       invalidateImportDocDependentsW(ref);
 
-      // The Goods-in-Transit ledger is not seeded from here: the previous seed used
-      // invented PO id / package counts / container type.
-
       // Also auto-save/update session in background
       await _saveReconciliationSession();
 
       if (mounted) {
+        String successMsg = l.poRecCertificationSuccess;
+        if (result.totalFinalAmountByCurrency != null && result.totalFinalAmountByCurrency!.isNotEmpty) {
+          final curBreakdown = result.totalFinalAmountByCurrency!.entries
+              .map((e) => '${e.value.toStringAsFixed(2)} ${e.key}')
+              .join(' | ');
+          successMsg = '$successMsg ($curBreakdown)';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l.poRecCertificationSuccess),
+            content: Text(successMsg),
             backgroundColor: AppTheme.emerald,
           ),
         );

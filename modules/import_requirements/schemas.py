@@ -203,7 +203,7 @@ class ImportRequirementPrefillResponse(BaseModel):
     country_of_origin: Optional[str] = None
     foreign_exporter_id: Optional[str] = None
     currency: Optional[str] = None
-    shipment_value: float = 0.0
+    shipment_value: Optional[float] = None
     po_number: Optional[str] = None
     pi_number: Optional[str] = None
     acid_number: Optional[str] = None
