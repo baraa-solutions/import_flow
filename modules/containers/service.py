@@ -1,6 +1,6 @@
 from datetime import datetime, timezone, date
 from typing import Optional, List, Tuple
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
