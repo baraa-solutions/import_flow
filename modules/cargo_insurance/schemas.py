@@ -171,13 +171,13 @@ class CargoInsuranceCertificateResponse(LegacyRowTolerantModel):
     survey_agent_in_destination: Optional[str] = None
     claims_payable_at: Optional[str] = None
 
-    status: str = "Draft"
+    status: str = "DRAFT"
     issued_at: Optional[datetime] = None
     remarks: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    created_by: str = "System"
-    updated_by: str = "System"
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
     is_active: bool = True
 
     model_config = ConfigDict(from_attributes=True)

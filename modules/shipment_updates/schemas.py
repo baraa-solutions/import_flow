@@ -77,9 +77,9 @@ class ShipmentUpdateLogResponse(ShipmentUpdateLogBase, LegacyRowTolerantModel):
     update_category: str = "Follow-up & Notes"
     is_active: bool = True
     created_at: Optional[datetime] = None
-    created_by: str = "System"
+    created_by: Optional[str] = None
     updated_at: Optional[datetime] = None
-    updated_by: str = "System"
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
