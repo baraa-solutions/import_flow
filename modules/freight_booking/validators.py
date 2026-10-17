@@ -289,3 +289,127 @@ def validate_charges(charges: list) -> None:
             )
 
 
+ALLOWED_SHIPMENT_TYPES = frozenset({"Ocean FCL", "Ocean LCL", "Air"})
+ALLOWED_FREIGHT_TERMS = frozenset({"Prepaid", "Collect"})
+
+
+def validate_master_refs(db: Session, payload: Any) -> None:
+    """Validate master data foreign keys on create/update and auto-fill names.
+    - freight_forwarder_id -> external_service_providers (must be active)
+    - shipping_line_id -> external_service_providers (must be active)
+    - pol_location_id -> transport_locations (must be active)
+    - pod_location_id -> transport_locations (must be active)
+    - rfq_request_id -> freight_rfq_requests (must be active)
+    - shipment_type -> Ocean FCL, Ocean LCL, Air
+    - freight_terms -> Prepaid, Collect
+    Unknown or inactive IDs give HTTP 422.
+    When an ID is provided and the corresponding name is missing/empty, sets the name from the master row.
+    """
+    from modules.external_service_providers.model import ExternalServiceProvider
+    from modules.transport_locations.model import TransportLocation
+    from modules.freight_quotations.model import FreightRFQRequest
+
+    is_dict = isinstance(payload, dict)
+
+    def _get(k: str) -> Any:
+        return payload.get(k) if is_dict else getattr(payload, k, None)
+
+    def _set(k: str, v: Any) -> None:
+        if is_dict:
+            payload[k] = v
+        else:
+            if hasattr(payload, k):
+                setattr(payload, k, v)
+                if hasattr(payload, "model_fields_set"):
+                    payload.model_fields_set.add(k)
+
+    # Validate shipment_type if provided
+    shipment_type = _get("shipment_type")
+    if shipment_type is not None and shipment_type not in ALLOWED_SHIPMENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"نوع الشحنة غير صالح: {shipment_type}. القيم المسموحة: {', '.join(sorted(ALLOWED_SHIPMENT_TYPES))}",
+        )
+
+    # Validate freight_terms if provided
+    freight_terms = _get("freight_terms")
+    if freight_terms is not None and freight_terms not in ALLOWED_FREIGHT_TERMS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"شروط النولون غير صالحة: {freight_terms}. القيم المسموحة: {', '.join(sorted(ALLOWED_FREIGHT_TERMS))}",
+        )
+
+    # 1. Freight Forwarder
+    ff_id = _get("freight_forwarder_id")
+    if ff_id is not None:
+        provider = db.query(ExternalServiceProvider).filter(
+            ExternalServiceProvider.provider_id == ff_id
+        ).first()
+        if not provider or not getattr(provider, "is_active", True):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"شركة الشحن / وكيل الشحن غير موجود أو غير مفعل (المعرف: {ff_id})",
+            )
+        ff_name = _get("freight_forwarder_name")
+        if not ff_name:
+            _set("freight_forwarder_name", provider.partner_name)
+
+    # 2. Shipping Line
+    sl_id = _get("shipping_line_id")
+    if sl_id is not None:
+        carrier = db.query(ExternalServiceProvider).filter(
+            ExternalServiceProvider.provider_id == sl_id
+        ).first()
+        if not carrier or not getattr(carrier, "is_active", True):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"الخط الملاحي غير موجود أو غير مفعل (المعرف: {sl_id})",
+            )
+        sl_name = _get("shipping_line_name")
+        if not sl_name:
+            _set("shipping_line_name", carrier.partner_name)
+
+    # 3. Port of Loading (POL)
+    pol_id = _get("pol_location_id")
+    if pol_id is not None:
+        pol = db.query(TransportLocation).filter(
+            TransportLocation.location_id == pol_id
+        ).first()
+        if not pol or not getattr(pol, "is_active", True):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"ميناء الشحن (POL) غير موجود أو غير مفعل (المعرف: {pol_id})",
+            )
+        pol_name = _get("pol_name")
+        if not pol_name:
+            _set("pol_name", pol.location_name)
+
+    # 4. Port of Discharge (POD)
+    pod_id = _get("pod_location_id")
+    if pod_id is not None:
+        pod = db.query(TransportLocation).filter(
+            TransportLocation.location_id == pod_id
+        ).first()
+        if not pod or not getattr(pod, "is_active", True):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"ميناء الوصول (POD) غير موجود أو غير مفعل (المعرف: {pod_id})",
+            )
+        pod_name = _get("pod_name")
+        if not pod_name:
+            _set("pod_name", pod.location_name)
+
+    # 5. RFQ Request
+    rfq_id = _get("rfq_request_id")
+    if rfq_id is not None:
+        rfq = db.query(FreightRFQRequest).filter(
+            FreightRFQRequest.rfq_id == rfq_id
+        ).first()
+        if not rfq or not getattr(rfq, "is_active", True):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"طلب تسعير الشحن (RFQ) غير موجود أو غير مفعل (المعرف: {rfq_id})",
+            )
+
+
+

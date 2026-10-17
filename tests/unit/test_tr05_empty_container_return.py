@@ -187,13 +187,10 @@ class TestEmptyContainerReturnServiceAndAPI:
         assert "CLO-01" in downstream.title
         assert downstream.assigned_user == "Finance Team"
 
-        # Verify Radar reflects RETURNED_SAFE
+        # BE45-T16: a tracking with every container returned leaves the radar (it carries no more exposure).
         radar = get_containers_radar_overview_service(db_session)
-        assert radar.returned_containers_count == 2
-        for r_item in radar.radar_items:
-            assert r_item.radar_status == "RETURNED_SAFE"
-            assert r_item.color_code == "#7F8C8D"
-            assert r_item.total_accrued_egp == 0.0
+        assert radar.returned_containers_count == 0
+        assert all(r_item.import_file_id != imp_file.import_file_id for r_item in radar.radar_items)
 
     def test_record_empty_container_return_partial_containers(self, db_session):
         """إرجاع جزئي لإحدى الحاويات مع بقاء الحاوية الأخرى قيد التشغيل"""
@@ -274,7 +271,12 @@ class TestEmptyContainerReturnServiceAndAPI:
             carrier_name="CMA CGM",
             bill_of_lading_no="CMAU88776655",
             discharge_date=today - timedelta(days=6),
-            containers=[{"container_no": "CMAU9900112", "container_type": "40ft High Cube"}],
+            # ACC3-T04: an empty return needs the container's gate-out from the port first.
+            containers=[{
+                "container_no": "CMAU9900112",
+                "container_type": "40ft High Cube",
+                "gate_out_date": (today - timedelta(days=4)).isoformat(),
+            }],
             is_active=True,
         )
         db_session.add(tracking)

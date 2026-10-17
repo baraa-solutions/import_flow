@@ -96,7 +96,10 @@ def _agreement_duty_rate(standard_rate: Decimal, ag: Any) -> Decimal:
 def create_tariff_service(db: Session, data: CustomsTariffCreate) -> CustomsTariff:
     validate_no_duplicate_hs_code(db, data.hs_code)
     validate_effective_date_range(data.effective_from, data.effective_to)
-    return repository.create_tariff(db, data.model_dump())
+    tariff = repository.create_tariff(db, data.model_dump())
+    db.commit()
+    db.refresh(tariff)
+    return tariff
 
 
 def get_all_tariffs_service(
@@ -105,7 +108,7 @@ def get_all_tariffs_service(
     search: Optional[str] = None,
     skip: int = 0,
     limit: Optional[int] = None,
-) -> List[CustomsTariff]:
+) -> Tuple[List[CustomsTariff], int]:
     return repository.get_all_tariffs(
         db,
         include_inactive=include_inactive,
@@ -157,21 +160,30 @@ def update_tariff_service(
         eff_to = update_dict.get("effective_to", tariff.effective_to)
         validate_effective_date_range(eff_from, eff_to)
 
-    return repository.update_tariff(db, tariff_id, update_dict)
+    updated = repository.update_tariff(db, tariff_id, update_dict)
+    db.commit()
+    db.refresh(updated)
+    return updated
 
 
 def delete_tariff_service(db: Session, tariff_id: int) -> CustomsTariff:
     tariff = repository.get_tariff_by_id(db, tariff_id)
     if not tariff:
         raise HTTPException(status_code=404, detail="Customs Tariff record not found")
-    return repository.toggle_tariff_active(db, tariff_id, is_active=False)
+    toggled = repository.toggle_tariff_active(db, tariff_id, is_active=False)
+    db.commit()
+    db.refresh(toggled)
+    return toggled
 
 
 def restore_tariff_service(db: Session, tariff_id: int) -> CustomsTariff:
     tariff = repository.get_tariff_by_id(db, tariff_id)
     if not tariff:
         raise HTTPException(status_code=404, detail="Customs Tariff record not found")
-    return repository.toggle_tariff_active(db, tariff_id, is_active=True)
+    toggled = repository.toggle_tariff_active(db, tariff_id, is_active=True)
+    db.commit()
+    db.refresh(toggled)
+    return toggled
 
 
 def verify_and_update_tariff_service(
@@ -204,16 +216,22 @@ def verify_and_update_tariff_service(
                 break
 
     if has_rate_change:
-        return repository.archive_and_create_new_tariff_version(db, tariff, update_data, effective_date=today)
+        result = repository.archive_and_create_new_tariff_version(db, tariff, update_data, effective_date=today)
     else:
         update_data["last_verified_date"] = today
-        return repository.update_tariff(db, tariff.tariff_id, update_data)
+        result = repository.update_tariff(db, tariff.tariff_id, update_data)
+    db.commit()
+    db.refresh(result)
+    return result
 
 
 def create_preferential_agreement_service(
     db: Session, request: PreferentialAgreementCreate
 ) -> PreferentialAgreement:
-    return repository.create_preferential_agreement(db, request.model_dump())
+    agreement = repository.create_preferential_agreement(db, request.model_dump())
+    db.commit()
+    db.refresh(agreement)
+    return agreement
 
 
 def get_agreements_by_hs_code_service(
@@ -433,6 +451,9 @@ def bulk_import_tariffs_service(db: Session, file_contents: bytes, filename: str
                 imported_count += 1
         except Exception as e:
             errors.append(f"Row {row_idx}: {str(e)}")
+
+    if imported_count > 0 or updated_count > 0:
+        db.commit()
 
     return {
         "imported": imported_count,
@@ -957,7 +978,16 @@ def get_all_fee_codes_service(
 def create_fee_code_service(
     db: Session, request: FeeCodeCreate
 ) -> repository.FeeCode:
-    return repository.create_fee_code(db, request.model_dump())
+    existing = repository.get_fee_code_by_code(db, request.code)
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="CT_FEE_CODE_DUPLICATE: A fee code with this code already exists",
+        )
+    fc = repository.create_fee_code(db, request.model_dump())
+    db.commit()
+    db.refresh(fc)
+    return fc
 
 
 # ==================================================
@@ -1195,6 +1225,11 @@ def save_tariff_with_agreements_service(
             "agreements_count": len(created_agreements),
         },
     )
+
+    db.commit()
+    db.refresh(tariff)
+    for ag in created_agreements:
+        db.refresh(ag)
 
     return {
         "tariff": CustomsTariffResponse.model_validate(tariff),

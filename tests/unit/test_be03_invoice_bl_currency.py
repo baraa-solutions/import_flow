@@ -113,6 +113,20 @@ def test_sync_certified_invoice_bl_route_returns_currency_mismatch(db):
     db.commit()
     db.refresh(f)
 
+    # BE03-T04: sync only runs from a certified match session, whose data is what gets synced.
+    doc_service.create_invoice_bl_match_session_service(
+        db,
+        InvoiceBLMatchSessionCreate(
+            import_file_id=f.import_file_id,
+            invoice_number="INV-10",
+            bl_number="MEDU2",
+            is_draft=False,
+            invoice_data={"invoice_number": "INV-10", "currency": "USD", "incoterm": "FOB"},
+            bl_data={"draft_bl_number": "MEDU2"},
+        ),
+        user="certifier",
+    )
+
     req = InvoiceBLSyncRequest(
         import_file_id=f.import_file_id,
         invoice_data={"invoice_number": "INV-10", "currency": "USD", "incoterm": "FOB"},

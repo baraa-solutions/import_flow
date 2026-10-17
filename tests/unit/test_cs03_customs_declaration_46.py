@@ -190,6 +190,8 @@ def test_register_customs_declaration_46_service_validation_errors(db_session, s
             payload=CustomsDeclaration46Submit(
                 import_file_id=99999,
                 declaration_46_no="46-ALX-12345",
+                customs_office_name="Alexandria Port Customs",
+                channel_type="Red Channel",
             ),
         )
     assert "غير موجود" in str(exc_info_404.value)
@@ -199,6 +201,8 @@ def test_register_customs_declaration_46_service_validation_errors(db_session, s
         CustomsDeclaration46Submit(
             import_file_id=imp_file.import_file_id,
             declaration_46_no="46",
+            customs_office_name="Alexandria Port Customs",
+            channel_type="Red Channel",
         )
     assert "at least 3 characters" in str(exc_info_short.value)
 
@@ -248,3 +252,33 @@ def test_api_register_customs_declaration_46_endpoint(client, sample_data):
     assert data["status"] == "Under Customs Clearance"
     assert "GOEIC" in data["regulatory_bodies"]
     assert data["customs_tariff_items_count"] == 2
+
+
+def test_cs03_api_missing_channel_type_returns_422(client, sample_data):
+    """Omitting channel_type must return 422 Unprocessable Entity."""
+    imp_file = sample_data["import_file"]
+    payload = {
+        "import_file_id": imp_file.import_file_id,
+        "declaration_46_no": "46-2026-DKH-55441",
+        "customs_office_name": "El Dekheila Port Customs",
+    }
+    response = client.post(
+        "/api/v1/customs-clearance/register-declaration-46",
+        json=payload,
+    )
+    assert response.status_code == 422
+
+
+def test_cs03_api_missing_customs_office_name_returns_422(client, sample_data):
+    """Omitting customs_office_name must return 422 Unprocessable Entity."""
+    imp_file = sample_data["import_file"]
+    payload = {
+        "import_file_id": imp_file.import_file_id,
+        "declaration_46_no": "46-2026-DKH-55441",
+        "channel_type": "Red Channel",
+    }
+    response = client.post(
+        "/api/v1/customs-clearance/register-declaration-46",
+        json=payload,
+    )
+    assert response.status_code == 422

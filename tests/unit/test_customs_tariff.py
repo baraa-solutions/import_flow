@@ -2,11 +2,14 @@ from datetime import date
 from decimal import Decimal
 import unittest
 
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from database.database import Base
+from database.database import Base, get_db
+from modules.users.model import User
+from modules.customs_tariff.router import customs_tariff_router
 from modules.customs_tariff.schemas import (
     CustomsDutyEstimateRequest,
     CustomsTariffCreate,
@@ -28,17 +31,37 @@ from modules.customs_tariff.validators import (
 )
 
 
+from sqlalchemy.pool import StaticPool
+
+
 class TestCustomsTariffBackend(unittest.TestCase):
 
     def setUp(self):
         self.engine = create_engine(
-            "sqlite:///:memory:", connect_args={"check_same_thread": False}
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
         )
         TestingSessionLocal = sessionmaker(
             autocommit=False, autoflush=False, bind=self.engine
         )
         Base.metadata.create_all(bind=self.engine)
         self.db = TestingSessionLocal()
+        admin = User(
+            username="admin",
+            email="admin@example.com",
+            full_name="Admin User",
+            role="ADMIN",
+            is_active=True,
+            hashed_password="pw",
+        )
+        self.db.add(admin)
+        self.db.commit()
+
+        app = FastAPI()
+        app.include_router(customs_tariff_router)
+        app.dependency_overrides[get_db] = lambda: self.db
+        self.client = TestClient(app)
 
     def tearDown(self):
         self.db.close()
@@ -279,13 +302,15 @@ class TestCustomsTariffBackend(unittest.TestCase):
         )
 
         # Search by HS code
-        results = get_all_tariffs_service(self.db, search="8471")
+        results, total = get_all_tariffs_service(self.db, search="8471")
         self.assertEqual(len(results), 1)
+        self.assertEqual(total, 1)
         self.assertEqual(results[0].hs_code, "8471.30.00")
 
         # Search by description
-        results = get_all_tariffs_service(self.db, search="Motor")
+        results, total = get_all_tariffs_service(self.db, search="Motor")
         self.assertEqual(len(results), 1)
+        self.assertEqual(total, 1)
         self.assertEqual(results[0].hs_code, "8703.23.90")
 
     def _category_rows(self):
@@ -313,29 +338,38 @@ class TestCustomsTariffBackend(unittest.TestCase):
 
     def test_coded_categories_are_stored_as_codes(self):
         self._category_rows()
-        stored = {t.hs_code: t.customs_category for t in get_all_tariffs_service(self.db)}
+        rows, _ = get_all_tariffs_service(self.db)
+        stored = {t.hs_code: t.customs_category for t in rows}
         self.assertEqual(stored["8418.10.00"], "MACHINERY_EQUIPMENT")
         self.assertEqual(stored["8517.12.00"], "ELECTRONICS")
 
     def test_search_by_arabic_legacy_label_matches_coded_and_legacy_rows(self):
         self._category_rows()
-        hs = sorted(t.hs_code for t in get_all_tariffs_service(self.db, search="آلات"))
+        rows, _ = get_all_tariffs_service(self.db, search="آلات")
+        hs = sorted(t.hs_code for t in rows)
         self.assertEqual(hs, ["8418.10.00", "8450.11.00"])
 
     def test_search_by_english_label_fragment_matches_coded_and_legacy_rows(self):
         self._category_rows()
-        hs = sorted(t.hs_code for t in get_all_tariffs_service(self.db, search="machinery"))
+        rows, _ = get_all_tariffs_service(self.db, search="machinery")
+        hs = sorted(t.hs_code for t in rows)
         self.assertEqual(hs, ["8418.10.00", "8450.11.00"])
-        hs = [t.hs_code for t in get_all_tariffs_service(self.db, search="Electronics")]
+        rows, _ = get_all_tariffs_service(self.db, search="Electronics")
+        hs = [t.hs_code for t in rows]
         self.assertEqual(hs, ["8517.12.00"])
 
     def test_search_by_code_and_unmatched_term(self):
         self._category_rows()
-        hs = [t.hs_code for t in get_all_tariffs_service(self.db, search="textiles")]
+        rows, _ = get_all_tariffs_service(self.db, search="textiles")
+        hs = [t.hs_code for t in rows]
         self.assertEqual(hs, ["6109.10.00"])
-        self.assertEqual(get_all_tariffs_service(self.db, search="no-such-category"), [])
+        rows, total = get_all_tariffs_service(self.db, search="no-such-category")
+        self.assertEqual(rows, [])
+        self.assertEqual(total, 0)
         # Blank search is not a filter.
-        self.assertEqual(len(get_all_tariffs_service(self.db, search="  ")), 4)
+        rows, total = get_all_tariffs_service(self.db, search="  ")
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(total, 4)
 
     def test_category_search_values_helper(self):
         from modules.customs_tariff.service import customs_category_search_values
@@ -386,6 +420,126 @@ class TestCustomsTariffBackend(unittest.TestCase):
         self.assertEqual(breakdown.vat_amount, Decimal("19600.00"))
         self.assertEqual(breakdown.customs_service_fee_amount, Decimal("1000.00"))
         self.assertEqual(breakdown.total_taxes_and_fees, Decimal("60600.00"))
+
+    # ==================================================
+    # BE67-T15: Pagination and Fee Code Validation Tests
+    # ==================================================
+
+    def test_tariff_pagination_200_default_and_header_250(self):
+        """250 tariffs -> list without limit returns 200 and header X-Total-Count=250."""
+        from modules.customs_tariff.model import CustomsTariff
+
+        tariffs = [
+            CustomsTariff(
+                hs_code=f"8471.{i:04d}",
+                hs_description=f"Computer part #{i}",
+                customs_category="Electronics",
+                customs_duty_rate=Decimal("5.00"),
+                vat_rate=Decimal("14.00"),
+                is_active=True,
+            )
+            for i in range(250)
+        ]
+        self.db.bulk_save_objects(tariffs)
+        self.db.commit()
+
+        # Without limit query param -> defaults to 200 items, X-Total-Count: 250
+        response = self.client.get("/api/v1/customs-tariff")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data), 200)
+        self.assertEqual(response.headers.get("x-total-count"), "250")
+
+        # With explicit limit -> returns requested page size
+        res_50 = self.client.get("/api/v1/customs-tariff?limit=50")
+        self.assertEqual(res_50.status_code, 200)
+        self.assertEqual(len(res_50.json()), 50)
+        self.assertEqual(res_50.headers.get("x-total-count"), "250")
+
+    def test_create_fee_code_duplicate_returns_409(self):
+        """Duplicate fee code must return 409 CT_FEE_CODE_DUPLICATE."""
+        payload = {
+            "code": "FC_DUP_77",
+            "name_ar": "رسم طباعة إقرار",
+            "collection_group": "رسوم نافذة",
+            "calculation_type": "flat",
+            "flat_amount": 150.00,
+        }
+        res1 = self.client.post("/api/v1/customs-tariff/fee-codes", json=payload)
+        self.assertEqual(res1.status_code, 200)
+
+        # Second attempt with same code
+        res2 = self.client.post("/api/v1/customs-tariff/fee-codes", json=payload)
+        self.assertEqual(res2.status_code, 409)
+        self.assertIn("CT_FEE_CODE_DUPLICATE", res2.json()["detail"])
+
+    def test_create_fee_code_unknown_type_returns_422(self):
+        """calculation_type='percent' is not in allowed Literal and returns 422."""
+        payload = {
+            "code": "FC_BAD_01",
+            "name_ar": "رسم غير صالح",
+            "collection_group": "رسوم نافذة",
+            "calculation_type": "percent",
+        }
+        response = self.client.post("/api/v1/customs-tariff/fee-codes", json=payload)
+        self.assertEqual(response.status_code, 422)
+
+    def test_create_fee_code_reference_and_derived_validations(self):
+        """Reference needs reference_source; derived needs base codes and rate."""
+        # 1. reference without source -> 422
+        ref_bad = {
+            "code": "FC_REF_01",
+            "name_ar": "رسم مرجعي ناقص",
+            "collection_group": "رسوم جمركية",
+            "calculation_type": "reference",
+        }
+        res = self.client.post("/api/v1/customs-tariff/fee-codes", json=ref_bad)
+        self.assertEqual(res.status_code, 422)
+
+        # 2. reference with valid source -> 200
+        ref_good = {
+            "code": "FC_REF_02",
+            "name_ar": "رسم مرجعي صحيح",
+            "collection_group": "رسوم جمركية",
+            "calculation_type": "reference",
+            "reference_source": "duty_amount",
+        }
+        res = self.client.post("/api/v1/customs-tariff/fee-codes", json=ref_good)
+        self.assertEqual(res.status_code, 200)
+
+        # 3. derived without rate -> 422
+        der_no_rate = {
+            "code": "FC_DER_01",
+            "name_ar": "رسم مشتق بدون نسبة",
+            "collection_group": "رسوم نافذة",
+            "calculation_type": "derived",
+            "derived_formula_base_codes": "FC_REF_02",
+        }
+        res = self.client.post("/api/v1/customs-tariff/fee-codes", json=der_no_rate)
+        self.assertEqual(res.status_code, 422)
+
+        # 4. derived without base codes -> 422
+        der_no_base = {
+            "code": "FC_DER_02",
+            "name_ar": "رسم مشتق بدون أكواد أساسية",
+            "collection_group": "رسوم نافذة",
+            "calculation_type": "derived",
+            "derived_formula_rate": 14.0,
+        }
+        res = self.client.post("/api/v1/customs-tariff/fee-codes", json=der_no_base)
+        self.assertEqual(res.status_code, 422)
+
+        # 5. derived with valid rate and base codes -> 200
+        der_good = {
+            "code": "FC_DER_03",
+            "name_ar": "رسم مشتق صحيح",
+            "collection_group": "رسوم نافذة",
+            "calculation_type": "derived",
+            "derived_formula_rate": 14.0,
+            "derived_formula_base_codes": "FC_REF_02",
+        }
+        res = self.client.post("/api/v1/customs-tariff/fee-codes", json=der_good)
+        self.assertEqual(res.status_code, 200)
 
 
 if __name__ == "__main__":
