@@ -409,17 +409,18 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
     'note': 'دور المعتمد {role_code} لا يطابق أي دور معروف في النظام.',
   },
   'LC_CLOSURE_STEP_RESERVED': {
-    'note': 'المرحلة STEP_21 مخصصة لمنظومة إغلاق الملف ولا يمكن إكمالها مباشرة عبر HTTP.',
+    'note': 'المرحلة STEP_21 مخصصة لمنظومة إغلاق الملفات ولا يمكن إكمالها مباشرة عبر HTTP.',
   },
   'LC_FILE_NOT_ACTIVE': {
-    'note': 'ملف الاستيراد {import_file_code} في حالة {status} ولا يمكن تحريكه على لوحة المراحل.',
+    'note': 'ملف الاستيراد {import_file_code} في حالة {status} ولا يمكن تحريك مراحله على اللوحة.',
   },
   'LC_FILE_NOT_FOUND': {
     'note': 'ملف الاستيراد {import_file_code} غير موجود أو غير نشط.',
   },
   'LC_FILE_REF_REQUIRED': {
-    'note': 'معرّف أو كود ملف الاستيراد مطلوب.',
+    'note': 'يلزم تحديد معرف ملف الاستيراد أو كود الملف.',
   },
+
   'LC_FILE_ON_HOLD': {
     'note': 'تم إيقاف الشحنة عند مرحلة [{phase_id}]: {reason}',
   },
@@ -447,11 +448,11 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'LC_PENDING_REFERENCE': {
     'note': 'مرجع معلق: {reference_number} — {reason}',
   },
-  'LC_STARTING_POINT_SET': {
-    'note': 'نقطة البداية المحددة للشحنة: {step_code}',
-  },
   'LC_SKIP_DUAL_APPROVAL_REQUIRED': {
     'note': 'المرحلة {step_code} تتطلب اعتماداً مزدوجاً ولا يمكن تجاوزها لغير مديري النظام.',
+  },
+  'LC_STARTING_POINT_SET': {
+    'note': 'نقطة البداية المحددة للشحنة: {step_code}',
   },
   'LC_STEP_ACTIVATED': {
     'note': 'تم التفعيل بعد إكمال {completed_step_code}',
@@ -472,7 +473,16 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
     'note': 'تم إنجاز {step_code} بنجاح',
   },
   'LC_STEP_NOT_ACTIVE': {
-    'note': 'المرحلة {step_code} ليست نشطة حالياً لملف الاستيراد {import_file_code}.',
+    'note': 'المرحلة {step_code} ليست قيد التنفيذ حالياً على ملف الاستيراد {import_file_code}.',
+  },
+  'LC_STEP_ALREADY_COMPLETED': {
+    'note': 'المرحلة {step_code} مكتملة أو تم تخطيها بالفعل لملف الشحنة {import_file_code}.',
+  },
+  'LC_STEP_SEQUENCE_INVALID': {
+    'note': 'لا يمكن تفعيل المرحلة {step_code} قبل الوصول إليها في مسار الشحنة لغير المسؤولين.',
+  },
+  'LC_TARGET_STEP_INVALID': {
+    'note': 'لا يمكن الانتقال مباشرة إلى الخطوة {step_code} بدون صلاحيات المسؤول.',
   },
   'LC_STEP_ON_HOLD': {
     'note': 'معلقة مؤقتاً: {reason}',
@@ -920,6 +930,11 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'TR_TASK_TRACK_ARRIVAL_GRN': {
     'title': 'متابعة وصول الشاحنة للمستودع وإصدار إذن الإضافة GRN (TR-03)',
   },
+  'TR_SEAL_BROKEN': {
+    'title': 'إبلاغ عن كسر الختم الجمركي للشاحنة {truck_plate_number}',
+    'body': 'وصلت الشاحنة {truck_plate_number} بختم جمركي مكسور/تالف ({seal_number}).',
+    'note': 'تم الإبلاغ عن كسر الختم الجمركي {seal_number} عند الوصول.',
+  },
 
   'WH_GRN_ISSUED': {
     'title': 'تم إصدار إذن الإضافة المخزني ({grn_code})',
@@ -1301,6 +1316,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'SDU_ACID_CONFLICT': {
     'note': 'رقم ACID المستخرج {acid_number} يختلف عن الرقم المسجل في الملف {import_file_code} ({current_acid_number}).',
   },
+  'SDU_INVOICE_NUMBER_REQUIRED': {
+    'note': 'رقم الفاتورة مطلوب لربط بيانات الفاتورة بملف الشحنة.',
+  },
   'SDU_FILE_CLOSED': {
     'note': 'الملف الاستيرادي {import_file_code} في حالة {status}: لا يمكن تطبيق البيانات المستخرجة عليه.',
   },
@@ -1436,6 +1454,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_DISCREPANCY_TYPE_INVALID': {
     'note': 'نوع الفرق \'{discrepancy_type}\' غير معروف.',
   },
+  'WR_CLAIM_CURRENCY_INVALID': {
+    'note': 'رمز عملة المطالبة \'{currency_code}\' غير صالح أو غير نشط.',
+  },
   'WR_FIELD_NOT_EDITABLE': {
     'note': 'لا يمكن تعديل الحقل \'{field_name}\' مباشرة.',
   },
@@ -1448,6 +1469,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'WR_GRN_LOCKED': {
     'note': 'إذن الاستلام {grn_code} مقفل (محضر فحص معتمد أو مطالبات أو حظر جمركي نشط) ولا يمكن حذفه.',
   },
+  'WR_DATE_IN_FUTURE': {
+    'note': 'تاريخ الفحص لا يمكن أن يكون في المستقبل (أكثر من 24 ساعة).',
+  },
   'IT_BOOKING_EXISTS': {
     'note': 'يوجد بالفعل حجز نقل داخلي نشط ({transport_code}) لبوليصة النقل {waybill_number} في هذا الملف.',
   },
@@ -1456,6 +1480,12 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'IT_TRUCK_TYPE_INVALID': {
     'note': 'نوع الشاحنة \'{truck_type}\' غير صالح.',
+  },
+  'IT_SEAL_REQUIRED': {
+    'note': 'رقم الختم مطلوب عند الإبلاغ عن كسر أو تلف الختم.',
+  },
+  'IT_DATE_IN_FUTURE': {
+    'note': 'موعد {field_name} لا يمكن أن يكون في المستقبل بأكثر من 24 ساعة.',
   },
   'IT_STATUS_INVALID': {
     'note': 'حالة النقل الداخلي \'{status}\' غير معروفة.',
@@ -1486,6 +1516,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'FC_CLOSURE_BLOCKED': {
     'note': 'لا يمكن إغلاق الملف: الشروط التالية غير مستوفاة: {blocking}.',
+  },
+  'FC_EXPORT_BLOCKED': {
+    'note': 'لا يمكن تصدير واعتماد الملف الشامل: الشروط التالية غير مستوفاة: {blocking}.',
   },
   'FC_CLOSED_RECORD_LOCKED': {
     'note': 'سجل الإغلاق {closure_code} يتبع ملفاً مغلقاً: أعد فتح الملف أولاً.',
@@ -1555,5 +1588,11 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'RECALC_RATE_MISSING': {
     'note': 'تعذرت مقارنة بعض البنود: لا يوجد سعر صرف لعملتها ({fields}).',
+  },
+  'CT_SIMULATION_NO_LINES': {
+    'note': 'لا توجد أصناف بها بند جمركي وقيمة لاحتساب الرسوم التقديرية.',
+  },
+  'CT_SIMULATION_NO_BROKER': {
+    'note': 'لا يوجد مخلص جمركي معين لملف الاستيراد؛ لم يتم إنشاء جلسة استشارة جمركية.',
   },
 };

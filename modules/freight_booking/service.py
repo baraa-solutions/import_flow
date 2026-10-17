@@ -2,6 +2,7 @@ from datetime import datetime, timezone, timedelta, date
 import logging
 import re
 from typing import Callable, List, Optional
+from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ import modules.freight_booking.validators as validators
 from modules.common.errors import best_effort
 from modules.common.system_messages import msg, render_en
 from modules.common.file_tracking import set_file_tracking
+from modules.common.clock import cairo_today
 from modules.common.validators import not_found
 
 logger = logging.getLogger(__name__)
@@ -57,11 +59,16 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
     elif booking.expected_warehouse_arrival_date is None and booking.etd:
         booking.expected_warehouse_arrival_date = booking.etd + timedelta(days=booking.transit_time_days + wh_days)
 
-    # Calculate total container count
-    total_containers = 0
+    # Calculate container counts by type and total count
+    counts_by_type: dict[str, float] = {}
+    total_containers: float = 0.0
     if booking.containers_data:
         for item in booking.containers_data:
-            qty = item.get("quantity", 1) if isinstance(item, dict) else getattr(item, "quantity", 1)
+            qty = float(item.get("quantity", 1) if isinstance(item, dict) else getattr(item, "quantity", 1))
+            c_type = item.get("container_type", "") if isinstance(item, dict) else getattr(item, "container_type", "")
+            if c_type:
+                c_key = str(c_type).strip().upper()
+                counts_by_type[c_key] = counts_by_type.get(c_key, 0.0) + qty
             total_containers += qty
 
     # Calculate preliminary costs
@@ -69,20 +76,95 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
     if booking.cost_charges_data:
         updated_charges = []
         for charge in booking.cost_charges_data:
-            c_dict = charge if isinstance(charge, dict) else charge.model_dump()
+            c_dict = dict(charge if isinstance(charge, dict) else charge.model_dump())
             unit = c_dict.get("unit", "Per Container")
             rate = float(c_dict.get("rate", 0.0))
-            qty = int(c_dict.get("quantity", 1))
+            qty = float(c_dict.get("quantity", 1.0))
+            container_type = c_dict.get("container_type")
 
-            if unit == "Per Container" and total_containers > 0:
-                calc_qty = total_containers
+            if unit == "Per Container":
+                if container_type:
+                    c_type_key = str(container_type).strip().upper()
+                    if c_type_key in counts_by_type:
+                        calc_qty = counts_by_type[c_type_key]
+                    else:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                            detail=f"نوع الحاوية {container_type} في بند {c_dict.get('charge_type', '')} غير موجود في توزيع الحاويات.",
+                        )
+                elif total_containers > 0:
+                    calc_qty = total_containers
+                else:
+                    calc_qty = qty
             else:
                 calc_qty = qty
 
-            item_total = rate * calc_qty
+            item_total = round(rate * calc_qty, 2)
             c_dict["quantity"] = calc_qty
             c_dict["total"] = item_total
-            total_cost += item_total
+
+            # Currency conversion to USD
+            raw_currency = c_dict.get("currency") or "USD"
+            ccy = str(raw_currency).strip().upper()
+            c_dict["currency"] = ccy
+
+            if ccy == "USD":
+                fx_rate_to_usd = 1.0
+                amount_usd = item_total
+            else:
+                conf_date = getattr(booking, "booking_confirmation_date", None)
+                if conf_date:
+                    ref_date = conf_date.date() if hasattr(conf_date, "date") else conf_date
+                else:
+                    ref_date = date.today()
+
+                if db is not None:
+                    from modules.currencies.repository import CurrencyRepository
+                    from modules.currencies.service import CurrencyService
+
+                    repo_c = CurrencyRepository(db)
+                    curr_obj = repo_c.get_currency_by_code(ccy)
+                    if not curr_obj or not getattr(curr_obj, "is_active", True):
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                            detail=f"عملة البند غير معروفة: {ccy}",
+                        )
+
+                    curr_svc = CurrencyService(db)
+                    rate_to_egp, _, _ = curr_svc._get_rate_to_egp(ccy, rate_type="commercial", as_of_date=ref_date)
+                    usd_rate_to_egp, _, _ = curr_svc._get_rate_to_egp("USD", rate_type="commercial", as_of_date=ref_date)
+                    if usd_rate_to_egp <= 0:
+                        raise HTTPException(
+                            status_code=status.HTTP_409_CONFLICT,
+                            detail={
+                                "code": "CURRENCY_RATE_MISSING",
+                                "message": f"لا يوجد سعر صرف مسجل للعملة 'USD' بتاريخ {ref_date}.",
+                                "currency": "USD",
+                            },
+                        )
+                    fx_rate_to_usd = rate_to_egp / usd_rate_to_egp
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        detail=f"يتطلب تحويل عملة البند {ccy} جلسة قاعدة بيانات صالحة.",
+                    )
+
+                amount_usd = round(item_total * fx_rate_to_usd, 2)
+
+            # Charge category
+            raw_cat = c_dict.get("charge_category")
+            if raw_cat:
+                cat_upper = str(raw_cat).strip().upper()
+                c_dict["charge_category"] = (
+                    cat_upper if cat_upper in validators.CHARGE_CATEGORIES
+                    else validators.infer_charge_category(c_dict.get("charge_type", ""))
+                )
+            else:
+                c_dict["charge_category"] = validators.infer_charge_category(c_dict.get("charge_type", ""))
+
+            c_dict["fx_rate_to_usd"] = round(fx_rate_to_usd, 6)
+            c_dict["amount_usd"] = amount_usd
+            total_cost += amount_usd
             updated_charges.append(c_dict)
 
         booking.cost_charges_data = updated_charges
@@ -235,7 +317,7 @@ def _sync_import_file_with_booking(db: Session, booking: ShipmentBooking, tracki
     if booking.eta:
         file_rec.required_eta = booking.eta.date() if isinstance(booking.eta, datetime) else booking.eta
 
-    if booking.shipping_line_name:
+    if tracking_step == "STEP_07" and booking.shipping_line_name:
         carrier_label = booking.shipping_line_name
         if booking.vessel_name:
             carrier_label += f" ({booking.vessel_name})"
@@ -399,6 +481,8 @@ def create_booking_service(db: Session, payload: ShipmentBookingCreate, user: st
     validators.validate_container_allocation(payload.shipment_type, payload.containers_data)
     validators.validate_manual_status(payload.status)
     validators.validate_no_duplicate_booking_for_file(db, payload.import_file_id)
+    validators.validate_charges(payload.cost_charges_data)
+    validators.validate_charge_currencies(db, payload.cost_charges_data)
     owner = payload.owner if "owner" in payload.model_fields_set and payload.owner else user
 
     def build() -> ShipmentBooking:
@@ -437,10 +521,20 @@ def list_bookings_service(
 def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookingUpdate, user: str = "system") -> ShipmentBooking:
     booking = get_booking_service(db, booking_id)
 
+    validators.validate_editable_fields(booking, payload.model_fields_set, payload=payload)
+
+    if "shipment_type" in payload.model_fields_set or "containers_data" in payload.model_fields_set:
+        eff_type = payload.shipment_type if ("shipment_type" in payload.model_fields_set and payload.shipment_type is not None) else booking.shipment_type
+        eff_containers = payload.containers_data if ("containers_data" in payload.model_fields_set and payload.containers_data is not None) else booking.containers_data
+        validators.validate_container_allocation(eff_type, eff_containers)
+
     if "status" in payload.model_fields_set:
         validators.validate_manual_status(payload.status, booking.status)
     if payload.import_file_id is not None:
         validators.validate_no_duplicate_booking_for_file(db, payload.import_file_id, current_booking_id=booking_id)
+    if payload.cost_charges_data is not None:
+        validators.validate_charges(payload.cost_charges_data)
+        validators.validate_charge_currencies(db, payload.cost_charges_data)
 
     update_data = payload.model_dump(mode="json", exclude_unset=True, exclude_none=True)
     old_data = {k: getattr(booking, k, None) for k in update_data.keys()}
@@ -531,8 +625,32 @@ def confirm_departure_and_bol_service(
     booking = get_booking_service(db, booking_id)
     validators.validate_can_depart(booking)
 
+    today = cairo_today()
+    atd_date = (
+        payload.actual_departure_date.date()
+        if isinstance(payload.actual_departure_date, datetime)
+        else payload.actual_departure_date
+    )
+    if atd_date > today:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="تاريخ الإبحار الفعلي (ATD) لا يمكن أن يكون في المستقبل.",
+        )
+    if booking.booking_request_date:
+        req_date = (
+            booking.booking_request_date.date()
+            if isinstance(booking.booking_request_date, datetime)
+            else booking.booking_request_date
+        )
+        if atd_date < req_date:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="تاريخ الإبحار الفعلي (ATD) لا يمكن أن يكون قبل تاريخ طلب الحجز.",
+            )
+
     # 1. Update Booking state
     booking.atd = payload.actual_departure_date
+    booking.shipped_on_board_date = payload.shipped_on_board_date
     booking.bill_of_lading_no = payload.bill_of_lading_no.strip()
     booking.status = validators.STATUS_SAILED
 
@@ -560,10 +678,12 @@ def confirm_departure_and_bol_service(
 
     # 3. Follow-ups: lifecycle STEP_08_BL, prior SH-01 tasks, SH-02 task, notification
     if file_id:
-        best_effort(db, _advance_departure_lifecycle, "Lifecycle advance for departure", db, booking)
+        if not _file_past_step(file_rec, "STEP_08_BL"):
+            best_effort(db, _advance_departure_lifecycle, "Lifecycle advance for departure", db, booking)
         best_effort(db, _close_prior_tasks, "Auto-close prior departure smart tasks", db, file_id,
                     DEPARTURE_TASK_MSG_CODES, DEPARTURE_TASK_TITLE_KEYS)
-        best_effort(db, _dispatch_draft_bl_task, "Dispatch SH-02 smart task", db, booking, file_id, file_code)
+        if not _file_past_step(file_rec, "STEP_08_BL"):
+            best_effort(db, _dispatch_draft_bl_task, "Dispatch SH-02 smart task", db, booking, file_id, file_code)
         best_effort(db, _dispatch_departure_notification, "Departure notification", db, booking, file_code)
     best_effort(db, _log_audit, "AuditLog for ShipmentBooking departure", db, booking, "DEPART", user,
                 payload.model_dump(mode="json", exclude_unset=True))
@@ -575,17 +695,21 @@ def _sync_import_file_on_departure(db: Session, booking: ShipmentBooking) -> Opt
     """No commit: updates the import file and the file's active demurrage trackings with the B/L."""
     if not booking.import_file_id:
         return None
-    file_rec = db.query(ImportFile).filter(ImportFile.import_file_id == booking.import_file_id).first()
+    file_rec = db.query(ImportFile).filter(
+        ImportFile.import_file_id == booking.import_file_id,
+        ImportFile.is_active == True,
+    ).first()
     if not file_rec:
         return None
 
     if booking.eta:
         file_rec.required_eta = booking.eta.date() if isinstance(booking.eta, datetime) else booking.eta
 
-    file_rec.current_module = "STEP_08 In-Transit On Water"
-    set_file_tracking(file_rec, next_action=msg("NA_STEP08BL_REVIEW_DRAFT_BL"))
-    if (file_rec.progress_percent or 0.0) < 60.0:
-        file_rec.progress_percent = 60.0
+    if not _file_past_step(file_rec, "STEP_08_BL"):
+        file_rec.current_module = "STEP_08 In-Transit On Water"
+        set_file_tracking(file_rec, next_action=msg("NA_STEP08BL_REVIEW_DRAFT_BL"))
+        if (file_rec.progress_percent or 0.0) < 60.0:
+            file_rec.progress_percent = 60.0
 
     from modules.demurrage_detention.model import DemurrageTracking
     dem_records = db.query(DemurrageTracking).filter(
@@ -601,6 +725,12 @@ def _sync_import_file_on_departure(db: Session, booking: ShipmentBooking) -> Opt
 
 def _advance_departure_lifecycle(db: Session, booking: ShipmentBooking) -> None:
     from modules.lifecycle_board.service import advance_lifecycle_step_service
+    file_rec = db.query(ImportFile).filter(
+        ImportFile.import_file_id == booking.import_file_id,
+        ImportFile.is_active == True,
+    ).first()
+    if file_rec and _file_past_step(file_rec, "STEP_08_BL"):
+        return
     atd_str = booking.atd.strftime("%Y-%m-%d") if booking.atd else "N/A"
     advance_lifecycle_step_service(
         db=db,

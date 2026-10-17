@@ -123,6 +123,15 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "LC_STEP_NOT_ACTIVE": {
         "note": "Step {step_code} is not currently active on import file {import_file_code}.",
     },
+    "LC_STEP_ALREADY_COMPLETED": {
+        "note": "Step {step_code} is already completed or skipped on import file {import_file_code}.",
+    },
+    "LC_STEP_SEQUENCE_INVALID": {
+        "note": "Step {step_code} cannot be activated ahead of sequence for non-admin users.",
+    },
+    "LC_TARGET_STEP_INVALID": {
+        "note": "Cannot directly advance to {step_code} without administrator privileges.",
+    },
     "LC_CLOSURE_STEP_RESERVED": {
         "note": "Step STEP_21 is reserved for the file closure module and cannot be completed directly from HTTP.",
     },
@@ -582,6 +591,11 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "title": "Inland transport trucks booked (TR-01)",
         "body": "Truck {truck_plate_number} booked to move {import_file_code} from {pickup_location} to "
         "{destination_warehouse}. Driver: {driver_name} ({driver_phone}).",
+    },
+    "TR_SEAL_BROKEN": {
+        "title": "Broken customs seal reported for truck {truck_plate_number}",
+        "body": "Truck {truck_plate_number} arrived with a broken customs seal ({seal_number}).",
+        "note": "Broken customs seal {seal_number} reported upon arrival.",
     },
     "DD_FREE_DAYS_RECORDED": {
         "title": "Free days recorded ({demurrage_free_days} days) (BK-02)",
@@ -1213,6 +1227,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "SDU_ACID_CONFLICT": {
         "note": "The extracted ACID {acid_number} differs from the ACID on file {import_file_code} ({current_acid_number}).",
     },
+    "SDU_INVOICE_NUMBER_REQUIRED": {
+        "note": "Invoice number is required to link invoice data to the import file.",
+    },
     "SDU_FILE_CLOSED": {
         "note": "Import file {import_file_code} is {status}: extracted data cannot be applied to it.",
     },
@@ -1316,6 +1333,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "WR_STATUS_INVALID": {"note": "Unknown goods receipt status '{status}'."},
     "WR_DISCREPANCY_TYPE_INVALID": {"note": "Unknown discrepancy type '{discrepancy_type}'."},
+    "WR_CLAIM_CURRENCY_INVALID": {
+        "note": "Claim currency code '{currency_code}' is invalid or inactive.",
+    },
     "WR_FIELD_NOT_EDITABLE": {
         "note": "Field '{field_name}' cannot be edited directly.",
     },
@@ -1328,6 +1348,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "WR_GRN_LOCKED": {
         "note": "Goods receipt {grn_code} is locked (filed protocol, active claims, or quarantine): deletion is blocked.",
     },
+    "WR_DATE_IN_FUTURE": {
+        "note": "The inspection date cannot be more than 24 hours in the future.",
+    },
     "IT_BOOKING_EXISTS": {
         "note": "An active inland booking ({transport_code}) already exists for waybill {waybill_number} on this file.",
     },
@@ -1336,6 +1359,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "IT_TRUCK_TYPE_INVALID": {
         "note": "Truck type '{truck_type}' is invalid.",
+    },
+    "IT_SEAL_REQUIRED": {
+        "note": "Seal number is required when seal is broken.",
+    },
+    "IT_DATE_IN_FUTURE": {
+        "note": "{field_name} cannot be more than 24 hours in the future.",
     },
     "IT_STATUS_INVALID": {"note": "Unknown inland transport status '{status}'."},
     "IT_TRANSITION_NOT_ALLOWED": {"note": "Cannot record {action} while the booking is '{current_status}'."},
@@ -1359,6 +1388,7 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "note": "Unknown or inactive currency code '{currency_code}'.",
     },
     "FC_CLOSURE_BLOCKED": {"note": "The file cannot be closed: {blocking} not met."},
+    "FC_EXPORT_BLOCKED": {"note": "The comprehensive dossier export cannot proceed: {blocking} not met."},
     "FC_CLOSED_RECORD_LOCKED": {
         "note": "Closure record {closure_code} belongs to a closed file: reopen the file first.",
     },
@@ -1407,6 +1437,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "RECALC_APPLIED": {"note": "Recalculation applied ({action_taken})."},
     "RECALC_RATE_MISSING": {
         "note": "Some items could not be compared: no exchange rate for their currency ({fields}).",
+    },
+    "CT_SIMULATION_NO_LINES": {
+        "note": "No items with HS code and value available to calculate estimated customs duties.",
+    },
+    "CT_SIMULATION_NO_BROKER": {
+        "note": "No customs broker assigned to the import file; customs consultation session was not created.",
     },
     "CT_AGREEMENT_DATA_INVALID": {
         "note": "Invalid preferential trade agreement data ({reason}).",
