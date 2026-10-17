@@ -143,7 +143,7 @@ class _OriginalDocumentsCollectionTabState
       _couriers.add(
         CourierEntryModel(
           courierNo: '',
-          courierCompany: 'DHL',
+          courierCompany: '',
           dispatchDate: DateTime.now().toIso8601String().substring(0, 10),
           isReceived: false,
         ),
@@ -637,7 +637,7 @@ class _OriginalDocumentsCollectionTabState
                       child: SearchableDropdownField<String>(
                         value: ['DHL', 'FedEx', 'Aramex', 'UPS', 'Naqel', 'SMSA', 'Hand Delivery', 'Other'].contains(c.courierCompany)
                             ? c.courierCompany
-                            : 'DHL',
+                            : null,
                         labelText: l.courierCompanyField,
                         decoration: InputDecoration(
                           labelText: l.courierCompanyField,
