@@ -36,7 +36,7 @@ class LinkedPOItemModel {
       piNumber: json['pi_number'],
       projectId: json['project_id'],
       projectName: json['project_name'],
-      paymentTerms: json['payment_terms'] ?? 'Standard',
+      paymentTerms: json['payment_terms'] ?? '',
       currency: json['currency'] ?? 'USD',
       totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
       status: json['status'] ?? 'Draft',
@@ -104,7 +104,7 @@ class BudgetPrefillModel {
     this.invoiceCurrency = 'USD',
     required this.totalInvoiceAmountEgp,
     required this.estimatedFreightCost,
-    this.freightCurrency = 'USD',
+    this.freightCurrency = '',
     required this.estimatedFreightCostEgp,
     required this.estimatedCustomsDutiesEgp,
     required this.estimatedClearanceFeesEgp,
@@ -124,7 +124,7 @@ class BudgetPrefillModel {
       importFileId: json['import_file_id'] ?? 0,
       importFileCode: json['import_file_code'] ?? '',
       importFileTitle: json['import_file_title'] ?? '',
-      incoterm: json['incoterm'] ?? 'FOB',
+      incoterm: json['incoterm'] ?? '',
       supplierId: json['supplier_id'],
       supplierName: json['supplier_name'] ?? '',
       beneficiaryName: json['beneficiary_name'],
@@ -141,7 +141,7 @@ class BudgetPrefillModel {
           (json['total_invoice_amount_egp'] as num?)?.toDouble() ?? 0.0,
       estimatedFreightCost:
           (json['estimated_freight_cost'] as num?)?.toDouble() ?? 0.0,
-      freightCurrency: json['freight_currency'] ?? 'USD',
+      freightCurrency: json['freight_currency'] ?? '',
       estimatedFreightCostEgp:
           (json['estimated_freight_cost_egp'] as num?)?.toDouble() ?? 0.0,
       estimatedCustomsDutiesEgp:
@@ -194,6 +194,8 @@ class PaymentRequestModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? createdBy;
+  final String? updatedBy;
   final String? importFileCode;
 
   PaymentRequestModel({
@@ -233,6 +235,8 @@ class PaymentRequestModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.createdBy,
+    this.updatedBy,
     this.importFileCode,
   });
 
@@ -276,6 +280,8 @@ class PaymentRequestModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      createdBy: json['created_by'],
+      updatedBy: json['updated_by'],
       importFileCode: json['import_file_code'],
     );
   }
@@ -316,6 +322,8 @@ class PaymentRequestModel {
       'smart_task_code': smartTaskCode,
       'version': version,
       'is_active': isActive,
+      'created_by': createdBy,
+      'updated_by': updatedBy,
     };
   }
 }
@@ -352,6 +360,8 @@ class ImportBudgetModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? createdBy;
+  final String? updatedBy;
   final String? importFileCode;
 
   ImportBudgetModel({
@@ -386,6 +396,8 @@ class ImportBudgetModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.createdBy,
+    this.updatedBy,
     this.importFileCode,
   });
 
@@ -425,6 +437,8 @@ class ImportBudgetModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      createdBy: json['created_by'],
+      updatedBy: json['updated_by'],
       importFileCode: json['import_file_code'],
     );
   }
@@ -460,6 +474,8 @@ class ImportBudgetModel {
       'notes': notes,
       'version': version,
       'is_active': isActive,
+      'created_by': createdBy,
+      'updated_by': updatedBy,
     };
   }
 }

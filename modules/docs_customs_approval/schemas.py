@@ -4,7 +4,9 @@ Pydantic Schemas for Docs Customs Approval Hub (DCA-001)
 
 from typing import Optional, List, Any, Dict
 from datetime import datetime, date
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from modules.docs_customs_approval.validators import SESSION_STATUS_VALUES
 
 
 # --- Discrepancy Ticket Schemas ---
@@ -171,7 +173,7 @@ class CrossDocumentMatrixCheckResponse(BaseModel):
 class DocsCustomsApprovalSessionBase(BaseModel):
     import_file_id: int
     po_id: Optional[int] = None
-    overall_status: str = "APPROVED"
+    overall_status: str = "DRAFT"
     is_draft: bool = False
 
     final_invoice_ref: Optional[str] = None
@@ -188,6 +190,23 @@ class DocsCustomsApprovalSessionBase(BaseModel):
 
     coc_ref: Optional[str] = None
     coc_status: str = "Waived / Not Required"
+
+    @field_validator(
+        "final_invoice_status",
+        "final_pl_status",
+        "draft_bl_status",
+        "coo_status",
+        "coc_status",
+        mode="before",
+    )
+    @classmethod
+    def validate_session_status(cls, v: Any) -> Any:
+        if v is not None and v not in SESSION_STATUS_VALUES:
+            raise ValueError(
+                f"Invalid session status: '{v}'. Allowed values: {', '.join(sorted(SESSION_STATUS_VALUES))}."
+            )
+        return v
+
 
     commercial_signoff_by: Optional[str] = None
     commercial_signoff_date: Optional[date] = None

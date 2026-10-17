@@ -32,19 +32,13 @@ class GOEICVerificationDialog extends ConsumerStatefulWidget {
 }
 
 class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialog> {
-  final _hsCodeController = TextEditingController(text: '8415820010');
-  final _coiAgencyController = TextEditingController(text: 'SGS');
-  final _coiNumberController = TextEditingController(text: 'SGS-CN-2026-9901');
-  bool _hasCoi = true;
+  final _hsCodeController = TextEditingController();
+  final _coiAgencyController = TextEditingController();
+  final _coiNumberController = TextEditingController();
+  bool _hasCoi = false;
   bool _isChecking = false;
   String? _error;
   Map<String, dynamic>? _result;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkCompliance();
-  }
 
   @override
   void dispose() {
@@ -55,6 +49,12 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
   }
 
   Future<void> _checkCompliance() async {
+    final hsCode = _hsCodeController.text.trim();
+    if (hsCode.isEmpty) {
+      setState(() => _error = context.l10n.goeicHsCodeFieldLabel);
+      return;
+    }
+
     setState(() {
       _isChecking = true;
       _error = null;

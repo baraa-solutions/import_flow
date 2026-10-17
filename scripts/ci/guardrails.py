@@ -247,8 +247,9 @@ def tests_for_change(paths: Iterable[str], project_dir: Path) -> Tuple[List[str]
 
 def scratch_env(scratch: Path) -> Dict[str, str]:
     """Environment for every child: scratch DB and a throwaway SECRET_KEY, so no real DB or .env is touched."""
+    clean_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     return {
-        **os.environ,
+        **clean_env,
         "DATABASE_PATH": str(scratch / "guard.db"),
         # database/database.py reads DATABASE_URL before DATABASE_PATH: an exported real URL must not leak in.
         "DATABASE_URL": f"sqlite:///{(scratch / 'guard.db').as_posix()}",

@@ -61,3 +61,18 @@ def validate_update_log_create(schema: ShipmentUpdateLogCreate):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="تاريخ التحديث مطلوب.",
         )
+
+    if schema.update_category == "Phase Cost Adjustment":
+        if schema.new_cost is None or schema.new_cost <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="يجب تحديد التكلفة الجديدة وتكون أكبر من الصفر لتعديل التكلفة.",
+            )
+
+
+def validate_update_log_record(schema):
+    if "new_cost" in schema.model_fields_set or "previous_cost" in schema.model_fields_set:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="لا يمكن تعديل التكلفة السابقة أو الجديدة بعد إنشاء التحديث.",
+        )
