@@ -51,7 +51,7 @@ class _DeliveryOrderPaymentDialogState
   late TextEditingController _freeDaysController;
 
   DateTime _doDate = DateTime.now();
-  late DateTime _doExpiryDate;
+  DateTime? _doExpiryDate;
   int? _freeDaysAllowed;
   String _selectedCurrency = 'EGP';
   bool _isSubmitting = false;
@@ -61,6 +61,16 @@ class _DeliveryOrderPaymentDialogState
   @override
   void initState() {
     super.initState();
+    if (widget.file.deliveryOrderDate != null && widget.file.deliveryOrderDate!.isNotEmpty) {
+      final parsedDate = DateTime.tryParse(widget.file.deliveryOrderDate!);
+      if (parsedDate != null) _doDate = parsedDate;
+    }
+
+    if (widget.file.deliveryOrderExpiryDate != null && widget.file.deliveryOrderExpiryDate!.isNotEmpty) {
+      final parsedExpiry = DateTime.tryParse(widget.file.deliveryOrderExpiryDate!);
+      if (parsedExpiry != null) _doExpiryDate = parsedExpiry;
+    }
+
     final initialDays = (widget.file.targetFreeDays != null && widget.file.targetFreeDays! > 0)
         ? widget.file.targetFreeDays!
         : null;
@@ -68,10 +78,8 @@ class _DeliveryOrderPaymentDialogState
     _freeDaysController = TextEditingController(
       text: initialDays != null ? initialDays.toString() : '',
     );
-    if (initialDays != null) {
+    if (_doExpiryDate == null && initialDays != null) {
       _doExpiryDate = _doDate.add(Duration(days: initialDays));
-    } else {
-      _doExpiryDate = _doDate.add(const Duration(days: 14));
     }
 
     _doNumberController = TextEditingController(
@@ -99,7 +107,8 @@ class _DeliveryOrderPaymentDialogState
   }
 
   void _updateFreeDays() {
-    final diff = _doExpiryDate.difference(_doDate).inDays;
+    if (_doExpiryDate == null) return;
+    final diff = _doExpiryDate!.difference(_doDate).inDays;
     final val = diff > 0 ? diff : 0;
     setState(() {
       _freeDaysAllowed = val;
@@ -112,6 +121,13 @@ class _DeliveryOrderPaymentDialogState
     final l = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+
+    if (_doExpiryDate == null) {
+      messenger.showSnackBar(
+        AppTheme.snackBar(context, l.requiredField, severity: AppSeverity.danger),
+      );
+      return;
+    }
 
     final fees = double.tryParse(_feesController.text.trim());
     if (fees == null || fees < 0) {
@@ -128,8 +144,8 @@ class _DeliveryOrderPaymentDialogState
         'import_file_id': widget.file.importFileId,
         'delivery_order_number': _doNumberController.text.trim(),
         'delivery_order_date': _doDate.toIso8601String(),
-        'delivery_order_expiry': _doExpiryDate.toIso8601String(),
-        'free_days_allowed': int.tryParse(_freeDaysController.text.trim()) ?? _freeDaysAllowed ?? 0,
+        'delivery_order_expiry': _doExpiryDate!.toIso8601String(),
+        'free_days_allowed': int.tryParse(_freeDaysController.text.trim()) ?? _freeDaysAllowed,
         'shipping_agent_id': _selectedShippingAgentId,
         'shipping_agent_name': _selectedShippingAgentName,
         'delivery_order_fees': fees,
@@ -181,14 +197,17 @@ class _DeliveryOrderPaymentDialogState
   Widget _datePicker({
     required String label,
     required IconData icon,
-    required DateTime value,
+    required DateTime? value,
     required VoidCallback onTap,
   }) =>
       InkWell(
         onTap: onTap,
         child: InputDecorator(
           decoration: _dec(label, icon: icon),
-          child: LtrText(CcFormat.date(value), style: const TextStyle(fontWeight: FontWeight.bold)),
+          child: LtrText(
+            value != null ? CcFormat.date(value) : '—',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
       );
 
@@ -437,7 +456,7 @@ class _DeliveryOrderPaymentDialogState
                         onTap: () async {
                           final picked = await showDatePicker(
                             context: context,
-                            initialDate: _doExpiryDate,
+                            initialDate: _doExpiryDate ?? _doDate,
                             firstDate: _doDate,
                             lastDate: DateTime(2035),
                           );
@@ -472,6 +491,7 @@ class _DeliveryOrderPaymentDialogState
                           } else {
                             setState(() {
                               _freeDaysAllowed = null;
+                              _doExpiryDate = null;
                             });
                           }
                         },

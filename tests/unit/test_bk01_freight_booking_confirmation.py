@@ -24,6 +24,7 @@ from modules.projects.model import Project
 from modules.import_files.model import ImportFile
 from modules.smart_tasks.model import SmartTask
 from modules.notifications.model import SystemNotification
+from modules.currencies.model import Currency
 
 
 from sqlalchemy.pool import StaticPool
@@ -105,7 +106,9 @@ def db_session():
         is_active=True,
     )
 
-    db.add_all([comp, sup, inco, proj, file_rec, task1])
+    curr1 = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    curr2 = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_base_currency=True, is_active=True)
+    db.add_all([comp, sup, inco, proj, file_rec, task1, curr1, curr2])
     db.commit()
 
     try:

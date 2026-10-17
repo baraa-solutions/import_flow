@@ -164,6 +164,38 @@ abstract class AppLocalizations {
   String get systemInfoTooltip;
   String get backToDashboardTooltip;
   String get languageToggleTooltip;
+  String get confirmDeleteTitle;
+  String confirmDeleteMessage(String code);
+  String get deletedSuccessfully;
+  String get copyCode;
+  String get moreActionsTooltip;
+  String get deactivateRecord;
+  String get restoreRecord;
+  String get viewActivityLog;
+  String get editRecord;
+  String get genericErrorMessage;
+  String get tableSearchHint;
+  String get tableNoData;
+  String get tableNoResults;
+  String get tableClearFilters;
+  String get tableCustomizeColumns;
+  String get tableExportCsv;
+  String get tableExportExcel;
+  String get tableRowCopied;
+  String get tableRetry;
+  String get tableActions;
+  String tableTotalCount(int count);
+  String tableSelectedCount(int count);
+  String get resetToDefaults;
+  String get apply;
+  String get recordNotFoundOrDeleted;
+  String get entityNotFoundOrDeleted => recordNotFoundOrDeleted;
+  String get entityDetailsTitle;
+  String get importFilePickerSelectFile;
+  String get importFilePickerNoFilesFound;
+  String get importFilePickerFileRequired;
+  String get importFilePickerContinue;
+  String get importFilePickerSearchHint;
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   String get switchAsAdmin;
@@ -3021,6 +3053,7 @@ abstract class AppLocalizations {
   String get freightBookingItemVgmNotif;
   String get freightBookingItemTelex;
   String get freightBookingItemInsurance;
+  String get freightBookingInsuranceHint;
   String get freightBookingItemCancellation;
   String get freightBookingItemIcs2;
   String get freightBookingItemOther;
@@ -3656,6 +3689,10 @@ abstract class AppLocalizations {
   String projectCompanyFallback(int id);
   String projectSupplierFallback(int id);
   String projectSupplierLabel(String supplier);
+  String get projectCommitmentsLabel;
+  String get projectRemainingBudgetLabel;
+  String projectMissingRateCurrencies(String currencies);
+  String get projectUtilizationLabel;
   String get capMultiShipment;
   String get capMultiCompany;
   String projectPrintSnack(String name, String code);
@@ -6797,6 +6834,7 @@ abstract class AppLocalizations {
   String get swiftEnterSwiftRefError;
   String get swiftEnterAmountError;
   String get swiftAmountGreaterThanZeroError;
+  String get swiftCurrencyRequiredError;
 
   String get swiftFileReadErrorSnack;
   String swiftExtractSuccessSnack(String filename, String type);
@@ -6807,6 +6845,12 @@ abstract class AppLocalizations {
   String swiftConnectionErrorSnack(String error);
   String swiftReconcileSuccessSnack(String swiftRef, String paymentCode);
   String swiftReconcileErrorSnack(String error);
+  String swiftReconcileMissingFields(String fields);
+  String get swiftBatchNotConfirmed;
+  String get swiftFieldRef;
+  String get swiftFieldValueDate;
+  String get swiftFieldAmount;
+  String get swiftFieldCurrency;
 
   String get swiftExportTsvBtn;
   String get swiftExportTsvSuccess;
@@ -8624,6 +8668,9 @@ abstract class AppLocalizations {
   String get poProjectCostCenter;
   String get poIncoterms;
   String get poFXRate;
+  String get poExchangeRateRequired;
+  String get poExchangeRateHelper;
+  String poNoExchangeRateForDate(String code, String date);
   String get poPaymentTerms;
   String get poTotalCBM;
   String get poGrossNetWeight;
@@ -9599,6 +9646,17 @@ abstract class AppLocalizations {
   String fbkDepSuccess(String bl);
   String fbkDepError(String error);
   String get fbkStatusCancelled;
+  String get fbkMixedCurrencyError;
+  String get demPushNeedsLinkedFile;
+  String get demPushConfirmTitle;
+  String get demPushConfirmMessage;
+  String get demPushConfirmFileCode;
+  String get demPushConfirmDemurrageFx;
+  String get demPushConfirmDetentionFx;
+  String get demPushConfirmStorageEgp;
+  String get demPushConfirmRate;
+  String get demPushConfirmTotalEgp;
+  String get demPushConfirmBtn;
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===
@@ -10466,6 +10524,13 @@ abstract class AppLocalizations {
   String settlementReconciliationNote(String amount);
   String get settlementEstKpiDuty;
   String get settlementEstKpiVatFees;
+  String get fbkQuoteEquipmentMismatch40ft;
+  String get fbkQuoteEquipmentMismatch20ft;
+  String get fbkQuoteEquipmentMismatchBoth;
+  String get customsFxRateRequired;
+  String get addPoLinesWithHsToEstimateDuties;
+  String get customsMissingTariffBlockSave;
+  String get missingTariffLinesWarning;
   // === end review phase08_10 keys ===
 }
 

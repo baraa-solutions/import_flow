@@ -28,6 +28,7 @@ import '../models/purchase_order_model.dart';
 import '../utils/po_row_id_matcher.dart';
 import '../utils/po_hs_tariff_matcher.dart';
 import '../utils/po_payment_terms.dart';
+import '../utils/po_fx_rate.dart';
 import '../utils/po_row_list.dart';
 import 'po_decimal_field.dart';
 import '../providers/purchase_orders_provider.dart';
@@ -65,6 +66,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   late TextEditingController _poReferenceCtrl;
   late TextEditingController _piCtrl;
   late TextEditingController _rateCtrl;
+  String? _rateHelperText;
   late TextEditingController _notesCtrl;
 
   late DateTime _selectedOrderDate;
@@ -313,24 +315,38 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (curr == null) return;
     if (curr.isBaseCurrency || curr.currencyCode == 'EGP') {
       _rateCtrl.text = '1.0';
+      if (mounted) {
+        setState(() {
+          _rateHelperText = null;
+        });
+      } else {
+        _rateHelperText = null;
+      }
       return;
     }
 
-    double? foundRate;
-    if (curr.exchangeRates != null && curr.exchangeRates!.isNotEmpty) {
-      final orderDateStr = _selectedOrderDate.toString().substring(0, 10);
-      final sortedRates = List.from(curr.exchangeRates!)
-        ..sort((a, b) => b.effectiveDate.compareTo(a.effectiveDate));
-      final matching = sortedRates.firstWhere(
-        (r) => r.effectiveDate.compareTo(orderDateStr) <= 0,
-        orElse: () => sortedRates.first,
-      );
-      foundRate = matching.commercialRate;
-    }
-
-    foundRate ??= curr.latestCommercialRate;
+    final foundRate = pickCommercialRate(curr.exchangeRates, _selectedOrderDate);
     if (foundRate != null && foundRate > 0) {
       _rateCtrl.text = foundRate.toString();
+      if (mounted) {
+        setState(() {
+          _rateHelperText = null;
+        });
+      } else {
+        _rateHelperText = null;
+      }
+    } else {
+      _rateCtrl.clear();
+      final dateStr =
+          '${_selectedOrderDate.year.toString().padLeft(4, '0')}-${_selectedOrderDate.month.toString().padLeft(2, '0')}-${_selectedOrderDate.day.toString().padLeft(2, '0')}';
+      final msg = context.l10n.poNoExchangeRateForDate(curr.currencyCode, dateStr);
+      if (mounted) {
+        setState(() {
+          _rateHelperText = msg;
+        });
+      } else {
+        _rateHelperText = msg;
+      }
     }
   }
 
@@ -965,7 +981,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         (ext != null ? (ext['po_reference'] ?? ext['reference'] ?? ext['order_title'] ?? ext['subject'] ?? ext['po_title'])?.toString() : null) ?? '';
     _piCtrl = TextEditingController(text: defaultPiNumber);
     _poReferenceCtrl = TextEditingController(text: defaultPoRef);
-    _rateCtrl = TextEditingController(text: (po?.exchangeRate ?? 1.0).toString());
+    _rateCtrl = TextEditingController(text: po?.exchangeRate?.toString() ?? '');
     _notesCtrl = TextEditingController(text: po?.notes ?? '');
     _selectedStatus = po?.status ?? 'DRAFT';
     _palletCount = po?.palletCount ?? (ext != null ? _numToInt(ext['pallet_count']) : 0);
@@ -2011,10 +2027,23 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   child: TextFormField(
                                     controller: _rateCtrl,
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Exchange Rate (سعر الصرف)',
-                                      helperText: '⚡ يستدعى آلياً حسب تاريخ الفاتورة والعملة',
+                                    decoration: InputDecoration(
+                                      labelText: '${l.poFXRate} *',
+                                      helperText: _rateHelperText ?? l.poExchangeRateHelper,
+                                      helperStyle: _rateHelperText != null
+                                          ? const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.w600)
+                                          : null,
                                     ),
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) {
+                                        return l.poExchangeRateRequired;
+                                      }
+                                      final val = double.tryParse(v.trim());
+                                      if (val == null || val <= 0) {
+                                        return l.poExchangeRateRequired;
+                                      }
+                                      return null;
+                                    },
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -2136,7 +2165,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                               key: ValueKey('po_item_desc_${PoRowList.keyOf(item)}'),
                                               initialValue: item.descriptionAr,
                                               decoration: const InputDecoration(labelText: 'Arabic Description *', isDense: true),
-                                              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                                              validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
                                               onChanged: (v) => _dialogItems[idx] = _dialogItems[idx].copyWith(descriptionAr: v),
                                             ),
                                           ),
@@ -3383,7 +3412,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     if (!mounted) return;
     setState(() => _isSubmitting = true);
-    final rate = double.tryParse(_rateCtrl.text.trim()) ?? 1.0;
+    final rate = double.parse(_rateCtrl.text.trim());
 
     // Build final notes with justification if provided
     String? effectiveNotes = _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim();
@@ -3795,7 +3824,17 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final proj = projects.where((p) => p.projectId == _selectedProjectId).firstOrNull;
     final impF = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
 
-    final rate = double.tryParse(_rateCtrl.text.trim()) ?? 1.0;
+    final rate = double.tryParse(_rateCtrl.text.trim());
+    if (rate == null || rate <= 0) {
+      _formKey.currentState?.validate();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.poExchangeRateRequired),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
+      return;
+    }
 
     POReportPreviewDialog.show(
       context: context,
