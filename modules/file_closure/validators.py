@@ -35,6 +35,7 @@ BLOCKING_MESSAGES_AR = {
     "warehouse_quarantine": "إذن الاستلام المخزني ما زال تحت قفل التحفظ / الحجر (Quarantine Lock) ولا يمكن إغلاق الملف قبل فكه.",
     "landed_cost_settled": "لم يتم احتساب واعتماد تسوية التكلفة الاستيرادية الشاملة (Actual Landed Cost Settled).",
     "dossier_exported": "لم يتم تصدير واعتماد الملف الشامل للرسالة (Comprehensive Shipment Dossier Export - CLO-03).",
+    "already_closed": "ملف الشحنة مغلق رسمياً بالفعل ولا يمكن إعادة إغلاقه.",
 }
 WARNING_CONTAINERS_AR = "يوجد حاويات لم يتم تسجيل إيصال تسليمها الفارغ (EIR Return) — يرجى التأكد لتجنب غرامات التأخير."
 WARNING_DOCS_AR = "مستندات الشحن الأصلية غير مكتملة أو لم يتم التحقق منها بالكامل."
@@ -188,6 +189,21 @@ def closure_blocked_error(gate: ClosureGate) -> HTTPException:
         "FC_CLOSURE_BLOCKED",
         "لا يمكن إغلاق الملف نهائياً — المتطلبات التالية غير مستوفاة:\n" + "\n".join(f"• {r}" for r in gate.blocking_reasons),
         blocking=list(gate.blocking_keys),
+    )
+
+
+def export_blocking_keys(gate: ClosureGate) -> List[str]:
+    return [k for k in gate.blocking_keys if k != "dossier_exported"]
+
+
+def export_blocked_error(gate: ClosureGate) -> HTTPException:
+    keys = export_blocking_keys(gate)
+    reasons = [BLOCKING_MESSAGES_AR[k] for k in keys if k in BLOCKING_MESSAGES_AR]
+    return coded_error(
+        400,
+        "FC_EXPORT_BLOCKED",
+        "لا يمكن تصدير واعتماد الملف الشامل — المتطلبات التالية غير مستوفاة:\n" + "\n".join(f"• {r}" for r in reasons),
+        blocking=keys,
     )
 
 

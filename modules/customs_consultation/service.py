@@ -280,7 +280,7 @@ def _checklist_counts(items: List[CustomsChecklistItem]) -> _ChecklistCounts:
     )
 
 
-def _recompute_metrics(db_session: CustomsConsultationSession) -> None:
+def _recompute_metrics(db_session: CustomsConsultationSession, fx: Optional[Any] = None) -> None:
     """Derive readiness %, blocking flag, overall status and broker fee total from the child rows.
     Called on writes only (create / update / clone): reads never mutate the entity."""
     c = _checklist_counts(db_session.checklist_items or [])
@@ -300,9 +300,25 @@ def _recompute_metrics(db_session: CustomsConsultationSession) -> None:
     db_session.readiness_percentage = readiness_pct
     db_session.has_blocking_issues = has_blocking
     db_session.overall_status = overall_status
-    db_session.total_broker_fees_egp = sum(
-        q.total_amount for q in (db_session.broker_quote_items or []) if q.is_applicable
-    )
+
+    from modules.financial_settlement.service import SettlementFx, cairo_date, cairo_today
+    if fx is None:
+        from sqlalchemy.orm import object_session
+        s = object_session(db_session)
+        if s is not None:
+            fx = SettlementFx(s, "commercial")
+
+    on_date = cairo_date(db_session.created_at) if db_session.created_at else cairo_today()
+    items = db_session.broker_quote_items or []
+    if fx is not None:
+        total_egp = sum(
+            (q.total_amount or 0.0) * fx.rate(q.currency, on_date)
+            for q in items
+            if q.is_applicable
+        )
+    else:
+        total_egp = sum((q.total_amount or 0.0) for q in items if q.is_applicable)
+    db_session.total_broker_fees_egp = round(total_egp, 2)
 
 
 def _to_response(
@@ -366,16 +382,22 @@ class CustomsConsultationService:
     def create_consultation(
         db: Session, session_in: CustomsConsultationCreate, modified_by: str = "System"
     ) -> CustomsConsultationResponse:
-        validate_broker_exists(db, session_in.broker_id)
+        if session_in.broker_id is not None:
+            validate_broker_exists(db, session_in.broker_id)
         validate_checklist_items(session_in.checklist_items)
 
         if session_in.import_file_id:
             _check_one_per_file(db, session_in.import_file_id)
 
-        db_session = CustomsConsultationRepository.create(db, session_in)
-        db_session.created_by = db_session.updated_by = modified_by
-        _recompute_metrics(db_session)
-        response = CustomsConsultationService._commit_and_respond(db, db_session)
+        try:
+            db_session = CustomsConsultationRepository.create(db, session_in)
+            db_session.created_by = db_session.updated_by = modified_by
+            from modules.financial_settlement.service import SettlementFx
+            _recompute_metrics(db_session, fx=SettlementFx(db, "commercial"))
+            response = CustomsConsultationService._commit_and_respond(db, db_session)
+        except Exception:
+            db.rollback()
+            raise
         _sync_file_side_effects(db, db_session.import_file_id, modified_by)
         return response
 
@@ -424,10 +446,15 @@ class CustomsConsultationService:
         if update_in.import_file_id and update_in.import_file_id != db_session.import_file_id and db_session.is_active:
             _check_one_per_file(db, update_in.import_file_id, consultation_id)
 
-        updated_session = CustomsConsultationRepository.update(db, db_session, update_in)
-        updated_session.updated_by = modified_by
-        _recompute_metrics(updated_session)
-        response = CustomsConsultationService._commit_and_respond(db, updated_session)
+        try:
+            updated_session = CustomsConsultationRepository.update(db, db_session, update_in)
+            updated_session.updated_by = modified_by
+            from modules.financial_settlement.service import SettlementFx
+            _recompute_metrics(updated_session, fx=SettlementFx(db, "commercial"))
+            response = CustomsConsultationService._commit_and_respond(db, updated_session)
+        except Exception:
+            db.rollback()
+            raise
         _sync_file_side_effects(db, updated_session.import_file_id, modified_by)
         return response
 
@@ -535,7 +562,8 @@ class CustomsConsultationService:
 
         db.flush()
         db.expire(new_sess, ["checklist_items", "broker_quote_items"])
-        _recompute_metrics(new_sess)
+        from modules.financial_settlement.service import SettlementFx
+        _recompute_metrics(new_sess, fx=SettlementFx(db, "commercial"))
         return CustomsConsultationService._commit_and_respond(db, new_sess)
 
     @staticmethod

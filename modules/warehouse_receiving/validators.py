@@ -1,4 +1,5 @@
-from typing import Any, Iterable, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Iterable, Optional, Tuple
 
 from fastapi import HTTPException
 
@@ -137,11 +138,25 @@ def validate_verdict_matches(verdict: Optional[str], expected: frozenset, derive
     if verdict is not None and verdict not in expected:
         raise coded_error(
             400,
-            "WR_VERDICT_INCONSISTENT",
+            "WR_VERDICT_INCONSISTENT_EXPECTED",
             f"قرار الفحص {verdict} لا يتفق مع نتيجة الفحص (المتوقع: {derived}).",
             verdict=verdict,
             expected_verdict=derived,
         )
+
+
+def validate_inspection_date(inspection_date: Optional[datetime]) -> None:
+    """Inspection date cannot be > now + 24 hours (BE810-T19 / F36)."""
+    if inspection_date is not None:
+        target = inspection_date if inspection_date.tzinfo else inspection_date.replace(tzinfo=timezone.utc)
+        limit = datetime.now(timezone.utc) + timedelta(hours=24)
+        if target > limit:
+            raise coded_error(
+                400,
+                "WR_DATE_IN_FUTURE",
+                "تاريخ الفحص لا يمكن أن يكون في المستقبل (أكثر من 24 ساعة).",
+                field_name="inspection_date",
+            )
 
 
 def validate_status_label(status: Optional[str]) -> None:
@@ -197,6 +212,48 @@ def validate_discrepancy_type(discrepancy_type: Optional[str]) -> None:
             f"نوع الفرق '{discrepancy_type}' غير معروف.",
             discrepancy_type=discrepancy_type,
         )
+
+def validate_claim_amount_and_currency(
+    db: Any,
+    amount: Optional[float],
+    currency: Optional[str],
+) -> Tuple[Optional[float], Optional[str]]:
+    """Validate claim amount and currency for inspection and receiving updates (plan WR-F11 / BE810-T12).
+
+    - If amount is None or == 0: returns (None, None).
+    - If amount > 0: currency is required and must match an active currency in the currencies master.
+      Raises 400 WR_CLAIM_CURRENCY_INVALID if currency is missing, unknown, or inactive.
+      Returns (amount, normalized_currency_code).
+    """
+    if amount is None or amount == 0:
+        return None, None
+
+    norm = enum_codes.normalize_currency(currency)
+    clean_currency = str(norm or "").strip().upper()
+    if not clean_currency:
+        raise coded_error(
+            400,
+            "WR_CLAIM_CURRENCY_INVALID",
+            "يلزم تحديد عملة المطالبة عند تسجيل قيمة تقديرية للمطالبة.",
+            currency_code="",
+        )
+
+    from modules.currencies.model import Currency
+    row = (
+        db.query(Currency)
+        .filter(Currency.currency_code == clean_currency, Currency.is_active.is_(True))
+        .first()
+    )
+    if not row:
+        raise coded_error(
+            400,
+            "WR_CLAIM_CURRENCY_INVALID",
+            f"عملة المطالبة '{clean_currency}' غير معروفة أو غير نشطة.",
+            currency_code=clean_currency,
+        )
+
+    return float(amount), clean_currency
+
 
 def validate_customs_release(imp: Any, clearance: Any) -> None:
     """GRN create precondition (plan WR-F08 / BE810-T11).

@@ -181,10 +181,43 @@ def test_customs_recalculation_api_endpoint(db_session):
         finally:
             pass
 
+    from modules.auth.security import create_access_token, hash_password
+    from modules.users.model import User
+
+    user = User(
+        username="admin_recalc_test",
+        email="admin_recalc@test.com",
+        full_name="Admin Test",
+        hashed_password=hash_password("Admin@123"),
+        role="ADMIN",
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    token = create_access_token({"sub": str(user.user_id), "role": user.role})
+    headers = {"Authorization": f"Bearer {token}"}
+
     app.dependency_overrides[get_db] = override_get_db
     client = TestClient(app)
 
     imp_file = db_session.query(ImportFile).first()
+    from modules.users.model import User
+    from modules.auth.security import create_access_token
+    user = User(
+        username="test_cc_admin",
+        full_name="CC Admin",
+        email="cc@admin.com",
+        role="ADMIN",
+        is_active=True,
+        hashed_password="hashed",
+    )
+    db_session.add(user)
+    db_session.commit()
+    token = create_access_token({"sub": str(user.user_id), "role": user.role})
+    headers = {"Authorization": f"Bearer {token}"}
+
     payload = {
         "import_file_id": imp_file.import_file_id,
         "exchange_rate": 52.0,
@@ -192,7 +225,7 @@ def test_customs_recalculation_api_endpoint(db_session):
         "insurance_egp": 1200.0,
     }
 
-    response = client.post("/api/v1/customs-consultations/recalculate-from-reconciliation", json=payload)
+    response = client.post("/api/v1/customs-consultations/recalculate-from-reconciliation", json=payload, headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert data["import_file_id"] == imp_file.import_file_id

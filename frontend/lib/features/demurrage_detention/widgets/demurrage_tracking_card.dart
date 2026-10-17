@@ -309,14 +309,17 @@ class DemurrageTrackingCard extends StatelessWidget {
         )),
         if (!item.isPushedToSettlement)
           CcUi.fit(AppButton(
+            key: Key('pushToSettlementBtn_${item.trackingId}'),
             label: l.pushToFinancialSettlementBtn,
             icon: Icons.receipt_long_rounded,
             variant: AppButtonVariant.success,
             size: AppButtonSize.small,
-            onPressed: onPushToSettlement,
+            tooltip: item.importFileId == null ? l.demPushNeedsLinkedFile : null,
+            onPressed: item.importFileId == null ? null : onPushToSettlement,
           ))
         else
           CcUi.fit(AppButton(
+            key: Key('alreadyPushedToSettlementBtn_${item.trackingId}'),
             label: l.alreadyPushedToSettlementBtn,
             icon: Icons.check_circle_outline,
             variant: AppButtonVariant.success,

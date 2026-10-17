@@ -17,3 +17,7 @@ input VAT, WHT is a payment split not a cost reduction). Example: amount 4,200 +
 
 **Why:** keeps later settlement reviews consistent on which invoice amount feeds landed cost.
 **How to apply:** flag any code that feeds `net_payable_egp` or VAT-inclusive amounts into landed cost totals. See [[ruling-phase09-settlement]].
+
+Re-review 2026-10-08 at c9e0eaf4: both MAJORs fixed (card fixture freight 50k + duty 100k + FOB 500k + CL-05 5k ->
+155,000 / 655,000, non-clearance rows asserted). actor now passed to engine; lock list imported from
+financial_settlement.validators. test_cl05 8/8 green at head. Verdict approve.
