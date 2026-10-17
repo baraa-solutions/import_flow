@@ -70,8 +70,7 @@ def get_assessment_by_import_file(db: Session, import_file_id: int) -> Optional[
 def create_assessment(db: Session, obj_data: dict) -> ImportRequirementAssessment:
     obj = ImportRequirementAssessment(**obj_data)
     db.add(obj)
-    db.commit()
-    db.refresh(obj)
+    db.flush()
     return obj
 
 
@@ -80,8 +79,7 @@ def update_assessment(db: Session, obj: ImportRequirementAssessment, update_data
         if hasattr(obj, key):
             setattr(obj, key, value)
     obj.is_active = True  # an update reactivates a soft-deleted assessment
-    db.commit()
-    db.refresh(obj)
+    db.flush()
     return obj
 
 
@@ -89,8 +87,7 @@ def restore_assessment(db: Session, obj: ImportRequirementAssessment, user: str)
     obj.is_active = True
     obj.updated_at = datetime.now(timezone.utc)
     obj.updated_by = user
-    db.commit()
-    db.refresh(obj)
+    db.flush()
     return obj
 
 
@@ -98,7 +95,7 @@ def soft_delete_assessment(db: Session, obj: ImportRequirementAssessment, user: 
     obj.is_active = False
     obj.updated_at = datetime.now(timezone.utc)
     obj.updated_by = user
-    db.commit()
+    db.flush()
 
 
 # ── Prefill reads ────────────────────────────────────────────────────────────────

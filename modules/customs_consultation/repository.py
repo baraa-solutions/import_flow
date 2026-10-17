@@ -48,8 +48,7 @@ class ClearanceExpenseTypeRepository:
             is_active=schema.is_active,
         )
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        db.flush()
         return db_obj
 
     @staticmethod
@@ -87,16 +86,14 @@ class ClearanceExpenseTypeRepository:
         for k, v in update_data.items():
             setattr(db_obj, k, v)
         db_obj.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(db_obj)
+        db.flush()
         return db_obj
 
     @staticmethod
     def delete(db: Session, db_obj: ClearanceExpenseType) -> ClearanceExpenseType:
         db_obj.is_active = False
         db_obj.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(db_obj)
+        db.flush()
         return db_obj
 
 
@@ -148,8 +145,7 @@ class BrokerPriceListRepository:
             )
             db.add(db_itm)
 
-        db.commit()
-        db.refresh(db_pl)
+        db.flush()
         return db_pl
 
     @staticmethod
@@ -225,16 +221,14 @@ class BrokerPriceListRepository:
                 db.add(db_itm)
 
         db_pl.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(db_pl)
+        db.flush()
         return db_pl
 
     @staticmethod
     def soft_delete(db: Session, db_pl: BrokerPriceList) -> BrokerPriceList:
         db_pl.is_active = False
         db_pl.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(db_pl)
+        db.flush()
         return db_pl
 
 
