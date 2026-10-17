@@ -42,8 +42,7 @@ class _MockWarehouseReceivingNotifier extends WarehouseReceivingNotifier {
     bool includeInactive = false,
     int? importFileId,
     String? status,
-    String? search,
-  }) async {
+    String? search, int skip = 0, int limit = 200}) async {
     state = AsyncValue.data(mockRecords);
   }
 }

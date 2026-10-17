@@ -233,7 +233,7 @@ class _MockCargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShip
   _MockCargoShippingNotifier(List<CargoShippingModel> initial) : super(AsyncValue.data(initial));
 
   @override
-  Future<void> fetchRecords({bool includeInactive = true, int? importFileId, String? status, String? search}) async {
+  Future<void> fetchRecords({bool includeInactive = true, int? importFileId, String? status, String? search, int skip = 0, int limit = 200}) async {
     state = const AsyncValue.data([]);
   }
 
@@ -245,7 +245,7 @@ class _MockFreightBookingNotifier extends StateNotifier<AsyncValue<List<Shipment
   _MockFreightBookingNotifier(List<ShipmentBookingModel> initial) : super(AsyncValue.data(initial));
 
   @override
-  Future<void> fetchBookings({bool includeInactive = false, int? importFileId, String? status, String? search}) async {
+  Future<void> fetchBookings({bool includeInactive = false, int? importFileId, String? status, String? search, int skip = 0, int limit = 200}) async {
     state = const AsyncValue.data([]);
   }
 
