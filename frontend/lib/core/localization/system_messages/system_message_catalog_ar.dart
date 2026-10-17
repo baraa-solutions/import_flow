@@ -1517,6 +1517,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'IMPORT_FILE_CLOSED': {
     'note': 'ملف الشحنة {import_file_code} مغلق نهائياً ولا يمكن تعديل بياناته. يلزم إعادة فتحه أولاً.',
   },
+  'IF_STATUS_TRANSITION_INVALID': {
+    'note': 'لا يمكن تغيير حالة ملف الشحنة من \'{from}\' إلى \'{to}\'.',
+  },
   'FC_CLOSURE_BLOCKED': {
     'note': 'لا يمكن إغلاق الملف: الشروط التالية غير مستوفاة: {blocking}.',
   },

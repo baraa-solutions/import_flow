@@ -265,8 +265,6 @@ def get_freight_rfq_data(
     if import_file_id.isdigit():
         fid = int(import_file_id)
         item = service.get_import_file_by_id_service(db, fid)
-        if not item:
-            item = service.get_import_file_by_code_service(db, import_file_id)
     else:
         item = service.get_import_file_by_code_service(db, import_file_id)
 
@@ -290,8 +288,6 @@ def get_import_file(
 ):
     if import_file_id.isdigit():
         item = service.get_import_file_by_id_service(db, int(import_file_id))
-        if not item:
-            item = service.get_import_file_by_code_service(db, import_file_id)
     else:
         item = service.get_import_file_by_code_service(db, import_file_id)
 
@@ -314,7 +310,7 @@ def update_import_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.edit")),
 ):
-    return service.update_import_file_service(db, import_file_id, payload)
+    return service.update_import_file_service(db, import_file_id, payload, actor=current_user)
 
 
 @router.delete(
@@ -346,7 +342,7 @@ def close_shipment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.close")),
 ):
-    return service.close_shipment_service(db, import_file_id, payload)
+    return service.close_shipment_service(db, import_file_id, payload, actor=current_user)
 
 
 @router.post(
@@ -360,7 +356,7 @@ def reopen_shipment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.close")),
 ):
-    return service.reopen_shipment_service(db, import_file_id, payload)
+    return service.reopen_shipment_service(db, import_file_id, payload, actor=current_user)
 
 
 @router.post(

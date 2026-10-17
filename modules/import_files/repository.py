@@ -263,17 +263,19 @@ def codes_by_ids(db: Session, ids: Iterable[Optional[int]]) -> Dict[int, str]:
     return {fid: (code or custom) for fid, code, custom in rows if (code or custom)}
 
 
-def get_import_file_by_code(db: Session, code_or_custom_num: str) -> Optional[ImportFile]:
+def get_import_file_by_code(
+    db: Session, code_or_custom_num: str, include_inactive: bool = False
+) -> Optional[ImportFile]:
     term = (code_or_custom_num or "").strip()
-    return db.query(ImportFile).filter(
+    query = db.query(ImportFile).filter(
         or_(
             ImportFile.import_file_code == term,
             ImportFile.custom_file_number == term,
-            ImportFile.custom_file_number.ilike(f"{term}%"),
-            ImportFile.custom_file_number.ilike(f"%{term}%"),
-        ),
-        ImportFile.is_active == True
-    ).first()
+        )
+    )
+    if not include_inactive:
+        query = query.filter(ImportFile.is_active == True)
+    return query.first()
 
 
 def create_import_file(db: Session, obj_data: dict) -> ImportFile:

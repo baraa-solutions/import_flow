@@ -4,10 +4,9 @@ Pydantic Schemas for Import Files Master & Tracking Module
 
 from typing import List, Optional, Any, Dict
 from datetime import date, datetime
-from pydantic import BaseModel, Field
-
-
 from pydantic import BaseModel, Field, ConfigDict
+
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
 class InvoiceItemSchema(BaseModel):
     invoice_no: str = Field(..., description="Invoice Number e.g. PI-889")
@@ -280,7 +279,6 @@ class ImportFileUpdate(BaseModel):
     hold_reason: Optional[str] = None
     hold_date: Optional[datetime] = None
     skipped_stages: Optional[List[str]] = None
-    status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None
 
@@ -312,7 +310,8 @@ class FreightRfqDataResponse(BaseModel):
     whatsapp_text_template: str
 
 
-class ImportFileResponse(ImportFileBase):
+@read_model
+class ImportFileResponse(ImportFileBase, LegacyRowTolerantModel):
     model_config = ConfigDict(from_attributes=True)
 
     import_file_id: int
@@ -335,6 +334,17 @@ class ImportFileResponse(ImportFileBase):
     created_by: str
     updated_at: datetime
     updated_by: str
+
+    # Legacy row tolerance: money/rate fields can be None on legacy rows
+    customs_duty_paid_amount: Optional[float] = None
+    total_clearance_expenses_egp: Optional[float] = None
+    inland_transport_cost_egp: Optional[float] = None
+    financial_settlement_total_egp: Optional[float] = None
+    actual_landed_cost_total_egp: Optional[float] = None
+    actual_landed_cost_markup_factor: Optional[float] = None
+    actual_landed_cost_variance_egp: Optional[float] = None
+    actual_landed_cost_variance_pct: Optional[float] = None
+    estimated_cost: Optional[float] = None
 
 
 class CloneImportFileRequest(BaseModel):

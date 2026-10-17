@@ -1517,6 +1517,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'IMPORT_FILE_CLOSED': {
     'note': 'Import file {import_file_code} is permanently closed and cannot be modified. Reopening is required first.',
   },
+  'IF_STATUS_TRANSITION_INVALID': {
+    'note': 'Cannot transition import file status from {from} to {to}.',
+  },
   'FC_CLOSURE_BLOCKED': {
     'note': 'The file cannot be closed: {blocking} not met.',
   },

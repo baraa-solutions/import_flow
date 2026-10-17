@@ -20,6 +20,7 @@ class ApiErrorCode {
   static const currencyRateMissing = 'CURRENCY_RATE_MISSING';
   static const ctCustomsRateMissing = 'CT_CUSTOMS_RATE_MISSING';
   static const importFileClosed = 'IMPORT_FILE_CLOSED';
+  static const ifStatusTransitionInvalid = 'IF_STATUS_TRANSITION_INVALID';
   static const wrFieldNotEditable = 'WR_FIELD_NOT_EDITABLE';
   static const wrStatusChangeNotAllowed = 'WR_STATUS_CHANGE_NOT_ALLOWED';
   static const wrCustomsNotReleased = 'WR_CUSTOMS_NOT_RELEASED';

@@ -2089,6 +2089,15 @@
       "reason"
     ]
   },
+  "IF_STATUS_TRANSITION_INVALID": {
+    "params": [
+      "from",
+      "to"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "IMPORT_FILE_CLOSED": {
     "params": [
       "import_file_code"
