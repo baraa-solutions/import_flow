@@ -94,13 +94,17 @@ class AppDatePickerField extends StatelessWidget {
             // ── Label ────────────────────────────────────────────────────
             Row(
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    letterSpacing: 0,
-                    color: AppTheme.textPrimaryOf(context),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      letterSpacing: 0,
+                      color: AppTheme.textPrimaryOf(context),
+                    ),
                   ),
                 ),
                 if (isRequired)

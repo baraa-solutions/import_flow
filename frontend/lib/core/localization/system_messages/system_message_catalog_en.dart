@@ -931,6 +931,30 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
     'title': 'Inland transport trucks booked (TR-01)',
     'body': 'Truck {truck_plate_number} booked to move {import_file_code} from {pickup_location} to {destination_warehouse}. Driver: {driver_name} ({driver_phone}).',
   },
+  'DOC_TASK_TAX_CODING_PULL': {
+    'title': 'Pull the tax coding sheet from Nafeza: {import_file_code}',
+    'body': 'The customs broker must pull the tax coding sheet from the Nafeza platform so it can be passed to the accountant for shipment {import_file_code}.',
+  },
+  'DOC_TASK_TAX_CODING_UPLOAD': {
+    'title': 'Code and upload the items tax sheet on Nafeza: {import_file_code}',
+    'body': 'The customs broker pulled the tax coding sheet. The accountant must complete the coding and upload it on the company\'s Nafeza account for file {import_file_code}.',
+  },
+  'DOC_TASK_ITEMS_VERIFY_BANK_LINK': {
+    'title': 'Pull the items to verify the coding and link to bank: {bank_name} - {import_file_code}',
+    'body': 'The items tax sheet was coded and uploaded. The customs broker must pull the items to confirm the coding is complete, then link the shipment on Nafeza to {bank_name} for shipment {import_file_code}.',
+  },
+  'DOC_TASK_ITEMS_VERIFY_SWIFT_BANK_LINK': {
+    'title': 'Pull the items to verify the coding and link to the SWIFT executing bank: {import_file_code}',
+    'body': 'The items tax sheet was coded and uploaded. The customs broker must pull the items to confirm the coding is complete, then link the shipment on Nafeza to the SWIFT executing bank for shipment {import_file_code}.',
+  },
+  'DOC_TASK_FORM4_SUBMIT': {
+    'title': 'Submit the Form 4 file to the bank branch: {bank_name} - {import_file_code}',
+    'body': 'Tax coding and the Nafeza link to {bank_name} are complete. Ready to submit the Form 4 application to the bank and follow up its approval for shipment {import_file_code}.',
+  },
+  'DOC_REGULATORY_BODIES_DETECTED': {
+    'title': 'Regulatory inspections detected for shipment {import_file_code}',
+    'body': 'The Nafeza items pull shows regulatory inspection bodies: {regulatory_bodies}. Prepare the inspection file and draw samples early.',
+  },
   'TR_TASK_TRACK_ARRIVAL_GRN': {
     'title': 'Follow up the truck arrival at the warehouse and issue the GRN (TR-03)',
   },
@@ -1313,6 +1337,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'DOC_INVOICE_BL_SYNCED': {
     'note': 'Invoice {invoice_number} and B/L {draft_bl_number} matched, approved and synced to the import file and customs approvals.',
+  },
+  'DOC_INVOICE_BL_NOT_CERTIFIED': {
+    'note': 'No active certified invoice vs B/L match session exists for import file {import_file_id}. Certify the session first.',
   },
   'ODC_COURIER_NOT_FOUND': {
     'note': 'Courier {courier_no} is not registered on this file\'s original documents session. Add it to the session first.',

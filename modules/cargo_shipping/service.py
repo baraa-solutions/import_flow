@@ -249,7 +249,7 @@ def update_container_loading_tracking_service(
                 record.level1_approval_status = "Pending"
                 record.level2_approval_status = "Pending"
                 record.dual_approval_status = "Pending"
-                reset_note = "تمت إعادة تعيين الاعتماد لتعديل رقم السيل (Seal No)."
+                reset_note = "Approval reset: the seal number (Seal No) was changed."
                 record.level1_notes = f"{record.level1_notes}\n{reset_note}" if record.level1_notes else reset_note
 
             updated_item = dict(c)
@@ -548,7 +548,7 @@ def update_cargo_shipping_service(
             record.level1_approval_status = "Pending"
             record.level2_approval_status = "Pending"
             record.dual_approval_status = "Pending"
-            reset_note = "تمت إعادة تعيين الاعتماد لتعديل بيانات الحاويات أو السيل."
+            reset_note = "Approval reset: the container or seal data was changed."
             record.level1_notes = f"{record.level1_notes}\n{reset_note}" if record.level1_notes else reset_note
 
     processed_containers = None
