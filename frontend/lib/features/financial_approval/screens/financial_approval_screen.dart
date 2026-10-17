@@ -95,17 +95,17 @@ class _FinancialApprovalScreenState
   final _budgetFormKey = GlobalKey<FormState>();
   final TextEditingController _bgtTitleController = TextEditingController();
   final TextEditingController _invoiceEgpController =
-      TextEditingController(text: '0.0');
+      TextEditingController();
   final TextEditingController _invoiceForeignController =
-      TextEditingController(text: '0.0');
+      TextEditingController();
   final TextEditingController _freightEgpController =
-      TextEditingController(text: '0.0');
+      TextEditingController();
   final TextEditingController _freightForeignController =
-      TextEditingController(text: '0.0');
+      TextEditingController();
   final TextEditingController _customsEgpController =
-      TextEditingController(text: '0.0');
+      TextEditingController();
   final TextEditingController _clearanceEgpController =
-      TextEditingController(text: '0.0');
+      TextEditingController();
   final TextEditingController _bgtExchangeRateController =
       TextEditingController();
   final TextEditingController _bgtNotesController = TextEditingController();
@@ -493,8 +493,6 @@ class _FinancialApprovalScreenState
         showDialog(
           context: context,
           builder: (ctx) {
-            final isAr = Directionality.maybeOf(ctx) == TextDirection.rtl ||
-                Localizations.maybeLocaleOf(ctx)?.languageCode == 'ar';
             return AlertDialog(
               title: Row(
                 children: [
@@ -955,7 +953,6 @@ class _FinancialApprovalScreenState
     final double totalDiff =
         diffInvoice + diffFreight + diffDuties + diffClearance;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),

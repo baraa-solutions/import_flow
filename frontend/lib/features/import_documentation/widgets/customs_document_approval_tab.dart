@@ -579,6 +579,8 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final approvalsState = ref.watch(docsCustomsApprovalProvider);
     final ticketsState = ref.watch(discrepancyTicketsProvider);
+    final tickets = ticketsState.valueOrNull ?? const [];
+    final canExport = tickets.isNotEmpty;
 
     return CallbackShortcuts(
       bindings: {
@@ -967,25 +969,19 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                                         IconButton(
                                           key: const Key('copyTicketsBtn'),
                                           icon: const Icon(Icons.copy_outlined, size: 18),
-                                          onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
-                                              ? null
-                                              : () => _copyTicketsAsTsv(ticketsState.valueOrNull!),
+                                          onPressed: canExport ? () => _copyTicketsAsTsv(tickets) : null,
                                           tooltip: context.l10n.idocACopyTicketsAsTSV,
                                         ),
                                         IconButton(
                                           key: const Key('exportTicketsExcelBtn'),
                                           icon: const Icon(Icons.table_chart_outlined, size: 18),
-                                          onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
-                                              ? null
-                                              : () => _exportTicketsToExcel(ticketsState.valueOrNull!),
+                                          onPressed: canExport ? () => _exportTicketsToExcel(tickets) : null,
                                           tooltip: context.l10n.exportExcel,
                                         ),
                                         IconButton(
                                           key: const Key('exportTicketsPdfBtn'),
                                           icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                                          onPressed: ticketsState.valueOrNull == null || ticketsState.valueOrNull!.isEmpty
-                                              ? null
-                                              : () => _exportTicketsToPdf(ticketsState.valueOrNull!),
+                                          onPressed: canExport ? () => _exportTicketsToPdf(tickets) : null,
                                           tooltip: context.l10n.exportPdf,
                                         ),
                                         IdocUi.fit(AppButton(

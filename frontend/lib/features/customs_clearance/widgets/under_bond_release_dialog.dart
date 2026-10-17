@@ -6,7 +6,6 @@ import '../../../core/localization/stored_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../providers/customs_clearance_provider.dart';
 
 /// Lab verdict codes accepted by `POST /customs-clearance/{id}/lab-test-result`.
@@ -78,14 +77,17 @@ class UnderBondReleaseDialog extends ConsumerStatefulWidget {
 class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog> {
   late bool _modeRecordLab;
 
+  final _formKeyRelease = GlobalKey<FormState>();
+  final _formKeyLab = GlobalKey<FormState>();
+
   // Release Controllers
-  final _bondRefController = TextEditingController(text: 'BOND-EG-2026-');
+  final _bondRefController = TextEditingController();
   final _quarantineLocController = TextEditingController();
   DateTime _releaseDate = DateTime.now();
 
   // Lab Controllers
-  final _labCertController = TextEditingController(text: 'LAB-GOEIC-2026-');
-  String _labVerdict = kLabConforming;
+  final _labCertController = TextEditingController();
+  String? _labVerdict;
   DateTime _testDate = DateTime.now();
   final _remarksController = TextEditingController();
 
@@ -118,18 +120,17 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
     super.dispose();
   }
 
-  void _snack(String text, Color color) {
+  void _snack(String text, AppSeverity severity) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(backgroundColor: color, content: Text(text)),
+      AppTheme.snackBar(context, text, severity: severity),
     );
   }
 
   Future<void> _submitUnderBondRelease() async {
     final l = context.l10n;
     if (_isSubmitting) return;
-    if (_bondRefController.text.trim().isEmpty || _quarantineLocController.text.trim().isEmpty) {
-      _snack(l.underBondRequiredFieldsError, AppTheme.crimson);
+    if (!(_formKeyRelease.currentState?.validate() ?? false)) {
       return;
     }
 
@@ -144,12 +145,14 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
             ),
           );
       if (mounted) {
-        _snack(l.underBondReleaseSuccess, AppTheme.orange);
+        _snack(l.underBondReleaseSuccess, AppSeverity.warning);
         widget.onDone?.call();
         Navigator.of(context).pop();
       }
     } catch (e) {
-      _snack(l.underBondActionError(ApiErrorText.of(l, e)), AppTheme.crimson);
+      if (mounted) {
+        _snack(l.underBondActionError(ApiErrorText.of(l, e)), AppSeverity.danger);
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -158,9 +161,36 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
   Future<void> _submitLabResult() async {
     final l = context.l10n;
     if (_isSubmitting) return;
-    if (_labCertController.text.trim().isEmpty) {
-      _snack(l.underBondLabCertRequiredError, AppTheme.crimson);
+    if (!(_formKeyLab.currentState?.validate() ?? false)) {
       return;
+    }
+    final verdict = _labVerdict;
+    if (verdict == null) return;
+
+    if (verdict == kLabConforming) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.underBondConfirmLiftTitle),
+          content: Text(l.underBondConfirmLiftBody),
+          actions: [
+            TextButton(
+              key: const Key('underBondConfirmLiftCancelBtn'),
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(l.underBondConfirmLiftCancel),
+            ),
+            AppButton(
+              key: const Key('underBondConfirmLiftConfirmBtn'),
+              label: l.underBondConfirmLiftConfirm,
+              variant: AppButtonVariant.primary,
+              onPressed: () => Navigator.of(ctx).pop(true),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) {
+        return;
+      }
     }
 
     setState(() => _isSubmitting = true);
@@ -168,23 +198,25 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
       await ref.read(customsClearanceProvider.notifier).recordLabTestResult(
             widget.clearanceId,
             buildLabResultPayload(
-              verdict: _labVerdict,
+              verdict: verdict,
               certificateNumber: _labCertController.text,
               completionDate: _testDate,
               remarks: _remarksController.text,
             ),
           );
       if (mounted) {
-        final passed = _labVerdict == kLabConforming;
+        final passed = verdict == kLabConforming;
         _snack(
           passed ? l.underBondLabApprovedSuccess : l.underBondLabRejectedAlert,
-          passed ? AppTheme.emerald : AppTheme.crimson,
+          passed ? AppSeverity.success : AppSeverity.danger,
         );
         widget.onDone?.call();
         Navigator.of(context).pop();
       }
     } catch (e) {
-      _snack(l.underBondLabResultError(ApiErrorText.of(l, e)), AppTheme.crimson);
+      if (mounted) {
+        _snack(l.underBondLabResultError(ApiErrorText.of(l, e)), AppSeverity.danger);
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -307,100 +339,200 @@ class _UnderBondReleaseDialogState extends ConsumerState<UnderBondReleaseDialog>
                 const SizedBox(height: 20),
 
                 // Mode 1: Under-Bond Release Form
-                if (!_modeRecordLab) ...[
-                  _banner(Icons.info_outline, AppTheme.orange, l.underBondInfoBanner),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    key: const Key('underBondRefField'),
-                    controller: _bondRefController,
-                    decoration: InputDecoration(
-                      labelText: l.underBondGuaranteeRefLabel,
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.copy, size: 18),
-                        tooltip: l.customsClearanceCopyFieldTooltip,
-                        onPressed: () => CopyHelper.copy(context, _bondRefController.text),
-                      ),
+                if (!_modeRecordLab)
+                  Form(
+                    key: _formKeyRelease,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _banner(Icons.info_outline, AppTheme.orange, l.underBondInfoBanner),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          key: const Key('underBondRefField'),
+                          controller: _bondRefController,
+                          decoration: InputDecoration(
+                            labelText: l.underBondGuaranteeRefLabel,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy, size: 18),
+                              tooltip: l.customsClearanceCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, _bondRefController.text),
+                            ),
+                          ),
+                          validator: (val) {
+                            final text = val?.trim() ?? '';
+                            if (text.isEmpty) {
+                              return l.underBondRefRequired;
+                            }
+                            if (text.length < 3) {
+                              return l.underBondRefMinLength;
+                            }
+                            if (text == 'BOND-EG-2026-' || text == 'BOND-EG-' || text == 'BOND-') {
+                              return l.underBondRefInvalid;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        _dateField(l.ccBondReleaseDateLabel, _releaseDate, (d) => _releaseDate = d,
+                            key: const Key('underBondReleaseDateField')),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          key: const Key('underBondLocationField'),
+                          controller: _quarantineLocController,
+                          decoration: InputDecoration(
+                            labelText: l.underBondQuarantineLocLabel,
+                            border: const OutlineInputBorder(),
+                          ),
+                          validator: (val) {
+                            final text = val?.trim() ?? '';
+                            if (text.isEmpty) {
+                              return l.underBondLocationRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        AppButton(
+                          key: const Key('underBondConfirmBtn'),
+                          label: l.underBondConfirmReleaseBtn,
+                          icon: Icons.check_circle_outline,
+                          variant: AppButtonVariant.warning,
+                          isLoading: _isSubmitting,
+                          onPressed: _isSubmitting ? null : _submitUnderBondRelease,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  _dateField(l.ccBondReleaseDateLabel, _releaseDate, (d) => _releaseDate = d,
-                      key: const Key('underBondReleaseDateField')),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    key: const Key('underBondLocationField'),
-                    controller: _quarantineLocController,
-                    decoration: InputDecoration(
-                      labelText: l.underBondQuarantineLocLabel,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  AppButton(
-                    key: const Key('underBondConfirmBtn'),
-                    label: l.underBondConfirmReleaseBtn,
-                    icon: Icons.check_circle_outline,
-                    variant: AppButtonVariant.warning,
-                    isLoading: _isSubmitting,
-                    onPressed: _isSubmitting ? null : _submitUnderBondRelease,
-                  ),
-                ],
 
                 // Mode 2: Lab Results & Lifting Form
-                if (_modeRecordLab) ...[
-                  _banner(Icons.science_outlined, AppTheme.cobalt, l.underBondLabInfoBanner),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    key: const Key('underBondLabCertField'),
-                    controller: _labCertController,
-                    decoration: InputDecoration(
-                      labelText: l.underBondLabCertLabel,
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.copy, size: 18),
-                        tooltip: l.customsClearanceCopyFieldTooltip,
-                        onPressed: () => CopyHelper.copy(context, _labCertController.text),
-                      ),
+                if (_modeRecordLab)
+                  Form(
+                    key: _formKeyLab,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _banner(Icons.science_outlined, AppTheme.cobalt, l.underBondLabInfoBanner),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          key: const Key('underBondLabCertField'),
+                          controller: _labCertController,
+                          decoration: InputDecoration(
+                            labelText: l.underBondLabCertLabel,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.copy, size: 18),
+                              tooltip: l.customsClearanceCopyFieldTooltip,
+                              onPressed: () => CopyHelper.copy(context, _labCertController.text),
+                            ),
+                          ),
+                          validator: (val) {
+                            final text = val?.trim() ?? '';
+                            if (text.isEmpty) {
+                              return l.underBondCertRequired;
+                            }
+                            if (text.length < 3) {
+                              return l.underBondCertMinLength;
+                            }
+                            if (text == 'LAB-GOEIC-2026-' || text == 'LAB-GOEIC-' || text == 'LAB-') {
+                              return l.underBondCertInvalid;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        FormField<String>(
+                          key: const Key('underBondLabVerdictField'),
+                          initialValue: _labVerdict,
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return l.underBondLabVerdictRequired;
+                            }
+                            return null;
+                          },
+                          builder: (fieldState) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.underBondLabVerdictLabel,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: fieldState.hasError ? AppTheme.crimson : AppTheme.textPrimaryOf(context),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                IgnorePointer(
+                                  ignoring: _isSubmitting,
+                                  child: RadioGroup<String>(
+                                    groupValue: _labVerdict,
+                                    onChanged: (val) {
+                                      if (_isSubmitting) return;
+                                      setState(() => _labVerdict = val);
+                                      fieldState.didChange(val);
+                                    },
+                                    child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      RadioListTile<String>(
+                                        key: const Key('underBondVerdictConformingRadio'),
+                                        title: Text(l.underBondLabVerdictPassed),
+                                        value: kLabConforming,
+                                        contentPadding: EdgeInsets.zero,
+                                        dense: true,
+                                      ),
+                                      RadioListTile<String>(
+                                        key: const Key('underBondVerdictNonConformingRadio'),
+                                        title: Text(l.underBondLabVerdictRejected),
+                                        value: kLabNonConforming,
+                                        contentPadding: EdgeInsets.zero,
+                                        dense: true,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (fieldState.hasError)
+                                  Padding(
+                                    padding: const EdgeInsetsDirectional.only(start: 12, top: 4),
+                                    child: Text(
+                                      fieldState.errorText!,
+                                      style: const TextStyle(color: AppTheme.crimson, fontSize: 12),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        _dateField(l.ccTestCompletionDateLabel, _testDate, (d) => _testDate = d,
+                            key: const Key('underBondTestDateField')),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          key: const Key('underBondRemarksField'),
+                          controller: _remarksController,
+                          decoration: InputDecoration(
+                            labelText: l.underBondLabRemarksLabel,
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        AppButton(
+                          key: const Key('underBondLabSubmitBtn'),
+                          label: _labVerdict == kLabConforming
+                              ? l.underBondApproveReleaseBtn
+                              : (_labVerdict == kLabNonConforming ? l.underBondRejectReleaseBtn : l.underBondModeLabVerdict),
+                          icon: _labVerdict == kLabNonConforming ? Icons.cancel_outlined : Icons.verified,
+                          variant: _labVerdict == kLabConforming
+                              ? AppButtonVariant.success
+                              : (_labVerdict == kLabNonConforming ? AppButtonVariant.danger : AppButtonVariant.primary),
+                          isLoading: _isSubmitting,
+                          onPressed: _isSubmitting ? null : _submitLabResult,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  SearchableDropdownField<String>(
-                    key: const Key('underBondLabVerdictDropdown'),
-                    value: _labVerdict,
-                    isDense: false,
-                    isRequired: true,
-                    labelText: l.underBondLabVerdictLabel,
-                    decoration: InputDecoration(
-                      labelText: l.underBondLabVerdictLabel,
-                      border: const OutlineInputBorder(),
-                    ),
-                    items: [
-                      SearchableDropdownItem(value: kLabConforming, label: l.underBondLabVerdictPassed),
-                      SearchableDropdownItem(value: kLabNonConforming, label: l.underBondLabVerdictRejected),
-                    ],
-                    onChanged: (v) => setState(() => _labVerdict = v ?? kLabConforming),
-                  ),
-                  const SizedBox(height: 14),
-                  _dateField(l.ccTestCompletionDateLabel, _testDate, (d) => _testDate = d,
-                      key: const Key('underBondTestDateField')),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _remarksController,
-                    decoration: InputDecoration(
-                      labelText: l.underBondLabRemarksLabel,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  AppButton(
-                    key: const Key('underBondLabSubmitBtn'),
-                    label: _labVerdict == kLabConforming ? l.underBondApproveReleaseBtn : l.underBondRejectReleaseBtn,
-                    icon: Icons.verified,
-                    variant: _labVerdict == kLabConforming ? AppButtonVariant.success : AppButtonVariant.danger,
-                    isLoading: _isSubmitting,
-                    onPressed: _isSubmitting ? null : _submitLabResult,
-                  ),
-                ],
               ],
             ),
           ),

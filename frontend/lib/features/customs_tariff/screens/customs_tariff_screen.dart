@@ -5,12 +5,8 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
-import '../../../core/widgets/row_actions_pill.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
 import '../widgets/duty_calculator_dialog.dart';
@@ -228,7 +224,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                               scale: 0.8,
                               child: Switch(
                                 value: showInactive,
-                                activeColor: AppTheme.cobalt,
+                                activeThumbColor: AppTheme.cobalt,
                                 onChanged: (val) {
                                   ref.read(showInactiveCustomsTariffsProvider.notifier).state = val;
                                 },
@@ -264,10 +260,11 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                     const SizedBox(height: 8),
                     Expanded(
                       child: tariffsAsync.when(
-                        loading: () => const Center(
-                          child: CircularProgressIndicator(color: AppTheme.cobalt),
+                        loading: () => const AppLoadingState(),
+                        error: (e, _) => AppErrorState(
+                          error: e,
+                          onRetry: () => ref.read(customsTariffProvider.notifier).fetchTariffs(),
                         ),
-                        error: (e, _) => Center(child: Text('Error: $e')),
                 data: (tariffs) {
                   final query = _searchController.text.trim().toLowerCase().replaceAll('.', '');
                   final filteredTariffs = query.isEmpty
@@ -286,20 +283,11 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                         }).toList();
 
                   if (filteredTariffs.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.search_off, size: 48, color: Colors.grey),
-                          const SizedBox(height: 12),
-                          Text(
-                            _searchController.text.isNotEmpty
-                                ? l10n.noTariffsMatchingQuery(_searchController.text)
-                                : l10n.noTariffsFound,
-                            style: const TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
+                    return AppEmptyState(
+                      icon: Icons.receipt_long_outlined,
+                      message: _searchController.text.isNotEmpty
+                          ? l10n.noTariffsMatchingQuery(_searchController.text)
+                          : l10n.noTariffsFound,
                     );
                   }
                   return _buildTariffTable(context, ref, filteredTariffs);
@@ -346,6 +334,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
   Widget _buildTariffTable(
       BuildContext context, WidgetRef ref, List<CustomsTariffModel> tariffs) {
     final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return LayoutBuilder(
       builder: (context, constraints) {
         final tableWidth = constraints.maxWidth < 1180 ? 1180.0 : constraints.maxWidth;
@@ -353,12 +342,12 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
         return Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.surfaceOf(context),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: AppTheme.borderOf(context)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -433,7 +422,9 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
 
                     return TableRow(
                       decoration: BoxDecoration(
-                        color: isEven ? Colors.white : Colors.grey.shade50,
+                        color: isEven
+                            ? AppTheme.surfaceOf(context)
+                            : (isDark ? AppTheme.darkCardBackground : Colors.grey.shade50),
                       ),
                       children: [
                         // Actions: Quick Copy Summary, View, Edit, Print, Delete
@@ -463,22 +454,14 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                 },
                                 onDelete: () async {
                                   final isActive = tariff.isActive;
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: Text(l10n.confirmActionTitle),
-                                      content: Text(isActive
-                                          ? l10n.confirmDeactivateTariff(tariff.hsCode)
-                                          : l10n.confirmActivateTariff(tariff.hsCode)),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-                                        ElevatedButton(
-                                          onPressed: () => Navigator.pop(ctx, true),
-                                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
-                                        ),
-                                      ],
-                                    ),
+                                  final confirm = await AppConfirmDialog.showToggleActive(
+                                    context,
+                                    isCurrentlyActive: isActive,
+                                    message: isActive
+                                        ? l10n.confirmDeactivateTariff(tariff.hsCode)
+                                        : l10n.confirmActivateTariff(tariff.hsCode),
+                                    confirmLabel: isActive ? l10n.deactivateBtn : l10n.activateBtn,
+                                    cancelLabel: l10n.cancel,
                                   );
                                   if (confirm == true) {
                                     await ref
@@ -503,10 +486,10 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.1),
+                                color: AppTheme.cobalt.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                    color: AppTheme.cobalt.withOpacity(0.3)),
+                                    color: AppTheme.cobalt.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -578,7 +561,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: catColor.withOpacity(0.1),
+                                    color: catColor.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Text(
@@ -637,25 +620,10 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                         _cell(
                           value: tariff.isActive ? l10n.statusActive : l10n.statusInactive,
                           rowSummary: rowSummary,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: tariff.isActive
-                                  ? AppTheme.emerald.withOpacity(0.1)
-                                  : AppTheme.crimson.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              tariff.isActive ? l10n.statusActive : l10n.statusInactive,
-                              style: TextStyle(
-                                color: tariff.isActive
-                                    ? AppTheme.emerald
-                                    : AppTheme.crimson,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                              ),
-                            ),
+                          child: AppStatusBadge(
+                            label: tariff.isActive ? l10n.statusActive : l10n.statusInactive,
+                            severity: tariff.isActive ? AppSeverity.success : AppSeverity.danger,
+                            size: AppStatusBadgeSize.small,
                           ),
                         ),
 
@@ -677,7 +645,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -692,11 +660,11 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: active ? AppTheme.cobalt.withOpacity(0.1) : Colors.grey.shade100,
+        color: active ? AppTheme.cobalt.withValues(alpha: 0.12) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color:
-              active ? AppTheme.cobalt.withOpacity(0.4) : Colors.grey.shade300,
+              active ? AppTheme.cobalt.withValues(alpha: 0.4) : Colors.grey.shade300,
         ),
       ),
       child: Text(
@@ -890,9 +858,10 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.importFailedSnack(e.toString())),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            l10n.importFailedSnack(e.toString()),
+            severity: AppSeverity.danger,
           ),
         );
       }

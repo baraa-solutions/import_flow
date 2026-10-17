@@ -106,7 +106,11 @@ def test_permissions_viewer_gets_403_on_post(session_factory, db, monkeypatch, p
 
 def _booking(db, **kw):
     payload = ShipmentBookingCreate(shipment_type="Ocean FCL", containers_data=[ContainerAllocationItem(container_type="40HC", quantity=1)], **kw)
-    return fb.create_booking_service(db, payload, user="op1")
+    booking = fb.create_booking_service(db, payload, user="op1")
+    # The tests depart on fixed past dates; ATD may not precede the booking request date (BE45-T11).
+    booking.booking_request_date = datetime(2026, 7, 1)
+    db.commit()
+    return booking
 
 
 def test_fb02_confirm_on_sailed_is_409_and_depart_needs_confirmation(db):
@@ -333,20 +337,22 @@ def test_dd06_second_partial_return_and_unknown_container(db):
         {"container_no": "MEDU2", "container_type": "20GP", "gate_out_date": (today - timedelta(days=4)).isoformat()},
     ])
     with pytest.raises(HTTPException) as exc:
-        dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-X", returned_containers=["NOPE1"]))
+        dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-X", empty_return_date=today, returned_containers=["NOPE1"]))
     assert exc.value.status_code == 400
-    first = dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-A", returned_containers=["MEDU1"]))
+    first = dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-A", empty_return_date=today, returned_containers=["MEDU1"]))
     assert first.all_containers_returned is False
     assert db.get(ImportFile, 1).current_step_code != "STEP_20"
-    second = dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-B", returned_containers=["MEDU2"]))
+    second = dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-B", empty_return_date=today, returned_containers=["MEDU2"]))
     assert second.all_containers_returned is True
     assert db.get(ImportFile, 1).empty_containers_eir_numbers == "EIR-A, EIR-B"
     assert db.query(SmartTask).filter(SmartTask.task_code == "TSK-0901-1").count() == 1
 
 
-def test_dd07_push_uses_settlement_code_and_recalculates(db):
-    t = _tracking(db, date(2026, 8, 1), total_cost_egp=1234.5, total_demurrage_fx=20.0, total_detention_fx=0.0,
-                  total_storage_egp=234.5)
+def test_dd07_push_uses_settlement_code_and_recalculates(db, monkeypatch):
+    fixed_today = date(2026, 8, 15)
+    monkeypatch.setattr(dd, "_today", lambda: fixed_today)
+    policy = _policy(db)
+    t = _tracking(db, date(2026, 8, 1), policy_id=policy.policy_id)
     res = dd.push_demurrage_to_financial_settlement_service(
         db, PushToSettlementRequest(tracking_id=t.tracking_id, accountant_name="spoof"), user="acct1")
     from modules.financial_settlement.model import LandedCostSettlementRecord
@@ -357,11 +363,11 @@ def test_dd07_push_uses_settlement_code_and_recalculates(db):
     # two rows (carrier USD x rate, storage EGP at 1.0), each amount_fx x rate == amount_egp
     rows = {i["invoice_no"]: i for i in settlement.expense_invoices if i["invoice_no"].startswith("INV-")}
     assert set(rows) == {"INV-DND-DND-T-0001", "INV-STO-DND-T-0001"}
-    assert (rows["INV-DND-DND-T-0001"]["amount_fx"], rows["INV-DND-DND-T-0001"]["amount_egp"]) == (20.0, 1000.0)
-    assert (rows["INV-STO-DND-T-0001"]["currency"], rows["INV-STO-DND-T-0001"]["exchange_rate"], rows["INV-STO-DND-T-0001"]["amount_egp"]) == ("EGP", 1.0, 234.5)
+    assert (rows["INV-DND-DND-T-0001"]["amount_fx"], rows["INV-DND-DND-T-0001"]["amount_egp"]) == (900.0, 45000.0)
+    assert (rows["INV-STO-DND-T-0001"]["currency"], rows["INV-STO-DND-T-0001"]["exchange_rate"], rows["INV-STO-DND-T-0001"]["amount_egp"]) == ("EGP", 1.0, 900.0)
     for row in rows.values():
         assert round(row["amount_fx"] * row["exchange_rate"], 2) == row["amount_egp"]
-    assert settlement.total_landed_cost_egp == 1234.5
+    assert settlement.total_landed_cost_egp == 45900.0
     # a second push replaces the rows (no duplicates)
     dd.push_demurrage_to_financial_settlement_service(db, PushToSettlementRequest(tracking_id=t.tracking_id), user="acct1")
     db.refresh(settlement)
@@ -444,7 +450,7 @@ def test_dd06_return_without_list_keeps_earlier_eir_then_409_and_task_matching(d
         import_file_id=1, eir_number="EIR-A", empty_return_date=today - timedelta(days=2), returned_containers=["MEDU1"]))
     # partial return: the TR-05 task stays open
     assert db.query(SmartTask).filter(SmartTask.task_code == "TSK-T-1").one().status == "Pending"
-    res = dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-B"))
+    res = dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-B", empty_return_date=today))
     assert res.returned_containers == ["MEDU2"] and res.all_containers_returned is True
     containers = {c["container_no"]: c for c in db.query(DemurrageTracking).one().containers}
     assert containers["MEDU1"]["eir_number"] == "EIR-A"
@@ -453,7 +459,7 @@ def test_dd06_return_without_list_keeps_earlier_eir_then_409_and_task_matching(d
     assert db.query(SmartTask).filter(SmartTask.task_code == "TSK-T-1").one().status == "Completed"
     assert db.query(SmartTask).filter(SmartTask.task_code == "TSK-T-2").one().status == "Pending"
     with pytest.raises(HTTPException) as exc:
-        dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-C"))
+        dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-C", empty_return_date=today))
     assert exc.value.status_code == 409
 
 
@@ -633,7 +639,7 @@ def test_dd_eir_on_tracking_without_containers_and_no_list_is_404(db):
     t.containers = []
     db.commit()
     with pytest.raises(HTTPException) as exc:
-        dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-404"))
+        dd.record_empty_container_return_service(db, EmptyContainerReturnSubmit(import_file_id=1, eir_number="EIR-404", empty_return_date=date(2026, 8, 10)))
     assert exc.value.status_code == 404
 
 

@@ -133,10 +133,16 @@ void main() {
 
       // Verify Form Fields
       expect(find.byKey(const Key('declaration46NoField')), findsOneWidget);
-      expect(find.byKey(const Key('generateDeclaration46Btn')), findsOneWidget);
+      expect(find.byKey(const Key('generateDeclaration46Btn')), findsNothing);
       expect(find.byKey(const Key('customsOfficeDropdown')), findsOneWidget);
       expect(find.byKey(const Key('tariffCountField')), findsOneWidget);
       expect(find.byKey(const Key('submitDeclaration46Btn')), findsOneWidget);
+
+      // Verify no invented numbers are present
+      expect(find.textContaining('46-20'), findsNothing);
+      expect(find.textContaining('MTS-'), findsNothing);
+      final declField = tester.widget<TextFormField>(find.byKey(const Key('declaration46NoField')));
+      expect(declField.controller?.text, isEmpty);
 
       // Verify Channel Options
       expect(find.text('المسار الأحمر'), findsOneWidget);
@@ -145,6 +151,11 @@ void main() {
 
       // Verify Regulatory Body Chips (value is the GOEIC code, label is localized)
       expect(find.text('الهيئة العامة للرقابة على الصادرات والواردات'), findsOneWidget);
+
+      // Verify validation triggers on empty submit
+      await tester.tap(find.byKey(const Key('submitDeclaration46Btn')));
+      await tester.pumpAndSettle();
+      expect(find.text('رقم الإقرار الجمركي مطلوب'), findsOneWidget);
     });
   });
 }

@@ -76,6 +76,18 @@
 - [x] **Screen 65:** `CargoInsuranceScreen` — وثائق وتأمين الشحنات البحرية والجوية (done)
 - [x] **Screen 66:** `UsersManagementScreen` — إدارة المستخدمين وصلاحيات RBAC (done)
 - [x] **Screen 67:** `StepConfigManagementScreen` — إدارة حوكمة وتخطي خطوات دورة حياة الاستيراد (done)
+- [x] **Screen 70:** `LogisticsInvoicesScreen` — فواتير ومدفوعات الشركاء اللوجستيين (الشحن، التخليص، الفحص، التأمين) (done)
+
+---
+
+## 💼 مسار فواتير ومدفوعات مقدمي الخدمات اللوجستية (Logistics Service Invoices & Payments)
+
+- [x] **LSI-01:** `Freight Forwarder Invoices & 21 Items` — فوترة شركات الشحن والنولون مع 21 بنداً قياسياً وقفل الحاويات بالبوليصة (done)
+- [x] **LSI-02:** `Customs Clearance & Advance Custody` — فواتير التخليص الجمركي وتسوية العهدة الذكية للمخلص ومطابقة الفائض والعجز (done)
+- [x] **LSI-03:** `Inspection Agency Invoices` — فواتير شركات الفحص والمعاينة ومخصص الفحص التقديري (done)
+- [x] **LSI-04:** `Marine Cargo Insurance & Claims` — وثائق التأمين البحري وفق اللوائح المصرية (CIF+10%) وتوليد الفواتير ومتابعة المطالبات (done)
+- [x] **LSI-05:** `Multi-Currency & CBE Vouchers` — أذون الصرف والدفعات الموجهة بأرقام الفواتير والسداد بالمصري بسعر البنك المركزي (done)
+- [x] **LSI-06:** `Partner Ledger, Aging & Form 41` — كشف حساب الشريك بنظام القيد المزدوج، شرائح تعمير الديون، وإقرار نموذج 41 ضريبة الخصم (done)
 
 ---
 
