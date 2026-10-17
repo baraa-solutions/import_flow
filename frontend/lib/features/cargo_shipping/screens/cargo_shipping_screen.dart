@@ -2834,19 +2834,31 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
               final importFilesMap = {for (final f in importFiles) f.importFileId: f};
 
-              return Container(
-                decoration: AppTheme.cardDecorationOf(context),
-                clipBehavior: Clip.antiAlias,
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) => Divider(height: 1, color: AppTheme.borderOf(context)),
-                  itemBuilder: (ctx, idx) {
-                    final rec = filtered[idx];
-                    return _buildRegistryRow(rec, importFilesMap);
-                  },
-                ),
+              final shippingNotifier = ref.read(cargoShippingProvider.notifier);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    decoration: AppTheme.cardDecorationOf(context),
+                    clipBehavior: Clip.antiAlias,
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => Divider(height: 1, color: AppTheme.borderOf(context)),
+                      itemBuilder: (ctx, idx) {
+                        final rec = filtered[idx];
+                        return _buildRegistryRow(rec, importFilesMap);
+                      },
+                    ),
+                  ),
+                  ListLoadMoreFooter(
+                    loaded: list.length,
+                    total: shippingNotifier.totalCount,
+                    hasMore: shippingNotifier.hasMore,
+                    onLoadMore: shippingNotifier.loadMore,
+                  ),
+                ],
               );
             },
           ),

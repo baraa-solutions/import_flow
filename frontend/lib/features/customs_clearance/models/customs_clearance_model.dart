@@ -27,7 +27,7 @@ class CustomsClearanceModel {
   final String inspectionType;
   final String? inspectionYard;
   final String? inspectorName;
-  final String inspectionResult;
+  final String? inspectionResult;
   final bool isSampleDrawn;
   final String? samplingDate;
   final String? samplingRecordNo;
@@ -128,7 +128,7 @@ class CustomsClearanceModel {
     this.inspectionType = 'Physical & Sampling',
     this.inspectionYard,
     this.inspectorName,
-    this.inspectionResult = 'Conforming',
+    this.inspectionResult,
     this.isSampleDrawn = true,
     this.samplingDate,
     this.samplingRecordNo,
@@ -232,7 +232,7 @@ class CustomsClearanceModel {
       inspectionType: json['inspection_type'] ?? 'Physical & Sampling',
       inspectionYard: json['inspection_yard'],
       inspectorName: json['inspector_name'],
-      inspectionResult: json['inspection_result'] ?? 'Conforming',
+      inspectionResult: json['inspection_result'] as String?,
       isSampleDrawn: json['is_sample_drawn'] ?? true,
       samplingDate: json['sampling_date'],
       samplingRecordNo: json['sampling_record_no'],

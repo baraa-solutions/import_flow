@@ -333,7 +333,7 @@ class _ClearanceDetailsDialogState extends ConsumerState<ClearanceDetailsDialog>
               runSpacing: 12,
               children: [
                 _fact(l.ccInsYardLabel, r.inspectionYard ?? CcFormat.unknown),
-                _fact(l.ccInsResultLabel, r.inspectionResult),
+                _fact(l.ccInsResultLabel, r.inspectionResult ?? '-'),
                 _fact(l.ccInsInspectorLabel, r.inspectorName ?? CcFormat.unknown),
                 _fact(l.ccInsSampleSwitchTitle, r.isSampleDrawn ? l.lgxYes : l.lgxNo),
                 _fact(l.ccInsSampleDateLabel, r.samplingDate ?? CcFormat.unknown),

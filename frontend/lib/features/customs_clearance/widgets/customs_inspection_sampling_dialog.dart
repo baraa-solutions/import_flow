@@ -109,7 +109,7 @@ class _CustomsInspectionSamplingDialogState
       if (rec.inspectionYard != null && rec.inspectionYard!.isNotEmpty) {
         _selectedYard = rec.inspectionYard;
       }
-      if (rec.inspectionResult.isNotEmpty) {
+      if (rec.inspectionResult != null && rec.inspectionResult!.isNotEmpty) {
         _selectedResult = rec.inspectionResult;
       }
       if (rec.inspectionType.isNotEmpty) {

@@ -9473,6 +9473,8 @@ abstract class AppLocalizations {
   String get shipmentUpdateBtnSavePdf;
   String insuranceLoadedOfTotal(int loaded, int total);
   String get insuranceLoadMoreBtn;
+  String listLoadedOfTotal(int loaded, int total);
+  String get listLoadMoreBtn;
   String get insuranceExportStageName;
   String get insuranceExportRegistryTag;
   String get fdaDialogTitle;

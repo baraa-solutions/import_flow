@@ -12200,6 +12200,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get shipmentUpdateBtnSavePdf => 'Save PDF';
   @override String insuranceLoadedOfTotal(int loaded, int total) => 'Loaded $loaded of $total certificates';
   @override String get insuranceLoadMoreBtn => 'Load more';
+  @override String listLoadedOfTotal(int loaded, int total) => 'Loaded $loaded of $total records';
+  @override String get listLoadMoreBtn => 'Load more';
   @override String get insuranceExportStageName => 'Cargo Insurance';
   @override String get insuranceExportRegistryTag => 'Registry';
   @override String get fdaDialogTitle => 'Free Days Agreement (BK-02)';
