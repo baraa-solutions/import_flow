@@ -18,6 +18,11 @@ from modules.smart_document_upload.validators import (
 )
 from fastapi import HTTPException
 
+from database.database import SessionLocal
+from modules.import_files.model import ImportFile
+from modules.smart_document_upload.schemas import ApplyInvoiceRequest, InvoiceApplyData
+from modules.smart_document_upload.service import apply_extracted_invoice_service
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Purchase Order Extractor Tests
@@ -791,3 +796,131 @@ class TestBaseExtractorHelpers:
 
     def test_normalize_container_type_20gp(self):
         assert self.extractor.normalize_container_type("20ft container") == "20GP"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BE03-T03: Apply Extracted Invoice Idempotency & Validation Tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestApplyExtractedInvoiceIdempotent:
+    """Tests for BE03-T03: apply_extracted_invoice_service idempotency and required invoice_number."""
+
+    def test_apply_invoice_requires_invoice_number_when_file_set(self):
+        db = SessionLocal()
+        try:
+            import_file = ImportFile(
+                import_file_code="IMP-BE03-T03-REQ",
+                company_name="Test Importer",
+                supplier_name="Test Supplier",
+                shipment_mode="Sea FCL",
+            )
+            db.add(import_file)
+            db.commit()
+            db.refresh(import_file)
+
+            # Missing invoice number
+            payload_none = ApplyInvoiceRequest(
+                import_file_id=import_file.import_file_id,
+                invoice_data=InvoiceApplyData(invoice_number=None, invoice_value=5000.0),
+            )
+            with pytest.raises(HTTPException) as exc_none:
+                apply_extracted_invoice_service(db=db, payload=payload_none)
+            assert exc_none.value.status_code == 400
+            assert exc_none.value.detail["code"] == "SDU_INVOICE_NUMBER_REQUIRED"
+
+            # Blank invoice number
+            payload_blank = ApplyInvoiceRequest(
+                import_file_id=import_file.import_file_id,
+                invoice_data=InvoiceApplyData(invoice_number="   ", invoice_value=5000.0),
+            )
+            with pytest.raises(HTTPException) as exc_blank:
+                apply_extracted_invoice_service(db=db, payload=payload_blank)
+            assert exc_blank.value.status_code == 400
+            assert exc_blank.value.detail["code"] == "SDU_INVOICE_NUMBER_REQUIRED"
+        finally:
+            db.close()
+
+    def test_apply_invoice_idempotent_and_does_not_overwrite_estimate(self):
+        db = SessionLocal()
+        try:
+            import_file = ImportFile(
+                import_file_code="IMP-BE03-T03-IDEMP",
+                company_name="Test Importer",
+                supplier_name="Test Supplier",
+                shipment_mode="Sea FCL",
+                estimated_cost=75000.0,
+                estimated_cost_currency="EUR",
+                invoices_data=[],
+                invoices_count=0,
+            )
+            db.add(import_file)
+            db.commit()
+            db.refresh(import_file)
+
+            # Apply invoice "inv-77" with 10000 USD
+            payload = ApplyInvoiceRequest(
+                import_file_id=import_file.import_file_id,
+                invoice_data=InvoiceApplyData(
+                    invoice_number="inv-77",
+                    invoice_date="2026-10-01",
+                    invoice_value=10000.0,
+                    currency="USD",
+                ),
+            )
+            res1 = apply_extracted_invoice_service(db=db, payload=payload, user="tester")
+            assert res1["applied"] is True
+            assert res1["params"]["replaced"] is False
+            assert res1["params"]["invoice_no"] == "inv-77"
+
+            db.refresh(import_file)
+            assert len(import_file.invoices_data) == 1
+            assert import_file.invoices_count == 1
+            assert sum(inv["amount"] for inv in import_file.invoices_data) == 10000.0
+            assert import_file.estimated_cost == 75000.0  # untouched
+            assert import_file.estimated_cost_currency == "EUR"  # untouched
+
+            # Apply the same invoice number (case-insensitive "INV-77") a second time
+            payload2 = ApplyInvoiceRequest(
+                import_file_id=import_file.import_file_id,
+                invoice_data=InvoiceApplyData(
+                    invoice_number="INV-77",
+                    invoice_date="2026-10-02",
+                    invoice_value=10000.0,
+                    currency="USD",
+                ),
+            )
+            res2 = apply_extracted_invoice_service(db=db, payload=payload2, user="tester")
+            assert res2["applied"] is True
+            assert res2["params"]["replaced"] is True
+            assert res2["params"]["invoice_no"] == "INV-77"
+
+            db.refresh(import_file)
+            assert len(import_file.invoices_data) == 1
+            assert import_file.invoices_count == 1
+            assert sum(inv["amount"] for inv in import_file.invoices_data) == 10000.0
+            assert import_file.estimated_cost == 75000.0
+            assert import_file.estimated_cost_currency == "EUR"
+            assert import_file.invoices_data[0]["date"] == "2026-10-02"
+
+            # Apply third time with different amount replaces in-place
+            payload3 = ApplyInvoiceRequest(
+                import_file_id=import_file.import_file_id,
+                invoice_data=InvoiceApplyData(
+                    invoice_number="inv-77 ",
+                    invoice_date="2026-10-03",
+                    invoice_value=12000.0,
+                    currency="USD",
+                ),
+            )
+            res3 = apply_extracted_invoice_service(db=db, payload=payload3, user="tester")
+            assert res3["applied"] is True
+            assert res3["params"]["replaced"] is True
+
+            db.refresh(import_file)
+            assert len(import_file.invoices_data) == 1
+            assert import_file.invoices_count == 1
+            assert sum(inv["amount"] for inv in import_file.invoices_data) == 12000.0
+            assert import_file.estimated_cost == 75000.0
+        finally:
+            db.close()
+

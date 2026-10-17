@@ -60,6 +60,8 @@ import modules.docs_customs_approval.model
 import modules.cargox.model
 import modules.original_documents_collection.model
 import modules.smart_email_listener.model
+import modules.expense_catalog.model
+import modules.logistics_invoices.model
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
@@ -117,3 +119,12 @@ def dev_bypass_test_admin_seam():
         mp.setattr(_auth_permissions, "ALLOW_DEV_AUTH_BYPASS", True)
         mp.setattr(_auth_permissions, "_dev_bypass_fallback_user", _wrapped)
         yield
+
+
+@pytest.fixture(autouse=True)
+def reset_currency_cache_each_test():
+    """Ensure in-memory currency and exchange rate cache never leaks between test cases."""
+    from modules.currencies.service import clear_currency_cache
+    clear_currency_cache()
+    yield
+    clear_currency_cache()

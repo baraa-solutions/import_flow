@@ -51,7 +51,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   final TextEditingController _voyageCtrl = TextEditingController();
   final TextEditingController _polCtrl = TextEditingController();
   final TextEditingController _podCtrl = TextEditingController();
-  final TextEditingController _freightTermsCtrl = TextEditingController(text: 'Freight Prepaid');
+  final TextEditingController _freightTermsCtrl = TextEditingController();
   final TextEditingController _placeOfDeliveryCtrl = TextEditingController();
   final TextEditingController _goodsDescCtrl = TextEditingController();
   final TextEditingController _grossWeightCtrl = TextEditingController();
@@ -2571,7 +2571,6 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             LayoutBuilder(
               builder: (context, constraints) {
                 final isMobile = constraints.maxWidth < 768;
-                final isAr = Localizations.localeOf(context).languageCode == 'ar';
                 final searchBar = Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
@@ -3177,7 +3176,6 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   }
 
   Future<void> _exportDraftBlRegistryToExcel(List<dynamic> reviews) async {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final headers = [
       context.l10n.idocASessionTypeAlt,
       context.l10n.draftBlRegistryColSessionId,
@@ -3222,7 +3220,6 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   }
 
   Future<void> _exportDraftBlRegistryToPdf(List<dynamic> reviews) async {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final headers = [
       context.l10n.idocASessionTypeAlt,
       context.l10n.draftBlRegistryColSessionId,
@@ -3267,7 +3264,6 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   }
 
   void _copyDraftBlRegistryAsTsv(List<dynamic> reviews) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final headers = [
       context.l10n.idocASessionTypeAlt,
       context.l10n.draftBlRegistryColSessionId,
