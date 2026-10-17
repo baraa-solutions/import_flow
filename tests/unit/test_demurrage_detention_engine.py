@@ -191,7 +191,7 @@ class TestDemurrageDetentionEngine:
         assert created.policy_id is not None
         assert created.demurrage_free_days == 21
 
-        policies = get_demurrage_policies_service(db_session, carrier_name="Hapag")
+        policies, _ = get_demurrage_policies_service(db_session, carrier_name="Hapag")
         assert len(policies) == 1
 
         updated = update_demurrage_policy_service(
@@ -200,7 +200,7 @@ class TestDemurrageDetentionEngine:
         assert updated.demurrage_free_days == 25
 
         delete_demurrage_policy_service(db_session, created.policy_id)
-        remaining = get_demurrage_policies_service(db_session)
+        remaining, _ = get_demurrage_policies_service(db_session)
         assert len(remaining) == 0
 
     def test_tracking_lifecycle_and_settlement_integration(self, db_session):

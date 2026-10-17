@@ -36,7 +36,7 @@ class MockShipmentUpdatesNotifier extends ShipmentUpdatesNotifier {
     state = ShipmentUpdatesState(logs: [], isLoading: false);
   }
   @override
-  Future<void> fetchLogs({int? importFileId, String? updateCategory, String? targetPhase, String? search}) async {
+  Future<void> fetchLogs({int? importFileId, String? updateCategory, String? targetPhase, String? search, int skip = 0, int limit = 200}) async {
     state = ShipmentUpdatesState(logs: [], isLoading: false, selectedFileId: importFileId);
   }
 }

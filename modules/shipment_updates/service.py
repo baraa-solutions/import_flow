@@ -3,7 +3,7 @@ Business Logic & Workflows for Operational & Daily Shipment Update Engine
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -131,7 +131,7 @@ def inspect_shipment_phases_service(db: Session, import_file_id: int) -> List[Ph
             detail=f"ملف الاستيراد رقم '{import_file_id}' غير موجود.",
         )
 
-    logs = repo.get_all_update_logs(db, import_file_id=import_file_id)  # newest first
+    logs, _ = repo.get_all_update_logs(db, import_file_id=import_file_id, limit=500)  # newest first
 
     # Current phase index (0-based)
     current_idx = min(max(_current_business_phase(import_file, logs), 1), len(ALL_PHASES_DEFS)) - 1
@@ -168,8 +168,24 @@ def inspect_shipment_phases_service(db: Session, import_file_id: int) -> List[Ph
     return inspections
 
 
-def get_all_update_logs_service(db: Session, import_file_id: int = None, update_category: str = None, target_phase: str = None, search: str = None):
-    return repo.get_all_update_logs(db, import_file_id=import_file_id, update_category=update_category, target_phase=target_phase, search=search)
+def get_all_update_logs_service(
+    db: Session,
+    import_file_id: Optional[int] = None,
+    update_category: Optional[str] = None,
+    target_phase: Optional[str] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[ShipmentUpdateLog], int]:
+    return repo.get_all_update_logs(
+        db,
+        import_file_id=import_file_id,
+        update_category=update_category,
+        target_phase=target_phase,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
 
 
 def get_update_log_by_id_service(db: Session, update_id: int) -> ShipmentUpdateLog:

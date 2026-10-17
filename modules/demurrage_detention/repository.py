@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from .model import DemurragePolicy, DemurrageTracking
@@ -28,14 +28,16 @@ def get_policies(
     carrier_name: Optional[str] = None,
     container_type: Optional[str] = None,
     skip: int = 0,
-    limit: int = 100,
-) -> List[DemurragePolicy]:
+    limit: int = 200,
+) -> Tuple[List[DemurragePolicy], int]:
     q = db.query(DemurragePolicy).filter(DemurragePolicy.is_active == True)
     if carrier_name:
         q = q.filter(DemurragePolicy.carrier_name.ilike(f"%{carrier_name}%"))
     if container_type:
         q = q.filter(DemurragePolicy.container_type.ilike(f"%{container_type}%"))
-    return q.offset(skip).limit(limit).all()
+    total = q.count()
+    items = q.offset(skip).limit(limit).all()
+    return items, total
 
 
 def create_policy(db: Session, data: dict, user: str = "System") -> DemurragePolicy:
@@ -107,8 +109,8 @@ def get_trackings(
     carrier_name: Optional[str] = None,
     status_filter: Optional[str] = None,
     skip: int = 0,
-    limit: int = 100,
-) -> List[DemurrageTracking]:
+    limit: int = 200,
+) -> Tuple[List[DemurrageTracking], int]:
     q = db.query(DemurrageTracking).filter(DemurrageTracking.is_active == True)
     if import_file_id:
         q = q.filter(DemurrageTracking.import_file_id == import_file_id)
@@ -116,7 +118,9 @@ def get_trackings(
         q = q.filter(DemurrageTracking.carrier_name.ilike(f"%{carrier_name}%"))
     if status_filter:
         q = q.filter(DemurrageTracking.status == status_filter)
-    return q.order_by(DemurrageTracking.tracking_id.desc()).offset(skip).limit(limit).all()
+    total = q.count()
+    items = q.order_by(DemurrageTracking.tracking_id.desc()).offset(skip).limit(limit).all()
+    return items, total
 
 
 def add_tracking(db: Session, tracking: DemurrageTracking, user: str = "System") -> DemurrageTracking:

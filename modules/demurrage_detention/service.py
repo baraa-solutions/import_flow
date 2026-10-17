@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone, date, timedelta
 from typing import Callable, List, Dict, Any, Optional, Tuple
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
@@ -133,9 +134,10 @@ def default_tariff(db: Session) -> Tariff:
     )
 
 
-def _resolve_tariff(db: Session, policy: Optional[DemurragePolicy]) -> Tariff:
+def _resolve_tariff(db: Session, policy: Optional[DemurragePolicy], fallback: Optional[Tariff] = None) -> Tariff:
     """The policy's tariff, or the configured default tariff when there is no policy (empty tiers -> default)."""
-    fallback = default_tariff(db)
+    if fallback is None:
+        fallback = default_tariff(db)
     if not policy:
         return fallback
     return Tariff(
@@ -188,12 +190,12 @@ def _agreed_tariff(tariff: Tariff, booking_free_days: Optional[int], containers:
     return tariff
 
 
-def _tracking_tariff(db: Session, tracking: DemurrageTracking, booking_free_days: Any = _UNSET) -> Tariff:
+def _tracking_tariff(db: Session, tracking: DemurrageTracking, booking_free_days: Any = _UNSET, fallback: Optional[Tariff] = None) -> Tariff:
     """The one tariff of a tracking for every recalculation (PUT, single container, EIR, BK-02, dual clock,
     radar): policy (or configured default) + the file's free-days agreement."""
     if booking_free_days is _UNSET:
         booking_free_days = _booking_free_days(db, tracking.import_file_id)
-    base_tariff = _resolve_tariff(db, tracking.policy)
+    base_tariff = _resolve_tariff(db, tracking.policy, fallback=fallback)
     if tracking.currency and base_tariff.currency and tracking.currency.upper() != base_tariff.currency.upper():
         logger.warning(
             "Tracking %s has currency %s, but resolved policy currency is now %s. Keeping tracking currency.",
@@ -615,9 +617,13 @@ def create_demurrage_policy_service(db: Session, req: DemurragePolicyCreate, use
 
 
 def get_demurrage_policies_service(
-    db: Session, carrier_name: Optional[str] = None, container_type: Optional[str] = None
-) -> List[DemurragePolicy]:
-    return repository.get_policies(db, carrier_name=carrier_name, container_type=container_type)
+    db: Session,
+    carrier_name: Optional[str] = None,
+    container_type: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[DemurragePolicy], int]:
+    return repository.get_policies(db, carrier_name=carrier_name, container_type=container_type, skip=skip, limit=limit)
 
 
 def get_demurrage_policy_by_id_service(db: Session, policy_id: int) -> DemurragePolicy:
@@ -735,8 +741,10 @@ def get_demurrage_trackings_service(
     import_file_id: Optional[int] = None,
     carrier_name: Optional[str] = None,
     status_filter: Optional[str] = None,
-) -> List[DemurrageTracking]:
-    return repository.get_trackings(db, import_file_id=import_file_id, carrier_name=carrier_name, status_filter=status_filter)
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[DemurrageTracking], int]:
+    return repository.get_trackings(db, import_file_id=import_file_id, carrier_name=carrier_name, status_filter=status_filter, skip=skip, limit=limit)
 
 
 def get_demurrage_tracking_by_id_service(db: Session, tracking_id: int) -> DemurrageTracking:
@@ -1405,7 +1413,13 @@ def get_containers_radar_overview_service(db: Session) -> ContainerRadarOverview
     trackings = (
         db.query(DemurrageTracking)
         .options(joinedload(DemurrageTracking.policy), joinedload(DemurrageTracking.import_file))
-        .filter(DemurrageTracking.is_active == True, DemurrageTracking.status != "Completed")
+        .filter(
+            DemurrageTracking.is_active == True,
+            or_(
+                DemurrageTracking.status.notin_(["All Containers Returned", "Closed"]),
+                DemurrageTracking.status.is_(None),
+            ),
+        )
         .all()
     )
 
@@ -1430,13 +1444,14 @@ def get_containers_radar_overview_service(db: Session) -> ContainerRadarOverview
         ).all():
             booking_days.setdefault(file_id, days)
 
+    fallback = default_tariff(db)
     for t in trackings:
         if not t.exchange_rate or t.exchange_rate <= 0:
             # a tracking without a usable rate is flagged, not a failure of the whole radar
             logger.warning("Radar: tracking %s has no valid exchange rate; skipped", t.tracking_code)
             skipped_codes.append(t.tracking_code)
             continue
-        tariff = _tracking_tariff(db, t, booking_free_days=booking_days.get(t.import_file_id))
+        tariff = _tracking_tariff(db, t, booking_free_days=booking_days.get(t.import_file_id), fallback=fallback)
         dem_free = tariff.demurrage_free_days
         storage_free = tariff.storage_free_days
         exchange_rate = float(t.exchange_rate)
