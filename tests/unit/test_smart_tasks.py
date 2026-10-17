@@ -100,3 +100,13 @@ class TestSmartTasksBackend:
         closed_tasks = repo.get_all_tasks(db_session, import_file_id=1)
         assert closed_tasks[0].status == "Completed"
         assert closed_tasks[0].is_auto_closed is True
+
+    def test_order_by_priority(self, db_session):
+        t_low = service.create_task_service(db_session, SmartTaskCreate(title="Low task", priority="Low"))
+        t_crit = service.create_task_service(db_session, SmartTaskCreate(title="Critical task", priority="Critical"))
+        t_med = service.create_task_service(db_session, SmartTaskCreate(title="Medium task", priority="Medium"))
+        t_high = service.create_task_service(db_session, SmartTaskCreate(title="High task", priority="High"))
+
+        prioritized = repo.get_all_tasks(db_session, order_by_priority=True)
+        priorities = [t.priority for t in prioritized]
+        assert priorities == ["Critical", "High", "Medium", "Low"]

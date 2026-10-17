@@ -11,6 +11,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../models/invoices_aggregation_model.dart';
 import '../providers/financial_settlement_provider.dart';
 import 'settlement_ui.dart';
+import '../../logistics_invoices/screens/logistics_invoices_screen.dart';
 
 class FinalSettlementInvoicesDialog extends ConsumerStatefulWidget {
   final int importFileId;
@@ -335,35 +336,55 @@ class _FinalSettlementInvoicesDialogState
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: partyFilters.map((filter) {
-          final isSelected = _selectedPartyFilter == filter.key;
-          return Padding(
-            padding: const EdgeInsetsDirectional.only(end: 8.0),
-            child: FilterChip(
-              label: Text(filter.value),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  _selectedPartyFilter = filter.key;
-                });
-              },
-              selectedColor: AppTheme.charcoal,
-              checkmarkColor: AppTheme.white,
-              labelStyle: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? AppTheme.white : AppTheme.charcoal,
-              ),
-              backgroundColor: Theme.of(context).cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: isSelected ? AppTheme.charcoal : SettlementTokens.border,
+        children: [
+          ...partyFilters.map((filter) {
+            final isSelected = _selectedPartyFilter == filter.key;
+            return Padding(
+              padding: const EdgeInsetsDirectional.only(end: 8.0),
+              child: FilterChip(
+                label: Text(filter.value),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    _selectedPartyFilter = filter.key;
+                  });
+                },
+                selectedColor: AppTheme.charcoal,
+                checkmarkColor: AppTheme.white,
+                labelStyle: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? AppTheme.white : AppTheme.charcoal,
+                ),
+                backgroundColor: Theme.of(context).cardColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: isSelected ? AppTheme.charcoal : SettlementTokens.border,
+                  ),
                 ),
               ),
+            );
+          }),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 8.0),
+            child: ActionChip(
+              avatar: const Icon(Icons.add_circle_outline, size: 16, color: Colors.white),
+              label: const Text('إدارة فواتير الخدمات اللوجستية (LSI)', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              backgroundColor: const Color(0xFF0D9488),
+              onPressed: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (ctx) => LogisticsInvoicesScreen(
+                      initialShipmentId: widget.importFileId,
+                    ),
+                  ),
+                );
+                _loadData();
+              },
             ),
-          );
-        }).toList(),
+          ),
+        ],
       ),
     );
   }

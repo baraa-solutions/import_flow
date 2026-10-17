@@ -14,8 +14,8 @@ class AddCustomBrokerExpenseRowDialog extends StatefulWidget {
 
 class _AddCustomBrokerExpenseRowDialogState extends State<AddCustomBrokerExpenseRowDialog> {
   final nameCtrl = TextEditingController();
-  final priceCtrl = TextEditingController(text: '0.0');
-  final qtyCtrl = TextEditingController(text: '1.0');
+  final priceCtrl = TextEditingController();
+  final qtyCtrl = TextEditingController();
   String selectedCategory = 'Other Fees';
   String selectedUnit = 'Fixed';
   String selectedCurrency = 'EGP';

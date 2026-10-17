@@ -231,11 +231,8 @@ def export_import_files_excel(
             f.form46_no or '',
         ])
     content = MasterDataExportImportHelper.export_to_excel("Import Files Master Tracking", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Import_Files_Report.xlsx"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Import_Files_Master", "xlsx")
+    return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @router.get("/export-pdf", summary="Export all import files to PDF")
@@ -260,11 +257,8 @@ def export_import_files_pdf(
             f.status,
         ])
     content = MasterDataExportImportHelper.export_to_pdf("Import Files & Shipment Tracking", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=Import_Files_Report.pdf"},
-    )
+    filename = MasterDataExportImportHelper.standard_export_filename("Import_Files_Master", "pdf")
+    return MasterDataExportImportHelper.as_pdf_response(filename, content)
 
 
 @router.get(
@@ -281,8 +275,6 @@ def get_freight_rfq_data(
     if import_file_id.isdigit():
         fid = int(import_file_id)
         item = service.get_import_file_by_id_service(db, fid)
-        if not item:
-            item = service.get_import_file_by_code_service(db, import_file_id)
     else:
         item = service.get_import_file_by_code_service(db, import_file_id)
 
@@ -306,8 +298,6 @@ def get_import_file(
 ):
     if import_file_id.isdigit():
         item = service.get_import_file_by_id_service(db, int(import_file_id))
-        if not item:
-            item = service.get_import_file_by_code_service(db, import_file_id)
     else:
         item = service.get_import_file_by_code_service(db, import_file_id)
 
@@ -330,7 +320,7 @@ def update_import_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.edit")),
 ):
-    return service.update_import_file_service(db, import_file_id, payload)
+    return service.update_import_file_service(db, import_file_id, payload, actor=current_user)
 
 
 @router.delete(
@@ -362,7 +352,7 @@ def close_shipment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.close")),
 ):
-    return service.close_shipment_service(db, import_file_id, payload)
+    return service.close_shipment_service(db, import_file_id, payload, actor=current_user)
 
 
 @router.post(
@@ -376,7 +366,7 @@ def reopen_shipment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("import_files.close")),
 ):
-    return service.reopen_shipment_service(db, import_file_id, payload)
+    return service.reopen_shipment_service(db, import_file_id, payload, actor=current_user)
 
 
 @router.post(

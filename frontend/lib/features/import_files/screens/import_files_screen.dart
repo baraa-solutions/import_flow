@@ -1,52 +1,38 @@
 // ignore_for_file: deprecated_member_use
-
 import '../widgets/import_file_details_dialog.dart';
 import '../widgets/import_file_form_dialog.dart';
 import '../widgets/freight_rfq_dialog.dart';
 import '../../smart_checklists/widgets/smart_checklist_dialog.dart';
 import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
+import '../../experience_guide/widgets/smart_shipment_reference_card.dart';
 import '../../simulation/widgets/what_if_simulator_dialog.dart';
 import '../../lifecycle_board/widgets/skip_step_dialog_helper.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
-import '../../../core/widgets/compact_table_pagination_footer.dart';
-import '../../../core/widgets/directional_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/network/dio_client.dart';
-
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/import_file_po_linker.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/widgets.dart';
+import '../../../core/providers/navigation_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../purchase_orders/models/purchase_order_model.dart' hide PackingListItemModel;
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/reopen_shipment_dialog.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/smart_upload_button.dart';
-import '../../../core/widgets/stop_shipment_dialog.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/app_shimmer_skeleton.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../../../core/performance/dispose_tracker.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
 import '../widgets/visual_container_load_planner_dialog.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/utils/bidi_text.dart';
-
-import 'package:frontend/core/widgets/ltr_text.dart';
 class ImportFilesScreen extends ConsumerStatefulWidget {
   final String? initialSearchQuery;
   final int? highlightedFileId;
@@ -947,28 +933,46 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                       ),
                                     ),
                                     const SizedBox(height: 12),
-                                    Align(
-                                      alignment: AlignmentDirectional.centerEnd,
-                                      child: ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.emerald,
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppTheme.cobalt,
+                                            side: const BorderSide(color: AppTheme.cobalt),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          ),
+                                          icon: const Icon(Icons.auto_awesome, size: 14, color: AppTheme.cobalt),
+                                          label: Text(
+                                            Localizations.localeOf(context).languageCode == 'ar'
+                                                ? 'المرجع الذكي للشحنة'
+                                                : 'Smart Reference',
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                          ),
+                                          onPressed: () => _showSmartReferenceDialog(context, file, linkedPOs),
                                         ),
-                                        icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
-                                        label: Text(
-                                          l.containerLoadPlanButton,
-                                          style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                                        const SizedBox(width: 8),
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppTheme.emerald,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          ),
+                                          icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
+                                          label: Text(
+                                            l.containerLoadPlanButton,
+                                            style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                                          ),
+                                          onPressed: () {
+                                            _showVisualLoadPlanDialogForReport(
+                                              context,
+                                              file,
+                                              linkedPOs,
+                                              fileTotalCbm,
+                                              fileTotalWeight,
+                                            );
+                                          },
                                         ),
-                                        onPressed: () {
-                                          _showVisualLoadPlanDialogForReport(
-                                            context,
-                                            file,
-                                            linkedPOs,
-                                            fileTotalCbm,
-                                            fileTotalWeight,
-                                          );
-                                        },
-                                      ),
+                                      ],
                                     ),
                                 ],
                               ),
@@ -1251,6 +1255,57 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
     );
   }
 
+  void _showSmartReferenceDialog(BuildContext context, ImportFileModel file, [List<PurchaseOrderModel>? linkedPOs]) {
+    final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
+    final effectivePOs = linkedPOs ?? ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 850, maxHeight: 800),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      isArabic ? 'المرجع الذكي للشحنة (Smart Reference)' : 'Shipment Smart Reference',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.cobalt),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: SmartShipmentReferenceCard(
+                      importFileId: file.importFileId,
+                      initialHsCode: file.hsCode,
+                      initialCategory: file.productCategory,
+                      initialPod: file.portOfDischarge,
+                      initialSupplier: file.supplierName,
+                      initialCarrier: file.selectedScenario,
+                      linkedPOs: effectivePOs,
+                      file: file,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -1296,14 +1351,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                       label: l.uploadImportDocument,
                       onDataExtracted: (result) {
                         final fields = result.extractedFields;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '${fields['commodity_description'] ?? fields['invoice_number'] ?? 'Extracted successfully'}',
-                            ),
-                            backgroundColor: AppTheme.emerald,
-                            duration: const Duration(seconds: 5),
-                          ),
+                        AppTheme.snackBar(
+                          context,
+                          '${fields['commodity_description'] ?? fields['invoice_number'] ?? 'Extracted successfully'}',
+                          severity: AppSeverity.success,
                         );
                       },
                     ),
@@ -1346,9 +1397,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
               child: paginatedState.isLoading 
                 ? const ImportFilesTableShimmerSkeleton()
                 : paginatedState.error != null
-                  ? Center(child: Text('❌ Error: ${paginatedState.error}', style: const TextStyle(color: Colors.red)))
+                  ? Center(child: AppErrorState(error: paginatedState.error, compact: true, onRetry: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page)))
                   : paginatedState.items.isEmpty
-                    ? Center(child: Text(l.noImportFilesFound, style: const TextStyle(fontSize: 16)))
+                    ? Center(child: AppEmptyState(message: l.noImportFilesFound))
                     : Card(
                       elevation: isDark ? 0 : 2,
                       margin: EdgeInsets.zero,
@@ -1608,6 +1659,17 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                          ),
                                            const SizedBox(width: 4),
                                            IconButton(
+                                             icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
+                                             tooltip: Localizations.localeOf(context).languageCode == 'ar'
+                                                 ? 'المرجع الذكي للشحنة (Smart Reference)'
+                                                 : 'Shipment Smart Reference',
+                                             splashRadius: 18,
+                                             padding: EdgeInsets.zero,
+                                             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                             onPressed: () => _showSmartReferenceDialog(context, file),
+                                           ),
+                                           const SizedBox(width: 4),
+                                           IconButton(
                                              icon: const Icon(Icons.playlist_add_check_circle, color: AppTheme.cobalt, size: 20),
                                              tooltip: l.smartChecklistTooltip,
                                              splashRadius: 18,
@@ -1616,35 +1678,49 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                              onPressed: () => SmartChecklistDialog.show(context, file),
                                            ),
                                            const SizedBox(width: 4),
+                                           IconButton(
+                                             icon: const Icon(Icons.summarize_outlined, color: AppTheme.cobalt, size: 18),
+                                             tooltip: 'تقرير الشحنة الشامل المدمج (Screen 47)',
+                                             splashRadius: 18,
+                                             padding: EdgeInsets.zero,
+                                             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                             onPressed: () {
+                                               ref.read(selectedComprehensiveReportFileIdProvider.notifier).state = file.importFileId;
+                                               selectNavigationIndex(ref, 47, tabTitle: 'تقرير الشحنة الشامل المدمج');
+                                             },
+                                           ),
+                                           const SizedBox(width: 4),
                                            RowActionsPill(
                                            onView: () => _showImportFileDetailsDialog(context, file),
                                            onEdit: () => _showAddEditFileDialog(file),
                                            onClone: () => _showCloneDialog(file),
                                            onPrint: () {
-                                             ScaffoldMessenger.of(context).showSnackBar(
-                                               SnackBar(
-                                                 content: Text('${l.printFileHistoryTooltip}: ${file.customFileNumber ?? file.importFileCode}'),
-                                                 backgroundColor: AppTheme.charcoal,
-                                                 duration: const Duration(seconds: 2),
-                                               ),
+                                             AppTheme.snackBar(
+                                               context,
+                                               '${l.printFileHistoryTooltip}: ${file.customFileNumber ?? file.importFileCode}',
+                                               severity: AppSeverity.info,
                                              );
                                            },
                                            onDelete: () async {
-                                             final confirm = await showDialog<bool>(
-                                               context: context,
-                                               builder: (c) => AlertDialog(
-                                                 title: Text(l.confirmDeleteImportFileTitle),
-                                                 content: Text(l.confirmDeleteImportFilePrompt(file.customFileNumber ?? file.importFileCode)),
-                                                 actions: [
-                                                   TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
-                                                   ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white), onPressed: () => Navigator.pop(c, true), child: Text(l.delete)),
-                                                 ],
-                                               ),
+
+                                             final confirm = await AppConfirmDialog.showDelete(
+
+                                               context,
+
+                                               title: l.confirmDeleteImportFileTitle,
+
+                                               message: l.confirmDeleteImportFilePrompt(file.customFileNumber ?? file.importFileCode),
+
                                              );
-                                             if (confirm == true) {
+
+                                             if (confirm) {
+
                                                await ref.read(importFilesProvider.notifier).softDeleteImportFile(file.importFileId);
+
                                                ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page);
+
                                              }
+
                                            },
                                          ),
                                         ],
@@ -1794,9 +1870,14 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                        child: CopyableTableCell(
                                          value: priorityText,
                                          rowSummary: rowSummary,
-                                         child: Chip(
-                                           label: Text(priorityText, style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.white, fontWeight: FontWeight.bold)),
-                                           backgroundColor: file.priority == 'High' || file.priority == 'Critical' ? AppTheme.wcagCrimson : AppTheme.wcagOrange,
+                                         child: AppStatusBadge(
+
+                                           label: priorityText,
+
+                                           severity: file.priority == 'High' || file.priority == 'Critical' ? AppSeverity.danger : AppSeverity.warning,
+
+                                           size: AppStatusBadgeSize.small,
+
                                          ),
                                        ),
                                      ),
@@ -1867,11 +1948,14 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                        child: CopyableTableCell(
                                          value: statusText,
                                          rowSummary: rowSummary,
-                                         child: Chip(
-                                           padding: EdgeInsets.zero,
-                                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                           label: Text(statusText, style: TextStyle(fontSize: density.tableCellSecondaryFontSize, color: Colors.white, fontWeight: FontWeight.bold)),
-                                           backgroundColor: file.status == 'Open' ? AppTheme.wcagEmerald : (isDark ? const Color(0xFF475569) : Colors.grey.shade600),
+                                         child: AppStatusBadge.fromStatus(
+
+                                           status: file.status,
+
+                                           label: statusText,
+
+                                           size: AppStatusBadgeSize.small,
+
                                          ),
                                        ),
                                      ),
@@ -2106,6 +2190,14 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   IconButton(
+                    icon: const Icon(Icons.summarize_outlined, color: AppTheme.cobalt, size: 18),
+                    tooltip: 'تقرير الشحنة الشامل المدمج (Screen 47)',
+                    onPressed: () {
+                      ref.read(selectedComprehensiveReportFileIdProvider.notifier).state = file.importFileId;
+                      selectNavigationIndex(ref, 47, tabTitle: 'تقرير الشحنة الشامل المدمج');
+                    },
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.info_outline, size: 18),
                     tooltip: l.viewDetails,
                     onPressed: () => _showImportFileDetailsDialog(context, file),
@@ -2119,6 +2211,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                     icon: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 18),
                     tooltip: l.cloneImportFileDialogTitle,
                     onPressed: () => _showCloneDialog(file),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
+                    tooltip: Localizations.localeOf(context).languageCode == 'ar'
+                        ? 'المرجع الذكي للشحنة (Smart Reference)'
+                        : 'Shipment Smart Reference',
+                    onPressed: () => _showSmartReferenceDialog(context, file),
                   ),
                   IconButton(
                     icon: const Icon(Icons.playlist_add_check_circle, color: AppTheme.cobalt, size: 18),

@@ -86,6 +86,7 @@ import '../../core/widgets/ai_assistant_panel.dart';
 import '../../core/providers/ai_assistant_provider.dart';
 import '../../core/widgets/system_settings_dialog.dart';
 import '../system_observability/screens/system_observability_screen.dart';
+import '../logistics_invoices/screens/logistics_invoices_screen.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -234,6 +235,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 69: System Observability, Telemetry & Health Center
         SystemObservabilityScreen(),
+
+        // 70: Logistics Service Invoices & Payments Hub
+        LogisticsInvoicesScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -913,6 +917,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 initiallyExpanded: false,
                 children: [
                   _buildMenuItem(Icons.account_balance_wallet_outlined, 'Finance Approvals & Budget', 'اعتمادات الميزانية وسداد الموردين', 8, selectedIndex),
+                  _buildMenuItem(Icons.receipt_long_outlined, 'Logistics Invoices & Payments', 'فواتير ومدفوعات الخدمات اللوجستية', 70, selectedIndex),
                   _buildMenuItem(Icons.qr_code_2_outlined, 'ACID Operations', 'الرقم التعريفي المبدئي للشحنة ACID', 11, selectedIndex),
                 ],
               ),

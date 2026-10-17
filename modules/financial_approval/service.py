@@ -84,6 +84,7 @@ from modules.financial_approval.validators import (
     is_advance_payment,
     normalize_payment_type,
     require_budget_approvable,
+    require_known_currency,
     require_payment_status,
     require_same_currency,
     validate_payment_request_inputs,
@@ -428,7 +429,21 @@ def create_payment_request_service(
         po_id=schema.po_id,
         supplier_id=schema.supplier_id,
         import_file_id=schema.import_file_id,
+        currency_code=schema.currency_code,
+        project_id=schema.project_id,
     )
+    norm_currency = require_known_currency(db, schema.currency_code)
+    updates: Dict[str, Any] = {"currency_code": norm_currency}
+    if schema.supplier_id:
+        from modules.suppliers.model import Supplier
+
+        sup = db.query(Supplier).filter(Supplier.supplier_id == schema.supplier_id).first()
+        if sup:
+            updates["supplier_name"] = sup.company_name
+            if not schema.beneficiary_name:
+                updates["beneficiary_name"] = sup.company_name
+    schema = schema.model_copy(update=updates)
+
     if schema.import_file_id:
         _ensure_no_open_payment_of_type(db, schema.import_file_id, schema.payment_type)
 
@@ -439,7 +454,7 @@ def create_payment_request_service(
     is_advance = is_advance_payment(schema.payment_type)
 
     def build(code: str) -> PaymentRequestSession:
-        item = repo.add_payment_request(db, schema, code, initial_status)
+        item = repo.add_payment_request(db, schema, code, initial_status, created_by=current_user_name)
         created_msg = msg(
             "FA_PAYMENT_REQUEST_CREATED" if is_advance else "FA_PAYMENT_REQUEST_CREATED_GENERIC",
             **_payment_params(item, file_code),
@@ -486,6 +501,8 @@ def update_payment_request_service(
         if k not in SERVER_OWNED_PAYMENT_FIELDS and not (v is None and k in not_null)  # C4 + FA-12
     }
     validate_payment_update(db_item, changes)
+    if "currency_code" in changes and changes["currency_code"] is not None:
+        changes["currency_code"] = require_known_currency(db, changes["currency_code"])
     _require_reject_permission(db, db_item, changes, current_user)
 
     if changes.get("import_file_id") is not None:
@@ -500,7 +517,7 @@ def update_payment_request_service(
             db, target_file, changes.get("payment_type", db_item.payment_type), exclude_id=db_item.payment_id
         )
 
-    repo.apply_payment_changes(db, db_item, changes, current_version)
+    repo.apply_payment_changes(db, db_item, changes, current_version, updated_by=current_user_name)
     db.commit()
     db.refresh(db_item)
     return _with_file_code(db, db_item)
@@ -517,11 +534,13 @@ def _require_reject_permission(db: Session, item: PaymentRequestSession, changes
             and not has_user_permission(db, current_user, "financial_approval.approve")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Permission 'financial_approval.approve' required.",
+            detail="تم رفض الوصول. الصلاحية 'financial_approval.approve' مطلوبة.",
         )
 
 
-def approve_payment_request_service(db: Session, payment_id: int) -> PaymentRequestSession:
+def approve_payment_request_service(
+    db: Session, payment_id: int, current_user_name: Optional[str] = None
+) -> PaymentRequestSession:
     """Draft / Pending Approval -> Approved, with a notification to the Finance Officer."""
     db_item = _get_payment(db, payment_id)
     require_payment_status(db_item, PAYMENT_APPROVE_FROM, "approve")
@@ -529,6 +548,8 @@ def approve_payment_request_service(db: Session, payment_id: int) -> PaymentRequ
     db_item.status = PAYMENT_APPROVED
     db_item.version = (db_item.version or 1) + 1
     db_item.updated_at = _now()
+    if current_user_name:
+        db_item.updated_by = current_user_name
 
     file_code = _file_codes(db, [db_item.import_file_id]).get(db_item.import_file_id) if db_item.import_file_id else None
     approved_msg = msg(
@@ -576,17 +597,22 @@ class _PaidEvent:
 
 
 def _mark_paid(db: Session, item: PaymentRequestSession, swift_reference_no: Optional[str],
-               transferred_amount: Optional[float], currency_code: Optional[str]) -> _PaidEvent:
+               transferred_amount: Optional[float], currency_code: Optional[str],
+               updated_by: Optional[str] = None) -> _PaidEvent:
     """Core of the Paid transition (same transaction as the caller): status, SWIFT reference, the import
     file's ``swift_no`` and the LOGISTICS_OFFICER notification. Follow-ups: ``_after_paid``."""
-    swift_ref = swift_reference_no or item.swift_reference_no or f"SWF-{item.payment_id}"
+    old_swift_ref = item.swift_reference_no
+    swift_ref = (swift_reference_no or item.swift_reference_no or "").strip()
+    assert swift_ref, "swift_reference_no must be non-empty when marking Paid"
     amount = float(transferred_amount or item.swift_transferred_amount or item.requested_amount or 0.0)
-    currency = currency_code or item.swift_transferred_currency or item.currency_code or "USD"
+    currency = currency_code or item.swift_transferred_currency or item.currency_code
 
     item.status = PAYMENT_PAID
     item.swift_reference_no = swift_ref
     item.version = (item.version or 1) + 1
     item.updated_at = _now()
+    if updated_by:
+        item.updated_by = updated_by
 
     file_code = None
     if item.import_file_id:
@@ -594,7 +620,8 @@ def _mark_paid(db: Session, item: PaymentRequestSession, swift_reference_no: Opt
 
         imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
         if imp is not None:
-            imp.swift_no = swift_ref
+            if not (imp.swift_no and imp.swift_no.strip()) or (old_swift_ref and imp.swift_no == old_swift_ref):
+                imp.swift_no = swift_ref
             file_code = imp.import_file_code or f"IMP-{imp.import_file_id}"
             swift_msg = msg("FA_SWIFT_PAID", import_file_code=file_code, swift_ref=swift_ref,
                             paid_amount=round(amount, 2), currency_code=currency)
@@ -691,23 +718,38 @@ def _finish_paid(db: Session, event: _PaidEvent) -> PaymentRequestSession:
     return _with_file_code(db, _get_payment(db, event.payment_id))
 
 
-def execute_payment_service(db: Session, payment_id: int, swift_reference_no: Optional[str] = None) -> PaymentRequestSession:
+def execute_payment_service(
+    db: Session, payment_id: int, swift_reference_no: Optional[str] = None,
+    current_user_name: Optional[str] = None,
+) -> PaymentRequestSession:
     """Approved -> Paid once the SWIFT transfer copy exists."""
     db_item = _get_payment(db, payment_id)
     require_payment_status(db_item, PAYMENT_PAY_FROM, "pay")
-    _ensure_swift_ref_unused(db, swift_reference_no, db_item)
+    ref = (swift_reference_no or "").strip() or (db_item.swift_reference_no or "").strip()
+    if not ref:
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_SWIFT_REF_REQUIRED",
+            "يجب إدخال الرقم المرجعي للسويفت قبل تسجيل السداد.",
+            payment_code=db_item.payment_code,
+        )
+    _ensure_swift_ref_unused(db, ref, db_item)
 
     event = _mark_paid(
         db, db_item,
-        swift_reference_no=swift_reference_no or db_item.swift_reference_no,
+        swift_reference_no=ref,
         transferred_amount=float(db_item.swift_transferred_amount or db_item.requested_amount or 0.0),
         currency_code=db_item.swift_transferred_currency or db_item.currency_code,
+        updated_by=current_user_name,
     )
     db.commit()
     return _finish_paid(db, event)
 
 
-def reconcile_swift_service(db: Session, payment_id: int, payload: SwiftReconciliationRequest) -> PaymentRequestSession:
+def reconcile_swift_service(
+    db: Session, payment_id: int, payload: SwiftReconciliationRequest,
+    current_user_name: Optional[str] = None,
+) -> PaymentRequestSession:
     """Reconciles a bank SWIFT confirmation against an Approved request and marks it Paid."""
     db_item = _get_payment(db, payment_id)
     require_payment_status(db_item, PAYMENT_PAY_FROM, "reconcile")
@@ -720,12 +762,14 @@ def reconcile_swift_service(db: Session, payment_id: int, payload: SwiftReconcil
     db_item.swift_reconciliation_notes = payload.swift_reconciliation_notes
 
     event = _mark_paid(db, db_item, payload.swift_reference_no, payload.swift_transferred_amount,
-                       payload.swift_transferred_currency)
+                       payload.swift_transferred_currency, updated_by=current_user_name)
     db.commit()
     return _finish_paid(db, event)
 
 
-def smart_reconcile_swift_service(db: Session, payload: SmartSwiftReconcileRequest) -> PaymentRequestSession:
+def smart_reconcile_swift_service(
+    db: Session, payload: SmartSwiftReconcileRequest, current_user_name: Optional[str] = None,
+) -> PaymentRequestSession:
     """Writes confirmed SWIFT details onto an Approved request, confirms bank info and (auto_execute) marks it Paid."""
     db_item = _get_payment(db, payload.payment_id)
     require_payment_status(db_item, PAYMENT_PAY_FROM, "reconcile")
@@ -747,11 +791,12 @@ def smart_reconcile_swift_service(db: Session, payload: SmartSwiftReconcileReque
     event = None
     if payload.auto_execute:
         event = _mark_paid(db, db_item, payload.swift_reference_no, payload.swift_transferred_amount,
-                           payload.swift_transferred_currency)
+                           payload.swift_transferred_currency, updated_by=current_user_name)
     else:
-        _set_file_swift_no(db, db_item.import_file_id, payload.swift_reference_no)
         db_item.version = (db_item.version or 1) + 1
         db_item.updated_at = _now()
+        if current_user_name:
+            db_item.updated_by = current_user_name
     db.commit()
     if event is not None:
         return _finish_paid(db, event)
@@ -759,17 +804,10 @@ def smart_reconcile_swift_service(db: Session, payload: SmartSwiftReconcileReque
     return _with_file_code(db, db_item)
 
 
-def _set_file_swift_no(db: Session, import_file_id: Optional[int], swift_ref: str) -> None:
-    if not import_file_id:
-        return
-    from modules.import_files.model import ImportFile
-
-    imp = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
-    if imp is not None:
-        imp.swift_no = swift_ref
-
-
-def clone_payment_request_service(db: Session, payment_id: int, schema: ClonePaymentRequestRequest) -> PaymentRequestSession:
+def clone_payment_request_service(
+    db: Session, payment_id: int, schema: ClonePaymentRequestRequest,
+    current_user_name: Optional[str] = None,
+) -> PaymentRequestSession:
     """Clones a request into a new Draft: new code, SWIFT fields cleared, request_date today, due today + 12,
     title "<title> (Copy)" unless given, optional supplier switch / import file unlink. Keeps the original rate
     (FA_FX_RATE_MISSING when it has none) and the one-open-request-per-type rule."""
@@ -826,6 +864,7 @@ def clone_payment_request_service(db: Session, payment_id: int, schema: ClonePay
             bank_country=orig.bank_country,
             notes=notes,
             is_active=True,
+            created_by=current_user_name,
         ))
 
     cloned = _insert_with_unique_code(db, lambda: repo.next_payment_code(db), lambda c: repo.payment_code_exists(db, c), build)
@@ -833,20 +872,35 @@ def clone_payment_request_service(db: Session, payment_id: int, schema: ClonePay
 
 
 def get_all_payment_requests_service(
-    db: Session, include_inactive: bool = False, search: Optional[str] = None, po_id: Optional[int] = None,
-    supplier_id: Optional[int] = None, status: Optional[str] = None,
-) -> List[PaymentRequestSession]:
-    items = repo.get_all_payment_requests(
-        db, include_inactive=include_inactive, search=search, po_id=po_id, supplier_id=supplier_id, status=status
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    po_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[PaymentRequestSession], int]:
+    items, total = repo.get_all_payment_requests(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        po_id=po_id,
+        supplier_id=supplier_id,
+        status=status,
+        skip=skip,
+        limit=limit,
     )
-    return _attach_file_codes(db, items)
+    return _attach_file_codes(db, items), total
 
 
 def get_payment_request_by_id_service(db: Session, payment_id: int) -> PaymentRequestSession:
     return _with_file_code(db, _get_payment(db, payment_id))
 
 
-def soft_delete_payment_request_service(db: Session, payment_id: int) -> bool:
+def soft_delete_payment_request_service(
+    db: Session, payment_id: int, current_user_name: Optional[str] = None
+) -> bool:
     item = _get_payment(db, payment_id)
     if item.status in PAYMENT_DELETE_LOCKED:  # Q7: 409 for everyone
         raise fa_error(
@@ -856,18 +910,20 @@ def soft_delete_payment_request_service(db: Session, payment_id: int) -> bool:
             payment_code=item.payment_code,
             status=item.status,
         )
-    repo.set_payment_active(db, item, False)
+    repo.set_payment_active(db, item, False, updated_by=current_user_name)
     db.commit()
     return True
 
 
-def restore_payment_request_service(db: Session, payment_id: int) -> bool:
+def restore_payment_request_service(
+    db: Session, payment_id: int, current_user_name: Optional[str] = None
+) -> bool:
     item = repo.get_inactive_payment_request(db, payment_id)
     if item is None:
         raise not_found(L_PAYMENT, payment_id)
     if item.import_file_id and item.status in PAYMENT_OPEN_STATUSES:
         _ensure_no_open_payment_of_type(db, item.import_file_id, item.payment_type, exclude_id=item.payment_id)
-    repo.set_payment_active(db, item, True)
+    repo.set_payment_active(db, item, True, updated_by=current_user_name)
     db.commit()
     return True
 
@@ -899,6 +955,23 @@ def create_import_budget_service(
     db: Session, schema: ImportBudgetCreate, current_user_name: Optional[str] = None
 ) -> ImportBudgetApproval:
     """Creates an import budget in Pending Review (one active budget per import file)."""
+    if schema.po_id:
+        from modules.purchase_orders.model import PurchaseOrder
+
+        require_active(db, PurchaseOrder, schema.po_id, "أمر الشراء", status_code=status.HTTP_404_NOT_FOUND)
+    if schema.project_id:
+        from modules.projects.model import Project
+
+        require_active(db, Project, schema.project_id, "المشروع", status_code=status.HTTP_404_NOT_FOUND)
+
+    budget_updates: Dict[str, Any] = {}
+    if (schema.invoice_amount_foreign or 0.0) > 0 and schema.invoice_currency:
+        budget_updates["invoice_currency"] = require_known_currency(db, schema.invoice_currency)
+    if (schema.freight_cost_foreign or 0.0) > 0 and schema.freight_currency:
+        budget_updates["freight_currency"] = require_known_currency(db, schema.freight_currency)
+    if budget_updates:
+        schema = schema.model_copy(update=budget_updates)
+
     if schema.import_file_id:
         from modules.import_files.model import ImportFile
 
@@ -906,9 +979,26 @@ def create_import_budget_service(
         if repo.find_active_budget_for_file(db, schema.import_file_id) is not None:
             raise _budget_duplicate_error(db, schema.import_file_id)
 
+    inv_foreign = schema.invoice_amount_foreign or 0.0
+    frt_foreign = schema.freight_cost_foreign or 0.0
+    if inv_foreign > 0 or frt_foreign > 0:
+        calc_inv_egp, calc_frt_egp = _budget_egp_amounts(
+            db,
+            inv_foreign,
+            schema.invoice_currency,
+            frt_foreign,
+            schema.freight_currency,
+            schema.exchange_rate,
+        )
+        inv_egp = calc_inv_egp if inv_foreign > 0 else (schema.invoice_amount_egp or 0.0)
+        frt_egp = calc_frt_egp if frt_foreign > 0 else (schema.freight_cost_egp or 0.0)
+    else:
+        inv_egp = schema.invoice_amount_egp or 0.0
+        frt_egp = schema.freight_cost_egp or 0.0
+
     created = _insert_with_unique_code(
         db, lambda: repo.next_budget_code(db), lambda c: repo.budget_code_exists(db, c),
-        lambda code: repo.add_import_budget(db, schema, code),
+        lambda code: repo.add_import_budget(db, schema, code, inv_egp, frt_egp, created_by=current_user_name),
     )
     budget_id = created.budget_id
     _sync_budget_stage(db, schema.import_file_id, is_approved=False, approved_by=None)  # FA-24: never approved here
@@ -926,7 +1016,7 @@ def _close_budget_tasks(db: Session, import_file_id: int, budget_code: Optional[
     ).all()
     for task in tasks:
         notes = task.notes or ""
-        if "BUDGET" in notes or (by_code is not None and by_code.search(notes + " " + (task.title or ""))):
+        if by_code is not None and by_code.search(notes + " " + (task.title or "")):
             task.status = "Completed"
             task.is_auto_closed = True
     db.commit()
@@ -938,24 +1028,24 @@ def approve_import_budget_service(db: Session, budget_id: int, approved_by: str 
     db_item = _get_budget(db, budget_id)
     require_budget_approvable(db_item)
 
-    if db_item.has_unresolved_variance and not db_item.variance_override_reason:
-        hard = repo.first_pending_hard_block(db, budget_id)
-        if hard is not None:
-            raise fa_error(
-                status.HTTP_400_BAD_REQUEST,
-                "FA_BUDGET_HARD_BLOCK",
-                f"لا يمكن اعتماد الميزانية لوجود فارق تكاليف غير مسوى يتجاوز العتبة المحددة "
-                f"({hard.variance_percentage:.1f}% في {hard.field_name} - Hard Block). يجب مزامنة التكاليف أولاً "
-                "أو تقديم مبرر مكتوب إجباري لتجاوز الحظر.",
-                variance_percentage=round(float(hard.variance_percentage or 0.0), 2),
-                field_name=hard.field_name,
-            )
+    hard = repo.first_pending_hard_block(db, budget_id)
+    if hard is not None:
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_BUDGET_HARD_BLOCK",
+            f"لا يمكن اعتماد الميزانية لوجود فارق تكاليف غير مسوى يتجاوز العتبة المحددة "
+            f"({hard.variance_percentage:.1f}% في {hard.field_name} - Hard Block). يجب مزامنة التكاليف أولاً "
+            "أو تقديم مبرر مكتوب إجباري لتجاوز الحظر.",
+            variance_percentage=round(float(hard.variance_percentage or 0.0), 2),
+            field_name=hard.field_name,
+        )
 
     db_item.budget_status = BUDGET_APPROVED
     db_item.approved_by = approved_by
     db_item.approved_date = date.today()
     db_item.version = (db_item.version or 1) + 1
     db_item.updated_at = _now()
+    db_item.updated_by = approved_by
 
     file_code = _file_codes(db, [db_item.import_file_id]).get(db_item.import_file_id) if db_item.import_file_id else None
     budget_msg = msg(
@@ -975,7 +1065,10 @@ def approve_import_budget_service(db: Session, budget_id: int, approved_by: str 
     return _with_file_code(db, _get_budget(db, budget_id))
 
 
-def clone_import_budget_service(db: Session, budget_id: int, schema: CloneImportBudgetRequest) -> ImportBudgetApproval:
+def clone_import_budget_service(
+    db: Session, budget_id: int, schema: CloneImportBudgetRequest,
+    current_user_name: Optional[str] = None,
+) -> ImportBudgetApproval:
     """Clones a budget into Pending Review: approval cleared, new code, optional new rate (EGP amounts recomputed
     from the foreign amounts), unlinked when the target file is the source file."""
     orig = _get_budget(db, budget_id)
@@ -1035,6 +1128,7 @@ def clone_import_budget_service(db: Session, budget_id: int, schema: CloneImport
             approved_date=None,
             notes=notes,
             is_active=True,
+            created_by=current_user_name,
         ))
 
     cloned = _insert_with_unique_code(db, lambda: repo.next_budget_code(db), lambda c: repo.budget_code_exists(db, c), build)
@@ -1042,14 +1136,26 @@ def clone_import_budget_service(db: Session, budget_id: int, schema: CloneImport
 
 
 def get_all_import_budgets_service(
-    db: Session, include_inactive: bool = False, search: Optional[str] = None, import_file_id: Optional[int] = None,
-    po_id: Optional[int] = None, budget_status: Optional[str] = None,
-) -> List[ImportBudgetApproval]:
-    items = repo.get_all_import_budgets(
-        db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, po_id=po_id,
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    po_id: Optional[int] = None,
+    budget_status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[ImportBudgetApproval], int]:
+    items, total = repo.get_all_import_budgets(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
         budget_status=budget_status,
+        skip=skip,
+        limit=limit,
     )
-    return _attach_file_codes(db, items)
+    return _attach_file_codes(db, items), total
 
 
 def get_import_budget_by_id_service(db: Session, budget_id: int) -> ImportBudgetApproval:
@@ -1079,6 +1185,29 @@ def update_import_budget_service(
     submitted.pop("approved_by", None)
     changes = {k: v for k, v in submitted.items() if not (v is None and k in _BUDGET_NOT_NULL_FIELDS)}
 
+    if changes.get("po_id") is not None:
+        from modules.purchase_orders.model import PurchaseOrder
+
+        require_active(db, PurchaseOrder, changes["po_id"], "أمر الشراء", status_code=status.HTTP_404_NOT_FOUND)
+    if changes.get("project_id") is not None:
+        from modules.projects.model import Project
+
+        require_active(db, Project, changes["project_id"], "المشروع", status_code=status.HTTP_404_NOT_FOUND)
+
+    target_inv_foreign = changes.get("invoice_amount_foreign", db_item.invoice_amount_foreign) or 0.0
+    if target_inv_foreign > 0 and ("invoice_currency" in changes or "invoice_amount_foreign" in changes):
+        inv_curr = changes.get("invoice_currency", db_item.invoice_currency)
+        norm_inv = require_known_currency(db, inv_curr)
+        if "invoice_currency" in changes:
+            changes["invoice_currency"] = norm_inv
+
+    target_frt_foreign = changes.get("freight_cost_foreign", db_item.freight_cost_foreign) or 0.0
+    if target_frt_foreign > 0 and ("freight_currency" in changes or "freight_cost_foreign" in changes):
+        frt_curr = changes.get("freight_currency", db_item.freight_currency)
+        norm_frt = require_known_currency(db, frt_curr)
+        if "freight_currency" in changes:
+            changes["freight_currency"] = norm_frt
+
     new_file = changes.get("import_file_id")
     if new_file is not None and new_file != db_item.import_file_id:
         from modules.import_files.model import ImportFile
@@ -1087,29 +1216,48 @@ def update_import_budget_service(
         if repo.find_active_budget_for_file(db, new_file, exclude_id=db_item.budget_id) is not None:
             raise _budget_duplicate_error(db, new_file)
 
-    repo.apply_budget_changes(db, db_item, changes, current_version)
+    inv_foreign = changes.get("invoice_amount_foreign", db_item.invoice_amount_foreign) or 0.0
+    inv_currency = changes.get("invoice_currency", db_item.invoice_currency)
+    frt_foreign = changes.get("freight_cost_foreign", db_item.freight_cost_foreign) or 0.0
+    frt_currency = changes.get("freight_currency", db_item.freight_currency)
+    rate = changes.get("exchange_rate", db_item.exchange_rate) or 1.0
+
+    if inv_foreign > 0 or frt_foreign > 0:
+        calc_inv_egp, calc_frt_egp = _budget_egp_amounts(
+            db, inv_foreign, inv_currency, frt_foreign, frt_currency, rate
+        )
+        if inv_foreign > 0:
+            changes["invoice_amount_egp"] = calc_inv_egp
+        if frt_foreign > 0:
+            changes["freight_cost_egp"] = calc_frt_egp
+
+    repo.apply_budget_changes(db, db_item, changes, current_version, updated_by=current_user_name)
     db.commit()
     import_file_id = db_item.import_file_id
     _sync_budget_stage(db, import_file_id, is_approved=False, approved_by=None)
     return _with_file_code(db, _get_budget(db, budget_id))
 
 
-def soft_delete_import_budget_service(db: Session, budget_id: int) -> bool:
+def soft_delete_import_budget_service(
+    db: Session, budget_id: int, current_user_name: Optional[str] = None
+) -> bool:
     item = _get_budget(db, budget_id)
     if item.budget_status in BUDGET_LOCKED:
         raise budget_locked_error(item)
-    repo.set_budget_active(db, item, False)
+    repo.set_budget_active(db, item, False, updated_by=current_user_name)
     db.commit()
     return True
 
 
-def restore_import_budget_service(db: Session, budget_id: int) -> bool:
+def restore_import_budget_service(
+    db: Session, budget_id: int, current_user_name: Optional[str] = None
+) -> bool:
     item = repo.get_inactive_import_budget(db, budget_id)
     if item is None:
         raise not_found(L_BUDGET, budget_id)
     if item.import_file_id and repo.find_active_budget_for_file(db, item.import_file_id, exclude_id=item.budget_id):
         raise _budget_duplicate_error(db, item.import_file_id)
-    repo.set_budget_active(db, item, True)
+    repo.set_budget_active(db, item, True, updated_by=current_user_name)
     db.commit()
     return True
 
@@ -1135,7 +1283,11 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
     from modules.shipping_scenarios.model import ShippingEvaluationSession
     from modules.suppliers.model import Supplier
 
-    imp = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    imp = (
+        db.query(ImportFile)
+        .filter(ImportFile.import_file_id == import_file_id, ImportFile.is_active == True)
+        .first()
+    )
     if not imp:
         raise not_found(L_FILE, import_file_id)
 
@@ -1165,9 +1317,10 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
     )
 
     for po in pos:
-        p_term = po.payment_terms or "Standard Payment"
-        payment_terms_set.add(p_term)
-        terms_list_str.append(f"{po.po_number} ({p_term})")
+        p_term = po.payment_terms
+        if p_term:
+            payment_terms_set.add(p_term)
+            terms_list_str.append(f"{po.po_number} ({p_term})")
 
         curr_code = curr_map.get(po.currency_id) or ""
         po_amt = float(po.total_amount_fob or 0.0)
@@ -1205,7 +1358,7 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
     elif len(payment_terms_set) > 1:
         payment_terms_summary = f"Multiple ({', '.join(terms_list_str)})"  # C2: English, never stored Arabic
     else:
-        payment_terms_summary = "Advance Payment"
+        payment_terms_summary = None
 
     # 2. Supplier and banking info
     sup = None
@@ -1216,7 +1369,7 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
     elif imp.supplier_name:
         # Legacy files without supplier_id: best-effort match on the stored name text (FA-21 MINOR, kept).
         sup = db.query(Supplier).filter(Supplier.company_name == imp.supplier_name).first()
-    supplier_name = sup.company_name if sup else (imp.supplier_name or "Foreign Exporter")
+    supplier_name = sup.company_name if sup else imp.supplier_name
 
     # 3. Highest freight quotation, compared in EGP
     rate_cache: Dict[str, float] = {}
@@ -1229,7 +1382,7 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
 
     highest_freight = 0.0
     highest_freight_egp = 0.0
-    freight_currency = "USD"
+    freight_currency: Optional[str] = None
     for s in shipping_sessions:
         for itm in s.items:
             f_amt = float(getattr(itm, "total_quotation_amount", 0.0) or 0.0)
@@ -1240,7 +1393,8 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
                 f_amt = c40 + c20 + lcl
             if f_amt <= 0:
                 continue
-            curr = getattr(itm, "quotation_currency", None) or "USD"
+            source = f"freight quotation ({s.session_code})" if getattr(s, "session_code", None) else "freight quotation"
+            curr = _require_currency(getattr(itm, "quotation_currency", None), source)
             f_egp = f_amt * _require_rate(db, curr, rate_cache)
             if f_egp > highest_freight_egp:
                 highest_freight, highest_freight_egp, freight_currency = f_amt, f_egp, curr
@@ -1300,7 +1454,7 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
         import_file_id=imp.import_file_id,
         import_file_code=file_code_str,
         import_file_title=f"Shipment {file_code_str}",
-        incoterm=imp.incoterm_code or "FOB",
+        incoterm=imp.incoterm_code,
         supplier_id=sup.supplier_id if sup else None,
         supplier_name=supplier_name,
         beneficiary_name=supplier_name,
@@ -1330,7 +1484,7 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
 # ==============================================================================
 
 def _threshold_setting(db: Session) -> Optional[BudgetVarianceSetting]:
-    return db.query(BudgetVarianceSetting).filter(BudgetVarianceSetting.setting_key == VARIANCE_THRESHOLD_KEY).first()
+    return repo.get_setting(db, VARIANCE_THRESHOLD_KEY)
 
 
 def get_variance_threshold_service(db: Session) -> float:
@@ -1382,12 +1536,8 @@ def update_variance_threshold_service(db: Session, threshold_percentage: float, 
 
 
 def get_budget_variance_logs_service(db: Session, budget_id: int) -> List[BudgetVarianceLog]:
-    return (
-        db.query(BudgetVarianceLog)
-        .filter(BudgetVarianceLog.budget_id == budget_id)
-        .order_by(BudgetVarianceLog.detected_at.desc())
-        .all()
-    )
+    _get_budget(db, budget_id)
+    return repo.variance_logs_for_budget(db, budget_id)
 
 
 # ==============================================================================
@@ -1411,11 +1561,13 @@ def _cost_diffs(budget: ImportBudgetApproval, prefill: BudgetPrefillResponse, th
     diffs: List[_CostDiff] = []
     for column, prefill_attr, label in _COST_FIELDS:
         old = getattr(budget, column)
+        old_val = float(old) if old is not None else 0.0
         new = getattr(prefill, prefill_attr)
-        diff = new - old
+        new_val = float(new) if new is not None else 0.0
+        diff = new_val - old_val
         if abs(diff) > VARIANCE_MIN_DIFF_EGP:
-            pct = 100.0 if old == 0.0 else round((abs(diff) / old) * 100.0, 2)
-            diffs.append(_CostDiff(column, label, old, new, diff, pct, pct > threshold))
+            pct = 100.0 if old_val == 0.0 else round((abs(diff) / old_val) * 100.0, 2)
+            diffs.append(_CostDiff(column, label, old_val, new_val, diff, pct, pct > threshold))
     return diffs
 
 
@@ -1424,7 +1576,8 @@ def _apply_prefill(budget: ImportBudgetApproval, prefill: BudgetPrefillResponse)
     budget.invoice_currency = prefill.invoice_currency
     budget.invoice_amount_egp = prefill.total_invoice_amount_egp
     budget.freight_cost_foreign = prefill.estimated_freight_cost
-    budget.freight_currency = prefill.freight_currency
+    if prefill.freight_currency is not None:
+        budget.freight_currency = prefill.freight_currency
     budget.freight_cost_egp = prefill.estimated_freight_cost_egp
     budget.customs_duties_egp = prefill.estimated_customs_duties_egp
     budget.clearance_inland_egp = prefill.estimated_clearance_fees_egp
@@ -1464,15 +1617,7 @@ def evaluate_and_record_budget_variance_service(
     - Budget Approved: numbers untouched, flagged, CRITICAL notification.
     A missing FX rate raises FA_FX_RATE_MISSING before any change (the caller's best_effort leaves budgets as they are).
     """
-    active_budgets = (
-        db.query(ImportBudgetApproval)
-        .filter(
-            ImportBudgetApproval.import_file_id == import_file_id,
-            ImportBudgetApproval.is_active == True,
-            ImportBudgetApproval.budget_status != BUDGET_SUPERSEDED,
-        )
-        .all()
-    )
+    active_budgets = repo.active_budgets_for_file(db, import_file_id)
     if not active_budgets:
         return []
 
@@ -1529,6 +1674,8 @@ def evaluate_and_record_budget_variance_service(
             budget.last_variance_check = now
             budget.approved_by = None
             budget.approved_date = None
+            budget.variance_override_reason = None
+            budget.variance_overridden_by = None
             budget.notes = _append_note(
                 budget.notes,
                 f"[Source change {date.today()}]: cost variance detected by {modified_by}. Status changed to 'Needs Revalidation'.",
@@ -1621,7 +1768,7 @@ def sync_budget_with_upstream_service(
     orig_status = budget.budget_status
 
     if orig_status == BUDGET_APPROVED:
-        next_rev = budget.revision_number + 1
+        next_rev = (budget.revision_number or 1) + 1
         rev_code = f"{budget.budget_code.split('-REV')[0]}-REV{next_rev}"
         if repo.budget_code_exists(db, rev_code):
             raise fa_error(status.HTTP_409_CONFLICT, "FA_CODE_GENERATION_CONFLICT",
@@ -1630,6 +1777,8 @@ def sync_budget_with_upstream_service(
         budget.budget_status = BUDGET_SUPERSEDED
         budget.has_unresolved_variance = False
         budget.version = (budget.version or 1) + 1
+        budget.updated_at = now
+        budget.updated_by = username
         budget.notes = _append_note(
             budget.notes,
             f"[Archived as superseded {date.today()}]: this approved version was replaced by revision REV{next_rev} by {username}.",
@@ -1653,11 +1802,22 @@ def sync_budget_with_upstream_service(
             notes=f"[New revision {date.today()}]: this budget was created from live costs to replace "
                   f"{budget.budget_code} ({changes_desc}). By: {username}.{justification_suffix}",
             is_active=True,
+            created_by=username,
+            updated_by=username,
         )
         _apply_prefill(new_budget, prefill)
         repo.add_row(db, new_budget)
         open_logs = _resolve_pending_logs(db, budget.budget_id, username, override_justification, now)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise fa_error(
+                status.HTTP_409_CONFLICT,
+                "FA_CODE_GENERATION_CONFLICT",
+                f"الرقم المرجعي {rev_code} مستخدم بالفعل، يرجى إعادة المحاولة.",
+                reference_code=rev_code,
+            )
         db.refresh(new_budget)
         result_budget = new_budget
         action, message_code = "revision_created", "FA_BUDGET_SYNC_REVISION_CREATED"
@@ -1671,6 +1831,8 @@ def sync_budget_with_upstream_service(
         budget.variance_override_reason = override_justification
         budget.variance_overridden_by = username if override_justification else None
         budget.version = (budget.version or 1) + 1
+        budget.updated_at = now
+        budget.updated_by = username
         budget.notes = _append_note(
             budget.notes,
             f"[Live cost sync {date.today()}]: costs updated ({changes_desc}). By: {username}.{justification_suffix}",
@@ -1720,6 +1882,8 @@ def override_budget_variance_service(
     budget.variance_override_reason = note
     budget.variance_overridden_by = username
     budget.version = (budget.version or 1) + 1
+    budget.updated_at = _now()
+    budget.updated_by = username
     budget.notes = _append_note(
         budget.notes,
         f"[Financial block override {date.today()}]: cost variance block overridden by {username}. Justification: {note}.",
@@ -1893,7 +2057,7 @@ def confirm_swift_batch_review_service(
     if not batch_resp.all_mandatory_valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot confirm SWIFT review: Mandatory fields are missing or invalid: {', '.join(batch_resp.missing_mandatory_fields)}",
+            detail=f"تعذر تأكيد مراجعة السويفت: حقول إجبارية مفقودة أو غير صالحة: {', '.join(batch_resp.missing_mandatory_fields)}",
         )
 
     repo.mark_swift_batch_reviewed(db, batch, acting_user)
@@ -1914,13 +2078,10 @@ def confirm_swift_batch_review_service(
 
 def match_reviewed_batch_service(db: Session, batch_id: int, target_payment_id: Optional[int] = None) -> SwiftBatchMatchResponse:
     """Matches a confirmed batch (``final_value`` only) against Approved requests without a SWIFT reference
-    (plus the target request). 403 before the review is confirmed."""
+    (plus the target request). 409 before the review is confirmed."""
     batch = _get_batch(db, batch_id)
     if batch.status not in (BATCH_CONFIRMED, BATCH_RECONCILED):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="يجب مراجعة وتأكيد بيانات السويفت المستخرجة قبل المطابقة.",
-        )
+        raise batch_status_error(batch)
 
     confirmed = {f.field_key: f.final_value for f in batch.fields}
     parsed = dict(confirmed)
@@ -1966,14 +2127,29 @@ def reconcile_reviewed_batch_service(
     require_payment_status(db_item, PAYMENT_PAY_FROM, "reconcile")
 
     field_map = {f.field_key: f.final_value for f in batch.fields}
-    swift_ref = field_map.get("transaction_reference") or f"SWF-REF-{batch.batch_id}"
-    receipt_date = date.today()
+    swift_ref = (field_map.get("transaction_reference") or "").strip()
+    if not swift_ref:
+        raise batch_status_error(batch, status.HTTP_400_BAD_REQUEST)
     raw_date = field_map.get("value_date")
-    if raw_date:
-        try:
-            receipt_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
-        except ValueError:
-            logger.info("SWIFT batch %s: value_date %r is not YYYY-MM-DD; using today", batch.batch_code, raw_date)
+    raw_date_str = str(raw_date).strip() if raw_date is not None else ""
+    if not raw_date_str:
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_SWIFT_VALUE_DATE_INVALID",
+            f"تاريخ القيمة '{raw_date_str}' في دفعة السويفت {batch.batch_code} غير صالح أو غير مدخل بصيغة YYYY-MM-DD.",
+            batch_code=batch.batch_code,
+            value=raw_date_str,
+        )
+    try:
+        receipt_date = datetime.strptime(raw_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        raise fa_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FA_SWIFT_VALUE_DATE_INVALID",
+            f"تاريخ القيمة '{raw_date_str}' في دفعة السويفت {batch.batch_code} غير صالح أو غير مدخل بصيغة YYYY-MM-DD.",
+            batch_code=batch.batch_code,
+            value=raw_date_str,
+        )
     try:
         amount = float(field_map.get("amount") or db_item.requested_amount)
     except (TypeError, ValueError):
@@ -2003,7 +2179,6 @@ def reconcile_reviewed_batch_service(
     if payload.auto_execute:
         event = _mark_paid(db, db_item, swift_ref, amount, currency)
     else:
-        _set_file_swift_no(db, db_item.import_file_id, swift_ref)
         db_item.version = (db_item.version or 1) + 1
         db_item.updated_at = _now()
     repo.mark_swift_batch_reconciled(db, batch, db_item.payment_id)

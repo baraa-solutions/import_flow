@@ -98,6 +98,8 @@ def db():
                 is_active=True,
             )
         )
+    from modules.currencies.model import Currency
+    session.add(Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
     session.commit()
     try:
         yield session
@@ -357,10 +359,10 @@ def test_08_coo_certified_with_discrepancies_and_no_override_is_400(db):
 
 # 9 -------------------------------------------------------------------------------------------------
 def test_09_po_reconciliation_session_duplicate_active_is_400(db):
-    first = _call(service.create_po_reconciliation_session_service, db, POReconciliationSessionCreate(import_file_id=1))
+    first = _call(service.create_po_reconciliation_session_service, db, POReconciliationSessionCreate(import_file_id=1, currency="USD"))
     assert first.session_code == f"REC-{YEAR}-0001"
     with pytest.raises(HTTPException) as exc:
-        _call(service.create_po_reconciliation_session_service, db, POReconciliationSessionCreate(import_file_id=1))
+        _call(service.create_po_reconciliation_session_service, db, POReconciliationSessionCreate(import_file_id=1, currency="USD"))
     assert exc.value.status_code == 400
     assert first.session_code in exc.value.detail
 
@@ -462,11 +464,11 @@ def test_doc06_coo_critical_mismatch_without_override_is_400(db):
 
 # DOC-09 fixed by D2: xfail removed.
 def test_doc09_po_reconciliation_create_after_delete(db):
-    first = _call(service.create_po_reconciliation_session_service, db, POReconciliationSessionCreate(import_file_id=1))
+    first = _call(service.create_po_reconciliation_session_service, db, POReconciliationSessionCreate(import_file_id=1, currency="USD"))
     _call(service.delete_po_reconciliation_session_service, db, first.session_id)
     again = _call(
         service.create_po_reconciliation_session_service, db,
-        POReconciliationSessionCreate(import_file_id=1, final_invoice_number="INV-2"),
+        POReconciliationSessionCreate(import_file_id=1, currency="USD", final_invoice_number="INV-2"),
     )
     assert again.is_active is True
     assert again.final_invoice_number == "INV-2"

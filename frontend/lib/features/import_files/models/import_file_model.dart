@@ -771,7 +771,8 @@ class ImportMasterReportSummaryModel {
   final int openFilesCount;
   final int inProgressCount;
   final int closedFilesCount;
-  final double totalEstimatedCost;
+  final double? totalEstimatedCost;
+  final Map<String, double> estimatedCostByCurrency;
   final List<ImportFileModel> files;
 
   ImportMasterReportSummaryModel({
@@ -779,18 +780,28 @@ class ImportMasterReportSummaryModel {
     required this.openFilesCount,
     required this.inProgressCount,
     required this.closedFilesCount,
-    required this.totalEstimatedCost,
+    this.totalEstimatedCost,
+    this.estimatedCostByCurrency = const {},
     required this.files,
   });
 
   factory ImportMasterReportSummaryModel.fromJson(Map<String, dynamic> json) {
     var rawFiles = json['files'] as List<dynamic>? ?? [];
+    final Map<String, double> costByCurrency = {};
+    if (json['estimated_cost_by_currency'] != null && json['estimated_cost_by_currency'] is Map) {
+      (json['estimated_cost_by_currency'] as Map).forEach((k, v) {
+        if (v is num) {
+          costByCurrency[k.toString()] = v.toDouble();
+        }
+      });
+    }
     return ImportMasterReportSummaryModel(
       totalImportFiles: json['total_import_files'] ?? 0,
       openFilesCount: json['open_files_count'] ?? 0,
       inProgressCount: json['in_progress_count'] ?? 0,
       closedFilesCount: json['closed_files_count'] ?? 0,
-      totalEstimatedCost: (json['total_estimated_cost'] as num?)?.toDouble() ?? 0.0,
+      totalEstimatedCost: (json['total_estimated_cost'] as num?)?.toDouble(),
+      estimatedCostByCurrency: costByCurrency,
       files: rawFiles.map((f) => ImportFileModel.fromJson(f)).toList(),
     );
   }

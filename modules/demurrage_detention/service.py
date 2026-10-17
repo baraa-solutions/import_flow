@@ -82,6 +82,10 @@ DEFAULT_AVOIDANCE_RATE_USD = 70.0
 COMPUTED_CONTAINER_KEYS = ("demurrage_days", "detention_days", "storage_days", "demurrage_fx", "detention_fx", "storage_egp", "total_egp", "status")
 
 
+def _today() -> date:
+    return date.today()
+
+
 @dataclass(frozen=True)
 class Tariff:
     demurrage_free_days: int
@@ -311,6 +315,7 @@ def _recalculate_containers(
     gate_out: Optional[date],
     empty_return: Optional[date],
     status_fn: Optional[Callable[[Dict[str, Any], Any, Optional[date], Optional[date]], str]] = None,
+    calc_date: Optional[date] = None,
 ) -> Tuple[List[Dict[str, Any]], float, float, float]:
     """Recalculates every container of the tracking with ``tariff``. Only COMPUTED_CONTAINER_KEYS change;
     a container's own gate-out / return dates win over the tracking-level dates. Returns
@@ -334,6 +339,7 @@ def _recalculate_containers(
             discharge_date=tracking.discharge_date,
             gate_out_date=c_gate_out,
             empty_return_date=c_return,
+            calculation_date=calc_date or _today(),
             currency=tracking.currency or "USD",
             exchange_rate=rate,
         ))
@@ -424,7 +430,7 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
     """
     validate_demurrage_dates(req.discharge_date, req.gate_out_date, req.empty_return_date, today=None)
 
-    calc_date = req.calculation_date or date.today()
+    calc_date = req.calculation_date or _today()
     dem_tiers = [t.model_dump() if hasattr(t, 'model_dump') else t for t in (req.demurrage_tiers or DEFAULT_DEMURRAGE_TIERS)]
     det_tiers = [t.model_dump() if hasattr(t, 'model_dump') else t for t in (req.detention_tiers or DEFAULT_DETENTION_TIERS)]
 
@@ -740,7 +746,11 @@ def recalculate_and_update_tracking_service(
 
 
 def push_demurrage_to_financial_settlement_service(
-    db: Session, req: PushToSettlementRequest, user: str = "System", actor: Any = None
+    db: Session,
+    req: PushToSettlementRequest,
+    user: str = "System",
+    actor: Any = None,
+    calc_date: Optional[date] = None,
 ) -> Dict[str, Any]:
     """
     Pushes calculated Demurrage, Detention, and Storage expenses into the Phase 9 settlement record of the file
@@ -763,7 +773,14 @@ def push_demurrage_to_financial_settlement_service(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="لا يمكن ترحيل الغرامات بدون ربط جلسة التتبع برقم ملف استيراد (Import File ID).",
         )
-    _tracking_rate(tracking)  # 409 when the stored rate is not usable
+    rate = _tracking_rate(tracking)  # 409 when the stored rate is not usable
+
+    # Recalculate before pushing demurrage (BE45-T02)
+    tariff = _tracking_tariff(db, tracking)
+    containers, dem, det, stor = _recalculate_containers(
+        tracking, tariff, rate, tracking.gate_out_date, tracking.empty_return_date, calc_date=calc_date
+    )
+    _apply_totals(tracking, containers, dem, det, stor, rate)
 
     from modules.financial_settlement.model import LandedCostSettlementRecord
     from modules.financial_settlement.repository import add_with_new_code, get_settlement_by_import_file_id
@@ -785,6 +802,11 @@ def push_demurrage_to_financial_settlement_service(
 
     # rows replaced by invoice number; the settlement totals come from its own recalculation only
     rows = _write_settlement_rows(settlement, tracking, user)
+
+    is_provisional = bool(
+        not tracking.containers
+        or not all(bool(c.get("empty_return_date") or tracking.empty_return_date) for c in tracking.containers)
+    )
 
     tracking.is_pushed_to_settlement = True
     tracking.settlement_record_id = settlement.settlement_id
@@ -820,6 +842,7 @@ def push_demurrage_to_financial_settlement_service(
         "settlement_id": settlement_id,
         "settlement_code": settlement_code,
         "settlement_recalculated": recalculated,
+        "is_provisional": is_provisional,
         "invoice_entry": rows[0],
         "invoice_entries": rows,
     }
@@ -830,15 +853,18 @@ def push_demurrage_to_financial_settlement_service(
 # LOG-DUAL-001: Dual Clock Radar Service
 # =========================================================================
 
-def get_dual_clock_status_service(db: Session, tracking_id: int) -> DualClockResponse:
+def get_dual_clock_status_service(
+    db: Session, tracking_id: int, calc_date: Optional[date] = None
+) -> DualClockResponse:
     tracking = get_demurrage_tracking_by_id_service(db, tracking_id)
     tariff = _tracking_tariff(db, tracking)
+    rate = _tracking_rate(tracking)
 
     # 1. Carrier Demurrage Clock (USD)
     carrier_free = tariff.demurrage_free_days
     demurrage_expiry = tracking.discharge_date + timedelta(days=carrier_free)
 
-    today = date.today()
+    today = calc_date or _today()
     ref_date = tracking.gate_out_date or today
     carrier_days_consumed = max(0, (ref_date - tracking.discharge_date).days)
     carrier_days_remaining = max(0, carrier_free - carrier_days_consumed)
@@ -853,13 +879,21 @@ def get_dual_clock_status_service(db: Session, tracking_id: int) -> DualClockRes
     else:
         carrier_status = "SAFE"
 
+    # Live recalculation for dual clock (BE45-T02): no write, no commit
+    containers, dem, det, stor = _recalculate_containers(
+        tracking, tariff, rate, tracking.gate_out_date, tracking.empty_return_date, calc_date=calc_date
+    )
+    live_demurrage_fx = round(dem, 2)
+    live_storage_egp = round(stor, 2)
+    live_total_cost_egp = round(((dem + det) * rate) + stor, 2)
+
     carrier_clock = CarrierDemurrageClock(
         carrier_name=tracking.carrier_name,
         free_days_allowed=carrier_free,
         days_consumed=carrier_days_consumed,
         days_remaining=carrier_days_remaining,
         expiry_date=demurrage_expiry,
-        accrued_demurrage_fx=tracking.total_demurrage_fx,
+        accrued_demurrage_fx=live_demurrage_fx,
         currency=tracking.currency or "USD",
         status=carrier_status,
     )
@@ -890,7 +924,7 @@ def get_dual_clock_status_service(db: Session, tracking_id: int) -> DualClockRes
         days_remaining=storage_days_remaining,
         hours_until_penalties=hours_until_penalties,
         daily_rate_egp=storage_rate,
-        accrued_storage_egp=tracking.total_storage_egp,
+        accrued_storage_egp=live_storage_egp,
         is_critical_72h_warning=is_critical_72h,
         status=storage_status,
     )
@@ -898,7 +932,7 @@ def get_dual_clock_status_service(db: Session, tracking_id: int) -> DualClockRes
     # Overall Alert (summary_ar is deprecated: Flutter renders from overall_alert_level and the numbers)
     if storage_status == "OVERDUE_STORAGE" or carrier_status == "OVERDUE_DEMURRAGE":
         overall_alert = "ACTION_REQUIRED"
-        summary_ar = f"تنبيه: تراكم غرامات تأخير بقيمة {tracking.total_cost_egp:,.2f} جنيه على البوليصة {tracking.bill_of_lading_no}."
+        summary_ar = f"تنبيه: تراكم غرامات تأخير بقيمة {live_total_cost_egp:,.2f} جنيه على البوليصة {tracking.bill_of_lading_no}."
     elif is_critical_72h:
         overall_alert = "URGENT_STORAGE_72H"
         summary_ar = f"تحذير عاجل (72 ساعة): متبقي {storage_days_remaining} أيام فقط قبل سريان غرامات أرضيات الميناء بالجنيه المصري."

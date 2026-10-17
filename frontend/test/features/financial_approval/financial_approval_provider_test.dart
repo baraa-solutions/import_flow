@@ -357,5 +357,26 @@ void main() {
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
+
+    testWidgets('disabled button does not invoke onAction', (tester) async {
+      var calls = 0;
+      await tester.pumpWidget(localizedApp(
+        home: Scaffold(
+          body: Center(
+            child: AsyncActionButton(
+              label: 'Pay',
+              enabled: false,
+              onAction: () async {
+                calls++;
+              },
+            ),
+          ),
+        ),
+      ));
+
+      await tester.tap(find.text('Pay'));
+      await tester.pump();
+      expect(calls, 0);
+    });
   });
 }

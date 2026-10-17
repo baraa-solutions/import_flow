@@ -21,7 +21,9 @@ from database.schema_upgrade_service import SchemaUpgradeService
 from utils import db_safety
 
 PREVIOUS = "f7a1c3e5b9d2"
-HEAD = "c3d4e5f6a7b8"  # current head (partial shipments linkage on import_files DEV-OPS-04)
+
+
+HEAD = "f3a4b5c6d7e8"  # current head (partial shipments linkage on import_files DEV-OPS-04)
 
 NEW_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],

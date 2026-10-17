@@ -1,10 +1,10 @@
 // ignore_for_file: deprecated_member_use
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/providers/navigation_provider.dart';
 import '../../../core/utils/import_file_po_linker.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../purchase_orders/models/purchase_order_model.dart' hide PackingListItemModel;
@@ -60,6 +60,10 @@ import '../../financial_settlement/widgets/actual_landed_cost_dialog.dart';
 import '../../comprehensive_report/widgets/comprehensive_dossier_export_dialog.dart';
 import '../../file_closure/widgets/official_file_closure_dialog.dart';
 import 'create_partial_batch_dialog.dart';
+import 'logistics_shipment_expenses_summary_card.dart';
+import '../../logistics_invoices/screens/logistics_invoices_screen.dart';
+
+
 
 import 'package:frontend/core/widgets/ltr_text.dart';
 class ImportFileDetailsDialog extends ConsumerStatefulWidget {
@@ -961,6 +965,28 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           ),
           const SizedBox(width: 8),
           ElevatedButton.icon(
+            key: const Key('logisticsInvoicesHubHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E3A8A),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.account_balance_wallet_rounded, size: 18),
+            label: Text(isAr ? 'فواتير الشركاء (LSI)' : 'Logistics Invoices (LSI)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (ctx) => LogisticsInvoicesScreen(
+                    initialShipmentId: file.importFileId,
+                    initialBlNumber: null,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
             key: const Key('inlandTransportHeaderBtn'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0D9488),
@@ -1107,6 +1133,26 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           ),
           const SizedBox(width: 8),
           ElevatedButton.icon(
+            key: const Key('openMasterReportScreenBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB), // Blue
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.summarize_outlined, size: 18),
+            label: Text(
+              isAr ? 'تقرير الشحنة الشامل المدمج (Screen 47)' : 'Master Shipment Report (Screen 47)',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            onPressed: () {
+              Navigator.of(context).pop();
+              ref.read(selectedComprehensiveReportFileIdProvider.notifier).state = file.importFileId;
+              selectNavigationIndex(ref, 47, tabTitle: 'تقرير الشحنة الشامل المدمج');
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
             key: const Key('comprehensiveReportHeaderBtn'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF7C3AED), // Royal Purple / Violet
@@ -1181,6 +1227,10 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
 
               // Systemic Detected Patterns Card
               const DetectedPatternsCard(),
+              const SizedBox(height: 12),
+
+              // Logistics Service Invoices & Advance Custody Summary Card
+              LogisticsShipmentExpensesSummaryCard(file: file),
               const SizedBox(height: 12),
 
               // Top Metric Summary Cards

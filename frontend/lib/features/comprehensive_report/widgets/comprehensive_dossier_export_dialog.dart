@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import '../services/comprehensive_report_export_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/providers/navigation_provider.dart';
 
 /// Desktop-oriented interactive modal dialog for CLO-03 Comprehensive Shipment Dossier Export.
 /// Provides 10-phase readiness KPIs, multi-format export buttons (PDF, Excel, TSV, Clipboard),
@@ -246,6 +248,22 @@ class _ComprehensiveDossierExportDialogState
               ],
             ),
           ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.cobalt,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const Icon(Icons.fullscreen, size: 16),
+            label: const Text('فتح بالشاشة كاملة (Screen 47)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.of(context).pop();
+              ref.read(selectedComprehensiveReportFileIdProvider.notifier).state = widget.file.importFileId;
+              selectNavigationIndex(ref, 47, tabTitle: 'تقرير الشحنة الشامل المدمج');
+            },
+          ),
+          const SizedBox(width: 8),
           IconButton(
             key: const Key('comprehensiveDossierCloseBtn'),
             icon: const Icon(Icons.close, color: Colors.white70),

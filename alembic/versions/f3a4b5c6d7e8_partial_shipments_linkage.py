@@ -1,7 +1,7 @@
 """Add parent_import_file_id, parent_file_code, and is_partial_shipment to import_files (DEV-OPS-04)
 
-Revision ID: c3d4e5f6a7b8
-Revises: b2c3d4e5f6a7
+Revision ID: f3a4b5c6d7e8
+Revises: e2f3a4b5c6d7
 Create Date: 2026-10-15 22:00:00.000000
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'c3d4e5f6a7b8'
-down_revision: Union[str, Sequence[str], None] = 'b2c3d4e5f6a7'
+revision: str = 'f3a4b5c6d7e8'
+down_revision: Union[str, Sequence[str], None] = 'e2f3a4b5c6d7'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
