@@ -1647,6 +1647,14 @@
       "note"
     ]
   },
+  "FA_CURRENCY_UNKNOWN": {
+    "params": [
+      "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FA_FX_RATE_MISSING": {
     "params": [
       "currency_code"

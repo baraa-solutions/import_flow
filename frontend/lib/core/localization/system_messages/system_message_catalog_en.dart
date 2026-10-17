@@ -1217,6 +1217,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'FA_CURRENCY_MISSING': {
     'note': 'No currency is recorded for the amount of {source}. Set the currency first.',
   },
+  'FA_CURRENCY_UNKNOWN': {
+    'note': 'Currency {currency_code} is not defined on the Currencies screen.',
+  },
   'FA_SWIFT_CURRENCY_MISMATCH': {
     'note': 'The SWIFT currency {swift_currency} does not match the payment request currency {currency_code}.',
   },

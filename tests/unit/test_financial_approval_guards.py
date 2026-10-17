@@ -950,3 +950,103 @@ def test_budget_create_with_foreign_amount_and_no_currency_raises_422(api, db):
         ImportBudgetCreate(**payload)
     assert "invoice_currency is required when invoice_amount_foreign > 0" in str(exc.value)
 
+
+def test_unknown_currency_raises_fa_currency_unknown(db):
+    """BE02-T11: Currency 'XYZ' raises 400 FA_CURRENCY_UNKNOWN."""
+    with pytest.raises(HTTPException) as exc:
+        service.create_payment_request_service(
+            db,
+            PaymentRequestCreate(
+                title="Bad currency payment",
+                supplier_name="Supplier Co",
+                requested_amount=1000.0,
+                exchange_rate=50.0,
+                due_date=date(2026, 9, 1),
+                currency_code="XYZ",
+            ),
+        )
+    assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "FA_CURRENCY_UNKNOWN"
+    assert exc.value.detail["currency_code"] == "XYZ"
+
+    # Also for budget with foreign amount
+    with pytest.raises(HTTPException) as exc_bgt:
+        service.create_import_budget_service(
+            db,
+            ImportBudgetCreate(
+                title="Bad currency budget",
+                exchange_rate=50.0,
+                invoice_amount_foreign=1000.0,
+                invoice_currency="XYZ",
+            ),
+        )
+    assert exc_bgt.value.status_code == 400
+    assert exc_bgt.value.detail["code"] == "FA_CURRENCY_UNKNOWN"
+
+
+def test_supplier_id_overwrites_supplier_name_with_master_data(db):
+    """BE02-T11: When supplier_id is set, supplier_name is overwritten with the master company name."""
+    from modules.suppliers.model import Supplier
+
+    sup = Supplier(
+        supplier_code="SUP-MASTER-001",
+        company_name="Accurate Master Supplier Inc",
+        supplier_type="Manufacturer",
+        registration_type="Foreign Exporter",
+        foreign_exporter_id="EXP-MASTER-01",
+        foreign_exporter_country="China",
+        foreign_exporter_country_code="CN",
+        address="Shanghai, China",
+        is_active=True,
+    )
+    db.add(sup)
+    db.commit()
+    db.refresh(sup)
+
+    pay = service.create_payment_request_service(
+        db,
+        PaymentRequestCreate(
+            title="Master Supplier Test",
+            supplier_id=sup.supplier_id,
+            supplier_name="Wrong Supplier Name",
+            requested_amount=1000.0,
+            exchange_rate=50.0,
+            due_date=date(2026, 9, 1),
+            currency_code="USD",
+        ),
+    )
+    assert pay.supplier_id == sup.supplier_id
+    assert pay.supplier_name == "Accurate Master Supplier Inc"
+    assert pay.beneficiary_name == "Accurate Master Supplier Inc"
+
+
+def test_project_id_not_found_raises_404(db):
+    """BE02-T11: Inactive or missing project_id raises 404."""
+    with pytest.raises(HTTPException) as exc:
+        service.create_payment_request_service(
+            db,
+            PaymentRequestCreate(
+                title="Missing project payment",
+                supplier_name="Supplier Co",
+                requested_amount=1000.0,
+                exchange_rate=50.0,
+                due_date=date(2026, 9, 1),
+                currency_code="USD",
+                project_id=999,
+            ),
+        )
+    assert exc.value.status_code == 404
+    assert "المشروع رقم 999 غير موجود" in exc.value.detail
+
+    with pytest.raises(HTTPException) as exc_bgt:
+        service.create_import_budget_service(
+            db,
+            ImportBudgetCreate(
+                title="Missing project budget",
+                exchange_rate=50.0,
+                project_id=999,
+            ),
+        )
+    assert exc_bgt.value.status_code == 404
+    assert "المشروع رقم 999 غير موجود" in exc_bgt.value.detail
+
