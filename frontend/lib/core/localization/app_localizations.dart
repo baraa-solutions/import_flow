@@ -188,6 +188,9 @@ abstract class AppLocalizations {
   String tableSelectedCount(int count);
   String get resetToDefaults;
   String get apply;
+  String get recordNotFoundOrDeleted;
+  String get entityNotFoundOrDeleted => recordNotFoundOrDeleted;
+  String get entityDetailsTitle;
 
   // ── Role Switcher ─────────────────────────────────────────────────────────
   String get switchAsAdmin;
