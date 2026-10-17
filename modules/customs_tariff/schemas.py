@@ -530,5 +530,7 @@ class ImportFileCustomsSimulationResponse(BaseModel):
     breakdown: MultiItemCustomsBreakdown
     consultation_id: Optional[int] = None
     summary_ar: str
+    warnings: List[str] = Field(default_factory=list, description="تحذيرات محاكاة الجمارك (مثل عدم وجود مخلص)")
+    skipped_lines: List[dict] = Field(default_factory=list, description="البنود التي تم استبعادها لعدم وجود بند جمركي أو قيمة")
 
 

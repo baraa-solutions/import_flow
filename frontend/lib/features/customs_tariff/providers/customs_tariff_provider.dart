@@ -68,6 +68,7 @@ class CustomsTariffNotifier
       if (data is Map) {
         final detail = data['detail'];
         if (detail is String) return detail;
+        if (detail is Map && detail['message'] != null) return detail['message'].toString();
         if (detail is List) {
           final lines = <String>[];
           for (var item in detail) {
