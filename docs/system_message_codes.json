@@ -119,6 +119,12 @@
       "note"
     ]
   },
+  "CCQ_RFQ_AWARDED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "CCQ_RFQ_CANCELLED": {
     "params": [
       "rfq_code"
@@ -3413,9 +3419,23 @@
       "note"
     ]
   },
+  "PO_HAS_ALLOCATIONS": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "PO_ITEMS_ALLOCATED": {
     "params": [
       "item_ids"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_NOT_EDITABLE": {
+    "params": [
+      "status"
     ],
     "parts": [
       "note"

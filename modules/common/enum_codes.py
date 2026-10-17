@@ -49,6 +49,7 @@ VALUE_PLACEHOLDER = "VALUE_PLACEHOLDER"
 MEASURE_UNIT = "MEASURE_UNIT"
 DRAFT_BL_FIELD = "DRAFT_BL_FIELD"
 PO_STATUS = "PO_STATUS"
+PO_ALLOCATION_STATUS = "PO_ALLOCATION_STATUS"
 SHIPPING_METHOD = "SHIPPING_METHOD"
 CONTAINER_TYPE = "CONTAINER_TYPE"
 SHIPMENT_MODE = "SHIPMENT_MODE"
@@ -365,6 +366,13 @@ LABELS_EN: Dict[str, Dict[str, str]] = {
         "FULLY_SHIPPED": "Fully Shipped",
         "CLOSED": "Closed",
         "CANCELLED": "Cancelled",
+    },
+    # Purchase order shipment allocation status (po_shipment_allocations.status)
+    PO_ALLOCATION_STATUS: {
+        "IN_TRANSIT": "In Transit",
+        "ARRIVED": "Arrived",
+        "CUSTOMS_CLEARED": "Customs Cleared",
+        "RECEIVED": "Received",
     },
     # Recommended shipping mode (CBM calculator, shipping planning)
     SHIPPING_METHOD: {
@@ -769,6 +777,17 @@ _LEGACY: Dict[str, Dict[str, str]] = {
         "معتمد": "APPROVED",
         "مغلق": "CLOSED",
         "ملغي": "CANCELLED",
+    },
+    PO_ALLOCATION_STATUS: {
+        "Received at Warehouse": "RECEIVED",
+        "Received": "RECEIVED",
+        "In Transit": "IN_TRANSIT",
+        "Arrived": "ARRIVED",
+        "Customs Cleared": "CUSTOMS_CLEARED",
+        "في الطريق": "IN_TRANSIT",
+        "وصلت": "ARRIVED",
+        "مفرج جمركياً": "CUSTOMS_CLEARED",
+        "مستلم في المستودع": "RECEIVED",
     },
     SHIPPING_METHOD: {
         "Air Freight (شحن جوي)": "AIR",

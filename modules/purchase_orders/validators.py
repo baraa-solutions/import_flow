@@ -47,6 +47,15 @@ REQUIRED_UPDATE_FIELDS = {
 
 FINAL_STATUSES = frozenset({"CLOSED", "CANCELLED"})
 
+PO_STATUS_TRANSITIONS: Dict[str, Set[str]] = {
+    "DRAFT": {"APPROVED", "CANCELLED"},
+    "APPROVED": {"DRAFT", "CANCELLED", "CLOSED"},
+    "PARTIALLY_SHIPPED": {"CLOSED"},
+    "FULLY_SHIPPED": {"CLOSED"},
+    "CLOSED": set(),
+    "CANCELLED": set(),
+}
+
 
 def _bad_request(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
@@ -133,10 +142,31 @@ class PurchaseOrderValidator:
             raise _bad_request(f"حالة أمر الشراء '{value}' غير معروفة. القيم المسموحة: {allowed}.")
         return code
 
+    def validate_status_transition(self, current_status: str, new_status: str) -> None:
+        """Validates that a status change follows the allowed PO lifecycle transitions.
+        A no-op transition (new_status == current_status) is always allowed.
+        Shipped states are set only by fulfillment sync, not manual PUT."""
+        if new_status == current_status:
+            return
+        allowed = PO_STATUS_TRANSITIONS.get(current_status, set())
+        if new_status not in allowed:
+            allowed_str = ", ".join(sorted(allowed)) if allowed else "لا توجد انتقالات مسموحة"
+            raise _bad_request(
+                f"لا يمكن تغيير حالة أمر الشراء من '{current_status}' إلى '{new_status}'. الانتقالات المسموحة: {allowed_str}."
+            )
+
     # ── shipment allocations ──
+
+    def normalize_allocation_status(self, value: Any) -> str:
+        code = enum_codes.normalize(enum_codes.PO_ALLOCATION_STATUS, value)
+        if not enum_codes.is_code(enum_codes.PO_ALLOCATION_STATUS, code):
+            allowed = ", ".join(enum_codes.codes(enum_codes.PO_ALLOCATION_STATUS))
+            raise _bad_request(f"حالة تخصيص الشحنة '{value}' غير معروفة. القيم المسموحة: {allowed}.")
+        return code
 
     def validate_allocation(self, po: PurchaseOrder, data: POShipmentAllocationCreate) -> Optional[Any]:
         """Returns the allocated line item (None for a PO-level allocation)."""
+        self.normalize_allocation_status(data.status)
         item = None
         if data.po_item_id:
             item = next((it for it in po.line_items if it.item_id == data.po_item_id), None)

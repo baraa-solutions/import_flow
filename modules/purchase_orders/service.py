@@ -14,7 +14,8 @@ from modules.common.concurrency import ConcurrencyConflictException, log_concurr
 from modules.common.errors import CodedHTTPException
 from modules.common.system_messages import SystemMessageItem, render_en, to_item
 from modules.common.system_parameters import air_volumetric_kg_per_cbm
-from modules.common.validators import not_found
+from modules.common.validators import not_found, require_active
+from modules.import_files.model import ImportFile
 from modules.import_files.repository import codes_by_ids
 from modules.purchase_orders.model import POLineItem, POShipmentAllocation, PackingListItem, PurchaseOrder
 from modules.purchase_orders.repository import ChildRow, PurchaseOrderRepository
@@ -741,7 +742,15 @@ class PurchaseOrderService:
         po.updated_by = user
 
     def update(self, po_id: int, data: PurchaseOrderUpdate, current_user_name: Optional[str] = None) -> PurchaseOrderResponse:
-        po = self._get_or_404(po_id)
+        po = self._get_or_404(po_id, active_only=True)
+        current_status = _status_code(po.status) or po.status
+        if current_status in FINAL_STATUSES:
+            raise CodedHTTPException(
+                status.HTTP_409_CONFLICT,
+                "PO_NOT_EDITABLE",
+                f"لا يمكن تعديل أمر الشراء في حالة '{current_status}'.",
+                status=current_status,
+            )
         current_version = self._check_version(po, data.version, current_user_name)
 
         sent = data.model_fields_set
@@ -749,6 +758,7 @@ class PurchaseOrderService:
         self.validator.reject_cleared_required_fields(changes)
         if "status" in changes:
             changes["status"] = self.validator.normalize_status(changes["status"])
+            self.validator.validate_status_transition(current_status, changes["status"])
         self.validator.validate_changed_foreign_keys(po, changes)
 
         items = data.items if "items" in sent else None
@@ -876,6 +886,13 @@ class PurchaseOrderService:
 
     def soft_delete(self, po_id: int, current_user_name: Optional[str] = None) -> PurchaseOrderResponse:
         po = self._get_or_404(po_id)
+        allocations = self.repo.list_allocations(po_id)
+        if allocations:
+            raise CodedHTTPException(
+                status.HTTP_409_CONFLICT,
+                "PO_HAS_ALLOCATIONS",
+                f"لا يمكن حذف أمر الشراء '{po.po_number}' لوجود شحنات مسجلة مرتبطة به.",
+            )
         self.repo.set_active(po, False)
         self._touch(po, current_user_name)
         self._unlink_import_file(po.import_file_id, po.po_id)
@@ -884,6 +901,8 @@ class PurchaseOrderService:
 
     def restore(self, po_id: int, current_user_name: Optional[str] = None) -> PurchaseOrderResponse:
         po = self._get_or_404(po_id)
+        if po.import_file_id:
+            require_active(self.db, ImportFile, po.import_file_id, "ملف الاستيراد")
         self.repo.set_active(po, True)
         self._touch(po, current_user_name)
         self._link_import_file(po)
@@ -967,7 +986,16 @@ class PurchaseOrderService:
         """Record a (partial) shipment against an active PO and update its fulfillment status in one commit.
         Over-allocation is allowed; the response then carries an OVER_SHIPPED warning."""
         po = self._get_or_404(po_id, active_only=True)
+        current_status = _status_code(po.status) or po.status
+        if current_status in FINAL_STATUSES:
+            raise CodedHTTPException(
+                status.HTTP_409_CONFLICT,
+                "PO_NOT_EDITABLE",
+                f"لا يمكن تسجيل شحنات لأمر الشراء في حالة '{current_status}'.",
+                status=current_status,
+            )
         item = self.validator.validate_allocation(po, data)
+        alloc_status = self.validator.normalize_allocation_status(data.status)
 
         allocation = POShipmentAllocation(
             po_id=po.po_id,
@@ -977,7 +1005,7 @@ class PurchaseOrderService:
             shipped_quantity=data.shipped_quantity,
             shipped_amount_fob=data.shipped_amount_fob,
             shipping_date=data.shipping_date or datetime.now(timezone.utc),
-            status=data.status,
+            status=alloc_status,
             notes=data.notes,
             created_by=current_user_name,
             updated_by=current_user_name,
