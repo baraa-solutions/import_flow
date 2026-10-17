@@ -55,25 +55,51 @@ class ImportFilePoLinker {
     int plCount = 0;
     final invoices = <String>{};
 
-    for (final inv in file.invoicesData) {
-      final invClean = inv.invoiceNo.trim();
-      if (invClean.isNotEmpty) invoices.add(invClean);
+    // Build set of internal/preliminary PO numbers to strictly exclude from invoices count
+    final excludedPoNumbers = <String>{};
+    if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
+      excludedPoNumbers.add(file.poNumber!.trim().toUpperCase());
     }
-    if (file.piNumber != null && file.piNumber!.trim().isNotEmpty) {
-      invoices.add(file.piNumber!.trim());
+    for (final po in linkedPOs) {
+      if (po.poNumber.trim().isNotEmpty) {
+        excludedPoNumbers.add(po.poNumber.trim().toUpperCase());
+      }
+      if (po.poReference != null && po.poReference!.trim().isNotEmpty) {
+        excludedPoNumbers.add(po.poReference!.trim().toUpperCase());
+      }
     }
 
-    final poNumbers = <String>{};
-    if (file.poNumber != null && file.poNumber!.trim().toUpperCase().startsWith('PO-')) {
-      poNumbers.add(file.poNumber!.trim());
+    bool isInternalPoNumber(String str) {
+      final upper = str.trim().toUpperCase();
+      if (upper.isEmpty) return true;
+      if (excludedPoNumbers.contains(upper)) return true;
+      final isPoFormat = upper.startsWith('PO-') ||
+          upper.startsWith('PO/') ||
+          upper.startsWith('PO_') ||
+          RegExp(r'^P\.?O\.?[\s\-_/]').hasMatch(upper);
+      final isInvoiceMarked = upper.contains('INV') || upper.contains('PI-') || upper.contains('PI/') || upper.contains('فاتورة');
+      return isPoFormat && !isInvoiceMarked;
+    }
+
+    for (final inv in file.invoicesData) {
+      final invClean = inv.invoiceNo.trim();
+      if (invClean.isNotEmpty && !isInternalPoNumber(invClean)) {
+        invoices.add(invClean);
+      }
+    }
+    if (file.piNumber != null && file.piNumber!.trim().isNotEmpty) {
+      final piClean = file.piNumber!.trim();
+      if (!isInternalPoNumber(piClean)) {
+        invoices.add(piClean);
+      }
     }
 
     for (final po in linkedPOs) {
-      if (po.poNumber.trim().toUpperCase().startsWith('PO-')) {
-        poNumbers.add(po.poNumber.trim());
-      }
       if (po.proformaInvoiceNumber != null && po.proformaInvoiceNumber!.trim().isNotEmpty) {
-        invoices.add(po.proformaInvoiceNumber!.trim());
+        final piClean = po.proformaInvoiceNumber!.trim();
+        if (!isInternalPoNumber(piClean)) {
+          invoices.add(piClean);
+        }
       }
 
       final double palletCbm = po.palletPlanItems.isNotEmpty
@@ -126,7 +152,7 @@ class ImportFilePoLinker {
     }
 
     // Exclude internal PO numbers from commercial invoices set
-    invoices.removeWhere((inv) => poNumbers.contains(inv) || (inv.toUpperCase().startsWith('PO-') && !inv.toUpperCase().contains('INV') && !inv.toUpperCase().contains('PI')));
+    invoices.removeWhere((inv) => excludedPoNumbers.contains(inv.trim().toUpperCase()) || isInternalPoNumber(inv));
 
     if (totalCbm == 0 && file.packingListsData.isNotEmpty) {
       for (final pl in file.packingListsData) {

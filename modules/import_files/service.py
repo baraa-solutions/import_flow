@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timezone, date
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
 from modules.import_files.schemas import (
@@ -313,55 +314,65 @@ def create_import_file_service(
     # 3. Validate invoice currency consistency (all invoices must share the exact same currency)
     validators.validate_invoices_currency_consistency(payload.invoices_data)
 
-    # 4. Generate file code if custom file number not given
-    file_code = repo.generate_import_file_code(db)
-    if not payload.custom_file_number:
-        custom_num = file_code.replace("IMP-", "FILE-")
-    else:
-        custom_num = payload.custom_file_number.strip()
+    explicit_custom_num = bool(payload.custom_file_number and payload.custom_file_number.strip())
 
-    # 5. Compute formulas
-    formulas = compute_file_formulas(
-        form46_no=payload.form46_no,
-        form4_no=payload.form4_no,
-        swift_no=payload.swift_no,
-        selected_scenario=payload.selected_scenario,
-        status_str=payload.status,
-        initial_step=payload.initial_starting_step,
-    )
+    created_file = None
+    for attempt in range(3):
+        # 4. Generate file code if custom file number not given
+        file_code = repo.generate_import_file_code(db)
+        if not explicit_custom_num:
+            custom_num = file_code.replace("IMP-", "FILE-")
+        else:
+            custom_num = payload.custom_file_number.strip()
 
-    data_dict = payload.model_dump()
-    data_dict["import_file_code"] = file_code
-    data_dict["custom_file_number"] = custom_num
-    if not data_dict.get("created_by"):
-        data_dict["created_by"] = current_user
-    if not data_dict.get("owner"):
-        data_dict["owner"] = current_user
-    data_dict.update(formulas)
-    # Structured stage of the starting step (legacy current_module/current_stage texts keep the formulas).
-    from modules.common.file_tracking import step_tracking_columns
-    starting_step = payload.initial_starting_step or "STEP_01"
-    data_dict.update(step_tracking_columns("STEP_08_PO" if starting_step == "STEP_08" else starting_step))
+        # 5. Compute formulas
+        formulas = compute_file_formulas(
+            form46_no=payload.form46_no,
+            form4_no=payload.form4_no,
+            swift_no=payload.swift_no,
+            selected_scenario=payload.selected_scenario,
+            status_str=payload.status,
+            initial_step=payload.initial_starting_step,
+        )
 
-    created_file = repo.create_import_file(db, data_dict)
+        data_dict = payload.model_dump()
+        data_dict["import_file_code"] = file_code
+        data_dict["custom_file_number"] = custom_num
+        if not data_dict.get("created_by"):
+            data_dict["created_by"] = current_user
+        if not data_dict.get("owner"):
+            data_dict["owner"] = current_user
+        data_dict.update(formulas)
+        # Structured stage of the starting step (legacy current_module/current_stage texts keep the formulas).
+        from modules.common.file_tracking import step_tracking_columns
+        starting_step = payload.initial_starting_step or "STEP_01"
+        data_dict.update(step_tracking_columns("STEP_08_PO" if starting_step == "STEP_08" else starting_step))
+
+        try:
+            created_file = repo.create_import_file(db, data_dict)
+            break
+        except IntegrityError:
+            db.rollback()
+            if attempt == 2 or explicit_custom_num:
+                raise
 
     # 6. Seed initial stage activities in Lifecycle Board
     try:
         from modules.lifecycle_board.service import initialize_file_lifecycle_service
-        initialize_file_lifecycle_service(db, file_code, payload.initial_starting_step or "STEP_01")
+        initialize_file_lifecycle_service(db, created_file.import_file_code, payload.initial_starting_step or "STEP_01")
     except Exception:
-        pass
+        logger.exception("Failed to initialize file lifecycle for %s", file_code)
 
     try:
         from modules.smart_tasks.service import auto_generate_system_tasks_for_file
         auto_generate_system_tasks_for_file(db, created_file)
     except Exception:
-        pass
+        logger.exception("Failed to auto generate system tasks for %s", file_code)
     return created_file
 
 
 def update_import_file_service(
-    db: Session, import_file_id: int, payload: ImportFileUpdate
+    db: Session, import_file_id: int, payload: ImportFileUpdate, actor: Any = None
 ) -> ImportFile:
     existing = repo.get_import_file_by_id(db, import_file_id)
     if not existing:
@@ -387,21 +398,24 @@ def update_import_file_service(
 
     update_dict = payload.model_dump(exclude_unset=True)
 
-    # Re-compute formulas
-    f46 = update_dict.get("form46_no", existing.form46_no)
-    f4 = update_dict.get("form4_no", existing.form4_no)
-    swift = update_dict.get("swift_no", existing.swift_no)
-    scen = update_dict.get("selected_scenario", existing.selected_scenario)
-    stat = update_dict.get("status", existing.status)
-
-    formulas = compute_file_formulas(
-        form46_no=f46,
-        form4_no=f4,
-        swift_no=swift,
-        selected_scenario=scen,
-        status_str=stat,
+    # Never overwrite tracking fields or status directly via update
+    update_dict.pop("status", None)
+    forbidden_tracking = (
+        "progress_percent",
+        "current_module",
+        "current_stage",
+        "next_action",
+        "next_action_code",
+        "next_action_params",
+        "current_step_code",
+        "current_phase_id",
+        "current_stage_code",
     )
-    update_dict.update(formulas)
+    for field_name in forbidden_tracking:
+        update_dict.pop(field_name, None)
+
+    actor_username = getattr(actor, "username", None) or (str(actor) if actor else "System")
+    update_dict["updated_by"] = actor_username
 
     updated_file = repo.update_import_file(db, import_file_id, update_dict)
     if updated_file:
@@ -409,22 +423,30 @@ def update_import_file_service(
             from modules.smart_tasks.service import auto_generate_system_tasks_for_file
             auto_generate_system_tasks_for_file(db, updated_file)
         except Exception:
-            pass
+            logger.exception("Failed to auto generate system tasks for import file %s", import_file_id)
 
         # Propagate ACID Number to Import Requirements Assessments
         if updated_file.acid_number:
             try:
                 from modules.import_requirements.model import ImportRequirementAssessment
                 from modules.import_requirements.service import sync_regulatory_tasks_and_alerts
-                assessments = db.query(ImportRequirementAssessment).filter(
-                    ImportRequirementAssessment.import_file_id == import_file_id
-                ).all()
+
+                assessments = (
+                    db.query(ImportRequirementAssessment)
+                    .filter(ImportRequirementAssessment.import_file_id == import_file_id)
+                    .all()
+                )
                 for a in assessments:
                     a.acid_number = updated_file.acid_number
-                    db.commit()
+                db.commit()
+                for a in assessments:
                     sync_regulatory_tasks_and_alerts(db, a.assessment_id)
             except Exception:
-                pass
+                logger.exception(
+                    "Failed to propagate ACID number %s for import file %s",
+                    updated_file.acid_number,
+                    import_file_id,
+                )
 
     return updated_file
 
@@ -450,7 +472,22 @@ def generate_master_report_service(
     open_files = [f for f in files if f.status == "Open"]
     in_prog = [f for f in files if f.status == "In Progress"]
     closed_files = [f for f in files if f.status in ("Closed", "Archived")]
-    total_cost = sum(f.estimated_cost for f in files)
+    estimated_cost_by_currency: Dict[str, float] = {}
+    for f in files:
+        cost = float(f.estimated_cost or 0.0)
+        curr = (f.estimated_cost_currency or "").strip().upper()
+        if not curr:
+            curr = "UNKNOWN"
+        estimated_cost_by_currency[curr] = round(
+            estimated_cost_by_currency.get(curr, 0.0) + cost, 2
+        )
+
+    if len(estimated_cost_by_currency) == 1:
+        total_estimated_cost = round(next(iter(estimated_cost_by_currency.values())), 2)
+    elif len(estimated_cost_by_currency) == 0:
+        total_estimated_cost = 0.0
+    else:
+        total_estimated_cost = None
 
     file_responses = [ImportFileResponse.model_validate(f) for f in files]
 
@@ -459,7 +496,8 @@ def generate_master_report_service(
         open_files_count=len(open_files),
         in_progress_count=len(in_prog),
         closed_files_count=len(closed_files),
-        total_estimated_cost=total_cost,
+        total_estimated_cost=total_estimated_cost,
+        estimated_cost_by_currency=estimated_cost_by_currency,
         files=file_responses,
     )
 
@@ -468,6 +506,7 @@ def close_shipment_service(
     db: Session,
     import_file_id: int,
     payload: "CloseShipmentSubmit",
+    actor: Any = None,
 ) -> ImportFile:
     existing = repo.get_import_file_by_id(db, import_file_id)
     if not existing:
@@ -476,11 +515,15 @@ def close_shipment_service(
             detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
         )
 
+    validators.validate_status_transition(existing.status, "Closed")
+
     if not payload.closure_reason or not payload.closure_reason.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="يلزم إدخال سبب إيقاف وإغلاق الشحنة قبل إتمام العملية.",
         )
+
+    actor_username = getattr(actor, "username", None) or (str(actor) if actor else "System")
 
     update_dict = {
         "status": "Closed",
@@ -490,6 +533,7 @@ def close_shipment_service(
         **_next_action_fields(_phase_action("NA_FILE_CLOSED_EARLY", payload.closed_at_phase)),
         "closure_reason": payload.closure_reason.strip(),
         "closed_at_phase": payload.closed_at_phase,
+        "updated_by": actor_username,
     }
 
     return repo.update_import_file(db, import_file_id, update_dict)
@@ -499,6 +543,7 @@ def reopen_shipment_service(
     db: Session,
     import_file_id: int,
     payload: "ReopenShipmentSubmit",
+    actor: Any = None,
 ) -> ImportFile:
     existing = repo.get_import_file_by_id(db, import_file_id)
     if not existing:
@@ -507,11 +552,7 @@ def reopen_shipment_service(
             detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
         )
 
-    if existing.status != "Closed":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="الشحنة ليست مغلقة لإعادة فتحها.",
-        )
+    validators.validate_status_transition(existing.status, "In Progress")
 
     if not payload.reopen_reason or not payload.reopen_reason.strip():
         raise HTTPException(
@@ -519,18 +560,53 @@ def reopen_shipment_service(
             detail="يلزم إدخال سبب إعادة فتح وتنشيط الشحنة.",
         )
 
+    actor_username = getattr(actor, "username", None) or (str(actor) if actor else "System")
     restored_phase = existing.closed_at_phase or "Phase 1 - Import Planning & Feasibility"
 
     update_dict = {
-        "status": "Active",
+        "status": "In Progress",
         "current_module": restored_phase,
         "current_stage": f"Reopened at {restored_phase} - {payload.reopen_reason.strip()}",
         **_next_action_fields(_phase_action("NA_RESUME_OPERATIONS", restored_phase)),
         "closure_reason": None,
         "closed_at_phase": None,
+        "updated_by": actor_username,
     }
 
-    return repo.update_import_file(db, import_file_id, update_dict)
+    updated = repo.update_import_file(db, import_file_id, update_dict)
+
+    # Reopen: mark the active ImportFileClosureRecord (if any) status="Reopened"
+    # and write an AuditLog (action="REOPEN", performed_by=actor.username) in the same commit
+    from modules.file_closure.model import ImportFileClosureRecord
+    from modules.audit_logs.model import AuditLog
+
+    closure_rec = (
+        db.query(ImportFileClosureRecord)
+        .filter(
+            ImportFileClosureRecord.import_file_id == import_file_id,
+            ImportFileClosureRecord.is_active == True,
+        )
+        .order_by(ImportFileClosureRecord.closure_id.desc())
+        .first()
+    )
+    if closure_rec:
+        closure_rec.status = "Reopened"
+        closure_rec.updated_at = datetime.now(timezone.utc)
+        closure_rec.updated_by = actor_username
+
+    audit = AuditLog(
+        entity_type="ImportFile",
+        entity_id=import_file_id,
+        entity_code=existing.import_file_code,
+        action="REOPEN",
+        changes_summary=f"Reopened import file: {payload.reopen_reason.strip()}",
+        performed_at=datetime.now(timezone.utc),
+        performed_by=actor_username,
+    )
+    db.add(audit)
+    db.commit()
+
+    return updated
 
 def get_all_import_files_service(
     db: Session,
@@ -609,8 +685,8 @@ def get_operational_dashboard_data_service(db: Session, phase: Optional[str] = N
 def get_import_file_by_id_service(db: Session, import_file_id: int):
     return repo.get_import_file_by_id(db, import_file_id)
 
-def get_import_file_by_code_service(db: Session, import_file_code: str):
-    return repo.get_import_file_by_code(db, import_file_code)
+def get_import_file_by_code_service(db: Session, import_file_code: str, include_inactive: bool = False):
+    return repo.get_import_file_by_code(db, import_file_code, include_inactive=include_inactive)
 
 def soft_delete_import_file_service(db: Session, import_file_id: int):
     return repo.soft_delete_import_file(db, import_file_id)
@@ -1036,6 +1112,8 @@ def hold_import_file_service(
             detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
         )
 
+    validators.validate_status_transition(existing.status, "On Hold")
+
     if not hold_reason or not hold_reason.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1068,6 +1146,7 @@ def hold_import_file_service(
         "hold_reason": reason_text,
         "hold_reason_code": reason_code,
         "hold_date": now_dt,
+        "updated_by": performed_by,
     }
 
     # Lifecycle board activities get the system note; a failure must not block the hold itself.
@@ -1116,16 +1195,24 @@ def resume_import_file_service(
         )
 
     if existing.status != "On Hold":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="الشحنة ليست في حالة تعليق (On Hold) لاستئنافها.",
+        validators.validate_status_transition(existing.status, "In Progress")
+        from modules.common.errors import CodedHTTPException
+
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="IF_STATUS_TRANSITION_INVALID",
+            message_ar=f"لا يمكن استئناف ملف الشحنة وهو في حالة '{existing.status}'.",
+            **{"from": existing.status or "", "to": "In Progress"},
         )
+
+    validators.validate_status_transition(existing.status, "In Progress")
 
     update_dict = {
         "status": "In Progress",
         "hold_reason": None,
         "hold_reason_code": None,
         "hold_date": None,
+        "updated_by": performed_by,
     }
 
     from modules.lifecycle_board.service import resume_shipment_activities_service
@@ -1188,19 +1275,25 @@ def clone_import_file_service(
     copy_invoices = payload.copy_invoices_data if payload.copy_items is None else payload.copy_items
     copy_pls = payload.copy_packing_lists if payload.copy_items is None else payload.copy_items
 
-    # 1. Uniqueness check for target_code
-    existing_code = repo.get_import_file_by_code(db, target_code)
+    # 1. Uniqueness check for target_code (active and inactive)
+    existing_code = (
+        db.query(ImportFile.import_file_id)
+        .filter(ImportFile.import_file_code == target_code)
+        .first()
+    )
     if existing_code:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"كود ملف الاستيراد '{target_code}' مستخدم بالفعل.",
         )
 
-    # 2. Uniqueness check for target_custom_file_number if provided
+    # 2. Uniqueness check for target_custom_file_number if provided (active and inactive)
     if payload.target_custom_file_number:
-        existing_custom = db.query(ImportFile).filter(
-            ImportFile.custom_file_number == payload.target_custom_file_number
-        ).first()
+        existing_custom = (
+            db.query(ImportFile.import_file_id)
+            .filter(ImportFile.custom_file_number == payload.target_custom_file_number)
+            .first()
+        )
         if existing_custom:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -1273,11 +1366,21 @@ def clone_import_file_service(
         "cloned_from_code": original.import_file_code,
     }
 
-    new_file = ImportFile(**cloned_data)
-    db.add(new_file)
-    db.commit()
-    db.refresh(new_file)
-    return new_file
+    try:
+        new_file = ImportFile(**cloned_data)
+        db.add(new_file)
+        from modules.lifecycle_board.service import initialize_file_lifecycle_service
+
+        initialize_file_lifecycle_service(db, target_code, "STEP_01")
+        db.commit()
+        db.refresh(new_file)
+        return new_file
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"كود ملف الاستيراد '{target_code}' مستخدم بالفعل.",
+        )
 
 
 

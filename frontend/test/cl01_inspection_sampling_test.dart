@@ -115,6 +115,13 @@ void main() {
       expect(find.textContaining('Alexandria Chemicals Ltd'), findsOneWidget);
       expect(find.textContaining('46-2026-ALX-11223'), findsWidgets);
 
+      // Verify no invented sampling record or committee inspector
+      expect(find.textContaining('SMP-'), findsNothing);
+      expect(find.text('Joint Customs Inspection Committee'), findsNothing);
+
+      // Verify Channel fallback is '—'
+      expect(find.text('—'), findsWidgets);
+
       // Verify Form Sections & Key Dropdowns
       expect(find.byKey(const Key('inspectionYardDropdown')), findsOneWidget);
       expect(find.text('نوع وطريقة الكشف والمعاينة:'), findsOneWidget);
@@ -130,6 +137,227 @@ void main() {
       expect(find.text('تم سحب عينات للفحص والتحليل المعملي للجهات الرقابية'), findsOneWidget);
       expect(find.textContaining('GOEIC'), findsWidgets);
       expect(find.textContaining('حفظ واعتماد الكشف وسحب العينات (CL-01)'), findsOneWidget);
+    });
+
+    testWidgets('Submitting empty inspection dialog triggers validation errors for yard and verdict, and bodies/record when sampling is enabled', (tester) async {
+      final sampleFile = ImportFileModel(
+        importFileId: 92,
+        importFileCode: 'IMP-2026-0092',
+        customFileNumber: 'Industrial Chemicals',
+        companyName: 'Alexandria Chemicals Ltd',
+        supplierName: 'Global Chem Corp',
+        currentModule: 'Phase 7 - Customs Clearance',
+        currentStage: 'Under Customs Clearance (تحت التخليص والكشف 46)',
+        nextAction: 'تسجيل الكشف والمعاينة وسحب العينات (CL-01)',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T10:00:00Z',
+        form46No: '46-2026-ALX-11223',
+        form46Date: '2026-09-18T10:00:00Z',
+      );
+
+      await tester.binding.setSurfaceSize(const Size(1200, 950));
+
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              home: Builder(
+                builder: (context) {
+                  capturedContext = context;
+                  return Scaffold(
+                    body: CustomsInspectionSamplingDialog(file: sampleFile),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      final l = capturedContext.l10n;
+
+      // Tap Confirm/Save button with sampling disabled by default
+      final saveBtn = find.text(l.ccInsConfirm);
+      expect(saveBtn, findsOneWidget);
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      // Verify validation error messages for yard and verdict
+      expect(find.text(l.ccInsYardRequired), findsOneWidget);
+      expect(find.text(l.ccInsResultRequired), findsOneWidget);
+      expect(find.text(l.ccInsBodiesRequired), findsNothing);
+      expect(find.text(l.ccInsSamplingNoRequired), findsNothing);
+
+      // Toggle sampling ON to verify regulatory bodies & sampling record validation
+      final samplingSwitch = find.byType(SwitchListTile);
+      expect(samplingSwitch, findsOneWidget);
+      await tester.ensureVisible(samplingSwitch);
+      await tester.pumpAndSettle();
+      await tester.tap(samplingSwitch);
+      await tester.pumpAndSettle();
+
+      // Submit again with sampling ON
+      await tester.ensureVisible(saveBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l.ccInsBodiesRequired), findsOneWidget);
+      expect(find.text(l.ccInsSamplingNoRequired), findsOneWidget);
+    });
+
+    testWidgets('Prefills from clearanceRecord and displays Green Channel badge', (tester) async {
+      final sampleFile = ImportFileModel(
+        importFileId: 92,
+        importFileCode: 'IMP-2026-0092',
+        customFileNumber: 'Industrial Chemicals',
+        companyName: 'Alexandria Chemicals Ltd',
+        supplierName: 'Global Chem Corp',
+        currentModule: 'Phase 7 - Customs Clearance',
+        currentStage: 'Under Customs Clearance (تحت التخليص والكشف 46)',
+        nextAction: 'تسجيل الكشف والمعاينة وسحب العينات (CL-01)',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T10:00:00Z',
+        form46No: '46-2026-ALX-11223',
+        form46Date: '2026-09-18T10:00:00Z',
+      );
+
+      final existingRecord = CustomsClearanceModel(
+        customsClearanceId: 401,
+        clearanceCode: 'CLR-2026-0401',
+        importFileId: 92,
+        declaration46No: '46-2026-ALX-11223',
+        customsOfficeName: 'Alexandria Port Customs',
+        channelType: 'Green Channel',
+        inspectionDate: '2026-09-18T11:00:00Z',
+        inspectionType: 'Physical & Sampling',
+        inspectionYard: 'ساحة الفحص المشترك - رصيف 42',
+        inspectorName: 'م. إبراهيم خليل',
+        inspectionResult: 'Conforming',
+        isSampleDrawn: true,
+        samplingDate: '2026-09-18T11:30:00Z',
+        samplingRecordNo: 'SMP-2026-ALX-8822',
+        sampleTestStatus: 'Samples Under Testing',
+        sampledRegulatoryBodies: ['GOEIC'],
+        goeicCertificateNo: 'GOEIC-2026-99',
+        labServiceFees: 1250.0,
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T11:30:00Z',
+      );
+
+      await tester.binding.setSurfaceSize(const Size(1200, 950));
+
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              home: Builder(
+                builder: (context) {
+                  capturedContext = context;
+                  return Scaffold(
+                    body: CustomsInspectionSamplingDialog(
+                      file: sampleFile,
+                      clearanceRecord: existingRecord,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      final l = capturedContext.l10n;
+
+      // Verify Green Channel badge is rendered
+      expect(find.text(l.customsClearanceChannelGreen), findsOneWidget);
+
+      // Verify prefilled inspector and sampling record
+      expect(find.text('م. إبراهيم خليل'), findsOneWidget);
+      expect(find.text('SMP-2026-ALX-8822'), findsOneWidget);
+      expect(find.text('GOEIC-2026-99'), findsOneWidget);
+    });
+
+    testWidgets('Form 46 registered record without prior inspection (inspectionDate null) opens with unselected verdict, Green channel badge, and fails validation if submitted empty', (tester) async {
+      final sampleFile = ImportFileModel(
+        importFileId: 92,
+        importFileCode: 'IMP-2026-0092',
+        customFileNumber: 'Industrial Chemicals',
+        companyName: 'Alexandria Chemicals Ltd',
+        supplierName: 'Global Chem Corp',
+        currentModule: 'Phase 7 - Customs Clearance',
+        currentStage: 'Under Customs Clearance (تحت التخليص والكشف 46)',
+        nextAction: 'تسجيل الكشف والمعاينة وسحب العينات (CL-01)',
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T10:00:00Z',
+        form46No: '46-2026-ALX-11223',
+        form46Date: '2026-09-18T10:00:00Z',
+      );
+
+      // Record created by CS-03: declaration registered, channel assigned, but inspection has not occurred.
+      // inspectionResult in CustomsClearanceModel defaults to 'Conforming', inspectionDate is null.
+      final declarationOnlyRecord = CustomsClearanceModel(
+        customsClearanceId: 401,
+        clearanceCode: 'CLR-2026-0401',
+        importFileId: 92,
+        declaration46No: '46-2026-ALX-11223',
+        customsOfficeName: 'Alexandria Port Customs',
+        channelType: 'Green Channel',
+        inspectionDate: null,
+        createdAt: '2026-09-18T08:00:00Z',
+        updatedAt: '2026-09-18T10:00:00Z',
+      );
+
+      await tester.binding.setSurfaceSize(const Size(1200, 950));
+
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              home: Builder(
+                builder: (context) {
+                  capturedContext = context;
+                  return Scaffold(
+                    body: CustomsInspectionSamplingDialog(
+                      file: sampleFile,
+                      clearanceRecord: declarationOnlyRecord,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      final l = capturedContext.l10n;
+
+      // 1. Assert Green Channel badge is rendered
+      expect(find.text(l.customsClearanceChannelGreen), findsOneWidget);
+
+      // 2. Assert no verdict error initially
+      expect(find.text(l.ccInsResultRequired), findsNothing);
+
+      // 3. Tap Confirm/Save button
+      final saveBtn = find.text(l.ccInsConfirm);
+      expect(saveBtn, findsOneWidget);
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      // 4. Assert verdict validation error is triggered because no verdict was prefilled
+      expect(find.text(l.ccInsResultRequired), findsOneWidget);
     });
   });
 }

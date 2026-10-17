@@ -49,7 +49,12 @@ def create_import_company(
         entity_id=result.company_id,
         entity_code=result.importer_id,
         action="CREATE",
-        new_data={"importer_name": result.importer_name, "importer_id": result.importer_id, "vat_id": result.vat_id}
+        new_data={
+            "importer_name": result.importer_name,
+            "importer_id": result.importer_id,
+            "vat_id": result.vat_id,
+            "has_nafeza_token": result.has_nafeza_token,
+        }
     )
     return add_days_to_renew(result)
 
@@ -107,8 +112,7 @@ def update_import_company(
         return None
 
     update_dict = company_data.model_dump(
-        exclude_unset=True,
-        exclude_none=True
+        exclude_unset=True
     )
 
     old_data = {
@@ -118,13 +122,22 @@ def update_import_company(
 
     updated_company = update_company_data(db, company, update_dict)
     
+    # Security: Never log raw secret token into audit logs
+    audit_old = {k: v for k, v in old_data.items() if k != "nafeza_token"}
+    if "nafeza_token" in old_data:
+        audit_old["has_nafeza_token"] = bool(old_data["nafeza_token"])
+
+    audit_new = {k: v for k, v in update_dict.items() if k != "nafeza_token"}
+    if "nafeza_token" in update_dict:
+        audit_new["has_nafeza_token"] = bool(update_dict["nafeza_token"])
+
     AuditLogService(db).log_activity(
         entity_type="ImportCompany",
         entity_id=updated_company.company_id,
         entity_code=updated_company.importer_id,
         action="UPDATE",
-        old_data=old_data,
-        new_data=update_dict,
+        old_data=audit_old,
+        new_data=audit_new,
     )
     
     return add_days_to_renew(updated_company)

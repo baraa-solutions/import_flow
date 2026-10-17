@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../widgets/po_form_dialog.dart';
 import '../widgets/po_reconciliation_warning_dialog.dart';
 import '../widgets/po_balance_ledger_dialog.dart';
@@ -13,12 +12,8 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 
-import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/services/container_load_plan_export_service.dart';
@@ -29,9 +24,6 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
-import '../../../core/widgets/metric_card.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../customs_tariff/widgets/hs_code_compliance_insight_card.dart';
 import '../../import_files/models/import_file_model.dart' show ImportFileModel;
@@ -42,10 +34,6 @@ import '../../projects/models/project_model.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../models/purchase_order_model.dart';
 import '../providers/purchase_orders_provider.dart';
-import '../../../core/widgets/table_row_clone_helper.dart';
-
-import 'package:frontend/core/widgets/ltr_text.dart';
-import 'package:frontend/core/widgets/buttons/app_button.dart';
 import '../models/po_system_message.dart';
 import '../widgets/po_table_cells.dart';
 import '../../../core/localization/api_error_text.dart';
@@ -130,12 +118,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                           label: '🚀 ${l.smartInvoiceExtract}',
                           onDataExtracted: (result) {
                             final fields = result.extractedFields;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${fields['po_number'] ?? '-'}'),
-                                backgroundColor: AppTheme.emerald,
-                                duration: const Duration(seconds: 4),
-                              ),
+                            AppTheme.snackBar(
+                              context,
+                              '${fields['po_number'] ?? '-'}',
+                              severity: AppSeverity.success,
+                              duration: const Duration(seconds: 4),
                             );
                             _showPODialog(context, null, initialExtractedFields: fields);
                           },
@@ -167,7 +154,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                         child: _buildDesktopCompactToolbar(context, isDark, l, state, projectsList),
                       ),
                       if (state.isLoading)
-                        const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
+                        const AppLoadingState()
                       else if (state.error != null)
                         _buildErrorView(l, ApiErrorText.of(l, state.error, fallback: l.operationFailed))
                       else if (state.purchaseOrders.isEmpty)
@@ -195,7 +182,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                   const SizedBox(height: 6),
                   Expanded(
                     child: state.isLoading
-                        ? const Center(child: CircularProgressIndicator())
+                        ? const AppLoadingState()
                         : state.error != null
                             ? _buildErrorView(l, ApiErrorText.of(l, state.error, fallback: l.operationFailed))
                             : state.purchaseOrders.isEmpty
@@ -273,11 +260,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${context.l10n.errorPrefix}: ${ApiErrorText.of(context.l10n, e)}'),
-          backgroundColor: AppTheme.crimson,
-        ),
+      AppTheme.snackBar(
+        context,
+        '${context.l10n.errorPrefix}: ${ApiErrorText.of(context.l10n, e)}',
+        severity: AppSeverity.danger,
       );
     }
   }
@@ -302,19 +288,17 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       );
       if (!mounted) return;
       ref.read(purchaseOrdersProvider.notifier).refreshAfterMutation();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.data?['message'] ?? (context.l10n.poImportedSuccessfully)),
-          backgroundColor: AppTheme.emerald,
-        ),
+      AppTheme.snackBar(
+        context,
+        res.data?['message'] ?? (context.l10n.poImportedSuccessfully),
+        severity: AppSeverity.success,
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${context.l10n.errorPrefix}: ${ApiErrorText.of(context.l10n, e)}'),
-          backgroundColor: AppTheme.crimson,
-        ),
+      AppTheme.snackBar(
+        context,
+        '${context.l10n.errorPrefix}: ${ApiErrorText.of(context.l10n, e)}',
+        severity: AppSeverity.danger,
       );
     }
   }
@@ -527,40 +511,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
   }
 
   Widget _buildErrorView(AppLocalizations l, String errorMessage) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: AppTheme.crimson),
-            const SizedBox(height: 12),
-            Text(errorMessage, style: const TextStyle(color: AppTheme.crimson)),
-            const SizedBox(height: 12),
-            AppButton(
-              label: l.retry,
-              variant: AppButtonVariant.primary,
-              onPressed: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
-            ),
-          ],
-        ),
-      ),
+    return AppErrorState(
+      message: errorMessage,
+      onRetry: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
     );
   }
 
   Widget _buildEmptyView(AppLocalizations l) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.inventory_2_outlined, size: 56, color: AppTheme.textMuted),
-            const SizedBox(height: 12),
-            Text(l.noDataFound, style: const TextStyle(fontSize: 16, color: AppTheme.textMuted)),
-          ],
-        ),
-      ),
+    return AppEmptyState(
+      message: l.noDataFound,
+      icon: Icons.inventory_2_outlined,
     );
   }
 
@@ -713,14 +673,6 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                               ),
                               columns: dummyBodyColumns,
                               rows: orders.map((po) {
-                final statusColor = po.status == 'APPROVED'
-                    ? AppTheme.wcagEmerald
-                    : (po.status == 'PARTIALLY_SHIPPED' || po.status == 'FULLY_SHIPPED')
-                        ? AppTheme.wcagCobalt
-                        : (po.status == 'CLOSED' || po.status == 'CANCELLED')
-                            ? (isDark ? AppTheme.darkTextMuted : AppTheme.textSecondary)
-                            : AppTheme.wcagOrange;
-
                 final invoiceDateStr = po.orderDate != null
                     ? '${po.orderDate!.year}-${po.orderDate!.month.toString().padLeft(2, '0')}-${po.orderDate!.day.toString().padLeft(2, '0')}'
                     : '-';
@@ -774,37 +726,22 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                               onClone: () => _showCloneDialog(po),
                               cloneTooltip: l.cloneRowTooltip,
                               onPrint: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(l.printPoAndPackingList(po.displayName, po.poNumber)),
-                                    backgroundColor: AppTheme.charcoal,
-                                    duration: const Duration(seconds: 2),
-                                  ),
+                                AppTheme.snackBar(
+                                  context,
+                                  l.printPoAndPackingList(po.displayName, po.poNumber),
+                                  duration: const Duration(seconds: 2),
                                 );
                               },
                               onDelete: () async {
                                 final isActive = po.isActive;
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: Text(l.confirmActionTitle),
-                                    content: Text(isActive
-                                        ? l.confirmDeactivatePo(po.displayName)
-                                        : l.confirmRestorePo(po.displayName)),
-                                    actions: [
-                                      AppButton(
-                                        label: l.cancel,
-                                        variant: AppButtonVariant.secondary,
-                                        size: AppButtonSize.small,
-                                        onPressed: () => Navigator.pop(ctx, false),
-                                      ),
-                                      AppButton(
-                                        label: isActive ? l.deactivateBtn : l.restore,
-                                        variant: AppButtonVariant.primary,
-                                        onPressed: () => Navigator.pop(ctx, true),
-                                      ),
-                                    ],
-                                  ),
+                                final confirm = await AppConfirmDialog.showToggleActive(
+                                  context,
+                                  isCurrentlyActive: isActive,
+                                  entityName: po.displayName,
+                                  message: isActive
+                                      ? l.confirmDeactivatePo(po.displayName)
+                                      : l.confirmRestorePo(po.displayName),
+                                  confirmLabel: isActive ? l.deactivateBtn : l.restore,
                                 );
                                 if (confirm == true) {
                                   if (po.isActive) {
@@ -1005,18 +942,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                         child: CopyableTableCell(
                           value: localizedStatus,
                           rowSummary: rowSummary,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: statusColor.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: statusColor),
-                            ),
-                            child: Text(
-                              localizedStatus,
-                              style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: density.tableCellSecondaryFontSize),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                          child: AppStatusBadge.fromStatus(
+                            status: po.status,
+                            label: localizedStatus,
+                            size: AppStatusBadgeSize.medium,
                           ),
                         ),
                       ),
@@ -2168,12 +2097,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     }
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.poPODetailsCopiedToClipboard),
-        backgroundColor: AppTheme.emerald,
-        duration: const Duration(seconds: 2),
-      ),
+    AppTheme.snackBar(
+      context,
+      context.l10n.poPODetailsCopiedToClipboard,
+      severity: AppSeverity.success,
+      duration: const Duration(seconds: 2),
     );
   }
 
@@ -3448,8 +3376,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
     if (cargoItems.isEmpty) {
       final l = context.l10n;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.noCargoOrPalletToSimulate)),
+      AppTheme.snackBar(
+        context,
+        l.noCargoOrPalletToSimulate,
+        severity: AppSeverity.warning,
       );
       return;
     }
@@ -4098,23 +4028,21 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
             },
           );
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(l.clonePoSuccess(newCode)),
-                backgroundColor: AppTheme.emerald,
-                duration: const Duration(seconds: 3),
-              ),
+            AppTheme.snackBar(
+              context,
+              l.clonePoSuccess(newCode),
+              severity: AppSeverity.success,
+              duration: const Duration(seconds: 3),
             );
             ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(l.clonePoError(ApiErrorText.of(l, e))),
-                backgroundColor: AppTheme.crimson,
-                duration: const Duration(seconds: 4),
-              ),
+            AppTheme.snackBar(
+              context,
+              l.clonePoError(ApiErrorText.of(l, e)),
+              severity: AppSeverity.danger,
+              duration: const Duration(seconds: 4),
             );
           }
         }
@@ -4139,14 +4067,6 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final po = orders[index];
-        final statusColor = po.status == 'APPROVED'
-            ? AppTheme.wcagEmerald
-            : (po.status == 'PARTIALLY_SHIPPED' || po.status == 'FULLY_SHIPPED')
-                ? AppTheme.wcagCobalt
-                : (po.status == 'CLOSED' || po.status == 'CANCELLED')
-                    ? (isDark ? AppTheme.darkTextMuted : AppTheme.textSecondary)
-                    : AppTheme.wcagOrange;
-
         final invoiceDateStr = po.orderDate != null
             ? '${po.orderDate!.year}-${po.orderDate!.month.toString().padLeft(2, '0')}-${po.orderDate!.day.toString().padLeft(2, '0')}'
             : '-';
@@ -4200,17 +4120,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                       ),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: statusColor),
-                    ),
-                    child: Text(
-                      localizedStatus,
-                      style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
-                    ),
+                  AppStatusBadge.fromStatus(
+                    status: po.status,
+                    label: localizedStatus,
+                    size: AppStatusBadgeSize.small,
                   ),
                 ],
               ),
@@ -4285,37 +4198,22 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                   onClone: () => _showCloneDialog(po),
                   cloneTooltip: l.cloneRowTooltip,
                   onPrint: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(l.printPoAndPackingList(po.displayName, po.poNumber)),
-                        backgroundColor: AppTheme.charcoal,
-                        duration: const Duration(seconds: 2),
-                      ),
+                    AppTheme.snackBar(
+                      context,
+                      l.printPoAndPackingList(po.displayName, po.poNumber),
+                      duration: const Duration(seconds: 2),
                     );
                   },
                   onDelete: () async {
                     final isActive = po.isActive;
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: Text(l.confirmActionTitle),
-                        content: Text(isActive
-                            ? l.confirmDeactivatePo(po.displayName)
-                            : l.confirmRestorePo(po.displayName)),
-                        actions: [
-                          AppButton(
-                            label: l.cancel,
-                            variant: AppButtonVariant.secondary,
-                            size: AppButtonSize.small,
-                            onPressed: () => Navigator.pop(ctx, false),
-                          ),
-                          AppButton(
-                            label: isActive ? l.deactivateBtn : l.restore,
-                            variant: AppButtonVariant.primary,
-                            onPressed: () => Navigator.pop(ctx, true),
-                          ),
-                        ],
-                      ),
+                    final confirm = await AppConfirmDialog.showToggleActive(
+                      context,
+                      isCurrentlyActive: isActive,
+                      entityName: po.displayName,
+                      message: isActive
+                          ? l.confirmDeactivatePo(po.displayName)
+                          : l.confirmRestorePo(po.displayName),
+                      confirmLabel: isActive ? l.deactivateBtn : l.restore,
                     );
                     if (confirm == true) {
                       if (po.isActive) {

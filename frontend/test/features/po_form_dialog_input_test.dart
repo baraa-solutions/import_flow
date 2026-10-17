@@ -136,7 +136,27 @@ final _incoterms = [
 ];
 
 final _currencies = [
-  CurrencyModel(currencyId: 1, currencyCode: 'USD', currencyName: 'US Dollar', currencySymbol: '\$'),
+  CurrencyModel(
+    currencyId: 1,
+    currencyCode: 'USD',
+    currencyName: 'US Dollar',
+    currencySymbol: '\$',
+    exchangeRates: [
+      ExchangeRateModel(
+        currencyId: 1,
+        commercialRate: 48.5,
+        customsRate: 48.5,
+        effectiveDate: '2020-01-01',
+      ),
+    ],
+  ),
+  CurrencyModel(
+    currencyId: 2,
+    currencyCode: 'EUR',
+    currencyName: 'Euro',
+    currencySymbol: '€',
+    exchangeRates: [],
+  ),
 ];
 
 Future<_CapturingPoNotifier> _pumpNewPoDialog(WidgetTester tester,
@@ -396,5 +416,24 @@ void main() {
     await tester.ensureVisible(price);
     await _typeCharByChar(tester, price, '7.5');
     expect(_fieldText(tester, price), '7.5');
+  });
+
+  testWidgets('no exchange rate means Save is blocked and the field shows the red helper text (FE01-T03)', (tester) async {
+    final notifier = await _pumpNewPoDialog(tester);
+    await _pick(tester, 'Project', 'PRJ-100 (Chiller Plant)');
+    await _pick(tester, 'Importing Company', 'Delta Industrial Supplies');
+    await _pick(tester, 'Supplier', 'Siemens Industrial GmbH');
+    await _pick(tester, 'Incoterm', 'FOB (Free On Board)');
+    await _pick(tester, 'Currency', 'EUR (Euro)');
+    await _pick(tester, 'Payment Terms', 'Letter of Credit / LC (اعتماد مستندي)');
+
+    // Verify helper text is shown indicating missing exchange rate
+    expect(find.textContaining('No exchange rate found for EUR'), findsOneWidget);
+
+    await _save(tester);
+
+    expect(notifier.saved, isNull, reason: 'Save must be blocked when exchange rate is missing');
+    expect(find.byType(POFormDialog), findsOneWidget, reason: 'Dialog must remain open');
+    expect(find.text('Exchange rate is required and must be greater than zero'), findsOneWidget);
   });
 }
