@@ -45,6 +45,9 @@ def db_session():
     Base.metadata.create_all(engine)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = TestingSessionLocal()
+    db.add(Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True))
+    db.add(Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True))
+    db.commit()
     try:
         yield db
     finally:

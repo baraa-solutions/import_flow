@@ -48,7 +48,7 @@ class ShipmentBooking(Base):
     expected_warehouse_days = Column(Integer, nullable=True, default=7)
     expected_warehouse_arrival_date = Column(DateTime, nullable=True)
     transit_time_days = Column(Integer, nullable=True, default=0)
-    free_demurrage_days = Column(Integer, nullable=True, default=14)
+    free_demurrage_days = Column(Integer, nullable=True)
     cargo_cutoff_date = Column(DateTime, nullable=True)
     si_cutoff_date = Column(DateTime, nullable=True)
 

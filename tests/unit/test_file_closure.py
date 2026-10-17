@@ -297,5 +297,77 @@ class TestFileClosureModule(unittest.TestCase):
         self.db.refresh(imp_file)
         self.assertEqual("Phase 10 - Import File Closure & Historical Archive", imp_file.closed_at_phase)
 
+    def test_comprehensive_dossier_expanded_schema(self):
+        """TASK-01: Verify ComprehensiveShipmentDossierResponse schema supports ETA revisions, physical summary, and patterns."""
+        from modules.file_closure.schemas import ComprehensiveShipmentDossierResponse
+        
+        dossier = ComprehensiveShipmentDossierResponse(
+            import_file_id=1,
+            import_file_code="IMP-2026-TEST",
+            status="Open",
+            current_stage="Stage 3",
+            current_module="Phase 3",
+            progress_percent=55.0,
+            next_action="Reconcile packing list",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            company_name="SCAS",
+            supplier_name="Suzhou Yuheng",
+            shipment_mode="Sea FCL",
+            incoterm_code="EXW",
+            shipment_category="Commercial",
+            priority="High",
+            pos_count=1,
+            invoices_count=1,
+            eta_revisions_log=[
+                {
+                    "logged_at": "2026-10-13T10:00:00",
+                    "previous_eta": "2026-10-20",
+                    "revised_eta": "2026-10-25",
+                    "drift_days": 5,
+                    "reason": "Vessel transshipment delay",
+                }
+            ],
+            cargo_physical_summary={
+                "total_cbm": 66.388,
+                "total_gross_weight_kg": 10510.0,
+                "invoices_count": 1,
+                "pos_count": 1,
+            },
+            similar_past_shipments=[
+                {
+                    "file_code": "IMP-2025-012",
+                    "variance_pct": -2.4,
+                    "performance": "On-time",
+                }
+            ],
+            recurring_patterns=[
+                {
+                    "pattern_code": "PAT-001",
+                    "title": "Supplier booking lead time",
+                }
+            ],
+        )
+        self.assertEqual(dossier.pos_count, 1)
+        self.assertEqual(dossier.invoices_count, 1)
+        self.assertEqual(len(dossier.eta_revisions_log), 1)
+        self.assertEqual(dossier.eta_revisions_log[0]["drift_days"], 5)
+        self.assertIsNotNone(dossier.cargo_physical_summary)
+        self.assertEqual(dossier.cargo_physical_summary["total_cbm"], 66.388)
+        self.assertEqual(len(dossier.similar_past_shipments), 1)
+        self.assertEqual(len(dossier.recurring_patterns), 1)
+
+    def test_get_comprehensive_dossier_populates_physical_summary_and_logs(self):
+        """TASK-02: Verify get_comprehensive_shipment_dossier_service populates physical summary, eta log, and patterns."""
+        from modules.file_closure.service import get_comprehensive_shipment_dossier_service
+        dossier = get_comprehensive_shipment_dossier_service(self.db, self.import_file_id)
+        self.assertIsNotNone(dossier.cargo_physical_summary)
+        self.assertIn("total_cbm", dossier.cargo_physical_summary)
+        self.assertIn("total_gross_weight_kg", dossier.cargo_physical_summary)
+        self.assertIsInstance(dossier.eta_revisions_log, list)
+        self.assertIsInstance(dossier.similar_past_shipments, list)
+        self.assertIsInstance(dossier.recurring_patterns, list)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/cc_dialog_shell.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../models/freight_booking_model.dart';
@@ -308,7 +307,7 @@ class FbkSavingsSummary extends StatelessWidget {
                 size: 22,
               ),
               Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: fg)),
-              CcStatusChip(label: badge, severity: severity),
+              AppStatusBadge(label: badge, severity: severity, size: AppStatusBadgeSize.small),
             ],
           ),
           if (providerName != null && providerName!.isNotEmpty) ...[

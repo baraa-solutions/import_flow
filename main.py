@@ -107,6 +107,17 @@ from modules.expense_catalog.model import ExpenseCatalog
 from modules.experience_guide.model import GuideEntry, GuideEntryScope
 from modules.smart_checklists.model import ImportFileChecklistItem
 from modules.recalculation.model import RecalculationDependencyMap, RecalculationLog
+from modules.logistics_invoices.model import (
+    LogisticsServiceInvoice,
+    LogisticsInvoiceLine,
+    LogisticsInvoiceContainer,
+    InsurancePolicy,
+    ClearanceAdvancePayment,
+    ClearanceAdvanceSettlement,
+    LogisticsPaymentVoucher,
+    InvoiceKnockoff,
+)
+from modules.containers.model import ShipmentContainer
 
 
 
@@ -165,6 +176,8 @@ from modules.smart_checklists.router import router as smart_checklists_router
 from modules.recalculation.router import router as recalculation_router
 from modules.system_observability.router import router as system_observability_router
 from modules.app_update.router import router as app_update_router
+from modules.logistics_invoices.router import router as logistics_invoices_router
+from modules.containers.router import router as containers_router
 from modules.system_observability.middleware import ObservabilityMiddleware
 from modules.system_observability.service import setup_query_listener
 
@@ -388,6 +401,8 @@ app.include_router(smart_checklists_router)
 app.include_router(recalculation_router)
 app.include_router(system_observability_router)
 app.include_router(app_update_router)
+app.include_router(logistics_invoices_router)
+app.include_router(containers_router)
 
 
 

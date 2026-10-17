@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class ClearanceExpenseTypeModel {
   final int expenseId;
   final String expenseCode;
@@ -405,6 +407,9 @@ class CustomsConsultationModel {
   final double readinessPercentage;
   final double estimatedDutiesEgp;
   final double totalBrokerFeesEgp;
+  final double customsExchangeRate;
+  final String customsCurrency;
+  final String? calculationDate;
   final String? notes;
   final bool isActive;
   final int? clonedFromId;
@@ -435,6 +440,9 @@ class CustomsConsultationModel {
     this.readinessPercentage = 0.0,
     this.estimatedDutiesEgp = 0.0,
     this.totalBrokerFeesEgp = 0.0,
+    this.customsExchangeRate = 1.0,
+    this.customsCurrency = 'USD',
+    this.calculationDate,
     this.notes,
     this.isActive = true,
     this.clonedFromId,
@@ -451,6 +459,35 @@ class CustomsConsultationModel {
   });
 
   factory CustomsConsultationModel.fromJson(Map<String, dynamic> json) {
+    double exRate = (json['customs_exchange_rate'] as num?)?.toDouble() ?? 1.0;
+    String curr = json['customs_currency'] ?? 'USD';
+    String? calcDate = json['calculation_date'];
+    String? rawNotes = json['notes'];
+    String? cleanNotes = rawNotes;
+
+    // Check if notes contains SNAPSHOT metadata
+    if (rawNotes != null && rawNotes.contains('<!-- SNAPSHOT:')) {
+      try {
+        final startIdx = rawNotes.indexOf('<!-- SNAPSHOT:') + '<!-- SNAPSHOT:'.length;
+        final endIdx = rawNotes.indexOf('-->', startIdx);
+        if (endIdx != -1) {
+          final jsonStr = rawNotes.substring(startIdx, endIdx).trim();
+          final meta = jsonDecode(jsonStr) as Map<String, dynamic>;
+          if (meta['customs_exchange_rate'] != null) {
+            exRate = (meta['customs_exchange_rate'] as num).toDouble();
+          }
+          if (meta['customs_currency'] != null) {
+            curr = meta['customs_currency'].toString();
+          }
+          if (meta['calculation_date'] != null) {
+            calcDate = meta['calculation_date'].toString();
+          }
+          cleanNotes = rawNotes.substring(endIdx + 3).trim();
+          if (cleanNotes.isEmpty) cleanNotes = null;
+        }
+      } catch (_) {}
+    }
+
     return CustomsConsultationModel(
       consultationId: json['consultation_id'],
       consultationCode: json['consultation_code'] ?? '',
@@ -467,7 +504,10 @@ class CustomsConsultationModel {
       readinessPercentage: (json['readiness_percentage'] as num?)?.toDouble() ?? 0.0,
       estimatedDutiesEgp: (json['estimated_duties_egp'] as num?)?.toDouble() ?? 0.0,
       totalBrokerFeesEgp: (json['total_broker_fees_egp'] as num?)?.toDouble() ?? 0.0,
-      notes: json['notes'],
+      customsExchangeRate: exRate,
+      customsCurrency: curr,
+      calculationDate: calcDate,
+      notes: cleanNotes,
       isActive: json['is_active'] ?? true,
       clonedFromId: json['cloned_from_id'],
       clonedFromCode: json['cloned_from_code'],
@@ -490,6 +530,25 @@ class CustomsConsultationModel {
   }
 
   Map<String, dynamic> toJson() {
+    String? packedNotes = notes;
+    final metaMap = {
+      'customs_exchange_rate': customsExchangeRate,
+      'customs_currency': customsCurrency,
+      if (calculationDate != null) 'calculation_date': calculationDate,
+    };
+    final metaStr = '<!-- SNAPSHOT: ${jsonEncode(metaMap)} -->';
+    if (packedNotes != null && packedNotes.isNotEmpty) {
+      if (packedNotes.contains('<!-- SNAPSHOT:')) {
+        final endIdx = packedNotes.indexOf('-->');
+        if (endIdx != -1) {
+          packedNotes = packedNotes.substring(endIdx + 3).trim();
+        }
+      }
+      packedNotes = '$metaStr\n$packedNotes';
+    } else {
+      packedNotes = metaStr;
+    }
+
     return {
       'consultation_id': consultationId,
       'consultation_code': consultationCode,
@@ -506,13 +565,84 @@ class CustomsConsultationModel {
       'readiness_percentage': readinessPercentage,
       'estimated_duties_egp': estimatedDutiesEgp,
       'total_broker_fees_egp': totalBrokerFeesEgp,
-      'notes': notes,
+      'customs_exchange_rate': customsExchangeRate,
+      'customs_currency': customsCurrency,
+      if (calculationDate != null) 'calculation_date': calculationDate,
+      'notes': packedNotes,
       'is_active': isActive,
       if (clonedFromId != null) 'cloned_from_id': clonedFromId,
       if (clonedFromCode != null) 'cloned_from_code': clonedFromCode,
       'checklist_items': checklistItems.map((item) => item.toJson()).toList(),
       'broker_quote_items': brokerQuoteItems.map((item) => item.toJson()).toList(),
     };
+  }
+
+  CustomsConsultationModel copyWith({
+    int? consultationId,
+    String? consultationCode,
+    String? title,
+    int? importFileId,
+    int? brokerId,
+    String? brokerName,
+    String? brokerContactPerson,
+    int? brokerPriceListId,
+    int? poId,
+    int? projectId,
+    String? overallStatus,
+    bool? hasBlockingIssues,
+    double? readinessPercentage,
+    double? estimatedDutiesEgp,
+    double? totalBrokerFeesEgp,
+    double? customsExchangeRate,
+    String? customsCurrency,
+    String? calculationDate,
+    String? notes,
+    bool? isActive,
+    int? clonedFromId,
+    String? clonedFromCode,
+    String? createdAt,
+    String? updatedAt,
+    String? importFileCode,
+    List<CustomsChecklistItemModel>? checklistItems,
+    List<CustomsBrokerQuoteItemModel>? brokerQuoteItems,
+    int? totalDocumentsCount,
+    int approvedDocumentsCount = 0,
+    int blockingIssuesCount = 0,
+    int appliedBrokerItemsCount = 0,
+  }) {
+    return CustomsConsultationModel(
+      consultationId: consultationId ?? this.consultationId,
+      consultationCode: consultationCode ?? this.consultationCode,
+      title: title ?? this.title,
+      importFileId: importFileId ?? this.importFileId,
+      brokerId: brokerId ?? this.brokerId,
+      brokerName: brokerName ?? this.brokerName,
+      brokerContactPerson: brokerContactPerson ?? this.brokerContactPerson,
+      brokerPriceListId: brokerPriceListId ?? this.brokerPriceListId,
+      poId: poId ?? this.poId,
+      projectId: projectId ?? this.projectId,
+      overallStatus: overallStatus ?? this.overallStatus,
+      hasBlockingIssues: hasBlockingIssues ?? this.hasBlockingIssues,
+      readinessPercentage: readinessPercentage ?? this.readinessPercentage,
+      estimatedDutiesEgp: estimatedDutiesEgp ?? this.estimatedDutiesEgp,
+      totalBrokerFeesEgp: totalBrokerFeesEgp ?? this.totalBrokerFeesEgp,
+      customsExchangeRate: customsExchangeRate ?? this.customsExchangeRate,
+      customsCurrency: customsCurrency ?? this.customsCurrency,
+      calculationDate: calculationDate ?? this.calculationDate,
+      notes: notes ?? this.notes,
+      isActive: isActive ?? this.isActive,
+      clonedFromId: clonedFromId ?? this.clonedFromId,
+      clonedFromCode: clonedFromCode ?? this.clonedFromCode,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      importFileCode: importFileCode ?? this.importFileCode,
+      checklistItems: checklistItems ?? this.checklistItems,
+      brokerQuoteItems: brokerQuoteItems ?? this.brokerQuoteItems,
+      totalDocumentsCount: totalDocumentsCount ?? this.totalDocumentsCount,
+      approvedDocumentsCount: approvedDocumentsCount,
+      blockingIssuesCount: blockingIssuesCount,
+      appliedBrokerItemsCount: appliedBrokerItemsCount,
+    );
   }
 }
 
@@ -627,7 +757,7 @@ class CustomsRecalculationResponseModel {
   final bool isReconciled;
   final String sourceDescription;
   /// FINAL side rate (EGP per unit of [finalCurrency]).
-  final double exchangeRate;
+  final double? exchangeRate;
   final double? preliminaryExchangeRate;
   final String? preliminaryCurrency;
   final String? finalCurrency;
@@ -665,7 +795,7 @@ class CustomsRecalculationResponseModel {
     this.reconciliationSessionId,
     this.isReconciled = false,
     required this.sourceDescription,
-    required this.exchangeRate,
+    this.exchangeRate,
     this.preliminaryExchangeRate,
     this.preliminaryCurrency,
     this.finalCurrency,
@@ -701,7 +831,7 @@ class CustomsRecalculationResponseModel {
       reconciliationSessionId: json['reconciliation_session_id'],
       isReconciled: json['is_reconciled'] ?? false,
       sourceDescription: json['source_description'] ?? '',
-      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 50.0,
+      exchangeRate: (json['exchange_rate'] as num?)?.toDouble(),
       preliminaryExchangeRate: (json['preliminary_exchange_rate'] as num?)?.toDouble(),
       preliminaryCurrency: json['preliminary_currency'] as String?,
       finalCurrency: json['final_currency'] as String?,
@@ -735,6 +865,8 @@ class CustomsRecalculationResponseModel {
 }
 
 class CustomsItemCalcRow {
+  final String? itemKey;
+  final bool isAgreementEligible;
   final String hsCode;
   final String description;
   final double qty;
@@ -767,8 +899,14 @@ class CustomsItemCalcRow {
   final bool hasExemption;
   final String? exemptionConditionsNote;
   final String? requiredDocument;
+  final bool isTariffMissing;
+  final String? status;
+
+  bool get isCalculated => status == 'CALCULATED';
 
   CustomsItemCalcRow({
+    this.itemKey,
+    this.isAgreementEligible = false,
     required this.hsCode,
     required this.description,
     required this.qty,
@@ -801,6 +939,8 @@ class CustomsItemCalcRow {
     this.hasExemption = false,
     this.exemptionConditionsNote,
     this.requiredDocument,
+    this.isTariffMissing = false,
+    this.status,
   });
 }
 
@@ -817,7 +957,7 @@ extension CustomsRecalculationRates on CustomsRecalculationResponseModel {
       '${currency == null || currency.isEmpty ? '' : '$currency '}${rate.toStringAsFixed(4)}';
 
   /// "USD 49.5000" (currency omitted when the backend did not send it).
-  String get finalRateText => _piece(finalCurrency, exchangeRate);
+  String get finalRateText => exchangeRate == null ? '—' : _piece(finalCurrency, exchangeRate!);
 
   /// Null when there is no separate preliminary rate to show.
   String? get preliminaryRateText =>

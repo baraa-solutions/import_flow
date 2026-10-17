@@ -8,6 +8,7 @@ import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../customs_clearance/widgets/cc_dialog_shell.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
 import '../providers/shipment_updates_provider.dart';
@@ -54,7 +55,6 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
   late TextEditingController _noteController;
   late TextEditingController _dateController;
   late TextEditingController _costItemController;
-  late TextEditingController _prevCostController;
   late TextEditingController _newCostController;
 
   int? _selectedFileId;
@@ -115,8 +115,7 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
     _noteController = TextEditingController();
     _dateController = TextEditingController(text: DateTime.now().toString().split(' ')[0]);
     _costItemController = TextEditingController();
-    _prevCostController = TextEditingController(text: '0.0');
-    _newCostController = TextEditingController(text: '0.0');
+    _newCostController = TextEditingController();
   }
 
   @override
@@ -124,7 +123,6 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
     _noteController.dispose();
     _dateController.dispose();
     _costItemController.dispose();
-    _prevCostController.dispose();
     _newCostController.dispose();
     super.dispose();
   }
@@ -150,7 +148,6 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
         'log_date': _dateController.text,
         'note': _noteController.text.trim(),
         'adjusted_cost_item': _updateCategory == 'Phase Cost Adjustment' ? _costItemController.text.trim() : null,
-        'previous_cost': _updateCategory == 'Phase Cost Adjustment' ? double.tryParse(_prevCostController.text) ?? 0.0 : 0.0,
         'new_cost': _updateCategory == 'Phase Cost Adjustment' ? double.tryParse(_newCostController.text) ?? 0.0 : 0.0,
         'alert_priority': _updateCategory == 'Future Phase Alert' ? _alertPriority : 'Normal',
       };
@@ -196,10 +193,36 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
     );
   }
 
+  Widget _readOnlyCostField(AppLocalizations l, String label, String value) {
+    return CcField(
+      label: label,
+      child: TextFormField(
+        key: ValueKey('prev_cost_${_selectedFileId ?? 0}_$value'),
+        initialValue: value,
+        readOnly: true,
+        enabled: false,
+        decoration: ccInputDecoration(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final importFilesState = ref.watch(importFilesProvider);
+
+    ImportFileModel? selectedFile;
+    importFilesState.whenData((files) {
+      for (final f in files) {
+        if (f.importFileId == _selectedFileId) {
+          selectedFile = f;
+          break;
+        }
+      }
+    });
+    final currentCostText = selectedFile != null
+        ? '${selectedFile!.estimatedCost.toStringAsFixed(2)} ${selectedFile!.estimatedCostCurrency}'
+        : '0.00';
 
     return SelectionArea(
       child: Form(
@@ -291,7 +314,7 @@ class _ShipmentUpdateDialogState extends ConsumerState<ShipmentUpdateDialog> {
                     gap: 12,
                     children: [
                       _costField(l, l.shipmentUpdateFieldCostItemLabel, _costItemController, numeric: false),
-                      _costField(l, l.shipmentUpdateFieldPrevCostLabel, _prevCostController),
+                      _readOnlyCostField(l, l.shipmentUpdateFieldPrevCostLabel, currentCostText),
                       _costField(l, l.shipmentUpdateFieldNewCostLabel, _newCostController),
                     ],
                   ),

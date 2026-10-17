@@ -171,14 +171,16 @@ class AcidRequestTemplateResponse(BaseModel):
 
 # --- BANKING DOCUMENT SCHEMAS (BP-015) ---
 class BankingDocumentBase(BaseModel):
-    doc_type: str = Field(default="Form 4", description="Form 4, Form 9, Letter of Credit (L/C)")
+    doc_type: Literal["Form 4", "Form 9", "Letter of Credit (L/C)"] = Field(
+        default="Form 4", description="Form 4, Form 9, Letter of Credit (L/C)"
+    )
     import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     bank_id: Optional[int] = None
     bank_name: str = Field(..., min_length=2, max_length=200)
     doc_reference_number: Optional[str] = Field(default="PENDING", max_length=100)
     amount: float = Field(..., gt=0.0)
-    currency_code: str = Field(default="USD", max_length=10)
+    currency_code: str = Field(..., min_length=3, max_length=10, description="Active ISO 4217 currency code")
     request_date: Optional[date] = None
     received_date: Optional[date] = None
     execution_days: Optional[int] = 0
@@ -186,17 +188,42 @@ class BankingDocumentBase(BaseModel):
     expiry_date: Optional[date] = None
     notes: Optional[str] = None
 
+    # Pre-Form 4 Readiness Pipeline Fields (Tax Coding Sheet & SWIFT Bank Linkage)
+    tax_coding_sheet_status: Optional[str] = Field("NOT_STARTED", description="NOT_STARTED, PULLED_BY_BROKER, UPLOADED_BY_ACCOUNTANT")
+    tax_coding_sheet_file_url: Optional[str] = None
+    tax_coding_pulled_date: Optional[date] = None
+    tax_coding_broker_id: Optional[int] = None
+    tax_coding_broker_name: Optional[str] = None
+    tax_coding_uploaded_date: Optional[date] = None
+    tax_coding_accountant_name: Optional[str] = None
+
+    items_pulled_verified: Optional[bool] = False
+    items_pulled_date: Optional[date] = None
+    items_count_total: Optional[int] = 0
+    items_count_coded: Optional[int] = 0
+    regulatory_bodies_detected: Optional[List[str]] = None
+
+    nafeza_bank_link_status: Optional[str] = Field("PENDING", description="PENDING, LINKED_TO_BANK")
+    nafeza_bank_link_date: Optional[date] = None
+    nafeza_linked_bank_id: Optional[int] = None
+    nafeza_linked_bank_name: Optional[str] = None
+    swift_executing_bank_id: Optional[int] = None
+    swift_executing_bank_name: Optional[str] = None
+    swift_reference_no: Optional[str] = None
+    is_bank_matching_swift: Optional[bool] = True
+
 
 class BankingDocumentCreate(BankingDocumentBase):
     pass
 
 
 class BankingDocumentUpdate(BaseModel):
+    doc_type: Optional[Literal["Form 4", "Form 9", "Letter of Credit (L/C)"]] = None
     doc_reference_number: Optional[str] = None
     import_file_id: Optional[int] = None
     bank_id: Optional[int] = None
     bank_name: Optional[str] = None
-    amount: Optional[float] = None
+    amount: Optional[float] = Field(None, gt=0.0)
     currency_code: Optional[str] = None
     request_date: Optional[date] = None
     received_date: Optional[date] = None
@@ -205,6 +232,73 @@ class BankingDocumentUpdate(BaseModel):
     expiry_date: Optional[date] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+
+    tax_coding_sheet_status: Optional[str] = None
+    tax_coding_sheet_file_url: Optional[str] = None
+    tax_coding_pulled_date: Optional[date] = None
+    tax_coding_broker_id: Optional[int] = None
+    tax_coding_broker_name: Optional[str] = None
+    tax_coding_uploaded_date: Optional[date] = None
+    tax_coding_accountant_name: Optional[str] = None
+    items_pulled_verified: Optional[bool] = None
+    items_pulled_date: Optional[date] = None
+    items_count_total: Optional[int] = None
+    items_count_coded: Optional[int] = None
+    regulatory_bodies_detected: Optional[List[str]] = None
+    nafeza_bank_link_status: Optional[str] = None
+    nafeza_bank_link_date: Optional[date] = None
+    nafeza_linked_bank_id: Optional[int] = None
+    nafeza_linked_bank_name: Optional[str] = None
+    swift_executing_bank_id: Optional[int] = None
+    swift_executing_bank_name: Optional[str] = None
+    swift_reference_no: Optional[str] = None
+    is_bank_matching_swift: Optional[bool] = None
+
+
+class TaxCodingSheetPullRequest(BaseModel):
+    broker_id: Optional[int] = None
+    broker_name: Optional[str] = None
+    pulled_date: date = Field(default_factory=date.today)
+    file_url: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class TaxCodingSheetUploadRequest(BaseModel):
+    accountant_name: str = Field(..., min_length=2, max_length=200)
+    uploaded_date: date = Field(default_factory=date.today)
+    items_count_coded: Optional[int] = None
+    items_count_total: Optional[int] = None
+    file_url: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class ItemsVerificationConfirmRequest(BaseModel):
+    verified: bool = True
+    verified_date: date = Field(default_factory=date.today)
+    items_count_total: Optional[int] = None
+    items_count_coded: Optional[int] = None
+    regulatory_bodies_detected: Optional[List[str]] = None
+    notes: Optional[str] = None
+
+
+class NafezaBankLinkConfirmRequest(BaseModel):
+    bank_id: int = Field(..., description="External service provider ID of the bank linked on Nafeza")
+    bank_name: Optional[str] = None
+    link_date: date = Field(default_factory=date.today)
+    notes: Optional[str] = None
+    override_swift_mismatch: bool = False
+    override_reason: Optional[str] = None
+
+
+class SwiftCoverageSummary(BaseModel):
+    invoice_amount: float = 0.0
+    invoice_currency: str = "USD"
+    total_swift_transferred_amount: float = 0.0
+    coverage_percent: float = 0.0
+    is_fully_covered: bool = False
+    executing_bank_id: Optional[int] = None
+    executing_bank_name: Optional[str] = None
+    swift_references: List[str] = []
 
 
 class BankingDocumentReceive(BaseModel):
@@ -226,6 +320,10 @@ class BankingDocumentResponse(BankingDocumentBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+    swift_coverage: Optional[SwiftCoverageSummary] = None
+    can_submit_form4: bool = False
+    blockers: List[str] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -281,9 +379,9 @@ class CustomsDeclarationBase(BaseModel):
     acid_number: str = Field(..., min_length=19, max_length=19)
     form4_number: Optional[str] = None
     bl_number: Optional[str] = None
-    total_cif_val_egp: float = Field(default=0.0, ge=0.0)
-    total_customs_duties_egp: float = Field(default=0.0, ge=0.0)
-    total_vat_egp: float = Field(default=0.0, ge=0.0)
+    total_cif_val_egp: Optional[float] = Field(None, ge=0.0)
+    total_customs_duties_egp: Optional[float] = Field(None, ge=0.0)
+    total_vat_egp: Optional[float] = Field(None, ge=0.0)
 
 
 class CustomsDeclarationCreate(CustomsDeclarationBase):
@@ -296,6 +394,7 @@ class CustomsDeclarationResponse(CustomsDeclarationBase):
     declaration_code: str
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
+    amounts_entered: bool = False
     declaration_status: str
     is_active: bool
     created_at: datetime
@@ -943,8 +1042,8 @@ class POExtractAndCompareResponse(BaseModel):
 
 class InvoiceBLSyncRequest(BaseModel):
     import_file_id: int
-    invoice_data: Dict[str, Any]
-    bl_data: Dict[str, Any]
+    invoice_data: Optional[Dict[str, Any]] = None
+    bl_data: Optional[Dict[str, Any]] = None
     sync_to_po: bool = True
     sync_to_shipping: bool = True
     notes: Optional[str] = None
@@ -958,8 +1057,8 @@ class InvoiceBLMatchSessionBase(BaseModel):
     packing_list_number: Optional[str] = None
     acid_number: Optional[str] = None
     match_score_percentage: float = 0.0
-    overall_status: str = "FULLY_MATCHED"
-    is_safe_for_certification: bool = True
+    overall_status: str = "DRAFT_SAVED"
+    is_safe_for_certification: bool = False
     is_draft: bool = False
     critical_discrepancies_count: int = 0
     warning_discrepancies_count: int = 0
@@ -1003,6 +1102,7 @@ class InvoiceBLMatchSessionResponse(InvoiceBLMatchSessionBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    currency_mismatch: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1014,13 +1114,13 @@ class POReconciliationSessionBase(BaseModel):
     acid_number: Optional[str] = None
     shipper_name: Optional[str] = None
     total_invoice_amount: float = 0.0
-    currency: str = "EUR"
+    currency: Optional[str] = None
     total_packages: float = 0.0
     total_net_weight_kg: float = 0.0
     total_gross_weight_kg: float = 0.0
     total_cbm: float = 0.0
-    overall_status: str = "FULLY_MATCHED"
-    is_safe_for_certification: bool = True
+    overall_status: str = "DRAFT"
+    is_safe_for_certification: bool = False
     critical_discrepancies_count: int = 0
     warning_discrepancies_count: int = 0
     header_discrepancies: Optional[List[Dict[str, Any]]] = None
@@ -1033,7 +1133,7 @@ class POReconciliationSessionBase(BaseModel):
 
 
 class POReconciliationSessionCreate(POReconciliationSessionBase):
-    pass
+    currency: str = Field(..., min_length=3, max_length=3, description="3-letter active ISO currency code")
 
 
 class POReconciliationSessionUpdate(BaseModel):
