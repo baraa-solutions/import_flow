@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -111,10 +109,6 @@ class _CustomsDeclaration46DialogState
     _tariffCountController = TextEditingController(text: '1');
     _inspectionNotesController = TextEditingController();
 
-    if (_declaration46Controller.text.trim().isEmpty) {
-      _generateDeclaration46Number();
-    }
-
     if (widget.file.portOfDischarge != null &&
         widget.file.portOfDischarge!.isNotEmpty) {
       final pod = widget.file.portOfDischarge!.toLowerCase();
@@ -139,30 +133,6 @@ class _CustomsDeclaration46DialogState
     _tariffCountController.dispose();
     _inspectionNotesController.dispose();
     super.dispose();
-  }
-
-  void _generateDeclaration46Number() {
-    final year = DateTime.now().year;
-    final rand = 10000 + Random().nextInt(90000);
-    String portPrefix = 'ALX';
-    if (_selectedOffice.contains('Dekheila')) {
-      portPrefix = 'DKH';
-    } else if (_selectedOffice.contains('Port Said')) {
-      portPrefix = 'PSD';
-    } else if (_selectedOffice.contains('Damietta')) {
-      portPrefix = 'DMT';
-    } else if (_selectedOffice.contains('Sokhna')) {
-      portPrefix = 'SKH';
-    } else if (_selectedOffice.contains('Airport')) {
-      portPrefix = 'CAI';
-    }
-
-    setState(() {
-      _declaration46Controller.text = '46-$year-$portPrefix-$rand';
-      if (_mtsCertController.text.trim().isEmpty) {
-        _mtsCertController.text = 'MTS-$year-$portPrefix-${rand + 100}';
-      }
-    });
   }
 
   Future<void> _selectDeclarationDate() async {
@@ -314,20 +284,9 @@ class _CustomsDeclaration46DialogState
                         decoration: _dec(l.ccDecNoLabel, icon: Icons.pin_rounded, helper: l.ccDecNoHelper),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) return l.ccDecNoRequired;
+                          if (v.trim().length < 3) return l.customsDeclMinLength;
                           return null;
                         },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Padding(
-                      padding: const EdgeInsetsDirectional.only(top: 4),
-                      child: AppButton(
-                        key: const Key('generateDeclaration46Btn'),
-                        label: l.ccDecGenerate,
-                        icon: Icons.autorenew_rounded,
-                        variant: AppButtonVariant.secondary,
-                        tooltip: l.ccDecGenerateTooltip,
-                        onPressed: _generateDeclaration46Number,
                       ),
                     ),
                     const SizedBox(width: 14),
