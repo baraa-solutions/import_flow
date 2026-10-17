@@ -1237,6 +1237,14 @@
       "note"
     ]
   },
+  "DOC_INVOICE_BL_NOT_CERTIFIED": {
+    "params": [
+      "import_file_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "DOC_INVOICE_BL_SYNCED": {
     "params": [
       "draft_bl_number",

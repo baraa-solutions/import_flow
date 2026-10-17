@@ -32,12 +32,15 @@ from modules.import_documentation.schemas import (
     DualApprovalRequest,
     InspectionCertificateReviewCreate,
     InvoiceBLMatchSessionCreate,
+    InvoiceBLSyncRequest,
     NewDraftVersionRequest,
     POExtractAndCompareRequest,
     POFinalAdjustmentRequest,
     POReconciliationItem,
     POReconciliationSessionCreate,
 )
+from modules.cargo_shipping.model import CargoShippingRecord
+from modules.docs_customs_approval.model import CustomsDocumentApproval
 import modules.import_documentation.service as service
 
 
@@ -839,3 +842,119 @@ def test_be03_t16_certified_coo_put_locked_except_notes_and_delete_locked(db):
     with pytest.raises(HTTPException) as exc:
         service.delete_coo_review_service(db, saved.coo_review_id, user="alice")
     assert exc.value.status_code == 409
+
+
+# --- BE03-T04: Gate /invoice-bl/certify-and-sync behind certified session and container merge ---
+def test_be03_t04_no_session_gives_409_and_approvals_unchanged(db):
+    _seed_codes(db)
+    app = CustomsDocumentApproval(
+        approval_code="CDA-T-01",
+        import_file_id=1,
+        document_type="Commercial Invoice",
+        commercial_status="Pending",
+        is_active=True,
+    )
+    db.add(app)
+    db.commit()
+
+    req = InvoiceBLSyncRequest(
+        import_file_id=1,
+        invoice_data={"invoice_number": "INV-X", "currency": "USD"},
+        bl_data={"draft_bl_number": "BL-X"},
+    )
+    with pytest.raises(HTTPException) as exc:
+        service.sync_certified_invoice_bl_to_file_service(db, req, user="operator")
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail.get("code") == "DOC_INVOICE_BL_NOT_CERTIFIED"
+
+    db.refresh(app)
+    assert app.commercial_status == "Pending"
+    imp = db.get(ImportFile, 1)
+    assert imp.bl_number is None
+    assert imp.pi_number is None
+
+
+def test_be03_t04_with_certified_session_syncs_session_data_ignoring_body(db):
+    _seed_codes(db)
+    app = CustomsDocumentApproval(
+        approval_code="CDA-T-02",
+        import_file_id=1,
+        document_type="Commercial Invoice",
+        commercial_status="Pending",
+        is_active=True,
+    )
+    db.add(app)
+    db.commit()
+
+    service.create_invoice_bl_match_session_service(
+        db,
+        _cert_payload(
+            invoice_data={"invoice_number": "INV-REAL", "currency": "USD"},
+            bl_data={"draft_bl_number": "BL-REAL"},
+            notes="certified ok",
+        ),
+        user="certifier",
+    )
+
+    # Call sync endpoint sending fake/ignored body data
+    req = InvoiceBLSyncRequest(
+        import_file_id=1,
+        invoice_data={"invoice_number": "INV-FAKE"},
+        bl_data={"draft_bl_number": "BL-FAKE"},
+    )
+    res = service.sync_certified_invoice_bl_to_file_service(db, req, user="operator")
+
+    assert res["status"] == "success"
+    assert res["message_code"] == "DOC_INVOICE_BL_SYNCED"
+
+    db.expire_all()
+    imp = db.get(ImportFile, 1)
+    assert imp.bl_number == "BL-REAL"
+    assert imp.pi_number == "INV-REAL"
+
+
+def test_be03_t04_container_merge_preserves_vgm_and_tracking_status(db):
+    _seed_codes(db)
+    cargo = CargoShippingRecord(
+        cargo_shipping_code="CS-T-04",
+        import_file_id=1,
+        is_active=True,
+        containers_loading_data=[
+            {"container_no": "MSCU1", "vgm_status": "Verified", "tracking_status": "GateIn"}
+        ],
+    )
+    db.add(cargo)
+    db.commit()
+
+    service.create_invoice_bl_match_session_service(
+        db,
+        _cert_payload(
+            bl_data={
+                "draft_bl_number": "BL-CONT-1",
+                "containers": [
+                    {"container_no": "MSCU1", "seal_no": "S1"},
+                    {"container_no": "MSCU2", "seal_no": "S2", "container_type": "40HC"},
+                ],
+            },
+            notes="ok",
+        ),
+        user="certifier",
+    )
+
+    req = InvoiceBLSyncRequest(import_file_id=1, sync_to_shipping=True)
+    service.sync_certified_invoice_bl_to_file_service(db, req, user="operator")
+
+    db.expire_all()
+    updated_cargo = db.get(CargoShippingRecord, cargo.cargo_shipping_id)
+    containers = {c["container_no"]: c for c in updated_cargo.containers_loading_data}
+
+    assert "MSCU1" in containers
+    assert containers["MSCU1"]["vgm_status"] == "Verified"
+    assert containers["MSCU1"]["tracking_status"] == "GateIn"
+    assert containers["MSCU1"]["seal_no"] == "S1"
+
+    assert "MSCU2" in containers
+    assert containers["MSCU2"]["seal_no"] == "S2"
+    assert containers["MSCU2"]["container_type"] == "40HC"
+
