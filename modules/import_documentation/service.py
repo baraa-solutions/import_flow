@@ -429,6 +429,8 @@ def enrich_shipment_doc_response(db: Session, item: ShipmentDocumentItem, import
 def _handle_acid_verification_workflow(
     db: Session,
     db_item: AcidRegistrationSession,
+    previous_status: Optional[str] = None,
+    previous_ref: Optional[str] = None,
 ) -> None:
     """
     Central business engine workflow triggered whenever an ACID Registration Session
@@ -440,6 +442,7 @@ def _handle_acid_verification_workflow(
     5. Emits SystemNotification for LOGISTICS_OFFICER & ALL.
 
     Runs after the session commit: every step is a best-effort follow-up that commits its own work (DOC-11).
+    BE03-T09: Follow-ups 2-5 only fire on transition into the issued state (was not issued before, or reference number changed).
     """
     if not db_item.import_file_id:
         return
@@ -473,6 +476,13 @@ def _handle_acid_verification_workflow(
 
     # Only advance lifecycle and dispatch next tasks if it's verified/issued (BE03-T06)
     if not (is_issued_acid and db_item.status in ["Verified", "Discrepancy_Accepted"]):
+        return
+
+    # BE03-T09: Only fire lifecycle advance, smart tasks, and notifications on transition into issued state
+    prev_num = (previous_ref or "").strip()
+    prev_is_issued_acid = len(prev_num) == 19 and prev_num.isdigit() and prev_num.upper() != "PENDING"
+    prev_was_issued = prev_is_issued_acid and (previous_status in ["Verified", "Discrepancy_Accepted", "Generated", "Issued", "ACID Issued"])
+    if prev_was_issued and prev_num == acid_num:
         return
 
     imp = _get_active_import_file(db, file_id)
@@ -516,10 +526,26 @@ def _handle_acid_verification_workflow(
 
     # 4. Dispatch new SmartTask for Logistics Officer for Freight Booking (BK-01 / STEP_06)
     def _create_booking_task() -> None:
+        from modules.smart_tasks.model import SmartTask
         from modules.smart_tasks.repository import create_task as create_smart_task
         from modules.smart_tasks.schemas import SmartTaskCreate
 
         booking_task_msg = msg("DOC_TASK_FREIGHT_BOOKING", import_file_code=file_code, acid_number=acid_num)
+
+        # BE03-T09: Skip if an active non-completed task already exists for this file and message
+        existing_task = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == file_id,
+                SmartTask.msg_code == booking_task_msg.code,
+                SmartTask.is_active == True,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .first()
+        )
+        if existing_task:
+            return
+
         task_title = render_en(booking_task_msg.code, booking_task_msg.params, "title")
         task_desc = render_en(booking_task_msg.code, booking_task_msg.params, "body")
         booking_due = date.today() + timedelta(days=3)
@@ -642,6 +668,8 @@ def create_acid_session_service(
             .first()
         )
         if existing:
+            prev_status = existing.status
+            prev_ref = existing.acid_number
             update_data = schema.model_dump(exclude_unset=True)
             for f in repo._SERVER_OWNED_ACID_FIELDS:
                 update_data.pop(f, None)
@@ -656,7 +684,7 @@ def create_acid_session_service(
             db.refresh(existing)
 
             # Trigger ACID verification and synchronization workflow
-            _handle_acid_verification_workflow(db, existing)
+            _handle_acid_verification_workflow(db, existing, previous_status=prev_status, previous_ref=prev_ref)
             return enrich_acid_response(db, existing)
 
     db_item = repo.create_acid_session(db, schema, commit=False)
@@ -673,7 +701,7 @@ def create_acid_session_service(
     db.refresh(db_item)
 
     # Trigger ACID verification and synchronization workflow
-    _handle_acid_verification_workflow(db, db_item)
+    _handle_acid_verification_workflow(db, db_item, previous_status=None, previous_ref=None)
 
     return enrich_acid_response(db, db_item)
 
@@ -704,6 +732,8 @@ def update_acid_session_service(
         new_requested = schema.requested_date if "requested_date" in schema.model_fields_set else db_item.requested_date
         validate_acid_expiry(new_expiry, new_requested)
 
+    prev_status = db_item.status
+    prev_ref = db_item.acid_number
     # BE03-T06: Drop status and match flags before repo update
     payload_data = schema.model_dump(exclude_unset=True)
     for f in repo._SERVER_OWNED_ACID_FIELDS:
@@ -716,7 +746,7 @@ def update_acid_session_service(
     db.refresh(updated)
 
     # Trigger ACID verification and synchronization workflow
-    _handle_acid_verification_workflow(db, updated)
+    _handle_acid_verification_workflow(db, updated, previous_status=prev_status, previous_ref=prev_ref)
 
     return enrich_acid_response(db, updated)
 
@@ -986,6 +1016,8 @@ def soft_delete_acid_session_service(db: Session, acid_id: int, user: Optional[s
 def _handle_banking_document_verification_workflow(
     db: Session,
     db_item: BankingDocumentSession,
+    previous_status: Optional[str] = None,
+    previous_ref: Optional[str] = None,
 ) -> None:
     """
     Central business engine workflow triggered whenever a Banking Document
@@ -998,6 +1030,7 @@ def _handle_banking_document_verification_workflow(
     5. Emits SystemNotification for CUSTOMS_BROKER & FINANCIAL_CONTROLLER & ALL.
 
     Runs after the document commit: every step is a best-effort follow-up that commits its own work (DOC-11).
+    BE03-T09: Follow-ups 2-5 only fire on transition into the issued state (was not issued before, or reference number changed).
     """
     if not db_item.import_file_id:
         return
@@ -1027,6 +1060,13 @@ def _handle_banking_document_verification_workflow(
 
     # Only advance lifecycle and dispatch next tasks if it's verified / received / approved by bank
     if not (is_valid_ref and db_item.status in ["Received", "Approved by Bank", "Form Issued", "Verified", "Endorsed"]):
+        return
+
+    # BE03-T09: Only fire lifecycle advance, smart tasks, and notifications on transition into issued state
+    prev_ref = (previous_ref or "").strip()
+    prev_is_valid_ref = bool(prev_ref and prev_ref.upper() != "PENDING")
+    prev_was_issued = prev_is_valid_ref and (previous_status in ["Received", "Approved by Bank", "Form Issued", "Verified", "Endorsed"])
+    if prev_was_issued and prev_ref == ref_num:
         return
 
     imp = _get_active_import_file(db, file_id)
@@ -1074,6 +1114,7 @@ def _handle_banking_document_verification_workflow(
 
     # 4. Dispatch new SmartTask for Customs Broker / Specialist (CS-03 / STEP_13)
     def _create_declaration_task() -> None:
+        from modules.smart_tasks.model import SmartTask
         from modules.smart_tasks.repository import create_task as create_smart_task
         from modules.smart_tasks.schemas import SmartTaskCreate
 
@@ -1084,6 +1125,21 @@ def _handle_banking_document_verification_workflow(
             reference_no=ref_num,
             bank_name=bank_name,
         )
+
+        # BE03-T09: Skip if an active non-completed task already exists for this file and message
+        existing_task = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == file_id,
+                SmartTask.msg_code == decl_task_msg.code,
+                SmartTask.is_active == True,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .first()
+        )
+        if existing_task:
+            return
+
         task_title = render_en(decl_task_msg.code, decl_task_msg.params, "title")
         task_desc = render_en(decl_task_msg.code, decl_task_msg.params, "body")
         decl_due = date.today() + timedelta(days=2)
@@ -1184,7 +1240,7 @@ def create_banking_document_service(
         _commit_follow_up(db, _dispatch_pull_task, "Dispatch tax coding sheet pull task")
 
     # Sync and trigger workflow
-    _handle_banking_document_verification_workflow(db, item)
+    _handle_banking_document_verification_workflow(db, item, previous_status=None, previous_ref=None)
 
     return enrich_banking_response(db, item)
 
@@ -1207,10 +1263,12 @@ def update_banking_document_service(
     if getattr(schema, "po_id", None) is not None:
         _require_active_po(db, schema.po_id)
 
+    prev_status = item.status
+    prev_ref = item.doc_reference_number
     updated = repo.update_banking_document(db, item, schema)
 
     # Sync and trigger workflow
-    _handle_banking_document_verification_workflow(db, updated)
+    _handle_banking_document_verification_workflow(db, updated, previous_status=prev_status, previous_ref=prev_ref)
 
     return enrich_banking_response(db, updated)
 
@@ -1220,6 +1278,9 @@ def receive_banking_document_service(
     user: Optional[str] = None,
 ):
     item = _get_banking_document_or_404(db, bank_doc_id)
+
+    prev_status = item.status
+    prev_ref = item.doc_reference_number
 
     req_date = item.request_date or item.issue_date or date.today()
     exec_days = max(0, (received_date - req_date).days)
@@ -1236,7 +1297,7 @@ def receive_banking_document_service(
     db.refresh(item)
 
     # Sync and trigger workflow
-    _handle_banking_document_verification_workflow(db, item)
+    _handle_banking_document_verification_workflow(db, item, previous_status=prev_status, previous_ref=prev_ref)
 
     return enrich_banking_response(db, item)
 

@@ -1170,3 +1170,167 @@ def test_be03_t05_invoice_bl_server_gate_overrides_client(db):
     assert saved.is_safe_for_certification is False
     assert saved.overall_status == "DISCREPANCY_DETECTED"
 
+
+# --- BE03-T09: Document workflows fire once per transition ---------------------------------
+def test_be03_t09_acid_verified_workflows_fire_once(db):
+    from modules.smart_tasks.model import SmartTask
+    from modules.notifications.model import SystemNotification
+    from modules.import_documentation.schemas import AcidRegistrationUpdate
+
+    # 1. Create verified ACID session (19 digits, generated_date present -> status="Verified")
+    acid_req = AcidRegistrationCreate(
+        import_file_id=1,
+        acid_number="1234567890123456789",
+        requested_date=date.today() - timedelta(days=5),
+        generated_date=date.today(),
+        expiry_date=date.today() + timedelta(days=90),
+        **ACID_REQUIRED,
+    )
+    created = service.create_acid_session_service(db, acid_req, user="alice")
+    assert created.status == "Verified"
+
+    # Verify 1 freight-booking task and 1 notification created
+    tasks = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 1,
+        SmartTask.msg_code == "DOC_TASK_FREIGHT_BOOKING",
+    ).all()
+    assert len(tasks) == 1
+
+    notifs = db.query(SystemNotification).filter(
+        SystemNotification.entity_id == created.acid_id,
+        SystemNotification.msg_code == "DOC_ACID_REGISTERED",
+    ).all()
+    assert len(notifs) == 1
+
+    # 2. Update with broker name (saving verified ACID again) -> workflows should not fire again
+    updated = service.update_acid_session_service(
+        db, created.acid_id,
+        AcidRegistrationUpdate(customs_broker_name="Sherif El-Gammal"),
+        user="alice",
+    )
+    assert updated.customs_broker_name == "Sherif El-Gammal"
+
+    tasks_after = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 1,
+        SmartTask.msg_code == "DOC_TASK_FREIGHT_BOOKING",
+    ).all()
+    assert len(tasks_after) == 1
+
+    notifs_after = db.query(SystemNotification).filter(
+        SystemNotification.entity_id == created.acid_id,
+        SystemNotification.msg_code == "DOC_ACID_REGISTERED",
+    ).all()
+    assert len(notifs_after) == 1
+
+
+def test_be03_t09_banking_receive_twice_creates_one_declaration_task(db):
+    from modules.smart_tasks.model import SmartTask
+    from modules.notifications.model import SystemNotification
+    from modules.import_documentation.schemas import BankingDocumentCreate
+
+    # 1. Create banking document in Requested state
+    bank_req = BankingDocumentCreate(
+        doc_type="Form 4",
+        import_file_id=1,
+        bank_name="National Bank of Egypt",
+        amount=15000.0,
+        currency_code="USD",
+        doc_reference_number="PENDING",
+        request_date=date.today() - timedelta(days=2),
+    )
+    created = service.create_banking_document_service(db, bank_req, user="alice")
+
+    # Initially no declaration 46 task since it's not received yet
+    init_tasks = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 1,
+        SmartTask.msg_code == "DOC_TASK_DECLARATION_46",
+    ).all()
+    assert len(init_tasks) == 0
+
+    # 2. First receive -> moves into issued state -> fires workflow
+    rec1 = service.receive_banking_document_service(
+        db, created.bank_doc_id,
+        form4_number="FORM4-2026-999",
+        received_date=date.today(),
+        notes="First receive",
+        user="alice",
+    )
+    assert rec1.status == "Received"
+
+    tasks_after_first = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 1,
+        SmartTask.msg_code == "DOC_TASK_DECLARATION_46",
+    ).all()
+    assert len(tasks_after_first) == 1
+
+    notifs_after_first = db.query(SystemNotification).filter(
+        SystemNotification.entity_id == created.bank_doc_id,
+        SystemNotification.msg_code == "DOC_BANK_DOCUMENT_RECORDED",
+    ).all()
+    assert len(notifs_after_first) == 1
+
+    # 3. Second receive with same form4 number -> should not duplicate task or notification
+    rec2 = service.receive_banking_document_service(
+        db, created.bank_doc_id,
+        form4_number="FORM4-2026-999",
+        received_date=date.today(),
+        notes="Second receive correction",
+        user="alice",
+    )
+    assert rec2.status == "Received"
+
+    tasks_after_second = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 1,
+        SmartTask.msg_code == "DOC_TASK_DECLARATION_46",
+    ).all()
+    assert len(tasks_after_second) == 1
+
+    notifs_after_second = db.query(SystemNotification).filter(
+        SystemNotification.entity_id == created.bank_doc_id,
+        SystemNotification.msg_code == "DOC_BANK_DOCUMENT_RECORDED",
+    ).all()
+    assert len(notifs_after_second) == 1
+
+
+def test_be03_t09_acid_upsert_does_not_duplicate_workflow(db):
+    from modules.smart_tasks.model import SmartTask
+    from modules.notifications.model import SystemNotification
+
+    # First create
+    acid_req = AcidRegistrationCreate(
+        import_file_id=2,
+        acid_number="9876543210987654321",
+        requested_date=date.today() - timedelta(days=5),
+        generated_date=date.today(),
+        expiry_date=date.today() + timedelta(days=90),
+        **ACID_REQUIRED,
+    )
+    c1 = service.create_acid_session_service(db, acid_req, user="alice")
+    assert c1.status == "Verified"
+
+    # Upsert with same file_id and same acid number
+    acid_req_upsert = AcidRegistrationCreate(
+        import_file_id=2,
+        acid_number="9876543210987654321",
+        requested_date=date.today() - timedelta(days=5),
+        generated_date=date.today(),
+        expiry_date=date.today() + timedelta(days=90),
+        customs_broker_name="Broker B",
+        **ACID_REQUIRED,
+    )
+    c2 = service.create_acid_session_service(db, acid_req_upsert, user="alice")
+    assert c2.acid_id == c1.acid_id
+
+    tasks = db.query(SmartTask).filter(
+        SmartTask.import_file_id == 2,
+        SmartTask.msg_code == "DOC_TASK_FREIGHT_BOOKING",
+    ).all()
+    assert len(tasks) == 1
+
+    notifs = db.query(SystemNotification).filter(
+        SystemNotification.entity_id == c1.acid_id,
+        SystemNotification.msg_code == "DOC_ACID_REGISTERED",
+    ).all()
+    assert len(notifs) == 1
+
+
