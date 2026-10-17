@@ -444,15 +444,14 @@ def test_update_consultation_explicit_null_on_title_fails(db):
     assert "لا يمكن مسح الحقل الإلزامي 'title' في دراسة الاستشارة الجمركية." in exc_info.value.detail
 
 
-def test_update_consultation_explicit_null_on_broker_id_fails(db):
+def test_update_consultation_explicit_null_on_broker_id_is_allowed(db):
+    # FE01-T02: broker_id is nullable (tax review mode has no broker), so clearing it is not a NOT NULL violation.
     created = CustomsConsultationService.create_consultation(
         db, CustomsConsultationCreate(title="Valid Study", broker_id=1, broker_name="Speedy Broker")
     )
     payload = CustomsConsultationUpdate.model_validate({"broker_id": None})
-    with pytest.raises(HTTPException) as exc_info:
-        CustomsConsultationService.update_consultation(db, created.consultation_id, payload)
-    assert exc_info.value.status_code == 400
-    assert "لا يمكن مسح الحقل الإلزامي 'broker_id' في دراسة الاستشارة الجمركية." in exc_info.value.detail
+    updated = CustomsConsultationService.update_consultation(db, created.consultation_id, payload)
+    assert updated.broker_id is None
 
 
 def test_update_price_list_explicit_null_on_effective_from_fails(db):

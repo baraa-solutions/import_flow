@@ -98,7 +98,7 @@ class CargoInsuranceModel {
     this.packageType,
     this.grossWeightKg,
     this.surveyAgentInDestination,
-    this.claimsPayableAt = 'Cairo, Egypt',
+    this.claimsPayableAt,
     this.status = 'DRAFT',
     this.issuedAt,
     this.remarks,

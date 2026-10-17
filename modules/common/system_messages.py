@@ -578,6 +578,37 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "invoice to avoid customs amendment penalties. The exporter must now upload the document package and "
         "approve the digital envelope (Envelope ID) on CargoX to link it with Nafeza.",
     },
+    "DOC_TASK_TAX_CODING_PULL": {
+        "title": "Pull the tax coding sheet from Nafeza: {import_file_code}",
+        "body": "The customs broker must pull the tax coding sheet from the Nafeza platform so it can be passed to "
+        "the accountant for shipment {import_file_code}.",
+    },
+    "DOC_TASK_TAX_CODING_UPLOAD": {
+        "title": "Code and upload the items tax sheet on Nafeza: {import_file_code}",
+        "body": "The customs broker pulled the tax coding sheet. The accountant must complete the coding and upload "
+        "it on the company's Nafeza account for file {import_file_code}.",
+    },
+    "DOC_TASK_ITEMS_VERIFY_BANK_LINK": {
+        "title": "Pull the items to verify the coding and link to bank: {bank_name} - {import_file_code}",
+        "body": "The items tax sheet was coded and uploaded. The customs broker must pull the items to confirm the "
+        "coding is complete, then link the shipment on Nafeza to {bank_name} for shipment {import_file_code}.",
+    },
+    "DOC_TASK_ITEMS_VERIFY_SWIFT_BANK_LINK": {
+        "title": "Pull the items to verify the coding and link to the SWIFT executing bank: {import_file_code}",
+        "body": "The items tax sheet was coded and uploaded. The customs broker must pull the items to confirm the "
+        "coding is complete, then link the shipment on Nafeza to the SWIFT executing bank for shipment "
+        "{import_file_code}.",
+    },
+    "DOC_TASK_FORM4_SUBMIT": {
+        "title": "Submit the Form 4 file to the bank branch: {bank_name} - {import_file_code}",
+        "body": "Tax coding and the Nafeza link to {bank_name} are complete. Ready to submit the Form 4 application "
+        "to the bank and follow up its approval for shipment {import_file_code}.",
+    },
+    "DOC_REGULATORY_BODIES_DETECTED": {
+        "title": "Regulatory inspections detected for shipment {import_file_code}",
+        "body": "The Nafeza items pull shows regulatory inspection bodies: {regulatory_bodies}. Prepare the "
+        "inspection file and draw samples early.",
+    },
     "TR_TASK_TRACK_ARRIVAL_GRN": {
         "title": "Follow up the truck arrival at the warehouse and issue the GRN (TR-03)",
     },

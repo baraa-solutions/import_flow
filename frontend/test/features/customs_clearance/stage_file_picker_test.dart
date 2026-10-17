@@ -157,6 +157,9 @@ void main() {
 
       final headerBtn = find.byKey(const Key('authorizeCustomsBrokerHeaderBtn'));
       expect(headerBtn, findsOneWidget);
+      // Header actions sit in a horizontal scroll view: bring the button into view first.
+      await tester.ensureVisible(headerBtn);
+      await tester.pumpAndSettle();
       await tester.tap(headerBtn);
       await tester.pumpAndSettle();
 
@@ -199,6 +202,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('authorizeCustomsBrokerHeaderBtn')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('authorizeCustomsBrokerHeaderBtn')));
       await tester.pumpAndSettle();
 
@@ -229,6 +234,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('authorizeCustomsBrokerHeaderBtn')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('authorizeCustomsBrokerHeaderBtn')));
       await tester.pumpAndSettle();
 
