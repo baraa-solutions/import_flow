@@ -75,13 +75,26 @@ _EXTRACTOR_MAP: Dict[str, BaseExtractor] = {
 
     "supplier-entity": MasterDataEntityExtractor(),
     "importer-entity": MasterDataEntityExtractor(),
+    "import-company-entity": MasterDataEntityExtractor(),
+    "company-entity": MasterDataEntityExtractor(),
+    "supplier": MasterDataEntityExtractor(),
+    "importer": MasterDataEntityExtractor(),
+    "import-company": MasterDataEntityExtractor(),
+    "partner": MasterDataEntityExtractor(),
     "partner-entity": MasterDataEntityExtractor(),
+    "bank": MasterDataEntityExtractor(),
     "bank-entity": MasterDataEntityExtractor(),
+    "shipping-line": MasterDataEntityExtractor(),
     "shipping-line-entity": MasterDataEntityExtractor(),
+    "customs-broker": MasterDataEntityExtractor(),
     "customs-broker-entity": MasterDataEntityExtractor(),
+    "freight-forwarder": MasterDataEntityExtractor(),
     "freight-forwarder-entity": MasterDataEntityExtractor(),
+    "inland-transport": MasterDataEntityExtractor(),
     "inland-transport-entity": MasterDataEntityExtractor(),
+    "inspection-agency": MasterDataEntityExtractor(),
     "inspection-agency-entity": MasterDataEntityExtractor(),
+    "insurance-company": MasterDataEntityExtractor(),
     "insurance-company-entity": MasterDataEntityExtractor(),
     # Aliases
     "customs-consultation": ImportFileExtractor(),   # extracts invoice fields
@@ -126,7 +139,17 @@ def _fallback_text_extraction(filename: str, content_bytes: bytes) -> str:
                 logger.warning("PyMuPDF text extraction failed (%s); trying pypdf", type(exc).__name__)
             import pypdf
             reader = pypdf.PdfReader(io.BytesIO(content_bytes))
-            return "\n".join(p.extract_text() or "" for p in reader.pages)
+            pdf_text = "\n".join(p.extract_text() or "" for p in reader.pages)
+            if pdf_text and len(pdf_text.strip()) >= 20:
+                return pdf_text
+            try:
+                from modules.import_documentation.service import _ocr_pdf_or_image
+                ocr_text = _ocr_pdf_or_image(filename, content_bytes)
+                if ocr_text and len(ocr_text.strip()) > len(pdf_text.strip()):
+                    return ocr_text
+            except Exception:
+                pass
+            return pdf_text
         elif lower.endswith((".docx", ".doc")):
             import docx
             doc = docx.Document(io.BytesIO(content_bytes))
@@ -148,6 +171,12 @@ def _fallback_text_extraction(filename: str, content_bytes: bytes) -> str:
                     if row_vals:
                         parts.append(" | ".join(row_vals))
             return "\n".join(parts)
+        elif lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
+            try:
+                from modules.import_documentation.service import _ocr_pdf_or_image
+                return _ocr_pdf_or_image(filename, content_bytes)
+            except Exception:
+                return ""
         else:
             return content_bytes.decode("utf-8", errors="ignore")
     except Exception:

@@ -42,14 +42,14 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
   bool _titleModifiedByUser = false;
-  final TextEditingController _cbmController = TextEditingController(text: '128.5');
-  final TextEditingController _weightController = TextEditingController(text: '48500.0');
+  final TextEditingController _cbmController = TextEditingController();
+  final TextEditingController _weightController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
   DateTime _crdDate = DateTime.now().add(const Duration(days: 15));
   String _shippingMethod = 'Ocean FCL';
-  String _polName = 'Shanghai Port (CN SHA), China';
-  String _podName = 'Alexandria Port (EG ALX), Egypt';
+  String _polName = '';
+  String _podName = '';
   int? _selectedImportFileId;
   int? _selectedPoId;
   int? _selectedProjectId;
@@ -458,10 +458,10 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
 
     final vesselController = TextEditingController();
     final voyageController = TextEditingController();
-    final oceanCostController = TextEditingController(text: prefillOceanCost != null ? prefillOceanCost.toStringAsFixed(0) : '3000.0');
-    final localCostController = TextEditingController(text: prefillLocalCost != null ? prefillLocalCost.toStringAsFixed(0) : '400.0');
-    final inlandCostController = TextEditingController(text: '0.0');
-    final freeDaysController = TextEditingController(text: prefillFreeDays?.toString() ?? '14');
+    final oceanCostController = TextEditingController(text: prefillOceanCost != null ? prefillOceanCost.toStringAsFixed(0) : '');
+    final localCostController = TextEditingController(text: prefillLocalCost != null ? prefillLocalCost.toStringAsFixed(0) : '');
+    final inlandCostController = TextEditingController();
+    final freeDaysController = TextEditingController(text: prefillFreeDays?.toString() ?? '');
     final remarksController = TextEditingController(text: prefillRemarks ?? '');
 
     showDialog(

@@ -255,6 +255,96 @@ def enrich_acid_response(db: Session, item: AcidRegistrationSession, import_file
     )
 
 
+def get_swift_coverage_for_file(db: Session, import_file_id: Optional[int]) -> Optional[Any]:
+    if not import_file_id:
+        return None
+    from modules.import_documentation.schemas import SwiftCoverageSummary
+    from modules.import_files.model import ImportFile
+    from modules.financial_approval.model import PaymentRequestSession
+    from modules.external_service_providers.model import ExternalServiceProvider
+
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not imp:
+        return None
+
+    # Calculate total invoice amount
+    invoice_amount = 0.0
+    invoice_currency = "USD"
+    if imp.invoices_data and isinstance(imp.invoices_data, list):
+        for inv in imp.invoices_data:
+            if isinstance(inv, dict):
+                invoice_amount += float(inv.get("amount", 0.0) or 0.0)
+                if inv.get("currency"):
+                    invoice_currency = inv.get("currency")
+    if invoice_amount == 0.0 and imp.estimated_cost:
+        invoice_amount = float(imp.estimated_cost)
+        invoice_currency = imp.estimated_cost_currency or "USD"
+
+    # Query payment requests
+    payments = (
+        db.query(PaymentRequestSession)
+        .filter(
+            PaymentRequestSession.import_file_id == import_file_id,
+            PaymentRequestSession.is_active == True,
+        )
+        .all()
+    )
+
+    total_transferred = 0.0
+    swift_refs: List[str] = []
+    exec_bank_id: Optional[int] = None
+    exec_bank_name: Optional[str] = None
+
+    for p in payments:
+        if p.swift_transferred_amount:
+            total_transferred += float(p.swift_transferred_amount)
+        elif p.status == "Paid":
+            total_transferred += float(p.requested_amount)
+
+        if p.swift_reference_no and p.swift_reference_no not in swift_refs:
+            swift_refs.append(p.swift_reference_no)
+
+        # Detect executing bank from swift reconciliation notes
+        if not exec_bank_name and p.swift_reconciliation_notes:
+            import re
+            m = re.search(r"Executing bank in Egypt:\s*([^\(]+)", p.swift_reconciliation_notes, re.IGNORECASE)
+            if m:
+                exec_bank_name = m.group(1).strip()
+
+    # Fallback to imp.swift_no
+    if imp.swift_no and imp.swift_no not in swift_refs:
+        swift_refs.append(imp.swift_no)
+
+    # If executing bank found by name, resolve its ID from external_service_providers
+    if exec_bank_name:
+        bank_p = (
+            db.query(ExternalServiceProvider)
+            .filter(
+                ExternalServiceProvider.partner_type == "Bank",
+                ExternalServiceProvider.partner_name.ilike(f"%{exec_bank_name}%"),
+                ExternalServiceProvider.is_active == True,
+            )
+            .first()
+        )
+        if bank_p:
+            exec_bank_id = bank_p.provider_id
+            exec_bank_name = bank_p.partner_name
+
+    coverage_pct = round((total_transferred / invoice_amount) * 100, 2) if invoice_amount > 0 else (100.0 if total_transferred > 0 else 0.0)
+    is_fully_covered = coverage_pct >= 99.0 or (total_transferred > 0 and invoice_amount == 0.0)
+
+    return SwiftCoverageSummary(
+        invoice_amount=invoice_amount,
+        invoice_currency=invoice_currency,
+        total_swift_transferred_amount=total_transferred,
+        coverage_percent=coverage_pct,
+        is_fully_covered=is_fully_covered,
+        executing_bank_id=exec_bank_id,
+        executing_bank_name=exec_bank_name,
+        swift_references=swift_refs,
+    )
+
+
 def enrich_banking_response(db: Session, item: BankingDocumentSession, import_file: Optional[Any] = None):
     import_file_code = None
     importer_name = None
@@ -269,12 +359,29 @@ def enrich_banking_response(db: Session, item: BankingDocumentSession, import_fi
             supplier_name = imp.supplier_name
             po_number = imp.po_number
 
+    swift_cov = get_swift_coverage_for_file(db, item.import_file_id)
+
+    blockers: List[str] = []
+    if (item.tax_coding_sheet_status or "NOT_STARTED") != "UPLOADED_BY_ACCOUNTANT":
+        blockers.append("شيت التكويد الضريبي لم يتم رفعه وتكويده على منصة نافذة بواسطة محاسب الشركة بعد.")
+    if not item.items_pulled_verified:
+        blockers.append("لم يقم المستخلص الجمركي بسحب الأصناف على نافذة للتحقق من نجاح التكويد.")
+    if (item.nafeza_bank_link_status or "PENDING") != "LINKED_TO_BANK":
+        blockers.append("لم يتم ربط الشحنة على البنك في منصة نافذة بواسطة المستخلص الجمركي.")
+    if not item.is_bank_matching_swift:
+        blockers.append("البنك المربوط عليه في نافذة لا يطابق البنك المنفذ لسويفت التحويل.")
+
+    can_submit = len(blockers) == 0
+
     from modules.import_documentation.schemas import BankingDocumentResponse
     res = BankingDocumentResponse.model_validate(item)
     res.import_file_code = import_file_code
     res.importer_name = importer_name
     res.supplier_name = supplier_name
     res.po_number = po_number
+    res.swift_coverage = swift_cov
+    res.can_submit_form4 = can_submit
+    res.blockers = blockers
     return res
 
 
@@ -963,7 +1070,46 @@ def create_banking_document_service(
     if schema.doc_type == "Form 4":
         validate_no_duplicate_form4_session(db, schema.import_file_id)
 
+    # Auto-resolve SWIFT executing bank if not explicitly provided
+    if schema.import_file_id and (not schema.swift_executing_bank_name or not schema.swift_reference_no):
+        swift_cov = get_swift_coverage_for_file(db, schema.import_file_id)
+        if swift_cov:
+            if not schema.swift_executing_bank_name and swift_cov.executing_bank_name:
+                schema.swift_executing_bank_id = swift_cov.executing_bank_id
+                schema.swift_executing_bank_name = swift_cov.executing_bank_name
+            if not schema.swift_reference_no and swift_cov.swift_references:
+                schema.swift_reference_no = swift_cov.swift_references[0]
+            if (not schema.bank_id or schema.bank_name in ["", "PENDING"]) and swift_cov.executing_bank_name:
+                schema.bank_id = swift_cov.executing_bank_id
+                schema.bank_name = swift_cov.executing_bank_name
+
     item = repo.create_banking_document(db, schema)
+
+    # Dispatch initial SmartTask for Broker to pull Tax Coding Sheet
+    if item.import_file_id and item.tax_coding_sheet_status == "NOT_STARTED":
+        def _dispatch_pull_task():
+            from modules.smart_tasks.repository import create_task as create_smart_task
+            from modules.smart_tasks.schemas import SmartTaskCreate
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+            f_code = imp.import_file_code if imp else f"IMP-{item.import_file_id}"
+            task_schema = SmartTaskCreate(
+                title=f"سحب شيت التكويد الضريبي من نافذة - {f_code}",
+                description=f"مطلوب من المستخلص الجمركي سحب شيت التكويد الضريبي من منصة نافذة تمهيداً لرفعه للمحاسب لشحنة {f_code}.",
+                task_type="System Generated",
+                import_file_id=item.import_file_id,
+                import_file_code=f_code,
+                phase_name="Phase 4: Digital & Banking",
+                assigned_user="Customs Broker",
+                priority="High",
+                reminder_type="Tax Coding Sheet",
+                due_date=str(date.today() + timedelta(days=2)),
+                status="Pending",
+                notes=f"ACTION:TAX_CODING_PULL | BankDoc: {item.bank_doc_code}",
+            )
+            create_smart_task(db, task_schema, created_by="Banking Documents Engine", commit=False)
+
+        _commit_follow_up(db, _dispatch_pull_task, "Dispatch tax coding sheet pull task")
 
     # Sync and trigger workflow
     _handle_banking_document_verification_workflow(db, item)
@@ -1039,6 +1185,272 @@ def list_banking_documents_service(db: Session, import_file_id: Optional[int] = 
 
 def get_banking_document_service(db: Session, bank_doc_id: int):
     return enrich_banking_response(db, _get_banking_document_or_404(db, bank_doc_id))
+
+
+def record_tax_coding_sheet_pull_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    item.tax_coding_sheet_status = "PULLED_BY_BROKER"
+    item.tax_coding_pulled_date = schema.pulled_date
+    if schema.broker_id:
+        item.tax_coding_broker_id = schema.broker_id
+    if schema.broker_name:
+        item.tax_coding_broker_name = schema.broker_name
+    if schema.file_url:
+        item.tax_coding_sheet_file_url = schema.file_url
+    if schema.notes:
+        item.notes = f"{item.notes}\n[شيت التكويد] سحب المستخلص: {schema.notes}" if item.notes else f"[شيت التكويد] سحب المستخلص: {schema.notes}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # Smart Tasks: close broker pull task, dispatch accountant upload task
+    def _handle_pull_tasks():
+        from modules.smart_tasks.model import SmartTask
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+        from modules.import_files.model import ImportFile
+
+        f_id = item.import_file_id
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == f_id).first() if f_id else None
+        f_code = imp.import_file_code if imp else f"IMP-{f_id}"
+
+        # Close pending broker pull tasks
+        pending = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == f_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .all()
+        )
+        for t in pending:
+            if "سحب شيت التكويد" in (t.title or "") or (t.notes and "ACTION:TAX_CODING_PULL" in t.notes):
+                t.status = "Completed"
+                t.completion_notes = f"تم سحب شيت التكويد الضريبي بواسطة المستخلص في {schema.pulled_date}."
+
+        # Create task for Company Accountant
+        acc_task = SmartTaskCreate(
+            title=f"رفع وتكويد شيت الأصناف الضريبي على منصة نافذة - {f_code}",
+            description=f"قام المستخلص بسحب شيت التكويد الضريبي. مطلوب من المحاسب استكمال التكويد ورفعه بحساب الشركة على نافذة لملف {f_code}.",
+            task_type="System Generated",
+            import_file_id=f_id,
+            import_file_code=f_code,
+            phase_name="Phase 4: Digital & Banking",
+            assigned_user="Company Accountant",
+            priority="High",
+            reminder_type="Tax Coding Upload",
+            due_date=str(date.today() + timedelta(days=2)),
+            status="Pending",
+            notes=f"ACTION:TAX_CODING_UPLOAD | BankDoc: {item.bank_doc_code}",
+        )
+        create_smart_task(db, acc_task, created_by="Banking Documents Engine", commit=False)
+
+    _commit_follow_up(db, _handle_pull_tasks, "Tax coding pull smart tasks")
+    return enrich_banking_response(db, item)
+
+
+def record_tax_coding_sheet_upload_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    item.tax_coding_sheet_status = "UPLOADED_BY_ACCOUNTANT"
+    item.tax_coding_uploaded_date = schema.uploaded_date
+    item.tax_coding_accountant_name = schema.accountant_name
+    if schema.items_count_coded is not None:
+        item.items_count_coded = schema.items_count_coded
+    if schema.items_count_total is not None:
+        item.items_count_total = schema.items_count_total
+    if schema.file_url:
+        item.tax_coding_sheet_file_url = schema.file_url
+    if schema.notes:
+        item.notes = f"{item.notes}\n[شيت التكويد] رفع المحاسب: {schema.notes}" if item.notes else f"[شيت التكويد] رفع المحاسب: {schema.notes}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # Smart Tasks: close accountant upload task, dispatch broker verify & link task
+    def _handle_upload_tasks():
+        from modules.smart_tasks.model import SmartTask
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+        from modules.import_files.model import ImportFile
+
+        f_id = item.import_file_id
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == f_id).first() if f_id else None
+        f_code = imp.import_file_code if imp else f"IMP-{f_id}"
+
+        # Close pending accountant upload tasks
+        pending = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == f_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .all()
+        )
+        for t in pending:
+            if "رفع وتكويد شيت" in (t.title or "") or (t.notes and "ACTION:TAX_CODING_UPLOAD" in t.notes):
+                t.status = "Completed"
+                t.completion_notes = f"تم رفع وتكويد شيت الأصناف على نافذة بواسطة المحاسب {schema.accountant_name} في {schema.uploaded_date}."
+
+        target_bank = item.swift_executing_bank_name or item.bank_name or "البنك المنفذ للسويفت"
+        # Create task for Customs Broker to pull items & link bank
+        broker_task = SmartTaskCreate(
+            title=f"سحب الأصناف للتأكد من التكويد والربط على بنك: {target_bank} - {f_code}",
+            description=f"تم رفع وتكويد شيت الأصناف بنجاح. مطلوب من المستخلص سحب الأصناف للتأكد من تمام التكويد، ثم ربط الشحنة على نافذة على {target_bank} لشحنة {f_code}.",
+            task_type="System Generated",
+            import_file_id=f_id,
+            import_file_code=f_code,
+            phase_name="Phase 4: Digital & Banking",
+            assigned_user="Customs Broker",
+            priority="High",
+            reminder_type="Items Verification & Bank Linkage",
+            due_date=str(date.today() + timedelta(days=1)),
+            status="Pending",
+            notes=f"ACTION:ITEMS_VERIFY_AND_BANK_LINK | BankDoc: {item.bank_doc_code}",
+        )
+        create_smart_task(db, broker_task, created_by="Banking Documents Engine", commit=False)
+
+    _commit_follow_up(db, _handle_upload_tasks, "Tax coding upload smart tasks")
+    return enrich_banking_response(db, item)
+
+
+def record_items_verification_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    item.items_pulled_verified = schema.verified
+    item.items_pulled_date = schema.verified_date
+    if schema.items_count_total is not None:
+        item.items_count_total = schema.items_count_total
+    if schema.items_count_coded is not None:
+        item.items_count_coded = schema.items_count_coded
+    if schema.regulatory_bodies_detected is not None:
+        item.regulatory_bodies_detected = schema.regulatory_bodies_detected
+    if schema.notes:
+        item.notes = f"{item.notes}\n[سحب الأصناف] تأكيد المستخلص: {schema.notes}" if item.notes else f"[سحب الأصناف] تأكيد المستخلص: {schema.notes}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # If regulatory bodies detected (e.g. GOEIC, NFSA, etc.), emit notification / alert
+    if schema.regulatory_bodies_detected:
+        def _regulatory_alert():
+            from modules.notifications.model import SystemNotification
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first() if item.import_file_id else None
+            f_code = imp.import_file_code if imp else f"IMP-{item.import_file_id}"
+            bodies_str = "، ".join(schema.regulatory_bodies_detected)
+            db.add(SystemNotification(
+                title=f"عروض رقابية مكتشفة لشحنة {f_code}",
+                message=f"أظهر سحب الأصناف على نافذة وجود جهات عرض رقابية: {bodies_str}. يرجى تجهيز ملف الفحص وسحب العينات مبكراً.",
+                target_role="Customs Broker",
+            ))
+
+        _commit_follow_up(db, _regulatory_alert, "Regulatory screening alert")
+
+    return enrich_banking_response(db, item)
+
+
+def record_nafeza_bank_link_service(
+    db: Session, bank_doc_id: int, schema: Any, user: Optional[str] = None
+):
+    from fastapi import HTTPException
+    from modules.external_service_providers.model import ExternalServiceProvider
+
+    item = _get_banking_document_or_404(db, bank_doc_id)
+    bank_p = db.query(ExternalServiceProvider).filter(
+        ExternalServiceProvider.provider_id == schema.bank_id,
+        ExternalServiceProvider.is_active == True,
+    ).first()
+    if not bank_p:
+        raise not_found("Bank", schema.bank_id)
+
+    bank_name = bank_p.partner_name
+
+    # Check match against SWIFT executing bank
+    is_matching = True
+    if item.swift_executing_bank_name:
+        clean_target = (item.swift_executing_bank_name or "").strip().lower()
+        clean_selected = bank_name.strip().lower()
+        is_matching = (clean_target in clean_selected) or (clean_selected in clean_target)
+
+    if not is_matching and not getattr(schema, "override_swift_mismatch", False):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"عدم تطابق بنكي: البنك المختار للربط ({bank_name}) لا يطابق البنك المنفذ لسويفت التحويل "
+                f"({item.swift_executing_bank_name}). يجب الربط على نفس بنك السويفت، أو تفعيل خيار التخطي بمبرر."
+            ),
+        )
+
+    item.nafeza_bank_link_status = "LINKED_TO_BANK"
+    item.nafeza_bank_link_date = schema.link_date
+    item.nafeza_linked_bank_id = schema.bank_id
+    item.nafeza_linked_bank_name = bank_name
+    item.is_bank_matching_swift = is_matching
+
+    # Lock session bank_id and bank_name to the linked bank
+    item.bank_id = schema.bank_id
+    item.bank_name = bank_name
+    if schema.notes:
+        item.notes = f"{item.notes}\n[الربط البنكي نافذة] {schema.notes}" if item.notes else f"[الربط البنكي نافذة] {schema.notes}"
+    if getattr(schema, "override_reason", None):
+        item.notes = f"{item.notes}\n[تخطي عدم تطابق بنك السويفت]: {schema.override_reason}"
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # Smart Tasks: close items verify & link task, dispatch Bank Form 4 application task
+    def _handle_link_tasks():
+        from modules.smart_tasks.model import SmartTask
+        from modules.smart_tasks.repository import create_task as create_smart_task
+        from modules.smart_tasks.schemas import SmartTaskCreate
+        from modules.import_files.model import ImportFile
+
+        f_id = item.import_file_id
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == f_id).first() if f_id else None
+        f_code = imp.import_file_code if imp else f"IMP-{f_id}"
+
+        # Close broker items verify and link task
+        pending = (
+            db.query(SmartTask)
+            .filter(
+                SmartTask.import_file_id == f_id,
+                SmartTask.status.in_(["Pending", "In Progress"]),
+            )
+            .all()
+        )
+        for t in pending:
+            if "سحب الأصناف" in (t.title or "") or (t.notes and "ACTION:ITEMS_VERIFY_AND_BANK_LINK" in t.notes):
+                t.status = "Completed"
+                t.completion_notes = f"تم التحقق من الأصناف والربط على بنك {bank_name} على نافذة في {schema.link_date}."
+
+        # Create task for Import / Banking Officer to submit Form 4 to bank
+        bank_task = SmartTaskCreate(
+            title=f"تقديم ملف نموذج 4 لفرع بنك: {bank_name} - {f_code}",
+            description=f"تم استكمال التكويد الضريبي والربط على بنك {bank_name} على نافذة. جاهز لتقديم طلب نموذج 4 رسمياً للبنك ومتابعة الاعتماد لشحنة {f_code}.",
+            task_type="System Generated",
+            import_file_id=f_id,
+            import_file_code=f_code,
+            phase_name="Phase 4: Digital & Banking",
+            assigned_user="Bank Specialist",
+            priority="High",
+            reminder_type="Bank Form 4 Application",
+            due_date=str(date.today() + timedelta(days=2)),
+            status="Pending",
+            notes=f"ACTION:FORM4_SUBMIT | BankDoc: {item.bank_doc_code}",
+        )
+        create_smart_task(db, bank_task, created_by="Banking Documents Engine", commit=False)
+
+    _commit_follow_up(db, _handle_link_tasks, "Nafeza bank link smart tasks")
+    return enrich_banking_response(db, item)
 
 
 # --- SHIPMENT DOCUMENTS SERVICE ---
@@ -1616,22 +2028,16 @@ def _group_ocr_boxes_into_lines(ocr_res, y_threshold: float = 15.0) -> List[str]
     return lines
 
 
-def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
+def _ocr_pdf_or_image(filename: str, content_bytes: bytes, two_column_table: bool = False) -> str:
     """
     High-accuracy optical character recognition (OCR) for scanned PDFs and images.
-    Uses ArabicRapidOCREngine (with Arabic ONNX model + RTL support) with default RapidOCR and pytesseract fallbacks.
+    Uses multilingual RapidOCR with natural reading order line grouping,
+    with ArabicRapidOCREngine and pytesseract fallbacks.
     """
-    try:
-        from modules.import_documentation.arabic_ocr_engine import extract_arabic_ocr_text
-        arabic_text = extract_arabic_ocr_text(filename, content_bytes)
-        if arabic_text and len(arabic_text.strip()) > 30:
-            return arabic_text
-    except Exception as e:
-        logger.warning(f"Arabic OCR engine failed for '{filename}': {e}. Falling back to default RapidOCR.")
-
     lower = filename.lower()
     extracted_lines: List[str] = []
 
+    # 1. Primary Engine: Multilingual RapidOCR with natural line grouping
     try:
         from rapidocr_onnxruntime import RapidOCR
         import numpy as np
@@ -1643,10 +2049,10 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
             max_pages = min(len(pdf), 8)
             for i in range(max_pages):
                 page = pdf.get_page(i)
-                pil_img = page.render(scale=1.5).to_pil()
+                pil_img = page.render(scale=2.0).to_pil()
                 ocr_res, _ = engine(np.array(pil_img))
                 if ocr_res:
-                    page_lines = _group_ocr_boxes_into_lines(ocr_res)
+                    page_lines = _group_ocr_boxes_into_lines(ocr_res, y_threshold=15.0)
                     extracted_lines.append(f"--- PAGE {i+1} ---")
                     extracted_lines.extend(page_lines)
 
@@ -1655,7 +2061,7 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
             pil_img = Image.open(io.BytesIO(content_bytes)).convert("RGB")
             ocr_res, _ = engine(np.array(pil_img))
             if ocr_res:
-                image_lines = _group_ocr_boxes_into_lines(ocr_res)
+                image_lines = _group_ocr_boxes_into_lines(ocr_res, y_threshold=15.0)
                 extracted_lines.extend(image_lines)
 
     except Exception as e:
@@ -1663,7 +2069,18 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
 
     result_text = "\n".join(extracted_lines)
 
-    # Fallback to pytesseract if RapidOCR produced insufficient output for images
+    # 2. If RapidOCR produced insufficient output or document is Arabic-heavy, try ArabicRapidOCR
+    has_arabic = bool(re.search(r"[\u0600-\u06FF]", result_text))
+    if len(result_text.strip()) < 30 or (has_arabic and len(result_text.strip()) < 80):
+        try:
+            from modules.import_documentation.arabic_ocr_engine import extract_arabic_ocr_text
+            arabic_text = extract_arabic_ocr_text(filename, content_bytes, two_column_table=two_column_table)
+            if arabic_text and len(arabic_text.strip()) > len(result_text.strip()):
+                result_text = arabic_text
+        except Exception as e:
+            logger.warning(f"Arabic OCR engine fallback note for '{filename}': {e}")
+
+    # 3. Fallback to pytesseract if RapidOCR produced insufficient output for images
     if len(result_text.strip()) < 15 and lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
         try:
             import pytesseract

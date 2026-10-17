@@ -106,9 +106,7 @@ class _CustomsFinalReleaseDialogState
           'Direct delivery to company warehouses - verify customs seal integrity before opening the container',
     );
 
-    _notesController = TextEditingController(
-      text: rec?.notes ?? '',
-    );
+    _notesController = TextEditingController();
 
     if (rec?.portGateOutDate != null) {
       _portGateOutDate = DateTime.tryParse(rec!.portGateOutDate!);
@@ -426,11 +424,13 @@ class _CustomsFinalReleaseDialogState
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if ((widget.clearanceRecord?.notes ?? '').trim().isNotEmpty)
+                    CcPreviousNotesBox(notes: widget.clearanceRecord!.notes!),
                   TextFormField(
                     key: const Key('notesField'),
                     controller: _notesController,
                     maxLines: 2,
-                    decoration: _dec(l.ccRelNotesLabel, hint: l.ccRelNotesHint, icon: Icons.notes_outlined),
+                    decoration: _dec(l.ccStepNotesLabel, hint: l.ccRelNotesHint, icon: Icons.notes_outlined),
                   ),
                 ],
               ),

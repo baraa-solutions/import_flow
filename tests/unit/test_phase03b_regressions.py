@@ -706,6 +706,29 @@ def test_sdu_session_reads_need_view_permission(client, viewer, finance, db):
     assert client.get(f"/api/v1/smart-upload/sessions/{rec.id}", headers=_h(viewer)).status_code == 200
 
 
+def test_sdu_master_data_granular_permissions(client, db):
+    from modules.users.model import UserPermission, Permission
+    md_user = _user(db, "md_editor", "FINANCE_OFFICER")
+    perm = db.query(Permission).filter(Permission.permission_code == "master_data.edit").one()
+    db.add(UserPermission(user_id=md_user.user_id, permission_id=perm.permission_id, is_granted=True))
+    db.commit()
+
+    # Can parse master data entity
+    r = client.post("/api/v1/smart-upload/parse-text/supplier-entity", headers=_h(md_user), data={"raw_text": "Company: Acme Corp\nPhone: 123456"})
+    assert r.status_code == 200
+
+    # Cannot extract operational documents like invoice / cargo shipping (403)
+    r2 = client.post("/api/v1/smart-upload/parse/cargo-shipping", headers=_h(md_user), files=TXT)
+    assert r2.status_code == 403
+
+    r3 = client.post("/api/v1/smart-upload/extract/commercial-invoice", headers=_h(md_user), data={"raw_text": "Invoice 123"})
+    assert r3.status_code == 403
+
+    # Cannot read sessions (403)
+    r4 = client.get("/api/v1/smart-upload/sessions", headers=_h(md_user))
+    assert r4.status_code == 403
+
+
 def test_sdu_error_details_do_not_echo_client_filename(client, operator):
     r = client.post("/api/v1/smart-upload/parse/import-file", headers=_h(operator),
                     files={"file": ("<script>evil.exe", b"MZ\x90", "application/octet-stream")})

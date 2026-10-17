@@ -69,17 +69,17 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
   final TextEditingController _notesController = TextEditingController();
-  final TextEditingController _estimatedDutiesController = TextEditingController(text: '0.0');
+  final TextEditingController _estimatedDutiesController = TextEditingController();
 
   // Customs Calculator State Controllers
   final TextEditingController _exchangeRateController = TextEditingController();
   /// Optional manual preliminary rate; only offered when the preliminary and final currencies differ.
   final TextEditingController _preliminaryRateController = TextEditingController();
-  final TextEditingController _freightForeignController = TextEditingController(text: '0.0');
+  final TextEditingController _freightForeignController = TextEditingController();
   String _freightCurrency = 'USD';
   final TextEditingController _freightExchangeRateController = TextEditingController();
-  final TextEditingController _freightEgpController = TextEditingController(text: '0.0');
-  final TextEditingController _insuranceEgpController = TextEditingController(text: '0.0');
+  final TextEditingController _freightEgpController = TextEditingController();
+  final TextEditingController _insuranceEgpController = TextEditingController();
   String _insuranceOption = '0.5%'; // '0.5%', '1.0%', 'Custom'
   String _customsCurrency = 'USD';
   bool _isCustomsCalculatorExpanded = true;

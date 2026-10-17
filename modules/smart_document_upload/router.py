@@ -35,7 +35,9 @@ from modules.smart_document_upload.validators import (
 # target module's write code, session delete needs import_documentation.upload.
 UPLOAD = "import_documentation.upload"
 VIEW = "import_documentation.view"
-EXTRACT_CODES = (
+MASTER_DATA_EDIT = "master_data.edit"
+
+OPERATIONAL_EXTRACT_CODES = (
     UPLOAD,
     "quotations.manage",
     "customs_consultation.manage",
@@ -43,11 +45,45 @@ EXTRACT_CODES = (
     "purchase_orders.edit",
 )
 
+ALL_EXTRACT_CODES = (
+    *OPERATIONAL_EXTRACT_CODES,
+    MASTER_DATA_EDIT,
+)
+
+MASTER_DATA_MODULES = {
+    "master-data-entity",
+    "supplier-entity",
+    "importer-entity",
+    "import-company-entity",
+    "company-entity",
+    "partner-entity",
+    "bank-entity",
+    "shipping-line-entity",
+    "customs-broker-entity",
+    "freight-forwarder-entity",
+    "inland-transport-entity",
+    "inspection-agency-entity",
+    "insurance-company-entity",
+    "supplier",
+    "importer",
+    "import-company",
+    "partner",
+    "bank",
+    "shipping-line",
+    "customs-broker",
+    "freight-forwarder",
+    "inland-transport",
+    "inspection-agency",
+    "insurance-company",
+}
+
 
 def require_any_permission(*codes: str):
     """Dependency: the authenticated user (``get_current_user``: token / dev bypass + forced password change)
     must hold at least one of ``codes``; 403 otherwise."""
     def dependency(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
+        if getattr(current_user, "is_admin", False):
+            return current_user
         if not any(has_user_permission(db, current_user, code) for code in codes):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -58,8 +94,29 @@ def require_any_permission(*codes: str):
     return dependency
 
 
-EXTRACT = require_any_permission(*EXTRACT_CODES)
-SESSIONS_READ = require_any_permission(VIEW, *EXTRACT_CODES)
+def check_module_extract_permission(db: Session, current_user: User, module_name: str) -> None:
+    """Enforces that master data entities require 'master_data.edit', while
+    operational documents (invoices, B/L, etc.) require operational upload permissions."""
+    if getattr(current_user, "is_admin", False):
+        return
+    norm = module_name.strip().lower()
+    if norm in MASTER_DATA_MODULES:
+        if not has_user_permission(db, current_user, MASTER_DATA_EDIT):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Permission '{MASTER_DATA_EDIT}' is required to extract master data entities.",
+            )
+    else:
+        if not any(has_user_permission(db, current_user, code) for code in OPERATIONAL_EXTRACT_CODES):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. One of the permissions {', '.join(OPERATIONAL_EXTRACT_CODES)} is required for module '{module_name}'.",
+            )
+
+
+EXTRACT = require_any_permission(*ALL_EXTRACT_CODES)
+OPERATIONAL_EXTRACT = require_any_permission(*OPERATIONAL_EXTRACT_CODES)
+SESSIONS_READ = require_any_permission(VIEW, *OPERATIONAL_EXTRACT_CODES)
 
 import modules.smart_document_upload.service as service
 
@@ -84,6 +141,7 @@ def upload_document_form(
     current_user: User = Depends(EXTRACT),
 ):
     validate_module_name(module_name)
+    check_module_extract_permission(db, current_user, module_name)
     file_type, content_bytes = read_validated_upload_sync(file)
     result = service.parse_uploaded_document(
         db=db,
@@ -111,6 +169,7 @@ def upload_document_path(
     current_user: User = Depends(EXTRACT),
 ):
     validate_module_name(module)
+    check_module_extract_permission(db, current_user, module)
     file_type, content_bytes = read_validated_upload_sync(file)
     result = service.parse_uploaded_document(
         db=db,
@@ -158,6 +217,7 @@ def parse_document_for_module(
     """
     # Validate module
     validate_module_name(module)
+    check_module_extract_permission(db, current_user, module)
 
     # Validate type, bounded read (413 above 20 MB), size + magic bytes
     file_type, content_bytes = read_validated_upload_sync(file)
@@ -194,6 +254,7 @@ def parse_multiple_documents_for_module(
     Accepts multiple files (e.g. Commercial Invoice + Packing List) and combines extracted text into a unified model.
     """
     validate_module_name(module)
+    check_module_extract_permission(db, current_user, module)
     validate_files_count(files)
     files_data = []
 
@@ -234,6 +295,7 @@ def parse_text_for_module(
     and extracts structured entity fields (Company, Supplier, Partner, Bank).
     """
     validate_module_name(module)
+    check_module_extract_permission(db, current_user, module)
     validate_raw_text(raw_text)
     result = service.parse_raw_text_directly(
         db=db,
@@ -326,7 +388,7 @@ def extract_commercial_invoice_endpoint(
     file: Optional[UploadFile] = File(None, description="Invoice file (PDF, Excel, Word)"),
     raw_text: Optional[str] = Form(None, description="Pasted invoice text"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(EXTRACT),
+    current_user: User = Depends(OPERATIONAL_EXTRACT),
 ):
     """Extracts structured commercial invoice data with line items from file or text."""
     filename = "invoice.txt"
@@ -354,7 +416,7 @@ def extract_bill_of_lading_endpoint(
     file: Optional[UploadFile] = File(None, description="Bill of Lading or AWB file"),
     raw_text: Optional[str] = Form(None, description="Pasted B/L text"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(EXTRACT),
+    current_user: User = Depends(OPERATIONAL_EXTRACT),
 ):
     """Extracts structured Bill of Lading / Air Waybill data with container details."""
     filename = "bill_of_lading.txt"
@@ -380,7 +442,7 @@ def extract_bill_of_lading_endpoint(
 )
 def cross_check_invoice_vs_bl_endpoint(
     payload: CrossCheckRequest,
-    current_user: User = Depends(EXTRACT),
+    current_user: User = Depends(OPERATIONAL_EXTRACT),
 ):
     """
     Compares commercial invoice data against B/L data.

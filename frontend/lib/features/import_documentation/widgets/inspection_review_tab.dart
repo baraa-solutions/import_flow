@@ -38,8 +38,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   final TextEditingController _authorityCtrl = TextEditingController();
   final TextEditingController _invoiceNoCtrl = TextEditingController();
   final TextEditingController _acidCtrl = TextEditingController();
-  final TextEditingController _originCountryCtrl = TextEditingController(text: 'Italy');
-  final TextEditingController _specCtrl = TextEditingController(text: 'Egyptian Standard ES / EN 13501-1:2018');
+  final TextEditingController _originCountryCtrl = TextEditingController();
+  final TextEditingController _specCtrl = TextEditingController();
   final TextEditingController _rawTextCtrl = TextEditingController();
   final TextEditingController _overrideReasonCtrl = TextEditingController();
 

@@ -294,6 +294,46 @@ void main() {
 
       expect(find.text('حاسبة الجمارك المصرية — منصة نافذة'), findsNothing);
     });
+
+    testWidgets('DutyCalculatorDialog Opens Cleanly without hardcoded seed data', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            locale: AppLocales.arabic,
+            supportedLocales: AppLocales.supportedLocales,
+            localizationsDelegates: AppLocales.localizationsDelegates,
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => Consumer(
+                  builder: (ctx, ref, _) => ElevatedButton(
+                    onPressed: () {
+                      showDutyCalculatorDialog(context, ref);
+                    },
+                    child: const Text('Open Clean Dialog'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Clean Dialog'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('حاسبة الجمارك المصرية — منصة نافذة'), findsOneWidget);
+      // Hardcoded seed values from before must NOT be present
+      expect(find.text('11736.40'), findsNothing);
+      expect(find.text('14902.793'), findsNothing);
+      expect(find.text('11922.234'), findsNothing);
+      expect(find.text('623000.00'), findsNothing);
+
+      // Close dialog
+      await tester.tap(find.text('إغلاق'));
+      await tester.pumpAndSettle();
+      expect(find.text('حاسبة الجمارك المصرية — منصة نافذة'), findsNothing);
+    });
   });
 }
 

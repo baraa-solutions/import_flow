@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/ltr_text.dart';
 import '../../../core/widgets/metric_card.dart';
+import '../models/customs_clearance_model.dart';
 
 /// Number / date formatting shared by the customs-clearance screens.
 /// Pure presentation: no business math lives here.
@@ -53,10 +54,97 @@ class CcFormat {
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
+/// Pure status queries and operational stage guards for customs clearance.
+/// Mirrors backend guards (`modules/customs_clearance/validators.py`).
+class CcStatus {
+  CcStatus._();
+
+  static const Set<String> paidStatuses = {
+    'Paid & Verified',
+    'Paid',
+    'Duties Paid',
+  };
+
+  /// Payment status is one of the recognised paid states (legacy-tolerant).
+  static bool isPaid(CustomsClearanceModel r) =>
+      paidStatuses.contains(r.paymentStatus);
+
+  /// Duty has been assessed: valid claim number and positive effective duty.
+  static bool isAssessed(CustomsClearanceModel r) =>
+      (r.nafezaClaimNumber ?? '').isNotEmpty && (r.effectiveDutyTotal ?? 0) > 0;
+
+  /// Goods have been released by customs authority (by status or permit number).
+  static bool isReleased(CustomsClearanceModel r) =>
+      r.status == 'Final Release Granted' || (r.releasePermitNo ?? '').isNotEmpty;
+
+  /// Duty payment is allowed only after assessment, before payment, and before release.
+  static bool canPay(CustomsClearanceModel r) =>
+      isAssessed(r) && !isPaid(r) && !isReleased(r);
+
+  /// Final release is allowed only after payment, with quarantine lifted, and before release.
+  static bool canRelease(CustomsClearanceModel r) =>
+      isPaid(r) && !r.quarantineLock && !isReleased(r);
+
+  /// Under-bond temporary release is allowed before final release and if not already under bond.
+  static bool canUnderBond(CustomsClearanceModel r) =>
+      !isReleased(r) && !r.isUnderBondRelease;
+
+  /// Recording lab results is allowed when released under bond with an active quarantine lock.
+  static bool canRecordLab(CustomsClearanceModel r) =>
+      r.isUnderBondRelease && r.quarantineLock;
+}
+
+/// Pure KPI calculation for Customs Duty Payment and Ledger.
+class FinalDutyKpis {
+  const FinalDutyKpis({
+    required this.outstanding,
+    required this.totalPaid,
+    required this.pendingCount,
+    required this.netVariance,
+  });
+
+  final double outstanding;
+  final double totalPaid;
+  final int pendingCount;
+  final double netVariance;
+
+  factory FinalDutyKpis.from(List<CustomsClearanceModel> records) {
+    var outstanding = 0.0;
+    var totalPaid = 0.0;
+    var pendingCount = 0;
+    var netVariance = 0.0;
+
+    for (final r in records) {
+      if (CcStatus.isPaid(r)) {
+        totalPaid += r.dutyPaidAmount ?? r.effectiveDutyTotal ?? 0.0;
+      } else {
+        pendingCount++;
+        if (CcStatus.isAssessed(r)) {
+          outstanding += r.effectiveDutyTotal ?? 0.0;
+        }
+      }
+
+      if ((r.estimatedDutyTotal ?? 0) > 0) {
+        netVariance += r.dutyVarianceAmount ?? 0.0;
+      }
+    }
+
+    return FinalDutyKpis(
+      outstanding: outstanding,
+      totalPaid: totalPaid,
+      pendingCount: pendingCount,
+      netVariance: netVariance,
+    );
+  }
+}
+
 /// Thin feature-local composition over core tokens (see FinancialUi): maps
 /// clearance statuses to severity chips and offers shared layout pieces.
 class CcUi {
   CcUi._();
+
+  /// Variance threshold in EGP triggering a visual warning.
+  static const double varianceWarnThresholdEgp = 500.0;
 
   /// Lets a (non-flexible) AppButton shrink instead of overflowing.
   static Widget fit(Widget button) => FittedBox(
@@ -93,22 +181,52 @@ class CcUi {
       case 'Final Release Granted':
         return (
           severity: AppSeverity.success,
-          label: l.customsClearanceFilterFinalRelease
+          label: l.customsClearanceFilterFinalRelease,
         );
       case 'Duty Paid':
         return (
           severity: AppSeverity.info,
-          label: l.customsClearanceFilterDutyPaid
+          label: l.customsClearanceFilterDutyPaid,
+        );
+      case 'Duty Paid - Ready for Final Release':
+        return (
+          severity: AppSeverity.info,
+          label: l.customsClearanceStatusDutyPaidReady,
+        );
+      case 'Customs Duties Assessed - Ready for Payment':
+        return (
+          severity: AppSeverity.warning,
+          label: l.customsClearanceStatusDutiesAssessed,
+        );
+      case 'Inspection & Sampling Recorded':
+        return (
+          severity: AppSeverity.info,
+          label: l.customsClearanceStatusInspectionRecorded,
+        );
+      case 'Under Bond Released':
+        return (
+          severity: AppSeverity.warning,
+          label: l.customsClearanceStatusUnderBondReleased,
+        );
+      case 'Lab Non-Conforming - Rejected':
+        return (
+          severity: AppSeverity.danger,
+          label: l.customsClearanceStatusLabRejected,
+        );
+      case 'Invoices Logged & Verified':
+        return (
+          severity: AppSeverity.info,
+          label: l.customsClearanceStatusInvoicesVerified,
         );
       case 'Duty Requested':
         return (
           severity: AppSeverity.warning,
-          label: l.customsClearanceFilterDutyRequested
+          label: l.customsClearanceFilterDutyRequested,
         );
       case 'Inspection In Progress':
         return (
           severity: AppSeverity.info,
-          label: l.customsClearanceFilterInspection
+          label: l.customsClearanceFilterInspection,
         );
       default:
         return (severity: AppSeverity.info, label: status);
@@ -450,3 +568,100 @@ class CcDateField extends StatelessWidget {
     );
   }
 }
+
+/// Read-only collapsible box displaying prior clearance notes without duplicating them.
+class CcPreviousNotesBox extends StatefulWidget {
+  const CcPreviousNotesBox({
+    super.key,
+    required this.notes,
+    this.initiallyExpanded = true,
+  });
+
+  final String notes;
+  final bool initiallyExpanded;
+
+  @override
+  State<CcPreviousNotesBox> createState() => _CcPreviousNotesBoxState();
+}
+
+class _CcPreviousNotesBoxState extends State<CcPreviousNotesBox> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.initiallyExpanded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.notes.trim().isEmpty) return const SizedBox.shrink();
+
+    final l = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? Colors.grey.shade900 : Colors.grey.shade50;
+    final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
+
+    return Container(
+      margin: const EdgeInsetsDirectional.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.history,
+                    size: 16,
+                    color: AppTheme.textMutedOf(context),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l.ccPreviousNotesLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textMutedOf(context),
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: AppTheme.textMutedOf(context),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_isExpanded) ...[
+            Divider(height: 1, color: borderColor),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: SelectableText(
+                widget.notes,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.4,
+                  color: AppTheme.textPrimaryOf(context),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
