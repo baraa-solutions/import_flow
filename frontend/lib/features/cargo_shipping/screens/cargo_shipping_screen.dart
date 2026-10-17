@@ -7,11 +7,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/utils/import_file_po_linker.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/smart_upload_button.dart';
-import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -24,12 +20,9 @@ import '../services/cargo_shipping_sla_export_service.dart';
 import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../widgets/search_and_clone_cargo_shipping_dialog.dart';
 import '../widgets/cargo_shipping_ui.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/metric_card.dart';
 
 
 class CargoShippingScreen extends ConsumerStatefulWidget {
@@ -2707,28 +2700,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 900;
-                final searchField = TextField(
+                final searchField = AppSearchField(
                   controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: context.l10n.cargoShippingRegistrySearchHint,
-                    prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
-                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _searchController,
-                      builder: (context, value, _) {
-                        return value.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() {});
-                                },
-                              )
-                            : const SizedBox.shrink();
-                      },
-                    ),
-                    border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  ),
+                  hint: context.l10n.cargoShippingRegistrySearchHint,
                   onChanged: (_) => setState(() {}),
                 );
 
@@ -2804,14 +2778,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           recordsAsync.when(
             loading: () => const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
-              child: CcStateView.loading(),
+              child: AppLoadingState(),
             ),
             error: (err, _) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
-              child: CcStateView.error(
+              child: AppErrorState(
                 message: '${context.l10n.error}: $err',
-                actionLabel: l.retry,
-                onAction: _refreshAllData,
+                onRetry: _refreshAllData,
               ),
             ),
             data: (list) {
@@ -2844,7 +2817,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               if (filtered.isEmpty) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: CcStateView.empty(
+                  child: AppEmptyState(
                     message: context.l10n.cargoShippingNoMatchingRecords,
                     icon: Icons.folder_open,
                     actionLabel: context.l10n.cargoShippingCreateNewRecord,
@@ -2905,43 +2878,24 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     );
   }
 
-  void _confirmDeleteRecord(CargoShippingModel rec) {
+  Future<void> _confirmDeleteRecord(CargoShippingModel rec) async {
     final l = context.l10n;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: AppTheme.severityForegroundOf(context, AppSeverity.danger)),
-            const SizedBox(width: 8),
-            Expanded(child: Text(l.cargoShippingDeleteConfirmTitle)),
-          ],
-        ),
-        content: Text(l.cargoShippingDeleteConfirmMessage(rec.cargoShippingCode, rec.importFileCode ?? '')),
-        actions: [
-          AppButton(
-            label: l.cancel,
-            variant: AppButtonVariant.secondary,
-            size: AppButtonSize.small,
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          AppButton(
-            label: l.cargoShippingConfirmDeleteBtn,
-            icon: Icons.delete_outline,
-            variant: AppButtonVariant.danger,
-            size: AppButtonSize.small,
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await ref.read(cargoShippingProvider.notifier).softDeleteRecord(rec.cargoShippingId);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  AppTheme.snackBar(context, l.cargoShippingDeleteSuccess(rec.cargoShippingCode), severity: AppSeverity.danger),
-                );
-              }
-            },
-          ),
-        ],
-      ),
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: l.cargoShippingDeleteConfirmTitle,
+      message: l.cargoShippingDeleteConfirmMessage(rec.cargoShippingCode, rec.importFileCode ?? ''),
+      confirmLabel: l.cargoShippingConfirmDeleteBtn,
+      cancelLabel: l.cancel,
+      confirmVariant: AppButtonVariant.danger,
+      icon: Icons.delete_outline,
     );
+    if (confirm) {
+      await ref.read(cargoShippingProvider.notifier).softDeleteRecord(rec.cargoShippingId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          AppTheme.snackBar(context, l.cargoShippingDeleteSuccess(rec.cargoShippingCode), severity: AppSeverity.danger),
+        );
+      }
+    }
   }
 }

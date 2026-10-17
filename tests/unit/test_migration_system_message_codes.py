@@ -21,6 +21,9 @@ from database.schema_upgrade_service import SchemaUpgradeService
 from utils import db_safety
 
 PREVIOUS = "f7a1c3e5b9d2"
+HEAD = "a1b2c3d4e5f6"  # current head
+
+
 HEAD = "a1b2c3d4e5f6"  # current head (legacy budget backfill)
 
 NEW_COLUMNS = {
