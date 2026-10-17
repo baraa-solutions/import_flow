@@ -5,13 +5,15 @@ Queries and row writes only. Every write ``flush``es; the service commits once p
 """
 
 from datetime import date, datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from modules.common.sequence_generator import next_yearly_code
 from modules.financial_approval.model import (
+    BudgetVarianceLog,
+    BudgetVarianceSetting,
     ImportBudgetApproval,
     OcrCorrectionsLog,
     PaymentRequestSession,
@@ -19,7 +21,12 @@ from modules.financial_approval.model import (
     SwiftExtractionField,
 )
 from modules.financial_approval.schemas import ImportBudgetCreate, PaymentRequestCreate
-from modules.financial_approval.validators import BATCH_PENDING, PAYMENT_APPROVED, normalize_payment_type
+from modules.financial_approval.validators import (
+    BATCH_PENDING,
+    BUDGET_SUPERSEDED,
+    PAYMENT_APPROVED,
+    normalize_payment_type,
+)
 
 
 def _now() -> datetime:
@@ -72,7 +79,9 @@ def payment_code_exists(db: Session, code: str) -> bool:
     return db.query(PaymentRequestSession.payment_id).filter(PaymentRequestSession.payment_code == code).first() is not None
 
 
-def add_payment_request(db: Session, schema: PaymentRequestCreate, code: str, status: str) -> PaymentRequestSession:
+def add_payment_request(
+    db: Session, schema: PaymentRequestCreate, code: str, status: str, created_by: Optional[str] = None
+) -> PaymentRequestSession:
     db_item = PaymentRequestSession(
         payment_code=code,
         title=schema.title,
@@ -97,6 +106,7 @@ def add_payment_request(db: Session, schema: PaymentRequestCreate, code: str, st
         bank_country=schema.bank_country,
         notes=schema.notes,
         is_active=True,
+        created_by=created_by,
     )
     db.add(db_item)
     db.flush()
@@ -125,16 +135,16 @@ def get_inactive_payment_request(db: Session, payment_id: int) -> Optional[Payme
     )
 
 
-def get_all_payment_requests(
+def _apply_payment_request_filters(
     db: Session,
+    query,
     include_inactive: bool = False,
     search: Optional[str] = None,
     import_file_id: Optional[int] = None,
     po_id: Optional[int] = None,
     supplier_id: Optional[int] = None,
     status: Optional[str] = None,
-) -> List[PaymentRequestSession]:
-    query = db.query(PaymentRequestSession)
+):
     if not include_inactive:
         query = query.filter(PaymentRequestSession.is_active == True)
 
@@ -156,7 +166,38 @@ def get_all_payment_requests(
             | PaymentRequestSession.import_file_id.in_(_file_ids_matching(db, pattern))
         )
 
-    return query.order_by(PaymentRequestSession.payment_id.desc()).all()
+    return query
+
+
+def get_all_payment_requests(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    po_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[PaymentRequestSession], int]:
+    query = db.query(PaymentRequestSession)
+    query = _apply_payment_request_filters(
+        db,
+        query,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
+        supplier_id=supplier_id,
+        status=status,
+    )
+    total = query.order_by(None).count()
+    query = query.order_by(PaymentRequestSession.payment_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all(), total
 
 
 def find_open_payment_of_type(
@@ -205,19 +246,28 @@ def get_matchable_payment_requests(db: Session, target_payment_id: Optional[int]
     )
 
 
-def apply_payment_changes(db: Session, db_item: PaymentRequestSession, changes: Dict[str, Any], current_version: int) -> PaymentRequestSession:
+def apply_payment_changes(
+    db: Session, db_item: PaymentRequestSession, changes: Dict[str, Any], current_version: int,
+    updated_by: Optional[str] = None,
+) -> PaymentRequestSession:
     for field, value in changes.items():
         setattr(db_item, field, value)
     db_item.requested_amount_egp = db_item.requested_amount * db_item.exchange_rate
     db_item.version = current_version + 1
     db_item.updated_at = _now()
+    if updated_by is not None:
+        db_item.updated_by = updated_by
     db.flush()
     return db_item
 
 
-def set_payment_active(db: Session, db_item: PaymentRequestSession, active: bool) -> None:
+def set_payment_active(
+    db: Session, db_item: PaymentRequestSession, active: bool, updated_by: Optional[str] = None
+) -> None:
     db_item.is_active = active
     db_item.updated_at = _now()
+    if updated_by is not None:
+        db_item.updated_by = updated_by
     db.flush()
 
 
@@ -231,7 +281,14 @@ def budget_code_exists(db: Session, code: str) -> bool:
     return db.query(ImportBudgetApproval.budget_id).filter(ImportBudgetApproval.budget_code == code).first() is not None
 
 
-def add_import_budget(db: Session, schema: ImportBudgetCreate, code: str) -> ImportBudgetApproval:
+def add_import_budget(
+    db: Session,
+    schema: ImportBudgetCreate,
+    code: str,
+    invoice_amount_egp: float,
+    freight_cost_egp: float,
+    created_by: Optional[str] = None,
+) -> ImportBudgetApproval:
     db_item = ImportBudgetApproval(
         budget_code=code,
         title=schema.title,
@@ -239,20 +296,24 @@ def add_import_budget(db: Session, schema: ImportBudgetCreate, code: str) -> Imp
         po_id=schema.po_id,
         project_id=schema.project_id,
         invoice_amount_foreign=schema.invoice_amount_foreign,
-        invoice_currency=schema.invoice_currency,
-        invoice_amount_egp=schema.invoice_amount_egp,
+        invoice_currency=schema.invoice_currency or "USD",
+        invoice_amount_egp=invoice_amount_egp,
         freight_cost_foreign=schema.freight_cost_foreign,
-        freight_currency=schema.freight_currency,
-        freight_cost_egp=schema.freight_cost_egp,
+        freight_currency=schema.freight_currency or "USD",
+        freight_cost_egp=freight_cost_egp,
         customs_duties_egp=schema.customs_duties_egp,
         clearance_inland_egp=schema.clearance_inland_egp,
         exchange_rate=schema.exchange_rate,
         total_budget_egp=(
-            schema.invoice_amount_egp + schema.freight_cost_egp + schema.customs_duties_egp + schema.clearance_inland_egp
+            (invoice_amount_egp or 0.0)
+            + (freight_cost_egp or 0.0)
+            + (schema.customs_duties_egp or 0.0)
+            + (schema.clearance_inland_egp or 0.0)
         ),
         budget_status="Pending Review",
         notes=schema.notes,
         is_active=True,
+        created_by=created_by,
     )
     db.add(db_item)
     db.flush()
@@ -275,15 +336,15 @@ def get_inactive_import_budget(db: Session, budget_id: int) -> Optional[ImportBu
     )
 
 
-def get_all_import_budgets(
+def _apply_import_budget_filters(
     db: Session,
+    query,
     include_inactive: bool = False,
     search: Optional[str] = None,
     import_file_id: Optional[int] = None,
     po_id: Optional[int] = None,
     budget_status: Optional[str] = None,
-) -> List[ImportBudgetApproval]:
-    query = db.query(ImportBudgetApproval)
+):
     if not include_inactive:
         query = query.filter(ImportBudgetApproval.is_active == True)
 
@@ -302,7 +363,36 @@ def get_all_import_budgets(
             | ImportBudgetApproval.import_file_id.in_(_file_ids_matching(db, pattern))
         )
 
-    return query.order_by(ImportBudgetApproval.budget_id.desc()).all()
+    return query
+
+
+def get_all_import_budgets(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    po_id: Optional[int] = None,
+    budget_status: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+) -> Tuple[List[ImportBudgetApproval], int]:
+    query = db.query(ImportBudgetApproval)
+    query = _apply_import_budget_filters(
+        db,
+        query,
+        include_inactive=include_inactive,
+        search=search,
+        import_file_id=import_file_id,
+        po_id=po_id,
+        budget_status=budget_status,
+    )
+    total = query.order_by(None).count()
+    query = query.order_by(ImportBudgetApproval.budget_id.desc())
+    if skip:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all(), total
 
 
 def find_active_budget_for_file(
@@ -317,7 +407,10 @@ def find_active_budget_for_file(
     return query.order_by(ImportBudgetApproval.budget_id.asc()).first()
 
 
-def apply_budget_changes(db: Session, db_item: ImportBudgetApproval, changes: Dict[str, Any], current_version: int) -> ImportBudgetApproval:
+def apply_budget_changes(
+    db: Session, db_item: ImportBudgetApproval, changes: Dict[str, Any], current_version: int,
+    updated_by: Optional[str] = None,
+) -> ImportBudgetApproval:
     for field, value in changes.items():
         setattr(db_item, field, value)
     db_item.total_budget_egp = (
@@ -328,13 +421,19 @@ def apply_budget_changes(db: Session, db_item: ImportBudgetApproval, changes: Di
     )
     db_item.version = current_version + 1
     db_item.updated_at = _now()
+    if updated_by is not None:
+        db_item.updated_by = updated_by
     db.flush()
     return db_item
 
 
-def set_budget_active(db: Session, db_item: ImportBudgetApproval, active: bool) -> None:
+def set_budget_active(
+    db: Session, db_item: ImportBudgetApproval, active: bool, updated_by: Optional[str] = None
+) -> None:
     db_item.is_active = active
     db_item.updated_at = _now()
+    if updated_by is not None:
+        db_item.updated_by = updated_by
     db.flush()
 
 
@@ -479,3 +578,29 @@ def mark_swift_batch_reconciled(db: Session, batch: SwiftExtractionBatch, paymen
     batch.updated_at = now
     db.flush()
     return batch
+
+
+def variance_logs_for_budget(db: Session, budget_id: int) -> List[BudgetVarianceLog]:
+    return (
+        db.query(BudgetVarianceLog)
+        .filter(BudgetVarianceLog.budget_id == budget_id)
+        .order_by(BudgetVarianceLog.detected_at.desc())
+        .all()
+    )
+
+
+def get_setting(db: Session, key: str) -> Optional[BudgetVarianceSetting]:
+    return db.query(BudgetVarianceSetting).filter(BudgetVarianceSetting.setting_key == key).first()
+
+
+def active_budgets_for_file(db: Session, import_file_id: int) -> List[ImportBudgetApproval]:
+    return (
+        db.query(ImportBudgetApproval)
+        .filter(
+            ImportBudgetApproval.import_file_id == import_file_id,
+            ImportBudgetApproval.is_active == True,
+            ImportBudgetApproval.budget_status != BUDGET_SUPERSEDED,
+        )
+        .all()
+    )
+

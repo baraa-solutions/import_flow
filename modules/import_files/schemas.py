@@ -4,10 +4,9 @@ Pydantic Schemas for Import Files Master & Tracking Module
 
 from typing import List, Optional, Any, Dict
 from datetime import date, datetime
-from pydantic import BaseModel, Field
-
-
 from pydantic import BaseModel, Field, ConfigDict
+
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
 class InvoiceItemSchema(BaseModel):
     invoice_no: str = Field(..., description="Invoice Number e.g. PI-889")
@@ -58,6 +57,11 @@ class ImportFileBase(BaseModel):
     target_free_days: Optional[int] = Field(21, description="Required demurrage/detention free time in days")
     service_type_preference: Optional[str] = Field("Direct", description="Direct, Transshipment, Any")
     shipping_instructions_notes: Optional[str] = Field(None, description="Special shipping instructions")
+
+    # Partial Shipments Linkage (DEV-OPS-04)
+    parent_import_file_id: Optional[int] = Field(None, description="Parent Import File ID for partial shipments")
+    parent_file_code: Optional[str] = Field(None, description="Parent Import File Code for partial shipments")
+    is_partial_shipment: bool = Field(False, description="Flag indicating if this is a partial shipment batch")
 
     acid_number: Optional[str] = Field(None, description="19-digit Nafeza ACID Number")
     acid_request_date: Optional[date] = None
@@ -204,6 +208,9 @@ class ImportFileUpdate(BaseModel):
     target_free_days: Optional[int] = None
     service_type_preference: Optional[str] = None
     shipping_instructions_notes: Optional[str] = None
+    parent_import_file_id: Optional[int] = None
+    parent_file_code: Optional[str] = None
+    is_partial_shipment: Optional[bool] = None
 
     acid_number: Optional[str] = None
     acid_request_date: Optional[date] = None
@@ -280,7 +287,6 @@ class ImportFileUpdate(BaseModel):
     hold_reason: Optional[str] = None
     hold_date: Optional[datetime] = None
     skipped_stages: Optional[List[str]] = None
-    status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None
 
@@ -312,7 +318,8 @@ class FreightRfqDataResponse(BaseModel):
     whatsapp_text_template: str
 
 
-class ImportFileResponse(ImportFileBase):
+@read_model
+class ImportFileResponse(ImportFileBase, LegacyRowTolerantModel):
     model_config = ConfigDict(from_attributes=True)
 
     import_file_id: int
@@ -336,6 +343,17 @@ class ImportFileResponse(ImportFileBase):
     updated_at: datetime
     updated_by: str
 
+    # Legacy row tolerance: money/rate fields can be None on legacy rows
+    customs_duty_paid_amount: Optional[float] = None
+    total_clearance_expenses_egp: Optional[float] = None
+    inland_transport_cost_egp: Optional[float] = None
+    financial_settlement_total_egp: Optional[float] = None
+    actual_landed_cost_total_egp: Optional[float] = None
+    actual_landed_cost_markup_factor: Optional[float] = None
+    actual_landed_cost_variance_egp: Optional[float] = None
+    actual_landed_cost_variance_pct: Optional[float] = None
+    estimated_cost: Optional[float] = None
+
 
 class CloneImportFileRequest(BaseModel):
     target_import_file_code: Optional[str] = Field(None, min_length=3, description="New unique import file code")
@@ -348,13 +366,26 @@ class CloneImportFileRequest(BaseModel):
     notes: Optional[str] = Field(None, description="Optional notes on the cloned shipment")
 
 
+class CreatePartialBatchRequest(BaseModel):
+    target_import_file_code: Optional[str] = Field(None, min_length=3, description="New unique import file code for the partial batch (auto-generated if omitted)")
+    target_custom_file_number: Optional[str] = Field(None, description="New custom file number for the partial batch")
+    invoices_data: Optional[List[Dict[str, Any]]] = Field(None, description="Subset of invoices allocated to this partial batch")
+    packing_lists_data: Optional[List[Dict[str, Any]]] = Field(None, description="Subset of packing lists allocated to this partial batch")
+    estimated_cost: Optional[float] = Field(None, ge=0.0, description="Estimated cost allocated to this batch")
+    shipment_mode: Optional[str] = Field(None, description="Shipment mode for this batch (inherits from parent if omitted)")
+    required_eta: Optional[date] = Field(None, description="Expected arrival date for this batch")
+    initial_starting_step: Optional[str] = Field("STEP_01", description="Lifecycle starting step")
+    notes: Optional[str] = Field(None, description="Operational notes for this partial batch")
+
+
 
 class ImportMasterReportSummary(BaseModel):
     total_import_files: int
     open_files_count: int
     in_progress_count: int
     closed_files_count: int
-    total_estimated_cost: float
+    total_estimated_cost: Optional[float] = None
+    estimated_cost_by_currency: Dict[str, float] = Field(default_factory=dict)
     files: List[ImportFileResponse]
 
 

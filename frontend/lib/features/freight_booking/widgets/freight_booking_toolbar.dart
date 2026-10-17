@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/widgets.dart';
 import 'freight_booking_ui.dart';
 
 /// Action bar of the registry: create / clone / copy / export buttons.
@@ -106,16 +105,10 @@ class FbkFilterBar extends StatelessWidget {
       decoration: AppTheme.cardDecorationOf(context),
       child: LayoutBuilder(builder: (context, c) {
         final wide = c.maxWidth >= 760;
-        final search = TextField(
+        final search = AppSearchField(
           key: const Key('bookingSearchField'),
           controller: searchController,
-          decoration: InputDecoration(
-            hintText: l.freightBookingSearchHint,
-            prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
-            isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
-            contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 12),
-          ),
+          hint: l.freightBookingSearchHint,
           onChanged: onSearchChanged,
         );
         final statusField = SearchableDropdownField<String>(

@@ -80,3 +80,7 @@ class SupplierRouteIntelligenceResponse(BaseModel):
     lead_time_breakdown_ar: str
     advisory_recommendation_ar: str
     executive_recommendation_ar: Optional[str] = None
+    advisory_recommendation_en: Optional[str] = None
+    executive_recommendation_en: Optional[str] = None
+    advisory_points_ar: Optional[List[str]] = None
+    advisory_points_en: Optional[List[str]] = None

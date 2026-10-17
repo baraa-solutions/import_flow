@@ -15,6 +15,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
 import '../services/inspection_export_service.dart';
+import 'extraction_match_status_chip.dart';
 import 'visual_draft_inspection_sheet.dart';
 
 class InspectionReviewTab extends ConsumerStatefulWidget {
@@ -37,8 +38,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   final TextEditingController _authorityCtrl = TextEditingController();
   final TextEditingController _invoiceNoCtrl = TextEditingController();
   final TextEditingController _acidCtrl = TextEditingController();
-  final TextEditingController _originCountryCtrl = TextEditingController(text: 'Italy');
-  final TextEditingController _specCtrl = TextEditingController(text: 'Egyptian Standard ES / EN 13501-1:2018');
+  final TextEditingController _originCountryCtrl = TextEditingController();
+  final TextEditingController _specCtrl = TextEditingController();
   final TextEditingController _rawTextCtrl = TextEditingController();
   final TextEditingController _overrideReasonCtrl = TextEditingController();
 
@@ -1158,18 +1159,9 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                       CopyableTableCell(
                         value: matchStatus,
                         rowSummary: rowSummary,
-                        child: Chip(
-                          label: Text(
-                            matchStatus == 'EXTRACTION_FAILED'
-                                ? l10n.idocBNotExtracted
-                                : (matchStatus == 'MATCH' ? l10n.idocBMatched : matchStatus),
-                            style: const TextStyle(fontSize: 11, color: AppTheme.white),
-                          ),
-                          backgroundColor: matchStatus == 'EXTRACTION_FAILED'
-                              ? AppTheme.charcoal
-                              : (m['severity'] == 'BLOCKING'
-                                  ? AppTheme.crimson
-                                  : (m['severity'] == 'WARNING' ? AppTheme.orange : AppTheme.emerald)),
+                        child: ExtractionMatchStatusChip(
+                          matchStatus: matchStatus,
+                          severity: m['severity'],
                         ),
                       ),
                     ),

@@ -478,7 +478,6 @@ class _OriginalDocumentsCollectionTabState
   }
 
   Widget _buildFileSelector(AppLocalizations l, AsyncValue<List<ImportFileModel>> filesAsync) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final acidLabel = context.l10n.idocAACID;
 
     return Container(
@@ -1469,7 +1468,7 @@ class _OriginalDocumentsCollectionTabState
     final timeCtrl = TextEditingController(
       text: '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
     );
-    final receiverCtrl = TextEditingController(text: 'مكتب الاستقبال والتخليص');
+    final receiverCtrl = TextEditingController();
     final podCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
     bool markDocsReceived = true;

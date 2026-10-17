@@ -5,6 +5,7 @@ The pure classifiers are tested directly; pre-commit / pr-gate run in a throwawa
 no real import of main, Alembic or pytest happens here.
 """
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -28,9 +29,10 @@ guard = _load()
 
 
 def _git(repo: Path, *args: str) -> str:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     return subprocess.run(
         ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "core.autocrlf=false", *args],
-        cwd=repo, check=True, capture_output=True, text=True,
+        cwd=repo, check=True, capture_output=True, text=True, env=env,
     ).stdout.strip()
 
 
