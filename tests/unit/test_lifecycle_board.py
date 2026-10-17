@@ -45,6 +45,13 @@ def db_session():
         is_active=True,
     )
     session.add(file1)
+    act1 = ShipmentStageActivity(
+        import_file_code="IMP-2026-0001",
+        step_code="STEP_01",
+        status="In-Progress",
+        started_at="2026-10-08 10:00:00",
+    )
+    session.add(act1)
     session.commit()
 
     yield session
