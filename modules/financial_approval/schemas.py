@@ -237,7 +237,7 @@ class LinkedPOItemSchema(BaseModel):
     pi_number: Optional[str] = None
     project_id: Optional[int] = None
     project_name: Optional[str] = None
-    payment_terms: str
+    payment_terms: Optional[str] = None
     currency: str
     total_amount: float
     status: str
@@ -247,15 +247,15 @@ class BudgetPrefillResponse(BaseModel):
     import_file_id: int
     import_file_code: str
     import_file_title: str
-    incoterm: str
+    incoterm: Optional[str] = None
     supplier_id: Optional[int] = None
-    supplier_name: str
+    supplier_name: Optional[str] = None
     beneficiary_name: Optional[str] = None
     bank_name: Optional[str] = None
     swift_code: Optional[str] = None
     account_number: Optional[str] = None
     iban: Optional[str] = None
-    payment_terms_summary: str
+    payment_terms_summary: Optional[str] = None
     linked_pos: List[LinkedPOItemSchema] = []
     
     # Financial estimates
@@ -264,7 +264,7 @@ class BudgetPrefillResponse(BaseModel):
     total_invoice_amount_egp: float = 0.0
     
     estimated_freight_cost: float = 0.0
-    freight_currency: str = "USD"
+    freight_currency: Optional[str] = None
     estimated_freight_cost_egp: float = 0.0
     
     estimated_customs_duties_egp: float = 0.0

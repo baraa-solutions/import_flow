@@ -1291,9 +1291,10 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
     )
 
     for po in pos:
-        p_term = po.payment_terms or "Standard Payment"
-        payment_terms_set.add(p_term)
-        terms_list_str.append(f"{po.po_number} ({p_term})")
+        p_term = po.payment_terms
+        if p_term:
+            payment_terms_set.add(p_term)
+            terms_list_str.append(f"{po.po_number} ({p_term})")
 
         curr_code = curr_map.get(po.currency_id) or ""
         po_amt = float(po.total_amount_fob or 0.0)
@@ -1331,7 +1332,7 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
     elif len(payment_terms_set) > 1:
         payment_terms_summary = f"Multiple ({', '.join(terms_list_str)})"  # C2: English, never stored Arabic
     else:
-        payment_terms_summary = "Advance Payment"
+        payment_terms_summary = None
 
     # 2. Supplier and banking info
     sup = None
@@ -1342,7 +1343,7 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
     elif imp.supplier_name:
         # Legacy files without supplier_id: best-effort match on the stored name text (FA-21 MINOR, kept).
         sup = db.query(Supplier).filter(Supplier.company_name == imp.supplier_name).first()
-    supplier_name = sup.company_name if sup else (imp.supplier_name or "Foreign Exporter")
+    supplier_name = sup.company_name if sup else imp.supplier_name
 
     # 3. Highest freight quotation, compared in EGP
     rate_cache: Dict[str, float] = {}
@@ -1355,7 +1356,7 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
 
     highest_freight = 0.0
     highest_freight_egp = 0.0
-    freight_currency = "USD"
+    freight_currency: Optional[str] = None
     for s in shipping_sessions:
         for itm in s.items:
             f_amt = float(getattr(itm, "total_quotation_amount", 0.0) or 0.0)
@@ -1366,7 +1367,8 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
                 f_amt = c40 + c20 + lcl
             if f_amt <= 0:
                 continue
-            curr = getattr(itm, "quotation_currency", None) or "USD"
+            source = f"freight quotation ({s.session_code})" if getattr(s, "session_code", None) else "freight quotation"
+            curr = _require_currency(getattr(itm, "quotation_currency", None), source)
             f_egp = f_amt * _require_rate(db, curr, rate_cache)
             if f_egp > highest_freight_egp:
                 highest_freight, highest_freight_egp, freight_currency = f_amt, f_egp, curr
@@ -1426,7 +1428,7 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
         import_file_id=imp.import_file_id,
         import_file_code=file_code_str,
         import_file_title=f"Shipment {file_code_str}",
-        incoterm=imp.incoterm_code or "FOB",
+        incoterm=imp.incoterm_code,
         supplier_id=sup.supplier_id if sup else None,
         supplier_name=supplier_name,
         beneficiary_name=supplier_name,
@@ -1548,7 +1550,8 @@ def _apply_prefill(budget: ImportBudgetApproval, prefill: BudgetPrefillResponse)
     budget.invoice_currency = prefill.invoice_currency
     budget.invoice_amount_egp = prefill.total_invoice_amount_egp
     budget.freight_cost_foreign = prefill.estimated_freight_cost
-    budget.freight_currency = prefill.freight_currency
+    if prefill.freight_currency is not None:
+        budget.freight_currency = prefill.freight_currency
     budget.freight_cost_egp = prefill.estimated_freight_cost_egp
     budget.customs_duties_egp = prefill.estimated_customs_duties_egp
     budget.clearance_inland_egp = prefill.estimated_clearance_fees_egp

@@ -579,6 +579,42 @@ def test_highest_freight_is_compared_in_egp(db):
     assert prefill.estimated_freight_cost_egp == 950.0 * 55.0
 
 
+def test_prefill_without_supplier_incoterm_po_returns_nulls(db):
+    imp = seed_file(db)
+    imp.supplier_id = None
+    imp.supplier_name = None
+    imp.incoterm_code = None
+    with db.no_autoflush:
+        prefill = service.get_budget_prefill_service(db, imp.import_file_id)
+    assert prefill.supplier_name is None
+    assert prefill.beneficiary_name is None
+    assert prefill.incoterm is None
+    assert prefill.payment_terms_summary is None
+    assert prefill.freight_currency is None
+
+
+def test_prefill_freight_item_missing_currency_is_400(db):
+    imp = seed_file(db)
+    sess = ShippingEvaluationSession(session_code="SCE-NO-CURR", import_file_id=imp.import_file_id, is_active=True)
+    db.add(sess)
+    db.commit()
+    db.add(_freight_item(sess.session_id, 1200.0, ""))
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        service.get_budget_prefill_service(db, imp.import_file_id)
+    assert exc.value.status_code == 400 and _code(exc) == "FA_CURRENCY_MISSING"
+    assert exc.value.detail["source"] == "freight quotation (SCE-NO-CURR)"
+
+
+def test_apply_prefill_preserves_budget_freight_currency_when_prefill_none(db):
+    imp = seed_file(db)
+    budget = seed_budget(db, imp.import_file_id, freight_currency="EUR")
+    prefill = service.get_budget_prefill_service(db, imp.import_file_id)
+    assert prefill.freight_currency is None
+    service._apply_prefill(budget, prefill)
+    assert budget.freight_currency == "EUR"
+
+
 def test_list_returns_import_file_code_and_searches_it(db):
     imp = seed_file(db, import_file_code="IMP-2026-4242")
     p = _payment(db, import_file_id=imp.import_file_id)
