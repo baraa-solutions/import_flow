@@ -596,6 +596,7 @@ def _mark_paid(db: Session, item: PaymentRequestSession, swift_reference_no: Opt
                transferred_amount: Optional[float], currency_code: Optional[str]) -> _PaidEvent:
     """Core of the Paid transition (same transaction as the caller): status, SWIFT reference, the import
     file's ``swift_no`` and the LOGISTICS_OFFICER notification. Follow-ups: ``_after_paid``."""
+    old_swift_ref = item.swift_reference_no
     swift_ref = (swift_reference_no or item.swift_reference_no or "").strip()
     assert swift_ref, "swift_reference_no must be non-empty when marking Paid"
     amount = float(transferred_amount or item.swift_transferred_amount or item.requested_amount or 0.0)
@@ -612,7 +613,8 @@ def _mark_paid(db: Session, item: PaymentRequestSession, swift_reference_no: Opt
 
         imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
         if imp is not None:
-            imp.swift_no = swift_ref
+            if not (imp.swift_no and imp.swift_no.strip()) or (old_swift_ref and imp.swift_no == old_swift_ref):
+                imp.swift_no = swift_ref
             file_code = imp.import_file_code or f"IMP-{imp.import_file_id}"
             swift_msg = msg("FA_SWIFT_PAID", import_file_code=file_code, swift_ref=swift_ref,
                             paid_amount=round(amount, 2), currency_code=currency)
@@ -775,7 +777,6 @@ def smart_reconcile_swift_service(db: Session, payload: SmartSwiftReconcileReque
         event = _mark_paid(db, db_item, payload.swift_reference_no, payload.swift_transferred_amount,
                            payload.swift_transferred_currency)
     else:
-        _set_file_swift_no(db, db_item.import_file_id, payload.swift_reference_no)
         db_item.version = (db_item.version or 1) + 1
         db_item.updated_at = _now()
     db.commit()
@@ -783,16 +784,6 @@ def smart_reconcile_swift_service(db: Session, payload: SmartSwiftReconcileReque
         return _finish_paid(db, event)
     db.refresh(db_item)
     return _with_file_code(db, db_item)
-
-
-def _set_file_swift_no(db: Session, import_file_id: Optional[int], swift_ref: str) -> None:
-    if not import_file_id:
-        return
-    from modules.import_files.model import ImportFile
-
-    imp = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
-    if imp is not None:
-        imp.swift_no = swift_ref
 
 
 def clone_payment_request_service(db: Session, payment_id: int, schema: ClonePaymentRequestRequest) -> PaymentRequestSession:
@@ -999,7 +990,7 @@ def _close_budget_tasks(db: Session, import_file_id: int, budget_code: Optional[
     ).all()
     for task in tasks:
         notes = task.notes or ""
-        if "BUDGET" in notes or (by_code is not None and by_code.search(notes + " " + (task.title or ""))):
+        if by_code is not None and by_code.search(notes + " " + (task.title or "")):
             task.status = "Completed"
             task.is_auto_closed = True
     db.commit()
@@ -2145,7 +2136,6 @@ def reconcile_reviewed_batch_service(
     if payload.auto_execute:
         event = _mark_paid(db, db_item, swift_ref, amount, currency)
     else:
-        _set_file_swift_no(db, db_item.import_file_id, swift_ref)
         db_item.version = (db_item.version or 1) + 1
         db_item.updated_at = _now()
     repo.mark_swift_batch_reconciled(db, batch, db_item.payment_id)
