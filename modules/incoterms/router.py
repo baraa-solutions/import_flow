@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from database.database import get_db
 from utils.cache_manager import memory_cache
+from utils.export_import_helper import MasterDataExportImportHelper
 
 from .schemas import (
     CostItemCreate,
@@ -71,6 +72,42 @@ def list_incoterms(include_inactive: bool = False, db: Session = Depends(get_db)
     res = get_all_incoterms_service(db, include_inactive)
     memory_cache.set(cache_key, res, ttl_seconds=300)
     return res
+
+
+@incoterms_router.get("/incoterms/export-excel", summary="Export all incoterms to Excel (XLSX)")
+def export_incoterms_excel(db: Session = Depends(get_db)):
+    incoterms = get_all_incoterms_service(db, include_inactive=True)
+    headers = ['Incoterm Code', 'Incoterm Name', 'Version', 'Description', 'Status']
+    rows = []
+    for inc in incoterms:
+        rows.append([
+            inc.incoterm_code,
+            inc.incoterm_name,
+            inc.version,
+            inc.description or '',
+            'Active' if inc.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_excel("Incoterms Rules", headers, rows)
+    filename = MasterDataExportImportHelper.standard_export_filename("Incoterms_Rules", "xlsx")
+    return MasterDataExportImportHelper.as_excel_response(filename, content)
+
+
+@incoterms_router.get("/incoterms/export-pdf", summary="Export all incoterms to PDF")
+def export_incoterms_pdf(db: Session = Depends(get_db)):
+    incoterms = get_all_incoterms_service(db, include_inactive=True)
+    headers = ['Code', 'Rule Name', 'Version', 'Description', 'Status']
+    rows = []
+    for inc in incoterms:
+        rows.append([
+            inc.incoterm_code,
+            inc.incoterm_name,
+            inc.version,
+            inc.description or '',
+            'Active' if inc.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_pdf("Official Incoterms Rules (MD-006)", headers, rows)
+    filename = MasterDataExportImportHelper.standard_export_filename("Incoterms_Rules", "pdf")
+    return MasterDataExportImportHelper.as_pdf_response(filename, content)
 
 
 @incoterms_router.get("/incoterms/{incoterm_id}", response_model=IncotermResponse)

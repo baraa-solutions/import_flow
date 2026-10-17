@@ -49,6 +49,19 @@ void main() {
       expect(parsed.finalGrossWeightKg, 24500.0);
     });
 
+    test('POReconciliationItemModel keeps a null package_type empty, not an invented type', () {
+      final parsed = POReconciliationItemModel.fromJson({
+        'po_item_id': 2,
+        'item_code': 'QCR12026802R',
+        'description': 'Rubber Shock Absorbers',
+        'package_type': null,
+        'initial_quantity': 2.0,
+        'final_quantity': 2.0,
+      });
+      expect(parsed.packageType, '');
+      expect(parsed.toJson()['package_type'], '');
+    });
+
     test('POReconciliationResultModel serialization and metrics calculation', () {
       final result = POReconciliationResultModel(
         status: 'success',

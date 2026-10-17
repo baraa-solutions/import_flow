@@ -24,6 +24,7 @@ import '../widgets/settlement_registry_card.dart';
 import '../widgets/settlement_ui.dart';
 import 'landed_cost_comparison_screen.dart';
 import 'odoo_journal_entry_dialog.dart';
+import '../../logistics_invoices/screens/logistics_invoices_screen.dart';
 
 class FinancialSettlementScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -462,6 +463,21 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
           variant: AppButtonVariant.primary,
           size: AppButtonSize.small,
           onPressed: () => _openGlobalDialog(actualCost: true),
+        ),
+        const SizedBox(width: 8),
+        AppButton(
+          key: const Key('globalLogisticsInvoicesBtn'),
+          label: 'فواتير الخدمات اللوجستية (LSI)',
+          icon: Icons.account_balance_wallet_rounded,
+          variant: AppButtonVariant.secondary,
+          size: AppButtonSize.small,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (ctx) => const LogisticsInvoicesScreen(),
+              ),
+            );
+          },
         ),
         const SizedBox(width: 8),
         IconButton(
