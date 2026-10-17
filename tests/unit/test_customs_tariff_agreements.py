@@ -357,3 +357,38 @@ class TestCustomsTariffAgreementsEngine:
         assert res["tariff"].hs_code == "8415820010"
         assert res["tariff"].schedule_tax_rate == Decimal("8.00")
         assert len(res["agreements"]) == 8
+
+    def test_save_tariff_with_agreements_audit_failure_rolls_back(self, db_session, monkeypatch):
+        """
+        اختبار التحقق من الذرية (Atomicity): إذا فشل تسجيل Audit Log قبل الـ commit،
+        يتم التراجع (Rollback) ولا يتم حفظ البند الجمركي أو أي من اتفاقياته في قاعدة البيانات.
+        """
+        from modules.audit_logs.service import AuditLogService
+
+        parsed = parse_smart_nafeza_tariff_text_service(RAW_NAFEZA_TEXT_EXAMPLE)
+        hs = parsed.tariff_data.hs_code
+
+        def mock_log_activity(*args, **kwargs):
+            raise RuntimeError("Simulated AuditLogService database failure")
+
+        monkeypatch.setattr(AuditLogService, "log_activity", mock_log_activity)
+
+        with pytest.raises(RuntimeError, match="Simulated AuditLogService database failure"):
+            save_tariff_with_agreements_service(
+                db_session,
+                TariffAgreementBulkSaveRequest(
+                    tariff=parsed.tariff_data,
+                    agreements=parsed.agreements,
+                ),
+            )
+
+        db_session.rollback()
+
+        # Verify nothing was persisted
+        from modules.customs_tariff.model import CustomsTariff, PreferentialAgreement
+        saved_tariff = db_session.query(CustomsTariff).filter(CustomsTariff.hs_code == hs).first()
+        assert saved_tariff is None
+
+        saved_agreements = db_session.query(PreferentialAgreement).filter(PreferentialAgreement.hs_code == hs).all()
+        assert len(saved_agreements) == 0
+
