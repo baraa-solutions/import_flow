@@ -962,9 +962,26 @@ def create_import_budget_service(
         if repo.find_active_budget_for_file(db, schema.import_file_id) is not None:
             raise _budget_duplicate_error(db, schema.import_file_id)
 
+    inv_foreign = schema.invoice_amount_foreign or 0.0
+    frt_foreign = schema.freight_cost_foreign or 0.0
+    if inv_foreign > 0 or frt_foreign > 0:
+        calc_inv_egp, calc_frt_egp = _budget_egp_amounts(
+            db,
+            inv_foreign,
+            schema.invoice_currency,
+            frt_foreign,
+            schema.freight_currency,
+            schema.exchange_rate,
+        )
+        inv_egp = calc_inv_egp if inv_foreign > 0 else (schema.invoice_amount_egp or 0.0)
+        frt_egp = calc_frt_egp if frt_foreign > 0 else (schema.freight_cost_egp or 0.0)
+    else:
+        inv_egp = schema.invoice_amount_egp or 0.0
+        frt_egp = schema.freight_cost_egp or 0.0
+
     created = _insert_with_unique_code(
         db, lambda: repo.next_budget_code(db), lambda c: repo.budget_code_exists(db, c),
-        lambda code: repo.add_import_budget(db, schema, code),
+        lambda code: repo.add_import_budget(db, schema, code, inv_egp, frt_egp),
     )
     budget_id = created.budget_id
     _sync_budget_stage(db, schema.import_file_id, is_approved=False, approved_by=None)  # FA-24: never approved here
@@ -1176,6 +1193,21 @@ def update_import_budget_service(
         require_active(db, ImportFile, new_file, L_FILE)
         if repo.find_active_budget_for_file(db, new_file, exclude_id=db_item.budget_id) is not None:
             raise _budget_duplicate_error(db, new_file)
+
+    inv_foreign = changes.get("invoice_amount_foreign", db_item.invoice_amount_foreign) or 0.0
+    inv_currency = changes.get("invoice_currency", db_item.invoice_currency)
+    frt_foreign = changes.get("freight_cost_foreign", db_item.freight_cost_foreign) or 0.0
+    frt_currency = changes.get("freight_currency", db_item.freight_currency)
+    rate = changes.get("exchange_rate", db_item.exchange_rate) or 1.0
+
+    if inv_foreign > 0 or frt_foreign > 0:
+        calc_inv_egp, calc_frt_egp = _budget_egp_amounts(
+            db, inv_foreign, inv_currency, frt_foreign, frt_currency, rate
+        )
+        if inv_foreign > 0:
+            changes["invoice_amount_egp"] = calc_inv_egp
+        if frt_foreign > 0:
+            changes["freight_cost_egp"] = calc_frt_egp
 
     repo.apply_budget_changes(db, db_item, changes, current_version)
     db.commit()
