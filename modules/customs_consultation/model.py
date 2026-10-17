@@ -31,7 +31,7 @@ class ClearanceExpenseType(Base):
     default_unit: Mapped[str] = mapped_column(
         String(100), nullable=False, default="PER_INVOICE"
     )  # Per Invoice, Per Ton, Per Container 20ft, Per Container 40ft, Per Vehicle, Per Inspection, Per Trip, Fixed
-    default_currency: Mapped[str] = mapped_column(String(10), default="EGP", nullable=False)
+    default_currency: Mapped[Optional[str]] = mapped_column(String(10), default=None, nullable=True)
     display_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -116,7 +116,7 @@ class BrokerPriceListItem(Base):
     category: Mapped[str] = mapped_column(String(100), nullable=False)
     unit_type: Mapped[str] = mapped_column(String(100), nullable=False)
     standard_price: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    currency: Mapped[str] = mapped_column(String(10), default="EGP", nullable=False)
+    currency: Mapped[Optional[str]] = mapped_column(String(10), default=None, nullable=True)
     min_price: Mapped[float] = mapped_column(Float, nullable=True)
     max_price: Mapped[float] = mapped_column(Float, nullable=True)
     notes: Mapped[str] = mapped_column(Text, nullable=True)
@@ -272,7 +272,7 @@ class CustomsBrokerQuoteItem(Base):
     category: Mapped[str] = mapped_column(String(100), nullable=False)
     unit_type: Mapped[str] = mapped_column(String(100), nullable=False, default="Per Invoice")
     unit_price: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    currency: Mapped[str] = mapped_column(String(10), default="EGP", nullable=False)
+    currency: Mapped[Optional[str]] = mapped_column(String(10), default=None, nullable=True)
     qty: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
     is_applicable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     total_amount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)

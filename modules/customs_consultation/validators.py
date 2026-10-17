@@ -88,3 +88,37 @@ def validate_checklist_items(items: list) -> None:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid document status '{status_val}'. Valid statuses: {valid_statuses}",
             )
+
+
+def validate_price_list_currencies(db: Session, items: Iterable[Any]) -> None:
+    """Validate currencies for broker price list items: required when standard_price > 0, normalized to uppercase."""
+    from modules.common.validators import validate_price_currency
+    for itm in items:
+        p = getattr(itm, "standard_price", 0.0) if hasattr(itm, "standard_price") else (itm.get("standard_price", 0.0) if isinstance(itm, dict) else 0.0)
+        p = p or 0.0
+        c = getattr(itm, "currency", None) if hasattr(itm, "currency") else (itm.get("currency") if isinstance(itm, dict) else None)
+        norm = validate_price_currency(db, p, c, label_ar="عملة بند قائمة الأسعار")
+        if hasattr(itm, "currency"):
+            setattr(itm, "currency", norm)
+        elif isinstance(itm, dict):
+            itm["currency"] = norm
+
+
+def validate_quote_item_currencies(db: Session, items: Iterable[Any]) -> None:
+    """Validate currencies for broker quote items: required when unit_price > 0, normalized to uppercase."""
+    from modules.common.validators import validate_price_currency
+    for itm in items:
+        p = getattr(itm, "unit_price", 0.0) if hasattr(itm, "unit_price") else (itm.get("unit_price", 0.0) if isinstance(itm, dict) else 0.0)
+        p = p or 0.0
+        c = getattr(itm, "currency", None) if hasattr(itm, "currency") else (itm.get("currency") if isinstance(itm, dict) else None)
+        norm = validate_price_currency(db, p, c, label_ar="عملة بند عرض سعر المخلص")
+        if hasattr(itm, "currency"):
+            setattr(itm, "currency", norm)
+        elif isinstance(itm, dict):
+            itm["currency"] = norm
+
+
+def validate_expense_type_currency(db: Session, default_currency: Optional[str]) -> Optional[str]:
+    """Validate default_currency for clearance expense types against active currencies master."""
+    from modules.common.validators import require_currency_code
+    return require_currency_code(db, default_currency, label_ar="العملة الافتراضية لنوع المصروف")

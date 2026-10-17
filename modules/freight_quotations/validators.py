@@ -88,3 +88,20 @@ def validate_project_exists(db: Session, project_id: int):
         )
     return project_obj
 
+
+def validate_quotation_currencies(db: Session, quotations: list) -> None:
+    """Validate currency codes for all freight quotations: required when costs > 0, normalized to uppercase."""
+    from modules.common.validators import validate_price_currency
+    for q in quotations:
+        ocean = getattr(q, "ocean_freight_cost", 0.0) if hasattr(q, "ocean_freight_cost") else (q.get("ocean_freight_cost", 0.0) if isinstance(q, dict) else 0.0)
+        local = getattr(q, "local_charges_cost", 0.0) if hasattr(q, "local_charges_cost") else (q.get("local_charges_cost", 0.0) if isinstance(q, dict) else 0.0)
+        inland = getattr(q, "inland_cost", 0.0) if hasattr(q, "inland_cost") else (q.get("inland_cost", 0.0) if isinstance(q, dict) else 0.0)
+        total = getattr(q, "total_cost", 0.0) if hasattr(q, "total_cost") else (q.get("total_cost", 0.0) if isinstance(q, dict) else 0.0)
+        price = max(float(ocean or 0.0), float(local or 0.0), float(inland or 0.0), float(total or 0.0))
+        curr = getattr(q, "currency_code", None) if hasattr(q, "currency_code") else (q.get("currency_code") if isinstance(q, dict) else None)
+        normalized = validate_price_currency(db, price, curr, label_ar="عملة عرض الشحن")
+        if hasattr(q, "currency_code"):
+            setattr(q, "currency_code", normalized)
+        elif isinstance(q, dict):
+            q["currency_code"] = normalized
+

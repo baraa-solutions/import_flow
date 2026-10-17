@@ -33,7 +33,8 @@ def db():
     Base.metadata.create_all(bind=engine)
     session = sessionmaker(autocommit=False, autoflush=False, bind=engine)()
 
-    # Seed base provider
+    # Seed base provider and currencies
+    from modules.currencies.model import Currency
     provider = ExternalServiceProvider(
         provider_id=1,
         partner_code="FF-001",
@@ -42,6 +43,11 @@ def db():
         is_active=True,
     )
     session.add(provider)
+    session.add_all([
+        Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True),
+        Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True),
+        Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="E£", is_active=True),
+    ])
     session.commit()
 
     try:
@@ -61,6 +67,7 @@ def _make_item(crd: date, provider_id: int = 1, sailing_offset: int = 2, arrival
         "expected_line_delay_days": 0,
         "free_time_days": 14,
         "total_quotation_amount": 2000.0,
+        "quotation_currency": "USD",
     }
     data.update(kwargs)
     return ShippingScenarioItemCreate(**data)

@@ -38,6 +38,7 @@ def session_factory():
 @pytest.fixture
 def db(session_factory):
     session = session_factory()
+    from modules.currencies.model import Currency
     session.add_all([
         ExternalServiceProvider(
             provider_id=1,
@@ -53,6 +54,9 @@ def db(session_factory):
             partner_type="Freight Forwarder",
             is_active=True,
         ),
+        Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True),
+        Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True),
+        Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="E£", is_active=True),
     ])
     session.commit()
     yield session

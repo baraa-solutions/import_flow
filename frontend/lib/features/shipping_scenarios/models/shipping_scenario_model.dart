@@ -32,93 +32,93 @@ class ShippingScenarioItemModel {
 
   final bool container40ftApplicable;
   final double container40ftPrice;
-  final String container40ftCurrency;
+  final String? container40ftCurrency;
   final int container40ftQty;
 
   final bool container20ftApplicable;
   final double container20ftPrice;
-  final String container20ftCurrency;
+  final String? container20ftCurrency;
   final int container20ftQty;
 
   final bool lclCbmApplicable;
   final double lclCbmPrice;
-  final String lclCbmCurrency;
+  final String? lclCbmCurrency;
   final double lclCbmQty;
 
   final bool expressCourierApplicable;
   final double expressCourierPrice;
-  final String expressCourierCurrency;
+  final String? expressCourierCurrency;
 
   final bool eurAtrApplicable;
   final double eurAtrPrice;
-  final String eurAtrCurrency;
+  final String? eurAtrCurrency;
 
   final bool solasVgmApplicable;
   final double solasVgmPrice;
-  final String solasVgmCurrency;
+  final String? solasVgmCurrency;
 
   final bool vgmNotificationApplicable;
   final double vgmNotificationPrice;
-  final String vgmNotificationCurrency;
+  final String? vgmNotificationCurrency;
 
   final bool telexReleaseApplicable;
   final double telexReleasePrice;
-  final String telexReleaseCurrency;
+  final String? telexReleaseCurrency;
 
   final bool insuranceApplicable;
   final double insurancePrice;
-  final String insuranceCurrency;
+  final String? insuranceCurrency;
 
   final bool bookingCancellationApplicable;
   final double bookingCancellationPrice;
-  final String bookingCancellationCurrency;
+  final String? bookingCancellationCurrency;
 
   // 4 New fee fields requested by user
   final bool ics2FilingFeeApplicable;
   final double ics2FilingFeePrice;
-  final String ics2FilingFeeCurrency;
+  final String? ics2FilingFeeCurrency;
 
   final bool othersFeeApplicable;
   final double othersFeePrice;
-  final String othersFeeCurrency;
+  final String? othersFeeCurrency;
 
   final bool documentFeesApplicable;
   final double documentFeesPrice;
-  final String documentFeesCurrency;
+  final String? documentFeesCurrency;
 
   final bool waiverLetterFeeApplicable;
   final double waiverLetterFeePrice;
-  final String waiverLetterFeeCurrency;
+  final String? waiverLetterFeeCurrency;
 
   // New quotation fees: DTHC, Storage per week, Extra day storage
   final bool dthcApplicable;
   final double dthcPrice;
-  final String dthcCurrency;
+  final String? dthcCurrency;
 
   final bool storagePerWeekApplicable;
   final double storagePerWeekPrice;
-  final String storagePerWeekCurrency;
+  final String? storagePerWeekCurrency;
 
   final bool extraDayStorageApplicable;
   final double extraDayStoragePrice;
-  final String extraDayStorageCurrency;
+  final String? extraDayStorageCurrency;
 
   // Customs clearance quotation integration fields
   final bool clearanceFeeApplicable;
   final double clearanceFeePrice;
-  final String clearanceFeeCurrency;
+  final String? clearanceFeeCurrency;
 
   final bool inspectionFeeApplicable;
   final double inspectionFeePrice;
-  final String inspectionFeeCurrency;
+  final String? inspectionFeeCurrency;
 
   final bool inlandTransportFeeApplicable;
   final double inlandTransportFeePrice;
-  final String inlandTransportFeeCurrency;
+  final String? inlandTransportFeeCurrency;
 
   final bool portExpensesApplicable;
   final double portExpensesPrice;
-  final String portExpensesCurrency;
+  final String? portExpensesCurrency;
 
   ShippingScenarioItemModel({
     this.itemId,
@@ -152,91 +152,91 @@ class ShippingScenarioItemModel {
     
     this.container40ftApplicable = false,
     this.container40ftPrice = 0.0,
-    this.container40ftCurrency = 'USD',
+    this.container40ftCurrency,
     this.container40ftQty = 0,
     
     this.container20ftApplicable = false,
     this.container20ftPrice = 0.0,
-    this.container20ftCurrency = 'USD',
+    this.container20ftCurrency,
     this.container20ftQty = 0,
     
     this.lclCbmApplicable = false,
     this.lclCbmPrice = 0.0,
-    this.lclCbmCurrency = 'USD',
+    this.lclCbmCurrency,
     this.lclCbmQty = 0.0,
     
     this.expressCourierApplicable = false,
     this.expressCourierPrice = 0.0,
-    this.expressCourierCurrency = 'USD',
+    this.expressCourierCurrency,
     
     this.eurAtrApplicable = false,
     this.eurAtrPrice = 0.0,
-    this.eurAtrCurrency = 'USD',
+    this.eurAtrCurrency,
     
     this.solasVgmApplicable = false,
     this.solasVgmPrice = 0.0,
-    this.solasVgmCurrency = 'USD',
+    this.solasVgmCurrency,
     
     this.vgmNotificationApplicable = false,
     this.vgmNotificationPrice = 0.0,
-    this.vgmNotificationCurrency = 'USD',
+    this.vgmNotificationCurrency,
     
     this.telexReleaseApplicable = false,
     this.telexReleasePrice = 0.0,
-    this.telexReleaseCurrency = 'USD',
+    this.telexReleaseCurrency,
     
     this.insuranceApplicable = false,
     this.insurancePrice = 0.0,
-    this.insuranceCurrency = 'USD',
+    this.insuranceCurrency,
     
     this.bookingCancellationApplicable = false,
     this.bookingCancellationPrice = 0.0,
-    this.bookingCancellationCurrency = 'USD',
+    this.bookingCancellationCurrency,
 
     // New fee defaults
     this.ics2FilingFeeApplicable = false,
     this.ics2FilingFeePrice = 0.0,
-    this.ics2FilingFeeCurrency = 'USD',
+    this.ics2FilingFeeCurrency,
 
     this.othersFeeApplicable = false,
     this.othersFeePrice = 0.0,
-    this.othersFeeCurrency = 'USD',
+    this.othersFeeCurrency,
 
     this.documentFeesApplicable = false,
     this.documentFeesPrice = 0.0,
-    this.documentFeesCurrency = 'USD',
+    this.documentFeesCurrency,
 
     this.waiverLetterFeeApplicable = false,
     this.waiverLetterFeePrice = 0.0,
-    this.waiverLetterFeeCurrency = 'USD',
+    this.waiverLetterFeeCurrency,
 
     this.dthcApplicable = false,
     this.dthcPrice = 0.0,
-    this.dthcCurrency = 'USD',
+    this.dthcCurrency,
 
     this.storagePerWeekApplicable = false,
     this.storagePerWeekPrice = 0.0,
-    this.storagePerWeekCurrency = 'USD',
+    this.storagePerWeekCurrency,
 
     this.extraDayStorageApplicable = false,
     this.extraDayStoragePrice = 0.0,
-    this.extraDayStorageCurrency = 'USD',
+    this.extraDayStorageCurrency,
 
     this.clearanceFeeApplicable = false,
     this.clearanceFeePrice = 0.0,
-    this.clearanceFeeCurrency = 'EGP',
+    this.clearanceFeeCurrency,
 
     this.inspectionFeeApplicable = false,
     this.inspectionFeePrice = 0.0,
-    this.inspectionFeeCurrency = 'EGP',
+    this.inspectionFeeCurrency,
 
     this.inlandTransportFeeApplicable = false,
     this.inlandTransportFeePrice = 0.0,
-    this.inlandTransportFeeCurrency = 'EGP',
+    this.inlandTransportFeeCurrency,
 
     this.portExpensesApplicable = false,
     this.portExpensesPrice = 0.0,
-    this.portExpensesCurrency = 'EGP',
+    this.portExpensesCurrency,
   });
 
   factory ShippingScenarioItemModel.fromJson(Map<String, dynamic> json) {
@@ -283,91 +283,91 @@ class ShippingScenarioItemModel {
       
       container40ftApplicable: json['container_40ft_applicable'] ?? false,
       container40ftPrice: toDouble(json['container_40ft_price']),
-      container40ftCurrency: json['container_40ft_currency'] ?? 'USD',
+      container40ftCurrency: json['container_40ft_currency'] as String?,
       container40ftQty: toInt(json['container_40ft_qty']),
 
       container20ftApplicable: json['container_20ft_applicable'] ?? false,
       container20ftPrice: toDouble(json['container_20ft_price']),
-      container20ftCurrency: json['container_20ft_currency'] ?? 'USD',
+      container20ftCurrency: json['container_20ft_currency'] as String?,
       container20ftQty: toInt(json['container_20ft_qty']),
 
       lclCbmApplicable: json['lcl_cbm_applicable'] ?? false,
       lclCbmPrice: toDouble(json['lcl_cbm_price']),
-      lclCbmCurrency: json['lcl_cbm_currency'] ?? 'USD',
+      lclCbmCurrency: json['lcl_cbm_currency'] as String?,
       lclCbmQty: toDouble(json['lcl_cbm_qty']),
 
       expressCourierApplicable: json['express_courier_applicable'] ?? false,
       expressCourierPrice: toDouble(json['express_courier_price']),
-      expressCourierCurrency: json['express_courier_currency'] ?? 'USD',
+      expressCourierCurrency: json['express_courier_currency'] as String?,
 
       eurAtrApplicable: json['eur_atr_applicable'] ?? false,
       eurAtrPrice: toDouble(json['eur_atr_price']),
-      eurAtrCurrency: json['eur_atr_currency'] ?? 'USD',
+      eurAtrCurrency: json['eur_atr_currency'] as String?,
 
       solasVgmApplicable: json['solas_vgm_applicable'] ?? false,
       solasVgmPrice: toDouble(json['solas_vgm_price']),
-      solasVgmCurrency: json['solas_vgm_currency'] ?? 'USD',
+      solasVgmCurrency: json['solas_vgm_currency'] as String?,
 
       vgmNotificationApplicable: json['vgm_notification_applicable'] ?? false,
       vgmNotificationPrice: toDouble(json['vgm_notification_price']),
-      vgmNotificationCurrency: json['vgm_notification_currency'] ?? 'USD',
+      vgmNotificationCurrency: json['vgm_notification_currency'] as String?,
 
       telexReleaseApplicable: json['telex_release_applicable'] ?? false,
       telexReleasePrice: toDouble(json['telex_release_price']),
-      telexReleaseCurrency: json['telex_release_currency'] ?? 'USD',
+      telexReleaseCurrency: json['telex_release_currency'] as String?,
 
       insuranceApplicable: json['insurance_applicable'] ?? false,
       insurancePrice: toDouble(json['insurance_price']),
-      insuranceCurrency: json['insurance_currency'] ?? 'USD',
+      insuranceCurrency: json['insurance_currency'] as String?,
 
       bookingCancellationApplicable: json['booking_cancellation_applicable'] ?? false,
       bookingCancellationPrice: toDouble(json['booking_cancellation_price']),
-      bookingCancellationCurrency: json['booking_cancellation_currency'] ?? 'USD',
+      bookingCancellationCurrency: json['booking_cancellation_currency'] as String?,
 
       // New fee fields parsing
       ics2FilingFeeApplicable: json['ics2_filing_fee_applicable'] ?? false,
       ics2FilingFeePrice: toDouble(json['ics2_filing_fee_price']),
-      ics2FilingFeeCurrency: json['ics2_filing_fee_currency'] ?? 'USD',
+      ics2FilingFeeCurrency: json['ics2_filing_fee_currency'] as String?,
 
       othersFeeApplicable: json['others_fee_applicable'] ?? false,
       othersFeePrice: toDouble(json['others_fee_price']),
-      othersFeeCurrency: json['others_fee_currency'] ?? 'USD',
+      othersFeeCurrency: json['others_fee_currency'] as String?,
 
       documentFeesApplicable: json['document_fees_applicable'] ?? false,
       documentFeesPrice: toDouble(json['document_fees_price']),
-      documentFeesCurrency: json['document_fees_currency'] ?? 'USD',
+      documentFeesCurrency: json['document_fees_currency'] as String?,
 
       waiverLetterFeeApplicable: json['waiver_letter_fee_applicable'] ?? false,
       waiverLetterFeePrice: toDouble(json['waiver_letter_fee_price']),
-      waiverLetterFeeCurrency: json['waiver_letter_fee_currency'] ?? 'USD',
+      waiverLetterFeeCurrency: json['waiver_letter_fee_currency'] as String?,
 
       dthcApplicable: json['dthc_applicable'] ?? false,
       dthcPrice: toDouble(json['dthc_price']),
-      dthcCurrency: json['dthc_currency'] ?? 'USD',
+      dthcCurrency: json['dthc_currency'] as String?,
 
       storagePerWeekApplicable: json['storage_per_week_applicable'] ?? false,
       storagePerWeekPrice: toDouble(json['storage_per_week_price']),
-      storagePerWeekCurrency: json['storage_per_week_currency'] ?? 'USD',
+      storagePerWeekCurrency: json['storage_per_week_currency'] as String?,
 
       extraDayStorageApplicable: json['extra_day_storage_applicable'] ?? false,
       extraDayStoragePrice: toDouble(json['extra_day_storage_price']),
-      extraDayStorageCurrency: json['extra_day_storage_currency'] ?? 'USD',
+      extraDayStorageCurrency: json['extra_day_storage_currency'] as String?,
 
       clearanceFeeApplicable: json['clearance_fee_applicable'] ?? false,
       clearanceFeePrice: toDouble(json['clearance_fee_price']),
-      clearanceFeeCurrency: json['clearance_fee_currency'] ?? 'EGP',
+      clearanceFeeCurrency: json['clearance_fee_currency'] as String?,
 
       inspectionFeeApplicable: json['inspection_fee_applicable'] ?? false,
       inspectionFeePrice: toDouble(json['inspection_fee_price']),
-      inspectionFeeCurrency: json['inspection_fee_currency'] ?? 'EGP',
+      inspectionFeeCurrency: json['inspection_fee_currency'] as String?,
 
       inlandTransportFeeApplicable: json['inland_transport_fee_applicable'] ?? false,
       inlandTransportFeePrice: toDouble(json['inland_transport_fee_price']),
-      inlandTransportFeeCurrency: json['inland_transport_fee_currency'] ?? 'EGP',
+      inlandTransportFeeCurrency: json['inland_transport_fee_currency'] as String?,
 
       portExpensesApplicable: json['port_expenses_applicable'] ?? false,
       portExpensesPrice: toDouble(json['port_expenses_price']),
-      portExpensesCurrency: json['port_expenses_currency'] ?? 'EGP',
+      portExpensesCurrency: json['port_expenses_currency'] as String?,
     );
   }
 

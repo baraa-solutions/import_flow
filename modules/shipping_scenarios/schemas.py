@@ -25,96 +25,96 @@ class ShippingScenarioItemBase(BaseModel):
 
     # Quotation fields
     free_time_days: int = 14
-    quotation_currency: str = "USD"
+    quotation_currency: Optional[str] = None
     total_quotation_amount: float = 0.0
 
     container_40ft_applicable: bool = False
     container_40ft_price: float = 0.0
-    container_40ft_currency: str = "USD"
+    container_40ft_currency: Optional[str] = None
     container_40ft_qty: int = 0
 
     container_20ft_applicable: bool = False
     container_20ft_price: float = 0.0
-    container_20ft_currency: str = "USD"
+    container_20ft_currency: Optional[str] = None
     container_20ft_qty: int = 0
 
     lcl_cbm_applicable: bool = False
     lcl_cbm_price: float = 0.0
-    lcl_cbm_currency: str = "USD"
+    lcl_cbm_currency: Optional[str] = None
     lcl_cbm_qty: float = 0.0
 
     express_courier_applicable: bool = False
     express_courier_price: float = 0.0
-    express_courier_currency: str = "USD"
+    express_courier_currency: Optional[str] = None
 
     eur_atr_applicable: bool = False
     eur_atr_price: float = 0.0
-    eur_atr_currency: str = "USD"
+    eur_atr_currency: Optional[str] = None
 
     solas_vgm_applicable: bool = False
     solas_vgm_price: float = 0.0
-    solas_vgm_currency: str = "USD"
+    solas_vgm_currency: Optional[str] = None
 
     vgm_notification_applicable: bool = False
     vgm_notification_price: float = 0.0
-    vgm_notification_currency: str = "USD"
+    vgm_notification_currency: Optional[str] = None
 
     telex_release_applicable: bool = False
     telex_release_price: float = 0.0
-    telex_release_currency: str = "USD"
+    telex_release_currency: Optional[str] = None
 
     insurance_applicable: bool = False
     insurance_price: float = 0.0
-    insurance_currency: str = "USD"
+    insurance_currency: Optional[str] = None
 
     booking_cancellation_applicable: bool = False
     booking_cancellation_price: float = 0.0
-    booking_cancellation_currency: str = "USD"
+    booking_cancellation_currency: Optional[str] = None
 
     ics2_filing_fee_applicable: bool = False
     ics2_filing_fee_price: float = 0.0
-    ics2_filing_fee_currency: str = "USD"
+    ics2_filing_fee_currency: Optional[str] = None
 
     others_fee_applicable: bool = False
     others_fee_price: float = 0.0
-    others_fee_currency: str = "USD"
+    others_fee_currency: Optional[str] = None
 
     document_fees_applicable: bool = False
     document_fees_price: float = 0.0
-    document_fees_currency: str = "USD"
+    document_fees_currency: Optional[str] = None
 
     waiver_letter_fee_applicable: bool = False
     waiver_letter_fee_price: float = 0.0
-    waiver_letter_fee_currency: str = "USD"
+    waiver_letter_fee_currency: Optional[str] = None
 
     dthc_applicable: bool = False
     dthc_price: float = 0.0
-    dthc_currency: str = "USD"
+    dthc_currency: Optional[str] = None
 
     storage_per_week_applicable: bool = False
     storage_per_week_price: float = 0.0
-    storage_per_week_currency: str = "USD"
+    storage_per_week_currency: Optional[str] = None
 
     extra_day_storage_applicable: bool = False
     extra_day_storage_price: float = 0.0
-    extra_day_storage_currency: str = "USD"
+    extra_day_storage_currency: Optional[str] = None
 
     # Customs clearance quotation integration fields
     clearance_fee_applicable: bool = False
     clearance_fee_price: float = 0.0
-    clearance_fee_currency: str = "EGP"
+    clearance_fee_currency: Optional[str] = None
 
     inspection_fee_applicable: bool = False
     inspection_fee_price: float = 0.0
-    inspection_fee_currency: str = "EGP"
+    inspection_fee_currency: Optional[str] = None
 
     inland_transport_fee_applicable: bool = False
     inland_transport_fee_price: float = 0.0
-    inland_transport_fee_currency: str = "EGP"
+    inland_transport_fee_currency: Optional[str] = None
 
     port_expenses_applicable: bool = False
     port_expenses_price: float = 0.0
-    port_expenses_currency: str = "EGP"
+    port_expenses_currency: Optional[str] = None
 
 
 class ShippingScenarioItemCreate(ShippingScenarioItemBase):
