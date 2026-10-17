@@ -1,5 +1,5 @@
 from datetime import date, datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
