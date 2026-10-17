@@ -113,7 +113,8 @@ def test_invoice_bl_match_session_lifecycle(db_session):
     # Phase 3a DOC-12: the certifier is the logged-in user (``user``); the payload's certified_by is ignored.
     cert_session = create_invoice_bl_match_session_service(db_session, certified_payload, user="Eng. Ahmed Sorour")
     assert cert_session.is_draft is False
-    assert cert_session.overall_status == "FULLY_MATCHED"
+    # BE03-T05: overall_status is server-owned (computed from invoice_data vs bl_data); the payload value is ignored.
+    assert cert_session.overall_status == "ACCEPTED_WITH_WARNINGS"
 
     # 6. Verify reflection in CustomsDocumentApproval
     db_session.refresh(inv_approval)
@@ -186,8 +187,18 @@ def test_docs_customs_approval_session_lifecycle(db_session):
         customs_broker_name="Al-Amal Customs Clearance",
         notes="All documents certified for customs clearance",
     )
+    for i, dt in enumerate(["Commercial Invoice", "Packing List", "Bill of Lading", "Certificate of Origin", "Inspection Certificate"], start=1):
+        db_session.add(CustomsDocumentApproval(
+            approval_code=f"CDA-IBL-{file.import_file_id}-{i}",
+            import_file_id=file.import_file_id,
+            document_type=dt,
+            overall_status="Approved for Clearance",
+            is_active=True,
+        ))
+    db_session.commit()
     final_res = create_customs_approval_session_service(db_session, final_payload)
     assert final_res.is_draft is False
+
     assert final_res.overall_status == "APPROVED"
 
     # Verify ImportFile progression

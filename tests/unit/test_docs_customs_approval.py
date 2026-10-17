@@ -14,9 +14,11 @@ from modules.suppliers.model import Supplier
 from modules.purchase_orders.model import PurchaseOrder, POLineItem
 from modules.import_files.model import ImportFile
 from modules.import_documentation.model import AcidRegistrationSession
+from fastapi import HTTPException
 from modules.docs_customs_approval.model import (
     CustomsDocumentApproval,
     DiscrepancyRectificationTicket,
+    DocsCustomsApprovalSession,
 )
 from modules.docs_customs_approval.schemas import (
     CustomsDocumentApprovalCreate,
@@ -24,7 +26,9 @@ from modules.docs_customs_approval.schemas import (
     CustomsBrokerReviewPayload,
     DiscrepancyTicketCreate,
     DiscrepancyTicketResolve,
+    DocsCustomsApprovalSessionCreate,
 )
+
 import modules.docs_customs_approval.service as service
 
 
@@ -273,3 +277,151 @@ def test_be03_t11_dca_po_of_another_file_sharing_po_number_hs_not_checked(db_ses
     hs_check = next((c for c in audit_res.checks if c.parameter == "HS Code Classification"), None)
     assert hs_check is not None
     assert hs_check.status == "Not Checked"
+
+
+# ── BE03-T08 DCA Final Session Approvals Tests ──────────────────────────────
+
+def test_be03_t08_final_save_rejected_status_raises_400_lifecycle_not_advanced(db_session, setup_import_data):
+    file = setup_import_data
+    file.progress_percent = 40.0
+    file.current_module = "STEP_08_PO"
+    db_session.commit()
+
+    # Create approved rows for all 4 core docs
+    doc_types = ["Commercial Invoice", "Packing List", "Bill of Lading", "Certificate of Origin"]
+    for i, dt in enumerate(doc_types, start=1):
+        db_session.add(CustomsDocumentApproval(
+            approval_code=f"CDA-T08-1-{i}",
+            import_file_id=file.import_file_id,
+            document_type=dt,
+            overall_status="Approved for Clearance",
+            is_active=True,
+        ))
+    db_session.commit()
+
+    # Final save with final_invoice_status="Rejected"
+    payload = DocsCustomsApprovalSessionCreate(
+        import_file_id=file.import_file_id,
+        is_draft=False,
+        final_invoice_ref="INV-001",
+        final_invoice_status="Rejected",
+        final_pl_status="Approved",
+        draft_bl_status="Approved",
+        coo_status="Approved",
+        coc_status="Waived / Not Required",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.create_customs_approval_session_service(db_session, payload)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail["code"] == "DCA_SESSION_NOT_READY"
+
+    # Verify lifecycle not advanced
+    db_session.refresh(file)
+    assert file.progress_percent == 40.0
+    assert "STEP_10" not in (file.current_module or "")
+
+
+def test_be03_t08_approval_row_under_review_raises_400_with_unapproved_documents(db_session, setup_import_data):
+    file = setup_import_data
+
+    # Commercial Invoice, Packing List, Certificate of Origin are "Approved for Clearance"
+    # Bill of Lading is "Under Review"
+    statuses = {
+        "Commercial Invoice": "Approved for Clearance",
+        "Packing List": "Approved for Clearance",
+        "Bill of Lading": "Under Review",
+        "Certificate of Origin": "Approved for Clearance",
+    }
+    for i, (dt, st) in enumerate(statuses.items(), start=1):
+        db_session.add(CustomsDocumentApproval(
+            approval_code=f"CDA-T08-2-{i}",
+            import_file_id=file.import_file_id,
+            document_type=dt,
+            overall_status=st,
+            is_active=True,
+        ))
+    db_session.commit()
+
+    payload = DocsCustomsApprovalSessionCreate(
+        import_file_id=file.import_file_id,
+        is_draft=False,
+        final_invoice_status="Approved",
+        final_pl_status="Approved",
+        draft_bl_status="Approved",
+        coo_status="Approved",
+        coc_status="Waived / Not Required",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.create_customs_approval_session_service(db_session, payload)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail["code"] == "DCA_SESSION_NOT_READY"
+    assert exc_info.value.detail["unapproved_documents"] == ["Bill of Lading"]
+
+
+def test_be03_t08_all_approved_returns_session_and_advances_lifecycle(db_session, setup_import_data):
+    file = setup_import_data
+    file.progress_percent = 40.0
+    db_session.commit()
+
+    doc_types = ["Commercial Invoice", "Packing List", "Bill of Lading", "Certificate of Origin"]
+    for i, dt in enumerate(doc_types, start=1):
+        db_session.add(CustomsDocumentApproval(
+            approval_code=f"CDA-T08-3-{i}",
+            import_file_id=file.import_file_id,
+            document_type=dt,
+            overall_status="Approved for Clearance",
+            is_active=True,
+        ))
+    db_session.commit()
+
+    payload = DocsCustomsApprovalSessionCreate(
+        import_file_id=file.import_file_id,
+        is_draft=False,
+        overall_status="DRAFT",  # Should be ignored and set to APPROVED
+        final_invoice_status="Approved",
+        final_pl_status="Approved",
+        draft_bl_status="Approved",
+        coo_status="Approved",
+        coc_status="Waived / Not Required",
+    )
+
+    res = service.create_customs_approval_session_service(db_session, payload)
+    assert res.session_id is not None
+    assert res.is_draft is False
+    assert res.overall_status == "APPROVED"
+
+    db_session.refresh(file)
+    assert file.progress_percent >= 60.0
+    assert "STEP_10" in (file.current_module or "")
+
+
+def test_be03_t08_invalid_session_status_value_raises_422(db_session, setup_import_data):
+    file = setup_import_data
+    from pydantic import ValidationError
+
+    # When constructing schema with invalid status
+    with pytest.raises(ValidationError):
+        DocsCustomsApprovalSessionCreate(
+            import_file_id=file.import_file_id,
+            is_draft=True,
+            final_invoice_status="INVALID_STATUS",
+        )
+
+
+def test_be03_t08_body_overall_status_ignored_draft_is_draft_final_is_approved(db_session, setup_import_data):
+    file = setup_import_data
+
+    # Draft session with client overall_status="APPROVED" -> server sets "DRAFT"
+    draft_payload = DocsCustomsApprovalSessionCreate(
+        import_file_id=file.import_file_id,
+        is_draft=True,
+        overall_status="APPROVED",
+    )
+    draft_res = service.create_customs_approval_session_service(db_session, draft_payload)
+    assert draft_res.is_draft is True
+    assert draft_res.overall_status == "DRAFT"
+
