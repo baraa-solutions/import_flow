@@ -10,6 +10,7 @@ The acting user always comes from the authenticated user, never from the payload
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 import modules.financial_approval.service as service
@@ -77,7 +78,8 @@ async def smart_extract_swift_from_file(
     _: User = Depends(can_manage),
 ):
     content_bytes = await file.read(service.MAX_SWIFT_FILE_BYTES + 1)  # one byte over the cap is enough for the 413
-    return service.smart_extract_swift_from_file_service(
+    return await run_in_threadpool(
+        service.smart_extract_swift_from_file_service,
         db=db,
         filename=file.filename or "uploaded_swift_document",
         content_bytes=content_bytes,
