@@ -110,6 +110,31 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "LC_FILE_RESUMED": {"note": "Operations resumed: {notes}"},
     "LC_FILE_RESUMED_DEFAULT": {"note": "Operations resumed: shipment operations restarted"},
+    # ── Lifecycle board guards (BEX-T01) ──────────────────────────────────────────
+    "LC_FILE_NOT_FOUND": {
+        "note": "Import file {import_file_code} was not found or is inactive.",
+    },
+    "LC_FILE_REF_REQUIRED": {
+        "note": "Import file id or code is required.",
+    },
+    "LC_FILE_NOT_ACTIVE": {
+        "note": "Import file {import_file_code} is {status} and cannot be transitioned on the lifecycle board.",
+    },
+    "LC_STEP_NOT_ACTIVE": {
+        "note": "Step {step_code} is not currently active on import file {import_file_code}.",
+    },
+    "LC_STEP_ALREADY_COMPLETED": {
+        "note": "Step {step_code} is already completed or skipped on import file {import_file_code}.",
+    },
+    "LC_STEP_SEQUENCE_INVALID": {
+        "note": "Step {step_code} cannot be activated ahead of sequence for non-admin users.",
+    },
+    "LC_TARGET_STEP_INVALID": {
+        "note": "Cannot directly advance to {step_code} without administrator privileges.",
+    },
+    "LC_CLOSURE_STEP_RESERVED": {
+        "note": "Step STEP_21 is reserved for the file closure module and cannot be completed directly from HTTP.",
+    },
     # ── Lifecycle board: smart tasks for the next step ──────────────────────────
     "LC_TASK_NEXT_STEP": {
         "title": "[{import_file_code}] - {step_code}",

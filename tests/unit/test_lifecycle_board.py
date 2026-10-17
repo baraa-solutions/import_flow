@@ -521,6 +521,7 @@ def test_sync_lifecycle_step_api(db_session):
 
     app.dependency_overrides[get_db] = override_get_db
 
+    repo.save_or_update_activity(db_session, "IMP-2026-0001", "STEP_06", status="In-Progress")
     try:
         with TestClient(app) as client:
             payload = {

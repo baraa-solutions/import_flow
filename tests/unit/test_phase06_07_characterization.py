@@ -217,6 +217,7 @@ def test_t4_cl03_variance_unrounded_amount_pct_rounded(db):
         actual_duty_total=1000.1,
         assessment_status="Assessed",
         payment_status="Payment Requested",
+        nafeza_claim_number="CLM-CHAR-T4",
     )
     rec = record_customs_duty_payment_service(
         db,
