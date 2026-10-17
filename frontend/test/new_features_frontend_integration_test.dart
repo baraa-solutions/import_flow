@@ -199,6 +199,14 @@ void main() {
 
       expect(find.byType(GOEICVerificationDialog), findsOneWidget);
       expect(find.textContaining('بوابة فحص الرقابة على الصادرات والواردات'), findsOneWidget);
+      // Clean initial state: no fabricated execution or verdict before user input
+      expect(find.textContaining('مصرح بالشحن'), findsNothing);
+
+      // Enter HS code and check compliance
+      await tester.enterText(find.byType(TextFormField).first, '8415820010');
+      await tester.tap(find.byIcon(Icons.search));
+      await tester.pumpAndSettle();
+
       expect(find.textContaining('مصرح بالشحن'), findsOneWidget);
     });
 

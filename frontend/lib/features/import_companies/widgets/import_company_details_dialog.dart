@@ -217,7 +217,100 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: _buildSimpleInfoRow(context, Icons.email_outlined, l10n.emailRowLabel, company.email ?? '-'),
+                                child: _buildSimpleInfoRow(context, Icons.smartphone, l10n.importCompaniesMobileLabel, company.mobileNumber ?? '-'),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildSimpleInfoRow(context, Icons.print, l10n.importCompaniesFaxLabel, company.faxNumber ?? '-'),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildSimpleInfoRow(context, Icons.email_outlined, 'البريد الأساسي', company.primaryEmail ?? company.email ?? '-'),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildSimpleInfoRow(context, Icons.mark_email_read_outlined, 'البريد الثانوي', company.secondaryEmail ?? '-'),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildSimpleInfoRow(context, Icons.language, l10n.importCompaniesWebsiteLabel, company.website ?? '-'),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildSimpleInfoRow(
+                                  context,
+                                  Icons.vpn_key_rounded,
+                                  l10n.importCompaniesNafezaTokenLabel,
+                                  company.maskedNafezaToken ?? (company.hasNafezaToken ? '****' : '-'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // ── Section 3: Trademark & Quality Certificates ───────────────────
+                    _buildSectionHeader(Icons.verified_rounded, l10n.importCompaniesCertificatesSection),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50.withOpacity(0.35),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.shade300),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildSimpleInfoRow(
+                                  context,
+                                  Icons.verified_outlined,
+                                  'WIPO Madrid Monitor',
+                                  company.hasWipo ? (company.wipoNumber != null && company.wipoNumber!.isNotEmpty ? 'مسجل (#${company.wipoNumber})' : 'نعم (مسجل)') : 'غير مسجل',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildSimpleInfoRow(
+                                  context,
+                                  Icons.verified_outlined,
+                                  'EUIPO (أوروبا)',
+                                  company.hasEuipo ? (company.euipoNumber != null && company.euipoNumber!.isNotEmpty ? 'مسجل (#${company.euipoNumber})' : 'نعم (مسجل)') : 'غير مسجل',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildSimpleInfoRow(
+                                  context,
+                                  Icons.public,
+                                  'Global Brand Database',
+                                  company.hasGlobalBrand ? (company.globalBrandNumber != null && company.globalBrandNumber!.isNotEmpty ? 'مسجل (#${company.globalBrandNumber})' : 'نعم (مسجل)') : 'غير مسجل',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildSimpleInfoRow(
+                                  context,
+                                  Icons.workspace_premium_outlined,
+                                  'ISO 9001 Certificate',
+                                  company.hasIso9001 ? (company.iso9001Number != null && company.iso9001Number!.isNotEmpty ? 'معتمد (#${company.iso9001Number})' : 'نعم (معتمد)') : 'غير معتمد',
+                                ),
                               ),
                             ],
                           ),
@@ -292,7 +385,10 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         icon: const Icon(Icons.copy_all_rounded, size: 16),
                         label: Text(l10n.importCompanyCopySummaryBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () {
-                          final fullText = MasterDataExportService.generateImporterWhatsAppText(company);
+                          final fullText = MasterDataExportService.generateImporterWhatsAppText(
+                            company,
+                            isArabic: context.l10n.isArabic,
+                          );
                           CopyHelper.copy(context, fullText, customMessage: l10n.importCompanyCopySummarySuccess);
                         },
                       ),
@@ -529,103 +625,146 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
 
   void _showWhatsAppPreviewModal(BuildContext context) {
     final l10n = context.l10n;
-    final text = MasterDataExportService.generateImporterWhatsAppText(company);
+    bool isArabic = l10n.isArabic;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366)),
-            const SizedBox(width: 8),
-            Text(l10n.whatsappPreviewTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: 480,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFA5D6A7)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final text = MasterDataExportService.generateImporterWhatsAppText(company, isArabic: isArabic);
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(l10n.whatsappPreviewTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
-                child: SelectableText(
-                  text,
-                  style: const TextStyle(fontSize: 12, height: 1.4, fontFamily: 'monospace'),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment<bool>(value: true, label: Text('عربي', style: TextStyle(fontSize: 11))),
+                    ButtonSegment<bool>(value: false, label: Text('EN', style: TextStyle(fontSize: 11))),
+                  ],
+                  selected: {isArabic},
+                  onSelectionChanged: (newSelection) {
+                    setModalState(() => isArabic = newSelection.first);
+                  },
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                 ),
+              ],
+            ),
+            content: SizedBox(
+              width: 500,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFA5D6A7)),
+                    ),
+                    child: SelectableText(
+                      text,
+                      style: const TextStyle(fontSize: 12, height: 1.4, fontFamily: 'monospace'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.close)),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+                icon: const Icon(Icons.copy, color: Colors.white, size: 16),
+                label: Text(l10n.copyWhatsappTextBtn, style: const TextStyle(color: Colors.white)),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  CopyHelper.copy(context, text, customMessage: l10n.whatsappCopiedSuccess);
+                },
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.close)),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
-            icon: const Icon(Icons.copy, color: Colors.white, size: 16),
-            label: Text(l10n.copyWhatsappTextBtn, style: const TextStyle(color: Colors.white)),
-            onPressed: () {
-              Navigator.pop(ctx);
-              CopyHelper.copy(context, text, customMessage: l10n.whatsappCopiedSuccess);
-            },
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
   void _showEmailPreviewModal(BuildContext context) {
     final l10n = context.l10n;
-    final subject = MasterDataExportService.generateImporterEmailSubject(company);
-    final body = MasterDataExportService.generateImporterEmailBody(company);
+    bool isArabic = l10n.isArabic;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.mail_outline_rounded, color: AppTheme.cobalt),
-            const SizedBox(width: 8),
-            Text(l10n.emailPreviewTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: 520,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.emailSubjectPrefix(subject), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final subject = MasterDataExportService.generateImporterEmailSubject(company, isArabic: isArabic);
+          final body = MasterDataExportService.generateImporterEmailBody(company, isArabic: isArabic);
+
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.mail_outline_rounded, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(l10n.emailPreviewTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
-                child: SelectableText(
-                  body,
-                  style: const TextStyle(fontSize: 12, height: 1.4),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment<bool>(value: true, label: Text('عربي', style: TextStyle(fontSize: 11))),
+                    ButtonSegment<bool>(value: false, label: Text('EN', style: TextStyle(fontSize: 11))),
+                  ],
+                  selected: {isArabic},
+                  onSelectionChanged: (newSelection) {
+                    setModalState(() => isArabic = newSelection.first);
+                  },
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                 ),
+              ],
+            ),
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.emailSubjectPrefix(subject), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: SelectableText(
+                      body,
+                      style: const TextStyle(fontSize: 12, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.close)),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                icon: const Icon(Icons.copy, color: Colors.white, size: 16),
+                label: Text(l10n.copyEmailTextBtn, style: const TextStyle(color: Colors.white)),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  CopyHelper.copy(context, '$subject\n\n$body', customMessage: l10n.emailCopiedSuccess);
+                },
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.close)),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-            icon: const Icon(Icons.copy, color: Colors.white, size: 16),
-            label: Text(l10n.copyEmailTextBtn, style: const TextStyle(color: Colors.white)),
-            onPressed: () {
-              Navigator.pop(ctx);
-              CopyHelper.copy(context, '$subject\n\n$body', customMessage: l10n.emailCopiedSuccess);
-            },
-          ),
-        ],
+          );
+        },
       ),
     );
   }

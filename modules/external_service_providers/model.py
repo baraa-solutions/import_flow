@@ -38,7 +38,9 @@ class ExternalServiceProvider(Base):
     # For Shipping Lines & Carriers:
     scac_code = Column(String(20))
     tracking_url = Column(String(300))
-    default_free_days = Column(Integer, default=14, nullable=True)
+    default_free_days = Column(Integer, default=None, nullable=True)
+    local_agent_name = Column(String(200))
+    booking_email = Column(String(150))
 
     # For Freight Forwarders:
     fiata_id = Column(String(50))
@@ -58,10 +60,12 @@ class ExternalServiceProvider(Base):
     insurance_license_number = Column(String(100))
     insurance_coverage_types = Column(String(300))
 
-    # For Commercial Banks:
+    # For Commercial Banks & Financial Accounts:
     swift_code = Column(String(20))
     bank_code = Column(String(20))
     branch_name = Column(String(100))
+    account_number = Column(String(100))
+    iban = Column(String(100))
 
     # ==================================================
     # Contact Information
@@ -80,6 +84,7 @@ class ExternalServiceProvider(Base):
     # Financial & Performance Rating
     # ==================================================
     payment_type = Column(String(50), default="Credit")  # Cash, Credit, Deferred
+    payment_terms = Column(String(100), nullable=True)  # Net 30, Net 60, Advance, etc.
     credit_limit = Column(Float, default=0.0)
     rating = Column(Float, default=5.0)  # 1 to 5 stars
 
