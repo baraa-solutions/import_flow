@@ -22,10 +22,15 @@ class UserModel {
   });
 
   bool get isAdmin => role.toUpperCase() == 'ADMIN';
-  bool get isManager => role.toUpperCase() == 'MANAGER';
-  bool get isOperator => role.toUpperCase() == 'OPERATOR';
+  bool get isManager =>
+      role.toUpperCase() == 'MANAGER' ||
+      role.toUpperCase() == 'GENERAL_MANAGER';
+  bool get isOperator =>
+      role.toUpperCase() == 'OPERATOR' ||
+      role.toUpperCase() == 'LOGISTICS_OPERATOR';
   bool get canViewAllRecords => isAdmin || isManager;
   bool get canManageStepConfig => isAdmin || isManager;
+  bool get canManageUsers => isAdmin;
   /// Email server settings (/smart-email/settings, test-connection, send-email) are admin-only.
   bool get canManageEmailSettings => isAdmin;
 

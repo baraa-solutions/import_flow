@@ -18,6 +18,7 @@ import 'paged_list_notifier.dart';
 import 'paged_table_column.dart';
 import 'paged_table_column_picker_dialog.dart';
 import 'row_action.dart';
+import '../../services/file_save_helper.dart';
 
 /// Standard, high-performance, virtualized Paged Data Table for ImportFlow ERP.
 ///
@@ -87,6 +88,9 @@ class PagedDataTable<T> extends ConsumerStatefulWidget {
   /// Custom exporter callback for all matching items.
   final Future<void> Function(List<T> items)? onExport;
 
+  /// Optional data source used for full exports across all pages.
+  final PagedSource<T>? source;
+
   const PagedDataTable({
     super.key,
     this.storageKey,
@@ -107,6 +111,7 @@ class PagedDataTable<T> extends ConsumerStatefulWidget {
     this.pageSizes = const [25, 50, 100],
     this.onRefresh,
     this.onExport,
+    this.source,
   });
 
   @override
@@ -138,6 +143,7 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
   // Keyboard navigation & focus
   int _focusedIndex = 0;
   final FocusNode _tableFocusNode = FocusNode();
+  final FocusNode _searchFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -161,6 +167,15 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
     }
     if (widget.state.query.search != _searchController.text && !_searchController.value.isComposingRangeValid) {
       _searchController.text = widget.state.query.search;
+    }
+    final itemsCount = widget.state.data?.items.length ?? 0;
+    if (widget.state.query.page != oldWidget.state.query.page ||
+        widget.state.data != oldWidget.state.data) {
+      if (itemsCount == 0) {
+        _focusedIndex = 0;
+      } else if (_focusedIndex >= itemsCount) {
+        _focusedIndex = itemsCount - 1;
+      }
     }
     // Check if new columns were added
     for (final col in widget.columns) {
@@ -220,6 +235,7 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
   void dispose() {
     _searchDebounce?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _headerHorizontalController.dispose();
     _bodyHorizontalController.dispose();
     _pinnedVerticalController.dispose();
@@ -311,8 +327,7 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
     }
 
     widget.onQueryChanged(widget.state.query.copyWith(
-      sort: newSort,
-      clearSort: newSort == null,
+      sort: newSort, // null clears the sort (ListQuery.copyWith sentinel)
       page: 1,
     ));
   }
@@ -377,33 +392,59 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
     );
   }
 
+  void _scrollToFocusedIndex(int index) {
+    if (!_scrollVerticalController.hasClients) return;
+    final density = ref.read(displayDensityProvider);
+    final rowHeight = density.rowHeight;
+    final targetOffset = index * rowHeight;
+    final currentOffset = _scrollVerticalController.offset;
+    final viewportHeight = _scrollVerticalController.position.viewportDimension;
+
+    if (targetOffset < currentOffset) {
+      _scrollVerticalController.jumpTo(max(0.0, targetOffset));
+    } else if (targetOffset + rowHeight > currentOffset + viewportHeight) {
+      final newOffset = targetOffset + rowHeight - viewportHeight;
+      _scrollVerticalController.jumpTo(min(_scrollVerticalController.position.maxScrollExtent, newOffset));
+    }
+  }
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final isCtrl = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
+
+    if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyF) {
+      _searchFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
 
     final items = widget.state.data?.items ?? [];
     if (items.isEmpty) return KeyEventResult.ignored;
 
-    final isCtrl = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
-
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      final newIndex = min(items.length - 1, _focusedIndex + 1);
       setState(() {
-        _focusedIndex = min(items.length - 1, _focusedIndex + 1);
+        _focusedIndex = newIndex;
       });
+      _scrollToFocusedIndex(newIndex);
       return KeyEventResult.handled;
     } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      final newIndex = max(0, _focusedIndex - 1);
       setState(() {
-        _focusedIndex = max(0, _focusedIndex - 1);
+        _focusedIndex = newIndex;
       });
+      _scrollToFocusedIndex(newIndex);
       return KeyEventResult.handled;
     } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+      if (_focusedIndex < 0 || _focusedIndex >= items.length) return KeyEventResult.ignored;
       final focusedRow = items[_focusedIndex];
       if (widget.onOpen != null) {
         widget.onOpen!(focusedRow);
       } else if (widget.rowActions != null) {
         final actions = widget.rowActions!(focusedRow);
         final viewAction = actions.where((a) => a.kind == RowActionKind.view).firstOrNull;
-        if (viewAction != null && viewAction.enabled) {
-          viewAction.run(focusedRow);
+        if (viewAction != null) {
+          RowActionsBar.executeAction(context, viewAction, focusedRow, ref: ref);
         }
       }
       return KeyEventResult.handled;
@@ -419,17 +460,19 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
       }
       return KeyEventResult.handled;
     } else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyC) {
+      if (_focusedIndex < 0 || _focusedIndex >= items.length) return KeyEventResult.ignored;
       final activeColumns = _getActiveColumns();
       final focusedRow = items[_focusedIndex];
       _copyRowAsTsv(focusedRow, activeColumns, context.l10n);
       return KeyEventResult.handled;
     } else if (event.logicalKey == LogicalKeyboardKey.delete) {
+      if (_focusedIndex < 0 || _focusedIndex >= items.length) return KeyEventResult.ignored;
       final focusedRow = items[_focusedIndex];
       if (widget.rowActions != null) {
         final actions = widget.rowActions!(focusedRow);
         final delAction = actions.where((a) => a.kind == RowActionKind.delete).firstOrNull;
-        if (delAction != null && delAction.enabled) {
-          delAction.run(focusedRow);
+        if (delAction != null) {
+          RowActionsBar.executeAction(context, delAction, focusedRow, ref: ref);
         }
       }
       return KeyEventResult.handled;
@@ -549,148 +592,341 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
           ),
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Toolbar leading (title / custom widget)
-          if (widget.toolbarLeading != null) ...[
-            widget.toolbarLeading!,
-            const SizedBox(width: 12),
-          ],
+          Row(
+            children: [
+              // Toolbar leading (title / custom widget)
+              if (widget.toolbarLeading != null) ...[
+                widget.toolbarLeading!,
+                const SizedBox(width: 12),
+              ],
 
-          // Bulk actions if any selected
-          if (hasSelection && widget.bulkActions != null) ...[
-            Expanded(
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cobaltLight,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      l.tableSelectedCount(_selectedKeys.length),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.cobalt,
+              // Bulk actions if any selected
+              if (hasSelection && widget.bulkActions != null) ...[
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobaltLight,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          l.tableSelectedCount(_selectedKeys.length),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.cobalt,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: widget.bulkActions!(_selectedKeys)),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                // Search field
+                SizedBox(
+                  width: 240,
+                  height: 34,
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    decoration: InputDecoration(
+                      hintText: l.tableSearchHint,
+                      prefixIcon: const Icon(Icons.search, size: 16),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 14),
+                              onPressed: () {
+                                _searchController.clear();
+                                _onSearchChanged('');
+                              },
+                            )
+                          : null,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                          color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                        ),
                       ),
                     ),
+                    onChanged: _onSearchChanged,
                   ),
+                ),
+
+                // Toolbar filters slot
+                if (widget.toolbarFilters != null) ...[
                   const SizedBox(width: 8),
-                  Expanded(child: widget.bulkActions!(_selectedKeys)),
+                  ...widget.toolbarFilters!,
                 ],
-              ),
-            ),
-          ] else ...[
-            // Search field
-            SizedBox(
-              width: 240,
-              height: 34,
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: l.tableSearchHint,
-                  prefixIcon: const Icon(Icons.search, size: 16),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 14),
-                          onPressed: () {
-                            _searchController.clear();
-                            _onSearchChanged('');
-                          },
-                        )
-                      : null,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide(
+
+                const Spacer(),
+
+                // Total count badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkCardBackground : Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
                       color: isDark ? AppTheme.darkBorder : AppTheme.border,
                     ),
                   ),
+                  child: Text(
+                    l.tableTotalCount(total),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                    ),
+                  ),
                 ),
-                onChanged: _onSearchChanged,
-              ),
-            ),
+                const SizedBox(width: 6),
 
-            // Toolbar filters slot
-            if (widget.toolbarFilters != null) ...[
-              const SizedBox(width: 8),
-              ...widget.toolbarFilters!,
+                // Export button
+                if (widget.onExport != null || widget.exportStageName != null) ...[
+                  _buildExportButton(context, l, isDark),
+                  const SizedBox(width: 6),
+                ],
+
+                // Refresh button
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 18),
+                  tooltip: l.refresh,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  onPressed: () {
+                    if (widget.onRefresh != null) {
+                      widget.onRefresh!();
+                    } else {
+                      widget.onQueryChanged(widget.state.query);
+                    }
+                  },
+                ),
+
+                // Column picker button
+                IconButton(
+                  icon: const Icon(Icons.view_column_outlined, size: 18),
+                  tooltip: l.tableCustomizeColumns,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  onPressed: () {
+                    PagedTableColumnPickerDialog.show<T>(
+                      context: context,
+                      allColumns: widget.columns,
+                      visibleColumnIds: _visibleColumnIds,
+                      currentColumnOrder: _columnOrder,
+                      onConfigurationChanged: (visible, order) {
+                        setState(() {
+                          _visibleColumnIds = visible;
+                          _columnOrder = order;
+                        });
+                        _savePreferences();
+                      },
+                      onResetToDefaults: () {
+                        setState(() {
+                          _visibleColumnIds = widget.columns.map((c) => c.id).toSet();
+                          _columnOrder = widget.columns.map((c) => c.id).toList();
+                          _columnWidths = {for (final c in widget.columns) c.id: c.width};
+                        });
+                        _savePreferences();
+                      },
+                    );
+                  },
+                ),
+              ],
             ],
-
-            const Spacer(),
-
-            // Total count badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: isDark ? AppTheme.darkBorder : AppTheme.border,
-                ),
-              ),
-              child: Text(
-                l.tableTotalCount(total),
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-
-            // Refresh button
-            IconButton(
-              icon: const Icon(Icons.refresh, size: 18),
-              tooltip: l.refresh,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              onPressed: () {
-                if (widget.onRefresh != null) {
-                  widget.onRefresh!();
-                } else {
-                  widget.onQueryChanged(widget.state.query);
-                }
-              },
-            ),
-
-            // Column picker button
-            IconButton(
-              icon: const Icon(Icons.view_column_outlined, size: 18),
-              tooltip: l.tableCustomizeColumns,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              onPressed: () {
-                PagedTableColumnPickerDialog.show<T>(
-                  context: context,
-                  allColumns: widget.columns,
-                  visibleColumnIds: _visibleColumnIds,
-                  currentColumnOrder: _columnOrder,
-                  onConfigurationChanged: (visible, order) {
-                    setState(() {
-                      _visibleColumnIds = visible;
-                      _columnOrder = order;
-                    });
-                    _savePreferences();
+          ),
+          if (widget.state.query.filters.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                ...widget.state.query.filters.entries.map((entry) {
+                  return Chip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text('${entry.key}: ${entry.value}', style: const TextStyle(fontSize: 11)),
+                    onDeleted: () {
+                      final newFilters = Map<String, dynamic>.from(widget.state.query.filters)..remove(entry.key);
+                      widget.onQueryChanged(widget.state.query.copyWith(filters: newFilters, page: 1));
+                    },
+                  );
+                }),
+                TextButton(
+                  onPressed: () {
+                    widget.onQueryChanged(widget.state.query.copyWith(filters: {}, page: 1));
                   },
-                  onResetToDefaults: () {
-                    setState(() {
-                      _visibleColumnIds = widget.columns.map((c) => c.id).toSet();
-                      _columnOrder = widget.columns.map((c) => c.id).toList();
-                      _columnWidths = {for (final c in widget.columns) c.id: c.width};
-                    });
-                    _savePreferences();
-                  },
-                );
-              },
+                  child: Text(l.tableClearFilters, style: const TextStyle(fontSize: 11)),
+                ),
+              ],
             ),
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildExportButton(
+    BuildContext context,
+    AppLocalizations l,
+    bool isDark,
+  ) {
+    return PopupMenuButton<String>(
+      key: const Key('paged_data_table_export_button'),
+      tooltip: l.tableExportCsv,
+      icon: _isExporting
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.file_download_outlined, size: 18),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      onSelected: (value) => _handleExport(value),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          key: const Key('paged_data_table_export_csv_item'),
+          value: 'csv',
+          child: Row(
+            children: [
+              const Icon(Icons.description_outlined, size: 16),
+              const SizedBox(width: 8),
+              Text(l.tableExportCsv),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          key: const Key('paged_data_table_export_excel_item'),
+          value: 'excel',
+          child: Row(
+            children: [
+              const Icon(Icons.table_view_outlined, size: 16),
+              const SizedBox(width: 8),
+              Text(l.tableExportExcel),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _isExporting = false;
+
+  Future<List<T>> _fetchAllRowsForExport() async {
+    if (widget.source == null) {
+      return widget.state.data?.items ?? [];
+    }
+
+    final all = <T>[];
+    int page = 1;
+    const pageSize = 200;
+    const maxRows = 10000;
+    bool cancelled = false;
+
+    final totalCount = widget.state.data?.total ?? 0;
+    BuildContext? dialogContext;
+
+    if (totalCount > pageSize && mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) {
+          dialogContext = ctx;
+          return StatefulBuilder(
+            builder: (ctx, setDState) {
+              return AlertDialog(
+                title: Text(context.l10n.loading),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const LinearProgressIndicator(),
+                    const SizedBox(height: 12),
+                    Text('${all.length} / ${min(totalCount, maxRows)}'),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      cancelled = true;
+                      Navigator.of(ctx).pop();
+                    },
+                    child: Text(context.l10n.cancel),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    }
+
+    try {
+      while (all.length < maxRows && !cancelled) {
+        final query = widget.state.query.copyWith(page: page, pageSize: pageSize);
+        final res = await widget.source!.fetchPage(query);
+        if (cancelled) break;
+        all.addAll(res.items);
+        if (res.items.length < pageSize || all.length >= res.total || page >= res.totalPages) {
+          break;
+        }
+        page++;
+      }
+    } finally {
+      if (dialogContext != null && dialogContext!.mounted) {
+        Navigator.of(dialogContext!).pop();
+      }
+    }
+
+    if (all.length > maxRows) {
+      return all.sublist(0, maxRows);
+    }
+    return all;
+  }
+
+  Future<void> _handleExport(String format) async {
+    if (_isExporting) return;
+    setState(() => _isExporting = true);
+    try {
+      final rows = await _fetchAllRowsForExport();
+      if (widget.onExport != null) {
+        await widget.onExport!(rows);
+      } else {
+        await _exportCsvDefault(rows);
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _exportCsvDefault(List<T> items) async {
+    final activeColumns = _getActiveColumns();
+    final headerRow = activeColumns.map((c) => '"${c.label(context.l10n).replaceAll('"', '""')}"').join(',');
+    final rows = <String>[headerRow];
+    for (final item in items) {
+      final line = activeColumns.map((c) {
+        final val = c.exportValue != null ? c.exportValue!(item) : '';
+        return '"${val.replaceAll('"', '""')}"';
+      }).join(',');
+      rows.add(line);
+    }
+    final csvContent = '\uFEFF${rows.join('\r\n')}';
+    final bytes = utf8.encode(csvContent);
+    await FileSaveHelper.exportAndSaveFile(
+      context: context,
+      bytes: bytes,
+      stageName: widget.exportStageName ?? 'Export',
+      importFileNameOrCode: widget.state.query.search.isNotEmpty ? widget.state.query.search : 'data',
+      extension: 'csv',
     );
   }
 
@@ -801,12 +1037,23 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
 
     // 4. Mobile Cards Layout (< 768px)
     if (isMobile) {
-      return _buildMobileCardList(context, items, activeColumns, density, isDark);
+      return Column(
+        children: [
+          if (widget.state.error != null && widget.state.data != null)
+            _buildInlineErrorBanner(context, l, isDark),
+          Expanded(
+            child: _buildMobileCardList(context, items, activeColumns, density, isDark),
+          ),
+        ],
+      );
     }
 
     // 5. Desktop Virtualized Table Layout
     return Column(
       children: [
+        if (widget.state.error != null && widget.state.data != null)
+          _buildInlineErrorBanner(context, l, isDark),
+
         // Header
         _buildTableHeader(
           context: context,
@@ -845,6 +1092,66 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildInlineErrorBanner(
+    BuildContext context,
+    AppLocalizations l,
+    bool isDark,
+  ) {
+    final errorMsg = widget.state.error is String
+        ? widget.state.error as String
+        : (ApiError.message(widget.state.error).isNotEmpty
+            ? ApiError.message(widget.state.error)
+            : l.genericErrorMessage);
+
+    return Container(
+      key: const Key('paged_data_table_inline_error_banner'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.crimson.withValues(alpha: 0.1),
+        border: Border(
+          bottom: BorderSide(
+            color: AppTheme.crimson.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, size: 16, color: AppTheme.crimson),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              errorMsg,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.crimson,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            key: const Key('paged_data_table_inline_retry_button'),
+            icon: const Icon(Icons.refresh, size: 14),
+            label: Text(l.tableRetry),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.crimson,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () {
+              if (widget.onRefresh != null) {
+                widget.onRefresh!();
+              } else {
+                widget.onQueryChanged(widget.state.query);
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -1174,7 +1481,7 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
       cellChild = Directionality(
         textDirection: TextDirection.ltr,
         child: Align(
-          alignment: Alignment.centerRight,
+          alignment: AlignmentDirectional.centerEnd,
           child: cellChild,
         ),
       );

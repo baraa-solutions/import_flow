@@ -196,12 +196,31 @@ def test_pr_workflows_are_safe_for_untrusted_prs(name):
 
 
 def test_required_checks_cannot_be_skipped_or_cancelled_by_a_label():
-    """A `labeled` run would cancel the gate (concurrency) and report it as skipped = passing (review 2026-10-05)."""
-    workflow = yaml.safe_load((PROJECT_DIR / ".github" / "workflows" / "pr_checks.yml").read_text(encoding="utf-8"))
+    """Review 2026-10-05: an unrelated `labeled` run must never cancel the gate (concurrency) or turn it into a skip.
+
+    Since 2026-10-13 (Actions minutes) the gate runs on open / reopen / ready and on the `run-checks` label only, so
+    `labeled` is a trigger again. These invariants keep the original protection: only `run-checks` starts the gate,
+    any other label runs in its own concurrency group (cannot cancel a running gate), and the gate jobs are skipped
+    only through the `changes` job (event filter + touched-area detection), never by a label name of their own.
+    """
+    text = (PROJECT_DIR / ".github" / "workflows" / "pr_checks.yml").read_text(encoding="utf-8")
+    workflow = yaml.safe_load(text)
     triggers = workflow.get("on") or workflow.get(True)
-    assert "labeled" not in triggers["pull_request"]["types"]
-    assert {job["name"] for job in workflow["jobs"].values()} == {"Backend gate", "Flutter analyze"}
-    assert all("if" not in job for job in workflow["jobs"].values())
+    assert set(triggers["pull_request"]["types"]) == {"opened", "reopened", "ready_for_review", "labeled"}
+    assert "workflow_dispatch" in triggers
+
+    group = workflow["concurrency"]["group"]
+    assert "github.event.label.name != 'run-checks'" in group and "github.run_id" in group
+
+    jobs = workflow["jobs"]
+    assert {job["name"] for job in jobs.values()} == {"Detect changes", "Backend gate", "Flutter analyze"}
+    gate_filter = jobs["changes"]["if"]
+    assert "github.event.label.name == 'run-checks'" in gate_filter
+    assert "workflow_dispatch" in gate_filter
+    assert jobs["backend-gate"]["needs"] == "changes"
+    assert jobs["backend-gate"]["if"] == "needs.changes.outputs.backend == 'true'"
+    assert jobs["flutter-analyze"]["needs"] == "changes"
+    assert jobs["flutter-analyze"]["if"] == "needs.changes.outputs.frontend == 'true'"
 
 
 # ─── pre-commit ───────────────────────────────────────────────────────────────

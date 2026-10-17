@@ -217,6 +217,7 @@ def test_t4_cl03_variance_unrounded_amount_pct_rounded(db):
         actual_duty_total=1000.1,
         assessment_status="Assessed",
         payment_status="Payment Requested",
+        nafeza_claim_number="CLM-CHAR-T4",
     )
     rec = record_customs_duty_payment_service(
         db,
@@ -340,14 +341,18 @@ def test_t6_record_aggregates_split(db):
 # ─── T-7: settlement snapshot rows ───────────────────────────────────────────
 
 def test_t7_settlement_snapshot_after_create_and_delete(db):
+    # BEW0-06 (docs/plans/backend-review/README.md section 6; be-09-review.md BE09-T04 steps 2-3): the snapshot no
+    # longer hand-sums net_payable_egp; the header is the landed-cost engine result over all rows, which counts
+    # each row at amount_egp (ex-VAT, pre-WHT). net_payable_egp stays on the row as an extra key only.
+    # Rows therefore carry amount_egp, as every real settlement row does.
     imp = _import_file(db)
     rec = _clearance(db, imp)
     settlement = LandedCostSettlementRecord(
         settlement_code="LCS-CHAR-1",
         import_file_id=imp.import_file_id,
         expense_invoices=[
-            {"invoice_no": "FRT-1", "category": "Freight", "net_payable_egp": 100.0},
-            {"invoice_no": "OLD", "category": "Clearance / Old", "net_payable_egp": 55.0},
+            {"invoice_no": "FRT-1", "category": "Freight", "amount_egp": 100.0, "net_payable_egp": 100.0},
+            {"invoice_no": "OLD", "category": "Clearance / Old", "amount_egp": 55.0, "net_payable_egp": 55.0},
         ],
         total_expenses_egp=155.0,
     )
@@ -371,8 +376,10 @@ def test_t7_settlement_snapshot_after_create_and_delete(db):
     rows = settlement.expense_invoices
     assert [r["invoice_no"] for r in rows] == ["FRT-1", "INV-SNAP-1"]
     assert rows[1]["category"] == "Clearance / Port Dues & Wharfage"
+    assert rows[1]["amount_egp"] == 1200.0
     assert rows[1]["net_payable_egp"] == 1368.0
-    assert settlement.total_expenses_egp == round(100.0 + 1368.0, 2)
+    # Freight 100 + clearance amount_egp 1,200; the 168 VAT is not landed cost (BE09-T04 step 3).
+    assert settlement.total_expenses_egp == round(100.0 + 1200.0, 2)
 
     delete_clearance_invoice_service(db, inv.invoice_id, current_user="tester")
     db.refresh(settlement)

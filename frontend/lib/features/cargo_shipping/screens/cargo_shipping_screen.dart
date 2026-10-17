@@ -851,17 +851,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       if (_shipmentType == 'FCL') {
         for (int i = 0; i < _containers.length; i++) {
           final c = _containers[i];
-          _containers[i] = ContainerLoadingModel(
-            containerType: c.containerType,
-            quantity: c.quantity,
-            containerNo: c.containerNo,
-            sealNo: c.sealNo,
-            tareWeightKg: c.tareWeightKg,
-            netWeightKg: c.netWeightKg,
-            grossWeightKg: c.grossWeightKg,
+          _containers[i] = c.copyWith(
             vgmStatus: 'Submitted',
             vgmRefNo: c.vgmRefNo ?? 'VGM-${now.millisecondsSinceEpoch.toString().substring(8)}',
-            individualUnits: c.individualUnits,
             containerAssignmentDate: c.containerAssignmentDate ?? now.subtract(const Duration(hours: 40)).toIso8601String(),
             arrivalAtSupplierAt: c.arrivalAtSupplierAt ?? now.subtract(const Duration(hours: 30)).toIso8601String(),
             loadingStartAt: c.loadingStartAt ?? now.subtract(const Duration(hours: 24)).toIso8601String(),
@@ -1404,25 +1396,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   onChanged: (val) {
                     if (val != null) {
                       setState(() {
-                        _containers[index] = ContainerLoadingModel(
-                          containerType: val,
-                          quantity: item.quantity,
-                          containerNo: item.containerNo,
-                          sealNo: item.sealNo,
-                          tareWeightKg: item.tareWeightKg,
-                          netWeightKg: item.netWeightKg,
-                          grossWeightKg: item.grossWeightKg,
-                          vgmStatus: item.vgmStatus,
-                          vgmRefNo: item.vgmRefNo,
-                          individualUnits: item.individualUnits,
-                          containerAssignmentDate: item.containerAssignmentDate,
-                          arrivalAtSupplierAt: item.arrivalAtSupplierAt,
-                          loadingStartAt: item.loadingStartAt,
-                          loadingEndAt: item.loadingEndAt,
-                          portGateInAt: item.portGateInAt,
-                          trackingStatus: item.trackingStatus,
-                          isSlaBreached: item.isSlaBreached,
-                        );
+                        _containers[index] = item.copyWith(containerType: val);
                       });
                     }
                   },
@@ -1438,29 +1412,16 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   onChanged: (val) {
                     final q = int.tryParse(val) ?? 1;
                     setState(() {
-                      final units = List<Map<String, String>>.from(item.individualUnits);
+                      final units = item.individualUnits.map((u) => Map<String, String>.from(u)).toList();
                       while (units.length < q) {
                         units.add({'container_no': '', 'seal_no': ''});
                       }
                       if (units.length > q) units.removeRange(q, units.length);
-                      _containers[index] = ContainerLoadingModel(
-                        containerType: item.containerType,
+                      _containers[index] = item.copyWith(
                         quantity: q,
                         containerNo: units.isNotEmpty ? units.first['container_no'] ?? '' : '',
                         sealNo: units.isNotEmpty ? units.first['seal_no'] ?? '' : '',
-                        tareWeightKg: item.tareWeightKg,
-                        netWeightKg: item.netWeightKg,
-                        grossWeightKg: item.grossWeightKg,
-                        vgmStatus: item.vgmStatus,
-                        vgmRefNo: item.vgmRefNo,
                         individualUnits: units,
-                        containerAssignmentDate: item.containerAssignmentDate,
-                        arrivalAtSupplierAt: item.arrivalAtSupplierAt,
-                        loadingStartAt: item.loadingStartAt,
-                        loadingEndAt: item.loadingEndAt,
-                        portGateInAt: item.portGateInAt,
-                        trackingStatus: item.trackingStatus,
-                        isSlaBreached: item.isSlaBreached,
                       );
                     });
                   },
@@ -1484,25 +1445,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   onChanged: (val) {
                     final w = double.tryParse(val) ?? 0.0;
                     setState(() {
-                      _containers[index] = ContainerLoadingModel(
-                        containerType: item.containerType,
-                        quantity: item.quantity,
-                        containerNo: item.containerNo,
-                        sealNo: item.sealNo,
-                        tareWeightKg: item.tareWeightKg,
-                        netWeightKg: item.netWeightKg,
-                        grossWeightKg: w,
-                        vgmStatus: item.vgmStatus,
-                        vgmRefNo: item.vgmRefNo,
-                        individualUnits: item.individualUnits,
-                        containerAssignmentDate: item.containerAssignmentDate,
-                        arrivalAtSupplierAt: item.arrivalAtSupplierAt,
-                        loadingStartAt: item.loadingStartAt,
-                        loadingEndAt: item.loadingEndAt,
-                        portGateInAt: item.portGateInAt,
-                        trackingStatus: item.trackingStatus,
-                        isSlaBreached: item.isSlaBreached,
-                      );
+                      _containers[index] = item.copyWith(grossWeightKg: w);
                     });
                   },
                 ),
@@ -1577,29 +1520,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                         ),
                       ),
                       onChanged: (cVal) {
-                        final updatedUnits = List<Map<String, String>>.from(item.individualUnits);
+                        final updatedUnits = item.individualUnits.map((u) => Map<String, String>.from(u)).toList();
                         while (updatedUnits.length <= unitIdx) {
                           updatedUnits.add({'container_no': '', 'seal_no': ''});
                         }
                         updatedUnits[unitIdx]['container_no'] = cVal;
-                        _containers[index] = ContainerLoadingModel(
-                          containerType: item.containerType,
-                          quantity: item.quantity,
+                        _containers[index] = item.copyWith(
                           containerNo: updatedUnits.first['container_no'] ?? '',
                           sealNo: updatedUnits.first['seal_no'] ?? '',
-                          tareWeightKg: item.tareWeightKg,
-                          netWeightKg: item.netWeightKg,
-                          grossWeightKg: item.grossWeightKg,
-                          vgmStatus: item.vgmStatus,
-                          vgmRefNo: item.vgmRefNo,
                           individualUnits: updatedUnits,
-                          containerAssignmentDate: item.containerAssignmentDate,
-                          arrivalAtSupplierAt: item.arrivalAtSupplierAt,
-                          loadingStartAt: item.loadingStartAt,
-                          loadingEndAt: item.loadingEndAt,
-                          portGateInAt: item.portGateInAt,
-                          trackingStatus: item.trackingStatus,
-                          isSlaBreached: item.isSlaBreached,
                         );
                       },
                     ),
@@ -1619,29 +1548,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                         ),
                       ),
                       onChanged: (sVal) {
-                        final updatedUnits = List<Map<String, String>>.from(item.individualUnits);
+                        final updatedUnits = item.individualUnits.map((u) => Map<String, String>.from(u)).toList();
                         while (updatedUnits.length <= unitIdx) {
                           updatedUnits.add({'container_no': '', 'seal_no': ''});
                         }
                         updatedUnits[unitIdx]['seal_no'] = sVal;
-                        _containers[index] = ContainerLoadingModel(
-                          containerType: item.containerType,
-                          quantity: item.quantity,
+                        _containers[index] = item.copyWith(
                           containerNo: updatedUnits.first['container_no'] ?? '',
                           sealNo: updatedUnits.first['seal_no'] ?? '',
-                          tareWeightKg: item.tareWeightKg,
-                          netWeightKg: item.netWeightKg,
-                          grossWeightKg: item.grossWeightKg,
-                          vgmStatus: item.vgmStatus,
-                          vgmRefNo: item.vgmRefNo,
                           individualUnits: updatedUnits,
-                          containerAssignmentDate: item.containerAssignmentDate,
-                          arrivalAtSupplierAt: item.arrivalAtSupplierAt,
-                          loadingStartAt: item.loadingStartAt,
-                          loadingEndAt: item.loadingEndAt,
-                          portGateInAt: item.portGateInAt,
-                          trackingStatus: item.trackingStatus,
-                          isSlaBreached: item.isSlaBreached,
                         );
                       },
                     ),

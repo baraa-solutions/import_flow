@@ -117,7 +117,7 @@ def get_tracking_by_id_endpoint(tracking_id: int, db: Session = Depends(get_db),
 
 @router.put("/trackings/{tracking_id}", response_model=DemurrageTrackingResponse, summary="تحديث وإعادة حساب جلسة تتبع حاويات")
 def update_tracking_endpoint(tracking_id: int, req: DemurrageTrackingUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
-    return recalculate_and_update_tracking_service(db, tracking_id, req, user=current_user.username)
+    return recalculate_and_update_tracking_service(db, tracking_id, req, user=current_user.username, actor=current_user)
 
 
 @router.post("/trackings/push-to-settlement", summary="ترحيل الغرامات تلقائياً إلى فواتير التسوية المالية Landed Cost")
@@ -146,7 +146,7 @@ def update_single_container_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("demurrage_detention.manage")),
 ):
-    return update_single_container_service(db, tracking_id, container_no, req, user=current_user.username)
+    return update_single_container_service(db, tracking_id, container_no, req, user=current_user.username, actor=current_user)
 
 
 # ----------------------------------------------------
@@ -155,7 +155,7 @@ def update_single_container_endpoint(
 
 @router.post("/free-days-agreement", response_model=FreeDaysAgreementResponse, status_code=status.HTTP_201_CREATED, summary="تسجيل وتوثيق اتفاقية فترات السماح الممنوحة للحاويات (BK-02)")
 def register_free_days_agreement_endpoint(req: FreeDaysAgreementRegister, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
-    return register_free_days_agreement_service(db, req, user=current_user.username)
+    return register_free_days_agreement_service(db, req, user=current_user.username, actor=current_user)
 
 
 @router.get("/free-days-agreement/{import_file_id}", response_model=FreeDaysAgreementResponse, summary="جلب بيانات اتفاقية فترات السماح المعتمدة لملف استيراد")
@@ -191,6 +191,6 @@ def record_empty_container_return_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("demurrage_detention.manage")),
 ):
-    return record_empty_container_return_service(db, req, user=current_user.username)
+    return record_empty_container_return_service(db, req, user=current_user.username, actor=current_user)
 
 

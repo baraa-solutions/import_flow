@@ -2919,6 +2919,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get freightBookingItemVgmNotif => '7. إخطار إقرار الوزن';
   @override String get freightBookingItemTelex => '8. إطلاق الفاكس الملاحي';
   @override String get freightBookingItemInsurance => '9. بوليصة التأمين البحري';
+  @override String get freightBookingInsuranceHint => 'سجل التأمين البحري في شاشة وثائق التأمين، فهو لا يدخل ضمن تكاليف الحجز.';
   @override String get freightBookingItemCancellation => '10. غرامة إلغاء الحجز';
   @override String get freightBookingItemIcs2 => '11. رسوم بيان الحمول المسبقة (ICS2)';
   @override String get freightBookingItemOther => '12. مصاريف ورسوم أخرى';
@@ -3551,6 +3552,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String projectCompanyFallback(int id) => 'الشركة #$id';
   @override String projectSupplierFallback(int id) => 'المورد #$id';
   @override String projectSupplierLabel(String supplier) => 'المورد: $supplier';
+  @override String get projectCommitmentsLabel => 'الالتزامات';
+  @override String get projectRemainingBudgetLabel => 'المتبقي من الميزانية';
+  @override String projectMissingRateCurrencies(String currencies) => 'أسعار الصرف غير متوفرة لعملات: $currencies';
+  @override String get projectUtilizationLabel => 'نسبة الاستهلاك';
   @override String get capMultiShipment => 'متعدد الشحنات';
   @override String get capMultiCompany => 'متعدد الشركات';
   @override String projectPrintSnack(String name, String code) => 'طباعة بيانات المشروع ومراكز التكلفة: $name ($code)';
@@ -12334,6 +12339,17 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String fbkDepSuccess(String bl) => 'تم تأكيد الإبحار الفعلي بنجاح وتسجيل بوليصة الشحن رقم ($bl) وانتقال الشحنة لحالة In-Transit';
   @override String fbkDepError(String error) => 'تعذر تأكيد الإبحار: $error';
   @override String get fbkStatusCancelled => 'ملغي';
+  @override String get fbkMixedCurrencyError => 'يجب أن تستخدم كافة بنود التكلفة عملة واحدة حتى تتوفر ميزة تحويل العملات';
+  @override String get demPushNeedsLinkedFile => 'لا يمكن الترحيل للتسوية المالية: يجب ربط ملف استيراد أولاً';
+  @override String get demPushConfirmTitle => 'تأكيد الترحيل للتسوية المالية';
+  @override String get demPushConfirmMessage => 'هل أنت متأكد من ترحيل مصاريف الأرضيات وغرامات التأخير إلى ملف التسوية المالية؟';
+  @override String get demPushConfirmFileCode => 'ملف الاستيراد';
+  @override String get demPushConfirmDemurrageFx => 'إجمالي غرامات التأخير';
+  @override String get demPushConfirmDetentionFx => 'إجمالي غرامات الحاويات';
+  @override String get demPushConfirmStorageEgp => 'إجمالي رسوم التخزين';
+  @override String get demPushConfirmRate => 'سعر الصرف';
+  @override String get demPushConfirmTotalEgp => 'إجمالي تكلفة التسوية';
+  @override String get demPushConfirmBtn => 'تأكيد والترحيل';
   // === end review phase04_05 keys ===
 
   // === review phase06_07 keys (append below this line) ===
@@ -13186,6 +13202,12 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String settlementReconciliationNote(String amount) => 'فرق التسوية بين الإجمالي ومجموع الأصناف: $amount';
   @override String get settlementEstKpiDuty => 'ضريبة الوارد';
   @override String get settlementEstKpiVatFees => 'القيمة المضافة والرسوم';
+  @override String get fbkQuoteEquipmentMismatch40ft =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 40 قدم، ولكن لم يتم تخصيص أي حاوية 40/45 قدم). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
+  @override String get fbkQuoteEquipmentMismatch20ft =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 20 قدم، ولكن لم يتم تخصيص أي حاوية 20 قدم). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
+  @override String get fbkQuoteEquipmentMismatchBoth =>
+      'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 40 و20 قدم، ولكن الحاويات المطابقة غير موجودة). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
   // === end review phase08_10 keys ===
 }
 

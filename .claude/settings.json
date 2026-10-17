@@ -5,6 +5,9 @@
     "allow": [
       "Bash(python -m pytest *)",
       "Bash(python .claude/skills/*)",
+      "Bash(python scripts/check_doc_citations.py *)",
+      "Bash(python3 scripts/check_doc_citations.py *)",
+      "Bash(git rev-parse *)",
       "Bash(git status)",
       "Bash(git status *)",
       "Bash(git diff)",
