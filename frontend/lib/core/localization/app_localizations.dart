@@ -8650,6 +8650,9 @@ abstract class AppLocalizations {
   String get poProjectCostCenter;
   String get poIncoterms;
   String get poFXRate;
+  String get poExchangeRateRequired;
+  String get poExchangeRateHelper;
+  String poNoExchangeRateForDate(String code, String date);
   String get poPaymentTerms;
   String get poTotalCBM;
   String get poGrossNetWeight;

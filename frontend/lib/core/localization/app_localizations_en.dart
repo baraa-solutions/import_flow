@@ -11351,6 +11351,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get poProjectCostCenter => 'Project & Cost Center';
   @override String get poIncoterms => 'Incoterms';
   @override String get poFXRate => 'FX Rate';
+  @override String get poExchangeRateRequired => 'Exchange rate is required and must be greater than zero';
+  @override String get poExchangeRateHelper => '⚡ Auto-retrieved based on invoice date and currency';
+  @override String poNoExchangeRateForDate(String code, String date) => 'No exchange rate found for $code on $date';
   @override String get poPaymentTerms => 'Payment Terms';
   @override String get poTotalCBM => 'Total CBM';
   @override String get poGrossNetWeight => 'Gross / Net Weight';
