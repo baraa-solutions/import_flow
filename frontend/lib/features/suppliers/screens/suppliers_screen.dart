@@ -707,6 +707,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final isAr = Localizations.localeOf(dialogCtx).languageCode == 'ar';
             Widget buildCopySuffix(TextEditingController ctrl) {
               return ValueListenableBuilder<TextEditingValue>(
                 valueListenable: ctrl,
@@ -1065,7 +1066,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                                         Icon(Icons.verified_rounded, size: 18, color: Colors.amber.shade900),
                                         const SizedBox(width: 8),
                                         Text(
-                                          'قسم شهادات العلامة التجارية والجودة / Trademark Certificates & ISO',
+                                          isAr ? 'شهادات العلامة التجارية والجودة' : 'Trademark Certificates & ISO',
                                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
                                         ),
                                       ],
@@ -1074,7 +1075,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                                     CheckboxListTile(
                                       dense: true,
                                       contentPadding: EdgeInsets.zero,
-                                      title: const Text('WIPO Madrid Monitor (شهادة وايپو مدريد)'),
+                                      title: Text(isAr ? 'شهادة وايپو مدريد (WIPO)' : 'WIPO Madrid Monitor Certificate'),
                                       value: hasWipo,
                                       activeColor: AppTheme.cobalt,
                                       onChanged: (val) => setDialogState(() => hasWipo = val ?? false),
@@ -1085,7 +1086,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                                         child: CustomTextField(
                                           controller: wipoCtrl,
                                           suffixIcon: buildCopySuffix(wipoCtrl),
-                                          label: 'رقم تسجيل WIPO Madrid / Registration No.',
+                                          label: isAr ? 'رقم تسجيل WIPO Madrid' : 'WIPO Madrid Registration No.',
                                           icon: Icons.numbers,
                                           hint: 'e.g. 1234567',
                                         ),
@@ -1094,7 +1095,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                                     CheckboxListTile(
                                       dense: true,
                                       contentPadding: EdgeInsets.zero,
-                                      title: const Text('EUIPO (المكتب الأوروبي للملكية الفكرية)'),
+                                      title: Text(isAr ? 'شهادة العلامة الأوروبية (EUIPO)' : 'EUIPO Certificate'),
                                       value: hasEuipo,
                                       activeColor: AppTheme.cobalt,
                                       onChanged: (val) => setDialogState(() => hasEuipo = val ?? false),
@@ -1105,7 +1106,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                                         child: CustomTextField(
                                           controller: euipoCtrl,
                                           suffixIcon: buildCopySuffix(euipoCtrl),
-                                          label: 'رقم تسجيل EUIPO / European Trademark No.',
+                                          label: isAr ? 'رقم تسجيل EUIPO' : 'EUIPO Registration No.',
                                           icon: Icons.numbers,
                                           hint: 'e.g. 018345678',
                                         ),
@@ -1114,7 +1115,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                                     CheckboxListTile(
                                       dense: true,
                                       contentPadding: EdgeInsets.zero,
-                                      title: const Text('Global Brand Database (قاعدة بيانات العلامات العالمية)'),
+                                      title: Text(isAr ? 'قاعدة بيانات العلامات العالمية' : 'Global Brand Database'),
                                       value: hasGlobalBrand,
                                       activeColor: AppTheme.cobalt,
                                       onChanged: (val) => setDialogState(() => hasGlobalBrand = val ?? false),
@@ -1125,7 +1126,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                                         child: CustomTextField(
                                           controller: globalBrandCtrl,
                                           suffixIcon: buildCopySuffix(globalBrandCtrl),
-                                          label: 'معرف العلامة في Global Brand DB',
+                                          label: isAr ? 'معرف العلامة في قاعدة بيانات العلامات العالمية' : 'Global Brand DB Identifier',
                                           icon: Icons.numbers,
                                           hint: 'e.g. GBD-987654',
                                         ),
@@ -1134,7 +1135,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                                     CheckboxListTile(
                                       dense: true,
                                       contentPadding: EdgeInsets.zero,
-                                      title: const Text('ISO 9001 Certificate (شهادة نظام إدارة الجودة)'),
+                                      title: Text(isAr ? 'شهادة نظام إدارة الجودة (ISO 9001)' : 'ISO 9001 Certificate'),
                                       value: hasIso9001,
                                       activeColor: AppTheme.cobalt,
                                       onChanged: (val) => setDialogState(() => hasIso9001 = val ?? false),
@@ -1145,7 +1146,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                                         child: CustomTextField(
                                           controller: iso9001Ctrl,
                                           suffixIcon: buildCopySuffix(iso9001Ctrl),
-                                          label: 'رقم شهادة ISO 9001 Certificate No.',
+                                          label: isAr ? 'رقم شهادة ISO 9001' : 'ISO 9001 Certificate No.',
                                           icon: Icons.verified_user_outlined,
                                           hint: 'e.g. ISO-9001-2015-XYZ',
                                         ),

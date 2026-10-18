@@ -488,7 +488,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
                   return LayoutBuilder(
                     builder: (context, constraints) {
-                      final tableWidth = constraints.maxWidth < 1350 ? 1350.0 : constraints.maxWidth;
+                      final tableWidth = constraints.maxWidth < 1200 ? 1200.0 : constraints.maxWidth;
 
                       return Container(
                         width: double.infinity,
@@ -515,8 +515,8 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                 child: Table(
                                   defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                                   columnWidths: const {
-                                    0: FixedColumnWidth(480),
-                                    1: FixedColumnWidth(160),
+                                    0: FixedColumnWidth(235),
+                                    1: FixedColumnWidth(140),
                                     2: FlexColumnWidth(3.0),
                                     3: FlexColumnWidth(2.6),
                                     4: FlexColumnWidth(2.2),

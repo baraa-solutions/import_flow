@@ -146,9 +146,15 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
 
   Future<void> _recordInvoice(BuildContext context, WidgetRef ref) async {
     final partnerType = partner.partnerType.toLowerCase();
-    final defaultType = partnerType.contains('customs') || partnerType.contains('تخليص')
-        ? 'customs'
-        : (partnerType.contains('freight') || partnerType.contains('نولون') ? 'freight' : 'transport');
+    final defaultType = partnerType.contains('customs') || partnerType.contains('تخليص') || partnerType.contains('broker')
+        ? 'clearance'
+        : (partnerType.contains('freight') || partnerType.contains('shipping') || partnerType.contains('carrier') || partnerType.contains('نولون') || partnerType.contains('شحن')
+            ? 'freight'
+            : (partnerType.contains('inspection') || partnerType.contains('فحص')
+                ? 'inspection'
+                : (partnerType.contains('insurance') || partnerType.contains('تأمين')
+                    ? 'insurance'
+                    : 'transport')));
 
     await showDialog(
       context: context,

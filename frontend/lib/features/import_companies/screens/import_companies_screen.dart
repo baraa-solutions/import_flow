@@ -653,6 +653,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) {
+        final isAr = Localizations.localeOf(dialogCtx).languageCode == 'ar';
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: SelectionArea(
@@ -1040,7 +1041,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                         CheckboxListTile(
                                           dense: true,
                                           contentPadding: EdgeInsets.zero,
-                                          title: const Text('Global Brand Database (قاعدة بيانات العلامات العالمية)'),
+                                          title: Text(isAr ? 'قاعدة بيانات العلامات العالمية' : 'Global Brand Database'),
                                           value: hasGlobalBrand,
                                           activeColor: AppTheme.cobalt,
                                           onChanged: (val) => setDialogState(() => hasGlobalBrand = val ?? false),
@@ -1050,7 +1051,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                             padding: const EdgeInsets.only(bottom: 8.0),
                                             child: CustomTextField(
                                               controller: globalBrandCtrl,
-                                              label: 'معرف العلامة في Global Brand DB',
+                                              label: isAr ? 'معرف العلامة في قاعدة بيانات العلامات العالمية' : 'Global Brand DB Identifier',
                                               icon: Icons.numbers,
                                               hint: 'e.g. GBD-987654',
                                             ),
@@ -1059,7 +1060,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                         CheckboxListTile(
                                           dense: true,
                                           contentPadding: EdgeInsets.zero,
-                                          title: const Text('ISO 9001 Certificate (شهادة نظام إدارة الجودة)'),
+                                          title: Text(isAr ? 'شهادة نظام إدارة الجودة (ISO 9001)' : 'ISO 9001 Certificate'),
                                           value: hasIso9001,
                                           activeColor: AppTheme.cobalt,
                                           onChanged: (val) => setDialogState(() => hasIso9001 = val ?? false),
@@ -1069,7 +1070,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                             padding: const EdgeInsets.only(bottom: 8.0),
                                             child: CustomTextField(
                                               controller: iso9001Ctrl,
-                                              label: 'رقم شهادة ISO 9001 Certificate No.',
+                                              label: isAr ? 'رقم شهادة ISO 9001' : 'ISO 9001 Certificate No.',
                                               icon: Icons.verified_user_outlined,
                                               hint: 'e.g. ISO-9001-2015-XYZ',
                                             ),

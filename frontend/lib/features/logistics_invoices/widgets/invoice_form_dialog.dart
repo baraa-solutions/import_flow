@@ -65,9 +65,9 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
     _shipmentId = inv?.shipmentId ?? widget.initialShipmentId ?? 1;
     _blNumber = inv?.blNumber ?? widget.initialBlNumber ?? '';
     _partnerId = inv?.partnerId ?? 1;
-    _partnerName = inv?.partnerName ?? '';
-    _partnerType = inv?.partnerType ?? widget.defaultPartnerType;
-    _invoiceNumber = inv?.invoiceNumber ?? '';
+    const validPartnerTypes = ['freight', 'clearance', 'transport', 'inspection', 'insurance'];
+    final rawPartnerType = (inv?.partnerType ?? widget.defaultPartnerType).toLowerCase();
+    _partnerType = validPartnerTypes.contains(rawPartnerType) ? rawPartnerType : 'freight';
     _invoiceDate = inv?.invoiceDate ?? DateTime.now();
     _currency = inv?.currency ?? 'USD';
     _exchangeRate = inv?.exchangeRate ?? 48.5;
@@ -274,9 +274,26 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
     }
   }
 
+  String _partnerTypeLabel(bool isArabic) {
+    switch (_partnerType) {
+      case 'clearance':
+        return isArabic ? 'تخليص جمركي' : 'Customs Clearance';
+      case 'transport':
+        return isArabic ? 'نقل داخلي' : 'Inland Transport';
+      case 'inspection':
+        return isArabic ? 'فحص ومعاينة' : 'Inspection';
+      case 'insurance':
+        return isArabic ? 'تأمين بحري' : 'Marine Insurance';
+      case 'freight':
+      default:
+        return isArabic ? 'شحن ونولون' : 'Freight';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -297,17 +314,23 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                         ? Icons.directions_boat_outlined
                         : _partnerType == 'clearance'
                             ? Icons.assignment_outlined
-                            : _partnerType == 'insurance'
-                                ? Icons.shield_outlined
-                                : Icons.verified_outlined,
+                            : _partnerType == 'transport'
+                                ? Icons.local_shipping_outlined
+                                : _partnerType == 'insurance'
+                                    ? Icons.shield_outlined
+                                    : Icons.verified_outlined,
                     color: AppTheme.cobalt,
                     size: 24,
                   ),
                   const SizedBox(width: 10),
                   Text(
                     widget.initialInvoice == null
-                        ? 'New ${_partnerType.toUpperCase()} Service Invoice'
-                        : 'Edit Invoice: ${widget.initialInvoice!.invoiceCode}',
+                        ? (isArabic
+                            ? 'تسجيل فاتورة جديدة (${_partnerTypeLabel(isArabic)})'
+                            : 'New ${_partnerTypeLabel(isArabic)} Service Invoice')
+                        : (isArabic
+                            ? 'تعديل فاتورة: ${widget.initialInvoice!.invoiceCode}'
+                            : 'Edit Invoice: ${widget.initialInvoice!.invoiceCode}'),
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -338,17 +361,20 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                           Expanded(
                             flex: 2,
                             child: DropdownButtonFormField<String>(
-                              initialValue: _partnerType,
-                              decoration: const InputDecoration(
-                                labelText: 'Partner Type',
+                              initialValue: const ['freight', 'clearance', 'transport', 'inspection', 'insurance'].contains(_partnerType)
+                                  ? _partnerType
+                                  : 'freight',
+                              decoration: InputDecoration(
+                                labelText: isArabic ? 'نوع الشريك اللوجستي' : 'Partner Type',
                                 isDense: true,
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                               ),
-                              items: const [
-                                DropdownMenuItem(value: 'freight', child: Text('Freight Forwarder (شركة الشحن)')),
-                                DropdownMenuItem(value: 'clearance', child: Text('Customs Broker (المخلص الجمركي)')),
-                                DropdownMenuItem(value: 'inspection', child: Text('Inspection Agency (شركة الفحص)')),
-                                DropdownMenuItem(value: 'insurance', child: Text('Marine Insurance (شركة التأمين)')),
+                              items: [
+                                DropdownMenuItem(value: 'freight', child: Text(isArabic ? 'شركة شحن ونولون' : 'Freight Forwarder')),
+                                DropdownMenuItem(value: 'clearance', child: Text(isArabic ? 'مخلص جمركي' : 'Customs Broker')),
+                                DropdownMenuItem(value: 'transport', child: Text(isArabic ? 'نقل داخلي' : 'Inland Transport')),
+                                DropdownMenuItem(value: 'inspection', child: Text(isArabic ? 'جهة فحص ومعاينة' : 'Inspection Agency')),
+                                DropdownMenuItem(value: 'insurance', child: Text(isArabic ? 'شركة تأمين بحري' : 'Marine Insurance')),
                               ],
                               onChanged: widget.initialInvoice != null
                                   ? null
