@@ -160,7 +160,7 @@ class TestShippingScenariosBackend:
             ShippingScenarioService.create_session_service(db, payload)
 
         assert exc_info.value.status_code == 400
-        assert "cannot be before Cargo Ready Date" in exc_info.value.detail
+        assert "لا يمكن أن يكون قبل تاريخ جاهزية البضاعة" in exc_info.value.detail or "cannot be before Cargo Ready Date" in exc_info.value.detail
 
     def test_invalid_eta_before_sailing_date_raises_error(self, db: Session):
         crd = date.today()
@@ -181,7 +181,7 @@ class TestShippingScenariosBackend:
             ShippingScenarioService.create_session_service(db, payload)
 
         assert exc_info.value.status_code == 400
-        assert "Estimated Arrival Date (ETA) must be after Sailing Date" in exc_info.value.detail
+        assert "يجب أن يكون بعد تاريخ الإبحار" in exc_info.value.detail or "Estimated Arrival Date (ETA) must be after Sailing Date" in exc_info.value.detail
 
     def test_duplicate_carrier_option_raises_error(self, db: Session):
         crd = date.today()
@@ -212,7 +212,7 @@ class TestShippingScenariosBackend:
             ShippingScenarioService.create_session_service(db, payload)
 
         assert exc_info.value.status_code == 400
-        assert "Duplicate shipping option found" in exc_info.value.detail
+        assert "تم العثور على خيار شحن مكرر" in exc_info.value.detail or "Duplicate shipping option found" in exc_info.value.detail
 
         # Allowed if provider_id is different (different freight forwarder offering same shipping line option)
         item3 = ShippingScenarioItemCreate(

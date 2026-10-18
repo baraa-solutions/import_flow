@@ -260,7 +260,7 @@ class TestScenarioCloneGuardAndUpdateRevalidation:
             ShippingScenarioService.update_session_service(db, session_res.session_id, update_payload)
 
         assert exc.value.status_code == 400
-        assert "cannot be before Cargo Ready Date" in exc.value.detail
+        assert "لا يمكن أن يكون قبل تاريخ جاهزية البضاعة" in exc.value.detail or "cannot be before Cargo Ready Date" in exc.value.detail
 
     def test_update_changing_crd_valid_succeeds(self, db: Session):
         """Updating cargo_ready_date with a valid date earlier than sailing date succeeds."""
@@ -300,7 +300,7 @@ class TestScenarioCloneGuardAndUpdateRevalidation:
                 db, session_res.session_id, ShippingEvaluationUpdate(avg_form4_days=-1)
             )
         assert exc.value.status_code == 400
-        assert "Average Form 4 days cannot be negative." in exc.value.detail
+        assert "متوسط أيام نموذج 4 لا يمكن أن يكون سالباً" in exc.value.detail or "Average Form 4 days cannot be negative." in exc.value.detail
 
     def test_update_negative_avg_clearance_days_raises_400(self, db: Session):
         """Updating avg_clearance_days with a negative value raises HTTP 400."""
@@ -318,7 +318,7 @@ class TestScenarioCloneGuardAndUpdateRevalidation:
                 db, session_res.session_id, ShippingEvaluationUpdate(avg_clearance_days=-3)
             )
         assert exc.value.status_code == 400
-        assert "Average Customs Clearance days cannot be negative." in exc.value.detail
+        assert "متوسط أيام التخليص الجمركي لا يمكن أن يكون سالباً" in exc.value.detail or "Average Customs Clearance days cannot be negative." in exc.value.detail
 
     @pytest.mark.parametrize(
         "field,value",

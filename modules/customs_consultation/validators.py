@@ -72,7 +72,7 @@ def validate_expense_code_unique(db: Session, code: str | None, current_id: int 
     if query.first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Expense code '{code}' already exists.",
+            detail=f"كود المصروف '{code}' موجود بالفعل.",
         )
 
 
@@ -86,7 +86,7 @@ def validate_checklist_items(items: list) -> None:
         if status_val not in valid_statuses:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid document status '{status_val}'. Valid statuses: {valid_statuses}",
+                detail=f"حالة المستند '{status_val}' غير صالحة. الحالات الصالحة: {valid_statuses}",
             )
 
 

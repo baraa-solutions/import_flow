@@ -100,6 +100,9 @@ class CustomsClearanceModel {
   final String? labCertificateNumber;
   final String? quarantineLiftedDate;
   final String? quarantineLiftedBy;
+  final String? tariffCodingDate;
+  final String? bankLinkAcceptedDate;
+  final String? dutyPaymentRequestedDate;
   final String status;
   final String owner;
   final String? notes;
@@ -201,6 +204,9 @@ class CustomsClearanceModel {
     this.labCertificateNumber,
     this.quarantineLiftedDate,
     this.quarantineLiftedBy,
+    this.tariffCodingDate,
+    this.bankLinkAcceptedDate,
+    this.dutyPaymentRequestedDate,
     this.status = 'Inspection In Progress',
     this.owner = 'Kamal',
     this.notes,
@@ -306,6 +312,9 @@ class CustomsClearanceModel {
       labCertificateNumber: json['lab_certificate_number']?.toString(),
       quarantineLiftedDate: json['quarantine_lifted_date']?.toString(),
       quarantineLiftedBy: json['quarantine_lifted_by']?.toString(),
+      tariffCodingDate: json['tariff_coding_date']?.toString(),
+      bankLinkAcceptedDate: json['bank_link_accepted_date']?.toString(),
+      dutyPaymentRequestedDate: json['duty_payment_requested_date']?.toString(),
       status: json['status'] ?? 'Inspection In Progress',
       owner: json['owner'] ?? 'Kamal',
       notes: json['notes'],
@@ -410,6 +419,9 @@ class CustomsClearanceModel {
       'lab_certificate_number': labCertificateNumber,
       'quarantine_lifted_date': quarantineLiftedDate,
       'quarantine_lifted_by': quarantineLiftedBy,
+      'tariff_coding_date': tariffCodingDate,
+      'bank_link_accepted_date': bankLinkAcceptedDate,
+      'duty_payment_requested_date': dutyPaymentRequestedDate,
       'status': status,
       'owner': owner,
       'notes': notes,

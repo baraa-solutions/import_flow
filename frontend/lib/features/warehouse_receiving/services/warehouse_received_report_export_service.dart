@@ -4,21 +4,22 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/warehouse_receiving_model.dart';
 
 /// Item Model for Screen 64: Warehouse Received Shipments Detailed Report
 class WarehouseReceivedReportItem {
+  final int receivingId;
   final String importFileCode;
   final String poNumber;
-  final String containerInfo;
+  final String truckPlateNumber;
   final String itemCode;
   final String itemName;
   final int invoicedQty;
   final int shortageQty;
   final int damagedQty;
-  final int samplesQty;
   final int receivedQty;
   final int varianceQty;
   final String warehouseName;
@@ -27,15 +28,15 @@ class WarehouseReceivedReportItem {
   final String grnCode;
 
   const WarehouseReceivedReportItem({
+    required this.receivingId,
     required this.importFileCode,
     required this.poNumber,
-    required this.containerInfo,
+    required this.truckPlateNumber,
     required this.itemCode,
     required this.itemName,
     required this.invoicedQty,
     required this.shortageQty,
     required this.damagedQty,
-    this.samplesQty = 0,
     required this.receivedQty,
     required this.varianceQty,
     required this.warehouseName,
@@ -44,24 +45,33 @@ class WarehouseReceivedReportItem {
     this.grnCode = '',
   });
 
+  /// Backward-compatibility getter
+  String get containerInfo => truckPlateNumber;
+
   static List<WarehouseReceivedReportItem> fromReceivingRecords(
-      List<WarehouseReceivingModel> records) {
+    List<WarehouseReceivingModel> records, {
+    required Map<int, String> fileCodeById,
+  }) {
     final List<WarehouseReceivedReportItem> list = [];
     for (final r in records) {
       for (final item in r.grnItems) {
         final arrival = r.arrivalDatetime.length >= 10
             ? r.arrivalDatetime.substring(0, 10)
             : r.arrivalDatetime;
+        final resolvedFileCode = fileCodeById[r.importFileId] ?? '';
+        final resolvedPoNumber = item.poNumber?.trim().isNotEmpty == true
+            ? item.poNumber!.trim()
+            : '';
         list.add(WarehouseReceivedReportItem(
-          importFileCode: 'IMP-${r.importFileId}',
-          poNumber: 'PO-MAIN-${r.importFileId}',
-          containerInfo: '1 × 40ft HQ (${r.truckPlateNumber ?? "N/A"})',
+          receivingId: r.receivingId,
+          importFileCode: resolvedFileCode,
+          poNumber: resolvedPoNumber,
+          truckPlateNumber: r.truckPlateNumber ?? '',
           itemCode: item.itemCode,
           itemName: item.itemName,
           invoicedQty: item.invoicedQty,
           shortageQty: item.shortageQty,
           damagedQty: item.damagedQty,
-          samplesQty: 0,
           receivedQty: item.acceptedQty,
           varianceQty: item.acceptedQty - item.invoicedQty,
           warehouseName: r.warehouseName,
@@ -75,19 +85,20 @@ class WarehouseReceivedReportItem {
   }
 
   String toRowSummary(AppLocalizations l) {
+    final statusLabel = DomainEnums.label(l, DomainEnumType.warehouseReceivingStatus, status);
     return [
-      '${l.whReportColImportFile}: $importFileCode',
-      '${l.whReportColPoNumber}: $poNumber',
+      '${l.whReportColImportFile}: ${importFileCode.isEmpty ? "—" : importFileCode}',
+      '${l.whReportColPoNumber}: ${poNumber.isEmpty ? "—" : poNumber}',
+      '${l.warehouseReceivingTruckPlateLabel}: ${truckPlateNumber.isEmpty ? "—" : truckPlateNumber}',
       '${l.whReportColItemAndDescription}: $itemCode - $itemName',
       '${l.whReportColInvoicedQty}: $invoicedQty',
       '${l.whReportColReceivedQty}: $receivedQty',
       '${l.whReportColShortageQty}: $shortageQty',
       '${l.whReportColDamagedQty}: $damagedQty',
-      '${l.whReportColSamplesQty}: $samplesQty',
       '${l.whReportColVarianceQty}: ${varianceQty >= 0 ? "+$varianceQty" : "$varianceQty"}',
       '${l.whReportColWarehouse}: $warehouseName',
       '${l.whReportColArrivalDate}: $arrivalDate',
-      '${l.whReportColReceiptStatus}: $status',
+      '${l.whReportColReceiptStatus}: $statusLabel',
     ].join(' | ');
   }
 }
@@ -116,12 +127,11 @@ class WarehouseReceivedReportExportService {
     buf.writeln([
       l.whReportColImportFile,
       l.whReportColPoNumber,
-      l.whReportColContainerAndTruck,
+      l.warehouseReceivingTruckPlateLabel,
       l.whReportColItemAndDescription,
       l.whReportColInvoicedQty,
       l.whReportColShortageQty,
       l.whReportColDamagedQty,
-      l.whReportColSamplesQty,
       l.whReportColReceivedQty,
       l.whReportColVarianceQty,
       l.whReportColWarehouse,
@@ -130,20 +140,20 @@ class WarehouseReceivedReportExportService {
     ].join('\t'));
 
     for (final it in items) {
+      final statusLabel = DomainEnums.label(l, DomainEnumType.warehouseReceivingStatus, it.status);
       buf.writeln([
-        _cleanTsv(it.importFileCode),
-        _cleanTsv(it.poNumber),
-        _cleanTsv(it.containerInfo),
+        _cleanTsv(it.importFileCode.isEmpty ? '—' : it.importFileCode),
+        _cleanTsv(it.poNumber.isEmpty ? '—' : it.poNumber),
+        _cleanTsv(it.truckPlateNumber.isEmpty ? '—' : it.truckPlateNumber),
         _cleanTsv('${it.itemCode} - ${it.itemName}'),
         _cleanTsv(it.invoicedQty.toString()),
         _cleanTsv(it.shortageQty.toString()),
         _cleanTsv(it.damagedQty.toString()),
-        _cleanTsv(it.samplesQty.toString()),
         _cleanTsv(it.receivedQty.toString()),
         _cleanTsv('${it.varianceQty >= 0 ? "+" : ""}${it.varianceQty}'),
         _cleanTsv(it.warehouseName),
         _cleanTsv(it.arrivalDate),
-        _cleanTsv(it.status),
+        _cleanTsv(statusLabel),
       ].join('\t'));
     }
 
@@ -159,12 +169,11 @@ class WarehouseReceivedReportExportService {
     buf.writeln([
       _csvQuote(l.whReportColImportFile),
       _csvQuote(l.whReportColPoNumber),
-      _csvQuote(l.whReportColContainerAndTruck),
+      _csvQuote(l.warehouseReceivingTruckPlateLabel),
       _csvQuote(l.whReportColItemAndDescription),
       _csvQuote(l.whReportColInvoicedQty),
       _csvQuote(l.whReportColShortageQty),
       _csvQuote(l.whReportColDamagedQty),
-      _csvQuote(l.whReportColSamplesQty),
       _csvQuote(l.whReportColReceivedQty),
       _csvQuote(l.whReportColVarianceQty),
       _csvQuote(l.whReportColWarehouse),
@@ -173,20 +182,20 @@ class WarehouseReceivedReportExportService {
     ].join(','));
 
     for (final it in items) {
+      final statusLabel = DomainEnums.label(l, DomainEnumType.warehouseReceivingStatus, it.status);
       buf.writeln([
-        _csvQuote(it.importFileCode),
-        _csvQuote(it.poNumber),
-        _csvQuote(it.containerInfo),
+        _csvQuote(it.importFileCode.isEmpty ? '—' : it.importFileCode),
+        _csvQuote(it.poNumber.isEmpty ? '—' : it.poNumber),
+        _csvQuote(it.truckPlateNumber.isEmpty ? '—' : it.truckPlateNumber),
         _csvQuote('${it.itemCode} - ${it.itemName}'),
         _csvQuote(it.invoicedQty.toString()),
         _csvQuote(it.shortageQty.toString()),
         _csvQuote(it.damagedQty.toString()),
-        _csvQuote(it.samplesQty.toString()),
         _csvQuote(it.receivedQty.toString()),
         _csvQuote('${it.varianceQty >= 0 ? "+" : ""}${it.varianceQty}'),
         _csvQuote(it.warehouseName),
         _csvQuote(it.arrivalDate),
-        _csvQuote(it.status),
+        _csvQuote(statusLabel),
       ].join(','));
     }
 
@@ -252,7 +261,6 @@ class WarehouseReceivedReportExportService {
     final totalReceived = items.fold<int>(0, (s, i) => s + i.receivedQty);
     final totalDamaged = items.fold<int>(0, (s, i) => s + i.damagedQty);
     final totalShortage = items.fold<int>(0, (s, i) => s + i.shortageQty);
-    final totalSamples = items.fold<int>(0, (s, i) => s + i.samplesQty);
     final totalVariance = items.fold<int>(0, (s, i) => s + i.varianceQty);
 
     buf.writeln(l.whReportDossierKpiSummary);
@@ -260,7 +268,6 @@ class WarehouseReceivedReportExportService {
     buf.writeln('• ${l.whReportKpiReceivedQty}: ${l.whReportUnitsValue(totalReceived)}');
     buf.writeln('• ${l.whReportKpiDamagedQty}: ${l.whReportUnitsValue(totalDamaged)}');
     buf.writeln('• ${l.whReportKpiShortageQty}: ${l.whReportUnitsValue(totalShortage)}');
-    buf.writeln('• ${l.whReportKpiSamplesQty}: ${l.whReportUnitsValue(totalSamples)}');
     buf.writeln(
         '• ${l.whReportKpiVarianceQty}: ${totalVariance >= 0 ? "+" : ""}${l.whReportUnitsValue(totalVariance)}');
     buf.writeln('----------------------------------------------------------------');
@@ -272,20 +279,20 @@ class WarehouseReceivedReportExportService {
     } else {
       for (int i = 0; i < items.length; i++) {
         final it = items[i];
-        buf.writeln('[${i + 1}] ${l.whReportColImportFile}: ${it.importFileCode}');
-        buf.writeln('    • ${l.whReportColPoNumber}: ${it.poNumber}');
-        buf.writeln('    • ${l.whReportColContainerAndTruck}: ${it.containerInfo}');
+        final statusLabel = DomainEnums.label(l, DomainEnumType.warehouseReceivingStatus, it.status);
+        buf.writeln('[${i + 1}] ${l.whReportColImportFile}: ${it.importFileCode.isEmpty ? "—" : it.importFileCode}');
+        buf.writeln('    • ${l.whReportColPoNumber}: ${it.poNumber.isEmpty ? "—" : it.poNumber}');
+        buf.writeln('    • ${l.warehouseReceivingTruckPlateLabel}: ${it.truckPlateNumber.isEmpty ? "—" : it.truckPlateNumber}');
         buf.writeln('    • ${l.whReportColItemAndDescription}: ${it.itemCode} - ${it.itemName}');
         buf.writeln('    • ${l.whReportColInvoicedQty}: ${it.invoicedQty}');
         buf.writeln('    • ${l.whReportColReceivedQty}: ${it.receivedQty}');
         buf.writeln('    • ${l.whReportColShortageQty}: ${it.shortageQty}');
         buf.writeln('    • ${l.whReportColDamagedQty}: ${it.damagedQty}');
-        buf.writeln('    • ${l.whReportColSamplesQty}: ${it.samplesQty}');
         buf.writeln(
             '    • ${l.whReportColVarianceQty}: ${it.varianceQty >= 0 ? "+" : ""}${it.varianceQty}');
         buf.writeln('    • ${l.whReportColWarehouse}: ${it.warehouseName}');
         buf.writeln('    • ${l.whReportColArrivalDate}: ${it.arrivalDate}');
-        buf.writeln('    • ${l.whReportColReceiptStatus}: ${it.status}');
+        buf.writeln('    • ${l.whReportColReceiptStatus}: $statusLabel');
         buf.writeln();
       }
     }
@@ -332,7 +339,6 @@ class WarehouseReceivedReportExportService {
     final totalReceived = items.fold<int>(0, (s, i) => s + i.receivedQty);
     final totalDamaged = items.fold<int>(0, (s, i) => s + i.damagedQty);
     final totalShortage = items.fold<int>(0, (s, i) => s + i.shortageQty);
-    final totalSamples = items.fold<int>(0, (s, i) => s + i.samplesQty);
     final totalVariance = items.fold<int>(0, (s, i) => s + i.varianceQty);
 
     doc.addPage(
@@ -417,7 +423,6 @@ class WarehouseReceivedReportExportService {
                   _buildPdfKpiCard(l.whReportKpiReceivedQty, totalReceived.toString(), PdfColors.green800),
                   _buildPdfKpiCard(l.whReportKpiDamagedQty, totalDamaged.toString(), PdfColors.red800),
                   _buildPdfKpiCard(l.whReportKpiShortageQty, totalShortage.toString(), PdfColors.orange800),
-                  _buildPdfKpiCard(l.whReportKpiSamplesQty, totalSamples.toString(), PdfColors.purple800),
                   _buildPdfKpiCard(
                     l.whReportKpiVarianceQty,
                     '${totalVariance >= 0 ? "+" : ""}$totalVariance',
@@ -440,31 +445,32 @@ class WarehouseReceivedReportExportService {
               headers: [
                 l.whReportColImportFile,
                 l.whReportColPoNumber,
+                l.warehouseReceivingTruckPlateLabel,
                 l.whReportColItemAndDescription,
                 l.whReportColInvoicedQty,
                 l.whReportColReceivedQty,
                 l.whReportColShortageQty,
                 l.whReportColDamagedQty,
-                l.whReportColSamplesQty,
                 l.whReportColVarianceQty,
                 l.whReportColWarehouse,
                 l.whReportColArrivalDate,
                 l.whReportColReceiptStatus,
               ],
               data: items.map((it) {
+                final statusLabel = DomainEnums.label(l, DomainEnumType.warehouseReceivingStatus, it.status);
                 return [
-                  it.importFileCode,
-                  it.poNumber,
+                  it.importFileCode.isEmpty ? '—' : it.importFileCode,
+                  it.poNumber.isEmpty ? '—' : it.poNumber,
+                  it.truckPlateNumber.isEmpty ? '—' : it.truckPlateNumber,
                   '${it.itemCode}\n${it.itemName}',
                   it.invoicedQty.toString(),
                   it.receivedQty.toString(),
                   it.shortageQty.toString(),
                   it.damagedQty.toString(),
-                  it.samplesQty.toString(),
                   '${it.varianceQty >= 0 ? "+" : ""}${it.varianceQty}',
                   it.warehouseName,
                   it.arrivalDate,
-                  it.status,
+                  statusLabel,
                 ];
               }).toList(),
             ),

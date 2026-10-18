@@ -14,7 +14,7 @@ class SmartTaskBase(BaseModel):
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
     phase_name: Optional[str] = None
-    assigned_user: str = Field("Kamal", description="Assigned User")
+    assigned_user: Optional[str] = Field(None, description="Assigned User")
     priority: str = Field("Medium", description="Low, Medium, High, Critical")
     reminder_type: str = Field("General Reminder", description="Supplier, Bank, Shipping, Broker, Document, ETA, General")
     due_date: Optional[str] = None

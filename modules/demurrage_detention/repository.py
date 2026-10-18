@@ -71,11 +71,11 @@ def generate_tracking_code(db: Session) -> str:
     return next_yearly_code(db, DemurrageTracking.tracking_code, "DND", pad=4)
 
 
-def get_tracking_by_id(db: Session, tracking_id: int) -> Optional[DemurrageTracking]:
-    return db.query(DemurrageTracking).filter(
-        DemurrageTracking.tracking_id == tracking_id,
-        DemurrageTracking.is_active == True,
-    ).first()
+def get_tracking_by_id(db: Session, tracking_id: int, include_inactive: bool = False) -> Optional[DemurrageTracking]:
+    q = db.query(DemurrageTracking).filter(DemurrageTracking.tracking_id == tracking_id)
+    if not include_inactive:
+        q = q.filter(DemurrageTracking.is_active == True)
+    return q.first()
 
 
 def get_tracking_by_code(db: Session, tracking_code: str) -> Optional[DemurrageTracking]:

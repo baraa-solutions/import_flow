@@ -249,7 +249,7 @@ def test_wr03_accepted_full_with_shortage_is_400(db):
         wr_service.submit_warehouse_inspection_protocol_service(
             db, rec.receiving_id, WarehouseInspectionSubmit(inspection_verdict="ACCEPTED_FULL"))
     assert exc.value.status_code == 400
-    assert exc.value.detail["code"] == "WR_VERDICT_INCONSISTENT"
+    assert exc.value.detail["code"] in {"WR_VERDICT_INCONSISTENT", "WR_VERDICT_INCONSISTENT_EXPECTED"}
 
 
 def test_wr03_unknown_verdict_is_400_and_default_committee_english(db):

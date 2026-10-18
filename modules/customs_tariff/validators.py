@@ -19,16 +19,9 @@ def validate_no_duplicate_hs_code(
     existing = repository.get_tariff_by_hs_code(db, hs_code)
     if existing and (exclude_id is None or existing.tariff_id != exclude_id):
         raise ValueError(
-            f"HS Code '{hs_code}' already exists (Tariff ID: {existing.tariff_id}). "
+            f"البند الجمركي '{hs_code}' مسجل بالفعل برقم تعريفي {existing.tariff_id}. "
             "يمنع النظام تكرار البند الجمركي."
         )
-
-
-def validate_tariff_exists(db: Session, tariff_id: int) -> None:
-    """Raise ValueError if tariff_id does not exist."""
-    tariff = repository.get_tariff_by_id(db, tariff_id)
-    if not tariff:
-        raise ValueError(f"Tariff ID {tariff_id} not found.")
 
 
 def validate_effective_date_range(
@@ -39,7 +32,4 @@ def validate_effective_date_range(
     None effective_to means open-ended (still active) — always valid.
     """
     if effective_to and effective_to <= effective_from:
-        raise ValueError(
-            "effective_to must be after effective_from. "
-            "تاريخ انتهاء السريان يجب أن يكون بعد تاريخ البداية."
-        )
+        raise ValueError("تاريخ انتهاء السريان يجب أن يكون بعد تاريخ البداية.")

@@ -28,13 +28,13 @@ def validate_quotation_dates(crd_date, sailing_date, arrival_date) -> None:
     if sailing_date < crd_date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Sailing date ({sailing_date}) cannot be before Cargo Ready Date ({crd_date}).",
+            detail=f"تاريخ الإبحار ({sailing_date}) لا يمكن أن يكون قبل تاريخ جاهزية البضاعة ({crd_date}).",
         )
 
     if arrival_date <= sailing_date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Estimated arrival date ({arrival_date}) must be after sailing date ({sailing_date}).",
+            detail=f"تاريخ الوصول المتوقع ({arrival_date}) يجب أن يكون بعد تاريخ الإبحار ({sailing_date}).",
         )
 
 
@@ -50,7 +50,7 @@ def validate_import_file_exists(db: Session, import_file_id: int):
     if not file_obj:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Active Import File with ID '{import_file_id}' not found.",
+            detail=f"ملف الاستيراد النشط برقم '{import_file_id}' غير موجود.",
         )
     return file_obj
 
@@ -67,7 +67,7 @@ def validate_po_exists(db: Session, po_id: int):
     if not po_obj:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Active Purchase Order with ID '{po_id}' not found.",
+            detail=f"أمر الشراء النشط برقم '{po_id}' غير موجود.",
         )
     return po_obj
 
@@ -84,7 +84,7 @@ def validate_project_exists(db: Session, project_id: int):
     if not project_obj:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Active Project with ID '{project_id}' not found.",
+            detail=f"المشروع النشط برقم '{project_id}' غير موجود.",
         )
     return project_obj
 

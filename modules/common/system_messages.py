@@ -1370,6 +1370,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "CC_SETTLEMENT_LOCKED": {
         "note": "Clearance invoices cannot be modified after the landed-cost settlement is approved ({settlement_code}).",
     },
+    "CC_BANK_LINK_REQUIRES_TARIFF_CODING": {
+        "note": "Nafeza bank linkage cannot be accepted before completing item tariff coding (tariff_coding_date).",
+    },
     "CCQ_RFQ_STATUS_INVALID": {
         "note": "RFQ status '{status}' is not allowed; awarding is done through the award action only.",
     },

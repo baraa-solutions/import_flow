@@ -33,13 +33,13 @@ class ShippingScenarioValidator:
         if payload.avg_form4_days < 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Average Form 4 days cannot be negative.",
+                detail="متوسط أيام نموذج 4 لا يمكن أن يكون سالباً.",
             )
 
         if payload.avg_clearance_days < 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Average Customs Clearance days cannot be negative.",
+                detail="متوسط أيام التخليص الجمركي لا يمكن أن يكون سالباً.",
             )
 
         if payload.items:
@@ -52,13 +52,13 @@ class ShippingScenarioValidator:
         if payload.avg_form4_days is not None and payload.avg_form4_days < 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Average Form 4 days cannot be negative.",
+                detail="متوسط أيام نموذج 4 لا يمكن أن يكون سالباً.",
             )
 
         if payload.avg_clearance_days is not None and payload.avg_clearance_days < 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Average Customs Clearance days cannot be negative.",
+                detail="متوسط أيام التخليص الجمركي لا يمكن أن يكون سالباً.",
             )
 
         if payload.items is not None:
@@ -80,26 +80,26 @@ class ShippingScenarioValidator:
             if item.sailing_date < cargo_ready_date:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Option #{idx} ({item.provider_name}): Sailing date ({item.sailing_date}) cannot be before Cargo Ready Date ({cargo_ready_date}).",
+                    detail=f"الخيار رقم {idx} ({item.provider_name}): تاريخ الإبحار ({item.sailing_date}) لا يمكن أن يكون قبل تاريخ جاهزية البضاعة ({cargo_ready_date}).",
                 )
 
             if item.estimated_arrival_date <= item.sailing_date:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Option #{idx} ({item.provider_name}): Estimated Arrival Date (ETA) must be after Sailing Date.",
+                    detail=f"الخيار رقم {idx} ({item.provider_name}): تاريخ الوصول المتوقع (ETA) يجب أن يكون بعد تاريخ الإبحار.",
                 )
 
             if item.expected_line_delay_days < 0:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Option #{idx} ({item.provider_name}): Expected delay days cannot be negative.",
+                    detail=f"الخيار رقم {idx} ({item.provider_name}): أيام التأخير المتوقعة لا يمكن أن تكون سالبة.",
                 )
 
             key = (item.provider_id, item.provider_name.strip().lower(), item.vessel_name.strip().lower(), item.sailing_date)
             if key in seen_keys:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Duplicate shipping option found for Freight Forwarder ID '{item.provider_id}', Shipping Line '{item.provider_name}' on vessel '{item.vessel_name}' with sailing date {item.sailing_date}.",
+                    detail=f"تم العثور على خيار شحن مكرر لمقدم الخدمة رقم '{item.provider_id}'، الخط الملاحي '{item.provider_name}' على السفينة '{item.vessel_name}' بتاريخ إبحار {item.sailing_date}.",
                 )
             seen_keys.add(key)
 

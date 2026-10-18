@@ -9,6 +9,9 @@ class CustomsClearanceCreate(BaseModel):
     import_file_id: int
     declaration_46_no: Optional[str] = None
     declaration_46_date: Optional[datetime] = None
+    tariff_coding_date: Optional[datetime] = None
+    bank_link_accepted_date: Optional[datetime] = None
+    duty_payment_requested_date: Optional[datetime] = None
     mts_certificate_number: Optional[str] = None
     customs_tariff_items_count: int = 1
     customs_office_name: Optional[str] = None
@@ -103,6 +106,32 @@ class CustomsDeclaration46Submit(BaseModel):
     mts_certificate_number: Optional[str] = Field(None, description="رقم الشهادة الجمركية المبدئية أو المرجعية (MTS Ref)")
     customs_tariff_items_count: int = Field(1, ge=1, description="عدد بنود التعريفة الجمركية المتضمنة في الإقرار")
     inspection_notes: Optional[str] = Field(None, description="ملاحظات وتوجيهات الكشف والتثمين")
+
+# TASK-BE-10: Tax Coding & Bank Linkage on Nafeza before Form 4
+class TariffCodingSubmit(BaseModel):
+    import_file_id: int = Field(..., description="معرف ملف الشحنة الاستيرادية")
+    tariff_coding_date: Optional[datetime] = Field(None, description="تاريخ ربط الضرائب والتكويد الإلكتروني للأصناف")
+    tax_coding_sheet_url: Optional[str] = Field(None, description="رابط أو مسار شيت التكويد الضريبي")
+    accountant_name: Optional[str] = Field(None, description="اسم المحاسب المسؤول عن التكويد وتوقيع e-Token")
+    items_count_total: Optional[int] = Field(None, ge=1, description="إجمالي عدد الأصناف في الشهادة")
+    items_count_coded: Optional[int] = Field(None, ge=0, description="عدد الأصناف التي تم تكويدها وقبولها")
+    notes: Optional[str] = Field(None, description="ملاحظات وتوجيهات التكويد الضريبي")
+
+class NafezaBankLinkSubmit(BaseModel):
+    import_file_id: int = Field(..., description="معرف ملف الشحنة الاستيرادية")
+    bank_link_accepted_date: Optional[datetime] = Field(None, description="تاريخ قبول التكويد والربط البنكي على نافذة")
+    linked_bank_id: Optional[int] = Field(None, description="معرف البنك المربوط عليه الشهادة")
+    linked_bank_name: Optional[str] = Field(None, description="اسم البنك المربوط عليه الشهادة")
+    nafeza_bank_link_ref: Optional[str] = Field(None, description="رقم أو مرجع اعتماد الربط البنكي على نافذة")
+    notes: Optional[str] = Field(None, description="ملاحظات الربط البنكي على نافذة")
+
+class DutyPaymentRequestSubmit(BaseModel):
+    import_file_id: int = Field(..., description="معرف ملف الشحنة الاستيرادية")
+    duty_payment_requested_date: Optional[datetime] = Field(None, description="تاريخ طلب سداد الرسوم الجمركية والمطالبة")
+    nafeza_claim_number: Optional[str] = Field(None, description="رقم المطالبة الجمركية بنظام نافذة")
+    total_duty_payable: Optional[float] = Field(None, ge=0.0, description="إجمالي الرسوم الجمركية المطلوب سدادها")
+    notes: Optional[str] = Field(None, description="ملاحظات طلب السداد")
+
 
 # CL-01: Inspection & Samples GOEIC Report Schema
 class CustomsInspectionSamplingSubmit(BaseModel):
@@ -245,25 +274,6 @@ class ClearanceExpenseInvoiceBase(BaseModel):
 class ClearanceExpenseInvoiceCreate(ClearanceExpenseInvoiceBase):
     pass
 
-class ClearanceExpenseInvoiceUpdate(BaseModel):
-    invoice_number: Optional[str] = None
-    invoice_date: Optional[datetime] = None
-    provider_id: Optional[int] = None
-    provider_name: Optional[str] = None
-    expense_category: Optional[str] = None
-    currency: Optional[str] = None
-    amount_fx: Optional[float] = None
-    exchange_rate: Optional[float] = None
-    amount_egp: Optional[float] = None
-    vat_included: Optional[bool] = None
-    vat_amount: Optional[float] = None
-    wht_deducted: Optional[bool] = None
-    wht_amount: Optional[float] = None
-    payment_status: Optional[str] = None
-    payment_ref: Optional[str] = None
-    document_url: Optional[str] = None
-    allocation_rule: Optional[str] = None
-    notes: Optional[str] = None
 
 @read_model
 class ClearanceExpenseInvoiceResponse(ClearanceExpenseInvoiceBase):
@@ -299,6 +309,9 @@ class CustomsClearanceUpdate(BaseModel):
 
     declaration_46_no: Optional[str] = None
     declaration_46_date: Optional[datetime] = None
+    tariff_coding_date: Optional[datetime] = None
+    bank_link_accepted_date: Optional[datetime] = None
+    duty_payment_requested_date: Optional[datetime] = None
     mts_certificate_number: Optional[str] = None
     customs_tariff_items_count: Optional[int] = None
     customs_office_name: Optional[str] = None
@@ -360,6 +373,9 @@ class CustomsClearanceResponse(LegacyRowTolerantModel):
     import_file_id: int
     declaration_46_no: Optional[str] = None
     declaration_46_date: Optional[datetime] = None
+    tariff_coding_date: Optional[datetime] = None
+    bank_link_accepted_date: Optional[datetime] = None
+    duty_payment_requested_date: Optional[datetime] = None
     mts_certificate_number: Optional[str] = None
     customs_tariff_items_count: int = 1
     customs_office_name: Optional[str] = None
@@ -446,7 +462,10 @@ class CustomsClearanceResponse(LegacyRowTolerantModel):
     lab_certificate_number: Optional[str] = None
     quarantine_lifted_date: Optional[datetime] = None
     quarantine_lifted_by: Optional[str] = None
-    total_clearance_expenses_egp: Optional[float] = 0.0
+    total_clearance_expenses_egp: Optional[float] = Field(
+        0.0,
+        description="Grand total of all clearance invoices in EGP. Note: total_port_expenses_egp and total_handling_expenses_egp are category subsets already included in this total, do not sum them together.",
+    )
     total_port_expenses_egp: Optional[float] = 0.0
     total_handling_expenses_egp: Optional[float] = 0.0
     clearance_invoices_count: int = 0
@@ -461,3 +480,35 @@ class CustomsClearanceResponse(LegacyRowTolerantModel):
     updated_by: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ClearanceFollowupLogCreate(BaseModel):
+    customs_clearance_id: int
+    import_file_id: int
+    followup_seq: int = Field(default=1, ge=1, le=5, description="تسلسل المتابعة من 1 إلى 5")
+    followup_date: datetime = Field(..., description="تاريخ ووقت المتابعة الجمركية")
+    authority_type: str = Field(..., max_length=100, description="الجهة الجمركية / المعاينة / التثمين / الفحص")
+    official_contact: Optional[str] = Field(None, max_length=150, description="اسم المثمن / مأمور الجمرك أو المسؤول")
+    status_summary: str = Field(..., max_length=255, description="ملخص نتيجة الزيارة / المعاينة")
+    action_required: Optional[str] = Field(None, description="الإجراء المطلوب استيفاؤه من المستورد أو المخلص")
+    next_visit_date: Optional[datetime] = Field(None, description="موعد الزيارة أو المتابعة القادمة")
+    is_completed: bool = Field(default=False, description="اكتمال هذه المتابعة")
+
+
+class ClearanceFollowupLogResponse(BaseModel):
+    log_id: int
+    customs_clearance_id: int
+    import_file_id: int
+    followup_seq: int
+    followup_date: datetime
+    authority_type: str
+    official_contact: Optional[str] = None
+    status_summary: str
+    action_required: Optional[str] = None
+    next_visit_date: Optional[datetime] = None
+    is_completed: bool = False
+    created_at: datetime
+    created_by: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+

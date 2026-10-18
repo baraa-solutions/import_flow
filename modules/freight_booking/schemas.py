@@ -168,3 +168,34 @@ class ShipmentBookingResponse(LegacyRowTolerantModel, ShipmentBookingBase):
     updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ShipmentEtaTrackingLogCreate(BaseModel):
+    booking_id: int
+    import_file_id: int
+    vessel_location: Optional[str] = Field(None, max_length=200, description="موقع الباخرة الحالي أو الميناء الوسيط")
+    current_eta: datetime = Field(..., description="موعد الوصول المتوقع المحدث (Current ETA)")
+    remarks: Optional[str] = Field(None, description="ملاحظات التتبع وحالة الطقس أو مسار الملاحة")
+
+
+class ConfirmAtaRequest(BaseModel):
+    confirmed_ata: datetime = Field(..., description="تاريخ وساعة الوصول الفعلي لميناء الوصول (Actual Time of Arrival)")
+    remarks: Optional[str] = Field(None, description="ملاحظات الوصول والربط على الرصيف")
+
+
+class ShipmentEtaTrackingLogResponse(BaseModel):
+    log_id: int
+    booking_id: int
+    import_file_id: int
+    tracking_date: datetime
+    vessel_location: Optional[str] = None
+    current_eta: datetime
+    delay_days: int = 0
+    remarks: Optional[str] = None
+    is_ata_confirmed: bool = False
+    confirmed_ata: Optional[datetime] = None
+    created_at: datetime
+    created_by: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+

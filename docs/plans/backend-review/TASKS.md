@@ -12,24 +12,24 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 
 | # | Task id | Scope | Sev | Title | Depends on | Migration | API change | Safe for Antigravity | Report link | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1 | BEW0-01 | currencies, customs_tariff | BLOCKER | Shared FX resolver, no fabricated rates (merges BEX-T07 + BE67-T03) | none | no | yes: 409 `CURRENCY_RATE_MISSING`, 404 `CURRENCY_NOT_FOUND`, 422 `CT_CUSTOMS_RATE_MISSING` | review required | [README §6](README.md), [be-cross](be-cross-review.md), [be-06-07](be-06-07-review.md) | todo |
-| 2 | BEW0-06 | financial_settlement, customs_clearance | BLOCKER | Settlement external-write gate: lock + engine totals (merges BE67-T05 + BE09-T04) | none | no | yes: 409 `CC_SETTLEMENT_LOCKED` | review required | [README §6](README.md), [be-06-07](be-06-07-review.md), [be-09](be-09-review.md) | todo |
-| 3 | BEW0-03 | common | BLOCKER | Closed-file guard `ensure_file_open` + code `IMPORT_FILE_CLOSED` | none | no | yes: new code | yes | [README §6](README.md), [be-08-10](be-08-10-review.md) | todo |
-| 4 | BEW0-02 | common | MAJOR | Currency master validation helper `require_currency_code` | none | no | no (helper only) | yes | [README §6](README.md) | todo |
-| 5 | BEW0-04 | common, import_files | MAJOR | List paging helper + `/paginated` contract, harden `/import-files/paginated` (was BEX-T13) | none | no | additive: `sort`, `q`, bounds, `X-Total-Count` | yes | [README §11](README.md), [be-cross](be-cross-review.md) | todo |
+| 1 | BEW0-01 | currencies, customs_tariff | BLOCKER | Shared FX resolver, no fabricated rates (merges BEX-T07 + BE67-T03) | none | no | yes: 409 `CURRENCY_RATE_MISSING`, 404 `CURRENCY_NOT_FOUND`, 422 `CT_CUSTOMS_RATE_MISSING` | review required | [README §6](README.md), [be-cross](be-cross-review.md), [be-06-07](be-06-07-review.md) | done (PR #18) |
+| 2 | BEW0-06 | financial_settlement, customs_clearance | BLOCKER | Settlement external-write gate: lock + engine totals (merges BE67-T05 + BE09-T04) | none | no | yes: 409 `CC_SETTLEMENT_LOCKED` | review required | [README §6](README.md), [be-06-07](be-06-07-review.md), [be-09](be-09-review.md) | done (PR #20) |
+| 3 | BEW0-03 | common | BLOCKER | Closed-file guard `ensure_file_open` + code `IMPORT_FILE_CLOSED` | none | no | yes: new code | yes | [README §6](README.md), [be-08-10](be-08-10-review.md) | done |
+| 4 | BEW0-02 | common | MAJOR | Currency master validation helper `require_currency_code` | none | no | no (helper only) | yes | [README §6](README.md) | done |
+| 5 | BEW0-04 | common, import_files | MAJOR | List paging helper + `/paginated` contract, harden `/import-files/paginated` (was BEX-T13) | none | no | additive: `sort`, `q`, bounds, `X-Total-Count` | yes | [README §11](README.md), [be-cross](be-cross-review.md) | done |
 | 6 | BEW0-05 | ~25 tables (models) | MAJOR | One Alembic revision: audit + soft-delete columns for all modules | none | **yes** | additive (nullable fields) | review required | [README §6](README.md) | todo |
 
 ## Wave 1: BLOCKER + CRITICAL
 
 | # | Task id | Scope | Sev | Title | Depends on | Migration | API change | Safe for Antigravity | Report link | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 7 | BE45-T01 | freight_booking | BLOCKER | Booking cost engine: charge currency to USD, per-container-type quantity, decimal qty (absorbs ACC3-T01) | BEW0-01, BEW0-02 | no | yes: `fx_rate_to_usd`, `amount_usd`, `container_type`, float `quantity`; 422 / 409 | review required | [be-04-05](be-04-05-review.md), [acc-logistics](acc-logistics-costs-review.md) | todo |
-| 8 | ACC3-T02 | freight_booking (+FE form) | BLOCKER | Keep insurance (and storage) out of the booking freight total | BE45-T01; Q2 for storage | no | yes: `charge_category`; 422 on INSURANCE | review required | [acc-logistics](acc-logistics-costs-review.md) | todo |
-| 9 | ACC2-T01 | financial_settlement, recalculation | BLOCKER | Landed cost uses the file's share of partially shipped POs | none | no | additive message `SETTLEMENT_PO_NOT_ALLOCATED` | review required | [acc-settlement](acc-settlement-review.md) | todo |
-| 10 | BE67-T02 | customs_tariff | BLOCKER | One preferential-agreement rate helper (fixed rate, 0..1 scale, date, HS format) | none | no | yes: `reduction_percentage` 0..1 | review required | [be-06-07](be-06-07-review.md) | todo |
-| 11 | ACC1-T01 | customs_tariff | BLOCKER | Foreign freight converted at its own customs rate, never the invoice rate | BEW0-01 | no | yes: `freight_rate_source`, 422 | review required | [acc-customs](acc-customs-review.md) | todo |
-| 12 | BE67-T04 | customs_tariff | BLOCKER | `simulate-file` without invented HS / values / currency / broker; per-PO currency | BEW0-01 | no | yes: `warnings[]`, `skipped_lines[]`, 422 `CT_SIMULATION_NO_LINES` | review required | [be-06-07](be-06-07-review.md) | todo |
-| 13 | ACC3-T03 | financial_settlement (PL-08) | BLOCKER | Estimate uses the ocean freight, not the quote total, in CIF | none | no | no (values) | review required | [acc-logistics](acc-logistics-costs-review.md) | todo |
+| 7 | BE45-T01 | freight_booking | BLOCKER | Booking cost engine: charge currency to USD, per-container-type quantity, decimal qty (absorbs ACC3-T01) | BEW0-01, BEW0-02 | no | yes: `fx_rate_to_usd`, `amount_usd`, `container_type`, float `quantity`; 422 / 409 | review required | [be-04-05](be-04-05-review.md), [acc-logistics](acc-logistics-costs-review.md) | done |
+| 8 | ACC3-T02 | freight_booking (+FE form) | BLOCKER | Keep insurance (and storage) out of the booking freight total | BE45-T01; Q2 for storage | no | yes: `charge_category`; 422 on INSURANCE | review required | [acc-logistics](acc-logistics-costs-review.md) | done |
+| 9 | ACC2-T01 | financial_settlement, recalculation | BLOCKER | Landed cost uses the file's share of partially shipped POs | none | no | additive message `SETTLEMENT_PO_NOT_ALLOCATED` | review required | [acc-settlement](acc-settlement-review.md) | done (PR #39) |
+| 10 | BE67-T02 | customs_tariff | BLOCKER | One preferential-agreement rate helper (fixed rate, 0..1 scale, date, HS format) | none | no | yes: `reduction_percentage` 0..1 | review required | [be-06-07](be-06-07-review.md) | done |
+| 11 | ACC1-T01 | customs_tariff | BLOCKER | Foreign freight converted at its own customs rate, never the invoice rate | BEW0-01 | no | yes: `freight_rate_source`, 422 | review required | [acc-customs](acc-customs-review.md) | done |
+| 12 | BE67-T04 | customs_tariff | BLOCKER | `simulate-file` without invented HS / values / currency / broker; per-PO currency | BEW0-01 | no | yes: `warnings[]`, `skipped_lines[]`, 422 `CT_SIMULATION_NO_LINES` | review required | [be-06-07](be-06-07-review.md) | done (fix/be67-t04-simulate-file-no-invented-data) |
+| 13 | ACC3-T03 | financial_settlement (PL-08) | BLOCKER | Estimate uses the ocean freight, not the quote total, in CIF | none | no | no (values) | review required | [acc-logistics](acc-logistics-costs-review.md) | done (fix/acc3-t03-cif-ocean-freight-only) |
 | 14 | BE09-T02 | recalculation | BLOCKER | A justified recalculation keeps an Approved settlement Approved; file variance refreshed | none (Q1) | no | yes (status stays Approved) | review required | [be-09](be-09-review.md) | done (fix/be09-t02-approved-settlement-refresh) |
 | 15 | BE09-T03 | recalculation | BLOCKER | Settlement recalculation no longer overwrites actual costs with estimates | Q1 | no | yes (FOB item only) | review required | [be-09](be-09-review.md) | done (PR #49) |
 | 16 | BE09-T01 | financial_settlement, recalculation | BLOCKER | Closed import file makes the settlement read-only | BEW0-03 | no | yes: 409 `IMPORT_FILE_CLOSED` | review required | [be-09](be-09-review.md) | done (fix/be09-t01-closed-file-settlement) |
@@ -37,14 +37,14 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 18 | BE45-T03 | demurrage_detention | BLOCKER | Settlement permission on every re-push of a pushed tracking | none | no | yes: 403 | review required | [be-04-05](be-04-05-review.md) | done (fix/be45-t03-repush-settlement-permission) |
 | 19 | BE45-T02 | demurrage_detention | BLOCKER | Recalculate before pushing demurrage; live dual clock | BE45-T03, BEW0-06 | no | additive `is_provisional` | review required | [be-04-05](be-04-05-review.md) | done (fix/be45-t02-recalculate-before-push) |
 | 20 | BE01-T01 | customs_consultation | BLOCKER | Broker fees converted to EGP per line | BEW0-01 | no | yes: request total ignored, 409 `SETTLEMENT_FX_RATE_MISSING` | review required | [be-01](be-01-review.md) | done (`fix/be01-t01-broker-fees-egp`) |
-| 21 | BE02-T02 | financial_approval | BLOCKER | Budget clone converts freight with the freight currency's own rate | BEW0-01 | no | no (values) | review required | [be-02](be-02-review.md) | todo |
+| 21 | BE02-T02 | financial_approval | BLOCKER | Budget clone converts freight with the freight currency's own rate | BEW0-01 | no | no (values) | review required | [be-02](be-02-review.md) | done (PR #54) |
 | 22 | BE02-T01 | financial_approval | BLOCKER | A new variance cancels an earlier override (hard-block bypass) | none | no | no | review required | [be-02](be-02-review.md) | done (`fix/be02-t01-variance-cancel-override`) |
 | 23 | BE03-T02 | import_documentation | BLOCKER | Invoice/B-L sync never relabels the file's estimated-cost currency | none | no | additive `currency_mismatch` | review required | [be-03](be-03-review.md) | done (`fix/be03-t02-invoice-bl-currency-sync`) |
 | 24 | BE03-T03 | smart_document_upload | BLOCKER | Smart-upload invoice apply is idempotent, does not overwrite the estimate | none | no | yes: `SDU_INVOICE_NUMBER_REQUIRED` | review required | [be-03](be-03-review.md) | done (PR #57) |
 | 25 | BE03-T01 | import_documentation (+FE tab) | BLOCKER | PO final adjustment applies each PO line once | none | no | yes: packing semantics, 400 duplicate line, `total_final_amount_by_currency` | review required | [be-03](be-03-review.md) | done (PR #58) |
-| 26 | BE67-T06 | customs_clearance | BLOCKER | "Assessed" means CL-02 really ran; no negative money on create / PUT | none | no | yes: claim fields ignored, 409 `CC_DUTY_NOT_ASSESSED` | review required | [be-06-07](be-06-07-review.md) | todo |
-| 27 | BEX-T10 | projects, import_files | BLOCKER | Money aggregates in one currency (project commitments, master report) | BEW0-01 | no | yes: nullable USD totals, `missing_rate_currencies`, `estimated_cost_by_currency` | review required | [be-cross](be-cross-review.md) | todo |
-| 28 | BE67-T01 | customs_tariff | BLOCKER | Permissions on all customs_tariff routes + route order | none | no | yes: 403; fee-codes / template reachable | review required | [be-06-07](be-06-07-review.md) | todo |
+| 26 | BE67-T06 | customs_clearance | BLOCKER | "Assessed" means CL-02 really ran; no negative money on create / PUT | none | no | yes: claim fields ignored, 409 `CC_DUTY_NOT_ASSESSED` | review required | [be-06-07](be-06-07-review.md) | done (PR #59) |
+| 27 | BEX-T10 | projects, import_files | BLOCKER | Money aggregates in one currency (project commitments, master report) | BEW0-01 | no | yes: nullable USD totals, `missing_rate_currencies`, `estimated_cost_by_currency` | review required | [be-cross](be-cross-review.md) | done (PR #62) |
+| 28 | BE67-T01 | customs_tariff | BLOCKER | Permissions on all customs_tariff routes + route order | none | no | yes: 403; fee-codes / template reachable | review required | [be-06-07](be-06-07-review.md) | done (PR #63) |
 | 29 | BEX-T01 | lifecycle_board | BLOCKER | Board permissions, acting user, file and status guards | none | no | yes: 403, `LC_*` codes | review required | [be-cross](be-cross-review.md) | done (PR #64) |
 | 30 | BEX-T08 | auth, users | BLOCKER | Revocation loaded at startup, token version, login limiter, small auth fixes | none | **yes** (`users.token_version`) | yes: token `tv`, refresh revokes old token | review required | [be-cross](be-cross-review.md) | todo |
 | 31 | BEX-T04 | auth seed, currencies, incoterms | BLOCKER | Master data permissions (A) + `master_data.edit` grant | Q1 | no | yes: 403; responsibility soft delete | review required | [be-cross](be-cross-review.md) | todo |
@@ -52,9 +52,9 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 33 | BEX-T06 | suppliers, import_companies, external_service_providers | BLOCKER | Master data permissions (C) + actor on create / update | BEX-T04 | no | yes: 403 | review required | [be-cross](be-cross-review.md) | todo |
 | 34 | BEX-T09 | 5 master-data Excel imports | BLOCKER | Excel imports: no invented values, one transaction, permission, limits | BEX-T05, BEX-T06 | no | yes: all-or-nothing, 413 / 415 | review required | [be-cross](be-cross-review.md) | todo |
 | 35 | BE01-T02 | shipping_scenarios | BLOCKER | Scenario items upserted by id (bookings keep their quote) | none | no | yes: `item_id`, 409 `SCENARIO_ITEMS_BOOKED` | yes | [be-01](be-01-review.md) | done |
-| 36 | BE810-T02 | warehouse_receiving, inland_transport | BLOCKER | Closed file is read-only for WR and IT | BEW0-03 | no | yes: 409 `IMPORT_FILE_CLOSED` | yes | [be-08-10](be-08-10-review.md) | todo |
+| 36 | BE810-T02 | warehouse_receiving, inland_transport | BLOCKER | Closed file is read-only for WR and IT | BEW0-03 | no | yes: 409 `IMPORT_FILE_CLOSED` | yes | [be-08-10](be-08-10-review.md) | done |
 | 37 | ACC1-T05 | customs_consultation | CRITICAL | Consultation `estimated_duties_egp` from the engine only (new estimate-duties endpoint) | BE67-T04, BEW0-01; Q3 | no | yes: field ignored, new endpoint | review required | [acc-customs](acc-customs-review.md) | todo |
-| 38 | ACC1-T02 | customs_tariff | CRITICAL | Line CIF allocation that reconciles (gross / dutiable, exact remainder) | Q1 (acc-customs) | no | yes: 422, `cif_total_egp`, `dutiable_cif_total_egp` | review required | [acc-customs](acc-customs-review.md) | todo |
+| 38 | ACC1-T02 | customs_tariff | CRITICAL | Line CIF allocation that reconciles (gross / dutiable, exact remainder) | Q1 (acc-customs) | no | yes: 422, `cif_total_egp`, `dutiable_cif_total_egp` | review required | [acc-customs](acc-customs-review.md) | done |
 | 39 | BE67-T08 | customs_tariff | CRITICAL | Tariff versioning for PUT and verify (no in-place rate overwrite, no same-day 500) | BE67-T01 | no | yes: new `tariff_id` on rate change | review required | [be-06-07](be-06-07-review.md) | todo |
 | 40 | ACC1-T08 | customs_tariff | CRITICAL | Tariff save with agreements keeps a valid history | BE67-T08, BE67-T11 | no | yes: 422 back-dated | review required | [acc-customs](acc-customs-review.md) | todo |
 | 41 | BE67-T09 | customs_tariff | CRITICAL | Tariff CSV upload: required rates, savepoints, size limit | BE67-T08 | no | yes: CSV only, 5 MB, row errors | review required | [be-06-07](be-06-07-review.md) | todo |
@@ -78,13 +78,13 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 59 | BE03-T06 | import_documentation | CRITICAL | ACID verification status derived on the server | none | no | yes: status / flags ignored, 409 `DOC_ACID_CONFLICT` | review required | [be-03](be-03-review.md) | todo |
 | 60 | BE03-T07 | import_documentation | CRITICAL | Draft B/L blocking flags and versions server-owned | none | no | yes: flags ignored | review required | [be-03](be-03-review.md) | todo |
 | 61 | BE03-T08 | docs_customs_approval | CRITICAL | DCA final session requires real approvals | none | no | yes: `unapproved_documents`, status set | review required | [be-03](be-03-review.md) | done |
-| 62 | BEX-T11 | import_files | CRITICAL | Import files: tracking fields, exact lookup, status workflow, legacy response, reopen audit | none (Q4) | no | yes: `status` not in PUT, exact lookup, 409 `IF_STATUS_TRANSITION_INVALID` | yes | [be-cross](be-cross-review.md) | todo |
-| 63 | BEX-T12 | import_files, suppliers, projects, smart_tasks | CRITICAL | Collision-safe business codes (IMP, SUP, PRJ, TSK) | none | conditional (Q8 unique indexes) | no | yes | [be-cross](be-cross-review.md) | todo |
-| 64 | BE01-T03 | customs_consultation, freight_quotations | CRITICAL | Collision-safe codes for consultations, price lists, expense types, RFQs | none | no | no | yes | [be-01](be-01-review.md) | todo |
+| 62 | BEX-T11 | import_files | CRITICAL | Import files: tracking fields, exact lookup, status workflow, legacy response, reopen audit | none (Q4) | no | yes: `status` not in PUT, exact lookup, 409 `IF_STATUS_TRANSITION_INVALID` | yes | [be-cross](be-cross-review.md) | done |
+| 63 | BEX-T12 | import_files, suppliers, projects, smart_tasks | CRITICAL | Collision-safe business codes (IMP, SUP, PRJ, TSK) | none | conditional (Q8 unique indexes) | no | yes | [be-cross](be-cross-review.md) | done |
+| 64 | BE01-T03 | customs_consultation, freight_quotations | CRITICAL | Collision-safe codes for consultations, price lists, expense types, RFQs | none | no | no | yes | [be-01](be-01-review.md) | done |
 | 65 | BE01-T04 | freight_quotations | CRITICAL | RFQ integrity: quotation upsert, award only via `/award`, read without side effects | none | no | yes: `quotation_id`; status fields ignored | yes | [be-01](be-01-review.md) | done |
-| 66 | BE810-T03 | warehouse_receiving, customs_clearance, file_closure | CRITICAL | Release the GRN quarantine lock when customs lifts it | BE810-T02 | no | no (behaviour) | yes | [be-08-10](be-08-10-review.md) | todo |
-| 67 | BE810-T04 | inland_transport, file_closure | CRITICAL | Legacy-tolerant response schemas (IT, FC) | none | no | yes: nullable `closed_at` | yes | [be-08-10](be-08-10-review.md) | todo |
-| 68 | BE810-T05 | warehouse_receiving | CRITICAL | GRN PUT keeps rate, type and verdict consistent; no workflow bypass | BE810-T02 | no | yes: `WR_FIELD_NOT_EDITABLE`, `WR_STATUS_CHANGE_NOT_ALLOWED` | yes | [be-08-10](be-08-10-review.md) | todo |
+| 66 | BE810-T03 | warehouse_receiving, customs_clearance, file_closure | CRITICAL | Release the GRN quarantine lock when customs lifts it | BE810-T02 | no | no (behaviour) | yes | [be-08-10](be-08-10-review.md) | done |
+| 67 | BE810-T04 | inland_transport, file_closure | CRITICAL | Legacy-tolerant response schemas (IT, FC) | none | no | yes: nullable `closed_at` | yes | [be-08-10](be-08-10-review.md) | done |
+| 68 | BE810-T05 | warehouse_receiving | CRITICAL | GRN PUT keeps rate, type and verdict consistent; no workflow bypass | BE810-T02 | no | yes: `WR_FIELD_NOT_EDITABLE`, `WR_STATUS_CHANGE_NOT_ALLOWED` | yes | [be-08-10](be-08-10-review.md) | done |
 
 ## Wave 2: MAJOR
 
@@ -152,29 +152,29 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 128 | BE01-T09 | customs_consultation | MAJOR | Audit wiring for broker price lists and expense types | BE01-T08, BEW0-05 | via BEW0-05 | additive | yes | [be-01](be-01-review.md) | done (PR #178) |
 | 129 | BE01-T10 | freight_quotations | MAJOR | Audit wiring for freight RFQs | BE01-T04, BEW0-05 | via BEW0-05 | additive | yes | [be-01](be-01-review.md) | done |
 | 130 | BE01-T11 | purchase_orders | MAJOR | PO status workflow and lifecycle guards | BE01-T07 | no | yes: `PO_NOT_EDITABLE`, `PO_HAS_ALLOCATIONS` | yes | [be-01](be-01-review.md) | done |
-| 131 | BE01-T12 | customs_consultation | MAJOR | Consultation validation (FKs, clone guard, nulls, money inputs, dates) | BE01-T01, BE01-T03 | no | yes: stricter 400 / 409 / 422 | yes | [be-01](be-01-review.md) | todo |
-| 132 | BE01-T13 | shipping_scenarios | MAJOR | Scenario clone guard and update re-validation | BE01-T02 | no | yes: 409 `SCENARIO_SESSION_EXISTS`, 422 | yes | [be-01](be-01-review.md) | todo |
-| 133 | BE01-T14 | cbm_calculator | MAJOR | CBM totals pushed on update and link consistently | none | no | no (404 on inactive) | yes | [be-01](be-01-review.md) | todo |
+| 131 | BE01-T12 | customs_consultation | MAJOR | Consultation validation (FKs, clone guard, nulls, money inputs, dates) | BE01-T01, BE01-T03 | no | yes: stricter 400 / 409 / 422 | yes | [be-01](be-01-review.md) | done |
+| 132 | BE01-T13 | shipping_scenarios | MAJOR | Scenario clone guard and update re-validation | BE01-T02 | no | yes: 409 `SCENARIO_SESSION_EXISTS`, 422 | yes | [be-01](be-01-review.md) | done |
+| 133 | BE01-T14 | cbm_calculator | MAJOR | CBM totals pushed on update and link consistently | none | no | no (404 on inactive) | yes | [be-01](be-01-review.md) | done |
 | 134 | BE01-T15 | purchase_orders | MAJOR | Paginated PO list (`/purchase-orders/paginated`, summary rows) | BE01-T11, BEW0-04 | no | additive | yes | [be-01](be-01-review.md) | done |
 | 135 | BE01-T16 | purchase_orders, customs_consultation, freight_quotations | MAJOR | Legacy-tolerant response schemas | BE01-T07, BE01-T12, BE01-T04 | no | no | yes | [be-01](be-01-review.md) | done |
 | 136 | BE01-T18 | 4 phase-01 modules | MAJOR | Currency fields validated against the master, no invented defaults | BE01-T13, BE01-T12, BE01-T05, BE01-T06, BEW0-02 | no (option B: Q9) | yes: currency required with a price | yes | [be-01](be-01-review.md) | done |
-| 137 | BE02-T07 | financial_approval | MAJOR | SWIFT file extraction off the event loop + OCR page cap | none | no | no | yes | [be-02](be-02-review.md) | todo |
-| 138 | BE02-T08 | financial_approval | MAJOR | `/paginated` for payment requests and budgets | BEW0-04 | no | additive | yes | [be-02](be-02-review.md) | todo |
-| 139 | BE02-T10 | financial_approval | MAJOR | Money and currency input validation on request schemas | BEW0-02 | no | yes: currency required, `gt=0` | yes | [be-02](be-02-review.md) | todo |
-| 140 | BE02-T11 | financial_approval | MAJOR | Validate master data on create and update | BE02-T10, BEW0-02 | no | yes: `FA_CURRENCY_UNKNOWN`, 404 | yes | [be-02](be-02-review.md) | todo |
-| 141 | BE02-T13 | financial_approval | MAJOR | Batch reconcile without fabricated reference or date | none | no | yes: `FA_SWIFT_VALUE_DATE_INVALID` | yes | [be-02](be-02-review.md) | todo |
-| 142 | BE02-T15 | financial_approval | MAJOR | Audit wiring `created_by` / `updated_by` | BEW0-05 | via BEW0-05 | additive | yes | [be-02](be-02-review.md) | todo |
+| 137 | BE02-T07 | financial_approval | MAJOR | SWIFT file extraction off the event loop + OCR page cap | none | no | no | yes | [be-02](be-02-review.md) | done |
+| 138 | BE02-T08 | financial_approval | MAJOR | `/paginated` for payment requests and budgets | BEW0-04 | no | additive | yes | [be-02](be-02-review.md) | done |
+| 139 | BE02-T10 | financial_approval | MAJOR | Money and currency input validation on request schemas | BEW0-02 | no | yes: currency required, `gt=0` | yes | [be-02](be-02-review.md) | done |
+| 140 | BE02-T11 | financial_approval | MAJOR | Validate master data on create and update | BE02-T10, BEW0-02 | no | yes: `FA_CURRENCY_UNKNOWN`, 404 | yes | [be-02](be-02-review.md) | done |
+| 141 | BE02-T13 | financial_approval | MAJOR | Batch reconcile without fabricated reference or date | none | no | yes: `FA_SWIFT_VALUE_DATE_INVALID` | yes | [be-02](be-02-review.md) | done |
+| 142 | BE02-T15 | financial_approval | MAJOR | Audit wiring `created_by` / `updated_by` | BEW0-05 | via BEW0-05 | additive | yes | [be-02](be-02-review.md) | done |
 | 143 | BE03-T09 | import_documentation | MAJOR | Document workflows fire once per transition | BE03-T06 | no | no | yes | [be-03](be-03-review.md) | done |
 | 144 | BE03-T11 | import_documentation, docs_customs_approval | MAJOR | Real PO sources in compare and DCA matrix | none | no | additive `system_items_missing` | yes | [be-03](be-03-review.md) | done (PR #156) |
-| 145 | BE03-T12 | import_documentation | MAJOR | Inspection draft template without invented standards | none | no | yes: empty `coc_number`, `missing_fields` | yes | [be-03](be-03-review.md) | todo |
+| 145 | BE03-T12 | import_documentation | MAJOR | Inspection draft template without invented standards | none | no | yes: empty `coc_number`, `missing_fields` | yes | [be-03](be-03-review.md) | done |
 | 146 | BE03-T13 | import_documentation | MAJOR | Declaration 46 and banking document validation | BEW0-02 | no | yes: currency required, 409 | yes | [be-03](be-03-review.md) | done |
 | 147 | BE03-T14 | import_documentation, docs_customs_approval | MAJOR | `/paginated` registries + raw text limits | BEW0-04 | no | additive; 422 > 200,000 chars | yes | [be-03](be-03-review.md) | done |
-| 148 | BE03-T15 | smart_document_upload | MAJOR | Smart-upload parsing off the event loop | none | no | no | yes | [be-03](be-03-review.md) | todo |
-| 149 | BE03-T16 | import_documentation | MAJOR | Certified COO review is locked | none | no | yes: 409 | yes | [be-03](be-03-review.md) | todo |
-| 150 | BE03-T17 | import_documentation, docs_customs_approval, original_documents_collection | MAJOR | Transaction hygiene (lifecycle call last, repo flush) | none | no | no | yes | [be-03](be-03-review.md) | todo |
-| 151 | BE03-T18 | import_documentation | MAJOR | Audit wiring on the 9 documentation tables | BEW0-05 | via BEW0-05 | additive | yes | [be-03](be-03-review.md) | todo |
-| 152 | BE45-T10 | demurrage_detention | MAJOR | Demurrage date sanity and the EIR step guard | none | no | yes: `empty_return_date` required, 422 future | yes | [be-04-05](be-04-05-review.md) | todo |
-| 153 | BE45-T12 | freight_booking | MAJOR | Lock Sailed and Cancelled bookings | BE45-T04 | no | yes: 409 | yes | [be-04-05](be-04-05-review.md) | todo |
+| 148 | BE03-T15 | smart_document_upload | MAJOR | Smart-upload parsing off the event loop | none | no | no | yes | [be-03](be-03-review.md) | done |
+| 149 | BE03-T16 | import_documentation | MAJOR | Certified COO review is locked | none | no | yes: 409 | yes | [be-03](be-03-review.md) | done |
+| 150 | BE03-T17 | import_documentation, docs_customs_approval, original_documents_collection | MAJOR | Transaction hygiene (lifecycle call last, repo flush) | none | no | no | yes | [be-03](be-03-review.md) | done |
+| 151 | BE03-T18 | import_documentation | MAJOR | Audit wiring on the 9 documentation tables | BEW0-05 | via BEW0-05 | additive | yes | [be-03](be-03-review.md) | done |
+| 152 | BE45-T10 | demurrage_detention | MAJOR | Demurrage date sanity and the EIR step guard | none | no | yes: `empty_return_date` required, 422 future | yes | [be-04-05](be-04-05-review.md) | done |
+| 153 | BE45-T12 | freight_booking | MAJOR | Lock Sailed and Cancelled bookings | BE45-T04 | no | yes: 409 | yes | [be-04-05](be-04-05-review.md) | done |
 | 154 | BE45-T15 | freight_booking, cargo_shipping | MAJOR | `/paginated` for booking and cargo shipping lists | BEW0-04 | no | additive | yes | [be-04-05](be-04-05-review.md) | done |
 | 155 | BE45-T16 | shipment_updates, demurrage_detention | MAJOR | `/paginated` for shipment updates, trackings, policies; radar cost | BE45-T15 | no | additive; radar filter | yes | [be-04-05](be-04-05-review.md) | done |
 | 156 | BE45-T17 | cargo_shipping, cargo_insurance, shipment_updates, demurrage_detention | MAJOR | Legacy-tolerant response schemas | none | no | no | yes | [be-04-05](be-04-05-review.md) | done |
@@ -213,20 +213,20 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 184 | ACC3-T11 | customs_clearance_quotations | MINOR | Clearance quotation totals on update and mixed currencies | none | no | additive `lowest_cost_currency` | review required | [acc-logistics](acc-logistics-costs-review.md) | todo |
 | 185 | ACC3-T12 | cargo_insurance | MINOR | Insured value formula (after CTO answer) | Q5 (acc-logistics) | no | no (values) | review required | [acc-logistics](acc-logistics-costs-review.md) | todo |
 | 186 | ACC3-T13 | cbm_calculator | MINOR | CBM weight units and required weight for air | none | no | additive `weight_unit` | review required | [acc-logistics](acc-logistics-costs-review.md) | todo |
-| 187 | BE01-T19 | import_requirements | MINOR | Requirement task sync hygiene | BE01-T08 | no | no | yes | [be-01](be-01-review.md) | todo |
-| 188 | BE01-T20 | 4 phase-01 validators | MINOR | Arabic user-facing messages in Phase 01 validators | BE01-T12, BE01-T13, BE01-T14, BE01-T04 | no | no | yes | [be-01](be-01-review.md) | todo |
+| 187 | BE01-T19 | import_requirements | MINOR | Requirement task sync hygiene | BE01-T08 | no | no | yes | [be-01](be-01-review.md) | done |
+| 188 | BE01-T20 | 4 phase-01 validators | MINOR | Arabic user-facing messages in Phase 01 validators | BE01-T12, BE01-T13, BE01-T14, BE01-T04 | no | no | yes | [be-01](be-01-review.md) | done |
 | 189 | BE01-T21 | purchase_orders | MINOR | PO invented fallbacks (clone qty, balance currency) | BE01-T15 | no | yes: nullable `currency_code` | yes | [be-01](be-01-review.md) | done |
-| 190 | BE01-T22 | shipping_scenarios, freight_quotations | MINOR | One owner for `import_files.selected_scenario`, ports by id | BE01-T04, BE01-T13; Q10 | no | no | yes | [be-01](be-01-review.md) | todo |
-| 191 | BE02-T16 | financial_approval | MINOR | Hygiene: status codes, Arabic details, layering, revision race | none | no | yes: small (409, 422, 404) | yes | [be-02](be-02-review.md) | todo |
-| 192 | BE02-T17 | financial_approval | MINOR | Task auto-close and `import_files.swift_no` scope | BE02-T04 | no | no | yes | [be-02](be-02-review.md) | todo |
-| 193 | BE02-T18 | financial_approval | MINOR | Legacy-tolerant budget money and base64 size limit | none | no | yes: nullable money | yes | [be-02](be-02-review.md) | todo |
-| 194 | BE03-T19 | import_documentation, original_documents_collection | MINOR | Minor hygiene (no EUR fallback, no DHL default, validators in service) | none | no | yes: nullable currency / courier | yes | [be-03](be-03-review.md) | in_progress |
-| 195 | BE45-T23 | cargo_insurance, shipment_updates, demurrage_detention | MINOR | Restore endpoints (+ tracking delete) | BE45-T05, BE45-T06 | no | yes: new endpoints | yes | [be-04-05](be-04-05-review.md) | todo |
-| 196 | BE67-T20 | customs_clearance_quotations | MINOR | Audit wiring on the quotation tables | BE67-T19, BEW0-05 | via BEW0-05 | additive | yes | [be-06-07](be-06-07-review.md) | todo |
-| 197 | BE67-T21 | customs_clearance, customs_tariff | MINOR | Minor hygiene (clearance `/paginated`, messages, history, dead code) | BE67-T11, BE67-T18, BEW0-04 | no | additive | yes | [be-06-07](be-06-07-review.md) | todo |
-| 198 | BE810-T19 | warehouse_receiving | MINOR | Warehouse receiving hygiene | BE810-T05 | no | yes: small | yes | [be-08-10](be-08-10-review.md) | todo |
-| 199 | BE810-T20 | inland_transport, file_closure | MINOR | IT and closure hygiene | BE810-T09, BE810-T13 | no | yes: `already_closed` key | yes | [be-08-10](be-08-10-review.md) | todo |
-| 200 | BE09-T14 | financial_settlement, recalculation | MINOR | Hygiene: soft-delete fields wiring, incoterm, justification, dependency list | BEW0-05 | via BEW0-05 | yes: 422 incoterm | yes | [be-09](be-09-review.md) | todo |
+| 190 | BE01-T22 | shipping_scenarios, freight_quotations | MINOR | One owner for `import_files.selected_scenario`, ports by id | BE01-T04, BE01-T13; Q10 | no | no | yes | [be-01](be-01-review.md) | done |
+| 191 | BE02-T16 | financial_approval | MINOR | Hygiene: status codes, Arabic details, layering, revision race | none | no | yes: small (409, 422, 404) | yes | [be-02](be-02-review.md) | done |
+| 192 | BE02-T17 | financial_approval | MINOR | Task auto-close and `import_files.swift_no` scope | BE02-T04 | no | no | yes | [be-02](be-02-review.md) | done |
+| 193 | BE02-T18 | financial_approval | MINOR | Legacy-tolerant budget money and base64 size limit | none | no | yes: nullable money | yes | [be-02](be-02-review.md) | done |
+| 194 | BE03-T19 | import_documentation, original_documents_collection | MINOR | Minor hygiene (no EUR fallback, no DHL default, validators in service) | none | no | yes: nullable currency / courier | yes | [be-03](be-03-review.md) | done |
+| 195 | BE45-T23 | cargo_insurance, shipment_updates, demurrage_detention | MINOR | Restore endpoints (+ tracking delete) | BE45-T05, BE45-T06 | no | yes: new endpoints | yes | [be-04-05](be-04-05-review.md) | done |
+| 196 | BE67-T20 | customs_clearance_quotations | MINOR | Audit wiring on the quotation tables | BE67-T19, BEW0-05 | via BEW0-05 | additive | yes | [be-06-07](be-06-07-review.md) | done |
+| 197 | BE67-T21 | customs_clearance, customs_tariff | MINOR | Minor hygiene (clearance `/paginated`, messages, history, dead code) | BE67-T11, BE67-T18, BEW0-04 | no | additive | yes | [be-06-07](be-06-07-review.md) | done |
+| 198 | BE810-T19 | warehouse_receiving | MINOR | Warehouse receiving hygiene | BE810-T05 | no | yes: small | yes | [be-08-10](be-08-10-review.md) | done |
+| 199 | BE810-T20 | inland_transport, file_closure | MINOR | IT and closure hygiene | BE810-T09, BE810-T13 | no | yes: `already_closed` key | yes | [be-08-10](be-08-10-review.md) | done |
+| 200 | BE09-T14 | financial_settlement, recalculation | MINOR | Hygiene: soft-delete fields wiring, incoterm, justification, dependency list | BEW0-05 | via BEW0-05 | yes: 422 incoterm | yes | [be-09](be-09-review.md) | done |
 
 Merged away (no own row): BE67-T03 and BEX-T07 -> BEW0-01; BE67-T05 and BE09-T04 -> BEW0-06; BEX-T13 -> BEW0-04;
 ACC3-T01 -> BE45-T01. Their steps and tests stay in the source reports and are part of the owning task.

@@ -9,6 +9,7 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 
 from .model import LandedCostSettlementRecord
+from .repository import get_settlement_by_id
 from .schemas import (
     OdooJournalLineItem,
     OdooJournalEntryResponse,
@@ -72,10 +73,7 @@ def generate_odoo_journal_entry_service(
     if config is None:
         config = OdooExportConfig()
 
-    settlement = db.query(LandedCostSettlementRecord).filter(
-        LandedCostSettlementRecord.settlement_id == settlement_id,
-        LandedCostSettlementRecord.is_active == True,
-    ).first()
+    settlement = get_settlement_by_id(db, settlement_id)
 
     if not settlement:
         raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
@@ -487,10 +485,7 @@ def odoo_export_filename(db: Session, settlement_id: int, kind: str) -> str:
     """Download file name built from the import file business code, never the DB id (FS-15)."""
     import re
 
-    settlement = db.query(LandedCostSettlementRecord).filter(
-        LandedCostSettlementRecord.settlement_id == settlement_id,
-        LandedCostSettlementRecord.is_active == True,
-    ).first()
+    settlement = get_settlement_by_id(db, settlement_id)
     if not settlement:
         raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == settlement.import_file_id).first()

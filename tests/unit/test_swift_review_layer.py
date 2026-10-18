@@ -113,14 +113,14 @@ def test_swift_review_layer_full_lifecycle(db_session):
         service.match_reviewed_batch_service(db_session, batch_resp.batch_id)
     assert exc_info.value.status_code == 409
 
-    # 4. Security Guard: reconciling before review confirmation MUST fail with 403
+    # 4. Security Guard: reconciling before review confirmation MUST fail with 409
     with pytest.raises(HTTPException) as exc_info:
         service.reconcile_reviewed_batch_service(
             db_session,
             batch_resp.batch_id,
             SwiftBatchReconcileRequest(payment_id=10),
         )
-    assert exc_info.value.status_code == 403
+    assert exc_info.value.status_code == 409
 
     # 5. Field editing and Audit log
     updated = service.update_swift_batch_field_service(

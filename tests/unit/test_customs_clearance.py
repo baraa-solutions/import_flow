@@ -35,7 +35,7 @@ from modules.customs_clearance.service import (
     update_customs_clearance_service,
     assess_final_customs_duties_service,
 )
-from modules.customs_clearance.validators import validate_bank_receipt_no, validate_release_permit
+from modules.customs_clearance.validators import validate_bank_receipt_no
 from fastapi import HTTPException
 from pydantic import ValidationError
 

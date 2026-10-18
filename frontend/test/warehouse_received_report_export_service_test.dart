@@ -19,15 +19,15 @@ void main() {
   group('Screen 64: Warehouse Received Shipments Export Service Tests', () {
     final sampleItems = [
       const WarehouseReceivedReportItem(
+        receivingId: 1,
         importFileCode: 'IMP-101',
         poNumber: 'PO-MAIN-101',
-        containerInfo: '1 × 40ft HQ (TRK-987)',
+        truckPlateNumber: 'TRK-987',
         itemCode: 'SKU-001',
         itemName: 'Industrial Ball Bearings',
         invoicedQty: 500,
         shortageQty: 10,
         damagedQty: 5,
-        samplesQty: 0,
         receivedQty: 485,
         varianceQty: -15,
         warehouseName: 'Main Warehouse - Cairo',
@@ -36,15 +36,15 @@ void main() {
         grnCode: 'GRN-2026-001',
       ),
       const WarehouseReceivedReportItem(
+        receivingId: 2,
         importFileCode: 'IMP-102',
         poNumber: 'PO-MAIN-102',
-        containerInfo: '1 × 20ft GP (TRK-456)',
+        truckPlateNumber: 'TRK-456',
         itemCode: 'SKU-002',
         itemName: 'Electronic Flow Sensor',
         invoicedQty: 200,
         shortageQty: 0,
         damagedQty: 0,
-        samplesQty: 0,
         receivedQty: 200,
         varianceQty: 0,
         warehouseName: 'Alexandria Hub',
@@ -151,6 +151,7 @@ void main() {
               acceptedQty: 95,
               shortageQty: 5,
               damagedQty: 0,
+              poNumber: 'PO-77',
             ),
           ],
           createdAt: '2026-09-08',
@@ -158,10 +159,15 @@ void main() {
         ),
       ];
 
-      final items = WarehouseReceivedReportItem.fromReceivingRecords(records);
+      final items = WarehouseReceivedReportItem.fromReceivingRecords(
+        records,
+        fileCodeById: {50: 'IMP-2026-050'},
+      );
       expect(items.length, 1);
-      expect(items.first.importFileCode, 'IMP-50');
-      expect(items.first.poNumber, 'PO-MAIN-50');
+      expect(items.first.receivingId, 1);
+      expect(items.first.importFileCode, 'IMP-2026-050');
+      expect(items.first.poNumber, 'PO-77');
+      expect(items.first.truckPlateNumber, 'TRK-1234');
       expect(items.first.itemCode, 'ITM-99');
       expect(items.first.itemName, 'Centrifugal Pump');
       expect(items.first.invoicedQty, 100);

@@ -44,11 +44,11 @@ def create_update_log(db: Session, schema: ShipmentUpdateLogCreate, created_by: 
     return db_obj
 
 
-def get_update_log_by_id(db: Session, update_id: int) -> Optional[ShipmentUpdateLog]:
-    return db.query(ShipmentUpdateLog).filter(
-        ShipmentUpdateLog.update_id == update_id,
-        ShipmentUpdateLog.is_active == True,
-    ).first()
+def get_update_log_by_id(db: Session, update_id: int, include_inactive: bool = False) -> Optional[ShipmentUpdateLog]:
+    query = db.query(ShipmentUpdateLog).filter(ShipmentUpdateLog.update_id == update_id)
+    if not include_inactive:
+        query = query.filter(ShipmentUpdateLog.is_active == True)
+    return query.first()
 
 
 def get_all_update_logs(

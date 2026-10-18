@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
@@ -46,12 +47,11 @@ class ReceivedReportTable extends StatelessWidget {
         columns: [
           DataColumn(label: head(context, l.whReportColImportFile)),
           DataColumn(label: head(context, l.whReportColPoNumber)),
-          DataColumn(label: head(context, l.whReportColContainerAndTruck)),
+          DataColumn(label: head(context, l.warehouseReceivingTruckPlateLabel)),
           DataColumn(label: head(context, l.whReportColItemAndDescription)),
           DataColumn(label: head(context, l.whReportColInvoicedQty), numeric: true),
           DataColumn(label: head(context, l.whReportColShortageQty), numeric: true),
           DataColumn(label: head(context, l.whReportColDamagedQty), numeric: true),
-          DataColumn(label: head(context, l.whReportColSamplesQty), numeric: true),
           DataColumn(label: head(context, l.whReportColReceivedQty), numeric: true),
           DataColumn(label: head(context, l.whReportColVarianceQty), numeric: true),
           DataColumn(label: head(context, l.whReportColReceiptStatus)),
@@ -64,6 +64,38 @@ class ReceivedReportTable extends StatelessWidget {
           final variance = item.varianceQty;
           final rowSummary = item.toRowSummary(l);
           final varianceText = '${variance >= 0 ? "+" : ""}$variance';
+
+          final statusCode = DomainEnums.legacyToCode(
+                DomainEnumType.warehouseReceivingStatus,
+                item.status,
+              ) ??
+              item.status;
+          final statusLabel = DomainEnums.label(
+            l,
+            DomainEnumType.warehouseReceivingStatus,
+            item.status,
+          );
+
+          AppSeverity severity;
+          switch (statusCode) {
+            case 'INSPECTION_PASSED':
+            case 'GOODS_RECEIVED':
+            case 'CLOSED':
+            case 'GRN_AUDITED':
+              severity = AppSeverity.success;
+              break;
+            case 'DISCREPANCY_REPORTED':
+              severity = AppSeverity.warning;
+              break;
+            case 'UNDER_QUARANTINE_INSPECTION':
+            case 'UNDER_BOND_QUARANTINE':
+              severity = AppSeverity.danger;
+              break;
+            case 'PENDING_COUNT':
+            default:
+              severity = AppSeverity.info;
+              break;
+          }
 
           return DataRow(cells: [
             DataCell(
@@ -121,27 +153,38 @@ class ReceivedReportTable extends StatelessWidget {
             ),
             DataCell(
               CopyableTableCell(
-                value: item.poNumber,
+                value: item.poNumber.isEmpty ? '—' : item.poNumber,
                 rowSummary: rowSummary,
-                child: InkWell(
-                  onTap: () => CopyHelper.copy(
-                    context,
-                    item.poNumber,
-                    customMessage: l.whReportCopyBadgeSuccess(l.whReportColPoNumber, item.poNumber),
-                  ),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      LtrText(item.poNumber, style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.cobalt)),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
-                    ],
-                  ),
+                child: item.poNumber.isEmpty
+                    ? Text('—', style: TextStyle(color: AppTheme.textMutedOf(context)))
+                    : InkWell(
+                        onTap: () => CopyHelper.copy(
+                          context,
+                          item.poNumber,
+                          customMessage: l.whReportCopyBadgeSuccess(l.whReportColPoNumber, item.poNumber),
+                        ),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            LtrText(item.poNumber, style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.cobalt)),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
+                          ],
+                        ),
+                      ),
+              ),
+            ),
+            DataCell(
+              CopyableTableCell(
+                value: item.truckPlateNumber.isEmpty ? '—' : item.truckPlateNumber,
+                rowSummary: rowSummary,
+                child: Text(
+                  item.truckPlateNumber.isEmpty ? '—' : item.truckPlateNumber,
+                  style: item.truckPlateNumber.isEmpty ? TextStyle(color: AppTheme.textMutedOf(context)) : null,
                 ),
               ),
             ),
-            DataCell(CopyableTableCell(value: item.containerInfo, rowSummary: rowSummary, child: Text(item.containerInfo))),
             DataCell(
               CopyableTableCell(
                 value: '${item.itemCode} - ${item.itemName}',
@@ -184,7 +227,6 @@ class ReceivedReportTable extends StatelessWidget {
             DataCell(_qty(context, '${item.invoicedQty}', null, summary: rowSummary)),
             DataCell(_qty(context, '${item.shortageQty}', item.shortageQty > 0 ? AppTheme.orange : null, summary: rowSummary)),
             DataCell(_qty(context, '${item.damagedQty}', item.damagedQty > 0 ? AppTheme.crimson : null, summary: rowSummary)),
-            DataCell(_qty(context, '${item.samplesQty}', item.samplesQty > 0 ? AppTheme.cobalt : null, summary: rowSummary)),
             DataCell(_qty(context, '${item.receivedQty}', AppTheme.emerald, summary: rowSummary)),
             DataCell(
               _qty(
@@ -196,12 +238,18 @@ class ReceivedReportTable extends StatelessWidget {
             ),
             DataCell(
               CopyableTableCell(
-                value: l.whReportStatusApprovedAndReceived,
+                value: statusLabel,
                 rowSummary: rowSummary,
                 child: OpsStatusChip(
-                  label: l.whReportStatusApprovedAndReceived,
-                  severity: AppSeverity.success,
-                  icon: Icons.verified_outlined,
+                  label: statusLabel,
+                  severity: severity,
+                  icon: severity == AppSeverity.success
+                      ? Icons.verified_outlined
+                      : (severity == AppSeverity.danger
+                          ? Icons.warning_amber_rounded
+                          : (severity == AppSeverity.warning
+                              ? Icons.report_problem_outlined
+                              : Icons.info_outline)),
                 ),
               ),
             ),

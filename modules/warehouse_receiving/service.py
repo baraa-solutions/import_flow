@@ -349,15 +349,15 @@ def report_receiving_discrepancy_service(
     payload: DiscrepancyReportSubmit,
     user: str = "System",
 ) -> WarehouseReceivingRecord:
-    """BP-035 Report Receiving Discrepancies & Damage Claims."""
-    validate_discrepancy_type(payload.discrepancy_type)
-    if payload.discrepancy_type == "None":
+    disc_type = (payload.discrepancy_type or "").strip()
+    if not disc_type or disc_type.lower() == "none":
         raise coded_error(
             400,
             "WR_DISCREPANCY_TYPE_INVALID",
             "لا يمكن الإبلاغ عن فروق مع اختيار نوع 'None'. يلزم تحديد نوع الفرق (عجز، تلف، زيادة، صنف خطأ).",
-            discrepancy_type="None",
+            discrepancy_type=payload.discrepancy_type,
         )
+    validate_discrepancy_type(payload.discrepancy_type)
     validate_discrepancy_claim(payload.discrepancy_type, payload.discrepancy_notes)
 
     record = get_warehouse_receiving_service(db, record_id)
@@ -608,8 +608,9 @@ def submit_warehouse_inspection_protocol_service(
         record.grn_items = items_dict_list
         for key, value in _line_totals(items_dict_list).items():
             setattr(record, key, value)
-
-    validate_verdict_consistency(verdict, record.total_shortage_qty or 0, record.total_damaged_qty or 0)
+    elif record.grn_items and (record.total_shortage_qty is None or record.total_damaged_qty is None):
+        for key, value in _line_totals(record.grn_items).items():
+            setattr(record, key, value)
 
     # 2. Discrepancy calculations
     total_discrepancy = (record.total_shortage_qty or 0) + (record.total_damaged_qty or 0)

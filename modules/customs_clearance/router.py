@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -16,14 +16,19 @@ from .schemas import (
     CustomsInspectionSamplingSubmit,
     FinalDutyAssessmentSubmit,
     CustomsDutyPaymentSubmit,
+    DutyPaymentRequestSubmit,
     DutyPaymentSubmit,
     CompleteReleaseSubmit,
     CustomsFinalReleaseSubmit,
     UnderBondReleaseSubmit,
     LabTestResultSubmit,
+    NafezaBankLinkSubmit,
+    TariffCodingSubmit,
     ClearanceExpenseInvoiceCreate,
     ClearanceExpenseInvoiceResponse,
     ClearanceInvoicesSummaryResponse,
+    ClearanceFollowupLogCreate,
+    ClearanceFollowupLogResponse,
 )
 from .service import (
     create_customs_clearance_service,
@@ -33,6 +38,9 @@ from .service import (
     record_customs_inspection_sampling_service,
     assess_final_customs_duties_service,
     record_customs_duty_payment_service,
+    record_duty_payment_request_service,
+    record_bank_link_accepted_service,
+    record_tariff_coding_service,
     issue_final_customs_release_service,
     get_customs_clearance_service,
     list_customs_clearances_service,
@@ -46,6 +54,9 @@ from .service import (
     record_clearance_invoice_service,
     get_clearance_invoices_by_file_service,
     delete_clearance_invoice_service,
+    create_clearance_followup_log_service,
+    get_clearance_followup_logs_service,
+    complete_clearance_followup_service,
 )
 
 router = APIRouter(prefix="/api/v1/customs-clearance", tags=["Phase 7 - Customs Clearance"])
@@ -58,14 +69,27 @@ can_release = require_permission("customs_clearance.release")
 
 @router.get("", response_model=List[CustomsClearanceResponse])
 def list_customs_clearances(
+    response: Response,
     include_inactive: bool = Query(False, description="Include soft-deleted records"),
     import_file_id: Optional[int] = Query(None, description="Filter by import file ID"),
     status_filter: Optional[str] = Query(None, alias="status", description="Filter by operational status"),
     search: Optional[str] = Query(None, description="Search term"),
+    skip: Optional[int] = Query(None, ge=0, description="Offset for pagination"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Limit for pagination"),
     db: Session = Depends(get_db),
     current_user: User = Depends(can_view),
 ):
-    return list_customs_clearances_service(db, include_inactive, import_file_id, status_filter, search)
+    items, total = list_customs_clearances_service(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status_filter,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.post("", response_model=CustomsClearanceResponse, status_code=status.HTTP_201_CREATED)
@@ -93,6 +117,33 @@ def record_delivery_order_payment(
     current_user: User = Depends(can_update),
 ):
     return record_delivery_order_payment_service(db, payload, user=current_user.username)
+
+
+@router.post("/tariff-coding", response_model=CustomsClearanceResponse, summary="تسجيل التكويد الضريبي للأصناف على نافذة (TASK-BE-10)")
+def record_tariff_coding(
+    payload: TariffCodingSubmit,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_update),
+):
+    return record_tariff_coding_service(db, payload, user=current_user.username)
+
+
+@router.post("/bank-link-accepted", response_model=CustomsClearanceResponse, summary="تأكيد قبول الربط البنكي على نافذة (TASK-BE-10)")
+def record_bank_link_accepted(
+    payload: NafezaBankLinkSubmit,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_update),
+):
+    return record_bank_link_accepted_service(db, payload, user=current_user.username)
+
+
+@router.post("/request-duty-payment", response_model=CustomsClearanceResponse, summary="طلب سداد المطالبة الجمركية (TASK-BE-10)")
+def record_duty_payment_request(
+    payload: DutyPaymentRequestSubmit,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_update),
+):
+    return record_duty_payment_request_service(db, payload, user=current_user.username)
 
 
 @router.post("/register-declaration-46", response_model=CustomsClearanceResponse, summary="قيد الإقرار الجمركي ونموذج 46 ك.م (CS-03)")
@@ -170,6 +221,46 @@ def delete_clearance_invoice(
 ):
     delete_clearance_invoice_service(db, invoice_id, current_user=current_user.username)
     return {"status": "success", "message": "تم حذف فاتورة التخليص وإعادة احتساب الإجماليات بنجاح"}
+
+
+# ==============================================================================
+# TASK-BE-12: Clearance Followup Logs Endpoints
+# ==============================================================================
+
+@router.post("/followup-logs", response_model=ClearanceFollowupLogResponse, status_code=status.HTTP_201_CREATED, summary="تسجيل متابعة ميدانية جمركية (تثمين، معاينة، فحص)")
+def create_clearance_followup_log(
+    payload: ClearanceFollowupLogCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_update),
+):
+    return create_clearance_followup_log_service(db, payload, user=current_user.username)
+
+
+@router.patch("/followup-logs/{log_id}/complete", response_model=ClearanceFollowupLogResponse, summary="تأكيد إنجاز متابعة التخليص الميداني")
+def complete_clearance_followup_log(
+    log_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_update),
+):
+    return complete_clearance_followup_service(db, log_id, user=current_user.username)
+
+
+@router.get("/files/{import_file_id}/followup-logs", response_model=List[ClearanceFollowupLogResponse], summary="استرجاع متابعات التخليص الميداني لملف الشحنة")
+def get_clearance_followup_logs_by_file(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
+):
+    return get_clearance_followup_logs_service(db, import_file_id=import_file_id)
+
+
+@router.get("/{customs_clearance_id}/followup-logs", response_model=List[ClearanceFollowupLogResponse], summary="استرجاع متابعات التخليص الميداني لسجل التخليص")
+def get_clearance_followup_logs_by_record(
+    customs_clearance_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
+):
+    return get_clearance_followup_logs_service(db, customs_clearance_id=customs_clearance_id)
 
 
 @router.get("/{record_id}", response_model=CustomsClearanceResponse)

@@ -66,7 +66,7 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
     if assessment.import_file_id:
         import_file = db.get(ImportFile, assessment.import_file_id)
 
-    file_code = assessment.import_file_code or (import_file.import_file_code if import_file else f"FILE-{assessment.import_file_id}")
+    file_code = import_file.import_file_code if import_file else None
     acid_str = assessment.acid_number or (import_file.acid_number if import_file else None) or ACID_PENDING_PLACEHOLDER
 
     # If import_file has an acid_number but assessment doesn't, sync it
@@ -222,9 +222,10 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
 
     # 1. Create or ensure uncompleted tasks exist
     for item in uncompleted:
+        escaped_type = str(item["type"]).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         existing_task = db.query(SmartTask).filter(
             SmartTask.import_file_id == assessment.import_file_id,
-            SmartTask.notes.ilike(f"%REQ_TYPE:{item['type']}%"),
+            SmartTask.notes.like(f"%REQ_TYPE:{escaped_type}|%", escape="\\"),
             SmartTask.is_active == True,
             SmartTask.status.in_(["Pending", "In Progress"]),
         ).first()
@@ -237,12 +238,12 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
                 import_file_id=assessment.import_file_id,
                 import_file_code=file_code,
                 phase_name="STEP_03: Import Regulatory Requirements",
-                assigned_user=import_file.owner if import_file and import_file.owner else "Import Specialist",
+                assigned_user=import_file.owner if import_file and import_file.owner else None,
                 priority=item["priority"],
                 reminder_type="Regulatory Compliance",
                 status="Pending",
-                due_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                notes=f"REQ_TYPE:{item['type']} | ASSESSMENT:{assessment.assessment_code}",
+                due_date=None,
+                notes=f"REQ_TYPE:{item['type']}| ASSESSMENT:{assessment.assessment_code}",
             )
             task_repo.create_task(
                 db, task_schema, created_by="Requirements Engine",
@@ -255,9 +256,10 @@ def sync_regulatory_tasks_and_alerts(db: Session, assessment_id: int):
 
     # 2. Auto-close completed requirements tasks
     for c_type in completed:
+        escaped_c = str(c_type).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         open_tasks = db.query(SmartTask).filter(
             SmartTask.import_file_id == assessment.import_file_id,
-            SmartTask.notes.ilike(f"%REQ_TYPE:{c_type}%"),
+            SmartTask.notes.like(f"%REQ_TYPE:{escaped_c}|%", escape="\\"),
             SmartTask.is_active == True,
             SmartTask.status.in_(["Pending", "In Progress"]),
         ).all()

@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, ROUND_FLOOR
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from fastapi import HTTPException, status
@@ -27,7 +27,6 @@ from .schemas import (
 from .validators import (
     validate_effective_date_range,
     validate_no_duplicate_hs_code,
-    validate_tariff_exists,
 )
 
 
@@ -135,14 +134,14 @@ def customs_category_search_values(search: Optional[str]) -> List[str]:
 def get_tariff_by_id_service(db: Session, tariff_id: int) -> CustomsTariff:
     tariff = repository.get_tariff_by_id(db, tariff_id)
     if not tariff:
-        raise HTTPException(status_code=404, detail="Customs Tariff record not found")
+        raise HTTPException(status_code=404, detail="سجل التعريفة الجمركية غير موجود")
     return tariff
 
 
 def get_tariff_by_hs_code_service(db: Session, hs_code: str) -> CustomsTariff:
     tariff = repository.get_tariff_by_hs_code(db, hs_code)
     if not tariff:
-        raise HTTPException(status_code=404, detail=f"Customs Tariff for HS Code '{hs_code}' not found")
+        raise HTTPException(status_code=404, detail=f"التعريفة الجمركية للبند الجمركي '{hs_code}' غير موجودة")
     return tariff
 
 
@@ -151,7 +150,7 @@ def update_tariff_service(
 ) -> CustomsTariff:
     tariff = repository.get_tariff_by_id(db, tariff_id)
     if not tariff:
-        raise HTTPException(status_code=404, detail="Customs Tariff record not found")
+        raise HTTPException(status_code=404, detail="سجل التعريفة الجمركية غير موجود")
 
     update_dict = data.model_dump(exclude_unset=True, exclude_none=True)
 
@@ -169,7 +168,7 @@ def update_tariff_service(
 def delete_tariff_service(db: Session, tariff_id: int) -> CustomsTariff:
     tariff = repository.get_tariff_by_id(db, tariff_id)
     if not tariff:
-        raise HTTPException(status_code=404, detail="Customs Tariff record not found")
+        raise HTTPException(status_code=404, detail="سجل التعريفة الجمركية غير موجود")
     toggled = repository.toggle_tariff_active(db, tariff_id, is_active=False)
     db.commit()
     db.refresh(toggled)
@@ -179,7 +178,7 @@ def delete_tariff_service(db: Session, tariff_id: int) -> CustomsTariff:
 def restore_tariff_service(db: Session, tariff_id: int) -> CustomsTariff:
     tariff = repository.get_tariff_by_id(db, tariff_id)
     if not tariff:
-        raise HTTPException(status_code=404, detail="Customs Tariff record not found")
+        raise HTTPException(status_code=404, detail="سجل التعريفة الجمركية غير موجود")
     toggled = repository.toggle_tariff_active(db, tariff_id, is_active=True)
     db.commit()
     db.refresh(toggled)
@@ -199,7 +198,7 @@ def verify_and_update_tariff_service(
     """
     tariff = repository.get_tariff_by_hs_code(db, hs_code)
     if not tariff:
-        raise HTTPException(status_code=404, detail=f"Customs Tariff for HS Code '{hs_code}' not found")
+        raise HTTPException(status_code=404, detail=f"التعريفة الجمركية للبند الجمركي '{hs_code}' غير موجودة")
 
     update_data = request.model_dump(exclude_unset=True, exclude_none=True)
     today = date.today()
@@ -510,6 +509,41 @@ def _parse_decimal(raw: str, default: str = "0.00") -> Decimal:
         return Decimal(default)
 
 
+def _allocate(total: Decimal, weights: List[Decimal]) -> List[Decimal]:
+    """Allocate a total decimal amount across items based on weights using the largest-remainder method.
+
+    Guarantees that sum(shares) == _round(total) exactly.
+    On ties for fractional cents, higher-index items receive the remainder penny.
+    """
+    if not weights:
+        return []
+    target = _round(total)
+    total_weight = sum(weights)
+    if total_weight <= Decimal("0.00"):
+        return [Decimal("0.00")] * len(weights)
+
+    shares = [(w / total_weight) * target for w in weights]
+    bases = [s.quantize(Decimal("0.01"), rounding=ROUND_FLOOR) for s in shares]
+    current_sum = sum(bases)
+    diff = target - current_sum
+    cents = int((diff * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+    if cents > 0:
+        remainders = [(i, s - b) for i, (s, b) in enumerate(zip(shares, bases))]
+        remainders.sort(key=lambda x: (x[1], x[0]), reverse=True)
+        for i in range(min(cents, len(weights))):
+            idx = remainders[i][0]
+            bases[idx] += Decimal("0.01")
+    elif cents < 0:
+        remainders = [(i, s - b) for i, (s, b) in enumerate(zip(shares, bases))]
+        remainders.sort(key=lambda x: (x[1], x[0]))
+        for i in range(min(-cents, len(weights))):
+            idx = remainders[i][0]
+            bases[idx] -= Decimal("0.01")
+
+    return [_round(b) for b in bases]
+
+
 def resolve_insurance_freight(
     invoice_total_value_fc: Decimal,
     exchange_rate: Decimal,
@@ -746,6 +780,14 @@ def estimate_multi_item_customs_duty_service(
 
     total_insurance_freight_packaging_egp = resolved_insurance_egp + resolved_freight_egp + request.packaging_egp
 
+    line_values = [line.value_fc for line in request.lines]
+    alloc = _allocate(total_insurance_freight_packaging_egp, line_values)
+    declared_alloc = (
+        _allocate(request.cif_declared_total_egp, line_values)
+        if request.cif_declared_total_egp and request.cif_declared_total_egp > Decimal("0.00")
+        else None
+    )
+
     line_breakdowns: List[MultiItemCustomsLineBreakdown] = []
     total_duty_egp = Decimal("0.00")
     total_schedule_tax_egp = Decimal("0.00")
@@ -755,7 +797,7 @@ def estimate_multi_item_customs_duty_service(
     total_import_fee_egp = Decimal("0.00")
     total_inspection_fees_egp = Decimal("0.00")
 
-    for line in request.lines:
+    for idx, line in enumerate(request.lines):
         # Strict Tariff Lookup — FAIL LOUDLY if HS Code is not in DB on date (Issue #1)
         tariff = repository.get_active_tariff_on_date(db, line.hs_code, on_date, strict=True)
         if not tariff:
@@ -810,13 +852,17 @@ def estimate_multi_item_customs_duty_service(
         customs_category = tariff.customs_category
 
         value_share = line.value_fc / invoice_total_value_fc
-        allocated_ins_freight = total_insurance_freight_packaging_egp * value_share
+        allocated_ins_freight = alloc[idx]
 
-        line_taxable_fc = line.value_fc - line.exempted_value_fc - line.value_without_payment_fc
-        if request.cif_declared_total_egp and request.cif_declared_total_egp > Decimal("0.00"):
-            cif_line_egp = _round(request.cif_declared_total_egp * value_share)
+        if declared_alloc is not None:
+            gross_cif_line_egp = declared_alloc[idx]
         else:
-            cif_line_egp = _round((line_taxable_fc * effective_exchange_rate) + allocated_ins_freight)
+            gross_cif_line_egp = _round(line.value_fc * effective_exchange_rate) + allocated_ins_freight
+
+        exempted_val = line.exempted_value_fc or Decimal("0.00")
+        unpaid_val = line.value_without_payment_fc or Decimal("0.00")
+        taxable_fraction = (line.value_fc - exempted_val - unpaid_val) / line.value_fc
+        cif_line_egp = _round(gross_cif_line_egp * taxable_fraction)
 
         # Step 3: Resolve Exemptions for Line
         exemption_code_to_apply = line.exemption_code or request.exemption_code
@@ -865,7 +911,8 @@ def estimate_multi_item_customs_duty_service(
                 origin_country=line.origin_country,
                 value_fc=line.value_fc,
                 value_share=_round(value_share * Decimal("100")),
-                allocated_insurance_freight_egp=_round(allocated_ins_freight),
+                allocated_insurance_freight_egp=allocated_ins_freight,
+                gross_cif_value_egp=gross_cif_line_egp,
                 cif_value_egp=cif_line_egp,
                 duty_taxable_base_egp=duty_taxable_base_egp,
                 schedule_taxable_base_egp=schedule_taxable_base_egp,
@@ -898,6 +945,9 @@ def estimate_multi_item_customs_duty_service(
                 regulatory_authority=regulatory_authority,
             )
         )
+
+    cif_total_egp = sum(l.gross_cif_value_egp for l in line_breakdowns)
+    dutiable_cif_total_egp = sum(l.cif_value_egp for l in line_breakdowns)
 
     # Compute Fee Codes Collection Breakdown (Issue #10)
     active_fee_codes = repository.get_active_fee_codes(db, on_date)
@@ -942,6 +992,8 @@ def estimate_multi_item_customs_duty_service(
         insurance_egp=resolved_insurance_egp,
         freight_egp=resolved_freight_egp,
         packaging_egp=request.packaging_egp,
+        cif_total_egp=cif_total_egp,
+        dutiable_cif_total_egp=dutiable_cif_total_egp,
         insurance_source=insurance_source,
         freight_source=freight_source,
         freight_exchange_rate_used=freight_rate_used,
@@ -1264,19 +1316,32 @@ def get_tariff_version_history_service(db: Session, hs_code: str) -> dict:
         .all()
     )
 
+    all_agreements = repository.get_agreements_by_hs_code(db, clean_hs)
+
     version_items = []
     for idx, v in enumerate(versions):
-        agreements = repository.get_agreements_by_hs_code(db, v.hs_code)
+        agreements = []
+        for ag in all_agreements:
+            ag_from = ag.effective_from
+            ag_to = ag.effective_to
+            v_from = v.effective_from
+            v_to = v.effective_to
+            if ag_to and v_from and ag_to < v_from:
+                continue
+            if v_to and ag_from and ag_from > v_to:
+                continue
+            agreements.append(ag)
+
         version_items.append({
             "tariff_id": v.tariff_id,
             "hs_code": v.hs_code,
             "hs_description": v.hs_description,
             "customs_duty_rate": float(v.customs_duty_rate) if v.customs_duty_rate is not None else 0.0,
-            "vat_rate": float(v.vat_rate) if v.vat_rate is not None else 14.0,
+            "vat_rate": float(v.vat_rate) if v.vat_rate is not None else None,
             "schedule_tax_rate": float(v.schedule_tax_rate) if v.schedule_tax_rate is not None else 0.0,
             "development_fee_rate": float(v.development_fee_rate) if v.development_fee_rate is not None else 0.0,
             "import_fee_rate": float(v.import_fee_rate) if v.import_fee_rate is not None else 0.0,
-            "customs_service_fee_rate": float(v.customs_service_fee_rate) if v.customs_service_fee_rate is not None else 1.0,
+            "customs_service_fee_rate": float(v.customs_service_fee_rate) if v.customs_service_fee_rate is not None else None,
             "regulatory_authority": v.regulatory_authority,
             "prior_approval_note": v.prior_approval_note,
             "effective_from": v.effective_from.isoformat() if v.effective_from else None,

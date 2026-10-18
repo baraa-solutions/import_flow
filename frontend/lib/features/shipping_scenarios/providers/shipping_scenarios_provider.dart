@@ -24,13 +24,15 @@ class ShippingScenariosState {
     this.showInactive = false,
   });
 
+  static const _unset = Object();
+
   ShippingScenariosState copyWith({
     List<ShippingEvaluationModel>? sessions,
     bool? isLoading,
     Object? error,
     String? searchQuery,
-    int? projectFilter,
-    int? poFilter,
+    Object? projectFilter = _unset,
+    Object? poFilter = _unset,
     bool? showInactive,
   }) {
     return ShippingScenariosState(
@@ -38,8 +40,8 @@ class ShippingScenariosState {
       isLoading: isLoading ?? this.isLoading,
       error: error,
       searchQuery: searchQuery ?? this.searchQuery,
-      projectFilter: projectFilter ?? this.projectFilter,
-      poFilter: poFilter ?? this.poFilter,
+      projectFilter: identical(projectFilter, _unset) ? this.projectFilter : projectFilter as int?,
+      poFilter: identical(poFilter, _unset) ? this.poFilter : poFilter as int?,
       showInactive: showInactive ?? this.showInactive,
     );
   }

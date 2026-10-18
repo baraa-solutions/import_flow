@@ -163,6 +163,12 @@
       "note"
     ]
   },
+  "CC_BANK_LINK_REQUIRES_TARIFF_CODING": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "CC_BROKER_AUTHORIZED": {
     "params": [
       "broker_name",

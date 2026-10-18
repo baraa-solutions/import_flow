@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
 # Invoice number prefix of the single adjustment row per field written by the recalculation engine (RC-01).
@@ -58,6 +58,18 @@ class ItemLandedCostSchema(BaseModel):
     unit_landed_cost_egp: float = 0.0
     markup_factor: float = 1.0
 
+VALID_INCOTERMS = {"EXW", "FCA", "CPT", "CIP", "DAP", "DPU", "DDP", "FAS", "FOB", "CFR", "CIF"}
+
+
+def _validate_incoterm_code(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return v
+    code = v.strip().upper()
+    if code not in VALID_INCOTERMS:
+        raise ValueError(f"شرط التسليم '{v}' غير صالح. يجب أن يكون أحد شروط التجارة الدولية (Incoterms 2020).")
+    return code
+
+
 class FinancialSettlementCreate(BaseModel):
     import_file_id: int
     incoterm_code: Optional[str] = "FOB"
@@ -66,6 +78,12 @@ class FinancialSettlementCreate(BaseModel):
     accountant_name: Optional[str] = Field(None, description="Ignored: the acting user is recorded")
     notes: Optional[str] = None
 
+    @field_validator("incoterm_code", mode="after")
+    @classmethod
+    def validate_incoterm(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_incoterm_code(v)
+
+
 class FinancialSettlementUpdate(BaseModel):
     incoterm_code: Optional[str] = None
     expense_invoices: Optional[List[ExpenseInvoiceSchema]] = None
@@ -73,6 +91,12 @@ class FinancialSettlementUpdate(BaseModel):
     status: Optional[Literal["Draft", "Calculated"]] = None
     accountant_name: Optional[str] = Field(None, description="Ignored: the acting user is recorded")
     notes: Optional[str] = None
+
+    @field_validator("incoterm_code", mode="after")
+    @classmethod
+    def validate_incoterm(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_incoterm_code(v)
+
 
 @read_model
 class FinancialSettlementResponse(LegacyRowTolerantModel):
@@ -90,6 +114,8 @@ class FinancialSettlementResponse(LegacyRowTolerantModel):
     accountant_name: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
+    deleted_at: Optional[datetime] = None
+    deleted_by: Optional[str] = None
     created_at: Optional[datetime] = None
     created_by: Optional[str] = None
     updated_at: Optional[datetime] = None

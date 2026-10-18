@@ -515,3 +515,85 @@ def test_acc_customs_broker_quotation_extractor():
     assert "expenses_catalog" in res
     assert len(res["expenses_catalog"]) >= 14
 
+
+def test_be67_t20_audit_wiring(db_session):
+    _providers(db_session)
+
+    # 1. Create RFQ with nested quote
+    rfq = create_rfq_service(
+        db_session,
+        CustomsClearanceRFQCreate(
+            title="RFQ Test Audit",
+            port_name="Alexandria Port",
+            commodity_description="Machinery",
+            quotations=[
+                CustomsClearanceQuotationCreate(
+                    provider_id=1,
+                    clearance_fee=2000.0,
+                )
+            ],
+        ),
+        user="analyst_1",
+    )
+    assert rfq.created_by == "analyst_1"
+    assert rfq.updated_by == "analyst_1"
+    assert len(rfq.quotations) == 1
+    assert rfq.quotations[0].created_by == "analyst_1"
+    assert rfq.quotations[0].updated_by == "analyst_1"
+
+    # 2. Add quotation
+    q2 = add_quotation_service(
+        db_session,
+        rfq.rfq_id,
+        CustomsClearanceQuotationCreate(
+            provider_id=2,
+            clearance_fee=1800.0,
+        ),
+        user="analyst_2",
+    )
+    assert q2.created_by == "analyst_2"
+    assert q2.updated_by == "analyst_2"
+
+    # 3. Update quotation
+    updated_q2 = update_quotation_service(
+        db_session,
+        q2.quotation_id,
+        CustomsClearanceQuotationUpdate(clearance_fee=1700.0),
+        user="supervisor",
+    )
+    assert updated_q2.updated_by == "supervisor"
+
+    # 4. Award quotation
+    awarded_rfq = award_quotation_service(
+        db_session,
+        rfq.rfq_id,
+        q2.quotation_id,
+        notes="Best turnaround",
+        user="director",
+    )
+    assert awarded_rfq.updated_by == "director"
+
+    # 5. Price list items
+    price_item = create_price_item_service(
+        db_session,
+        ClearancePriceListItemCreate(
+            provider_id=1,
+            port_name="Alexandria Port",
+            service_category="CLEARANCE_FEE",
+            container_type="40HQ",
+            unit_price=2500.0,
+        ),
+        user="pricing_clerk",
+    )
+    assert price_item.created_by == "pricing_clerk"
+    assert price_item.updated_by == "pricing_clerk"
+
+    updated_item = update_price_item_service(
+        db_session,
+        price_item.price_item_id,
+        ClearancePriceListItemUpdate(unit_price=2700.0),
+        user="pricing_head",
+    )
+    assert updated_item.updated_by == "pricing_head"
+
+

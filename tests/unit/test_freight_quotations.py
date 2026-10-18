@@ -158,7 +158,7 @@ class TestFreightQuotationsBackend:
 
         with pytest.raises(Exception) as exc_info:
             FreightQuotationService.create_rfq(db_session, rfq_in)
-        assert "Sailing date" in str(exc_info.value)
+        assert "تاريخ الإبحار" in str(exc_info.value) or "Sailing date" in str(exc_info.value)
 
     def test_soft_delete_and_restore(self, db_session):
         carriers = db_session.query(ExternalServiceProvider).all()

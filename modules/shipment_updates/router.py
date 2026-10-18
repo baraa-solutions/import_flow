@@ -115,3 +115,17 @@ def soft_delete_update_log(
     current_user: User = Depends(require_permission("import_files.edit")),
 ):
     service.soft_delete_update_log_service(db, update_id, user_name=current_user.username)
+
+
+@router.patch(
+    "/{update_id}/restore",
+    response_model=ShipmentUpdateLogResponse,
+    summary="Restore soft-deleted update record",
+)
+def restore_update_log(
+    update_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.edit")),
+):
+    return service.restore_update_log_service(db, update_id, user_name=current_user.username)
+

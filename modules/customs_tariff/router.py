@@ -257,9 +257,7 @@ def export_customs_tariff_template():
     """
     csv_content = (
         "hs_code,hs_description,customs_category,customs_duty_rate,vat_rate,schedule_tax_rate,development_fee_rate,import_fee_rate,regulatory_authority,requires_coo,requires_inspection,requires_acid,notes\n"
-        "1001.99.00,Wheat and meslin (Other than durum wheat),Agriculture & Food,0.0,0.0,0.0,0.0,0.0,GOEIC & NFSA,true,true,true,Essential Strategic Commodity\n"
-        "8471.30.00,Portable laptops & notebooks,Electronics,5.0,14.0,0.0,5.0,0.0,NTRA,true,true,true,NTRA Approval Required\n"
-        "8703.23.00,Passenger cars 1600cc to 2000cc,Automotive,135.0,14.0,15.0,5.5,0.0,GOEIC,true,true,true,Schedule Tax 15%\n"
+        "0000.00.00,Sample Template Item (Replace with real data),General,,,,,GOEIC,true,true,true,Example Row Only\n"
     )
     return Response(
         content=csv_content,

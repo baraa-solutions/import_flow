@@ -813,7 +813,7 @@ def clone_payment_request_service(
     (FA_FX_RATE_MISSING when it has none) and the one-open-request-per-type rule."""
     orig = _get_payment(db, payment_id)
 
-    rate = orig.exchange_rate
+    rate = schema.new_exchange_rate if getattr(schema, "new_exchange_rate", None) is not None else orig.exchange_rate
     if not rate or rate <= 0:
         raise _fx_missing(orig.currency_code)
 
@@ -2121,7 +2121,7 @@ def reconcile_reviewed_batch_service(
             payment_code=matched_code,
         )
     if batch.status != BATCH_CONFIRMED:
-        raise batch_status_error(batch, status.HTTP_403_FORBIDDEN)
+        raise batch_status_error(batch)
 
     db_item = _get_payment(db, payload.payment_id)
     require_payment_status(db_item, PAYMENT_PAY_FROM, "reconcile")

@@ -418,9 +418,17 @@ class MultiItemCustomsEstimateLine(BaseModel):
     inspection_fee_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="رسوم فحص أجر خدمات مخصص للصنف إن وجد")
     is_exemption_conditions_met: Optional[bool] = Field(None, description="هل تم استيفاء وتطبيق شروط الإعفاء الجمركي للبند (اتفاقية شراكة / تصنيع / شهادة منشأ مستوفاة)")
 
+    @model_validator(mode="after")
+    def validate_exempted_and_unpaid(self) -> "MultiItemCustomsEstimateLine":
+        exempted = self.exempted_value_fc or Decimal("0.00")
+        unpaid = self.value_without_payment_fc or Decimal("0.00")
+        if exempted + unpaid > self.value_fc:
+            raise ValueError("القيمة المعفاة والقيمة بدون دفع أكبر من قيمة الصنف.")
+        return self
+
 
 class MultiItemCustomsEstimateRequest(BaseModel):
-    currency: str = Field(default="USD", description="عملة الفاتورة")
+    currency: str = Field(..., min_length=3, max_length=10, description="عملة الفاتورة (مطلوبة)")
     exchange_rate: Optional[Decimal] = Field(None, description="سعر التحويل / الصرف الرسمي للجمارك (اختياري - يتم جلبه بناءً على تاريخ السريان إن لم يحدد)")
     insurance_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="إجمالي التأمين بالجنيه")
     freight_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="إجمالي النولون / الشحن بالجنيه")
@@ -450,6 +458,7 @@ class MultiItemCustomsLineBreakdown(BaseModel):
     value_fc: Decimal
     value_share: Decimal
     allocated_insurance_freight_egp: Decimal
+    gross_cif_value_egp: Decimal = Decimal("0.00")
     cif_value_egp: Decimal
 
     # Exemption & Tax Bases Audit
@@ -504,6 +513,8 @@ class MultiItemCustomsBreakdown(BaseModel):
     insurance_egp: Decimal
     freight_egp: Decimal
     packaging_egp: Decimal = Decimal("0.00")
+    cif_total_egp: Decimal = Decimal("0.00")
+    dutiable_cif_total_egp: Decimal = Decimal("0.00")
     insurance_source: str = Field("actual", description="مصدر التأمين الكلي: actual أو deemed")
     freight_source: str = Field("actual", description="مصدر النولون الكلي: actual أو deemed")
     freight_exchange_rate_used: Optional[Decimal] = None

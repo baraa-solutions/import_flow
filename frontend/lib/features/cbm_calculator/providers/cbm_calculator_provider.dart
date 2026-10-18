@@ -30,25 +30,27 @@ class CBMCalculatorState {
     this.quickCalcResult,
   });
 
+  static const _unset = Object();
+
   CBMCalculatorState copyWith({
     List<CBMCalculationModel>? calculations,
     bool? isLoading,
     Object? error,
     String? searchQuery,
-    int? projectFilter,
-    int? poFilter,
+    Object? projectFilter = _unset,
+    Object? poFilter = _unset,
     bool? showInactive,
-    Map<String, dynamic>? quickCalcResult,
+    Object? quickCalcResult = _unset,
   }) {
     return CBMCalculatorState(
       calculations: calculations ?? this.calculations,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       searchQuery: searchQuery ?? this.searchQuery,
-      projectFilter: projectFilter ?? this.projectFilter,
-      poFilter: poFilter ?? this.poFilter,
+      projectFilter: identical(projectFilter, _unset) ? this.projectFilter : projectFilter as int?,
+      poFilter: identical(poFilter, _unset) ? this.poFilter : poFilter as int?,
       showInactive: showInactive ?? this.showInactive,
-      quickCalcResult: quickCalcResult ?? this.quickCalcResult,
+      quickCalcResult: identical(quickCalcResult, _unset) ? this.quickCalcResult : quickCalcResult as Map<String, dynamic>?,
     );
   }
 

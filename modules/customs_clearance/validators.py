@@ -133,14 +133,6 @@ def validate_release_permit_no(permit_no: Optional[str]) -> str:
     return text
 
 
-def validate_release_permit(permit_no: str, payment_status: str) -> None:
-    """Legacy check kept for callers: paid status first, then a non-empty permit number."""
-    if payment_status not in PAID_PAYMENT_STATUSES:
-        raise HTTPException(status_code=400, detail="لا يمكن إصدار الإفراج الجمركي النهائي قبل تأكيد وتوثيق سداد الرسوم الجمركية بنجاح.")
-    if not permit_no or not permit_no.strip():
-        raise HTTPException(status_code=400, detail="رقم إذن/تصريح الإفراج الجمركي النهائي مطلوب ولا يمكن أن يكون فارغاً.")
-
-
 def acid_expiry_date(imp_file) -> Optional[date]:
     """The file's ACID expiry as a date; an unparseable stored value is a 400, never silently ignored."""
     value = getattr(imp_file, "acid_expiry_date", None)

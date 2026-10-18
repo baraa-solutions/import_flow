@@ -6,13 +6,15 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from modules.freight_booking.model import ShipmentBooking
+from modules.freight_booking.model import ShipmentBooking, ShipmentEtaTrackingLog
 from modules.import_files.model import ImportFile
 from modules.freight_booking.schemas import (
     ShipmentBookingCreate,
     ShipmentBookingUpdate,
     ShipmentBookingConfirm,
     ShipmentDepartureConfirm,
+    ShipmentEtaTrackingLogCreate,
+    ConfirmAtaRequest,
 )
 import modules.freight_booking.repository as repo
 import modules.freight_booking.validators as validators
@@ -807,3 +809,108 @@ def _dispatch_departure_notification(db: Session, booking: ShipmentBooking, file
         target_role="LOGISTICS_OFFICER",
     ))
     db.commit()
+
+
+def create_eta_tracking_log_service(
+    db: Session,
+    payload: ShipmentEtaTrackingLogCreate,
+    user: Optional[str] = None,
+) -> ShipmentEtaTrackingLog:
+    booking = db.query(ShipmentBooking).filter(ShipmentBooking.booking_id == payload.booking_id).first()
+    if not booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Shipment booking {payload.booking_id} not found",
+        )
+
+    # Calculate delay_days relative to existing booking ETA
+    delay_days = 0
+    if booking.eta:
+        booking_eta_date = booking.eta.date() if isinstance(booking.eta, datetime) else booking.eta
+        current_eta_date = payload.current_eta.date() if isinstance(payload.current_eta, datetime) else payload.current_eta
+        delay_days = max(0, (current_eta_date - booking_eta_date).days)
+
+    # If ATA not yet confirmed, update current ETA on booking
+    if not booking.is_ata_confirmed:
+        booking.eta = payload.current_eta
+        if delay_days > 0:
+            booking.departure_delay_days = (booking.departure_delay_days or 0) + delay_days
+
+    log = ShipmentEtaTrackingLog(
+        booking_id=payload.booking_id,
+        import_file_id=payload.import_file_id,
+        tracking_date=datetime.now(timezone.utc),
+        vessel_location=payload.vessel_location,
+        current_eta=payload.current_eta,
+        delay_days=delay_days,
+        remarks=payload.remarks,
+        is_ata_confirmed=False,
+        confirmed_ata=None,
+        created_at=datetime.now(timezone.utc),
+        created_by=user,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+
+    # Proactively sync 25-stage master timeline
+    from modules.lifecycle_board.sync_engine import LifecycleAutoSyncEngine
+    LifecycleAutoSyncEngine.sync_file_timeline(db, payload.import_file_id)
+
+    return log
+
+
+def get_eta_tracking_logs_service(
+    db: Session,
+    booking_id: Optional[int] = None,
+    import_file_id: Optional[int] = None,
+) -> List[ShipmentEtaTrackingLog]:
+    query = db.query(ShipmentEtaTrackingLog)
+    if booking_id:
+        query = query.filter(ShipmentEtaTrackingLog.booking_id == booking_id)
+    if import_file_id:
+        query = query.filter(ShipmentEtaTrackingLog.import_file_id == import_file_id)
+    return query.order_by(ShipmentEtaTrackingLog.tracking_date.desc()).all()
+
+
+def confirm_ata_service(
+    db: Session,
+    booking_id: int,
+    payload: ConfirmAtaRequest,
+    user: Optional[str] = None,
+) -> ShipmentEtaTrackingLog:
+    booking = db.query(ShipmentBooking).filter(ShipmentBooking.booking_id == booking_id).first()
+    if not booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Shipment booking {booking_id} not found",
+        )
+
+    booking.ata = payload.confirmed_ata
+    booking.is_ata_confirmed = True
+    booking.status = "Arrived"
+
+    # Also record tracking log for the final arrival
+    log = ShipmentEtaTrackingLog(
+        booking_id=booking.booking_id,
+        import_file_id=booking.import_file_id,
+        tracking_date=datetime.now(timezone.utc),
+        vessel_location="Port of Discharge (Arrived)",
+        current_eta=payload.confirmed_ata,
+        delay_days=0,
+        remarks=payload.remarks or "Vessel arrived and berthed at destination port (ATA Confirmed)",
+        is_ata_confirmed=True,
+        confirmed_ata=payload.confirmed_ata,
+        created_at=datetime.now(timezone.utc),
+        created_by=user,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+
+    # Sync timeline
+    from modules.lifecycle_board.sync_engine import LifecycleAutoSyncEngine
+    LifecycleAutoSyncEngine.sync_file_timeline(db, booking.import_file_id)
+
+    return log
+
