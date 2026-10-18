@@ -3841,6 +3841,23 @@
       "note"
     ]
   },
+  "SYSPARAM_INVALID_VALUE": {
+    "params": [
+      "param_key",
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SYSPARAM_UNKNOWN": {
+    "params": [
+      "param_key"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "TASK_AUTO_PHASE_FOLLOW_UP": {
     "params": [
       "import_file_code",

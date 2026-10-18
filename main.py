@@ -178,6 +178,7 @@ from modules.system_observability.router import router as system_observability_r
 from modules.app_update.router import router as app_update_router
 from modules.logistics_invoices.router import router as logistics_invoices_router
 from modules.containers.router import router as containers_router
+from modules.system_parameters.router import router as system_parameters_router
 from modules.system_observability.middleware import ObservabilityMiddleware
 from modules.system_observability.service import setup_query_listener
 
@@ -403,6 +404,7 @@ app.include_router(system_observability_router)
 app.include_router(app_update_router)
 app.include_router(logistics_invoices_router)
 app.include_router(containers_router)
+app.include_router(system_parameters_router)
 
 
 
@@ -449,21 +451,9 @@ def dashboard():
 @app.get("/health")
 @app.get("/api/v1/health")
 def health_check():
-    import sqlite3
     import os
     db_path = DB_PATH
     db_exists = os.path.exists(db_path)
-    db_size_kb = round(os.path.getsize(db_path) / 1024, 1) if db_exists else 0
-    tables_count = 0
-    if db_exists:
-        try:
-            conn = sqlite3.connect(db_path)
-            cur = conn.cursor()
-            cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
-            tables_count = cur.fetchone()[0]
-            conn.close()
-        except Exception:
-            pass
 
     return {
         "status": "OK",
@@ -471,8 +461,6 @@ def health_check():
         "version": INSTALLED_VERSION,
         "database": {
             "connected": db_exists,
-            "size_kb": db_size_kb,
-            "tables_count": tables_count,
         },
         "maintenance_mode": is_maintenance_mode(),
     }
@@ -499,31 +487,52 @@ def system_version_check(
     x_client_version: Optional[str] = Header(None, alias="X-Client-Version"),
 ):
     version_file = version_file_path()
-    ver_data = {}
+    ver_data = None
     if version_file.exists():
         try:
             with open(version_file, "r", encoding="utf-8") as f:
                 ver_data = json.load(f)
         except Exception:
-            pass
-
-    ver_str = ver_data.get("version", "1.0.198")
-    build_num = ver_data.get("build_number", 199)
-    min_compat_str = ver_data.get("min_compatible_version", "1.0.180")
+            ver_data = None
 
     req_client_ver = client_version or x_client_version
-    parsed_server_ver = _parse_semver(ver_str)
-    parsed_min_compat = _parse_semver(min_compat_str)
+
+    if not ver_data:
+        return {
+            "status": "OK",
+            "system_name": "Sorour Logistics ERP",
+            "current_version": None,
+            "latest_version": None,
+            "client_version": req_client_ver,
+            "min_compatible_version": None,
+            "build_number": None,
+            "has_update": False,
+            "is_compatible": True,
+            "force_update": False,
+            "check_status": "unknown",
+            "installer_url": None,
+            "installer_filename": None,
+            "installer_size_mb": None,
+            "release_notes": [],
+            "updated_at": None,
+        }
+
+    ver_str = ver_data.get("version")
+    build_num = ver_data.get("build_number")
+    min_compat_str = ver_data.get("min_compatible_version")
+
+    parsed_server_ver = _parse_semver(ver_str) if ver_str else (0, 0, 0)
+    parsed_min_compat = _parse_semver(min_compat_str) if min_compat_str else (0, 0, 0)
 
     has_update = False
     is_compatible = True
     force_update = False
 
-    if req_client_ver:
+    if req_client_ver and ver_str:
         parsed_client_ver = _parse_semver(req_client_ver)
         if parsed_client_ver < parsed_server_ver:
             has_update = True
-        if parsed_client_ver < parsed_min_compat:
+        if min_compat_str and parsed_client_ver < parsed_min_compat:
             is_compatible = False
             force_update = True
 
@@ -539,14 +548,11 @@ def system_version_check(
         "is_compatible": is_compatible,
         "force_update": force_update,
         "check_status": "update_available" if has_update else "up_to_date",
-        "installer_url": ver_data.get("installer_url", f"https://github.com/ahmedsalahsorour88/import_flow/releases/download/v{ver_str}/Sorour_Logistics_Setup_v{ver_str}.exe"),
-        "installer_filename": ver_data.get("installer_filename", f"Sorour_Logistics_Setup_v{ver_str}.exe"),
-        "installer_size_mb": ver_data.get("installer_size_mb", 198.04),
-        "release_notes": ver_data.get("release_notes", [
-            "Sorour Logistics ERP Production Release",
-            "Full enterprise import workflow, customs calculation, and landed cost modules",
-        ]),
-        "updated_at": ver_data.get("updated_at", ""),
+        "installer_url": ver_data.get("installer_url"),
+        "installer_filename": ver_data.get("installer_filename"),
+        "installer_size_mb": ver_data.get("installer_size_mb"),
+        "release_notes": ver_data.get("release_notes", []),
+        "updated_at": ver_data.get("updated_at"),
     }
 
 

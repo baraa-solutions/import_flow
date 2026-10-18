@@ -1507,6 +1507,13 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "IF_STATUS_TRANSITION_INVALID": {
         "note": "Cannot transition import file status from {from} to {to}.",
     },
+    # ── System parameters (BEX-T17) ───────────────────────────────────────────
+    "SYSPARAM_UNKNOWN": {
+        "note": "System parameter '{param_key}' is unknown or does not exist.",
+    },
+    "SYSPARAM_INVALID_VALUE": {
+        "note": "Invalid value for system parameter '{param_key}': {reason}",
+    },
 }
 
 
