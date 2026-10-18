@@ -14,8 +14,8 @@ class ShipmentStageActivity(Base):
     import_file_code = Column(String(50), nullable=False, index=True)
     step_code = Column(String(50), nullable=False, index=True) # e.g. STEP_01 to STEP_21
     status = Column(String(50), nullable=False, default="In-Progress") # In-Progress, Completed, On-Hold, Pending, Skipped, Reference recorded – pending full documentation
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
+    started_at = Column(String(50), nullable=True)
+    completed_at = Column(String(50), nullable=True)
     assigned_user = Column(String(100), nullable=True)
     action_data = Column(Text, nullable=True) # JSON String with step parameters
     notes = Column(Text, nullable=True)
