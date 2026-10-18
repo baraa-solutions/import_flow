@@ -89,6 +89,8 @@ class FreightRFQRequestResponse(FreightRFQRequestBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
     quotations: List[FreightQuotationItemResponse] = []
 
     # Computed metrics
