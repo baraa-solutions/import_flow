@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/api_constants.dart';
+import '../export/export_language.dart';
 import '../localization/app_localizations.dart';
 import '../localization/locale_provider.dart';
 import '../theme/app_theme.dart';
@@ -34,11 +35,18 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isClearingCache = false;
+  String _defaultExportLang = ExportLanguage.optionAsk;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _loadExportSettings();
+  }
+
+  Future<void> _loadExportSettings() async {
+    final opt = await ExportLanguage.getSavedDefaultOption();
+    if (mounted) setState(() => _defaultExportLang = opt);
   }
 
   @override
@@ -319,6 +327,68 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
             cardBg: cardBg,
             borderColor: borderColor,
           ),
+          const SizedBox(height: 18),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+          Text(
+            isArabic
+                ? 'لغة التصدير والتحميل الافتراضية (PDF & Excel):'
+                : 'Default Export & Download Language (PDF & Excel):',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isArabic
+                ? 'حدد السلوك الافتراضي عند الضغط على أزرار التصدير والطباعة في كافة شاشات النظام:'
+                : 'Configure the default behavior when clicking export or print buttons across the ERP:',
+            style: TextStyle(
+              fontSize: 11.5,
+              color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: cardBg,
+              border: Border.all(color: borderColor),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                _buildExportRadioRow(
+                  value: ExportLanguage.optionAsk,
+                  title: isArabic ? 'السؤال في كل مرة (Ask Every Time)' : 'Ask Every Time (السؤال في كل مرة)',
+                  subtitle: isArabic
+                      ? 'إظهار نافذة صغيرة لاختيار اللغة قبل كل عملية تنزيل'
+                      : 'Show a prompt to choose Arabic or English before every export',
+                  isDark: isDark,
+                ),
+                const Divider(height: 12),
+                _buildExportRadioRow(
+                  value: ExportLanguage.optionAr,
+                  title: isArabic ? 'العربية دائماً (Always Arabic)' : 'Always Arabic (العربية دائماً)',
+                  subtitle: isArabic
+                      ? 'تنزيل فوري باللغة العربية (RTL) دون إظهار نافذة السؤال'
+                      : 'Immediate download in Arabic (RTL) without prompting',
+                  isDark: isDark,
+                ),
+                const Divider(height: 12),
+                _buildExportRadioRow(
+                  value: ExportLanguage.optionEn,
+                  title: isArabic ? 'الإنجليزية دائماً (Always English)' : 'Always English (الإنجليزية دائماً)',
+                  subtitle: isArabic
+                      ? 'تنزيل فوري باللغة الإنجليزية (LTR) دون إظهار نافذة السؤال'
+                      : 'Immediate download in English (LTR) without prompting',
+                  isDark: isDark,
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
@@ -346,6 +416,64 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildExportRadioRow({
+    required String value,
+    required String title,
+    required String subtitle,
+    required bool isDark,
+  }) {
+    final isSelected = _defaultExportLang == value;
+    return InkWell(
+      onTap: () async {
+        setState(() => _defaultExportLang = value);
+        await ExportLanguage.saveDefaultOption(value);
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Radio<String>(
+              value: value,
+              groupValue: _defaultExportLang,
+              activeColor: AppTheme.cobalt,
+              onChanged: (val) async {
+                if (val != null) {
+                  setState(() => _defaultExportLang = val);
+                  await ExportLanguage.saveDefaultOption(val);
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -4,6 +4,10 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'file_save_helper.dart';
 
+import '../export/export_language.dart';
+import '../export/export_language_resolver.dart';
+import '../export/export_translations.dart';
+
 import '../../features/import_companies/models/import_company_model.dart';
 import '../../features/suppliers/models/supplier_model.dart';
 import '../../features/external_service_providers/models/partner_model.dart';
@@ -49,24 +53,39 @@ class MasterDataExportService {
   // 1. EGYPTIAN IMPORT COMPANIES (الشركات المستوردة)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  static Future<void> printOrSaveImporterPdf(ImportCompanyModel company) async {
+  static Future<void> printOrSaveImporterPdf(
+    ImportCompanyModel company, {
+    ExportLanguage lang = ExportLanguage.ar,
+  }) async {
+    final resolver = ExportLanguageResolver(lang: lang);
     final pdf = pw.Document();
-    final arabicFont = await PdfGoogleFonts.cairoRegular();
-    final arabicBold = await PdfGoogleFonts.cairoBold();
+    final theme = await resolver.getPdfTheme();
 
-    final vatStatus = company.daysUntilVatExpiry > 0 ? 'سارية (${company.daysUntilVatExpiry} يوم)' : 'منتهية الصلاحية';
-    final regStatus = company.daysUntilRegExpiry > 0 ? 'سارٍ (${company.daysUntilRegExpiry} يوم)' : 'منتهي الصلاحية';
-    final impStatus = company.daysUntilImporterIdExpiry > 0 ? 'سارية (${company.daysUntilImporterIdExpiry} يوم)' : 'منتهية الصلاحية';
+    final vatStatus = company.daysUntilVatExpiry > 0
+        ? ExportTranslations.validityWithDays(company.daysUntilVatExpiry, lang: lang, feminine: true)
+        : ExportTranslations.expiredStatus(lang: lang, feminine: true);
+
+    final regStatus = company.daysUntilRegExpiry > 0
+        ? ExportTranslations.validityWithDays(company.daysUntilRegExpiry, lang: lang, feminine: false)
+        : ExportTranslations.expiredStatus(lang: lang, feminine: false);
+
+    final impStatus = company.daysUntilImporterIdExpiry > 0
+        ? ExportTranslations.validityWithDays(company.daysUntilImporterIdExpiry, lang: lang, feminine: true)
+        : ExportTranslations.expiredStatus(lang: lang, feminine: true);
+
+    final activeStatusLabel = company.isActive
+        ? resolver.tr('active_record')
+        : resolver.tr('inactive_record');
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
+        theme: theme,
         build: (pw.Context context) {
           return pw.Directionality(
-            textDirection: pw.TextDirection.rtl,
+            textDirection: resolver.pdfTextDirection,
             child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              crossAxisAlignment: resolver.pdfCrossAlignStart,
               children: [
                 // Header Banner
                 pw.Container(
@@ -79,14 +98,15 @@ class MasterDataExportService {
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        crossAxisAlignment: resolver.pdfCrossAlignStart,
                         children: [
                           pw.Text(
-                            'Sorour Logistics ERP — بطاقة بيانات الشركة المستوردة',
+                            resolver.tr('importer_card_title'),
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
+                          pw.SizedBox(height: 2),
                           pw.Text(
-                            'وثيقة رسمية ببيانات التسجيل والقيد التجاري والضريبي',
+                            resolver.tr('importer_card_subtitle'),
                             style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
                           ),
                         ],
@@ -98,7 +118,7 @@ class MasterDataExportService {
                           borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                         ),
                         child: pw.Text(
-                          company.isActive ? 'سجل نشط (Active)' : 'غير مفعّل (Inactive)',
+                          activeStatusLabel,
                           style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
                         ),
                       ),
@@ -115,7 +135,7 @@ class MasterDataExportService {
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    crossAxisAlignment: resolver.pdfCrossAlignStart,
                     children: [
                       pw.Text(
                         company.importerName,
@@ -124,16 +144,36 @@ class MasterDataExportService {
                       pw.SizedBox(height: 8),
                       pw.Row(
                         children: [
-                          pw.Expanded(child: pw.Text('الدولة: ${company.country.isNotEmpty ? company.country : "جمهورية مصر العربية"}', style: const pw.TextStyle(fontSize: 10))),
-                          pw.Expanded(child: pw.Text('العنوان: ${company.address}', style: const pw.TextStyle(fontSize: 10))),
+                          pw.Expanded(
+                            child: pw.Text(
+                              '${resolver.tr('country')}: ${company.country.isNotEmpty ? company.country : resolver.tr('default_egypt')}',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
+                          ),
+                          pw.Expanded(
+                            child: pw.Text(
+                              '${resolver.tr('address')}: ${resolver.bidiIsolate(company.address)}',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
+                          ),
                         ],
                       ),
                       if (company.phone != null || company.email != null) ...[
                         pw.SizedBox(height: 4),
                         pw.Row(
                           children: [
-                            pw.Expanded(child: pw.Text('الهاتف: ${company.phone ?? "-"}', style: const pw.TextStyle(fontSize: 10))),
-                            pw.Expanded(child: pw.Text('البريد الإلكتروني: ${company.email ?? "-"}', style: const pw.TextStyle(fontSize: 10))),
+                            pw.Expanded(
+                              child: pw.Text(
+                                '${resolver.tr('phone')}: ${resolver.bidiIsolate(company.phone)}',
+                                style: const pw.TextStyle(fontSize: 10),
+                              ),
+                            ),
+                            pw.Expanded(
+                              child: pw.Text(
+                                '${resolver.tr('email')}: ${resolver.bidiIsolate(company.email)}',
+                                style: const pw.TextStyle(fontSize: 10),
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -143,7 +183,10 @@ class MasterDataExportService {
                 pw.SizedBox(height: 14),
 
                 // Registration & Expiry Table
-                pw.Text('بيانات القيد والتراخيص الرسمية والرقابية:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50'))),
+                pw.Text(
+                  resolver.tr('reg_section_title'),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50')),
+                ),
                 pw.SizedBox(height: 6),
                 pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.grey300),
@@ -151,34 +194,124 @@ class MasterDataExportService {
                     pw.TableRow(
                       decoration: pw.BoxDecoration(color: PdfColor.fromHex('#3498DB')),
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('البيان / المستند الرقابي', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('رقم القيد / التسجيل', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('تاريخ الانتهاء', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('حالة السريان', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.tr('col_document'),
+                            style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.tr('col_reg_number'),
+                            style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.tr('col_expiry_date'),
+                            style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.tr('col_validity_status'),
+                            style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
                       ],
                     ),
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('البطاقة الاستيرادية (Importer Card)', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.importerId, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(_formatDate(company.importerIdExpiry), style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(impStatus, style: pw.TextStyle(fontSize: 9, color: company.daysUntilImporterIdExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'), fontWeight: pw.FontWeight.bold))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.tr('doc_importer_card'), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.bidiIsolate(company.importerId),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.formatDate(company.importerIdExpiry), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            impStatus,
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              color: company.daysUntilImporterIdExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'),
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('البطاقة الضريبية (VAT / Tax ID)', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.vatId, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(_formatDate(company.vatIdExpiry), style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(vatStatus, style: pw.TextStyle(fontSize: 9, color: company.daysUntilVatExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'), fontWeight: pw.FontWeight.bold))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.tr('doc_vat_card'), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.bidiIsolate(company.vatId),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.formatDate(company.vatIdExpiry), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            vatStatus,
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              color: company.daysUntilVatExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'),
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('السجل التجاري (Commercial Register)', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.registrationNumber, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(_formatDate(company.registrationExpiry), style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(regStatus, style: pw.TextStyle(fontSize: 9, color: company.daysUntilRegExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'), fontWeight: pw.FontWeight.bold))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.tr('doc_commercial_register'), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.bidiIsolate(company.registrationNumber),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.formatDate(company.registrationExpiry), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            regStatus,
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              color: company.daysUntilRegExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'),
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -192,7 +325,10 @@ class MasterDataExportService {
                       color: PdfColors.grey100,
                       borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
                     ),
-                    child: pw.Text('ملاحظات الشركة: ${company.notes}', style: const pw.TextStyle(fontSize: 9)),
+                    child: pw.Text(
+                      '${resolver.tr('company_notes')} ${company.notes}',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
                   ),
                 ],
 
@@ -202,8 +338,14 @@ class MasterDataExportService {
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('تاريخ الطباعة: ${DateTime.now().toString().substring(0, 19)}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                    pw.Text('Sorour Logistics ERP Enterprise System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                    pw.Text(
+                      '${resolver.tr('print_date')} ${resolver.formatDate(DateTime.now())}',
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                    ),
+                    pw.Text(
+                      resolver.tr('erp_title'),
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                    ),
                   ],
                 ),
               ],
@@ -213,63 +355,70 @@ class MasterDataExportService {
       ),
     );
 
+    final printDocName = resolver.buildFileName(
+      prefixKey: 'importer_file_name_prefix',
+      identifier: company.importerId,
+      extension: 'pdf',
+    );
+
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: FileSaveHelper.sanitizeFileName(
-        company.importerName.trim().isNotEmpty
-            ? company.importerName.trim()
-            : company.importerId,
-      ),
+      name: printDocName,
     );
   }
 
-  static Future<String?> exportImporterToExcel(BuildContext context, ImportCompanyModel company) async {
+  static Future<String?> exportImporterToExcel(
+    BuildContext context,
+    ImportCompanyModel company, {
+    ExportLanguage lang = ExportLanguage.ar,
+  }) async {
+    final resolver = ExportLanguageResolver(lang: lang);
     final buffer = StringBuffer();
-    buffer.write('\uFEFF'); // UTF-8 BOM
+    buffer.write('\uFEFF'); // UTF-8 BOM for Microsoft Excel
 
-    buffer.writeln('Sorour Logistics ERP — بطاقة بيانات الشركة المستوردة');
-    buffer.writeln('اسم الشركة المستوردة,"${company.importerName.replaceAll('"', '""')}"');
-    buffer.writeln('حالة السجل,${company.isActive ? "نشط" : "غير نشط"}');
-    buffer.writeln('الدولة,${company.country}');
-    buffer.writeln('العنوان,"${company.address.replaceAll('"', '""')}"');
-    buffer.writeln('الهاتف,${company.phone ?? "-"}');
-    buffer.writeln('المحمول,${company.mobileNumber ?? "-"}');
-    buffer.writeln('الفاكس,${company.faxNumber ?? "-"}');
-    buffer.writeln('البريد الإلكتروني,${company.primaryEmail ?? company.email ?? "-"}');
-    buffer.writeln('البريد الثانوي,${company.secondaryEmail ?? "-"}');
-    buffer.writeln('الموقع الإلكتروني,${company.website ?? "-"}');
-    buffer.writeln('توكن نافذة,${(company.nafezaToken != null && company.nafezaToken!.isNotEmpty) ? "****" : "-"}');
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('importer_card_title')));
+    buffer.writeln('${resolver.tr('importer_name')},${ExportLanguageResolver.cleanExcelCell(company.importerName)}');
+    buffer.writeln('${resolver.tr('active_status_label')},${company.isActive ? resolver.tr('active_short') : resolver.tr('inactive_short')}');
+    buffer.writeln('${resolver.tr('country')},${ExportLanguageResolver.cleanExcelCell(company.country.isNotEmpty ? company.country : resolver.tr('default_egypt'))}');
+    buffer.writeln('${resolver.tr('address')},${ExportLanguageResolver.cleanExcelCell(company.address)}');
+    buffer.writeln('${resolver.tr('phone')},${ExportLanguageResolver.cleanExcelCell(company.phone ?? "-")}');
+    buffer.writeln('${resolver.tr('mobile')},${ExportLanguageResolver.cleanExcelCell(company.mobileNumber ?? "-")}');
+    buffer.writeln('${resolver.tr('fax')},${ExportLanguageResolver.cleanExcelCell(company.faxNumber ?? "-")}');
+    buffer.writeln('${resolver.tr('email')},${ExportLanguageResolver.cleanExcelCell(company.primaryEmail ?? company.email ?? "-")}');
+    buffer.writeln('${resolver.tr('secondary_email')},${ExportLanguageResolver.cleanExcelCell(company.secondaryEmail ?? "-")}');
+    buffer.writeln('${resolver.tr('website')},${ExportLanguageResolver.cleanExcelCell(company.website ?? "-")}');
+    buffer.writeln('${resolver.tr('nafeza_token')},${(company.nafezaToken != null && company.nafezaToken!.isNotEmpty) ? resolver.tr('token_configured') : resolver.tr('token_not_configured')}');
     buffer.writeln('');
 
-    buffer.writeln('--- بيانات القيد والتسجيلات الرسمية ---');
-    buffer.writeln('المستند,رقم القيد,تاريخ الانتهاء,الأيام المتبقية,الحالة');
-    buffer.writeln('البطاقة الاستيرادية,${company.importerId},${_formatDate(company.importerIdExpiry)},${company.daysUntilImporterIdExpiry},${company.daysUntilImporterIdExpiry > 0 ? "سارية" : "منتهية"}');
-    buffer.writeln('البطاقة الضريبية,${company.vatId},${_formatDate(company.vatIdExpiry)},${company.daysUntilVatExpiry},${company.daysUntilVatExpiry > 0 ? "سارية" : "منتهية"}');
-    buffer.writeln('السجل التجاري,${company.registrationNumber},${_formatDate(company.registrationExpiry)},${company.daysUntilRegExpiry},${company.daysUntilRegExpiry > 0 ? "سارٍ" : "منتهٍ"}');
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('reg_excel_section_title')));
+    buffer.writeln('${resolver.tr('col_document_short')},${resolver.tr('col_reg_number')},${resolver.tr('col_expiry_date')},${resolver.tr('col_days_remaining')},${resolver.tr('col_status_short')}');
+    buffer.writeln('${resolver.tr('doc_importer_card')},${ExportLanguageResolver.cleanExcelCell(company.importerId)},${resolver.formatDate(company.importerIdExpiry)},${company.daysUntilImporterIdExpiry},${ExportTranslations.shortValidity(company.daysUntilImporterIdExpiry > 0, lang: lang, feminine: true)}');
+    buffer.writeln('${resolver.tr('doc_vat_card')},${ExportLanguageResolver.cleanExcelCell(company.vatId)},${resolver.formatDate(company.vatIdExpiry)},${company.daysUntilVatExpiry},${ExportTranslations.shortValidity(company.daysUntilVatExpiry > 0, lang: lang, feminine: true)}');
+    buffer.writeln('${resolver.tr('doc_commercial_register')},${ExportLanguageResolver.cleanExcelCell(company.registrationNumber)},${resolver.formatDate(company.registrationExpiry)},${company.daysUntilRegExpiry},${ExportTranslations.shortValidity(company.daysUntilRegExpiry > 0, lang: lang, feminine: false)}');
     buffer.writeln('');
 
-    buffer.writeln('--- شهادات العلامات التجارية والجودة ---');
-    buffer.writeln('WIPO Madrid Monitor,${company.hasWipo ? (company.wipoNumber ?? "مسجل") : "غير مسجل"}');
-    buffer.writeln('EUIPO,${company.hasEuipo ? (company.euipoNumber ?? "مسجل") : "غير مسجل"}');
-    buffer.writeln('Global Brand Database,${company.hasGlobalBrand ? (company.globalBrandNumber ?? "مسجل") : "غير مسجل"}');
-    buffer.writeln('ISO 9001 Certificate,${company.hasIso9001 ? (company.iso9001Number ?? "معتمد") : "غير معتمد"}');
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('cert_excel_section_title')));
+    buffer.writeln('${resolver.tr('cert_wipo')},${ExportTranslations.formatRegisteredStatus(hasRegistration: company.hasWipo, registrationNumber: company.wipoNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_euipo')},${ExportTranslations.formatRegisteredStatus(hasRegistration: company.hasEuipo, registrationNumber: company.euipoNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_global_brand')},${ExportTranslations.formatRegisteredStatus(hasRegistration: company.hasGlobalBrand, registrationNumber: company.globalBrandNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_iso9001')},${ExportTranslations.formatCertifiedStatus(hasCertificate: company.hasIso9001, certificateNumber: company.iso9001Number, lang: lang)}');
 
     if (company.notes != null && company.notes!.isNotEmpty) {
       buffer.writeln('');
-      buffer.writeln('الملاحظات,"${company.notes!.replaceAll('"', '""')}"');
+      buffer.writeln('${resolver.tr('notes')},${ExportLanguageResolver.cleanExcelCell(company.notes)}');
     }
 
-    final safeName = FileSaveHelper.sanitizeFileName(
-      company.importerName.trim().isNotEmpty
-          ? company.importerName.trim()
-          : company.importerId,
+    final filename = resolver.buildFileName(
+      prefixKey: 'importer_file_name_prefix',
+      identifier: company.importerId,
+      extension: 'csv',
     );
-    final filename = '${safeName}_${_formatDate(DateTime.now())}.csv';
+
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
       defaultFileName: filename,
-      dialogTitle: 'حفظ بيانات الشركة المستوردة بصيغة Excel / CSV',
+      dialogTitle: resolver.tr('save_excel_dialog_title'),
       allowedExtensions: ['csv', 'xlsx'],
     );
   }

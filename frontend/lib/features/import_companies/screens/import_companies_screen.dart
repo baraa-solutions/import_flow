@@ -8,6 +8,7 @@ import '../../../core/helpers/master_data_action_helper.dart';
 import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
 import '../widgets/import_company_details_dialog.dart';
+import '../../../core/export/widgets/export_language_dialog.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 
@@ -420,7 +421,12 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                   onEdit: () => _showCompanyDialog(context, company),
                 ),
                 onEdit: () => _showCompanyDialog(context, company),
-                onPrint: () => MasterDataExportService.printOrSaveImporterPdf(company),
+                onPrint: () async {
+                  final lang = await ExportLanguageDialog.show(context);
+                  if (lang != null) {
+                    await MasterDataExportService.printOrSaveImporterPdf(company, lang: lang);
+                  }
+                },
                 onDelete: () async {
                   final confirm = await AppConfirmDialog.showToggleActive(
                     context,

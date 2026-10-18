@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/export/widgets/export_language_dialog.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/master_data_export_service.dart';
@@ -403,7 +404,9 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         icon: const Icon(Icons.print_rounded, size: 16),
                         label: Text(l10n.printSavePdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
-                          await MasterDataExportService.printOrSaveImporterPdf(company);
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          await MasterDataExportService.printOrSaveImporterPdf(company, lang: lang);
                         },
                       ),
 
@@ -417,7 +420,10 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         icon: const Icon(Icons.table_view_rounded, size: 16),
                         label: Text(l10n.downloadExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
-                          final path = await MasterDataExportService.exportImporterToExcel(context, company);
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          if (!context.mounted) return;
+                          final path = await MasterDataExportService.exportImporterToExcel(context, company, lang: lang);
                           if (context.mounted && path != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
