@@ -1,9 +1,9 @@
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from fastapi import status
+from fastapi import Response, status
 from pydantic import ValidationError
 from sqlalchemy import Numeric
 from sqlalchemy.exc import IntegrityError
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from modules.common import cargo_math, enum_codes
 from modules.common.concurrency import ConcurrencyConflictException, log_concurrency_conflict
 from modules.common.errors import CodedHTTPException
+from modules.common.pagination import PageParams
 from modules.common.system_messages import SystemMessageItem, render_en, to_item
 from modules.common.system_parameters import air_volumetric_kg_per_cbm
 from modules.common.validators import not_found, require_active
@@ -23,6 +24,7 @@ from modules.purchase_orders.schemas import (
     ClonePurchaseOrderRequest,
     DEFAULT_WEIGHT_UNIT,
     stored_weight_unit,
+    PaginatedPurchaseOrdersResponse,
     POBalanceSummaryResponse,
     POLineItemBalanceItem,
     POLineItemCreate,
@@ -35,6 +37,7 @@ from modules.purchase_orders.schemas import (
     PackingListValidationReport,
     PalletPlanItem,
     PurchaseOrderCreate,
+    PurchaseOrderListItem,
     PurchaseOrderResponse,
     PurchaseOrderUpdate,
 )
@@ -325,6 +328,37 @@ class PurchaseOrderService:
             packing_list_items=packing_items_resp,
         )
 
+    def _to_list_item(self, po: PurchaseOrder, import_file_code: Optional[str] = None) -> PurchaseOrderListItem:
+        total_fob = float(po.total_amount_fob) if po.total_amount_fob is not None else 0.0
+        curr_code = po.currency.currency_code if po.currency else None
+        return PurchaseOrderListItem(
+            id=po.po_id,
+            po_id=po.po_id,
+            code=po.po_number,
+            po_number=po.po_number,
+            po_reference=po.po_reference,
+            proforma_invoice_number=po.proforma_invoice_number,
+            supplier_id=po.supplier_id,
+            supplier_name=po.supplier.company_name if po.supplier else None,
+            company_id=po.company_id,
+            company_name=po.company.importer_name if po.company else None,
+            project_id=po.project_id,
+            project_name=po.project.project_name if po.project else None,
+            import_file_id=po.import_file_id,
+            import_file_code=import_file_code,
+            total_amount_fob=total_fob,
+            total_amount=total_fob,
+            currency_id=po.currency_id,
+            currency_code=curr_code,
+            currency=curr_code,
+            status=_status_code(po.status),
+            order_date=po.order_date,
+            expected_delivery_date=po.expected_delivery_date,
+            created_at=po.created_at,
+            updated_at=po.updated_at,
+            is_active=po.is_active,
+        )
+
     def get_all(
         self,
         include_inactive: bool = False,
@@ -333,21 +367,67 @@ class PurchaseOrderService:
         company_id: Optional[int] = None,
         supplier_id: Optional[int] = None,
         search: Optional[str] = None,
-    ) -> List[PurchaseOrderResponse]:
+        skip: int = 0,
+        limit: Optional[int] = None,
+        return_total: bool = False,
+    ) -> Union[List[PurchaseOrderResponse], Tuple[List[PurchaseOrderResponse], int]]:
         status_values = None
         if status_filter:
             # rows store the code; legacy rows may still hold a label of the same status
             status_values = enum_codes.legacy_values(enum_codes.PO_STATUS, _status_code(status_filter.strip()))
-        pos = self.repo.get_all(
+        res = self.repo.get_all(
             include_inactive=include_inactive,
             status_values=status_values,
             project_id=project_id,
             company_id=company_id,
             supplier_id=supplier_id,
             search=search,
+            skip=skip,
+            limit=limit,
+            return_total=return_total,
         )
+        pos, total = res if return_total else (res, len(res))
         file_codes = codes_by_ids(self.db, (po.import_file_id for po in pos))
-        return [self._to_response(po, file_codes.get(po.import_file_id)) for po in pos]
+        responses = [self._to_response(po, file_codes.get(po.import_file_id)) for po in pos]
+        if return_total:
+            return responses, total
+        return responses
+
+    def get_paginated(
+        self,
+        params: PageParams,
+        *,
+        status_filter: Optional[str] = None,
+        supplier_id: Optional[int] = None,
+        company_id: Optional[int] = None,
+        project_id: Optional[int] = None,
+        currency_id: Optional[int] = None,
+        search: Optional[str] = None,
+        response: Optional[Response] = None,
+    ) -> PaginatedPurchaseOrdersResponse:
+        status_values = None
+        if status_filter:
+            status_values = enum_codes.legacy_values(enum_codes.PO_STATUS, _status_code(status_filter.strip()))
+        result = self.repo.get_paginated(
+            params=params,
+            status_values=status_values,
+            supplier_id=supplier_id,
+            company_id=company_id,
+            project_id=project_id,
+            currency_id=currency_id,
+            search=search,
+            response=response,
+        )
+        pos = result["items"]
+        file_codes = codes_by_ids(self.db, (po.import_file_id for po in pos))
+        items = [self._to_list_item(po, file_codes.get(po.import_file_id)) for po in pos]
+        return PaginatedPurchaseOrdersResponse(
+            items=items,
+            total=result["total"],
+            page=result["page"],
+            page_size=result["page_size"],
+            total_pages=result["total_pages"],
+        )
 
     def get_by_id(self, po_id: int) -> PurchaseOrderResponse:
         return self._to_response(self._get_or_404(po_id))

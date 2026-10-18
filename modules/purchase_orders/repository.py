@@ -1,14 +1,35 @@
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Type
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Type, Union
+from fastapi import Response
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from modules.common.pagination import PageParams, paginate, like_term
 from modules.common.sequence_generator import next_yearly_code
 from modules.import_files.model import ImportFile
 from modules.purchase_orders.model import POLineItem, POShipmentAllocation, PackingListItem, PurchaseOrder
 
 PO_NUMBER_PREFIX = "PO"
+
+PO_SORT_MAP = {
+    "id": PurchaseOrder.po_id,
+    "po_id": PurchaseOrder.po_id,
+    "code": PurchaseOrder.po_number,
+    "po_number": PurchaseOrder.po_number,
+    "po_reference": PurchaseOrder.po_reference,
+    "proforma_invoice_number": PurchaseOrder.proforma_invoice_number,
+    "order_date": PurchaseOrder.order_date,
+    "expected_delivery_date": PurchaseOrder.expected_delivery_date,
+    "created_at": PurchaseOrder.created_at,
+    "updated_at": PurchaseOrder.updated_at,
+    "status": PurchaseOrder.status,
+    "supplier_id": PurchaseOrder.supplier_id,
+    "company_id": PurchaseOrder.company_id,
+    "project_id": PurchaseOrder.project_id,
+    "currency_id": PurchaseOrder.currency_id,
+    "total_amount_fob": PurchaseOrder.total_amount_fob,
+}
 
 # (existing row id or None, column values) for one child row of a PO.
 ChildRow = Tuple[Optional[int], Dict[str, Any]]
@@ -46,27 +67,17 @@ class PurchaseOrderRepository:
         )
         return (row[0], row[1], row[2]) if row else (None, None, None)
 
-    def get_all(
+    def _apply_filters(
         self,
+        query,
         include_inactive: bool = False,
         status_values: Optional[Sequence[str]] = None,
         project_id: Optional[int] = None,
         company_id: Optional[int] = None,
         supplier_id: Optional[int] = None,
+        currency_id: Optional[int] = None,
         search: Optional[str] = None,
-    ) -> List[PurchaseOrder]:
-        query = (
-            self.db.query(PurchaseOrder)
-            .options(
-                joinedload(PurchaseOrder.project),
-                joinedload(PurchaseOrder.company),
-                joinedload(PurchaseOrder.supplier),
-                joinedload(PurchaseOrder.incoterm),
-                joinedload(PurchaseOrder.currency),
-                selectinload(PurchaseOrder.line_items),
-                selectinload(PurchaseOrder.packing_list_items),
-            )
-        )
+    ):
         if not include_inactive:
             query = query.filter(PurchaseOrder.is_active.is_(True))
         if status_values:
@@ -77,17 +88,108 @@ class PurchaseOrderRepository:
             query = query.filter(PurchaseOrder.company_id == company_id)
         if supplier_id:
             query = query.filter(PurchaseOrder.supplier_id == supplier_id)
-        if search:
-            pattern = f"%{search.strip()}%"
+        if currency_id:
+            query = query.filter(PurchaseOrder.currency_id == currency_id)
+        if search and search.strip():
+            term = like_term(search)
             query = query.filter(
                 or_(
-                    PurchaseOrder.po_number.ilike(pattern),
-                    PurchaseOrder.po_reference.ilike(pattern),
-                    PurchaseOrder.proforma_invoice_number.ilike(pattern),
-                    PurchaseOrder.notes.ilike(pattern),
+                    PurchaseOrder.po_number.ilike(term, escape="\\"),
+                    PurchaseOrder.po_reference.ilike(term, escape="\\"),
+                    PurchaseOrder.proforma_invoice_number.ilike(term, escape="\\"),
+                    PurchaseOrder.notes.ilike(term, escape="\\"),
                 )
             )
-        return query.order_by(PurchaseOrder.created_at.desc()).all()
+        return query
+
+    def get_all(
+        self,
+        include_inactive: bool = False,
+        status_values: Optional[Sequence[str]] = None,
+        project_id: Optional[int] = None,
+        company_id: Optional[int] = None,
+        supplier_id: Optional[int] = None,
+        search: Optional[str] = None,
+        skip: int = 0,
+        limit: Optional[int] = None,
+        return_total: bool = False,
+    ) -> Union[List[PurchaseOrder], Tuple[List[PurchaseOrder], int]]:
+        base_query = self.db.query(PurchaseOrder)
+        base_query = self._apply_filters(
+            base_query,
+            include_inactive=include_inactive,
+            status_values=status_values,
+            project_id=project_id,
+            company_id=company_id,
+            supplier_id=supplier_id,
+            search=search,
+        )
+        total = base_query.count()
+
+        query = (
+            base_query.options(
+                joinedload(PurchaseOrder.project),
+                joinedload(PurchaseOrder.company),
+                joinedload(PurchaseOrder.supplier),
+                joinedload(PurchaseOrder.incoterm),
+                joinedload(PurchaseOrder.currency),
+                selectinload(PurchaseOrder.line_items),
+                selectinload(PurchaseOrder.packing_list_items),
+            )
+            .order_by(PurchaseOrder.created_at.desc(), PurchaseOrder.po_id.desc())
+        )
+        if skip:
+            query = query.offset(skip)
+        if limit is not None:
+            query = query.limit(limit)
+
+        items = query.all()
+        if return_total:
+            return items, total
+        return items
+
+    def get_paginated(
+        self,
+        params: PageParams,
+        *,
+        status_values: Optional[Sequence[str]] = None,
+        supplier_id: Optional[int] = None,
+        company_id: Optional[int] = None,
+        project_id: Optional[int] = None,
+        currency_id: Optional[int] = None,
+        search: Optional[str] = None,
+        response: Optional[Response] = None,
+    ) -> Dict[str, Any]:
+        effective_search = params.q if params.q is not None else search
+        query = (
+            self.db.query(PurchaseOrder)
+            .options(
+                joinedload(PurchaseOrder.project),
+                joinedload(PurchaseOrder.company),
+                joinedload(PurchaseOrder.supplier),
+                joinedload(PurchaseOrder.incoterm),
+                joinedload(PurchaseOrder.currency),
+                joinedload(PurchaseOrder.import_file),
+            )
+        )
+        query = self._apply_filters(
+            query,
+            include_inactive=params.include_inactive,
+            status_values=status_values,
+            project_id=project_id,
+            company_id=company_id,
+            supplier_id=supplier_id,
+            currency_id=currency_id,
+            search=effective_search,
+        )
+        return paginate(
+            query=query,
+            params=params,
+            sort_map=PO_SORT_MAP,
+            default_sort=[PurchaseOrder.created_at.desc()],
+            pk=PurchaseOrder.po_id,
+            response=response,
+        )
 
     def get_import_file(self, import_file_id: int) -> Optional[ImportFile]:
         return self.db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()

@@ -258,6 +258,46 @@ class PurchaseOrderResponse(PurchaseOrderBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PurchaseOrderListItem(BaseModel):
+    id: Optional[int] = None
+    po_id: int
+    code: Optional[str] = None
+    po_number: str
+    po_reference: Optional[str] = None
+    proforma_invoice_number: Optional[str] = None
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
+    company_id: Optional[int] = None
+    company_name: Optional[str] = None
+    project_id: Optional[int] = None
+    project_name: Optional[str] = None
+    import_file_id: Optional[int] = None
+    import_file_code: Optional[str] = None
+    total_amount_fob: float = 0.0
+    total_amount: Optional[float] = None
+    currency_id: Optional[int] = None
+    currency_code: Optional[str] = None
+    currency: Optional[str] = None
+    status: str
+    order_date: Optional[datetime] = None
+    expected_delivery_date: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+    is_active: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedPurchaseOrdersResponse(BaseModel):
+    items: List[PurchaseOrderListItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # =========================================================================
 # LOG-PART-004: PO Balance & Partial Shipment Schemas
 # =========================================================================
