@@ -6,6 +6,8 @@ from datetime import datetime, date
 from typing import Optional, List
 from pydantic import BaseModel, ConfigDict, Field
 
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
+
 
 class FreightQuotationItemBase(BaseModel):
     provider_id: int
@@ -30,10 +32,17 @@ class FreightQuotationItemCreate(FreightQuotationItemBase):
     is_awarded: Optional[bool] = None  # Ignored: quotes can only be awarded via /award
 
 
-class FreightQuotationItemResponse(FreightQuotationItemBase):
+@read_model
+class FreightQuotationItemResponse(FreightQuotationItemBase, LegacyRowTolerantModel):
     quotation_id: int
     rfq_id: int
     is_awarded: bool = False
+    ocean_freight_cost: Optional[float] = None
+    local_charges_cost: Optional[float] = None
+    inland_cost: Optional[float] = None
+    total_cost: Optional[float] = None
+    transit_days: Optional[int] = 0
+    free_days_at_pod: Optional[int] = 14
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -79,13 +88,17 @@ class FreightRFQRequestUpdate(BaseModel):
     quotations: Optional[List[FreightQuotationItemCreate]] = None
 
 
-class FreightRFQRequestResponse(FreightRFQRequestBase):
+@read_model
+class FreightRFQRequestResponse(FreightRFQRequestBase, LegacyRowTolerantModel):
     rfq_id: int
     rfq_code: str
     status: str = "Draft"
     selected_quotation_id: Optional[int] = None
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
+    total_cbm: Optional[float] = None
+    total_gross_weight_kg: Optional[float] = None
+    chargeable_weight_kg: Optional[float] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -95,10 +108,10 @@ class FreightRFQRequestResponse(FreightRFQRequestBase):
 
     # Computed metrics
     total_quotations_count: int = 0
-    lowest_freight_cost: float = 0.0
-    average_freight_cost: float = 0.0
+    lowest_freight_cost: Optional[float] = None
+    average_freight_cost: Optional[float] = None
     fastest_transit_days: int = 0
-    average_transit_days: float = 0.0
+    average_transit_days: Optional[float] = None
     awarded_provider_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -109,26 +122,28 @@ class FreightRFQRequestResponse(FreightRFQRequestBase):
 # AI-BENCH-007: Trade-Lane Forwarder Benchmarking & Ranking Schemas
 # =========================================================================
 
-class RankedForwarderQuote(BaseModel):
+@read_model
+class RankedForwarderQuote(LegacyRowTolerantModel):
     rank: int
     quotation_id: int
     provider_id: int
     provider_name: str
     vessel_name: Optional[str] = None
-    total_cost: float
+    total_cost: Optional[float] = None
     currency_code: str = "USD"
     transit_days: int
     free_days_at_pod: int
-    cost_score: float = 0.0
-    free_days_score: float = 0.0
-    transit_score: float = 0.0
-    reliability_score: float = 0.0
-    composite_score: float
-    cost_saving_vs_average: float
+    cost_score: Optional[float] = 0.0
+    free_days_score: Optional[float] = 0.0
+    transit_score: Optional[float] = 0.0
+    reliability_score: Optional[float] = 0.0
+    composite_score: Optional[float] = None
+    cost_saving_vs_average: Optional[float] = None
     key_advantages: List[str]
 
 
-class RFQBenchmarkResponse(BaseModel):
+@read_model
+class RFQBenchmarkResponse(LegacyRowTolerantModel):
     model_config = ConfigDict(from_attributes=True)
 
     rfq_id: int
@@ -136,8 +151,8 @@ class RFQBenchmarkResponse(BaseModel):
     title: str
     route: str
     total_quotes_analyzed: int
-    average_cost_usd: float
-    top_three_quotes: List[RankedForwarderQuote]
-    all_ranked_quotes: List[RankedForwarderQuote]
+    average_cost_usd: Optional[float] = None
+    top_three_quotes: List[RankedForwarderQuote] = []
+    all_ranked_quotes: List[RankedForwarderQuote] = []
     executive_recommendation_ar: str
 

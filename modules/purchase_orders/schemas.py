@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from modules.common import enum_codes
 from modules.common.cargo_math import LengthUnit
+from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 from modules.common.system_messages import SystemMessageItem  # noqa: F401  (re-exported for the PO API)
 
 # Declared packing-list weight UOM (enum_codes.MEASURE_UNIT; KG is exported to CargoX as KGM).
@@ -59,11 +60,17 @@ class POLineItemCreate(POLineItemBase):
     item_id: Optional[int] = Field(None, description="Existing line id on update: the row is updated in place. Omit for a new line.")
 
 
-class POLineItemResponse(POLineItemBase):
+@read_model
+class POLineItemResponse(POLineItemBase, LegacyRowTolerantModel):
     item_id: int
     po_id: int
-    total_price: float
-    total_cbm: float
+    quantity: Optional[float] = None
+    unit_price: Optional[float] = None
+    total_price: Optional[float] = None
+    cbm_per_unit: Optional[float] = None
+    total_cbm: Optional[float] = None
+    gross_weight_kg: Optional[float] = None
+    net_weight_kg: Optional[float] = None
     created_at: datetime
     hs_code: Optional[str] = None
     duty_rate: Optional[float] = None
@@ -106,13 +113,21 @@ class PackingListItemCreate(PackingListItemBase):
         return normalize_weight_unit(value)
 
 
-class PackingListItemResponse(PackingListItemBase):
+@read_model
+class PackingListItemResponse(PackingListItemBase, LegacyRowTolerantModel):
     packing_item_id: int
     po_id: int
-    total_net_weight_kg: float
-    total_gross_weight_kg: float
-    total_cbm: float
-    chargeable_weight_kg: float
+    qty_pcs: Optional[float] = None
+    qty_pkg: Optional[float] = None
+    length_cm: Optional[float] = None
+    width_cm: Optional[float] = None
+    height_cm: Optional[float] = None
+    net_weight_unit_kg: Optional[float] = None
+    gross_weight_unit_kg: Optional[float] = None
+    total_net_weight_kg: Optional[float] = None
+    total_gross_weight_kg: Optional[float] = None
+    total_cbm: Optional[float] = None
+    chargeable_weight_kg: Optional[float] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -229,18 +244,24 @@ class PurchaseOrderUpdate(BaseModel):
     packing_list_items: Optional[List[PackingListItemCreate]] = None
 
 
-class PurchaseOrderResponse(PurchaseOrderBase):
+@read_model
+class PurchaseOrderResponse(PurchaseOrderBase, LegacyRowTolerantModel):
     po_id: int
     po_number: str
     version: int = 1
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
     order_date: Optional[datetime] = None
-    total_amount_fob: float
-    total_cbm: float
-    total_gross_weight_kg: float
-    total_net_weight_kg: float
-    total_packages_count: int
+    exchange_rate: Optional[float] = None
+    total_amount_fob: Optional[float] = None
+    total_cbm: Optional[float] = None
+    total_gross_weight_kg: Optional[float] = None
+    total_net_weight_kg: Optional[float] = None
+    total_packages_count: Optional[int] = 0
+    pallet_count: Optional[int] = 0
+    pallet_length_cm: Optional[float] = None
+    pallet_width_cm: Optional[float] = None
+    pallet_height_cm: Optional[float] = None
     status: str  # PO_STATUS code
     is_active: bool
     created_at: datetime
@@ -321,14 +342,15 @@ class POShipmentAllocationCreate(BaseModel):
         return norm or str(v)
 
 
-class POShipmentAllocationResponse(BaseModel):
+@read_model
+class POShipmentAllocationResponse(LegacyRowTolerantModel):
     allocation_id: int
     po_id: int
     po_item_id: Optional[int] = None
     import_file_id: Optional[int] = None
     shipment_ref: str
-    shipped_quantity: float
-    shipped_amount_fob: float
+    shipped_quantity: Optional[float] = None
+    shipped_amount_fob: Optional[float] = None
     shipping_date: datetime
     status: str
     notes: Optional[str] = None
@@ -347,31 +369,33 @@ class POShipmentAllocationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class POLineItemBalanceItem(BaseModel):
+@read_model
+class POLineItemBalanceItem(LegacyRowTolerantModel):
     item_id: int
     item_code: Optional[str] = None
     description_ar: str
-    ordered_qty: float
-    shipped_qty: float
-    remaining_qty: float
-    unit_price: float
-    ordered_amount_fob: float
-    shipped_amount_fob: float
-    remaining_amount_fob: float
-    fulfillment_percent: float
+    ordered_qty: Optional[float] = None
+    shipped_qty: Optional[float] = None
+    remaining_qty: Optional[float] = None
+    unit_price: Optional[float] = None
+    ordered_amount_fob: Optional[float] = None
+    shipped_amount_fob: Optional[float] = None
+    remaining_amount_fob: Optional[float] = None
+    fulfillment_percent: Optional[float] = None
 
 
-class POBalanceSummaryResponse(BaseModel):
+@read_model
+class POBalanceSummaryResponse(LegacyRowTolerantModel):
     po_id: int
     po_number: str
-    total_ordered_qty: float
-    total_shipped_qty: float
-    total_remaining_qty: float
-    total_ordered_amount_fob: float
-    total_shipped_amount_fob: float
-    total_remaining_amount_fob: float
+    total_ordered_qty: Optional[float] = None
+    total_shipped_qty: Optional[float] = None
+    total_remaining_qty: Optional[float] = None
+    total_ordered_amount_fob: Optional[float] = None
+    total_shipped_amount_fob: Optional[float] = None
+    total_remaining_amount_fob: Optional[float] = None
     currency_code: str
-    overall_fulfillment_percent: float
+    overall_fulfillment_percent: Optional[float] = None
     fulfillment_status: str  # Pending, Partially Shipped, Fully Shipped, Over-Shipped
     line_items_balance: List[POLineItemBalanceItem]
     allocations: List[POShipmentAllocationResponse]
