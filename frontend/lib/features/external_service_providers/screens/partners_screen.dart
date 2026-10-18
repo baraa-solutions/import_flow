@@ -439,9 +439,21 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       minWidth: density.buttonHeight,
                       minHeight: density.buttonHeight,
                     ),
-                    onPressed: () {
-                      ref.read(partnersProvider.notifier).fetchPartners();
-                      ref.read(allPartnersProvider.notifier).fetchPartners();
+                    onPressed: () async {
+                      await ref.read(partnersProvider.notifier).fetchPartners();
+                      await ref.read(allPartnersProvider.notifier).fetchPartners();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              Directionality.of(context) == TextDirection.rtl
+                                  ? 'تم تحديث قائمة الشركاء والبنوك بنجاح'
+                                  : 'Partners & banks refreshed successfully',
+                            ),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
                     },
                   ),
                   if (partnerList.isNotEmpty)

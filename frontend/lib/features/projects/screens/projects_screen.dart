@@ -5,12 +5,12 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
-import '../../audit_logs/widgets/row_history_dialog.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../incoterms/providers/incoterms_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/project_model.dart';
 import '../providers/projects_provider.dart';
+import '../widgets/project_details_dialog.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
@@ -526,16 +526,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                         value: p.projectCode,
                                         rowSummary: rowSummary,
                                         child: RowActionsPill(
-                                          onView: () {
-                                            if (p.projectId != null) {
-                                              RowHistoryDialog.show(
-                                                context,
-                                                entityType: 'Project',
-                                                entityId: p.projectId!,
-                                                entityTitle: p.projectName,
-                                              );
-                                            }
-                                          },
+                                          onView: () => ProjectDetailsDialog.show(
+                                            context,
+                                            p,
+                                            onEdit: () => _showProjectDialog(context, project: p),
+                                          ),
                                           onEdit: () => _showProjectDialog(context, project: p),
                                           onPrint: () {
                                             final summary = _buildProjectSummary(context, p);
