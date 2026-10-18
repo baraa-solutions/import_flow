@@ -2,7 +2,7 @@
 SQLAlchemy Model for Shipment Stage Activity & Lifecycle Board
 """
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, JSON
+from sqlalchemy import Column, Integer, String, Text, Boolean, JSON, Index
 from database.database import Base
 
 
@@ -20,6 +20,10 @@ class ShipmentStageActivity(Base):
     notes = Column(Text, nullable=True)
     msg_code = Column(String(80), nullable=True)  # system message code for notes (English render in notes)
     msg_params = Column(JSON, nullable=True)
+
+    __table_args__ = (
+        Index("uq_shipment_stage_activity_file_step", "import_file_code", "step_code", unique=True),
+    )
 
 
 class StepConfig(Base):

@@ -5,6 +5,7 @@ from modules.audit_logs.model import AuditLog
 from modules.cargo_shipping.model import CargoShippingRecord
 from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
 from modules.container_loader.model import ContainerLoaderSessionModel, ContainerSpecModel
+from modules.containers.model import ShipmentContainer
 from modules.currencies.model import Currency, ExchangeRate
 from modules.customs_clearance.model import CustomsClearanceRecord
 from modules.customs_clearance_quotations.model import (
