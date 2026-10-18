@@ -66,3 +66,9 @@ def validate_required_fields_not_null(update_data: Dict[str, Any]) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"لا يمكن مسح قيمة الحقول الإلزامية: {', '.join(cleared)}",
         )
+
+
+def validate_requirement_currency(db: Session, price: Optional[float], currency: Optional[str]) -> Optional[str]:
+    """Validate currency for import requirement: required when price > 0, normalized to uppercase."""
+    from modules.common.validators import validate_price_currency
+    return validate_price_currency(db, price, currency, label_ar="عملة قيمة الشحنة")

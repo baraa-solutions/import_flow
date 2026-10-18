@@ -162,6 +162,7 @@ class ShippingScenarioService:
     ) -> ShippingEvaluationResponse:
         ShippingScenarioValidator.validate_evaluation_create(payload)
         ShippingScenarioValidator.validate_foreign_keys(db, payload, payload.items)
+        ShippingScenarioValidator.validate_scenario_currencies(db, payload.items)
         if payload.import_file_id:
             ShippingScenarioService._check_one_per_file(db, payload.import_file_id)
         session_obj = ShippingScenarioRepository.create(db, payload)
@@ -209,6 +210,7 @@ class ShippingScenarioService:
             if removed_ids:
                 booked = ShippingScenarioRepository.booked_item_ids(db, removed_ids)
                 ShippingScenarioValidator.validate_removed_not_booked(booked)
+            ShippingScenarioValidator.validate_scenario_currencies(db, payload.items)
         ShippingScenarioValidator.validate_foreign_keys(db, payload, payload.items, stored=session_obj)
         file_id = payload.import_file_id or session_obj.import_file_id
         reactivated = not session_obj.is_active and payload.is_active is not False  # an update reactivates

@@ -14,6 +14,7 @@ from modules.import_requirements.validators import (
     validate_no_active_assessment_for_file,
     validate_overall_status,
     validate_required_fields_not_null,
+    validate_requirement_currency,
     validate_risk_level,
     validate_shipment_value,
 )
@@ -330,6 +331,8 @@ def create_assessment_service(db: Session, payload: ImportRequirementCreate, use
     validate_risk_level(payload.risk_level)
     validate_overall_status(payload.overall_status)
     validate_shipment_value(payload.shipment_value_usd)
+    price = float(payload.shipment_value or 0.0)
+    payload.currency = validate_requirement_currency(db, price, payload.currency)
     if payload.import_file_id:
         _check_one_per_file(db, payload.import_file_id, payload.import_file_code)
 
@@ -360,6 +363,12 @@ def update_assessment_service(db: Session, assessment_id: int, payload: ImportRe
         validate_overall_status(update_data["overall_status"])
     if "shipment_value_usd" in update_data:
         validate_shipment_value(update_data["shipment_value_usd"])
+    if "shipment_value" in update_data or "currency" in update_data:
+        eff_price = update_data.get("shipment_value") if "shipment_value" in update_data else getattr(obj, "shipment_value", 0.0)
+        eff_curr = update_data.get("currency") if "currency" in update_data else getattr(obj, "currency", None)
+        norm_curr = validate_requirement_currency(db, eff_price, eff_curr)
+        if "currency" in update_data:
+            update_data["currency"] = norm_curr
     file_id = update_data.get("import_file_id") or obj.import_file_id
     # An update reactivates a soft-deleted assessment: the one-per-file rule applies then too.
     if file_id and (file_id != obj.import_file_id or not obj.is_active):

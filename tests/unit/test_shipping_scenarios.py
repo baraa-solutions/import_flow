@@ -26,9 +26,13 @@ def db():
     session = TestingSession()
     # Scenario provider ids must reference active providers (SS-03).
     from modules.external_service_providers.model import ExternalServiceProvider
+    from modules.currencies.model import Currency
     session.add_all([
         ExternalServiceProvider(provider_id=1, partner_code="FF-001", partner_name="Forwarder One", partner_type="Freight Forwarder"),
         ExternalServiceProvider(provider_id=2, partner_code="FF-002", partner_name="Forwarder Two", partner_type="Freight Forwarder"),
+        Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True),
+        Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True),
+        Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="E£", is_active=True),
     ])
     session.commit()
     try:
@@ -391,6 +395,7 @@ class TestShippingScenariosBackend:
                     estimated_arrival_date=crd + timedelta(days=26),
                     free_time_days=21,
                     total_quotation_amount=3200.0,
+                    quotation_currency="USD",
                 )
             ],
         )
@@ -415,9 +420,11 @@ class TestShippingScenariosBackend:
             is_recommended=True,
             is_selected=True,
             total_quotation_amount=4500.0,
+            quotation_currency="USD",
             free_time_days=21,
             container_40ft_applicable=True,
             container_40ft_price=4500.0,
+            container_40ft_currency="USD",
             container_40ft_qty=1,
         )
         payload = ShippingEvaluationCreate(

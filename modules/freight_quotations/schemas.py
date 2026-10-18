@@ -14,7 +14,7 @@ class FreightQuotationItemBase(BaseModel):
     provider_name: str
     vessel_name: Optional[str] = None
     voyage_number: Optional[str] = None
-    currency_code: str = "USD"
+    currency_code: Optional[str] = None
     ocean_freight_cost: float = Field(..., ge=0.0)
     local_charges_cost: float = Field(0.0, ge=0.0)
     inland_cost: float = Field(0.0, ge=0.0)
@@ -130,7 +130,7 @@ class RankedForwarderQuote(LegacyRowTolerantModel):
     provider_name: str
     vessel_name: Optional[str] = None
     total_cost: Optional[float] = None
-    currency_code: str = "USD"
+    currency_code: Optional[str] = None
     transit_days: int
     free_days_at_pod: int
     cost_score: Optional[float] = 0.0

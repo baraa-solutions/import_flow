@@ -22,6 +22,7 @@ from modules.freight_quotations.validators import (
     validate_import_file_exists,
     validate_po_exists,
     validate_project_exists,
+    validate_quotation_currencies,
 )
 from modules.common.validators import get_or_404, not_null_columns
 from modules.import_files.repository import codes_by_ids
@@ -95,6 +96,8 @@ class FreightQuotationService:
         for q in rfq_in.quotations:
             validate_carrier_exists(db, q.provider_id)
             validate_quotation_dates(rfq_in.crd_date, q.sailing_date, q.estimated_arrival_date)
+        if rfq_in.quotations:
+            validate_quotation_currencies(db, rfq_in.quotations)
 
         for attempt in range(1, 4):
             code = FreightQuotationRepository.generate_rfq_code(db)
@@ -201,6 +204,7 @@ class FreightQuotationService:
                     )
                 validate_carrier_exists(db, q.provider_id)
                 validate_quotation_dates(crd, q.sailing_date, q.estimated_arrival_date)
+            validate_quotation_currencies(db, update_in.quotations)
 
         updated_rfq = FreightQuotationRepository.update(db, db_rfq, update_in, user=user)
         db.commit()

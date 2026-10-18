@@ -191,6 +191,48 @@ class ShippingScenarioValidator:
             item_ids=ids,
         )
 
+    @staticmethod
+    def validate_scenario_currencies(db: Session, items: Iterable[Any]) -> None:
+        """Validate currency codes for all scenario items: required when price > 0, normalized to uppercase."""
+        from modules.common.validators import validate_price_currency
+
+        for item in items:
+            for price_field, curr_field, label in SCENARIO_CURRENCY_PRICE_PAIRS:
+                price = getattr(item, price_field, 0.0) if hasattr(item, price_field) else (item.get(price_field, 0.0) if isinstance(item, dict) else 0.0)
+                price = price or 0.0
+                curr = getattr(item, curr_field, None) if hasattr(item, curr_field) else (item.get(curr_field) if isinstance(item, dict) else None)
+                normalized = validate_price_currency(db, price, curr, label_ar=label)
+                if hasattr(item, curr_field):
+                    setattr(item, curr_field, normalized)
+                elif isinstance(item, dict):
+                    item[curr_field] = normalized
+
+
+SCENARIO_CURRENCY_PRICE_PAIRS = (
+    ("total_quotation_amount", "quotation_currency", "عملة عرض السعر الإجمالي"),
+    ("container_40ft_price", "container_40ft_currency", "عملة حاوية 40 قدم"),
+    ("container_20ft_price", "container_20ft_currency", "عملة حاوية 20 قدم"),
+    ("lcl_cbm_price", "lcl_cbm_currency", "عملة شحن جزئي LCL"),
+    ("express_courier_price", "express_courier_currency", "عملة البريد السريع"),
+    ("eur_atr_price", "eur_atr_currency", "عملة شهادة EUR / ATR"),
+    ("solas_vgm_price", "solas_vgm_currency", "عملة وزن الحاوية SOLAS VGM"),
+    ("vgm_notification_price", "vgm_notification_currency", "عملة إخطار VGM"),
+    ("telex_release_price", "telex_release_currency", "عملة إصدار التلكس"),
+    ("insurance_price", "insurance_currency", "عملة التأمين"),
+    ("booking_cancellation_price", "booking_cancellation_currency", "عملة إلغاء الحجز"),
+    ("ics2_filing_fee_price", "ics2_filing_fee_currency", "عملة تسجيل إقرارات ICS2"),
+    ("others_fee_price", "others_fee_currency", "عملة المصاريف الأخرى"),
+    ("document_fees_price", "document_fees_currency", "عملة رسوم المستندات"),
+    ("waiver_letter_fee_price", "waiver_letter_fee_currency", "عملة رسوم خطاب التنازل"),
+    ("dthc_price", "dthc_currency", "عملة مصاريف التفريغ DTHC"),
+    ("storage_per_week_price", "storage_per_week_currency", "عملة الأرضيات أسبوعياً"),
+    ("extra_day_storage_price", "extra_day_storage_currency", "عملة الأرضيات اليومية الإضافية"),
+    ("clearance_fee_price", "clearance_fee_currency", "عملة رسوم التخليص الجمركي"),
+    ("inspection_fee_price", "inspection_fee_currency", "عملة رسوم الكشف والمعاينة"),
+    ("inland_transport_fee_price", "inland_transport_fee_currency", "عملة النقل الداخلي"),
+    ("port_expenses_price", "port_expenses_currency", "عملة مصاريف الميناء"),
+)
+
 
 def _require_refs(db: Session, model: Any, pk: str, refs: List[Tuple[Optional[int], str, bool]]) -> None:
     """``refs`` = (id, Arabic label, must_be_active); None ids are skipped. One query; the first missing id,

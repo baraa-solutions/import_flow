@@ -59,7 +59,7 @@ class ImportRequirementBase(BaseModel):
     hs_code: Optional[str] = None
     commodity_description: Optional[str] = None
     country_of_origin: Optional[str] = None
-    currency: str = Field("USD", max_length=10)
+    currency: Optional[str] = Field(None, max_length=10)
     shipment_value: float = Field(0.0, ge=0.0)
     shipment_value_usd: float = Field(0.0, ge=0.0)
     
