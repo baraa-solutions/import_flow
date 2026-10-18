@@ -215,7 +215,7 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 186 | ACC3-T13 | cbm_calculator | MINOR | CBM weight units and required weight for air | none | no | additive `weight_unit` | review required | [acc-logistics](acc-logistics-costs-review.md) | todo |
 | 187 | BE01-T19 | import_requirements | MINOR | Requirement task sync hygiene | BE01-T08 | no | no | yes | [be-01](be-01-review.md) | todo |
 | 188 | BE01-T20 | 4 phase-01 validators | MINOR | Arabic user-facing messages in Phase 01 validators | BE01-T12, BE01-T13, BE01-T14, BE01-T04 | no | no | yes | [be-01](be-01-review.md) | todo |
-| 189 | BE01-T21 | purchase_orders | MINOR | PO invented fallbacks (clone qty, balance currency) | BE01-T15 | no | yes: nullable `currency_code` | yes | [be-01](be-01-review.md) | todo |
+| 189 | BE01-T21 | purchase_orders | MINOR | PO invented fallbacks (clone qty, balance currency) | BE01-T15 | no | yes: nullable `currency_code` | yes | [be-01](be-01-review.md) | done |
 | 190 | BE01-T22 | shipping_scenarios, freight_quotations | MINOR | One owner for `import_files.selected_scenario`, ports by id | BE01-T04, BE01-T13; Q10 | no | no | yes | [be-01](be-01-review.md) | todo |
 | 191 | BE02-T16 | financial_approval | MINOR | Hygiene: status codes, Arabic details, layering, revision race | none | no | yes: small (409, 422, 404) | yes | [be-02](be-02-review.md) | todo |
 | 192 | BE02-T17 | financial_approval | MINOR | Task auto-close and `import_files.swift_no` scope | BE02-T04 | no | no | yes | [be-02](be-02-review.md) | todo |

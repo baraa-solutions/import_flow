@@ -394,7 +394,7 @@ class POBalanceSummaryResponse(LegacyRowTolerantModel):
     total_ordered_amount_fob: Optional[float] = None
     total_shipped_amount_fob: Optional[float] = None
     total_remaining_amount_fob: Optional[float] = None
-    currency_code: str
+    currency_code: Optional[str] = None
     overall_fulfillment_percent: Optional[float] = None
     fulfillment_status: str  # Pending, Partially Shipped, Fully Shipped, Over-Shipped
     line_items_balance: List[POLineItemBalanceItem]

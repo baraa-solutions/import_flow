@@ -718,7 +718,7 @@ class PurchaseOrderService:
                 description_en=it.description_en,
                 country_of_origin=it.country_of_origin,
                 tariff_id=it.tariff_id,
-                quantity=float(it.quantity or 1.0),
+                quantity=float(it.quantity),
                 unit_of_measure=it.unit_of_measure or "PCS",
                 unit_price=float(it.unit_price or 0.0),
                 cbm_per_unit=float(it.cbm_per_unit or 0.0),
@@ -733,8 +733,8 @@ class PurchaseOrderService:
                 item_code=p.item_code,
                 main_description=p.main_description,
                 description=p.description,
-                qty_pcs=float(p.qty_pcs or 1.0),
-                qty_pkg=float(p.qty_pkg or 1.0),
+                qty_pcs=float(p.qty_pcs),
+                qty_pkg=float(p.qty_pkg),
                 package_type=p.package_type or "Carton",
                 unit="cm",  # stored dimensions are cm
                 weight_unit=stored_weight_unit(p.weight_unit),
@@ -1179,12 +1179,13 @@ class PurchaseOrderService:
         overall_percent = round(overall_raw, 1)
         fulfillment_status = self._fulfillment_state(progress, unattributed) or BALANCE_PENDING
 
-        curr_code = po.currency.currency_code if po.currency else "USD"
+        curr_code = po.currency.currency_code if po.currency else None
+        curr_label = f" {curr_code}" if curr_code else ""
         # Deprecated presentation field (PO-15): clients should render from the numeric fields.
         summary_ar = (
             f"ميزان أمر الشراء #{po.po_number}: تم شحن {total_shipped_qty:,.0f} من إجمالي {total_ordered_qty:,.0f} وحدة "
             f"({overall_percent}% إنجاز توريد {method_ar})، والمتبقي للتوريد {total_rem_qty:,.0f} وحدة "
-            f"بقيمة تعاقدية متبقية {total_rem_fob:,.2f} {curr_code} عبر {len(allocations)} شحنات مجزأة."
+            f"بقيمة تعاقدية متبقية {total_rem_fob:,.2f}{curr_label} عبر {len(allocations)} شحنات مجزأة."
         )
 
         return POBalanceSummaryResponse(
