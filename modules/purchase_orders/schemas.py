@@ -269,8 +269,16 @@ class POShipmentAllocationCreate(BaseModel):
     shipped_quantity: float = Field(..., gt=0)
     shipped_amount_fob: float = Field(..., ge=0)
     shipping_date: Optional[datetime] = None
-    status: str = "In Transit"
+    status: str = "IN_TRANSIT"
     notes: Optional[str] = None
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _normalize_create_status(cls, v: Any) -> str:
+        if v is None:
+            return "IN_TRANSIT"
+        norm = enum_codes.normalize(enum_codes.PO_ALLOCATION_STATUS, v)
+        return norm or str(v)
 
 
 class POShipmentAllocationResponse(BaseModel):
@@ -287,6 +295,14 @@ class POShipmentAllocationResponse(BaseModel):
     created_by: Optional[str] = None
     # Warnings about this allocation, e.g. OVER_SHIPPED (over-allocation is allowed, CTO decision Q4).
     messages: List[SystemMessageItem] = Field(default_factory=list)
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _normalize_response_status(cls, v: Any) -> str:
+        if v is None:
+            return "IN_TRANSIT"
+        norm = enum_codes.normalize(enum_codes.PO_ALLOCATION_STATUS, v)
+        return norm or str(v)
 
     model_config = ConfigDict(from_attributes=True)
 

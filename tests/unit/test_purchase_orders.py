@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from database.database import Base
 from modules.audit_logs.model import AuditLog
+from modules.common.errors import CodedHTTPException
 from modules.currencies.model import Currency
 from modules.customs_tariff.model import CustomsTariff
 from modules.customs_tariff.schemas import CustomsTariffCreate
@@ -698,11 +699,11 @@ class TestPhase1Regressions:
         po = _create(db_session)
         assert po.status == "DRAFT"
         service = PurchaseOrderService(db_session)
-        assert service.update(po.po_id, PurchaseOrderUpdate(status="In Transit")).status == "PARTIALLY_SHIPPED"
-        assert service.update(po.po_id, PurchaseOrderUpdate(status="cancelled")).status == "CANCELLED"
         with pytest.raises(HTTPException) as exc:
             service.update(po.po_id, PurchaseOrderUpdate(status="Lost at sea"))
         assert exc.value.status_code == 400
+        assert service.update(po.po_id, PurchaseOrderUpdate(status="Approved")).status == "APPROVED"
+        assert service.update(po.po_id, PurchaseOrderUpdate(status="cancelled")).status == "CANCELLED"
 
     def test_legacy_status_rows_are_returned_as_codes_and_filtered_by_label_or_code(self, db_session):
         po = _create(db_session)
@@ -719,7 +720,10 @@ class TestPhase1Regressions:
         po = _create(db_session)
         db_session.query(PurchaseOrder).update({PurchaseOrder.status: final})
         db_session.commit()
-        _alloc(db_session, po.po_id, 100.0)
+        with pytest.raises(CodedHTTPException) as exc:
+            _alloc(db_session, po.po_id, 100.0)
+        assert exc.value.status_code == 409
+        assert exc.value.code == "PO_NOT_EDITABLE"
         db_session.expire_all()
         assert db_session.get(PurchaseOrder, po.po_id).status == final
 
