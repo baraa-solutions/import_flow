@@ -31,6 +31,8 @@ class CustomsClearanceRecord(Base):
     import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=False)
     declaration_46_no = Column(String(100), nullable=True, index=True)
     declaration_46_date = Column(DateTime, nullable=True)
+    tariff_coding_date = Column(DateTime, nullable=True)  # تاريخ ربط الضرائب والتكويد
+    bank_link_accepted_date = Column(DateTime, nullable=True)  # تاريخ قبول التكويد على نافذة وربط البنك
     mts_certificate_number = Column(String(100), nullable=True)
     customs_tariff_items_count = Column(Integer, default=1)
     customs_office_name = Column(String(200), nullable=True)
@@ -102,6 +104,7 @@ class CustomsClearanceRecord(Base):
 
     # BP-031 & CL-03 Duty Payment Recording (سداد الرسوم الجمركية)
     payment_status = Column(String(30), default="Unpaid") # Unpaid, Payment Requested, Paid & Verified
+    duty_payment_requested_date = Column(DateTime, nullable=True)  # تاريخ طلب سداد المطالبة
     bank_receipt_no = Column(String(100), nullable=True)
     paying_bank_name = Column(String(200), nullable=True)
     payment_date = Column(DateTime, nullable=True)
@@ -206,3 +209,31 @@ class ClearanceExpenseInvoice(Base):
     import_file = relationship("ImportFile", backref="clearance_expense_invoices")
     customs_clearance_record = relationship("CustomsClearanceRecord", back_populates="clearance_invoices")
     provider = relationship("ExternalServiceProvider", foreign_keys=[provider_id])
+
+
+class ClearanceFollowupLog(Base):
+    """
+    Field tracking log of customs clearance operations (5 follow-ups)
+    with customs inspection, valuation, and regulatory authorities.
+    """
+    __tablename__ = "clearance_followup_logs"
+
+    log_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    customs_clearance_id = Column(Integer, ForeignKey("customs_clearance_records.customs_clearance_id"), nullable=False, index=True)
+    import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=False, index=True)
+
+    followup_seq = Column(Integer, nullable=False, default=1)  # 1 to 5
+    followup_date = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    authority_type = Column(String(100), nullable=False)  # e.g. "Customs Valuation", "Inspection Yard", "GOEIC"
+    official_contact = Column(String(150), nullable=True)
+    status_summary = Column(String(255), nullable=False)
+    action_required = Column(Text, nullable=True)
+    next_visit_date = Column(DateTime, nullable=True)
+
+    is_completed = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_by = Column(String(100), nullable=True)
+
+    # Relationships
+    clearance_record = relationship("CustomsClearanceRecord", backref="followup_logs")
+    import_file = relationship("ImportFile", backref="clearance_followup_logs")

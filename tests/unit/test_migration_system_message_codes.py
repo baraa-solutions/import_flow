@@ -23,7 +23,7 @@ from utils import db_safety
 PREVIOUS = "f7a1c3e5b9d2"
 
 
-HEAD = "c9d0e1f2a3b4"  # current head (phase 01 nullable currencies BE01-T18)
+HEAD = "d0e1f2a3b4c5"  # current head (shipment tracking and timeline snapshots)
 
 NEW_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],
