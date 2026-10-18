@@ -22,6 +22,7 @@ from modules.freight_quotations.schemas import (
     FreightRFQRequestUpdate,
 )
 from modules.freight_quotations.service import FreightQuotationService
+from modules.currencies.model import Currency
 from modules.users.model import User
 
 
@@ -34,6 +35,11 @@ def db():
     )
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, autoflush=False)()
+    session.add_all([
+        Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True),
+        Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="E£", is_active=True),
+    ])
+    session.commit()
     yield session
     session.close()
     engine.dispose()

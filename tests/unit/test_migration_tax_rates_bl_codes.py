@@ -17,7 +17,7 @@ from database.schema_upgrade_service import SchemaUpgradeService
 from utils import db_safety
 
 PREVIOUS = "c8d3e4f5a6b7"
-HEAD = "b8c9d0e1f2a3"  # current head (shipment stage activity uniqueness BEX-T16)
+HEAD = "c9d0e1f2a3b4"  # current head (phase 01 nullable currencies BE01-T18)
 
 
 def _db(db_file: Path, *, drop_new: bool) -> None:
