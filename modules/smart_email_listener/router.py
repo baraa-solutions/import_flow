@@ -4,6 +4,7 @@ FastAPI Router for Smart Email Listener (INT-EMAIL-010)
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.permissions import require_permission
 from modules.auth.router import get_current_user, require_admin
 from sqlalchemy.orm import Session
 from database.database import get_db
@@ -71,10 +72,12 @@ def preview_email_parse_endpoint(req: InboundEmailParsePreviewRequest):
     "/logs",
     response_model=List[InboundEmailLogResponse],
     summary="جلب سجل الإيميلات الواردة والمعالجة",
+    dependencies=[Depends(require_permission("import_files.view"))],
 )
 @compat_router.get(
     "/logs",
     response_model=List[InboundEmailLogResponse],
+    dependencies=[Depends(require_permission("import_files.view"))],
 )
 def get_email_logs_endpoint(
     limit: int = Query(50, ge=1, le=200),
@@ -89,10 +92,12 @@ def get_email_logs_endpoint(
     "/logs/{email_id}",
     response_model=InboundEmailLogResponse,
     summary="جلب تفاصيل إيميل وارد ومعالج محدد",
+    dependencies=[Depends(require_permission("import_files.view"))],
 )
 @compat_router.get(
     "/logs/{email_id}",
     response_model=InboundEmailLogResponse,
+    dependencies=[Depends(require_permission("import_files.view"))],
 )
 def get_email_log_detail_endpoint(email_id: int, db: Session = Depends(get_db)):
     log = repository.get_email_log_by_id(db, email_id)

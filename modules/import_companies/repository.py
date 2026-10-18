@@ -1,7 +1,56 @@
+from typing import Any, Dict, List, Optional
+from fastapi import Response
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from modules.common.pagination import PageParams, like_term, paginate
 from .model import ImportCompany
 from .schemas import ImportCompanyCreate
+
+IMPORT_COMPANY_SORT_MAP = {
+    "company_id": ImportCompany.company_id,
+    "importer_name": ImportCompany.importer_name,
+    "importer_id": ImportCompany.importer_id,
+    "country": ImportCompany.country,
+    "vat_id": ImportCompany.vat_id,
+    "registration_number": ImportCompany.registration_number,
+    "created_at": ImportCompany.created_at,
+    "updated_at": ImportCompany.updated_at,
+}
+
+
+def get_paginated_companies(
+    db: Session,
+    params: PageParams,
+    response: Optional[Response] = None,
+    country: Optional[str] = None,
+) -> Dict[str, Any]:
+    query = db.query(ImportCompany)
+    if not params.include_inactive:
+        query = query.filter(ImportCompany.is_active.is_(True))
+    if country:
+        query = query.filter(ImportCompany.country.ilike(f"%{country}%"))
+
+    term = like_term(params.q)
+    if term:
+        query = query.filter(
+            or_(
+                ImportCompany.importer_name.ilike(term, escape="\\"),
+                ImportCompany.importer_id.ilike(term, escape="\\"),
+                ImportCompany.vat_id.ilike(term, escape="\\"),
+                ImportCompany.registration_number.ilike(term, escape="\\"),
+                ImportCompany.country.ilike(term, escape="\\"),
+            )
+        )
+    return paginate(
+        query,
+        params,
+        sort_map=IMPORT_COMPANY_SORT_MAP,
+        default_sort=[ImportCompany.importer_name.asc()],
+        pk=ImportCompany.company_id,
+        response=response,
+    )
+
 
 
 # ==================================================

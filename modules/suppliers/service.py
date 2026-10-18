@@ -1,6 +1,9 @@
+from typing import Any, Dict, List, Optional
+from fastapi import Response
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from modules.common.pagination import PageParams
 from modules.common.sequence_generator import next_global_code
 
 from .model import Supplier
@@ -9,6 +12,7 @@ from .repository import (
     create_supplier,
     get_active_suppliers,
     get_all_suppliers_admin,
+    get_paginated_suppliers,
     get_supplier_by_id,
     get_supplier_by_exporter_id,
     count_suppliers,
@@ -81,6 +85,26 @@ def get_all_suppliers_service(db: Session) -> list[Supplier]:
 
 def get_all_suppliers_admin_service(db: Session) -> list[Supplier]:
     return get_all_suppliers_admin(db)
+
+
+# ==================================================
+# Get Paginated Suppliers Service
+# ==================================================
+
+def get_paginated_suppliers_service(
+    db: Session,
+    params: PageParams,
+    response: Optional[Response] = None,
+    supplier_type: Optional[str] = None,
+    country: Optional[str] = None,
+) -> Dict[str, Any]:
+    return get_paginated_suppliers(
+        db,
+        params,
+        response=response,
+        supplier_type=supplier_type,
+        country=country,
+    )
 
 
 # ==================================================

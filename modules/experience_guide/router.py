@@ -4,7 +4,8 @@ Institutional Knowledge Engine & Operational Memory + Autonomous Learning Engine
 """
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
-from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
+from modules.auth.router import get_current_user, require_manager_or_admin
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -28,7 +29,7 @@ from modules.experience_guide.service import ExperienceGuideService
 router = APIRouter(
     prefix="/api/v1/experience-guide",
     tags=["Experience Guide & Institutional Knowledge Engine (KB-GUIDE-012)"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_permission("import_files.view"))],
 )
 
 
@@ -72,7 +73,12 @@ def search_guide_entries(
 # Placed before /{entry_id} so "autonomous" is not parsed as integer ID
 # =============================================================================
 
-@router.post("/autonomous/recalculate", response_model=AutonomousRecalculateResponse, summary="Trigger autonomous statistical mining recalculation cycle")
+@router.post(
+    "/autonomous/recalculate",
+    response_model=AutonomousRecalculateResponse,
+    summary="Trigger autonomous statistical mining recalculation cycle",
+    dependencies=[Depends(require_permission("import_files.edit"))],
+)
 def recalculate_autonomous_learning(
     trigger_import_file_id: Optional[int] = Query(None, description="Optional ID of the shipment file that triggered recalculation"),
     db: Session = Depends(get_db),
@@ -108,7 +114,13 @@ def get_similar_shipments(
     return service.get_similar_shipments(import_file_id)
 
 
-@router.post("", response_model=GuideEntryResponse, status_code=status.HTTP_201_CREATED, summary="Create new guide entry with scopes")
+@router.post(
+    "",
+    response_model=GuideEntryResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create new guide entry with scopes",
+    dependencies=[Depends(require_permission("import_files.edit"))],
+)
 def create_guide_entry(
     payload: GuideEntryCreate,
     db: Session = Depends(get_db),
@@ -135,7 +147,12 @@ def get_guide_entry_provenance(
     return service.get_entry_provenance(entry_id)
 
 
-@router.post("/{entry_id}/promote", response_model=GuideEntryResponse, summary="Promote system-inferred note to confirmed human standard")
+@router.post(
+    "/{entry_id}/promote",
+    response_model=GuideEntryResponse,
+    summary="Promote system-inferred note to confirmed human standard",
+    dependencies=[Depends(require_permission("import_files.edit")), Depends(require_manager_or_admin)],
+)
 def promote_guide_entry(
     entry_id: int,
     payload: GuideEntryPromoteRequest,
@@ -145,7 +162,12 @@ def promote_guide_entry(
     return service.promote_inferred_entry(entry_id, payload)
 
 
-@router.post("/{entry_id}/reject", response_model=GuideEntryResponse, summary="Reject and suppress system-inferred note")
+@router.post(
+    "/{entry_id}/reject",
+    response_model=GuideEntryResponse,
+    summary="Reject and suppress system-inferred note",
+    dependencies=[Depends(require_permission("import_files.edit")), Depends(require_manager_or_admin)],
+)
 def reject_guide_entry(
     entry_id: int,
     payload: GuideEntryRejectRequest,
@@ -155,7 +177,12 @@ def reject_guide_entry(
     return service.reject_inferred_entry(entry_id, payload)
 
 
-@router.put("/{entry_id}", response_model=GuideEntryResponse, summary="Update existing guide entry")
+@router.put(
+    "/{entry_id}",
+    response_model=GuideEntryResponse,
+    summary="Update existing guide entry",
+    dependencies=[Depends(require_permission("import_files.edit"))],
+)
 def update_guide_entry(
     entry_id: int,
     payload: GuideEntryUpdate,
@@ -165,7 +192,11 @@ def update_guide_entry(
     return service.update_entry(entry_id, payload)
 
 
-@router.delete("/{entry_id}", summary="Deactivate/delete guide entry")
+@router.delete(
+    "/{entry_id}",
+    summary="Deactivate/delete guide entry",
+    dependencies=[Depends(require_permission("import_files.edit"))],
+)
 def delete_guide_entry(
     entry_id: int,
     db: Session = Depends(get_db),
@@ -175,7 +206,12 @@ def delete_guide_entry(
     return {"message": "Guide entry deactivated successfully", "entry_id": entry_id}
 
 
-@router.post("/{entry_id}/upvote", response_model=GuideEntryResponse, summary="Upvote / record feedback for guide entry")
+@router.post(
+    "/{entry_id}/upvote",
+    response_model=GuideEntryResponse,
+    summary="Upvote / record feedback for guide entry",
+    dependencies=[Depends(require_permission("import_files.edit"))],
+)
 def upvote_guide_entry(
     entry_id: int,
     db: Session = Depends(get_db),

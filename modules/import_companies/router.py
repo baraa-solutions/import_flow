@@ -1,11 +1,11 @@
-from fastapi import APIRouter
-from fastapi import Depends
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from modules.auth.router import get_current_user
-from fastapi import HTTPException
 
 from sqlalchemy.orm import Session
 
 from database.database import get_db
+from modules.common.pagination import Page, PageParams
 
 from .schemas import ImportCompanyCreate
 from .schemas import ImportCompanyUpdate
@@ -14,6 +14,7 @@ from .schemas import ImportCompanyResponse
 from .service import create_import_company
 from .service import get_all_companies
 from .service import get_all_companies_admin_service
+from .service import get_paginated_companies_service
 from .service import get_company_by_id
 from .service import update_import_company
 from .service import delete_import_company
@@ -47,6 +48,28 @@ def create_company(
     return create_import_company(
         db,
         company
+    )
+
+
+# ==================================================
+# Get Paginated Companies
+# ==================================================
+
+@import_router.get(
+    "/paginated",
+    response_model=Page[ImportCompanyResponse]
+)
+def get_paginated_companies_endpoint(
+    response: Response,
+    params: PageParams = Depends(),
+    country: Optional[str] = Query(None, description="Filter by country"),
+    db: Session = Depends(get_db)
+):
+    return get_paginated_companies_service(
+        db,
+        params=params,
+        response=response,
+        country=country,
     )
 
 

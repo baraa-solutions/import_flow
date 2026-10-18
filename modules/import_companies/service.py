@@ -1,10 +1,14 @@
+from typing import Any, Dict, List, Optional
+from fastapi import Response
 from sqlalchemy.orm import Session
 
+from modules.common.pagination import PageParams
 from .model import ImportCompany
 from .repository import (
     create_company,
     get_companies,
     get_all_companies_admin,
+    get_paginated_companies,
     get_company_by_id as repo_get_company_by_id,
     update_company_data,
     delete_company as repo_delete_company,
@@ -81,6 +85,29 @@ def get_all_companies_admin_service(db: Session) -> list[ImportCompany]:
     for company in companies:
         add_days_to_renew(company)
     return companies
+
+
+# ==================================================
+# Get Paginated Companies Service
+# ==================================================
+
+def get_paginated_companies_service(
+    db: Session,
+    params: PageParams,
+    response: Optional[Response] = None,
+    country: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Retrieves paginated import companies with renewal day metrics."""
+    result = get_paginated_companies(
+        db,
+        params,
+        response=response,
+        country=country,
+    )
+    for company in result["items"]:
+        add_days_to_renew(company)
+    return result
+
 
 
 # ==================================================

@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
+from modules.common.pagination import Page, PageParams
 from .schemas import SupplierCreate, SupplierUpdate, SupplierResponse, SupplierScorecardResponse
 from .service import (
     create_supplier_service,
     get_all_suppliers_service,
     get_all_suppliers_admin_service,
+    get_paginated_suppliers_service,
     get_supplier_by_id_service,
     update_supplier_service,
     delete_supplier_service,
@@ -46,6 +49,30 @@ def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
 
 
 # ==================================================
+# Get Paginated Suppliers Endpoint
+# ==================================================
+
+@supplier_router.get(
+    "/paginated",
+    response_model=Page[SupplierResponse]
+)
+def get_paginated_suppliers_endpoint(
+    response: Response,
+    params: PageParams = Depends(),
+    supplier_type: Optional[str] = Query(None, description="Filter by supplier type"),
+    country: Optional[str] = Query(None, description="Filter by foreign exporter country"),
+    db: Session = Depends(get_db),
+):
+    return get_paginated_suppliers_service(
+        db,
+        params=params,
+        response=response,
+        supplier_type=supplier_type,
+        country=country,
+    )
+
+
+# ==================================================
 # Get All Suppliers (Active or All) Endpoint
 # ==================================================
 
@@ -57,6 +84,7 @@ def get_suppliers(include_inactive: bool = False, db: Session = Depends(get_db))
     if include_inactive:
         return get_all_suppliers_admin_service(db)
     return get_all_suppliers_service(db)
+
 
 
 # ==================================================

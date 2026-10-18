@@ -1,8 +1,9 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
+from modules.common.pagination import Page, PageParams
 from .schemas import PartnerCreate, PartnerResponse, PartnerUpdate, PartnerStatementOfAccountResponse, PartnerScorecardResponse
 from .service import ExternalServiceProviderService
 
@@ -14,6 +15,17 @@ router = APIRouter(
     tags=["External Service Providers & Financial Partners (MD-003)"],
     dependencies=[Depends(get_current_user)],
 )
+
+
+@router.get("/paginated", response_model=Page[PartnerResponse])
+def get_paginated_partners(
+    response: Response,
+    params: PageParams = Depends(),
+    partner_type: Optional[str] = Query(None, description="Filter by partner type e.g. Bank, Shipping Line, Customs Broker"),
+    db: Session = Depends(get_db)
+):
+    service = ExternalServiceProviderService(db)
+    return service.get_paginated(params=params, response=response, partner_type=partner_type)
 
 
 @router.get("", response_model=List[PartnerResponse])

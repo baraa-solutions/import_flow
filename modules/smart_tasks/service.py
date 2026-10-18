@@ -3,11 +3,13 @@ Business Logic & Workflows for Smart Tasks & Reminder Engine
 """
 
 import re
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime, date, timezone
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Response, status
+
+from modules.common.pagination import PageParams
 
 from modules.smart_tasks.model import SmartTask
 from modules.smart_tasks.schemas import (
@@ -215,6 +217,28 @@ def sync_all_active_shipments_tasks(db: Session) -> int:
         processed_count += 1
 
     return processed_count
+
+def get_paginated_tasks_service(
+    db: Session,
+    params: PageParams,
+    response: Optional[Response] = None,
+    task_type: Optional[str] = None,
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    assigned_to: Optional[str] = None,
+) -> Dict[str, Any]:
+    return repo.get_paginated_tasks(
+        db,
+        params,
+        response=response,
+        task_type=task_type,
+        status=status,
+        priority=priority,
+        import_file_id=import_file_id,
+        assigned_to=assigned_to,
+    )
+
 
 def get_all_tasks_service(db: Session, include_inactive: bool = False, task_type: str = None, status: str = None, priority: str = None, import_file_id: int = None, search: str = None, order_by_priority: bool = False):
     return repo.get_all_tasks(db, include_inactive=include_inactive, task_type=task_type, status=status, priority=priority, import_file_id=import_file_id, search=search, order_by_priority=order_by_priority)

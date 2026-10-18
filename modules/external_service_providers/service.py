@@ -1,9 +1,10 @@
 import logging
 from typing import List, Optional, Any, Dict
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Response, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from modules.common.clock import cairo_today
+from modules.common.pagination import PageParams
 from .repository import ExternalServiceProviderRepository
 from .schemas import (
     PartnerCreate,
@@ -27,6 +28,18 @@ class ExternalServiceProviderService:
         last_id = self.repository.get_last_partner_id()
         next_num = last_id + 1
         return f"ESP-{next_num:06d}"
+
+    def get_paginated(
+        self,
+        params: PageParams,
+        response: Optional[Response] = None,
+        partner_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return self.repository.get_paginated(
+            params,
+            response=response,
+            partner_type=partner_type,
+        )
 
     def get_all_partners(self, partner_type: Optional[str] = None, include_inactive: bool = False) -> List[PartnerResponse]:
         return self.repository.get_all(partner_type=partner_type, include_inactive=include_inactive)
