@@ -147,6 +147,7 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="CREATE",
+            performed_by="SYSTEM",
             new_data={"partner_name": db_obj.partner_name, "partner_type": db_obj.partner_type}
         )
 
@@ -172,6 +173,7 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="UPDATE",
+            performed_by="SYSTEM",
             old_data=old_data,
             new_data=update_data,
         )
@@ -191,6 +193,7 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="DELETE",
+            performed_by="SYSTEM",
         )
 
         return True
@@ -208,6 +211,7 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="RESTORE",
+            performed_by="SYSTEM",
         )
 
         return True

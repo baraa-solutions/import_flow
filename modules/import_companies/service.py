@@ -53,6 +53,7 @@ def create_import_company(
         entity_id=result.company_id,
         entity_code=result.importer_id,
         action="CREATE",
+        performed_by="SYSTEM",
         new_data={
             "importer_name": result.importer_name,
             "importer_id": result.importer_id,
@@ -163,6 +164,7 @@ def update_import_company(
         entity_id=updated_company.company_id,
         entity_code=updated_company.importer_id,
         action="UPDATE",
+        performed_by="SYSTEM",
         old_data=audit_old,
         new_data=audit_new,
     )
@@ -189,6 +191,7 @@ def delete_import_company(db: Session, company_id: int) -> ImportCompany | None:
         entity_id=deleted_company.company_id,
         entity_code=deleted_company.importer_id,
         action="DELETE",
+        performed_by="SYSTEM",
     )
     return add_days_to_renew(deleted_company)
 
@@ -209,5 +212,6 @@ def restore_import_company(db: Session, company_id: int) -> ImportCompany | None
         entity_id=restored_company.company_id,
         entity_code=restored_company.importer_id,
         action="RESTORE",
+        performed_by="SYSTEM",
     )
     return add_days_to_renew(restored_company)

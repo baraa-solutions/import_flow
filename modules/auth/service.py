@@ -173,6 +173,7 @@ class AuthService:
             entity_id=user.user_id,
             entity_code=user.username,
             action="CREATE",
+            performed_by=actor.username if actor else "SYSTEM",
             new_data={"username": user.username, "role": user.role, "role_id": user.role_id}
         )
 
@@ -252,6 +253,7 @@ class AuthService:
             entity_id=user.user_id,
             entity_code=user.username,
             action="UPDATE",
+            performed_by=actor.username if actor else "SYSTEM",
             old_data=old_data,
             new_data={"role": user.role, "role_id": user.role_id, "full_name": user.full_name, "email": user.email}
         )
@@ -332,6 +334,7 @@ class AuthService:
             entity_id=user.user_id,
             entity_code=user.username,
             action="UPDATE",
+            performed_by=actor.username if actor else "SYSTEM",
             old_data={"is_active": old_status},
             new_data={"is_active": user.is_active}
         )
@@ -527,6 +530,7 @@ class AuthService:
             entity_id=user.user_id,
             entity_code=user.username,
             action="UPDATE",
+            performed_by=actor.username if actor else "SYSTEM",
             old_data={"role_id": old_role_id, "role": old_role_code},
             new_data={
                 "role_id": user.role_id,

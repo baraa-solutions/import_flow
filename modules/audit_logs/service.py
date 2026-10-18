@@ -28,10 +28,10 @@ class AuditLogService:
         entity_type: str,
         entity_id: int,
         action: str,
+        performed_by: str,
         entity_code: Optional[str] = None,
         old_data: Optional[Dict[str, Any]] = None,
         new_data: Optional[Dict[str, Any]] = None,
-        performed_by: str = "System Admin",
         changes_summary: Optional[str] = None,
     ) -> AuditLog:
         changes = []

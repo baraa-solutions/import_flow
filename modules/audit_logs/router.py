@@ -1,13 +1,13 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Response
-from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.common.pagination import Page, PageParams
 from .schemas import AuditLogResponse
 from .service import AuditLogService
 
-router = APIRouter(prefix="/api/v1/audit-logs", tags=["Audit Logs Engine"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/v1/audit-logs", tags=["Audit Logs Engine"], dependencies=[Depends(require_permission("audit_logs.view"))])
 
 
 @router.get("/paginated", response_model=Page[AuditLogResponse])

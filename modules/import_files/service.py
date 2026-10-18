@@ -1590,5 +1590,48 @@ def get_partial_batches_service(db: Session, import_file_id: int) -> List[Import
     return linked_files
 
 
-
-
+def build_export_rows(files: List[Any], format: str = "excel") -> List[List[Any]]:
+    """Build tabular export rows for import files in Excel or PDF format with None-safe formatting."""
+    rows = []
+    if format == "pdf":
+        for f in files:
+            file_ref = f.custom_file_number or f.import_file_code
+            po_pi = f"{f.po_number or '-'}\n{f.pi_number or '-'}"
+            progress = f"{(f.progress_percent or 0):.0f}%"
+            rows.append([
+                file_ref,
+                f.company_name,
+                f.supplier_name,
+                po_pi,
+                f"{f.shipment_mode} ({f.incoterm_code})",
+                f.current_stage,
+                progress,
+                f.status,
+            ])
+    else:
+        for f in files:
+            progress = f"{(f.progress_percent or 0):.0f}%"
+            rows.append([
+                f.import_file_code,
+                f.custom_file_number or '',
+                f.company_name,
+                f.supplier_name,
+                f.po_number or '',
+                f.pi_number or '',
+                f.shipment_mode,
+                f.incoterm_code,
+                f.priority,
+                f.current_stage,
+                progress,
+                f.next_action or '',
+                f.owner or '',
+                f.status,
+                f.estimated_cost,
+                f.estimated_cost_currency,
+                f.port_of_loading or '',
+                f.port_of_discharge or '',
+                f.acid_number or '',
+                f.form4_no or '',
+                f.form46_no or '',
+            ])
+    return rows

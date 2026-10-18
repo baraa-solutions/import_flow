@@ -64,6 +64,7 @@ def create_supplier_service(db: Session, supplier_data: SupplierCreate) -> Suppl
         entity_id=supplier.supplier_id,
         entity_code=supplier.supplier_code,
         action="CREATE",
+        performed_by="SYSTEM",
         new_data={"company_name": supplier.company_name, "foreign_exporter_id": supplier.foreign_exporter_id, "foreign_exporter_country_code": supplier.foreign_exporter_country_code}
     )
     
@@ -142,6 +143,7 @@ def update_supplier_service(
         entity_id=updated.supplier_id,
         entity_code=updated.supplier_code,
         action="UPDATE",
+        performed_by="SYSTEM",
         old_data=old_data,
         new_data=update_data,
     )
@@ -165,6 +167,7 @@ def delete_supplier_service(db: Session, supplier_id: int) -> Supplier | None:
         entity_id=deleted.supplier_id,
         entity_code=deleted.supplier_code,
         action="DELETE",
+        performed_by="SYSTEM",
     )
     return deleted
 
@@ -183,6 +186,7 @@ def restore_supplier_service(db: Session, supplier_id: int) -> Supplier | None:
         entity_id=restored.supplier_id,
         entity_code=restored.supplier_code,
         action="RESTORE",
+        performed_by="SYSTEM",
     )
     return restored
 

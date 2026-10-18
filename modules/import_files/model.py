@@ -160,7 +160,7 @@ class ImportFile(Base):
     # Formulas & Stage Tracking
     current_module = Column(String(100), nullable=False, default="BP-001 Receive Purchase Order", index=True)
     current_stage = Column(String(100), nullable=False, default="Phase 1 - Planning & Feasibility", index=True)
-    progress_percent = Column(Float, nullable=False, default=10.0) # 0 to 100
+    progress_percent = Column(Float, nullable=True, default=10.0) # 0 to 100
     next_action = Column(String(255), nullable=False, default="Review Proforma Invoice & Packing List")
     
     # Dynamic Lifecycle Controls (Start from any stage, Hold/Pause, and Skipped stages)
