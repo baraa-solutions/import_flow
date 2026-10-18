@@ -24,6 +24,16 @@ def db_session():
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = TestingSessionLocal()
 
+    # Seed active currency
+    from modules.currencies.model import Currency
+    usd = Currency(
+        currency_code="USD",
+        currency_name="US Dollar",
+        currency_symbol="$",
+        is_active=True,
+    )
+    db.add(usd)
+
     # Seed carrier partners
     c1 = ExternalServiceProvider(
         partner_code="ESP-000003",
@@ -67,6 +77,7 @@ class TestFreightQuotationsBackend:
                     ocean_freight_cost=2800.0,
                     local_charges_cost=350.0,
                     inland_cost=200.0,
+                    currency_code="USD",
                     sailing_date=crd + timedelta(days=3),
                     estimated_arrival_date=crd + timedelta(days=26),
                     free_days_at_pod=14,
@@ -78,6 +89,7 @@ class TestFreightQuotationsBackend:
                     ocean_freight_cost=2600.0,
                     local_charges_cost=400.0,
                     inland_cost=250.0,
+                    currency_code="USD",
                     sailing_date=crd + timedelta(days=6),
                     estimated_arrival_date=crd + timedelta(days=32),
                     free_days_at_pod=21,
@@ -108,6 +120,7 @@ class TestFreightQuotationsBackend:
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
                     ocean_freight_cost=3000.0,
+                    currency_code="USD",
                     sailing_date=crd + timedelta(days=2),
                     estimated_arrival_date=crd + timedelta(days=22),
                 )
@@ -181,6 +194,7 @@ class TestFreightQuotationsBackend:
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
                     ocean_freight_cost=2500.0,
+                    currency_code="USD",
                     free_days_at_pod=21,
                     sailing_date=crd + timedelta(days=2),
                     estimated_arrival_date=crd + timedelta(days=25),
@@ -189,6 +203,7 @@ class TestFreightQuotationsBackend:
                     provider_id=carriers[1].provider_id,
                     provider_name=carriers[1].partner_name,
                     ocean_freight_cost=3000.0,
+                    currency_code="USD",
                     free_days_at_pod=14,
                     sailing_date=crd + timedelta(days=2),
                     estimated_arrival_date=crd + timedelta(days=28),
