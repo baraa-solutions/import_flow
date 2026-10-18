@@ -908,10 +908,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(project == null ? l10n.createProjectDialogTitle : l10n.editProjectDialogTitle(project.projectCode)),
-          content: SelectionArea(
-            child: SizedBox(
-              width: 650,
-              child: Form(
+          content: SizedBox(
+            width: 650,
+            child: Form(
                 key: formKey,
                 child: SingleChildScrollView(
                   child: Column(
@@ -1212,7 +1211,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               ),
             ),
           ),
-        ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
@@ -1267,7 +1265,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                             );
                             final ok = await ref.read(projectsProvider.notifier).createProject(newModel);
-                            if (ok && context.mounted) Navigator.pop(dialogCtx);
+                            if (ok && dialogCtx.mounted) Navigator.pop(dialogCtx);
                           } else {
                             final updateData = {
                               'project_name': nameCtrl.text.trim(),
@@ -1290,10 +1288,12 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                             final ok = await ref
                                 .read(projectsProvider.notifier)
                                 .updateProject(project.projectId!, updateData);
-                            if (ok && context.mounted) Navigator.pop(dialogCtx);
+                            if (ok && dialogCtx.mounted) Navigator.pop(dialogCtx);
                           }
                         } finally {
-                          setDialogState(() => isSubmitting = false);
+                          if (dialogCtx.mounted) {
+                            setDialogState(() => isSubmitting = false);
+                          }
                         }
                       }
                     },

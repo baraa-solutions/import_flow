@@ -13,6 +13,8 @@ class InvoiceFormDialog extends ConsumerStatefulWidget {
   final String defaultPartnerType;
   final int? initialShipmentId;
   final String? initialBlNumber;
+  final int? initialPartnerId;
+  final String? initialPartnerName;
 
   const InvoiceFormDialog({
     super.key,
@@ -20,6 +22,8 @@ class InvoiceFormDialog extends ConsumerStatefulWidget {
     this.defaultPartnerType = 'freight',
     this.initialShipmentId,
     this.initialBlNumber,
+    this.initialPartnerId,
+    this.initialPartnerName,
   });
 
   @override
@@ -64,7 +68,9 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
 
     _shipmentId = inv?.shipmentId ?? widget.initialShipmentId ?? 1;
     _blNumber = inv?.blNumber ?? widget.initialBlNumber ?? '';
-    _partnerId = inv?.partnerId ?? 1;
+    _partnerId = inv?.partnerId ?? widget.initialPartnerId ?? 1;
+    _partnerName = inv?.partnerName ?? widget.initialPartnerName ?? '';
+    _invoiceNumber = inv?.invoiceNumber ?? '';
     const validPartnerTypes = ['freight', 'clearance', 'transport', 'inspection', 'insurance'];
     final rawPartnerType = (inv?.partnerType ?? widget.defaultPartnerType).toLowerCase();
     _partnerType = validPartnerTypes.contains(rawPartnerType) ? rawPartnerType : 'freight';
@@ -361,6 +367,7 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                           Expanded(
                             flex: 2,
                             child: DropdownButtonFormField<String>(
+                              isExpanded: true,
                               initialValue: const ['freight', 'clearance', 'transport', 'inspection', 'insurance'].contains(_partnerType)
                                   ? _partnerType
                                   : 'freight',
@@ -391,12 +398,12 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                             flex: 2,
                             child: TextFormField(
                               controller: _invoiceNumberCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Invoice Number *',
+                              decoration: InputDecoration(
+                                labelText: isArabic ? 'رقم الفاتورة *' : 'Invoice Number *',
                                 isDense: true,
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                               ),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                              validator: (v) => v == null || v.trim().isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -404,12 +411,12 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                             flex: 2,
                             child: TextFormField(
                               controller: _partnerNameCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Partner Name *',
+                              decoration: InputDecoration(
+                                labelText: isArabic ? 'اسم الشريك اللوجستي *' : 'Partner Name *',
                                 isDense: true,
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                               ),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                              validator: (v) => v == null || v.trim().isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
                             ),
                           ),
                         ],
@@ -423,10 +430,10 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                             flex: 2,
                             child: TextFormField(
                               controller: _shipmentIdCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Shipment ID *',
+                              decoration: InputDecoration(
+                                labelText: isArabic ? 'رقم الشحنة *' : 'Shipment ID *',
                                 isDense: true,
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                               ),
                               keyboardType: TextInputType.number,
                               onChanged: (v) {
@@ -442,10 +449,10 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                             flex: 2,
                             child: TextFormField(
                               controller: _blNumberCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'B/L Number (رقم البوليصة)',
+                              decoration: InputDecoration(
+                                labelText: isArabic ? 'رقم البوليصة' : 'B/L Number',
                                 isDense: true,
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                               ),
                               onChanged: (v) => setState(() => _blNumber = v),
                             ),
@@ -454,17 +461,18 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                           Expanded(
                             flex: 1,
                             child: DropdownButtonFormField<String>(
+                              isExpanded: true,
                               initialValue: _currency,
-                              decoration: const InputDecoration(
-                                labelText: 'Currency',
+                              decoration: InputDecoration(
+                                labelText: isArabic ? 'العملة' : 'Currency',
                                 isDense: true,
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                               ),
                               items: const [
-                                DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
-                                DropdownMenuItem(value: 'EUR', child: Text('EUR (€)')),
-                                DropdownMenuItem(value: 'GBP', child: Text('GBP (£)')),
-                                DropdownMenuItem(value: 'EGP', child: Text('EGP (ج.م)')),
+                                DropdownMenuItem(value: 'USD', child: Text('USD')),
+                                DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                                DropdownMenuItem(value: 'GBP', child: Text('GBP')),
+                                DropdownMenuItem(value: 'EGP', child: Text('EGP')),
                               ],
                               onChanged: (val) {
                                 if (val != null) {
@@ -480,12 +488,12 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                             child: TextFormField(
                               initialValue: _exchangeRate.toString(),
                               decoration: InputDecoration(
-                                labelText: 'Exchange Rate',
+                                labelText: isArabic ? 'سعر الصرف' : 'Exchange Rate',
                                 isDense: true,
                                 border: const OutlineInputBorder(),
                                 suffixIcon: IconButton(
                                   icon: const Icon(Icons.sync, size: 16),
-                                  tooltip: 'Fetch CBE Rate',
+                                  tooltip: isArabic ? 'جلب سعر البنك المركزي' : 'Fetch CBE Rate',
                                   onPressed: _fetchCbeRate,
                                 ),
                               ),
@@ -520,13 +528,17 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            _partnerType == 'freight'
-                                ? 'Invoice Line Items (21 Quotation Items)'
-                                : 'Invoice Line Items',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          Expanded(
+                            child: Text(
+                              _partnerType == 'freight'
+                                  ? (isArabic ? 'بنود الفاتورة (21 بند عرض أسعار)' : 'Invoice Line Items (21 Quotation Items)')
+                                  : (isArabic ? 'بنود الفاتورة' : 'Invoice Line Items'),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
                           ),
-                          Row(
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
                             children: [
                               if (_isPrefilling)
                                 const Padding(
@@ -539,13 +551,12 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                                 ),
                               TextButton.icon(
                                 icon: const Icon(Icons.refresh, size: 14),
-                                label: const Text('Reload Prefill'),
+                                label: Text(isArabic ? 'إعادة تحميل' : 'Reload Prefill'),
                                 onPressed: _loadPrefillLines,
                               ),
-                              const SizedBox(width: 8),
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.add, size: 14),
-                                label: const Text('Add Custom Item'),
+                                label: Text(isArabic ? 'إضافة بند مخصص' : 'Add Custom Item'),
                                 onPressed: _addEmptyLine,
                               ),
                             ],
@@ -555,11 +566,11 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                       const SizedBox(height: 8),
 
                       // Line Items Table
-                      _buildLinesTable(isDark),
+                      _buildLinesTable(isDark, isArabic),
                       const SizedBox(height: 16),
 
                       // Taxes & Summary Row
-                      _buildTaxesAndTotalsCard(isDark),
+                      _buildTaxesAndTotalsCard(isDark, isArabic),
                     ],
                   ),
                 ),
@@ -573,11 +584,11 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+                    child: Text(isArabic ? 'إلغاء' : 'Cancel'),
                   ),
                   const SizedBox(width: 12),
                   AppButton(
-                    label: 'Save Invoice',
+                    label: isArabic ? 'حفظ الفاتورة' : 'Save Invoice',
                     variant: AppButtonVariant.primary,
                     icon: Icons.check,
                     isLoading: _isLoading,
@@ -592,7 +603,7 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
     );
   }
 
-  Widget _buildLinesTable(bool isDark) {
+  Widget _buildLinesTable(bool isDark, bool isArabic) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
@@ -613,14 +624,14 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E2630) : const Color(0xFFEDF2F7),
             ),
-            children: const [
-              Padding(padding: EdgeInsets.all(8), child: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              Padding(padding: EdgeInsets.all(8), child: Text('Group', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              Padding(padding: EdgeInsets.all(8), child: Text('Qty', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              Padding(padding: EdgeInsets.all(8), child: Text('Unit Price', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              Padding(padding: EdgeInsets.all(8), child: Text('Total FX', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              Padding(padding: EdgeInsets.all(8), child: Text('Total EGP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              Padding(padding: EdgeInsets.all(8), child: Text('', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+            children: [
+              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'الوصف' : 'Description', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'المجموعة' : 'Group', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'الكمية' : 'Qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'سعر الوحدة' : 'Unit Price', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'الإجمالي (أجنبي)' : 'Total FX', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'الإجمالي (ج.م)' : 'Total EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+              const Padding(padding: EdgeInsets.all(8), child: Text('', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
             ],
           ),
           for (int i = 0; i < _lines.length; i++)
@@ -737,15 +748,17 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
     );
   }
 
-  Widget _buildTaxesAndTotalsCard(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A222D) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-      ),
-      child: Row(
+  Widget _buildTaxesAndTotalsCard(bool isDark, bool isArabic) {
+    return Material(
+      color: isDark ? const Color(0xFF1A222D) : const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+        ),
+        child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Tax Toggles
@@ -755,7 +768,10 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CheckboxListTile(
-                  title: const Text('Add 14% VAT (ضريبة القيمة المضافة)', style: TextStyle(fontSize: 12)),
+                  title: Text(
+                    isArabic ? 'إضافة 14% ضريبة القيمة المضافة' : 'Add 14% VAT',
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   value: _vatIncluded,
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -767,7 +783,10 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                   },
                 ),
                 CheckboxListTile(
-                  title: const Text('Deduct WHT Form 41 (خصم أرباح تجارية 1% / 3%)', style: TextStyle(fontSize: 12)),
+                  title: Text(
+                    isArabic ? 'خصم أرباح تجارية وصناعية (نموذج 41)' : 'Deduct WHT Form 41',
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   value: _whtDeducted,
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -787,19 +806,41 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
             flex: 2,
             child: Column(
               children: [
-                _summaryRow('Subtotal (FX):', '${_subtotalFx.toStringAsFixed(2)} $_currency'),
-                _summaryRow('Subtotal (EGP):', '${_subtotalEgp.toStringAsFixed(2)} EGP'),
-                if (_vatIncluded) _summaryRow('VAT Amount (+):', '${_vatAmount.toStringAsFixed(2)} EGP', color: Colors.blue),
-                if (_whtDeducted) _summaryRow('WHT Deducted (-):', '${_whtAmount.toStringAsFixed(2)} EGP', color: Colors.orange),
+                _summaryRow(
+                  isArabic ? 'المجموع الفرعي (عملة أجنبية):' : 'Subtotal (FX):',
+                  '${_subtotalFx.toStringAsFixed(2)} $_currency',
+                ),
+                _summaryRow(
+                  isArabic ? 'المجموع الفرعي (بالجنيه):' : 'Subtotal (EGP):',
+                  '${_subtotalEgp.toStringAsFixed(2)} EGP',
+                ),
+                if (_vatIncluded)
+                  _summaryRow(
+                    isArabic ? 'قيمة ضريبة القيمة المضافة (+):' : 'VAT Amount (+):',
+                    '${_vatAmount.toStringAsFixed(2)} EGP',
+                    color: Colors.blue,
+                  ),
+                if (_whtDeducted)
+                  _summaryRow(
+                    isArabic ? 'خصم ضريبة المنبع (-):' : 'WHT Deducted (-):',
+                    '${_whtAmount.toStringAsFixed(2)} EGP',
+                    color: Colors.orange,
+                  ),
                 const Divider(height: 14),
-                _summaryRow('Net Payable (EGP):', '${_netPayableEgp.toStringAsFixed(2)} EGP', isBold: true, color: AppTheme.emerald),
+                _summaryRow(
+                  isArabic ? 'صافي المبلغ المستحق (بالجنيه):' : 'Net Payable (EGP):',
+                  '${_netPayableEgp.toStringAsFixed(2)} EGP',
+                  isBold: true,
+                  color: AppTheme.emerald,
+                ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _summaryRow(String label, String value, {bool isBold = false, Color? color}) {
     return Padding(
@@ -807,7 +848,16 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           Text(
             value,
             style: TextStyle(

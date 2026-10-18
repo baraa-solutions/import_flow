@@ -546,7 +546,9 @@ class ProjectDetailsDialog extends ConsumerWidget {
                             label: Text(isArabic ? 'تعديل المشروع' : 'Edit Project', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                             onPressed: () {
                               Navigator.pop(context);
-                              onEdit!();
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                onEdit?.call();
+                              });
                             },
                           ),
                         const SizedBox(width: 10),

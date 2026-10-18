@@ -180,6 +180,8 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
       context: context,
       builder: (ctx) => InvoiceFormDialog(
         defaultPartnerType: defaultType,
+        initialPartnerId: partner.providerId,
+        initialPartnerName: partner.partnerName,
       ),
     );
 

@@ -30,6 +30,7 @@ class SupplierDetailsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final isArabic = l10n.isArabic;
     final isActive = supplier.isActive;
 
     return Dialog(
@@ -392,7 +393,7 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                     const SizedBox(height: 18),
 
                     // Section 4: Trademark Certificates & ISO 9001
-                    _buildSectionHeader(Icons.verified_user_outlined, 'شهادات العلامة التجارية والجودة (Trademark Certificates)'),
+                    _buildSectionHeader(Icons.verified_user_outlined, isArabic ? 'شهادات العلامة التجارية والجودة' : 'Trademark & Quality Certificates'),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -409,15 +410,23 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                                 child: _buildSimpleInfoField(
                                   icon: Icons.verified_outlined,
                                   label: 'WIPO Madrid Monitor',
-                                  value: supplier.hasWipo ? (supplier.wipoNumber != null && supplier.wipoNumber!.isNotEmpty ? 'مسجل (#${supplier.wipoNumber})' : 'نعم (مسجل)') : 'غير مسجل',
+                                  value: supplier.hasWipo
+                                      ? (supplier.wipoNumber != null && supplier.wipoNumber!.isNotEmpty
+                                          ? (isArabic ? 'مسجل (#${supplier.wipoNumber})' : 'Registered (#${supplier.wipoNumber})')
+                                          : (isArabic ? 'نعم (مسجل)' : 'Yes (Registered)'))
+                                      : (isArabic ? 'غير مسجل' : 'Not Registered'),
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildSimpleInfoField(
                                   icon: Icons.verified_outlined,
-                                  label: 'EUIPO (أوروبا)',
-                                  value: supplier.hasEuipo ? (supplier.euipoNumber != null && supplier.euipoNumber!.isNotEmpty ? 'مسجل (#${supplier.euipoNumber})' : 'غير مسجل') : 'غير مسجل',
+                                  label: isArabic ? 'مكتب الملكية الفكرية الأوروبي (EUIPO)' : 'EUIPO',
+                                  value: supplier.hasEuipo
+                                      ? (supplier.euipoNumber != null && supplier.euipoNumber!.isNotEmpty
+                                          ? (isArabic ? 'مسجل (#${supplier.euipoNumber})' : 'Registered (#${supplier.euipoNumber})')
+                                          : (isArabic ? 'نعم (مسجل)' : 'Yes (Registered)'))
+                                      : (isArabic ? 'غير مسجل' : 'Not Registered'),
                                 ),
                               ),
                             ],
@@ -429,15 +438,23 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                                 child: _buildSimpleInfoField(
                                   icon: Icons.public,
                                   label: 'Global Brand Database',
-                                  value: supplier.hasGlobalBrand ? (supplier.globalBrandNumber != null && supplier.globalBrandNumber!.isNotEmpty ? 'مسجل (#${supplier.globalBrandNumber})' : 'غير مسجل') : 'غير مسجل',
+                                  value: supplier.hasGlobalBrand
+                                      ? (supplier.globalBrandNumber != null && supplier.globalBrandNumber!.isNotEmpty
+                                          ? (isArabic ? 'مسجل (#${supplier.globalBrandNumber})' : 'Registered (#${supplier.globalBrandNumber})')
+                                          : (isArabic ? 'نعم (مسجل)' : 'Yes (Registered)'))
+                                      : (isArabic ? 'غير مسجل' : 'Not Registered'),
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildSimpleInfoField(
                                   icon: Icons.workspace_premium_outlined,
-                                  label: 'ISO 9001 Certificate',
-                                  value: supplier.hasIso9001 ? (supplier.iso9001Number != null && supplier.iso9001Number!.isNotEmpty ? 'معتمد (#${supplier.iso9001Number})' : 'نعم (معتمد)') : 'غير معتمد',
+                                  label: isArabic ? 'شهادة آيزو 9001' : 'ISO 9001 Certificate',
+                                  value: supplier.hasIso9001
+                                      ? (supplier.iso9001Number != null && supplier.iso9001Number!.isNotEmpty
+                                          ? (isArabic ? 'معتمد (#${supplier.iso9001Number})' : 'Certified (#${supplier.iso9001Number})')
+                                          : (isArabic ? 'نعم (معتمد)' : 'Yes (Certified)'))
+                                      : (isArabic ? 'غير معتمد' : 'Not Certified'),
                                 ),
                               ),
                             ],
