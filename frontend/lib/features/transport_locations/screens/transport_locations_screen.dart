@@ -170,40 +170,17 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                   context: context,
                   includeTsv: (locationsAsync.asData?.value ?? []).isNotEmpty,
                 ),
-                onMoreActionSelected: (val) {
-                  switch (val) {
-                    case 'export_excel':
-                      final list = locationsAsync.asData?.value ?? [];
-                      MasterDataExportService.exportLocationsToExcel(context, list);
-                      break;
-                    case 'export_pdf':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'transport-locations',
-                        actionEndpoint: 'export-pdf',
-                        defaultFileName: 'Transport_Locations_Report.pdf',
-                        dialogTitle: 'تصدير الموانئ والمواقع اللوجستية PDF',
-                      );
-                      break;
-                    case 'copy_tsv':
-                      _copyLocationsTsv(context, locationsAsync.asData?.value ?? []);
-                      break;
-                    case 'download_template':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'transport-locations',
-                        actionEndpoint: 'excel-template',
-                        defaultFileName: 'Transport_Locations_Template.xlsx',
-                        dialogTitle: 'تنزيل نموذج الموانئ والمواقع',
-                      );
-                      break;
-                    case 'import_excel':
-                      _handleExcelImport(context, ref);
-                      break;
-                  }
-                },
+                onMoreActionSelected: (val) => MasterDataActionHelper.handleStandardAction(
+                  context: context,
+                  ref: ref,
+                  actionValue: val,
+                  moduleEndpoint: 'transport-locations',
+                  entityNameAr: 'الموانئ ومواقع النقل',
+                  entityNameEn: 'Transport Locations & Ports',
+                  entityFilePrefix: 'Transport_Locations',
+                  onImportSuccess: () => ref.read(transportLocationsProvider.notifier).fetchLocations(),
+                  onCopyTsv: () => _copyLocationsTsv(context, locationsAsync.asData?.value ?? []),
+                ),
                 searchController: _searchController,
                 searchHint: l10n.searchTransportLocationsHint,
                 onSearchChanged: (v) {
@@ -828,62 +805,5 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
       cityCtrl.dispose();
       notesCtrl.dispose();
     });
-  }
-
-  Future<void> _handleExcelImport(BuildContext context, WidgetRef ref) async {
-    final l10n = context.l10n;
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls', 'csv'],
-      withData: true,
-    );
-
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.first;
-    if (file.bytes == null) return;
-
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      AppTheme.snackBar(context, l10n.importingLocationsDataset, severity: AppSeverity.info),
-    );
-
-    try {
-      final res = await ref.read(transportLocationsProvider.notifier).uploadExcelLocations(file.bytes!, file.name);
-      if (!context.mounted) return;
-      final errors = (res?['errors'] as List?)?.cast<String>() ?? [];
-      if (errors.isNotEmpty) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(l10n.importWarningsTitle),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: errors.map((e) => Text('• $e', style: const TextStyle(color: AppTheme.crimson, fontSize: 13))).toList(),
-              ),
-            ),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.ok))],
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          AppTheme.snackBar(
-            context,
-            res?['message'] ?? l10n.locationsImportSuccess,
-            severity: AppSeverity.success,
-          ),
-        );
-      }
-    } catch (err) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        AppTheme.snackBar(
-          context,
-          err.toString(),
-          severity: AppSeverity.danger,
-        ),
-      );
-    }
   }
 }

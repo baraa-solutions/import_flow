@@ -165,14 +165,13 @@ async def import_excel_companies(file: UploadFile = File(...), db: Session = Dep
     return {"message": f"Successfully imported {imported_count} import companies.", "errors": errors}
 
 
-@import_router.get("/export-excel")
-def export_companies_excel(db: Session = Depends(get_db)):
+@import_router.get("/export-csv")
+def export_companies_csv(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     companies = get_all_companies_admin_service(db)
-    headers = [
-        'ID', 'Company Name', 'Importer Card ID', 'Importer Expiry',
-        'VAT Registration ID', 'VAT Expiry', 'Commercial Reg #', 'Reg Expiry',
-        'Address', 'Country', 'Phone', 'Email', 'Notes', 'Status'
-    ]
+    headers = MasterDataExportImportHelper.get_localized_headers("import_companies", lang=lang)
     rows = []
     for c in companies:
         rows.append([
@@ -189,21 +188,52 @@ def export_companies_excel(db: Session = Depends(get_db)):
             c.phone or '',
             c.email or '',
             c.notes or '',
-            'Active' if c.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(c.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_excel("Import Companies", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("import_companies", lang=lang)
+    content = MasterDataExportImportHelper.export_to_csv(title, headers, rows, lang=lang)
+    filename = MasterDataExportImportHelper.standard_export_filename("Egyptian_Import_Companies", "csv")
+    return MasterDataExportImportHelper.as_csv_response(filename, content)
+
+
+@import_router.get("/export-excel")
+def export_companies_excel(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
+    companies = get_all_companies_admin_service(db)
+    headers = MasterDataExportImportHelper.get_localized_headers("import_companies", lang=lang)
+    rows = []
+    for c in companies:
+        rows.append([
+            c.company_id,
+            c.importer_name,
+            c.importer_id,
+            MasterDataExportImportHelper.format_date_safe(c.importer_id_expiry),
+            c.vat_id,
+            MasterDataExportImportHelper.format_date_safe(c.vat_id_expiry),
+            c.registration_number,
+            MasterDataExportImportHelper.format_date_safe(c.registration_expiry),
+            c.address,
+            c.country,
+            c.phone or '',
+            c.email or '',
+            c.notes or '',
+            MasterDataExportImportHelper.format_status(c.is_active, lang=lang),
+        ])
+    title = MasterDataExportImportHelper.get_localized_title("import_companies", lang=lang)
+    content = MasterDataExportImportHelper.export_to_excel(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Egyptian_Import_Companies", "xlsx")
     return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @import_router.get("/export-pdf")
-def export_companies_pdf(db: Session = Depends(get_db)):
+def export_companies_pdf(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     companies = get_all_companies_admin_service(db)
-    headers = [
-        'ID', 'Company Name', 'Importer Card ID', 'Importer Expiry',
-        'VAT Registration ID', 'VAT Expiry', 'Commercial Reg #', 'Reg Expiry',
-        'Phone', 'Email', 'Status'
-    ]
+    headers = MasterDataExportImportHelper.get_localized_headers("import_companies", lang=lang, is_pdf=True)
     rows = []
     for c in companies:
         rows.append([
@@ -217,9 +247,10 @@ def export_companies_pdf(db: Session = Depends(get_db)):
             MasterDataExportImportHelper.format_date_safe(c.registration_expiry),
             c.phone or '',
             c.email or '',
-            'Active' if c.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(c.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_pdf("Egyptian Import Companies (MD-001)", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("import_companies", lang=lang)
+    content = MasterDataExportImportHelper.export_to_pdf(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Egyptian_Import_Companies", "pdf")
     return MasterDataExportImportHelper.as_pdf_response(filename, content)
 

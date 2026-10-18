@@ -199,53 +199,21 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                   context: context,
                   includeTsv: companiesAsync.valueOrNull != null && companiesAsync.valueOrNull!.isNotEmpty,
                 ),
-                onMoreActionSelected: (val) {
-                  switch (val) {
-                    case 'export_excel':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'import-companies',
-                        actionEndpoint: 'export-excel',
-                        defaultFileName: 'Import_Companies_Report.xlsx',
-                        dialogTitle: 'تصدير الشركات المستوردة إكسيل',
-                      );
-                      break;
-                    case 'export_pdf':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'import-companies',
-                        actionEndpoint: 'export-pdf',
-                        defaultFileName: 'Import_Companies_Report.pdf',
-                        dialogTitle: 'تصدير الشركات المستوردة PDF',
-                      );
-                      break;
-                    case 'copy_tsv':
-                      if (companiesAsync.valueOrNull != null) {
-                        _copyCompaniesTsv(companiesAsync.valueOrNull!);
-                      }
-                      break;
-                    case 'download_template':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'import-companies',
-                        actionEndpoint: 'excel-template',
-                        defaultFileName: 'Import_Companies_Template.xlsx',
-                        dialogTitle: 'تنزيل نموذج الشركات المستوردة',
-                      );
-                      break;
-                    case 'import_excel':
-                      MasterDataActionHelper.importExcel(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'import-companies',
-                        onImportSuccess: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
-                      );
-                      break;
-                  }
-                },
+                onMoreActionSelected: (val) => MasterDataActionHelper.handleStandardAction(
+                  context: context,
+                  ref: ref,
+                  actionValue: val,
+                  moduleEndpoint: 'import-companies',
+                  entityNameAr: 'الشركات المستوردة',
+                  entityNameEn: 'Import Companies',
+                  entityFilePrefix: 'Egyptian_Import_Companies',
+                  onImportSuccess: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
+                  onCopyTsv: () {
+                    if (companiesAsync.valueOrNull != null) {
+                      _copyCompaniesTsv(companiesAsync.valueOrNull!);
+                    }
+                  },
+                ),
                 searchController: _searchController,
                 searchHint: l10n.searchImporterHint,
                 onSearchChanged: (val) {

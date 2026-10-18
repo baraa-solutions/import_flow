@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
+import '../../../core/export/widgets/export_language_dialog.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../models/supplier_model.dart';
@@ -220,53 +221,21 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                   context: context,
                   includeTsv: suppliersAsync.valueOrNull != null && suppliersAsync.valueOrNull!.isNotEmpty,
                 ),
-                onMoreActionSelected: (val) {
-                  switch (val) {
-                    case 'export_excel':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'suppliers',
-                        actionEndpoint: 'export-excel',
-                        defaultFileName: 'Foreign_Suppliers_Report.xlsx',
-                        dialogTitle: 'تصدير الموردين الأجانب إكسيل',
-                      );
-                      break;
-                    case 'export_pdf':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'suppliers',
-                        actionEndpoint: 'export-pdf',
-                        defaultFileName: 'Foreign_Suppliers_Report.pdf',
-                        dialogTitle: 'تصدير الموردين الأجانب PDF',
-                      );
-                      break;
-                    case 'copy_tsv':
-                      if (suppliersAsync.valueOrNull != null) {
-                        _copySuppliersTsv(suppliersAsync.valueOrNull!);
-                      }
-                      break;
-                    case 'download_template':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'suppliers',
-                        actionEndpoint: 'excel-template',
-                        defaultFileName: 'Foreign_Suppliers_Template.xlsx',
-                        dialogTitle: 'تنزيل نموذج الموردين الأجانب',
-                      );
-                      break;
-                    case 'import_excel':
-                      MasterDataActionHelper.importExcel(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'suppliers',
-                        onImportSuccess: () => ref.read(suppliersProvider.notifier).fetchSuppliers(),
-                      );
-                      break;
-                  }
-                },
+                onMoreActionSelected: (val) => MasterDataActionHelper.handleStandardAction(
+                  context: context,
+                  ref: ref,
+                  actionValue: val,
+                  moduleEndpoint: 'suppliers',
+                  entityNameAr: 'الموردين الأجانب',
+                  entityNameEn: 'Foreign Suppliers',
+                  entityFilePrefix: 'Foreign_Suppliers',
+                  onImportSuccess: () => ref.read(suppliersProvider.notifier).fetchSuppliers(),
+                  onCopyTsv: () {
+                    if (suppliersAsync.valueOrNull != null) {
+                      _copySuppliersTsv(suppliersAsync.valueOrNull!);
+                    }
+                  },
+                ),
                 searchController: _searchController,
                 searchHint: l10n.searchSuppliersHint,
                 onSearchChanged: (val) {
@@ -460,7 +429,12 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                   onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
                 ),
                 onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
-                onPrint: () => MasterDataExportService.printOrSaveSupplierPdf(supplier),
+                onPrint: () async {
+                  final lang = await ExportLanguageDialog.show(context);
+                  if (lang != null) {
+                    await MasterDataExportService.printOrSaveSupplierPdf(supplier, lang: lang);
+                  }
+                },
                 onDelete: () async {
                   final confirm = await AppConfirmDialog.showToggleActive(
                     context,

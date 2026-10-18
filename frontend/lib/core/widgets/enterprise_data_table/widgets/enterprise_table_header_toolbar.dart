@@ -13,6 +13,7 @@ class EnterpriseTableHeaderToolbar extends StatefulWidget {
   final VoidCallback? onClearSearch;
   final VoidCallback onOpenColumnPicker;
   final VoidCallback? onExportCSV;
+  final VoidCallback? onExportExcel;
   final VoidCallback? onExportPDF;
   final VoidCallback? onCopyToClipboard;
   final List<Widget>? extraActions;
@@ -30,6 +31,7 @@ class EnterpriseTableHeaderToolbar extends StatefulWidget {
     this.onClearSearch,
     required this.onOpenColumnPicker,
     this.onExportCSV,
+    this.onExportExcel,
     this.onExportPDF,
     this.onCopyToClipboard,
     this.extraActions,
@@ -195,17 +197,38 @@ class _EnterpriseTableHeaderToolbarState extends State<EnterpriseTableHeaderTool
                           ),
                           const SizedBox(width: 8),
 
-                          // Export Excel/CSV Button
+                          // Export CSV Button
                           if (widget.onExportCSV != null) ...[
                             Tooltip(
-                              message: 'تصدير الجدول إلى Excel / CSV',
+                              message: 'تصدير الجدول إلى ملف CSV',
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  side: const BorderSide(color: AppTheme.cobalt),
+                                  foregroundColor: AppTheme.cobalt,
+                                ),
+                                onPressed: widget.onExportCSV,
+                                icon: const Icon(Icons.description_outlined, size: 16, color: AppTheme.cobalt),
+                                label: const Text(
+                                  'تصدير CSV',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+
+                          // Export Excel Button
+                          if (widget.onExportExcel != null) ...[
+                            Tooltip(
+                              message: 'تصدير الجدول إلى Excel (.xlsx)',
                               child: OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   side: const BorderSide(color: AppTheme.emerald),
                                   foregroundColor: AppTheme.emerald,
                                 ),
-                                onPressed: widget.onExportCSV,
+                                onPressed: widget.onExportExcel,
                                 icon: const Icon(Icons.table_chart_outlined, size: 16, color: AppTheme.emerald),
                                 label: const Text(
                                   'تصدير Excel',

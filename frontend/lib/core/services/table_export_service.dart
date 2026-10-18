@@ -4,6 +4,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../export/export_language.dart';
+import '../export/widgets/export_language_dialog.dart';
 import '../helpers/table_copy_helper.dart';
 import 'file_save_helper.dart';
 import '../utils/bidi_text.dart';
@@ -104,8 +106,39 @@ class TableExportService {
     return buffer.toString();
   }
 
+  /// Exports any generic tabular data to CSV with UTF-8 BOM.
+  /// Automatically prompts [ExportLanguageDialog] if [lang] is null.
+  static Future<String?> exportTableToCsv({
+    required BuildContext context,
+    required List<String> headers,
+    required List<List<dynamic>> rows,
+    required String stageName,
+    required String importFileNameOrCode,
+    List<TableExportSection>? additionalSections,
+    String? customFileName,
+    ExportLanguage? lang,
+  }) async {
+    ExportLanguage? selectedLang = lang;
+    selectedLang ??= await ExportLanguageDialog.show(context);
+    if (selectedLang == null) return null;
+
+    final content = buildCsvContent(headers, rows, additionalSections: additionalSections);
+    final bytes = utf8.encode(content);
+
+    return FileSaveHelper.exportAndSaveFile(
+      context: context,
+      bytes: bytes,
+      stageName: stageName,
+      importFileNameOrCode: importFileNameOrCode,
+      extension: 'csv',
+      customDialogTitle: selectedLang.isArabic ? 'تصدير جدول البيانات (CSV)' : 'Export Data Table (CSV)',
+      showNotification: true,
+    );
+  }
+
   /// Exports any generic tabular data to Excel (CSV/TSV with UTF-8 BOM)
   /// using the unified Save As dialog and standard file naming.
+  /// Automatically prompts [ExportLanguageDialog] if [lang] is null.
   static Future<String?> exportTableToExcel({
     required BuildContext context,
     required List<String> headers,
@@ -115,7 +148,12 @@ class TableExportService {
     List<TableExportSection>? additionalSections,
     String? customFileName,
     bool asTsv = false,
+    ExportLanguage? lang,
   }) async {
+    ExportLanguage? selectedLang = lang;
+    selectedLang ??= await ExportLanguageDialog.show(context);
+    if (selectedLang == null) return null;
+
     final content = asTsv
         ? buildTsvContent(headers, rows, additionalSections: additionalSections)
         : buildCsvContent(headers, rows, additionalSections: additionalSections);
@@ -128,13 +166,15 @@ class TableExportService {
       stageName: stageName,
       importFileNameOrCode: importFileNameOrCode,
       extension: extension,
-      customDialogTitle: 'تصدير جدول البيانات ($extension)',
+      customDialogTitle: selectedLang.isArabic
+          ? 'تصدير جدول البيانات (Excel)'
+          : 'Export Data Table (Excel)',
       showNotification: true,
     );
   }
 
   /// Generates a formatted, multi-page PDF document for generic tabular data
-  /// with Cairo Arabic font, RTL layout, ERP banner, and clean Key-Value Grid metadata card.
+  /// with Cairo Arabic font, RTL/LTR layout based on language, ERP banner, and clean Key-Value Grid metadata card.
   static Future<pw.Document> generatePdfDocument({
     required List<String> headers,
     required List<List<dynamic>> rows,
@@ -143,8 +183,10 @@ class TableExportService {
     TableExportHeaderContext? headerContext,
     List<TableExportSection>? additionalSections,
     PdfPageFormat? pageFormat,
+    ExportLanguage? lang = ExportLanguage.ar,
   }) async {
     final pdf = pw.Document();
+    final isAr = lang?.isArabic ?? true;
 
     // 1. Load Arabic Cairo fonts
     final arabicFont = await PdfGoogleFonts.cairoRegular();
@@ -154,7 +196,8 @@ class TableExportService {
     final effectiveFormat = pageFormat ?? (headers.length > 5 ? PdfPageFormat.a4.landscape : PdfPageFormat.a4);
 
     final title = headerContext?.title ?? stageName;
-    final subtitle = headerContext?.subtitle ?? 'Sorour Logistics ERP — تقرير بيانات الجدول';
+    final subtitle = headerContext?.subtitle ??
+        (isAr ? 'Sorour Logistics ERP — تقرير بيانات الجدول' : 'Sorour Logistics ERP — Official Table Data Report');
     final metadata = headerContext?.metadata ?? {};
 
     // Clean data cells for PDF display
@@ -165,7 +208,7 @@ class TableExportService {
       pw.MultiPage(
         pageFormat: effectiveFormat,
         theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
-        textDirection: pw.TextDirection.rtl,
+        textDirection: isAr ? pw.TextDirection.rtl : pw.TextDirection.ltr,
         header: (pw.Context ctx) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -303,11 +346,15 @@ class TableExportService {
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  'تاريخ الإنشاء: ${DateTime.now().toString().substring(0, 19)}',
+                  isAr
+                      ? 'تاريخ الإنشاء: ${DateTime.now().toString().substring(0, 19)}'
+                      : 'Generated: ${DateTime.now().toString().substring(0, 19)}',
                   style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
                 ),
                 pw.Text(
-                  'صفحة ${ctx.pageNumber} من ${ctx.pagesCount}',
+                  isAr
+                      ? 'صفحة ${ctx.pageNumber} من ${ctx.pagesCount}'
+                      : 'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
                   style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
                 ),
               ],
@@ -329,8 +376,8 @@ class TableExportService {
               ),
               cellStyle: const pw.TextStyle(fontSize: 8),
               cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-              cellAlignment: pw.Alignment.centerRight,
-              headerAlignment: pw.Alignment.centerRight,
+              cellAlignment: isAr ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
+              headerAlignment: isAr ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
               rowDecoration: const pw.BoxDecoration(
                 border: pw.Border(
                   bottom: pw.BorderSide(color: PdfColors.grey200, width: 0.5),
@@ -381,8 +428,8 @@ class TableExportService {
                   ),
                   cellStyle: const pw.TextStyle(fontSize: 8),
                   cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  cellAlignment: pw.Alignment.centerRight,
-                  headerAlignment: pw.Alignment.centerRight,
+                  cellAlignment: isAr ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
+                  headerAlignment: isAr ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
                   rowDecoration: const pw.BoxDecoration(
                     border: pw.Border(
                       bottom: pw.BorderSide(color: PdfColors.grey200, width: 0.5),
@@ -406,6 +453,7 @@ class TableExportService {
 
   /// Exports any generic tabular data to a formatted, multi-page PDF document
   /// with Cairo Arabic font, RTL layout, ERP banner, and clean Key-Value Grid metadata card.
+  /// Automatically prompts [ExportLanguageDialog] if [lang] is null.
   static Future<String?> exportTableToPdf({
     required BuildContext context,
     required List<String> headers,
@@ -415,7 +463,12 @@ class TableExportService {
     TableExportHeaderContext? headerContext,
     List<TableExportSection>? additionalSections,
     PdfPageFormat? pageFormat,
+    ExportLanguage? lang,
   }) async {
+    ExportLanguage? selectedLang = lang;
+    selectedLang ??= await ExportLanguageDialog.show(context);
+    if (selectedLang == null) return null;
+
     final pdf = await generatePdfDocument(
       headers: headers,
       rows: rows,
@@ -424,6 +477,7 @@ class TableExportService {
       headerContext: headerContext,
       additionalSections: additionalSections,
       pageFormat: pageFormat,
+      lang: selectedLang,
     );
 
     final pdfBytes = await pdf.save();
@@ -435,12 +489,13 @@ class TableExportService {
       stageName: stageName,
       importFileNameOrCode: importFileNameOrCode,
       extension: 'pdf',
-      customDialogTitle: 'تصدير جدول البيانات (PDF)',
+      customDialogTitle: selectedLang.isArabic ? 'تصدير جدول البيانات (PDF)' : 'Export Data Table (PDF)',
       showNotification: true,
     );
   }
 
   /// Direct print or print-preview for any generic tabular data via Printing.layoutPdf.
+  /// Automatically prompts [ExportLanguageDialog] if [lang] is null.
   static Future<void> printTable({
     required BuildContext context,
     required List<String> headers,
@@ -450,7 +505,12 @@ class TableExportService {
     TableExportHeaderContext? headerContext,
     List<TableExportSection>? additionalSections,
     PdfPageFormat? pageFormat,
+    ExportLanguage? lang,
   }) async {
+    ExportLanguage? selectedLang = lang;
+    selectedLang ??= await ExportLanguageDialog.show(context);
+    if (selectedLang == null) return;
+
     final pdf = await generatePdfDocument(
       headers: headers,
       rows: rows,
@@ -459,6 +519,7 @@ class TableExportService {
       headerContext: headerContext,
       additionalSections: additionalSections,
       pageFormat: pageFormat,
+      lang: selectedLang,
     );
 
     await Printing.layoutPdf(

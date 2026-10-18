@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
+import '../../../core/export/widgets/export_language_dialog.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
@@ -312,56 +313,24 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                   context: context,
                   includeTsv: partnerList.isNotEmpty,
                 ),
-                onMoreActionSelected: (val) {
-                  switch (val) {
-                    case 'export_excel':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'external-service-providers',
-                        actionEndpoint: 'export-excel',
-                        defaultFileName: 'Partners_Banks_Report.xlsx',
-                        dialogTitle: 'تصدير الشركاء والبنوك إكسيل',
-                      );
-                      break;
-                    case 'export_pdf':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'external-service-providers',
-                        actionEndpoint: 'export-pdf',
-                        defaultFileName: 'Partners_Banks_Report.pdf',
-                        dialogTitle: 'تصدير الشركاء والبنوك PDF',
-                      );
-                      break;
-                    case 'copy_tsv':
-                      if (partnerList.isNotEmpty) {
-                        _copyPartnersTsv(context, partnerList);
-                      }
-                      break;
-                    case 'download_template':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'external-service-providers',
-                        actionEndpoint: 'excel-template',
-                        defaultFileName: 'Partners_Banks_Template.xlsx',
-                        dialogTitle: 'تنزيل نموذج الشركاء والبنوك',
-                      );
-                      break;
-                    case 'import_excel':
-                      MasterDataActionHelper.importExcel(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'external-service-providers',
-                        onImportSuccess: () {
-                          ref.read(partnersProvider.notifier).fetchPartners();
-                          ref.read(allPartnersProvider.notifier).fetchPartners();
-                        },
-                      );
-                      break;
-                  }
-                },
+                onMoreActionSelected: (val) => MasterDataActionHelper.handleStandardAction(
+                  context: context,
+                  ref: ref,
+                  actionValue: val,
+                  moduleEndpoint: 'external-service-providers',
+                  entityNameAr: 'الشركاء ومقدمي الخدمات والبنوك',
+                  entityNameEn: 'Partners & Service Providers',
+                  entityFilePrefix: 'External_Service_Providers_Banks',
+                  onImportSuccess: () {
+                    ref.read(partnersProvider.notifier).fetchPartners();
+                    ref.read(allPartnersProvider.notifier).fetchPartners();
+                  },
+                  onCopyTsv: () {
+                    if (partnerList.isNotEmpty) {
+                      _copyPartnersTsv(context, partnerList);
+                    }
+                  },
+                ),
                 searchController: _searchController,
                 searchHint: l10n.searchPartnersHint,
                 onSearchChanged: (v) {
@@ -661,7 +630,12 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                     onEdit: () => _showPartnerDialog(context, partner),
                                                   ),
                                                   onEdit: () => _showPartnerDialog(context, partner),
-                                                  onPrint: () => MasterDataExportService.printOrSavePartnerPdf(partner),
+                                                  onPrint: () async {
+                                                    final lang = await ExportLanguageDialog.show(context);
+                                                    if (lang != null) {
+                                                      await MasterDataExportService.printOrSavePartnerPdf(partner, lang: lang);
+                                                    }
+                                                  },
                                                   onDelete: () async {
                                                     final confirm = await AppConfirmDialog.showToggleActive(
                                                       context,

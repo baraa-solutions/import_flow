@@ -307,25 +307,51 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
       return;
     }
 
-    const bom = '\uFEFF';
-    final headers = activeCols.map((c) => '"${c.title.replaceAll('"', '""')}"').join(',');
+    final headers = activeCols.map((c) => c.title).toList();
     final rows = dataToExport.map((item) {
       return activeCols.map((c) {
-        final val = c.exportValue?.call(item) ?? c.searchValue?.call(item) ?? '';
-        return '"${val.replaceAll('"', '""').replaceAll('\n', ' ')}"';
-      }).join(',');
+        return c.exportValue?.call(item) ?? c.searchValue?.call(item) ?? '';
+      }).toList();
     }).toList();
 
-    final csvContent = '$bom$headers\n${rows.join('\n')}';
-    final fileName = widget.exportFileName ??
-        'Export_${widget.title?.replaceAll(' ', '_') ?? "Table"}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final stageName = widget.storageKey ?? 'EnterpriseDataTable';
+    final importFileNameOrCode = widget.exportFileName ?? 'Report';
 
-    await FileSaveHelper.saveText(
+    await TableExportService.exportTableToCsv(
       context: context,
-      textContent: csvContent,
-      defaultFileName: fileName,
-      dialogTitle: 'تصدير بيانات الجدول إلى Excel / CSV',
-      allowedExtensions: ['csv', 'xlsx'],
+      headers: headers,
+      rows: rows,
+      stageName: stageName,
+      importFileNameOrCode: importFileNameOrCode,
+    );
+  }
+
+  Future<void> _exportToExcel() async {
+    final activeCols = _activeColumns;
+    final dataToExport = _filteredAndSortedData;
+    if (dataToExport.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا توجد بيانات لتصديرها'), backgroundColor: AppTheme.orange),
+      );
+      return;
+    }
+
+    final headers = activeCols.map((c) => c.title).toList();
+    final rows = dataToExport.map((item) {
+      return activeCols.map((c) {
+        return c.exportValue?.call(item) ?? c.searchValue?.call(item) ?? '';
+      }).toList();
+    }).toList();
+
+    final stageName = widget.storageKey ?? 'EnterpriseDataTable';
+    final importFileNameOrCode = widget.exportFileName ?? 'Report';
+
+    await TableExportService.exportTableToExcel(
+      context: context,
+      headers: headers,
+      rows: rows,
+      stageName: stageName,
+      importFileNameOrCode: importFileNameOrCode,
     );
   }
 
@@ -476,6 +502,7 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
               },
               onOpenColumnPicker: _openColumnPicker,
               onExportCSV: widget.enableExport ? _exportToCSV : null,
+              onExportExcel: widget.enableExport ? _exportToExcel : null,
               onExportPDF: widget.enableExport ? _exportToPdf : null,
               onCopyToClipboard: widget.enableExport ? _copyToClipboard : null,
               extraActions: widget.extraActions,

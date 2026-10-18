@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/export/widgets/export_language_dialog.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/master_data_export_service.dart';
@@ -514,7 +515,9 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                         icon: const Icon(Icons.print_rounded, size: 16),
                         label: Text(l10n.printSavePdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
-                          await MasterDataExportService.printOrSaveSupplierPdf(supplier);
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          await MasterDataExportService.printOrSaveSupplierPdf(supplier, lang: lang);
                         },
                       ),
 
@@ -528,7 +531,35 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                         icon: const Icon(Icons.table_view_rounded, size: 16),
                         label: Text(l10n.downloadExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
-                          final path = await MasterDataExportService.exportSupplierToExcel(context, supplier);
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          if (!context.mounted) return;
+                          final path = await MasterDataExportService.exportSupplierToExcel(context, supplier, lang: lang);
+                          if (context.mounted && path != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.excelSavedSuccess(path)),
+                                backgroundColor: AppTheme.emerald,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+
+                      // 3. Export CSV
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1565C0),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.description_rounded, size: 16),
+                        label: Text(l10n.tableExportCsv, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          if (!context.mounted) return;
+                          final path = await MasterDataExportService.exportSupplierToCsv(context, supplier, lang: lang);
                           if (context.mounted && path != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(

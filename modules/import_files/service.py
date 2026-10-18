@@ -1590,27 +1590,51 @@ def get_partial_batches_service(db: Session, import_file_id: int) -> List[Import
     return linked_files
 
 
-def build_export_rows(files: List[Any], format: str = "excel") -> List[List[Any]]:
-    """Build tabular export rows for import files in Excel or PDF format with None-safe formatting."""
+STATUS_TRANSLATIONS = {
+    "Open": {"ar": "مفتوح", "en": "Open"},
+    "In Progress": {"ar": "قيد التنفيذ", "en": "In Progress"},
+    "Closed": {"ar": "مغلق", "en": "Closed"},
+    "Archived": {"ar": "مؤرشف", "en": "Archived"},
+    "On Hold": {"ar": "معلق", "en": "On Hold"},
+}
+
+STAGE_TRANSLATIONS = {
+    "Bank Form 4": {"ar": "نموذج 4 البنكي", "en": "Bank Form 4"},
+    "Cargo Tracking": {"ar": "تتبع الشحنة", "en": "Cargo Tracking"},
+    "Customs Clearance": {"ar": "التخليص الجمركي", "en": "Customs Clearance"},
+    "Warehouse Receiving": {"ar": "الاستلام المخزني", "en": "Warehouse Receiving"},
+    "File Closure": {"ar": "إغلاق الملف", "en": "File Closure"},
+    "Draft Documents": {"ar": "مراجعة المسودات", "en": "Draft Documents"},
+    "Freight RFQ": {"ar": "عروض أسعار الشحن", "en": "Freight RFQ"},
+}
+
+
+def build_export_rows(files: List[Any], format: str = "excel", lang: str = "ar") -> List[List[Any]]:
+    """Build tabular export rows for import files in Excel, CSV, or PDF format with None-safe formatting and language separation."""
     rows = []
     if format == "pdf":
         for f in files:
             file_ref = f.custom_file_number or f.import_file_code
             po_pi = f"{f.po_number or '-'}\n{f.pi_number or '-'}"
             progress = f"{(f.progress_percent or 0):.0f}%"
+            st = STATUS_TRANSLATIONS.get(f.status, {}).get(lang, f.status)
+            stage = STAGE_TRANSLATIONS.get(f.current_stage, {}).get(lang, f.current_stage)
+            mode_inco = f"{f.shipment_mode} ({f.incoterm_code})" if f.incoterm_code else f.shipment_mode
             rows.append([
                 file_ref,
                 f.company_name,
                 f.supplier_name,
                 po_pi,
-                f"{f.shipment_mode} ({f.incoterm_code})",
-                f.current_stage,
+                mode_inco,
+                stage,
                 progress,
-                f.status,
+                st,
             ])
     else:
         for f in files:
             progress = f"{(f.progress_percent or 0):.0f}%"
+            st = STATUS_TRANSLATIONS.get(f.status, {}).get(lang, f.status)
+            stage = STAGE_TRANSLATIONS.get(f.current_stage, {}).get(lang, f.current_stage)
             rows.append([
                 f.import_file_code,
                 f.custom_file_number or '',
@@ -1621,11 +1645,11 @@ def build_export_rows(files: List[Any], format: str = "excel") -> List[List[Any]
                 f.shipment_mode,
                 f.incoterm_code,
                 f.priority,
-                f.current_stage,
+                stage,
                 progress,
                 f.next_action or '',
                 f.owner or '',
-                f.status,
+                st,
                 f.estimated_cost,
                 f.estimated_cost_currency,
                 f.port_of_loading or '',

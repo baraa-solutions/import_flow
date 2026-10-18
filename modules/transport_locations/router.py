@@ -124,11 +124,14 @@ async def import_excel_locations(file: UploadFile = File(...), db: Session = Dep
     return {"message": f"Successfully imported {imported_count} transport locations.", "errors": errors}
 
 
-@router.get("/export-excel")
-def export_locations_excel(db: Session = Depends(get_db)):
+@router.get("/export-csv")
+def export_locations_csv(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     service = TransportLocationService(db)
     locations = service.get_all(include_inactive=True)
-    headers = ['ID', 'UN/LOCODE', 'Location Name', 'Type', 'Country', 'City', 'Status', 'Notes']
+    headers = MasterDataExportImportHelper.get_localized_headers("transport_locations", lang=lang)
     rows = []
     for loc in locations:
         rows.append([
@@ -138,19 +141,49 @@ def export_locations_excel(db: Session = Depends(get_db)):
             loc.location_type,
             loc.country,
             loc.city,
-            'Active' if loc.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(loc.is_active, lang=lang),
             loc.notes or '',
         ])
-    content = MasterDataExportImportHelper.export_to_excel("Transport Locations", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("transport_locations", lang=lang)
+    content = MasterDataExportImportHelper.export_to_csv(title, headers, rows, lang=lang)
+    filename = MasterDataExportImportHelper.standard_export_filename("Transport_Locations", "csv")
+    return MasterDataExportImportHelper.as_csv_response(filename, content)
+
+
+@router.get("/export-excel")
+def export_locations_excel(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
+    service = TransportLocationService(db)
+    locations = service.get_all(include_inactive=True)
+    headers = MasterDataExportImportHelper.get_localized_headers("transport_locations", lang=lang)
+    rows = []
+    for loc in locations:
+        rows.append([
+            loc.location_id,
+            loc.un_locode,
+            loc.location_name,
+            loc.location_type,
+            loc.country,
+            loc.city,
+            MasterDataExportImportHelper.format_status(loc.is_active, lang=lang),
+            loc.notes or '',
+        ])
+    title = MasterDataExportImportHelper.get_localized_title("transport_locations", lang=lang)
+    content = MasterDataExportImportHelper.export_to_excel(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Transport_Locations", "xlsx")
     return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @router.get("/export-pdf")
-def export_locations_pdf(db: Session = Depends(get_db)):
+def export_locations_pdf(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     service = TransportLocationService(db)
     locations = service.get_all(include_inactive=True)
-    headers = ['ID', 'UN/LOCODE', 'Location Name', 'Type', 'Country', 'City', 'Status']
+    headers = MasterDataExportImportHelper.get_localized_headers("transport_locations", lang=lang, is_pdf=True)
     rows = []
     for loc in locations:
         rows.append([
@@ -160,9 +193,10 @@ def export_locations_pdf(db: Session = Depends(get_db)):
             loc.location_type,
             loc.country,
             loc.city,
-            'Active' if loc.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(loc.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_pdf("Transport Locations & Ports (MD-009)", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("transport_locations", lang=lang)
+    content = MasterDataExportImportHelper.export_to_pdf(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Transport_Locations", "pdf")
     return MasterDataExportImportHelper.as_pdf_response(filename, content)
 

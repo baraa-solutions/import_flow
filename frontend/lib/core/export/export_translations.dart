@@ -261,6 +261,302 @@ class ExportTranslations {
       ExportLanguage.ar: 'حفظ كملف Excel / CSV',
       ExportLanguage.en: 'Save as Excel / CSV File',
     },
+    'save_csv_dialog_title': {
+      ExportLanguage.ar: 'حفظ كملف CSV',
+      ExportLanguage.en: 'Save as CSV File',
+    },
+    'save_excel_file_dialog_title': {
+      ExportLanguage.ar: 'حفظ كملف Excel (.xlsx)',
+      ExportLanguage.en: 'Save as Excel File (.xlsx)',
+    },
+    'yes': {
+      ExportLanguage.ar: 'نعم',
+      ExportLanguage.en: 'Yes',
+    },
+    'no': {
+      ExportLanguage.ar: 'لا',
+      ExportLanguage.en: 'No',
+    },
+    'currency_egp': {
+      ExportLanguage.ar: 'ج.م',
+      ExportLanguage.en: 'EGP',
+    },
+
+    // ── Supplier & Foreign Exporter Card ──
+    'supplier_card_title': {
+      ExportLanguage.ar: 'Sorour Logistics ERP — بطاقة تعريف المورد الأجنبي',
+      ExportLanguage.en: 'Sorour Logistics ERP — Foreign Supplier Profile Card',
+    },
+    'supplier_card_subtitle': {
+      ExportLanguage.ar: 'بيانات التسجيل في منصات نافذة وكارجو إكس والتسجيلات الرقابية',
+      ExportLanguage.en: 'Official Nafeza, CargoX, and Regulatory Registration Profile',
+    },
+    'supplier_sheet_name': {
+      ExportLanguage.ar: 'بيانات المورد الأجنبي',
+      ExportLanguage.en: 'Supplier Profile',
+    },
+    'supplier_file_name_prefix': {
+      ExportLanguage.ar: 'بطاقة_المورد_الأجنبي',
+      ExportLanguage.en: 'Supplier_Profile_Card',
+    },
+    'supplier_code': {
+      ExportLanguage.ar: 'كود المورد',
+      ExportLanguage.en: 'Supplier Code',
+    },
+    'supplier_company_name': {
+      ExportLanguage.ar: 'اسم الشركة المصدرة',
+      ExportLanguage.en: 'Foreign Exporter Name',
+    },
+    'supplier_country': {
+      ExportLanguage.ar: 'دولة المصدر',
+      ExportLanguage.en: 'Exporter Country',
+    },
+    'country_code': {
+      ExportLanguage.ar: 'كود الدولة',
+      ExportLanguage.en: 'Country Code',
+    },
+    'supplier_type': {
+      ExportLanguage.ar: 'نوع المورد',
+      ExportLanguage.en: 'Supplier Type',
+    },
+    'registration_type': {
+      ExportLanguage.ar: 'نوع التسجيل',
+      ExportLanguage.en: 'Registration Type',
+    },
+    'foreign_exporter_id': {
+      ExportLanguage.ar: 'معرّف المصدر الأجنبي',
+      ExportLanguage.en: 'Foreign Exporter ID',
+    },
+    'cargox_id': {
+      ExportLanguage.ar: 'معرّف منصة كارجو إكس',
+      ExportLanguage.en: 'CargoX Platform ID',
+    },
+    'decree_43': {
+      ExportLanguage.ar: 'التسجيل بقرار 43',
+      ExportLanguage.en: 'Decree 43 Registration',
+    },
+    'decree_43_registered': {
+      ExportLanguage.ar: 'مسجل بقرار 43',
+      ExportLanguage.en: 'Registered under Decree 43',
+    },
+    'decree_43_not_registered': {
+      ExportLanguage.ar: 'غير مسجل بقرار 43',
+      ExportLanguage.en: 'Not Registered under Decree 43',
+    },
+    'white_list': {
+      ExportLanguage.ar: 'القائمة البيضاء',
+      ExportLanguage.en: 'White List Status',
+    },
+    'white_list_registered': {
+      ExportLanguage.ar: 'مدرج بالقائمة البيضاء',
+      ExportLanguage.en: 'White-Listed',
+    },
+    'white_list_standard': {
+      ExportLanguage.ar: 'عادي (غير مدرج)',
+      ExportLanguage.en: 'Standard (Not White-Listed)',
+    },
+    'iso_status': {
+      ExportLanguage.ar: 'شهادة الآيزو',
+      ExportLanguage.en: 'ISO Certificate',
+    },
+    'has_iso': {
+      ExportLanguage.ar: 'حاصل على ISO',
+      ExportLanguage.en: 'ISO Certified',
+    },
+    'no_iso': {
+      ExportLanguage.ar: 'بدون ISO',
+      ExportLanguage.en: 'Not ISO Certified',
+    },
+    'platforms_section_title': {
+      ExportLanguage.ar: 'بيانات التسجيل في منصات نافذة وكارجو إكس والامتثال الرقابي:',
+      ExportLanguage.en: 'Nafeza & CargoX Registration & Regulatory Compliance:',
+    },
+    'platforms_excel_section_title': {
+      ExportLanguage.ar: '--- بيانات التسجيل في منصات نافذة وكارجو إكس والامتثال ---',
+      ExportLanguage.en: '--- Nafeza & CargoX Registration & Compliance ---',
+    },
+    'col_platform': {
+      ExportLanguage.ar: 'المنصة / المعرّف الرقابي',
+      ExportLanguage.en: 'Regulatory Platform / Identifier',
+    },
+    'col_value': {
+      ExportLanguage.ar: 'القيمة / الكود المسجل',
+      ExportLanguage.en: 'Registered Value / Code',
+    },
+    'bank_section_title': {
+      ExportLanguage.ar: 'بيانات التحويل البنكي والسويفت الدولي:',
+      ExportLanguage.en: 'Bank Transfer & International SWIFT Details:',
+    },
+    'bank_excel_section_title': {
+      ExportLanguage.ar: '--- بيانات التحويل البنكي والسويفت ---',
+      ExportLanguage.en: '--- Bank Transfer & SWIFT Details ---',
+    },
+    'bank_name': {
+      ExportLanguage.ar: 'اسم البنك',
+      ExportLanguage.en: 'Bank Name',
+    },
+    'swift_code': {
+      ExportLanguage.ar: 'كود السويفت',
+      ExportLanguage.en: 'SWIFT Code',
+    },
+    'account_number': {
+      ExportLanguage.ar: 'رقم الحساب',
+      ExportLanguage.en: 'Account Number',
+    },
+    'iban': {
+      ExportLanguage.ar: 'رقم الآيبان (IBAN)',
+      ExportLanguage.en: 'IBAN',
+    },
+    'brands': {
+      ExportLanguage.ar: 'العلامات التجارية والمنتجات',
+      ExportLanguage.en: 'Brands & Products',
+    },
+    'compliance_and_trademarks_excel': {
+      ExportLanguage.ar: '--- الامتثال والعلامات التجارية ---',
+      ExportLanguage.en: '--- Compliance & Trademarks ---',
+    },
+    'contact_section_title': {
+      ExportLanguage.ar: 'بيانات التواصل ومسؤول الحساب:',
+      ExportLanguage.en: 'Contact Details & Account Representative:',
+    },
+    'contact_excel_section': {
+      ExportLanguage.ar: '--- بيانات التواصل ومسؤول الحساب ---',
+      ExportLanguage.en: '--- Contact & Account Representative ---',
+    },
+
+    // ── Partner & Service Provider Card ──
+    'partner_card_title': {
+      ExportLanguage.ar: 'Sorour Logistics ERP — بطاقة الشريك ومقدم الخدمات اللوجستية',
+      ExportLanguage.en: 'Sorour Logistics ERP — Logistics Partner Profile Card',
+    },
+    'partner_card_subtitle': {
+      ExportLanguage.ar: 'وثيقة رسمية ببيانات الشريك ومقدم الخدمات اللوجستية والاعتمادات',
+      ExportLanguage.en: 'Official Logistics Partner & Service Provider Profile Document',
+    },
+    'partner_sheet_name': {
+      ExportLanguage.ar: 'بيانات الشريك ومقدم الخدمات',
+      ExportLanguage.en: 'Partner Profile',
+    },
+    'partner_file_name_prefix': {
+      ExportLanguage.ar: 'بطاقة_الشريك_اللوجستي',
+      ExportLanguage.en: 'Logistics_Partner_Profile',
+    },
+    'partner_code': {
+      ExportLanguage.ar: 'كود الشريك',
+      ExportLanguage.en: 'Partner Code',
+    },
+    'partner_name': {
+      ExportLanguage.ar: 'اسم الشريك / البنك',
+      ExportLanguage.en: 'Partner / Bank Name',
+    },
+    'partner_type': {
+      ExportLanguage.ar: 'تصنيف الخدمات',
+      ExportLanguage.en: 'Service Classification',
+    },
+    'rating': {
+      ExportLanguage.ar: 'التقييم العام',
+      ExportLanguage.en: 'Rating',
+    },
+    'licenses_section_title': {
+      ExportLanguage.ar: 'الرخص والأكواد والبيانات المهنية والرقابية:',
+      ExportLanguage.en: 'Professional Licenses, Codes & Regulatory Details:',
+    },
+    'licenses_excel_section_title': {
+      ExportLanguage.ar: '--- الرخص والأكواد والبيانات المهنية والرقابية ---',
+      ExportLanguage.en: '--- Professional Licenses, Codes & Regulatory Details ---',
+    },
+    'scac_code': {
+      ExportLanguage.ar: 'كود الناقل الملاحي (SCAC)',
+      ExportLanguage.en: 'Carrier SCAC Code',
+    },
+    'clearance_license': {
+      ExportLanguage.ar: 'رقم رخصة التخليص الجمركي',
+      ExportLanguage.en: 'Customs Clearance License Number',
+    },
+    'authorized_ports': {
+      ExportLanguage.ar: 'الموانئ المرخصة',
+      ExportLanguage.en: 'Authorized Ports',
+    },
+    'default_free_days': {
+      ExportLanguage.ar: 'أيام السماح الافتراضية',
+      ExportLanguage.en: 'Default Free Days',
+    },
+    'fiata_id': {
+      ExportLanguage.ar: 'معرّف الاتحاد الدولي لمنظمي الشحن (FIATA)',
+      ExportLanguage.en: 'FIATA ID',
+    },
+    'shipping_modes': {
+      ExportLanguage.ar: 'أنماط الشحن المدعومة',
+      ExportLanguage.en: 'Supported Shipping Modes',
+    },
+    'supported_currencies': {
+      ExportLanguage.ar: 'العملات المدعومة',
+      ExportLanguage.en: 'Supported Currencies',
+    },
+    'transport_license': {
+      ExportLanguage.ar: 'رقم رخصة النقل الداخلي',
+      ExportLanguage.en: 'Inland Transport License',
+    },
+    'fleet_types': {
+      ExportLanguage.ar: 'أنواع أسطول النقل',
+      ExportLanguage.en: 'Fleet Types',
+    },
+    'coverage_areas': {
+      ExportLanguage.ar: 'مناطق التغطية الجغرافية',
+      ExportLanguage.en: 'Geographic Coverage Areas',
+    },
+    'insurance_license': {
+      ExportLanguage.ar: 'رقم رخصة التأمين',
+      ExportLanguage.en: 'Insurance License Number',
+    },
+    'insurance_coverages': {
+      ExportLanguage.ar: 'تغطيات التأمين',
+      ExportLanguage.en: 'Insurance Coverages',
+    },
+    'inspection_accreditation': {
+      ExportLanguage.ar: 'رقم اعتماد الفحص والمطابقة',
+      ExportLanguage.en: 'Inspection Accreditation ID',
+    },
+    'inspection_scope': {
+      ExportLanguage.ar: 'نطاق الفحص المعتمد',
+      ExportLanguage.en: 'Inspection Scope',
+    },
+    'commercial_register_num': {
+      ExportLanguage.ar: 'السجل التجاري',
+      ExportLanguage.en: 'Commercial Register',
+    },
+    'tax_id_num': {
+      ExportLanguage.ar: 'البطاقة الضريبية',
+      ExportLanguage.en: 'Tax ID',
+    },
+    'payment_terms_section': {
+      ExportLanguage.ar: '--- شروط السداد والائتمان والحسابات ---',
+      ExportLanguage.en: '--- Payment Terms & Credit Accounts ---',
+    },
+    'payment_terms_title': {
+      ExportLanguage.ar: 'شروط السداد والحد الائتماني والحسابات:',
+      ExportLanguage.en: 'Payment Terms, Credit Limits & Accounts:',
+    },
+    'payment_type': {
+      ExportLanguage.ar: 'نوع السداد',
+      ExportLanguage.en: 'Payment Type',
+    },
+    'credit_limit': {
+      ExportLanguage.ar: 'الحد الائتماني',
+      ExportLanguage.en: 'Credit Limit',
+    },
+    'bank_code': {
+      ExportLanguage.ar: 'كود البنك',
+      ExportLanguage.en: 'Bank Code',
+    },
+    'branch_name': {
+      ExportLanguage.ar: 'اسم الفرع',
+      ExportLanguage.en: 'Branch Name',
+    },
+    'contact_person': {
+      ExportLanguage.ar: 'مسؤول الحساب',
+      ExportLanguage.en: 'Contact Person',
+    },
   };
 
   /// Returns the localized string for [key] in [lang].

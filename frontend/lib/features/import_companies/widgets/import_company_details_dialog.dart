@@ -452,7 +452,32 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         },
                       ),
 
-                      // 4. WhatsApp Share
+                      // 4. Export CSV
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1565C0),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.description_rounded, size: 16),
+                        label: Text(l10n.tableExportCsv, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          if (!context.mounted) return;
+                          final path = await MasterDataExportService.exportImporterToCsv(context, company, lang: lang);
+                          if (context.mounted && path != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.excelSavedSuccess(path)),
+                                backgroundColor: AppTheme.emerald,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+
+                      // 5. WhatsApp Share
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF25D366),

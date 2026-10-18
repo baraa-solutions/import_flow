@@ -299,53 +299,21 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   context: context,
                   includeTsv: projectsAsync.valueOrNull != null && projectsAsync.valueOrNull!.isNotEmpty,
                 ),
-                onMoreActionSelected: (val) {
-                  switch (val) {
-                    case 'export_excel':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'projects',
-                        actionEndpoint: 'export-excel',
-                        defaultFileName: 'Projects_CostCenters_Report.xlsx',
-                        dialogTitle: 'تصدير المشاريع ومراكز التكلفة إكسيل',
-                      );
-                      break;
-                    case 'export_pdf':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'projects',
-                        actionEndpoint: 'export-pdf',
-                        defaultFileName: 'Projects_CostCenters_Report.pdf',
-                        dialogTitle: 'تصدير المشاريع ومراكز التكلفة PDF',
-                      );
-                      break;
-                    case 'copy_tsv':
-                      if (projectsAsync.valueOrNull != null) {
-                        _copyProjectsTsv(projectsAsync.valueOrNull!);
-                      }
-                      break;
-                    case 'download_template':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'projects',
-                        actionEndpoint: 'excel-template',
-                        defaultFileName: 'Projects_CostCenters_Template.xlsx',
-                        dialogTitle: 'تنزيل نموذج المشاريع ومراكز التكلفة',
-                      );
-                      break;
-                    case 'import_excel':
-                      MasterDataActionHelper.importExcel(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'projects',
-                        onImportSuccess: () => ref.read(projectsProvider.notifier).fetchProjects(),
-                      );
-                      break;
-                  }
-                },
+                onMoreActionSelected: (val) => MasterDataActionHelper.handleStandardAction(
+                  context: context,
+                  ref: ref,
+                  actionValue: val,
+                  moduleEndpoint: 'projects',
+                  entityNameAr: 'المشاريع ومراكز التكلفة',
+                  entityNameEn: 'Projects & Cost Centers',
+                  entityFilePrefix: 'Projects_CostCenters',
+                  onImportSuccess: () => ref.read(projectsProvider.notifier).fetchProjects(),
+                  onCopyTsv: () {
+                    if (projectsAsync.valueOrNull != null) {
+                      _copyProjectsTsv(projectsAsync.valueOrNull!);
+                    }
+                  },
+                ),
                 searchController: _searchController,
                 searchHint: l10n.projectsSearchHint,
                 onSearchChanged: (val) {
