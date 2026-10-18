@@ -78,13 +78,15 @@ DD_DEFAULT_STORAGE_FREE_DAYS = "DD_DEFAULT_STORAGE_FREE_DAYS"
 DD_DEFAULT_STORAGE_RATE_EGP = "DD_DEFAULT_STORAGE_RATE_EGP"
 DD_DEFAULT_TARIFF_CURRENCY = "DD_DEFAULT_TARIFF_CURRENCY"
 DD_STANDARD_FREE_DAYS = "DD_STANDARD_FREE_DAYS"
+DD_DEFAULT_NEGOTIATED_FREE_DAYS = "DD_DEFAULT_NEGOTIATED_FREE_DAYS"
 DD_AVOIDANCE_RATE_USD = "DD_AVOIDANCE_RATE_USD"
-DEFAULT_FREE_DAYS_DEMURRAGE = 14
+DEFAULT_FREE_DAYS_DEMURRAGE = 5
 DEFAULT_FREE_DAYS_DETENTION = 7
-DEFAULT_STORAGE_FREE_DAYS = 5
+DEFAULT_STORAGE_FREE_DAYS = 7
 DEFAULT_STORAGE_RATE_EGP = 250.0
 DEFAULT_TARIFF_CURRENCY = "USD"
-DEFAULT_STANDARD_FREE_DAYS = 14
+DEFAULT_STANDARD_FREE_DAYS = 5
+DEFAULT_NEGOTIATED_DEMURRAGE_DAYS = 21
 DEFAULT_AVOIDANCE_RATE_USD = 70.0
 
 # Keys of a tracking container written by the calculation; every other key (EIR, seal, per-container dates,
@@ -507,25 +509,40 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
     # 5. Status & Countdown Summary
     if demurrage_days_overdue > 0 and detention_days_overdue > 0:
         status_badge = "DEMURRAGE_AND_DETENTION_INCURRED"
-        countdown_summary = f"⚠️ تم تجاوز فترة السماح: تأخير أرضيات {demurrage_days_overdue} يوم + تأخير فارغ {detention_days_overdue} يوم."
+        countdown_summary = f"⚠️ تم تجاوز فترة السماح: تأخير غرامات الخط {demurrage_days_overdue} يوم + تأخير فارغ {detention_days_overdue} يوم."
     elif demurrage_days_overdue > 0:
         status_badge = "DEMURRAGE_INCURRED"
-        countdown_summary = f"🚨 غرامة أرضيات سارية بمقدار {demurrage_days_overdue} يوم تأخير."
+        countdown_summary = f"🚨 غرامة تأخير الحاوية للخط الملاحي سارية بمقدار {demurrage_days_overdue} يوم تأخير."
     elif detention_days_overdue > 0:
         status_badge = "DETENTION_INCURRED"
-        countdown_summary = f"🚨 غرامة تأخير فارغ سارية بمقدار {detention_days_overdue} يوم تأخير."
+        countdown_summary = f"🚨 غرامة تأخير إعادة الحاوية الفارغة سارية بمقدار {detention_days_overdue} يوم تأخير."
+    elif storage_days_overdue > 0:
+        # Crucial distinction: Port Storage is running in EGP even though Shipping Line Demurrage is SAFE!
+        status_badge = "STORAGE_INCURRED"
+        days_left_dem = max(0, req.demurrage_free_days - demurrage_days_consumed)
+        countdown_summary = (
+            f"⚠️ سريان أرضيات ساحات الميناء بمقدار {storage_days_overdue} يوم تأخير ({storage_fee_egp:,.2f} ج.م) "
+            f"رغم سريان سماح الخط الملاحي (متبقي {days_left_dem} يوم بدون غرامات خط)."
+        )
     else:
         days_left_demurrage = max(0, req.demurrage_free_days - demurrage_days_consumed)
+        days_left_storage = max(0, req.port_storage_free_days - storage_days_consumed)
         if days_left_demurrage <= 3:
             status_badge = "WARNING"
-            countdown_summary = f"⚠️ تحذير: متبقي {days_left_demurrage} أيام فقط على انتهاء سماح الأرضيات ({demurrage_expiry_date.strftime('%Y-%m-%d')})."
+            countdown_summary = f"⚠️ تحذير: متبقي {days_left_demurrage} أيام فقط على انتهاء سماح غرامات الحاوية للخط ({demurrage_expiry_date.strftime('%Y-%m-%d')})."
+        elif days_left_storage <= 1 and not req.gate_out_date:
+            status_badge = "STORAGE_WARNING_48H"
+            countdown_summary = (
+                f"⚠️ تحذير حرج: متبقي {days_left_storage} أيام فقط على بدء أرضيات ساحات الميناء بالجنيه "
+                f"(سماح الخط الملاحي: متبقي {days_left_demurrage} يوم)."
+            )
         else:
             status_badge = "SAFE"
             countdown_summary = f"✅ فترة السماح سارية: متبقي {days_left_demurrage} يوم بدون أي غرامات (حتى {demurrage_expiry_date.strftime('%Y-%m-%d')})."
 
     breakdown_details = [
         {
-            "category": "Demurrage (أرضيات الميناء)",
+            "category": "Demurrage (غرامات تأخير الحاوية للخط الملاحي)",
             "days_consumed": demurrage_days_consumed,
             "free_days": req.demurrage_free_days,
             "days_overdue": demurrage_days_overdue,
@@ -533,9 +550,10 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
             "currency": req.currency,
             "expiry_date": str(demurrage_expiry_date),
             "tiers_applied": dem_calc.get("tier_breakdown", []),
+            "scope": "Shipping Line Demurrage (تتأثر باتفاقية الـ 21 يوماً)",
         },
         {
-            "category": "Detention (تأخير الحاوية الفارغة)",
+            "category": "Detention (تأخير إعادة الحاوية الفارغة)",
             "days_consumed": detention_days_consumed,
             "free_days": req.detention_free_days,
             "days_overdue": detention_days_overdue,
@@ -545,12 +563,13 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
             "tiers_applied": det_calc.get("tier_breakdown", []),
         },
         {
-            "category": "Port Storage (تخزين ساحات الميناء)",
+            "category": "Port Storage (أرضيات وساحات هيئة الميناء)",
             "days_consumed": storage_days_consumed,
             "free_days": req.port_storage_free_days,
             "days_overdue": storage_days_overdue,
             "fee_egp": storage_fee_egp,
             "currency": "EGP",
+            "scope": "Port Terminal Storage (تخضع لتعريفة الميناء بالجنيه المصري ولا تمتد باتفاقية الخط)",
         }
     ]
 
@@ -1047,7 +1066,13 @@ def get_dual_clock_status_service(
     )
 
     # Overall Alert (summary_ar is deprecated: Flutter renders from overall_alert_level and the numbers)
-    if storage_status == "OVERDUE_STORAGE" or carrier_status == "OVERDUE_DEMURRAGE":
+    if carrier_status == "OVERDUE_DEMURRAGE" and storage_status == "OVERDUE_STORAGE":
+        overall_alert = "ACTION_REQUIRED"
+        summary_ar = f"خطر مضاعف: تراكم غرامات خط ملاحي وأرضيات ميناء بقيمة إجمالية {live_total_cost_egp:,.2f} جنيه على البوليصة {tracking.bill_of_lading_no}."
+    elif storage_status == "OVERDUE_STORAGE" and carrier_status != "OVERDUE_DEMURRAGE":
+        overall_alert = "STORAGE_OVERDUE_CARRIER_SAFE"
+        summary_ar = f"تنبيه هام: سريان أرضيات الميناء بقيمة {live_storage_egp:,.2f} ج.م رغم أن سماح الخط الملاحي ما زال سارياً (متبقي {carrier_days_remaining} يوم)."
+    elif storage_status == "OVERDUE_STORAGE" or carrier_status == "OVERDUE_DEMURRAGE":
         overall_alert = "ACTION_REQUIRED"
         summary_ar = f"تنبيه: تراكم غرامات تأخير بقيمة {live_total_cost_egp:,.2f} جنيه على البوليصة {tracking.bill_of_lading_no}."
     elif is_critical_72h:

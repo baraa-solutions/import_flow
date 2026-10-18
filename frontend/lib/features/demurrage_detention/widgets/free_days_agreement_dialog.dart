@@ -95,12 +95,12 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
       _carrierName = widget.initialCarrierName!;
     }
     _demurrageController = TextEditingController(
-      text: widget.initialDemurrageDays?.toString() ?? '',
+      text: widget.initialDemurrageDays?.toString() ?? '21',
     );
     _detentionController = TextEditingController(
-      text: widget.initialDetentionDays?.toString() ?? '',
+      text: widget.initialDetentionDays?.toString() ?? '7',
     );
-    _storageController = TextEditingController();
+    _storageController = TextEditingController(text: '7');
 
     if (_selectedImportFileId != null) {
       _loadExistingAgreement(_selectedImportFileId!);
@@ -344,12 +344,38 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
         CcFormSection(
           title: l.fdaSectionFreeDays,
           icon: Icons.timer_outlined,
-          child: CcFieldRow(
-            gap: 14,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _daysField(l, _demurrageController, l.fdaPortDemurrage, const [14, 21, 28], min: 1),
-              _daysField(l, _detentionController, l.fdaDetention, const [7, 14, 21], min: 1),
-              _daysField(l, _storageController, l.fdaPortStorage, const [3, 5, 7], min: 0, optional: true),
+              Container(
+                margin: const EdgeInsetsDirectional.only(bottom: 12),
+                padding: const EdgeInsetsDirectional.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'اتفاقية الـ 21 يوماً مع الخط الملاحي تسري على غرامات تأخير الحاوية (Demurrage) فقط. أما أرضيات ساحات الميناء (Port Storage) فتخضع لـ 7 أيام سماح افتراضياً وفق تعريفة الميناء.',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryOf(context), height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              CcFieldRow(
+                gap: 14,
+                children: [
+                  _daysField(l, _demurrageController, l.fdaPortDemurrage, const [5, 14, 21, 28], min: 1),
+                  _daysField(l, _detentionController, l.fdaDetention, const [7, 14, 21], min: 1),
+                  _daysField(l, _storageController, l.fdaPortStorage, const [3, 5, 7, 10], min: 0, optional: true),
+                ],
+              ),
             ],
           ),
         ),

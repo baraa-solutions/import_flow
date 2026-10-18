@@ -352,10 +352,10 @@ class ContainerRadarItemModel {
       colorCode: json['color_code'] ?? '#27AE60',
       statusLabelAr: json['status_label_ar'] ?? '',
       demurrageDaysConsumed: json['demurrage_days_consumed'] ?? 0,
-      demurrageFreeDays: json['demurrage_free_days'] ?? 14,
+      demurrageFreeDays: json['demurrage_free_days'] ?? 5,
       demurrageDaysRemaining: json['demurrage_days_remaining'] ?? 0,
       storageDaysConsumed: json['storage_days_consumed'] ?? 0,
-      storageFreeDays: json['storage_free_days'] ?? 5,
+      storageFreeDays: json['storage_free_days'] ?? 7,
       storageDaysRemaining: json['storage_days_remaining'] ?? 0,
       accruedDemurrageUsd: (json['accrued_demurrage_usd'] ?? 0.0).toDouble(),
       accruedStorageEgp: (json['accrued_storage_egp'] ?? 0.0).toDouble(),
@@ -641,6 +641,7 @@ class DualClockModel {
   static const alertNormal = 'NORMAL';
   static const alertUrgentStorage72h = 'URGENT_STORAGE_72H';
   static const alertActionRequired = 'ACTION_REQUIRED';
+  static const alertStorageOverdueCarrierSafe = 'STORAGE_OVERDUE_CARRIER_SAFE';
 
   final int trackingId;
   final String trackingCode;
@@ -687,6 +688,11 @@ extension DemurrageSimulationCountdown on DemurrageSimulationResultModel {
         return l10n.demCountdownSafe(daysLeft, demurrageExpiryDate);
       case 'WARNING':
         return l10n.demCountdownWarning(daysLeft, demurrageExpiryDate);
+      case 'STORAGE_WARNING_48H':
+        final storLeft = storageFreeDays - storageDaysConsumed;
+        return '⚠️ تحذير حرج: متبقي $storLeft أيام فقط على بدء أرضيات ساحات الميناء بالجنيه (سماح الخط: متبقي $daysLeft يوم)';
+      case 'STORAGE_INCURRED':
+        return '⚠️ سريان أرضيات ساحات الميناء بمقدار $storageDaysOverdue يوم (${storageFeeEgp.toStringAsFixed(2)} ج.م) رغم سريان سماح الخط الملاحي';
       case 'DEMURRAGE_INCURRED':
         return l10n.demCountdownDemurrage(demurrageDaysOverdue);
       case 'DETENTION_INCURRED':
