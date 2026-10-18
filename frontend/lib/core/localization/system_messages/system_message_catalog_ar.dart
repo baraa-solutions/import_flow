@@ -1470,6 +1470,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'CCQ_RFQ_STATUS_INVALID': {
     'note': 'حالة طلب عروض الأسعار \'{status}\' غير مسموحة؛ الترسية تتم من خلال إجراء الترسية فقط.',
   },
+  'CCQ_RFQ_AWARDED': {
+    'note': 'طلب عروض الأسعار تمت ترسيته بالفعل ولا يمكن تعديله أو حذفه أو ترسيته مجدداً.',
+  },
   'CCQ_RFQ_CANCELLED': {
     'note': 'طلب عروض الأسعار {rfq_code} ملغي ولا يمكن ترسيته.',
   },
@@ -1646,5 +1649,11 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'CT_SIMULATION_NO_BROKER': {
     'note': 'لا يوجد مخلص جمركي معين لملف الاستيراد؛ لم يتم إنشاء جلسة استشارة جمركية.',
+  },
+  'SYSPARAM_UNKNOWN': {
+    'note': 'معامل النظام \'{param_key}\' غير معروف أو غير موجود.',
+  },
+  'SYSPARAM_INVALID_VALUE': {
+    'note': 'قيمة غير صالحة لمعامل النظام \'{param_key}\': {reason}',
   },
 };

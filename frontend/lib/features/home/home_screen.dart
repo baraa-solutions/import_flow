@@ -419,22 +419,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               if (!ref.watch(focusModeProvider) && tabsState.tabs.length > 1)
                                 const MultiTabWorkspaceBar(),
                               Expanded(
-                                child: tabsState.tabs.isEmpty
-                                    ? _screens[0]
-                                    : IndexedStack(
-                                        index: safeActiveTabIndex < tabsState.tabs.length
-                                            ? safeActiveTabIndex
-                                            : 0,
-                                        children: [
-                                          for (final tab in tabsState.tabs)
-                                            KeyedSubtree(
-                                              key: ValueKey('${tab.id}_${ref.watch(localeProvider).languageCode}'),
-                                              child: _screens[tab.routeIndex < _screens.length
-                                                  ? tab.routeIndex
-                                                  : 0],
+                                child: Stack(
+                                  children: [
+                                    // ── Sorour Official Brand Background Watermark Layer ──
+                                    Positioned.fill(
+                                      child: IgnorePointer(
+                                        child: ExcludeSemantics(
+                                          child: Center(
+                                            child: Opacity(
+                                              opacity: AppTheme.isDark(context) ? 0.035 : 0.045,
+                                              child: Image.asset(
+                                                'assets/brand/sorour_logo_watermark.png',
+                                                width: isMobile ? 260 : 450,
+                                                fit: BoxFit.contain,
+                                                filterQuality: FilterQuality.medium,
+                                                cacheWidth: 900,
+                                              ),
                                             ),
-                                        ],
+                                          ),
+                                        ),
                                       ),
+                                    ),
+                                    tabsState.tabs.isEmpty
+                                        ? _screens[0]
+                                        : IndexedStack(
+                                            index: safeActiveTabIndex < tabsState.tabs.length
+                                                ? safeActiveTabIndex
+                                                : 0,
+                                            children: [
+                                              for (final tab in tabsState.tabs)
+                                                KeyedSubtree(
+                                                  key: ValueKey('${tab.id}_${ref.watch(localeProvider).languageCode}'),
+                                                  child: _screens[tab.routeIndex < _screens.length
+                                                      ? tab.routeIndex
+                                                      : 0],
+                                                ),
+                                            ],
+                                          ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -554,13 +577,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppTheme.cobalt,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 15),
+          Image.asset(
+            'assets/brand/sorour_logo_icon.png',
+            height: 22,
+            width: 22,
+            fit: BoxFit.contain,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -605,6 +626,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           icon: const Icon(Icons.menu, color: Colors.white, size: 20),
           tooltip: context.l10n.expandSidebar,
           onPressed: () => setState(() => _isSidebarCollapsed = false),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Tooltip(
+            message: context.l10n.appTitle,
+            child: Image.asset(
+              'assets/brand/sorour_logo_icon.png',
+              width: 26,
+              height: 26,
+              fit: BoxFit.contain,
+            ),
+          ),
         ),
         const Divider(color: Colors.white24, height: 10),
         Expanded(
@@ -723,14 +756,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           padding: const EdgeInsetsDirectional.fromSTEB(8, 8, 4, 2),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(Icons.local_shipping_rounded,
-                    color: Colors.white, size: 16),
+              Image.asset(
+                'assets/brand/sorour_logo_dark.png',
+                height: 32,
+                fit: BoxFit.contain,
               ),
               const SizedBox(width: 6),
               Expanded(

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
@@ -74,6 +76,112 @@ class ExportLanguageResolver {
       final englishBold = await PdfGoogleFonts.robotoBold();
       return pw.ThemeData.withFont(base: englishRegular, bold: englishBold);
     }
+  }
+
+  static pw.MemoryImage? _cachedWatermark;
+  static pw.MemoryImage? _cachedHeaderLogo;
+
+  /// Loads the official Sorour brand watermark image for subtle PDF page backgrounds.
+  static Future<pw.MemoryImage?> loadWatermarkImage() async {
+    if (_cachedWatermark != null) return _cachedWatermark;
+    try {
+      final bytes = await rootBundle.load('assets/brand/sorour_logo_watermark.png');
+      _cachedWatermark = pw.MemoryImage(bytes.buffer.asUint8List());
+      return _cachedWatermark;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Loads the official Sorour brand logo image for PDF headers.
+  static Future<pw.MemoryImage?> loadHeaderLogoImage() async {
+    if (_cachedHeaderLogo != null) return _cachedHeaderLogo;
+    try {
+      final bytes = await rootBundle.load('assets/brand/sorour_logo_dark.png');
+      _cachedHeaderLogo = pw.MemoryImage(bytes.buffer.asUint8List());
+      return _cachedHeaderLogo;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Builds a unified PageTheme with Cairo/Roboto typography and the Sorour background watermark.
+  Future<pw.PageTheme> getPdfPageTheme({
+    PdfPageFormat? pageFormat,
+    pw.MemoryImage? watermarkImage,
+  }) async {
+    final theme = await getPdfTheme();
+    final watermark = watermarkImage ?? await loadWatermarkImage();
+    final format = pageFormat ?? PdfPageFormat.a4;
+    return pw.PageTheme(
+      pageFormat: format,
+      theme: theme,
+      textDirection: pdfTextDirection,
+      buildBackground: (pw.Context ctx) {
+        if (watermark == null) return pw.SizedBox();
+        return pw.FullPage(
+          ignoreMargins: true,
+          child: pw.Center(
+            child: pw.Opacity(
+              opacity: 0.045,
+              child: pw.Image(
+                watermark,
+                width: (format.width > format.height) ? 320 : 250,
+                fit: pw.BoxFit.contain,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Builds the official Sorour brand header banner for PDF reports.
+  pw.Widget buildPdfHeaderBanner({
+    required String title,
+    String? subtitle,
+    pw.MemoryImage? logo,
+    pw.Widget? trailing,
+  }) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: pw.BoxDecoration(
+        color: PdfColor.fromHex('#0F386A'), // Sorour Navy
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              if (logo != null) ...[
+                pw.Image(logo, height: 28, fit: pw.BoxFit.contain),
+                pw.SizedBox(width: 10),
+              ],
+              pw.Column(
+                crossAxisAlignment: pdfCrossAlignStart,
+                children: [
+                  pw.Text(
+                    title,
+                    style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
+                  ),
+                  if (subtitle != null && subtitle.isNotEmpty) ...[
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      subtitle,
+                      style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
   }
 
   /// Builds a sanitized, language-specific file name.

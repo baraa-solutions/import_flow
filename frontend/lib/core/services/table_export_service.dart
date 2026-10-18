@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../export/export_language.dart';
+import '../export/export_language_resolver.dart';
 import '../export/widgets/export_language_dialog.dart';
 import '../helpers/table_copy_helper.dart';
 import 'file_save_helper.dart';
@@ -188,9 +189,11 @@ class TableExportService {
     final pdf = pw.Document();
     final isAr = lang?.isArabic ?? true;
 
-    // 1. Load Arabic Cairo fonts
+    // 1. Load Arabic Cairo fonts and Sorour brand assets
     final arabicFont = await PdfGoogleFonts.cairoRegular();
     final arabicBold = await PdfGoogleFonts.cairoBold();
+    final watermarkImage = await ExportLanguageResolver.loadWatermarkImage();
+    final headerLogoImage = await ExportLanguageResolver.loadHeaderLogoImage();
 
     // 2. Select landscape if table has > 5 columns for readability
     final effectiveFormat = pageFormat ?? (headers.length > 5 ? PdfPageFormat.a4.landscape : PdfPageFormat.a4);
@@ -209,6 +212,27 @@ class TableExportService {
         pageFormat: effectiveFormat,
         theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
         textDirection: isAr ? pw.TextDirection.rtl : pw.TextDirection.ltr,
+        pageTheme: pw.PageTheme(
+          pageFormat: effectiveFormat,
+          theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
+          textDirection: isAr ? pw.TextDirection.rtl : pw.TextDirection.ltr,
+          buildBackground: (pw.Context ctx) {
+            if (watermarkImage == null) return pw.SizedBox();
+            return pw.FullPage(
+              ignoreMargins: true,
+              child: pw.Center(
+                child: pw.Opacity(
+                  opacity: 0.045,
+                  child: pw.Image(
+                    watermarkImage,
+                    width: (effectiveFormat.width > effectiveFormat.height) ? 340 : 260,
+                    fit: pw.BoxFit.contain,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
         header: (pw.Context ctx) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -216,30 +240,40 @@ class TableExportService {
               pw.Container(
                 padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: pw.BoxDecoration(
-                  color: PdfColor.fromHex('#2C3E50'),
+                  color: PdfColor.fromHex('#0F386A'), // Sorour Navy
                   borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                 ),
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
                       children: [
-                        pw.Text(
-                          title,
-                          style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
-                        ),
-                        pw.SizedBox(height: 2),
-                        pw.Text(
-                          subtitle,
-                          style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
+                        if (headerLogoImage != null) ...[
+                          pw.Image(headerLogoImage, height: 28, fit: pw.BoxFit.contain),
+                          pw.SizedBox(width: 10),
+                        ],
+                        pw.Column(
+                          crossAxisAlignment: isAr ? pw.CrossAxisAlignment.start : pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              title,
+                              style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
+                            ),
+                            pw.SizedBox(height: 2),
+                            pw.Text(
+                              subtitle,
+                              style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                     if ((importFileNameOrCode ?? '').isNotEmpty)
                       pw.Text(
                         importFileNameOrCode!,
-                        style: pw.TextStyle(color: PdfColor.fromHex('#3498DB'), fontSize: 11, fontWeight: pw.FontWeight.bold),
+                        style: pw.TextStyle(color: PdfColor.fromHex('#88B6D2'), fontSize: 11, fontWeight: pw.FontWeight.bold),
                       ),
                   ],
                 ),
@@ -372,7 +406,7 @@ class TableExportService {
                 color: PdfColors.white,
               ),
               headerDecoration: pw.BoxDecoration(
-                color: PdfColor.fromHex('#34495E'),
+                color: PdfColor.fromHex('#074E8C'), // Sorour Deep Ocean Blue
               ),
               cellStyle: const pw.TextStyle(fontSize: 8),
               cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),

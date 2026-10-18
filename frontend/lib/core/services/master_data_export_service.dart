@@ -91,7 +91,7 @@ class MasterDataExportService {
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -139,7 +139,7 @@ class MasterDataExportService {
                     children: [
                       pw.Text(
                         company.importerName,
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#2C3E50')),
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#0F386A')),
                       ),
                       pw.SizedBox(height: 8),
                       pw.Row(
@@ -185,7 +185,7 @@ class MasterDataExportService {
                 // Registration & Expiry Table
                 pw.Text(
                   resolver.tr('reg_section_title'),
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50')),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#0F386A')),
                 ),
                 pw.SizedBox(height: 6),
                 pw.Table(
@@ -621,7 +621,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -672,7 +672,7 @@ Sorour Logistics ERP
                         children: [
                           pw.Text(
                             resolver.bidiIsolate(supplier.companyName),
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#2C3E50')),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#0F386A')),
                           ),
                           pw.Text(
                             '${resolver.tr('supplier_code')}: ${resolver.bidiIsolate(supplier.supplierCode)}',
@@ -710,7 +710,7 @@ Sorour Logistics ERP
                 // Platforms & Registrations Table
                 pw.Text(
                   resolver.tr('platforms_section_title'),
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50')),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#0F386A')),
                 ),
                 pw.SizedBox(height: 6),
                 pw.Table(
@@ -772,7 +772,7 @@ Sorour Logistics ERP
                 // Bank Details
                 pw.Text(
                   resolver.tr('bank_section_title'),
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50')),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#0F386A')),
                 ),
                 pw.SizedBox(height: 6),
                 pw.Container(
@@ -1163,7 +1163,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -1214,7 +1214,7 @@ Sorour Logistics ERP
                         children: [
                           pw.Text(
                             resolver.bidiIsolate(partner.partnerName),
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#2C3E50')),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#0F386A')),
                           ),
                           pw.Text(
                             '${resolver.tr('partner_code')}: ${resolver.bidiIsolate(partner.partnerCode)}',
@@ -1243,7 +1243,7 @@ Sorour Logistics ERP
                 // Professional Identifiers
                 pw.Text(
                   resolver.tr('licenses_section_title'),
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50')),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#0F386A')),
                 ),
                 pw.SizedBox(height: 6),
                 pw.Table(
@@ -1535,7 +1535,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -1585,7 +1585,7 @@ Sorour Logistics ERP
                         children: [
                           pw.Text(
                             incoterm.incotermName,
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#2C3E50')),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#0F386A')),
                           ),
                           pw.Container(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -1618,7 +1618,7 @@ Sorour Logistics ERP
                 // Responsibilities Table
                 pw.Text(
                   'مصفوفة توزيع بنود التكلفة والمسؤوليات التعاقدية:',
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50')),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#0F386A')),
                 ),
                 pw.SizedBox(height: 6),
                 if (termResponsibilities.isEmpty)
@@ -1839,7 +1839,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -1900,7 +1900,7 @@ Sorour Logistics ERP
                               ),
                               child: pw.Text(
                                 tariff.categoryLabelArabic ?? tariff.customsCategory!,
-                                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50')),
+                                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F386A')),
                               ),
                             ),
                         ],
@@ -1937,7 +1937,7 @@ Sorour Logistics ERP
                     ]
                   ],
                   headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.white),
-                  headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                  headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#0F386A')),
                   cellAlignment: pw.Alignment.center,
                   cellStyle: const pw.TextStyle(fontSize: 10),
                   cellPadding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
@@ -2134,7 +2134,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -2184,7 +2184,7 @@ Sorour Logistics ERP
                         children: [
                           pw.Text(
                             location.locationName,
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: PdfColor.fromHex('#2C3E50')),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: PdfColor.fromHex('#0F386A')),
                           ),
                           pw.Container(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -2338,7 +2338,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -2388,7 +2388,7 @@ Sorour Logistics ERP
                         children: [
                           pw.Text(
                             currency.currencyName,
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: PdfColor.fromHex('#2C3E50')),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: PdfColor.fromHex('#0F386A')),
                           ),
                           pw.Container(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -2444,7 +2444,7 @@ Sorour Logistics ERP
                     children: [
                       pw.Text(
                         'أسعار الصرف الحالية المعتمدة:',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2C3E50')),
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#0F386A')),
                       ),
                       pw.SizedBox(height: 8),
                       pw.Row(
@@ -2505,7 +2505,7 @@ Sorour Logistics ERP
                 if (currency.exchangeRates != null && currency.exchangeRates!.isNotEmpty) ...[
                   pw.Text(
                     'السجل التاريخي لأسعار الصرف السابقة:',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2C3E50')),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#0F386A')),
                   ),
                   pw.SizedBox(height: 6),
                   pw.TableHelper.fromTextArray(
@@ -2521,7 +2521,7 @@ Sorour Logistics ERP
                       ];
                     }).toList(),
                     headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.white),
-                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#0F386A')),
                     cellAlignment: pw.Alignment.centerLeft,
                     cellStyle: const pw.TextStyle(fontSize: 8),
                     cellPadding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -2641,7 +2641,7 @@ Sorour Logistics ERP
       case 'RESTORE':
         return PdfColor.fromHex('#E67E22');
       default:
-        return PdfColor.fromHex('#2C3E50');
+        return PdfColor.fromHex('#0F386A');
     }
   }
 
@@ -2664,7 +2664,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(14),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
                   ),
                   child: pw.Row(
@@ -2864,7 +2864,7 @@ Sorour Logistics ERP
                   pw.Container(
                     padding: const pw.EdgeInsets.all(12),
                     decoration: pw.BoxDecoration(
-                      color: PdfColor.fromHex('#2C3E50'),
+                      color: PdfColor.fromHex('#0F386A'),
                       borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                     ),
                     child: pw.Row(
@@ -2899,7 +2899,7 @@ Sorour Logistics ERP
                       ];
                     }).toList(),
                     headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.white),
-                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#0F386A')),
                     cellAlignment: pw.Alignment.centerLeft,
                     cellStyle: const pw.TextStyle(fontSize: 8),
                     cellPadding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
@@ -3044,7 +3044,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -3114,7 +3114,7 @@ Sorour Logistics ERP
                         ],
                       ),
                       pw.SizedBox(height: 8),
-                      pw.Text('عنوان المهمة: ${task.title}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#2C3E50'))),
+                      pw.Text('عنوان المهمة: ${task.title}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#0F386A'))),
                       if (task.description != null && task.description!.isNotEmpty) ...[
                         pw.SizedBox(height: 6),
                         pw.Text('الوصف والمتطلبات: ${task.description}', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey800)),
@@ -3245,7 +3245,7 @@ Sorour Logistics ERP
                   pw.Container(
                     padding: const pw.EdgeInsets.all(12),
                     decoration: pw.BoxDecoration(
-                      color: PdfColor.fromHex('#2C3E50'),
+                      color: PdfColor.fromHex('#0F386A'),
                       borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                     ),
                     child: pw.Row(
@@ -3282,7 +3282,7 @@ Sorour Logistics ERP
                       ];
                     }).toList(),
                     headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.white),
-                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#0F386A')),
                     cellAlignment: pw.Alignment.centerLeft,
                     cellStyle: const pw.TextStyle(fontSize: 8),
                     cellPadding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
@@ -3748,7 +3748,7 @@ Sorour Logistics ERP
                   },
                   children: [
                     pw.TableRow(
-                      decoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                      decoration: pw.BoxDecoration(color: PdfColor.fromHex('#0F386A')),
                       children: headers.map((h) => pw.Padding(
                         padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 5),
                         child: pw.Text(
@@ -3770,7 +3770,7 @@ Sorour Logistics ERP
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-                            child: pw.Text(log.updateCode, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50')), textAlign: isAr ? pw.TextAlign.right : pw.TextAlign.left),
+                            child: pw.Text(log.updateCode, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F386A')), textAlign: isAr ? pw.TextAlign.right : pw.TextAlign.left),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
@@ -3857,7 +3857,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -4071,7 +4071,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -4201,7 +4201,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -4366,7 +4366,7 @@ Sorour Logistics ERP
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('${isAr ? "المقيّم المسؤول" : "Assessed By"}: ${req.assessedBy}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50'))),
+                    pw.Text('${isAr ? "المقيّم المسؤول" : "Assessed By"}: ${req.assessedBy}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F386A'))),
                     pw.Text('${isAr ? "تاريخ التقييم" : "Date"}: ${req.createdAt.toString().split(".")[0]}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
                     pw.Text(isAr ? 'سرور للخدمات اللوجستية — نظام الالتزام الاستيرادي' : 'Sorour Logistics ERP System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
                   ],
@@ -4514,7 +4514,7 @@ _Generated via Sorour Logistics ERP_
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -4648,7 +4648,7 @@ _Generated via Sorour Logistics ERP_
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -4852,7 +4852,7 @@ _Generated via Sorour Logistics ERP_
                   children: [
                     pw.Text(
                       isAr ? 'قسم اللوجستيات وحسابات الشحن — اعتماد المحاسب المسؤول' : 'Logistics & Freight Accounting — Verified by Operations',
-                      style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50')),
+                      style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F386A')),
                     ),
                     pw.Text(
                       '${isAr ? "تاريخ الإصدار" : "Issued"}: ${DateTime.now().toString().split(".")[0]}',
