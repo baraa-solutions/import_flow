@@ -183,8 +183,20 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
     # Determine original quote amount
     orig_quote_total = float(quot_data.get("original_quote_total_usd") or 0.0)
     if orig_quote_total <= 0.0:
-        if scenario_item and scenario_item.total_quotation_amount:
-            orig_quote_total = float(scenario_item.total_quotation_amount)
+        if scenario_item:
+            from modules.shipping_scenarios.service import scenario_item_totals
+            conf_date = getattr(booking, "booking_confirmation_date", None)
+            ref_date = conf_date.date() if hasattr(conf_date, "date") else (conf_date or date.today())
+            _, frt_amt = scenario_item_totals(db, scenario_item, ref_date)
+            sc_curr = (scenario_item.quotation_currency or "USD").upper().strip()
+            if sc_curr == "USD":
+                orig_quote_total = frt_amt
+            else:
+                from modules.financial_settlement.service import SettlementFx
+                fx = SettlementFx(db, "commercial")
+                rate_from = fx.rate(sc_curr, ref_date)
+                rate_usd = fx.rate("USD", ref_date)
+                orig_quote_total = round(frt_amt * (rate_from / rate_usd), 2)
         elif booking.original_freight_cost_usd and booking.original_freight_cost_usd > 0:
             orig_quote_total = float(booking.original_freight_cost_usd)
 

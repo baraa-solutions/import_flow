@@ -1371,6 +1371,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "CCQ_QUOTE_EXPIRED": {"note": "The quotation expired on {validity_date}."},
     "CCQ_AWARDED_QUOTE_DELETE": {"note": "The awarded quotation cannot be deleted."},
     "CCQ_PRICE_LIST_DATE_RANGE": {"note": "The validity start {effective_from} is after its end {effective_to}."},
+    "SS_FX_RATE_MISSING": {
+        "note": "No commercial exchange rate found for currency {currency} on date {on_date}.",
+    },
     # ── 08-10 Warehouse receiving (WR), inland transport (IT), file closure (FC) (validators.coded_error) ──
     "WR_GRN_EXISTS": {"note": "An active goods receipt note ({grn_code}) already exists for this import file."},
     "WR_GRN_LINE_UNBALANCED": {
