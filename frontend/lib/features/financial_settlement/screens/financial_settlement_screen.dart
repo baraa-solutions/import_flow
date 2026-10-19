@@ -12,6 +12,7 @@ import '../../../core/widgets/buttons/icon_action_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/financial_settlement_model.dart';
@@ -374,7 +375,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
     );
   }
 
-  void _openGlobalDialog({required bool actualCost}) {
+  Future<void> _openGlobalDialog({required bool actualCost}) async {
     final l10n = context.l10n;
     final files = ref.read(importFilesProvider).valueOrNull ?? [];
     if (files.isEmpty) {
@@ -387,17 +388,80 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
       );
       return;
     }
+
+    int? selectedFileId;
+    final formKey = GlobalKey<FormState>();
+
+    final chosen = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(l10n.settlementPickFileTitle),
+          content: SizedBox(
+            width: 450,
+            child: Form(
+              key: formKey,
+              child: SearchableDropdownField<int>(
+                key: const Key('settlementPickFileField'),
+                value: selectedFileId,
+                labelText: l10n.settlementPickFileField,
+                items: files.map((f) {
+                  final label = f.companyName.isNotEmpty
+                      ? '${f.primaryNameWithCode} - ${f.companyName}'
+                      : f.primaryNameWithCode;
+                  return SearchableDropdownItem<int>(
+                    value: f.importFileId,
+                    label: label,
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  setDialogState(() {
+                    selectedFileId = val;
+                  });
+                },
+                validator: (v) =>
+                    v == null ? l10n.financialSettlementImportFileValidator : null,
+              ),
+            ),
+          ),
+          actions: [
+            AppButton(
+              label: l10n.cancel,
+              variant: AppButtonVariant.secondary,
+              onPressed: () => Navigator.of(dialogCtx).pop(false),
+            ),
+            AppButton(
+              key: const Key('settlementPickFileContinueBtn'),
+              label: l10n.settlementPickFileContinue,
+              variant: AppButtonVariant.primary,
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.of(dialogCtx).pop(true);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (chosen != true || selectedFileId == null || !mounted) {
+      return;
+    }
+
+    final chosenFile = files.firstWhere((f) => f.importFileId == selectedFileId);
+
     if (actualCost) {
       ActualLandedCostDialog.show(
         context,
-        importFileId: files.first.importFileId,
-        importFileCode: files.first.importFileCode,
+        importFileId: chosenFile.importFileId,
+        importFileCode: chosenFile.importFileCode,
       );
     } else {
       FinalSettlementInvoicesDialog.show(
         context,
-        importFileId: files.first.importFileId,
-        importFileCode: files.first.importFileCode,
+        importFileId: chosenFile.importFileId,
+        importFileCode: chosenFile.importFileCode,
       );
     }
   }
