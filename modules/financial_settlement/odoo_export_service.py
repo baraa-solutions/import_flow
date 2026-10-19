@@ -100,21 +100,60 @@ def generate_odoo_journal_entry_service(
 
     lines: List[OdooJournalLineItem] = []
 
-    # 1. DEBIT: Total Landed Cost -> Goods in Transit / Inventory Valuation Account
+    expense_invoices = settlement.expense_invoices or []
+
+    # ACC2-T13: Calculate tax aggregates for tax-aware accounting
+    total_customs_vat_egp = 0.0
+    total_vendor_vat_egp = 0.0
+    if config.import_vat_recoverable:
+        for exp in expense_invoices:
+            if _is_seller_paid(exp):
+                continue
+            amt = round(float(exp.get("amount_egp") or 0.0), 2)
+            if amt == 0:
+                amt = round((float(exp.get("amount_fx") or 0.0)) * (float(exp.get("exchange_rate") or 1.0)), 2)
+            duty_comp = exp.get("duty_component")
+            cat = (exp.get("category") or "").strip()
+            if duty_comp in ("vat_amount", "schedule_tax_amount") or (cat == "VAT" and duty_comp):
+                total_customs_vat_egp += amt
+            v_vat = float(exp.get("vat_amount_egp") or 0.0)
+            if v_vat > 0:
+                total_vendor_vat_egp += v_vat
+
+    total_vat_input = round(total_customs_vat_egp + total_vendor_vat_egp, 2)
+
+    # 1. DEBIT: Total Landed Cost (net of recoverable VAT if flagged) -> Inventory Valuation Account
     total_landed_cost = round(settlement.total_landed_cost_egp, 2)
+    inventory_debit = round(total_landed_cost - (total_vat_input if config.import_vat_recoverable else 0.0), 2)
     lines.append(
         OdooJournalLineItem(
             account_code=config.inventory_account_code,
             account_name=config.inventory_account_name,
             partner_name=company_name,
             label=f"إثبات تكلفة وصول الشحنة الإجمالية (Landed Cost) - ملف {file_code}",
-            debit=total_landed_cost,
+            debit=inventory_debit,
             credit=0.0,
             currency="EGP",
             analytic_account=project_name,
             cost_category="Goods",
         )
     )
+
+    # 1b. DEBIT: Recoverable Import & Vendor VAT Input (ACC2-T13)
+    if config.import_vat_recoverable and total_vat_input > 0:
+        lines.append(
+            OdooJournalLineItem(
+                account_code=config.vat_input_account_code,
+                account_name=config.vat_input_account_name,
+                partner_name="مصلحة الضرائب المصرية",
+                label=f"ضريبة القيمة المضافة مدخلات قابلة للخصم (VAT Input) - ملف {file_code}",
+                debit=total_vat_input,
+                credit=0.0,
+                currency="EGP",
+                analytic_account=project_name,
+                cost_category="Tax",
+            )
+        )
 
     # 2. CREDIT: Foreign Supplier Payable (FOB Value)
     total_fob_egp = round(settlement.total_fob_egp, 2)
@@ -136,7 +175,6 @@ def generate_odoo_journal_entry_service(
     # 3. CREDIT: Breakdown of Actual Expense Invoices
     # Categorizes freight, customs, clearance, transport, demurrage, and adjustments. Seller-paid rows are left
     # out exactly like the engine leaves them out of the debited landed cost (FS-14).
-    expense_invoices = settlement.expense_invoices or []
     for exp in expense_invoices:
         if _is_seller_paid(exp):
             continue
@@ -149,9 +187,15 @@ def generate_odoo_journal_entry_service(
 
         if amount_egp == 0:
             continue
+
+        wht_amt = round(float(exp.get("wht_amount_egp") or 0.0), 2)
         # A negative row (downward recalculation adjustment) reduces the payable: posted as a debit.
         debit_egp = -amount_egp if amount_egp < 0 else 0.0
-        credit_egp = amount_egp if amount_egp > 0 else 0.0
+        if wht_amt > 0 and amount_egp > 0:
+            net_payable = round(float(exp.get("net_payable_egp") or (amount_egp - wht_amt)), 2)
+            credit_egp = net_payable
+        else:
+            credit_egp = amount_egp if amount_egp > 0 else 0.0
 
         cost_cat = classify_odoo_cost_category(category)
         if cost_cat == "Freight":
@@ -183,6 +227,9 @@ def generate_odoo_journal_entry_service(
             acct_name = f"مصروفات استيراد متنوعة - {provider}"
             desc_label = f"مصروفات استيرادية {enum_codes.label_en(enum_codes.CLEARANCE_EXPENSE_CATEGORY, category)} فاتورة {inv_no} - {provider}"
 
+        if wht_amt > 0 and credit_egp > 0:
+            desc_label = f"{desc_label} (صافي بعد استقطاع ضريبة أرباح {wht_amt:,.2f})"
+
         # amount_currency is the foreign amount: the currency column names that currency (Odoo semantics).
         inv_currency = (exp.get("currency") or "EGP").upper()
         # Odoo: amount_currency carries the sign of the line balance (credit = negative, debit = positive).
@@ -202,6 +249,21 @@ def generate_odoo_journal_entry_service(
                 cost_category=cost_cat,
             )
         )
+
+        if wht_amt > 0 and credit_egp > 0:
+            lines.append(
+                OdooJournalLineItem(
+                    account_code=config.wht_payable_account_code,
+                    account_name=config.wht_payable_account_name,
+                    partner_name="مصلحة الضرائب المصرية - خصم وتحصيل",
+                    label=f"ضريبة خصم وتحصيل من المنبع مستحقة عن فاتورة {inv_no} - {provider}",
+                    debit=0.0,
+                    credit=wht_amt,
+                    currency="EGP",
+                    analytic_account=project_name,
+                    cost_category="Tax",
+                )
+            )
 
     # Balance Calculation
     total_debit = round(sum(l.debit for l in lines), 2)

@@ -15,6 +15,7 @@ from modules.financial_settlement.schemas import (
     FinancialSettlementCreate,
     ExpenseInvoiceSchema,
     ItemLandedCostSchema,
+    OdooExportConfig,
 )
 from modules.financial_settlement.service import create_settlement_service
 from modules.financial_settlement.odoo_export_service import (
@@ -341,3 +342,116 @@ def test_acc2_t02_odoo_clearance_categories_accounts(db_session):
 
     freight_lines = [l for l in entry.lines if l.account_code == "210200"]
     assert len(freight_lines) == 0
+
+
+def test_acc2_t13_tax_aware_journal_flag(db_session):
+    """
+    ACC2-T13: Tax-aware Odoo Journal Entry with import_vat_recoverable=True.
+    Validates:
+    - 500k FOB + 100k Duty + 150k Customs VAT + 11.4k Broker (10k base + 1.4k VAT - 300 WHT) = 761.4k
+    - Dr Inventory = 610,000 (net of recoverable VAT: 761,400 - 151,400)
+    - Dr VAT Input = 151,400 (150k customs VAT + 1.4k broker VAT)
+    - Cr Supplier = 500,000
+    - Cr Customs Authority = 250,000 (100k duty + 150k VAT)
+    - Cr Broker Net Payable = 11,100
+    - Cr WHT Payable = 300
+    - Total debits (761,400) == Total credits (761,400), balanced down to 0.00 difference.
+    """
+    imp_file = ImportFile(
+        import_file_code="IMP-TAX-2026-01",
+        company_name="المصرية للصناعات المتطورة",
+        supplier_name="Bavaria Machinery GmbH",
+        project_names="Factory Line 2",
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+    db_session.refresh(imp_file)
+
+    payload = FinancialSettlementCreate(
+        import_file_id=imp_file.import_file_id,
+        expense_invoices=[
+            ExpenseInvoiceSchema(
+                invoice_no="DECL46-9901/import_duty_amount",
+                category="Customs Duty",
+                provider_name="Egyptian Customs Authority",
+                currency="EGP",
+                amount_fx=100000.0,
+                exchange_rate=1.0,
+                amount_egp=100000.0,
+                duty_component="import_duty_amount",
+                allocation_rule="Value-Based",
+            ),
+            ExpenseInvoiceSchema(
+                invoice_no="DECL46-9901/vat_amount",
+                category="VAT",
+                provider_name="Egyptian Customs Authority",
+                currency="EGP",
+                amount_fx=150000.0,
+                exchange_rate=1.0,
+                amount_egp=150000.0,
+                duty_component="vat_amount",
+                allocation_rule="Value-Based",
+            ),
+            ExpenseInvoiceSchema(
+                invoice_no="INV-BRK-880",
+                category="Brokerage",
+                provider_name="El-Nour Customs Broker",
+                currency="EGP",
+                amount_fx=11400.0,
+                exchange_rate=1.0,
+                amount_egp=11400.0,
+                vat_amount_egp=1400.0,
+                wht_amount_egp=300.0,
+                net_payable_egp=11100.0,
+                allocation_rule="Value-Based",
+            ),
+        ],
+        item_landed_costs=[
+            ItemLandedCostSchema(
+                item_code="MACH-001",
+                item_name="Industrial CNC Machine",
+                qty=1,
+                fob_unit_egp=500000.0,
+                fob_total_egp=500000.0,
+            ),
+        ],
+        accountant_name="Senior Accountant",
+    )
+    settlement = create_settlement_service(db_session, payload)
+
+    config = OdooExportConfig(
+        import_vat_recoverable=True,
+        inventory_account_code="110400",
+        vat_input_account_code="110500",
+        supplier_account_code="210100",
+        customs_authority_account_code="210500",
+        customs_broker_account_code="210300",
+        wht_payable_account_code="210900",
+    )
+    entry = generate_odoo_journal_entry_service(db_session, settlement.settlement_id, config=config)
+
+    assert entry.is_balanced is True
+    assert entry.difference == 0.0
+    assert entry.total_debit == 761400.0
+    assert entry.total_credit == 761400.0
+
+    # Debits:
+    inv_line = next(l for l in entry.lines if l.account_code == "110400")
+    assert inv_line.debit == 610000.0
+
+    vat_input_line = next(l for l in entry.lines if l.account_code == "110500")
+    assert vat_input_line.debit == 151400.0
+
+    # Credits:
+    sup_line = next(l for l in entry.lines if l.account_code == "210100")
+    assert sup_line.credit == 500000.0
+
+    customs_lines = [l for l in entry.lines if l.account_code == "210500"]
+    assert sum(l.credit for l in customs_lines) == 250000.0
+
+    broker_line = next(l for l in entry.lines if l.account_code == "210300")
+    assert broker_line.credit == 11100.0
+
+    wht_line = next(l for l in entry.lines if l.account_code == "210900")
+    assert wht_line.credit == 300.0
+

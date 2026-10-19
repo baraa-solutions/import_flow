@@ -29,6 +29,7 @@ from .schemas import (
     EstimatedLandedCostExpenseItem,
     SettlementMessage,
     RECALC_ADJUSTMENT_PREFIX,
+    CustomsDutyComponentSchema,
 )
 from .repository import (
     add_with_new_code,
@@ -611,6 +612,16 @@ DUTY_COMPONENT_CATEGORIES = (
     ("wht_amount", "Taxes"),
     ("lab_service_fees", "Clearance"),
 )
+
+CUSTOMS_COMPONENT_BUCKET = {
+    "import_duty_amount": "Customs Duty",
+    "vat_amount": "VAT & Taxes",
+    "schedule_tax_amount": "VAT & Taxes",
+    "development_fee_amount": "VAT & Taxes",
+    "customs_service_fees": "VAT & Taxes",
+    "wht_amount": "VAT & Taxes",
+    "lab_service_fees": "Clearance & Port",
+}
 
 
 def _duty_row(clearance: Any, category: str, amount: float, component: str) -> Dict[str, Any]:
@@ -1695,6 +1706,15 @@ def aggregate_shipment_invoices_service(
             has_customs_inv = True
             rem = max(0.0, c_duty - paid)
             p_stat = "PAID" if rem == 0 else ("PARTIAL" if paid > 0 else "UNPAID")
+            customs_components: List[CustomsDutyComponentSchema] = []
+            for field_name, cat in DUTY_COMPONENT_CATEGORIES:
+                val = float(getattr(cl, field_name, 0.0) or 0.0)
+                if val > 0:
+                    customs_components.append(CustomsDutyComponentSchema(
+                        component=field_name,
+                        category=cat,
+                        amount_egp=val,
+                    ))
             invoices.append(AggregatedInvoiceItemSchema(
                 invoice_id=f"CUST-{cl.customs_clearance_id}",
                 invoice_no=cl.sadad_number or cl.declaration_46_no or cl.bank_receipt_no or f"DECL46-{imp.import_file_code}",
@@ -1717,6 +1737,7 @@ def aggregate_shipment_invoices_service(
                 net_payable_egp=c_duty,
                 source_module="Customs Declaration 46",
                 notes=f"سداد جمركي إقرار 46 رقم {cl.declaration_46_no or 'سداد'}",
+                components=customs_components,
             ))
 
         # Delivery order fees (converted at the delivery order date when not in EGP, FS-10)
@@ -2377,9 +2398,15 @@ def _calculate_actual_landed_cost(
     }
 
     for inv in expense_invoices:
-        bucket = actual_expense_bucket(inv.category, inv.party_type)
-        cat_expenses[bucket]["actual"] += float(inv.amount_egp or 0.0)
-        cat_expenses[bucket]["count"] += 1
+        if inv.components:
+            for comp in inv.components:
+                b = CUSTOMS_COMPONENT_BUCKET.get(comp.component, actual_expense_bucket(comp.category, inv.party_type))
+                cat_expenses[b]["actual"] += float(comp.amount_egp or 0.0)
+                cat_expenses[b]["count"] += 1
+        else:
+            bucket = actual_expense_bucket(inv.category, inv.party_type)
+            cat_expenses[bucket]["actual"] += float(inv.amount_egp or 0.0)
+            cat_expenses[bucket]["count"] += 1
 
     actual_total_expenses_egp = sum(c["actual"] for c in cat_expenses.values())
     actual_total_landed_cost_egp = actual_total_fob_egp + actual_total_expenses_egp
@@ -2697,6 +2724,10 @@ def settlement_expense_row(inv: AggregatedInvoiceItemSchema, allocation_rule: st
         "party_type": inv.party_type,
         "invoice_date": inv.invoice_date,
         "source_module": inv.source_module,
+        "vat_amount_egp": round(float(getattr(inv, "vat_amount_egp", 0.0) or 0.0), 2),
+        "wht_amount_egp": round(float(getattr(inv, "withholding_tax_amount_egp", 0.0) or 0.0), 2),
+        "net_payable_egp": round(float(getattr(inv, "net_payable_egp", inv.amount_egp) or 0.0), 2),
+        "duty_component": getattr(inv, "duty_component", None),
     }
 
 
@@ -2762,10 +2793,36 @@ def approve_actual_landed_cost_service(
 
     rules_used = {c.category: c.allocation_rule for c in calc.categories_breakdown}
     items_json = [settlement_item_row(itm) for itm in calc.items_breakdown]
-    expenses_json = [
-        settlement_expense_row(inv, rules_used.get(actual_expense_bucket(inv.category, inv.party_type), "Value-Based"))
-        for inv in expense_invoices
-    ]
+    expenses_json = []
+    for inv in expense_invoices:
+        if inv.components:
+            for comp in inv.components:
+                comp_bucket = CUSTOMS_COMPONENT_BUCKET.get(comp.component, actual_expense_bucket(comp.category, inv.party_type))
+                rule = rules_used.get(comp_bucket, rules_used.get(comp.category, "Value-Based"))
+                expenses_json.append({
+                    "invoice_no": f"{inv.invoice_no}/{comp.component}",
+                    "category": comp.category,
+                    "duty_component": comp.component,
+                    "provider_name": inv.party_name,
+                    "currency": "EGP",
+                    "amount_fx": 0.0,
+                    "exchange_rate": 1.0,
+                    "amount_egp": round(float(comp.amount_egp or 0.0), 2),
+                    "allocation_rule": rule,
+                    "bucket": comp_bucket,
+                    "source_category": comp.category,
+                    "category_code": inv.category_code,
+                    "party_type": inv.party_type,
+                    "invoice_date": inv.invoice_date,
+                    "source_module": inv.source_module,
+                    "is_seller_paid": False,
+                    "payer": "Importer",
+                    "note": f"Declaration 46 component {comp.component}",
+                })
+        else:
+            expenses_json.append(
+                settlement_expense_row(inv, rules_used.get(actual_expense_bucket(inv.category, inv.party_type), "Value-Based"))
+            )
 
     if not settlement:
         settlement = LandedCostSettlementRecord(

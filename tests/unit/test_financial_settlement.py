@@ -1073,6 +1073,129 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(item_res_b.allocated_clearance_egp, 1000.0)
         self.assertEqual(item_res_b.allocated_freight_egp, 0.0)
 
+    def test_acc2_t03_declaration_46_component_splitting(self):
+        """
+        ACC2-T03: Customs Declaration 46 Duty Component Splitting.
+        Validates:
+        - Declaration 46 with components (100k duty, 120k vat, 15k sched tax, 10k dev fee, 5k svc fees = 250k)
+        - aggregate_shipment_invoices_service populates components on the AggregatedInvoiceItemSchema
+        - calculate_actual_landed_cost_service splits actual expenses into Customs Duty (100k) and VAT & Taxes (150k)
+        - approve_actual_landed_cost_service records itemized expense rows for each duty component.
+        """
+        from modules.financial_settlement.service import (
+            aggregate_shipment_invoices_service,
+            calculate_actual_landed_cost_service,
+            approve_actual_landed_cost_service,
+        )
+        from modules.financial_settlement.schemas import (
+            ActualLandedCostCalculationRequest,
+            ApproveActualLandedCostRequest,
+        )
+
+        imp = ImportFile(
+            import_file_code="IMP-DEC46-03",
+            company_name="Alpha Tech Imports",
+            supplier_name="Global Supplier Co.",
+            status="OPEN",
+            is_active=True,
+        )
+        self.db.add(imp)
+        self.db.commit()
+        self.db.refresh(imp)
+
+        egp_curr = self.db.query(Currency).filter(Currency.currency_code == "EGP").first()
+        if not egp_curr:
+            egp_curr = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_active=True)
+            self.db.add(egp_curr)
+            self.db.flush()
+
+        po = PurchaseOrder(
+            po_number="PO-DEC46-03",
+            import_file_id=imp.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            project_id=1,
+            incoterm_id=1,
+            currency_id=egp_curr.currency_id,
+            total_amount_fob=100000.0,
+            exchange_rate=1.0,
+        )
+        self.db.add(po)
+        self.db.commit()
+        self.db.refresh(po)
+
+        item = POLineItem(
+            po_id=po.po_id,
+            item_code="ITM-D46",
+            description_ar="وحدة تصنيع",
+            description_en="Manufacturing Unit",
+            quantity=1.0,
+            unit_price=100000.0,
+            total_price=100000.0,
+        )
+        self.db.add(item)
+        self.db.commit()
+
+        cl = CustomsClearanceRecord(
+            clearance_code="CLR-DEC46-03",
+            import_file_id=imp.import_file_id,
+            broker_name="Customs Broker Express",
+            declaration_46_no="DEC-46-88899",
+            actual_duty_total=250000.0,
+            import_duty_amount=100000.0,
+            vat_amount=120000.0,
+            schedule_tax_amount=15000.0,
+            development_fee_amount=10000.0,
+            customs_service_fees=5000.0,
+            duty_paid_amount=250000.0,
+        )
+        self.db.add(cl)
+        self.db.commit()
+        self.db.refresh(cl)
+
+        # 1. Test Aggregation (CLO-01)
+        agg = aggregate_shipment_invoices_service(self.db, imp.import_file_id)
+        cust_inv = next(inv for inv in agg.invoices if inv.invoice_id == f"CUST-{cl.customs_clearance_id}")
+        self.assertEqual(len(cust_inv.components), 5)
+        comp_map = {c.component: c.amount_egp for c in cust_inv.components}
+        self.assertEqual(comp_map["import_duty_amount"], 100000.0)
+        self.assertEqual(comp_map["vat_amount"], 120000.0)
+        self.assertEqual(comp_map["schedule_tax_amount"], 15000.0)
+        self.assertEqual(comp_map["development_fee_amount"], 10000.0)
+        self.assertEqual(comp_map["customs_service_fees"], 5000.0)
+
+        # 2. Test Calculation (CLO-02)
+        calc = calculate_actual_landed_cost_service(
+            self.db,
+            imp.import_file_id,
+            ActualLandedCostCalculationRequest(allocation_preference="Value-Based"),
+        )
+        cats = {c.category: c.actual_egp for c in calc.categories_breakdown}
+        self.assertEqual(cats["Customs Duty"], 100000.0)
+        self.assertEqual(cats["VAT & Taxes"], 150000.0)
+
+        # 3. Test Approval
+        approve_res = approve_actual_landed_cost_service(
+            self.db,
+            ApproveActualLandedCostRequest(
+                import_file_id=imp.import_file_id,
+                allocation_preference="Value-Based",
+                notes="Approved test declaration 46 components",
+            ),
+            actor="test_officer",
+        )
+        from modules.financial_settlement.service import get_settlement_by_import_file_id
+        settlement = get_settlement_by_import_file_id(self.db, imp.import_file_id)
+        self.assertIsNotNone(settlement)
+        comp_expenses = [e for e in settlement.expense_invoices if e.get("duty_component")]
+        self.assertEqual(len(comp_expenses), 5)
+        duty_expense = next(e for e in comp_expenses if e["duty_component"] == "import_duty_amount")
+        self.assertEqual(duty_expense["amount_egp"], 100000.0)
+        self.assertEqual(duty_expense["bucket"], "Customs Duty")
+        vat_expense = next(e for e in comp_expenses if e["duty_component"] == "vat_amount")
+        self.assertEqual(vat_expense["amount_egp"], 120000.0)
+        self.assertEqual(vat_expense["bucket"], "VAT & Taxes")
+
 
 if __name__ == "__main__":
     unittest.main()
