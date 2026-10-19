@@ -1196,6 +1196,235 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(vat_expense["amount_egp"], 120000.0)
         self.assertEqual(vat_expense["bucket"], "VAT & Taxes")
 
+    def test_acc2_t09_bp038_allocation_basis_completeness(self):
+        """
+        ACC2-T09: Allocation bases per BP-038 with a completeness rule.
+        Validates:
+        1. When items A (CBM 10, FOB 60k) and B (CBM 0, FOB 40k) have a missing CBM on B:
+           - Ocean freight 20,000 EGP intended Volume-Based falls back to Value-Based
+           - Rule reported is Value-Based
+           - Allocated freight: A gets 12,000.00, B gets 8,000.00 (not A 20k, B 0)
+           - Message ALLOCATION_BASIS_INCOMPLETE emitted naming ITM-B.
+        2. When both items have CBM (A 10, B 30):
+           - Demurrage 4,000 EGP allocates Volume-Based: A gets 1,000.00, B gets 3,000.00.
+        """
+        from modules.financial_settlement.service import (
+            calculate_actual_landed_cost_service,
+            confirm_invoices_settlement_service,
+        )
+        from modules.financial_settlement.schemas import (
+            ActualLandedCostCalculationRequest,
+            ConfirmInvoicesSettlementRequest,
+        )
+        from modules.customs_clearance.model import ClearanceExpenseInvoice
+
+        # 1. Incomplete CBM scenario: Item A CBM 10, Item B CBM 0
+        imp1 = ImportFile(
+            import_file_code="IMP-BP038-01",
+            company_name="BP038 Test Co.",
+            supplier_name="Global Shipper",
+            shipment_mode="Sea FCL",
+            status="OPEN",
+            is_active=True,
+        )
+        self.db.add(imp1)
+        self.db.commit()
+        self.db.refresh(imp1)
+
+        egp_curr = self.db.query(Currency).filter(Currency.currency_code == "EGP").first()
+        if not egp_curr:
+            egp_curr = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_active=True)
+            self.db.add(egp_curr)
+            self.db.flush()
+
+        po1 = PurchaseOrder(
+            po_number="PO-BP038-01",
+            import_file_id=imp1.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            project_id=1,
+            incoterm_id=1,
+            currency_id=egp_curr.currency_id,
+            total_amount_fob=100000.0,
+            exchange_rate=1.0,
+        )
+        self.db.add(po1)
+        self.db.commit()
+        self.db.refresh(po1)
+
+        item1_a = POLineItem(
+            po_id=po1.po_id,
+            item_code="ITM-A",
+            description_ar="صنف أ",
+            description_en="Item A",
+            quantity=1.0,
+            unit_price=60000.0,
+            total_price=60000.0,
+            total_cbm=10.0,
+            gross_weight_kg=100.0,
+        )
+        item1_b = POLineItem(
+            po_id=po1.po_id,
+            item_code="ITM-B",
+            description_ar="صنف ب",
+            description_en="Item B",
+            quantity=1.0,
+            unit_price=40000.0,
+            total_price=40000.0,
+            total_cbm=0.0,  # Missing CBM!
+            gross_weight_kg=100.0,
+        )
+        self.db.add_all([item1_a, item1_b])
+        self.db.commit()
+
+        # Freight invoice: 20,000 EGP
+        cl1 = CustomsClearanceRecord(
+            clearance_code="CLR-BP038-01",
+            import_file_id=imp1.import_file_id,
+            broker_name="Broker Sea",
+            actual_duty_total=0.0,
+        )
+        self.db.add(cl1)
+        self.db.commit()
+        self.db.refresh(cl1)
+
+        freight_inv = ClearanceExpenseInvoice(
+            invoice_code="INV-FRT-BP038-01",
+            import_file_id=imp1.import_file_id,
+            customs_clearance_id=cl1.customs_clearance_id,
+            provider_name="Sea Shipping Line",
+            invoice_number="FRT-01",
+            expense_category="OCEAN_FREIGHT",
+            amount_egp=20000.0,
+            currency="EGP",
+            payment_status="Paid",
+            is_active=True,
+        )
+        self.db.add(freight_inv)
+        self.db.commit()
+
+        confirm_invoices_settlement_service(
+            self.db,
+            ConfirmInvoicesSettlementRequest(import_file_id=imp1.import_file_id),
+            actor="test_user",
+        )
+
+        calc1 = calculate_actual_landed_cost_service(
+            self.db,
+            imp1.import_file_id,
+            ActualLandedCostCalculationRequest(allocation_preference="Value-Based"),
+        )
+
+        frt_cat = next(c for c in calc1.categories_breakdown if c.category == "Freight")
+        self.assertEqual(frt_cat.allocation_rule, "Value-Based")
+        res_a = next(i for i in calc1.items_breakdown if i.item_code == "ITM-A")
+        res_b = next(i for i in calc1.items_breakdown if i.item_code == "ITM-B")
+        self.assertEqual(res_a.allocated_freight_egp, 12000.0)
+        self.assertEqual(res_b.allocated_freight_egp, 8000.0)
+
+        incomplete_msgs = [m for m in calc1.messages if m.code == "ALLOCATION_BASIS_INCOMPLETE"]
+        self.assertTrue(len(incomplete_msgs) > 0)
+        frt_msg = next(m for m in incomplete_msgs if m.params.get("bucket") == "Freight")
+        self.assertIn("ITM-B", frt_msg.params.get("item_codes", ""))
+
+        # 2. Complete CBM scenario: Item A CBM 10, Item B CBM 30, Demurrage 4,000
+        imp2 = ImportFile(
+            import_file_code="IMP-BP038-02",
+            company_name="BP038 Test Co. 2",
+            supplier_name="Global Shipper 2",
+            shipment_mode="Sea FCL",
+            status="OPEN",
+            is_active=True,
+        )
+        self.db.add(imp2)
+        self.db.commit()
+        self.db.refresh(imp2)
+
+        po2 = PurchaseOrder(
+            po_number="PO-BP038-02",
+            import_file_id=imp2.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            project_id=1,
+            incoterm_id=1,
+            currency_id=egp_curr.currency_id,
+            total_amount_fob=100000.0,
+            exchange_rate=1.0,
+        )
+        self.db.add(po2)
+        self.db.commit()
+        self.db.refresh(po2)
+
+        item2_a = POLineItem(
+            po_id=po2.po_id,
+            item_code="ITM-A2",
+            description_ar="صنف أ2",
+            description_en="Item A2",
+            quantity=1.0,
+            unit_price=50000.0,
+            total_price=50000.0,
+            total_cbm=10.0,
+            gross_weight_kg=100.0,
+        )
+        item2_b = POLineItem(
+            po_id=po2.po_id,
+            item_code="ITM-B2",
+            description_ar="صنف ب2",
+            description_en="Item B2",
+            quantity=1.0,
+            unit_price=50000.0,
+            total_price=50000.0,
+            total_cbm=30.0,
+            gross_weight_kg=300.0,
+        )
+        self.db.add_all([item2_a, item2_b])
+        self.db.commit()
+
+        cl2 = CustomsClearanceRecord(
+            clearance_code="CLR-BP038-02",
+            import_file_id=imp2.import_file_id,
+            broker_name="Broker Demurrage",
+            actual_duty_total=0.0,
+        )
+        self.db.add(cl2)
+        self.db.commit()
+        self.db.refresh(cl2)
+
+        dem_inv = ClearanceExpenseInvoice(
+            invoice_code="INV-DEM-BP038-02",
+            import_file_id=imp2.import_file_id,
+            customs_clearance_id=cl2.customs_clearance_id,
+            provider_name="Port Authority",
+            invoice_number="DEM-01",
+            expense_category="STORAGE_DEMURRAGE",
+            amount_egp=4000.0,
+            currency="EGP",
+            payment_status="Paid",
+            is_active=True,
+        )
+        self.db.add(dem_inv)
+        self.db.commit()
+
+        confirm_invoices_settlement_service(
+            self.db,
+            ConfirmInvoicesSettlementRequest(import_file_id=imp2.import_file_id),
+            actor="test_user",
+        )
+
+        calc2 = calculate_actual_landed_cost_service(
+            self.db,
+            imp2.import_file_id,
+            ActualLandedCostCalculationRequest(allocation_preference="Value-Based"),
+        )
+
+        dem_cat = next(c for c in calc2.categories_breakdown if c.category == "Demurrage & Storage")
+        self.assertEqual(dem_cat.allocation_rule, "Volume-Based")
+        res2_a = next(i for i in calc2.items_breakdown if i.item_code == "ITM-A2")
+        res2_b = next(i for i in calc2.items_breakdown if i.item_code == "ITM-B2")
+        # 10 / 40 * 4000 = 1000, 30 / 40 * 4000 = 3000
+        self.assertEqual(res2_a.allocated_demurrage_egp, 1000.0)
+        self.assertEqual(res2_b.allocated_demurrage_egp, 3000.0)
+
 
 if __name__ == "__main__":
     unittest.main()

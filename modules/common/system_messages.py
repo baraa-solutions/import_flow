@@ -1480,6 +1480,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "ESTIMATE_UNAVAILABLE": {
         "note": "The estimated landed cost is unavailable ({reason}); variances are against zero.",
     },
+    "ALLOCATION_BASIS_INCOMPLETE": {
+        "note": "Allocation basis '{rule}' for {bucket} is incomplete (missing values on {item_codes}); fell back to Value-Based.",
+    },
     "SETTLEMENT_UNPAID_INVOICE": {"note": "Unpaid balance for {party_name}: {amount} EGP (invoice {invoice_no})."},
     "WHT_RATE_MISSING_WARNING": {
         "note": "No withholding tax rate ({tax_code}) valid on {on_date}: no deduction on invoice {invoice_no}.",

@@ -80,6 +80,7 @@ PAYMENT_STATUS_UNKNOWN = "PAYMENT_STATUS_UNKNOWN"
 ESTIMATE_UNAVAILABLE = "ESTIMATE_UNAVAILABLE"
 SETTLEMENT_UNPAID_INVOICE = "SETTLEMENT_UNPAID_INVOICE"
 WHT_RATE_MISSING_WARNING = "WHT_RATE_MISSING_WARNING"
+ALLOCATION_BASIS_INCOMPLETE = "ALLOCATION_BASIS_INCOMPLETE"
 
 # PL-08 estimate constants, configurable through system_parameters (FS-07). The defaults are the former literals,
 # so the estimate is unchanged while no parameter row exists.
@@ -223,6 +224,62 @@ def apply_settlement_field_total(expenses: List[Dict[str, Any]], field_name: str
     return rows
 
 
+def allocation_ratios(items: List[Dict[str, Any]], rule: str) -> Tuple[List[float], str, List[str]]:
+    """
+    Computes allocation ratios per item with BP-038 completeness rule.
+    Weight / Volume used only when EVERY item value > 0;
+    else falls back to Value-Based (or Equal if total FOB is 0) and returns the missing item codes.
+    Returns: (ratios, rule_actually_used, missing_item_codes)
+    """
+    num_items = len(items)
+    if num_items == 0:
+        return [], rule, []
+
+    def _item_fob(i: Dict[str, Any]) -> float:
+        if "fob_total_egp" in i:
+            return float(i.get("fob_total_egp") or 0.0)
+        if "fob_total_fc" in i:
+            return float(i.get("fob_total_fc") or 0.0)
+        return float(i.get("qty", 1.0) or 1.0) * float(i.get("fob_unit_egp", 0.0) or 0.0)
+
+    def _item_weight(i: Dict[str, Any]) -> float:
+        return float(i.get("gross_weight_kg") or i.get("weight_kg") or 0.0)
+
+    def _item_cbm(i: Dict[str, Any]) -> float:
+        return float(i.get("cbm") or 0.0)
+
+    total_fob = sum(_item_fob(i) for i in items)
+
+    def _val_ratios() -> List[float]:
+        if total_fob > 0:
+            return [_item_fob(i) / total_fob for i in items]
+        return [1.0 / num_items] * num_items
+
+    if rule == "Weight-Based":
+        missing = [i.get("item_code") or f"ITM-{idx+1}" for idx, i in enumerate(items) if _item_weight(i) <= 0.0]
+        tot_weight = sum(_item_weight(i) for i in items)
+        if not missing and tot_weight > 0:
+            return [_item_weight(i) / tot_weight for i in items], "Weight-Based", []
+        return _val_ratios(), "Value-Based", missing
+
+    elif rule == "Volume-Based":
+        missing = [i.get("item_code") or f"ITM-{idx+1}" for idx, i in enumerate(items) if _item_cbm(i) <= 0.0]
+        tot_cbm = sum(_item_cbm(i) for i in items)
+        if not missing and tot_cbm > 0:
+            return [_item_cbm(i) / tot_cbm for i in items], "Volume-Based", []
+        return _val_ratios(), "Value-Based", missing
+
+    elif rule == "Value-Based":
+        if total_fob > 0:
+            return _val_ratios(), "Value-Based", []
+        return [1.0 / num_items] * num_items, "Equal", []
+
+    elif rule == "Equal":
+        return [1.0 / num_items] * num_items, "Equal", []
+
+    return _val_ratios(), "Value-Based", []
+
+
 def calculate_landed_cost_engine(
     expenses: List[Dict[str, Any]],
     items: List[Dict[str, Any]],
@@ -264,10 +321,6 @@ def calculate_landed_cost_engine(
         item["allocated_other_egp"] = 0.0
 
     total_fob_egp = sum(i["fob_total_egp"] for i in items)
-    total_weight_kg = sum(i.get("gross_weight_kg", 0.0) for i in items)
-    total_cbm = sum(i.get("cbm", 0.0) for i in items)
-    num_items = len(items)
-
     total_expenses_egp = 0.0
 
     for exp in expenses:
@@ -284,18 +337,9 @@ def calculate_landed_cost_engine(
         category = exp.get("category", "Other")
         rule = exp.get("allocation_rule", "Value-Based")
 
-        for item in items:
-            ratio = 1.0 / num_items
-            if rule == "Value-Based" and total_fob_egp > 0:
-                ratio = item["fob_total_egp"] / total_fob_egp
-            elif rule == "Weight-Based" and total_weight_kg > 0:
-                ratio = item.get("gross_weight_kg", 0.0) / total_weight_kg
-            elif rule == "Volume-Based" and total_cbm > 0:
-                ratio = item.get("cbm", 0.0) / total_cbm
-            elif rule == "Equal":
-                ratio = 1.0 / num_items
-
-            allocated_share = amount_egp * ratio
+        ratios, actual_rule, _ = allocation_ratios(items, rule)
+        for idx, item in enumerate(items):
+            allocated_share = amount_egp * ratios[idx]
 
             if category in ENGINE_FREIGHT_CATEGORIES:
                 item["allocated_freight_egp"] += allocated_share
@@ -1143,6 +1187,18 @@ def simulate_estimated_landed_cost_service(
             freight_egp = total_fob_egp * (deemed_freight_pct / 100.0)
             freight_src = deemed_freight_src
 
+    ship_mode = (getattr(imp_file, "shipment_mode", None) or getattr(imp_file, "shipping_mode", None) or "").lower()
+    is_air = "air" in ship_mode or "طيران" in ship_mode or "جوي" in ship_mode
+    intended_freight_rule = "Weight-Based" if is_air else "Volume-Based"
+    freight_ratios, actual_freight_rule, missing_freight = allocation_ratios(items_raw, intended_freight_rule)
+    if missing_freight and freight_egp > 0:
+        messages.append(_message(
+            ALLOCATION_BASIS_INCOMPLETE,
+            bucket="Ocean/Air Freight",
+            rule=intended_freight_rule,
+            item_codes=", ".join(missing_freight),
+        ))
+
     expenses_breakdown.append(EstimatedLandedCostExpenseItem(
         category="Ocean/Air Freight",
         description="النولون والشحن الدولي التقديري",
@@ -1151,7 +1207,7 @@ def simulate_estimated_landed_cost_service(
         amount_egp=round(freight_egp, 2),
         is_estimated=True,
         source=freight_src,
-        allocation_rule="Volume-Based" if any(i["cbm"] > 0 for i in items_raw) else "Weight-Based" if any(i["weight_kg"] > 0 for i in items_raw) else "Value-Based",
+        allocation_rule=actual_freight_rule,
     ))
 
     # 4. Resolve Marine Insurance (deemed % or override)
@@ -1275,6 +1331,15 @@ def simulate_estimated_landed_cost_service(
         allocation_rule="Volume-Based" if any(i["cbm"] > 0 for i in items_raw) else "Weight-Based" if any(i["weight_kg"] > 0 for i in items_raw) else "Value-Based",
     ))
 
+    inland_ratios, actual_inland_rule, missing_inland = allocation_ratios(items_raw, "Weight-Based")
+    if missing_inland and inland_trucking > 0:
+        messages.append(_message(
+            ALLOCATION_BASIS_INCOMPLETE,
+            bucket="Inland Transport",
+            rule="Weight-Based",
+            item_codes=", ".join(missing_inland),
+        ))
+
     expenses_breakdown.append(EstimatedLandedCostExpenseItem(
         category="Inland Transport",
         description="النقل الداخلي بالشاحنات من ميناء الوصول لمخازن الشركة",
@@ -1283,7 +1348,7 @@ def simulate_estimated_landed_cost_service(
         amount_egp=round(inland_trucking, 2),
         is_estimated=True,
         source="أسعار النقل البري المعتمدة" if req.inland_transport_egp_override is None else "تعديل يدوي",
-        allocation_rule="Weight-Based" if any(i["weight_kg"] > 0 for i in items_raw) else "Volume-Based" if any(i["cbm"] > 0 for i in items_raw) else "Value-Based",
+        allocation_rule=actual_inland_rule,
     ))
 
     expenses_breakdown.append(EstimatedLandedCostExpenseItem(
@@ -1310,12 +1375,19 @@ def simulate_estimated_landed_cost_service(
 
     # 7. Allocation per item
     pref = req.allocation_preference or "Value-Based"
-    total_weight = sum(i["weight_kg"] for i in items_raw)
-    total_cbm = sum(i["cbm"] for i in items_raw)
+    primary_ratios, actual_pri_rule, missing_pri = allocation_ratios(items_raw, pref)
+    if missing_pri and (clearance_fee + port_handling) > 0:
+        messages.append(_message(
+            ALLOCATION_BASIS_INCOMPLETE,
+            bucket="Clearance & Port",
+            rule=pref,
+            item_codes=", ".join(missing_pri),
+        ))
+    val_ratios, _, _ = allocation_ratios(items_raw, "Value-Based")
 
     items_breakdown: List[EstimatedLandedCostItemBreakdown] = []
 
-    for itm in items_raw:
+    for idx, itm in enumerate(items_raw):
         l_no = itm["line_no"]
         c_line = customs_line_map.get(l_no)
         excluded_from_customs = itm["customs_excluded"]
@@ -1324,28 +1396,15 @@ def simulate_estimated_landed_cost_service(
         qty = _unit_qty(itm["qty"])
         fob_unit_egp = fob_item_egp / qty
 
-        # Ratios
-        val_ratio = (fob_item_egp / total_fob_egp) if total_fob_egp > 0 else (1.0 / len(items_raw))
-        wt_ratio = (itm["weight_kg"] / total_weight) if total_weight > 0 else val_ratio
-        cbm_ratio = (itm["cbm"] / total_cbm) if total_cbm > 0 else wt_ratio
-
-        # Select allocation ratio based on preference
-        if pref == "Weight-Based" and total_weight > 0:
-            primary_ratio = wt_ratio
-        elif pref == "Volume-Based" and total_cbm > 0:
-            primary_ratio = cbm_ratio
-        else:
-            primary_ratio = val_ratio
-
         # Allocation shares
-        alloc_freight = freight_egp * (cbm_ratio if total_cbm > 0 else (wt_ratio if total_weight > 0 else val_ratio))
-        alloc_ins = insurance_egp * val_ratio
+        alloc_freight = freight_egp * freight_ratios[idx]
+        alloc_ins = insurance_egp * val_ratios[idx]
 
         if excluded_from_customs:
             alloc_duty = 0.0
             alloc_vat = 0.0
         else:
-            alloc_duty = float(c_line.duty_egp) if c_line else (total_customs_duty_egp * val_ratio)
+            alloc_duty = float(c_line.duty_egp) if c_line else (total_customs_duty_egp * val_ratios[idx])
             alloc_vat = (
                 float(
                     c_line.vat_egp
@@ -1355,12 +1414,12 @@ def simulate_estimated_landed_cost_service(
                     + getattr(c_line, "import_fee_egp", 0.0)
                 )
                 if c_line
-                else ((total_vat_egp + total_schedule_tax_egp + total_service_fee_egp) * val_ratio)
+                else ((total_vat_egp + total_schedule_tax_egp + total_service_fee_egp) * val_ratios[idx])
             )
 
-        alloc_clearance_port = (clearance_fee + port_handling) * primary_ratio
-        alloc_inland = inland_trucking * (wt_ratio if total_weight > 0 else primary_ratio)
-        alloc_other = (bank_fees + other_fees) * val_ratio
+        alloc_clearance_port = (clearance_fee + port_handling) * primary_ratios[idx]
+        alloc_inland = inland_trucking * inland_ratios[idx]
+        alloc_other = (bank_fees + other_fees) * val_ratios[idx]
 
         tot_alloc_expenses = (
             alloc_freight + alloc_ins + alloc_duty + alloc_vat +
@@ -2508,25 +2567,35 @@ def _calculate_actual_landed_cost(
     total_items_cbm = sum(i["cbm"] for i in items_raw)
     n_items = len(items_raw)
 
-    # Rule actually applied per bucket (FS-09: reported as used; custom_category_allocation does not drive it, Q7)
-    if pref == "Weight-Based" and total_items_wt > 0:
-        pri_rule = "Weight-Based"
-    elif pref == "Volume-Based" and total_items_cbm > 0:
-        pri_rule = "Volume-Based"
-    elif pref == "Equal":
-        pri_rule = "Equal"
-    else:
-        pri_rule = "Value-Based"
-    rules_used = {
-        "Freight": "Volume-Based" if total_items_cbm > 0 else pri_rule,
+    ship_mode = (getattr(imp, "shipment_mode", None) or getattr(imp, "shipping_mode", None) or "").lower()
+    is_air = "air" in ship_mode or "طيران" in ship_mode or "جوي" in ship_mode
+    default_freight_rule = "Weight-Based" if is_air else "Volume-Based"
+
+    intended_rules = {
+        "Freight": default_freight_rule,
         "Insurance": "Value-Based",
         "Customs Duty": "Value-Based",
         "VAT & Taxes": "Value-Based",
-        "Clearance & Port": pri_rule,
-        "Inland Transport": "Weight-Based" if total_items_wt > 0 else pri_rule,
-        "Demurrage & Storage": pri_rule,
+        "Clearance & Port": pref,
+        "Inland Transport": "Weight-Based",
+        "Demurrage & Storage": "Volume-Based",
         "Other & Admin": "Value-Based",
     }
+
+    rules_used: Dict[str, str] = {}
+    bucket_ratios: Dict[str, List[float]] = {}
+    for b_key in cat_expenses:
+        intended = intended_rules.get(b_key, pref)
+        ratios, actual_rule, missing = allocation_ratios(items_raw, intended)
+        rules_used[b_key] = actual_rule
+        bucket_ratios[b_key] = ratios
+        if missing and cat_expenses[b_key]["actual"] > 0:
+            messages.append(_message(
+                ALLOCATION_BASIS_INCOMPLETE,
+                bucket=b_key,
+                rule=intended,
+                item_codes=", ".join(missing),
+            ))
 
     # Build Categories Breakdown
     categories_breakdown: List[ActualLandedCostCategoryBreakdown] = []
@@ -2558,34 +2627,20 @@ def _calculate_actual_landed_cost(
     act_demurrage = cat_expenses["Demurrage & Storage"]["actual"]
     act_other = cat_expenses["Other & Admin"]["actual"]
 
-    for itm in items_raw:
+    for idx, itm in enumerate(items_raw):
         qty = _unit_qty(itm["qty"])
         fob_tot = itm["fob_total_egp"]
         fob_u = itm["fob_unit_egp"]
 
-        v_ratio = (fob_tot / total_items_fob) if total_items_fob > 0 else (1.0 / n_items)
-        w_ratio = (itm["gross_weight_kg"] / total_items_wt) if total_items_wt > 0 else v_ratio
-        c_ratio = (itm["cbm"] / total_items_cbm) if total_items_cbm > 0 else v_ratio
-        eq_ratio = 1.0 / n_items
-
-        if pref == "Weight-Based" and total_items_wt > 0:
-            pri_ratio = w_ratio
-        elif pref == "Volume-Based" and total_items_cbm > 0:
-            pri_ratio = c_ratio
-        elif pref == "Equal":
-            pri_ratio = eq_ratio
-        else:
-            pri_ratio = v_ratio
-
-        # Allocation per bucket
-        all_freight = act_freight * (c_ratio if total_items_cbm > 0 else pri_ratio)
-        all_ins = act_ins * v_ratio
-        all_duty = act_duty * v_ratio
-        all_vat = act_vat * v_ratio
-        all_clearance = act_clearance * pri_ratio
-        all_transport = act_transport * (w_ratio if total_items_wt > 0 else pri_ratio)
-        all_demurrage = act_demurrage * pri_ratio
-        all_other = act_other * v_ratio
+        # Allocation per bucket using BP-038 ratios
+        all_freight = act_freight * bucket_ratios["Freight"][idx]
+        all_ins = act_ins * bucket_ratios["Insurance"][idx]
+        all_duty = act_duty * bucket_ratios["Customs Duty"][idx]
+        all_vat = act_vat * bucket_ratios["VAT & Taxes"][idx]
+        all_clearance = act_clearance * bucket_ratios["Clearance & Port"][idx]
+        all_transport = act_transport * bucket_ratios["Inland Transport"][idx]
+        all_demurrage = act_demurrage * bucket_ratios["Demurrage & Storage"][idx]
+        all_other = act_other * bucket_ratios["Other & Admin"][idx]
 
         tot_alloc = all_freight + all_ins + all_duty + all_vat + all_clearance + all_transport + all_demurrage + all_other
         item_landed_tot = fob_tot + tot_alloc

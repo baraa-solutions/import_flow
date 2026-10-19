@@ -96,6 +96,16 @@
       "body"
     ]
   },
+  "ALLOCATION_BASIS_INCOMPLETE": {
+    "params": [
+      "bucket",
+      "item_codes",
+      "rule"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CCQ_AWARDED_QUOTE_DELETE": {
     "params": [],
     "parts": [
@@ -115,6 +125,12 @@
     "params": [
       "validity_date"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CCQ_RFQ_AWARDED": {
+    "params": [],
     "parts": [
       "note"
     ]
