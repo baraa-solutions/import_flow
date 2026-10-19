@@ -1731,6 +1731,75 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertIsNone(imp.actual_landed_cost_variance_egp)
         self.assertIsNone(imp.actual_landed_cost_variance_pct)
 
+    def test_acc2_t14_report_missing_actual_sources(self):
+        """
+        ACC2-T14: Report missing actual sources (ACTUAL_SOURCE_MISSING).
+        When an expense bucket has an estimated amount > 0, but no actual source invoices
+        are recorded in CLO-01 (e.g. Other & Admin bank charges of 4,500 EGP):
+        - calculate_actual_landed_cost_service appends ACTUAL_SOURCE_MISSING.
+        - Message params contain bucket="Other & Admin" and estimated_egp=4500.0.
+        """
+        from unittest.mock import patch, MagicMock
+        from modules.financial_settlement.service import calculate_actual_landed_cost_service
+        from modules.financial_settlement.schemas import ActualLandedCostCalculationRequest
+        from modules.currencies.model import Currency, ExchangeRate
+
+        # Setup USD currency & rates
+        curr_usd = self.db.query(Currency).filter(Currency.currency_code == "USD").first()
+        if not curr_usd:
+            curr_usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+            self.db.add(curr_usd)
+            self.db.commit()
+            self.db.refresh(curr_usd)
+
+        rate_usd = ExchangeRate(
+            currency_id=curr_usd.currency_id,
+            commercial_rate=50.0,
+            customs_rate=50.0,
+            effective_date=date.today(),
+        )
+        self.db.add(rate_usd)
+
+        imp = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
+        imp.invoices_data = [{"invoice_no": "CI-USD-01", "amount": 10000.0, "currency": "USD"}]
+        self.db.commit()
+
+        mock_breakdown = MagicMock()
+        mock_breakdown.total_duty_egp = Decimal("10000.00")
+        mock_breakdown.total_vat_egp = Decimal("15000.00")
+        mock_breakdown.total_schedule_tax_egp = Decimal("0.00")
+        mock_breakdown.total_customs_service_fee_egp = Decimal("500.00")
+        mock_breakdown.total_development_fee_egp = Decimal("300.00")
+        mock_breakdown.total_import_fee_egp = Decimal("0.00")
+        mock_breakdown.total_inspection_fees_egp = Decimal("200.00")
+        mock_breakdown.items_taxes_total_egp = Decimal("26000.00")
+
+        mock_line = MagicMock()
+        mock_line.line_no = 1
+        mock_line.duty_egp = Decimal("10000.00")
+        mock_line.vat_egp = Decimal("15000.00")
+        mock_line.schedule_tax_egp = Decimal("0.00")
+        mock_line.customs_service_fee_egp = Decimal("500.00")
+        mock_line.development_fee_egp = Decimal("300.00")
+        mock_line.import_fee_egp = Decimal("0.00")
+        mock_line.inspection_fee_egp = Decimal("200.00")
+        mock_breakdown.lines = [mock_line]
+
+        with patch("modules.customs_tariff.service.estimate_multi_item_customs_duty_service", return_value=mock_breakdown):
+            calc = calculate_actual_landed_cost_service(
+                self.db,
+                self.import_file_id,
+                ActualLandedCostCalculationRequest(allocation_preference="Value-Based"),
+            )
+
+        missing_msgs = [m for m in calc.messages if m.code == "ACTUAL_SOURCE_MISSING"]
+        self.assertTrue(len(missing_msgs) > 0, "Expected at least one ACTUAL_SOURCE_MISSING message")
+
+        # Verify Other & Admin specifically (4,500 EGP default estimate: 2,500 bank + 2,000 other)
+        other_msg = next((m for m in missing_msgs if m.params.get("bucket") == "Other & Admin"), None)
+        self.assertIsNotNone(other_msg, "Missing ACTUAL_SOURCE_MISSING for 'Other & Admin'")
+        self.assertEqual(other_msg.params["estimated_egp"], 4500.0)
+
 
 if __name__ == "__main__":
     unittest.main()

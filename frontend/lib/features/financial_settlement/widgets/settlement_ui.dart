@@ -487,6 +487,12 @@ String settlementMessageText(AppLocalizations l10n, SettlementMessageModel m) {
       );
     case 'WHT_RATE_MISSING_WARNING':
       return l10n.settlementMsgWhtRateMissing(p('tax_code'), p('on_date'), p('invoice_no'));
+    case 'ACTUAL_SOURCE_MISSING':
+      final est = m.params['estimated_egp'];
+      final formattedEst = est is num ? formatSettlementMoney(est.toDouble()) : p('estimated_egp');
+      return 'بند المصروف "${p('bucket')}" له قيمة تقديرية قدرها $formattedEst ج.م ولكن لا توجد فواتير فعلية مسجلة له.';
+    case 'ALLOCATION_BASIS_INCOMPLETE':
+      return 'أساس التوزيع "${p('rule')}" لبند "${p('bucket')}" غير مكتمل للأصناف: ${p('item_codes')}، وتم التراجع إلى التوزيع بالقيمة.';
     default:
       return m.code;
   }

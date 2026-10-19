@@ -186,7 +186,7 @@ class EstimatedLandedCostExpenseItem(BaseModel):
     category: str
     description: str
     amount_fc: float = 0.0
-    currency: str = "EGP"
+    currency: Optional[str] = None
     amount_egp: float = 0.0
     is_estimated: bool = True
     source: str = "Standard Estimate"

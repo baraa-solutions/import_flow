@@ -82,6 +82,7 @@ ESTIMATE_UNAVAILABLE = "ESTIMATE_UNAVAILABLE"
 SETTLEMENT_UNPAID_INVOICE = "SETTLEMENT_UNPAID_INVOICE"
 WHT_RATE_MISSING_WARNING = "WHT_RATE_MISSING_WARNING"
 ALLOCATION_BASIS_INCOMPLETE = "ALLOCATION_BASIS_INCOMPLETE"
+ACTUAL_SOURCE_MISSING = "ACTUAL_SOURCE_MISSING"
 
 # PL-08 estimate constants, configurable through system_parameters (FS-07). The defaults are the former literals,
 # so the estimate is unchanged while no parameter row exists.
@@ -2529,6 +2530,15 @@ def _calculate_actual_landed_cost(
             "Demurrage & Storage": est_demurrage,
             "Other & Admin": est_other,
         }
+        for b_key, est_val in cat_est_map.items():
+            if est_val and est_val > 0 and cat_expenses.get(b_key, {}).get("count", 0) == 0:
+                messages.append(
+                    _message(
+                        ACTUAL_SOURCE_MISSING,
+                        bucket=b_key,
+                        estimated_egp=round(est_val, 2),
+                    )
+                )
     else:
         est_total_fob = None
         est_freight = None
