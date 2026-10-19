@@ -161,6 +161,7 @@ class InvoicesAggregationResponseModel {
   final double totalNetPayableEgp;
   final double totalWithholdingTaxEgp;
   final double settlementReadinessPercent;
+  final double? fxDifferenceEgp;
   final String financialSettlementStatus;
   final List<InvoicesPartySummaryModel> partiesSummary;
   final List<AggregatedInvoiceItemModel> invoices;
@@ -180,6 +181,7 @@ class InvoicesAggregationResponseModel {
     this.totalNetPayableEgp = 0.0,
     this.totalWithholdingTaxEgp = 0.0,
     this.settlementReadinessPercent = 0.0,
+    this.fxDifferenceEgp,
     this.financialSettlementStatus = 'PENDING_SETTLEMENT',
     this.partiesSummary = const [],
     this.invoices = const [],
@@ -201,6 +203,7 @@ class InvoicesAggregationResponseModel {
       totalNetPayableEgp: (json['total_net_payable_egp'] as num?)?.toDouble() ?? 0.0,
       totalWithholdingTaxEgp: (json['total_withholding_tax_egp'] as num?)?.toDouble() ?? 0.0,
       settlementReadinessPercent: (json['settlement_readiness_percent'] as num?)?.toDouble() ?? 0.0,
+      fxDifferenceEgp: (json['fx_difference_egp'] as num?)?.toDouble(),
       financialSettlementStatus: json['financial_settlement_status'] ?? 'PENDING_SETTLEMENT',
       partiesSummary: (json['parties_summary'] as List<dynamic>?)
               ?.map((p) => InvoicesPartySummaryModel.fromJson(p as Map<String, dynamic>))
@@ -232,6 +235,7 @@ class InvoicesAggregationResponseModel {
       'total_net_payable_egp': totalNetPayableEgp,
       'total_withholding_tax_egp': totalWithholdingTaxEgp,
       'settlement_readiness_percent': settlementReadinessPercent,
+      if (fxDifferenceEgp != null) 'fx_difference_egp': fxDifferenceEgp,
       'financial_settlement_status': financialSettlementStatus,
       'parties_summary': partiesSummary.map((p) => p.toJson()).toList(),
       'invoices': invoices.map((i) => i.toJson()).toList(),

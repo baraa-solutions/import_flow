@@ -330,6 +330,7 @@ class InvoicesAggregationResponse(BaseModel):
     total_net_payable_egp: float = 0.0
     total_withholding_tax_egp: float = 0.0
     settlement_readiness_percent: float = 0.0
+    fx_difference_egp: Optional[float] = None
     financial_settlement_status: str = "PENDING_SETTLEMENT"
     parties_summary: List[InvoicesPartySummary] = []
     invoices: List[AggregatedInvoiceItemSchema] = []

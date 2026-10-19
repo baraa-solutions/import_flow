@@ -1701,6 +1701,40 @@ def aggregate_shipment_invoices_service(
     invoices: List[AggregatedInvoiceItemSchema] = []
 
     # 1. Commercial Goods Invoices (FOB / CIF from PO & Invoices Data)
+    # Query Paid supplier payment requests for this import file (ACC2-T07)
+    import sqlalchemy as sa
+    from modules.financial_approval.model import PaymentRequestSession
+
+    paid_supplier_reqs = (
+        db.query(PaymentRequestSession)
+        .filter(
+            PaymentRequestSession.import_file_id == import_file_id,
+            PaymentRequestSession.is_active == True,
+            sa.func.lower(PaymentRequestSession.status) == "paid",
+        )
+        .order_by(PaymentRequestSession.payment_id.asc())
+        .all()
+    )
+
+    paid_fc_by_curr: Dict[str, float] = {}
+    for req in paid_supplier_reqs:
+        c_code = (req.swift_transferred_currency or req.currency_code or "").strip().upper()
+        if c_code:
+            amt = float(req.swift_transferred_amount if req.swift_transferred_amount is not None else (req.requested_amount or 0.0))
+            paid_fc_by_curr[c_code] = paid_fc_by_curr.get(c_code, 0.0) + amt
+
+    file_has_supplier_reqs = (
+        db.query(PaymentRequestSession)
+        .filter(
+            PaymentRequestSession.import_file_id == import_file_id,
+            PaymentRequestSession.is_active == True,
+        )
+        .count() > 0
+    )
+
+    unallocated_paid_fc = dict(paid_fc_by_curr)
+    allocated_goods_egp_at_inv_rate = 0.0
+
     invoices_data = imp.invoices_data or []
     if invoices_data and isinstance(invoices_data, list):
         for idx, inv in enumerate(invoices_data):
@@ -1726,10 +1760,26 @@ def aggregate_shipment_invoices_service(
             if goods_rate is None and amt_fc > 0:
                 goods_rate = c_rate
             amt_egp = round(amt_fc * c_rate if c_curr != "EGP" else amt_fc, 2)
-            is_paid = bool(imp.swift_no or inv.get("payment_status") == "PAID" or inv.get("paid"))
-            paid_egp = amt_egp if is_paid else 0.0
-            rem_egp = max(0.0, amt_egp - paid_egp)
-            status = "PAID" if rem_egp == 0 else ("PARTIAL" if paid_egp > 0 else "UNPAID")
+
+            # Sourcing paid amounts (ACC2-T07): when PaymentRequestSession rows exist for the file,
+            # allocate transferred FC from Paid requests only (imp.swift_no does NOT decide).
+            # When no payment requests exist in the system for this file, legacy swift_no / paid flag applies.
+            if file_has_supplier_reqs:
+                avail_fc = unallocated_paid_fc.get(c_curr, 0.0)
+                inv_paid_fc = min(avail_fc, amt_fc) if amt_fc > 0 else 0.0
+                unallocated_paid_fc[c_curr] = max(0.0, avail_fc - inv_paid_fc)
+                paid_egp = round(inv_paid_fc * c_rate if c_curr != "EGP" else inv_paid_fc, 2)
+                allocated_goods_egp_at_inv_rate += paid_egp
+            else:
+                is_paid = bool(imp.swift_no or inv.get("payment_status") == "PAID" or inv.get("paid"))
+                inv_paid_fc = amt_fc if is_paid else 0.0
+                paid_egp = amt_egp if is_paid else 0.0
+
+            rem_egp = max(0.0, round(amt_egp - paid_egp, 2))
+            status = "PAID" if rem_egp == 0 and amt_egp > 0 else ("PARTIAL" if paid_egp > 0 else "UNPAID")
+
+            swift_refs = [r.swift_reference_no for r in paid_supplier_reqs if r.swift_reference_no]
+            pay_ref = ", ".join(swift_refs) if swift_refs else (imp.swift_no or inv.get("payment_ref") or "سويفت بنكي")
 
             invoices.append(AggregatedInvoiceItemSchema(
                 invoice_id=f"COMM-{idx+1}",
@@ -1747,7 +1797,7 @@ def aggregate_shipment_invoices_service(
                 paid_amount_egp=paid_egp,
                 remaining_amount_egp=rem_egp,
                 payment_status=status,
-                payment_reference=imp.swift_no or inv.get("payment_ref") or "سويفت بنكي",
+                payment_reference=pay_ref,
                 withholding_tax_rate=0.0,
                 withholding_tax_amount_egp=0.0,
                 net_payable_egp=amt_egp,
@@ -1762,10 +1812,23 @@ def aggregate_shipment_invoices_service(
         est_rate = 1.0 if currency == "EGP" else fx.rate(currency, _as_date(imp.file_opening_date))
         goods_rate = est_rate
         amt_egp = round(amt_fc * est_rate if currency != "EGP" else amt_fc, 2)
-        is_paid = bool(imp.swift_no)
-        paid_egp = amt_egp if is_paid else 0.0
-        rem_egp = max(0.0, amt_egp - paid_egp)
-        status = "PAID" if rem_egp == 0 else "UNPAID"
+
+        if file_has_supplier_reqs:
+            avail_fc = unallocated_paid_fc.get(currency, 0.0)
+            inv_paid_fc = min(avail_fc, amt_fc) if amt_fc > 0 else 0.0
+            unallocated_paid_fc[currency] = max(0.0, avail_fc - inv_paid_fc)
+            paid_egp = round(inv_paid_fc * est_rate if currency != "EGP" else inv_paid_fc, 2)
+            allocated_goods_egp_at_inv_rate += paid_egp
+        else:
+            is_paid = bool(imp.swift_no)
+            inv_paid_fc = amt_fc if is_paid else 0.0
+            paid_egp = amt_egp if is_paid else 0.0
+
+        rem_egp = max(0.0, round(amt_egp - paid_egp, 2))
+        status = "PAID" if rem_egp == 0 and amt_egp > 0 else ("PARTIAL" if paid_egp > 0 else "UNPAID")
+
+        swift_refs = [r.swift_reference_no for r in paid_supplier_reqs if r.swift_reference_no]
+        pay_ref = ", ".join(swift_refs) if swift_refs else (imp.swift_no or "سويفت بنكي")
 
         invoices.append(AggregatedInvoiceItemSchema(
             invoice_id="COMM-1",
@@ -1783,7 +1846,7 @@ def aggregate_shipment_invoices_service(
             paid_amount_egp=paid_egp,
             remaining_amount_egp=rem_egp,
             payment_status=status,
-            payment_reference=imp.swift_no or "سويفت بنكي",
+            payment_reference=pay_ref,
             withholding_tax_rate=0.0,
             withholding_tax_amount_egp=0.0,
             net_payable_egp=amt_egp,
@@ -2318,6 +2381,13 @@ def aggregate_shipment_invoices_service(
     else:
         reported_rate = 0.0
 
+    # Realised FX difference on supplier payments (ACC2-T07): sum(paid_amount_egp) - sum(paid FC x invoice rate)
+    fx_diff_egp: Optional[float] = None
+    paid_reqs_with_debit = [r for r in paid_supplier_reqs if r.paid_amount_egp is not None]
+    if paid_reqs_with_debit:
+        total_paid_debit_egp = sum(float(r.paid_amount_egp) for r in paid_reqs_with_debit)
+        fx_diff_egp = round(total_paid_debit_egp - allocated_goods_egp_at_inv_rate, 2)
+
     return InvoicesAggregationResponse(
         import_file_id=imp.import_file_id,
         import_file_code=imp.import_file_code or f"IMP-{imp.import_file_id}",
@@ -2331,6 +2401,7 @@ def aggregate_shipment_invoices_service(
         total_net_payable_egp=total_net,
         total_withholding_tax_egp=total_wht,
         settlement_readiness_percent=readiness,
+        fx_difference_egp=fx_diff_egp,
         financial_settlement_status=imp.financial_settlement_status or "PENDING_SETTLEMENT",
         parties_summary=parties_summary,
         invoices=invoices,

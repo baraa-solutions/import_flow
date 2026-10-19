@@ -2397,6 +2397,79 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(exc.exception.status_code, 409)
         self.assertEqual(exc.exception.detail.get("code"), SETTLEMENT_ACTUAL_FOB_MISSING)
 
+    def test_acc2_t07_realised_payment_in_egp_and_payment_coverage(self):
+        """ACC2-T07: invoice 50,000 USD at 50.00 (2,500,000); one Paid request with transfer 30,000 USD,
+        bank debit 1,530,000 EGP -> paid_exchange_rate 51.00, paid_amount_egp 1,530,000.00;
+        CLO-01 goods paid 1,500,000.00, remaining 1,000,000.00, PARTIAL; fx_difference_egp 30,000.00;
+        readiness < 100."""
+        from modules.financial_approval.model import PaymentRequestSession
+        from modules.financial_approval.schemas import SwiftReconciliationRequest
+        from modules.financial_approval.service import reconcile_swift_service
+        from modules.financial_settlement.service import aggregate_shipment_invoices_service
+        from modules.currencies.model import Currency, ExchangeRate
+
+        # Setup USD currency and rate 50.0
+        usd = self.db.query(Currency).filter(Currency.currency_code == "USD").first()
+        if not usd:
+            usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+            self.db.add(usd)
+            self.db.flush()
+        rate_50 = ExchangeRate(currency_id=usd.currency_id, commercial_rate=50.0, customs_rate=50.0, effective_date=date.today())
+        self.db.add(rate_50)
+
+        # Import file with commercial goods invoice 50,000 USD (at 50.00 = 2,500,000 EGP)
+        imp = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
+        imp.invoices_data = [{"invoice_no": "CI-T07", "amount": 50000.0, "currency": "USD"}]
+        imp.file_opening_date = date.today()
+
+        # Create Approved PaymentRequestSession for 30,000 USD
+        pay_req = PaymentRequestSession(
+            payment_code="PAY-T07-001",
+            title="Advance Payment for Machinery",
+            import_file_id=self.import_file_id,
+            supplier_id=1,
+            supplier_name="Global Tech",
+            payment_type="Advance Payment",
+            requested_amount=30000.0,
+            currency_code="USD",
+            exchange_rate=50.0,
+            requested_amount_egp=1500000.0,
+            due_date=date.today(),
+            request_date=date.today(),
+            status="Approved",
+            is_active=True,
+        )
+        self.db.add(pay_req)
+        self.db.commit()
+
+        # Reconcile SWIFT with bank debit 1,530,000 EGP (transferred 30,000 USD -> rate 51.00)
+        recon_req = SwiftReconciliationRequest(
+            swift_reference_no="SWIFT-T07-001",
+            swift_receipt_date=date.today(),
+            swift_transferred_amount=30000.0,
+            swift_transferred_currency="USD",
+            swift_debit_amount_egp=1530000.0,
+            swift_reconciliation_notes="Actual bank debit received with charges",
+        )
+        reconciled = reconcile_swift_service(self.db, pay_req.payment_id, recon_req, current_user_name="FinanceOfficer")
+        self.assertEqual(reconciled.status, "Paid")
+        self.assertEqual(reconciled.paid_exchange_rate, 51.0)
+        self.assertEqual(reconciled.paid_amount_egp, 1530000.0)
+
+        # Aggregate shipment invoices (CLO-01)
+        agg = aggregate_shipment_invoices_service(self.db, self.import_file_id)
+        goods_invs = [i for i in agg.invoices if i.category == "Commercial Goods"]
+        self.assertEqual(len(goods_invs), 1)
+        goods_inv = goods_invs[0]
+        self.assertEqual(goods_inv.amount_egp, 2500000.0)
+        self.assertEqual(goods_inv.paid_amount_egp, 1500000.0)
+        self.assertEqual(goods_inv.remaining_amount_egp, 1000000.0)
+        self.assertEqual(goods_inv.payment_status, "PARTIAL")
+
+        self.assertEqual(agg.fx_difference_egp, 30000.0)
+        self.assertLess(agg.settlement_readiness_percent, 100.0)
+        self.assertEqual(agg.settlement_readiness_percent, 60.0)
+
 
 if __name__ == "__main__":
     unittest.main()

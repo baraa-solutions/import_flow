@@ -617,6 +617,8 @@ class _PaidEvent:
 
 def _mark_paid(db: Session, item: PaymentRequestSession, swift_reference_no: Optional[str],
                transferred_amount: Optional[float], currency_code: Optional[str],
+               swift_debit_amount_egp: Optional[float] = None,
+               receipt_date: Optional[date] = None,
                updated_by: Optional[str] = None) -> _PaidEvent:
     """Core of the Paid transition (same transaction as the caller): status, SWIFT reference, the import
     file's ``swift_no`` and the LOGISTICS_OFFICER notification. Follow-ups: ``_after_paid``."""
@@ -625,9 +627,27 @@ def _mark_paid(db: Session, item: PaymentRequestSession, swift_reference_no: Opt
     assert swift_ref, "swift_reference_no must be non-empty when marking Paid"
     amount = float(transferred_amount or item.swift_transferred_amount or item.requested_amount or 0.0)
     currency = currency_code or item.swift_transferred_currency or item.currency_code
+    r_date = receipt_date or item.swift_receipt_date
 
     item.status = PAYMENT_PAID
     item.swift_reference_no = swift_ref
+
+    # Realised payment in EGP and exchange rate (ACC2-T07)
+    if swift_debit_amount_egp is not None and float(swift_debit_amount_egp) > 0 and amount > 0:
+        paid_rate = float(swift_debit_amount_egp) / amount
+        paid_egp = round(float(swift_debit_amount_egp), 2)
+    elif currency.upper().strip() == "EGP":
+        paid_rate = 1.0
+        paid_egp = round(amount, 2)
+    else:
+        from modules.financial_settlement.service import SettlementFx
+        fx = SettlementFx(db, "commercial")
+        paid_rate = fx.rate(currency, r_date)
+        paid_egp = round(amount * paid_rate, 2)
+
+    item.paid_exchange_rate = paid_rate
+    item.paid_amount_egp = paid_egp
+
     item.version = (item.version or 1) + 1
     item.updated_at = _now()
     if updated_by:
@@ -781,7 +801,10 @@ def reconcile_swift_service(
     db_item.swift_reconciliation_notes = payload.swift_reconciliation_notes
 
     event = _mark_paid(db, db_item, payload.swift_reference_no, payload.swift_transferred_amount,
-                       payload.swift_transferred_currency, updated_by=current_user_name)
+                       payload.swift_transferred_currency,
+                       swift_debit_amount_egp=payload.swift_debit_amount_egp,
+                       receipt_date=payload.swift_receipt_date,
+                       updated_by=current_user_name)
     db.commit()
     return _finish_paid(db, event)
 
@@ -810,7 +833,10 @@ def smart_reconcile_swift_service(
     event = None
     if payload.auto_execute:
         event = _mark_paid(db, db_item, payload.swift_reference_no, payload.swift_transferred_amount,
-                           payload.swift_transferred_currency, updated_by=current_user_name)
+                           payload.swift_transferred_currency,
+                           swift_debit_amount_egp=payload.swift_debit_amount_egp,
+                           receipt_date=payload.swift_receipt_date,
+                           updated_by=current_user_name)
     else:
         db_item.version = (db_item.version or 1) + 1
         db_item.updated_at = _now()
@@ -2201,7 +2227,7 @@ def reconcile_reviewed_batch_service(
 
     event = None
     if payload.auto_execute:
-        event = _mark_paid(db, db_item, swift_ref, amount, currency)
+        event = _mark_paid(db, db_item, swift_ref, amount, currency, receipt_date=receipt_date)
     else:
         db_item.version = (db_item.version or 1) + 1
         db_item.updated_at = _now()
