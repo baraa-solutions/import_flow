@@ -11,6 +11,7 @@ INVOICES_ALREADY_SETTLED = "INVOICES_ALREADY_SETTLED"
 JOURNAL_UNBALANCED = "JOURNAL_UNBALANCED"
 SETTLEMENT_DUPLICATE_ACTIVE = "SETTLEMENT_DUPLICATE_ACTIVE"
 IMPORT_FILE_CLOSED = "IMPORT_FILE_CLOSED"
+SETTLEMENT_CURRENCY_MISSING = "SETTLEMENT_CURRENCY_MISSING"
 
 from modules.common.validators import ensure_file_open
 
@@ -123,3 +124,20 @@ def ensure_journal_balanced(entry: Any) -> None:
             difference=entry.difference,
             settlement_code=entry.settlement_code,
         )
+
+
+def currency_missing_error(source: str, invoice_no: Optional[str] = None) -> HTTPException:
+    msg = f"العملة غير محددة لفاتورة {source}"
+    if invoice_no:
+        msg += f" رقم {invoice_no}"
+    msg += "؛ يرجى تحديد عملة صالحة."
+    params: Dict[str, Any] = {"source": source}
+    if invoice_no is not None:
+        params["invoice_no"] = invoice_no
+    return coded_error(
+        status.HTTP_409_CONFLICT,
+        SETTLEMENT_CURRENCY_MISSING,
+        msg,
+        **params,
+    )
+

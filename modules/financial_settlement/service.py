@@ -58,6 +58,7 @@ from .validators import (
     ensure_no_other_active_settlement,
     ensure_settlement_editable,
     fx_rate_missing_error,
+    currency_missing_error,
     validate_expense_invoice,
     validate_items_allocation_readiness,
 )
@@ -1033,7 +1034,7 @@ def simulate_estimated_landed_cost_service(
     # 1. Fetch Purchase Orders and Items (FS-05, ACC2-T01: partial shipments supported)
     line_shares = file_po_line_shares(db, imp_file, messages=messages)
 
-    currency = "USD"
+    currency: Optional[str] = None
     items_raw = []
     line_no = 1
 
@@ -1050,6 +1051,8 @@ def simulate_estimated_landed_cost_service(
         qty = share_qty
         u_price = float(itm.unit_price or 0.0)
         tot_price = round(qty * u_price, 2)
+        if tot_price > 0 and not po_currency:
+            raise currency_missing_error("Purchase Order", getattr(po, "po_number", None) if po else None)
 
         w_kg = round(float(itm.gross_weight_kg or 0.0) * ratio, 4)
         cbm_val = round(float(itm.total_cbm or 0.0) * ratio, 4)
@@ -1079,8 +1082,11 @@ def simulate_estimated_landed_cost_service(
         for inv in imp_file.invoices_data:
             inv_amt = float(inv.get("amount") or 0.0)
             if inv_amt > 0:
-                inv_curr = inv.get("currency") or "USD"
-                currency = inv_curr
+                inv_curr = inv.get("currency")
+                if not inv_curr or not str(inv_curr).strip():
+                    inv_no = inv.get("invoice_no") or inv.get("invoice_number")
+                    raise currency_missing_error("Commercial Invoice", inv_no)
+                currency = str(inv_curr).strip()
                 items_raw.append({
                     "line_no": line_no,
                     "item_code": f"INV-{line_no:03d}",
@@ -1097,7 +1103,9 @@ def simulate_estimated_landed_cost_service(
 
     if not items_raw and (imp_file.estimated_cost or 0) > 0:
         cost = float(imp_file.estimated_cost)
-        currency = imp_file.estimated_cost_currency or "USD"
+        if not imp_file.estimated_cost_currency or not str(imp_file.estimated_cost_currency).strip():
+            raise currency_missing_error("Import File Estimated Cost", imp_file.import_file_code)
+        currency = str(imp_file.estimated_cost_currency).strip()
         items_raw.append({
             "line_no": 1,
             "item_code": "ITM-001",
@@ -1127,8 +1135,10 @@ def simulate_estimated_landed_cost_service(
     customs_fx = SettlementFx(db, "customs")
     if req.exchange_rate_override and req.exchange_rate_override > 0:
         fx_rate = float(req.exchange_rate_override)
-    else:
+    elif currency:
         fx_rate = customs_fx.rate(currency, calc_date)
+    else:
+        fx_rate = 1.0
 
     # Multi-currency POs (review 3 #7): a line in another PO currency is restated in the reference currency at
     # the ratio of the two customs rates, so every EGP value is the line's own currency x its own customs rate.
@@ -1597,7 +1607,7 @@ def aggregate_shipment_invoices_service(
     imp = require_active(db, ImportFile, import_file_id, IMPORT_FILE_LABEL_AR, status_code=404)
     fx = SettlementFx(db, "commercial")
 
-    currency = imp.estimated_cost_currency or "USD"
+    currency: Optional[str] = None
     messages: List[SettlementMessage] = []
     goods_rate: Optional[float] = None
 
@@ -1609,16 +1619,25 @@ def aggregate_shipment_invoices_service(
         for idx, inv in enumerate(invoices_data):
             inv_no = str(inv.get("invoice_no") or inv.get("invoice_number") or f"COMM-{imp.import_file_code}-{idx+1}")
             inv_date = str(inv.get("invoice_date") or (imp.file_opening_date or ""))
-            c_curr = str(inv.get("currency") or currency)
-            if c_curr.upper() == "EGP":
+            amt_fc = float(inv.get("amount") or inv.get("total_amount") or inv.get("total_fob") or 0.0)
+            inv_curr = inv.get("currency")
+            if amt_fc > 0:
+                if not inv_curr or not str(inv_curr).strip():
+                    raise currency_missing_error("Commercial Invoice", inv_no)
+                c_curr = str(inv_curr).strip().upper()
+                if not currency:
+                    currency = c_curr
+            else:
+                c_curr = str(inv_curr).strip().upper() if inv_curr else (currency or "EGP")
+
+            if c_curr == "EGP":
                 c_rate = float(inv.get("exchange_rate") or 1.0)
             elif inv.get("exchange_rate") and float(inv.get("exchange_rate")) != 1.0:  # 1.0 on foreign = not set
                 c_rate = float(inv.get("exchange_rate"))
             else:
                 c_rate = fx.rate(c_curr, _as_date(inv.get("invoice_date")))
-            if goods_rate is None:
+            if goods_rate is None and amt_fc > 0:
                 goods_rate = c_rate
-            amt_fc = float(inv.get("amount") or inv.get("total_amount") or inv.get("total_fob") or 0.0)
             amt_egp = round(amt_fc * c_rate if c_curr != "EGP" else amt_fc, 2)
             is_paid = bool(imp.swift_no or inv.get("payment_status") == "PAID" or inv.get("paid"))
             paid_egp = amt_egp if is_paid else 0.0
@@ -1649,8 +1668,11 @@ def aggregate_shipment_invoices_service(
                 notes=f"فاتورة تجارية للشحنة {imp.import_file_code}",
             ))
     elif imp.estimated_cost and imp.estimated_cost > 0:
+        if not imp.estimated_cost_currency or not str(imp.estimated_cost_currency).strip():
+            raise currency_missing_error("Import File Estimated Cost", imp.import_file_code)
+        currency = str(imp.estimated_cost_currency).strip().upper()
         amt_fc = float(imp.estimated_cost)
-        est_rate = 1.0 if currency.upper() == "EGP" else fx.rate(currency, _as_date(imp.file_opening_date))
+        est_rate = 1.0 if currency == "EGP" else fx.rate(currency, _as_date(imp.file_opening_date))
         goods_rate = est_rate
         amt_egp = round(amt_fc * est_rate if currency != "EGP" else amt_fc, 2)
         is_paid = bool(imp.swift_no)
@@ -2121,7 +2143,9 @@ def aggregate_shipment_invoices_service(
         cost = float(d.total_cost_egp or 0.0)
         tot_fx = float(d.total_demurrage_fx or 0.0) + float(d.total_detention_fx or 0.0)
         if cost > 0 or tot_fx > 0:
-            d_ccy = (d.currency or "USD").upper()
+            if tot_fx > 0 and (not d.currency or not str(d.currency).strip()):
+                raise currency_missing_error("Demurrage Tracking", d.tracking_code or str(d.tracking_id))
+            d_ccy = (d.currency or "EGP").upper()
             if d.exchange_rate:
                 d_rate = float(d.exchange_rate)
             elif d_ccy == "EGP":
@@ -2141,7 +2165,7 @@ def aggregate_shipment_invoices_service(
                 party_name=d.carrier_name or "الخط الملاحي",
                 category="Demurrage & Detention",
                 category_ar="غرامات تأخير الحاويات ورسوم الأرضيات",
-                currency=d.currency or "USD",
+                currency=d.currency or "EGP",
                 exchange_rate=d_rate,
                 amount_fc=tot_fx,
                 amount_egp=amt_egp,
@@ -2195,10 +2219,12 @@ def aggregate_shipment_invoices_service(
     # The reported rate: the goods invoice rate, else the file currency rate today (display only, 0 when missing).
     if goods_rate is not None:
         reported_rate = goods_rate
-    elif currency.upper() == "EGP":
+    elif currency and currency.upper() == "EGP":
         reported_rate = 1.0
-    else:
+    elif currency:
         reported_rate = fx.rate_or_none(currency) or 0.0
+    else:
+        reported_rate = 0.0
 
     return InvoicesAggregationResponse(
         import_file_id=imp.import_file_id,
@@ -2434,7 +2460,7 @@ def _calculate_actual_landed_cost(
     agg = aggregate_shipment_invoices_service(db, import_file_id)
     messages.extend(agg.messages)
     all_invoices = agg.invoices
-    currency = agg.currency or "USD"
+    currency = agg.currency
     exchange_rate = agg.exchange_rate
 
     # Separate FOB Goods from other Expenses
@@ -2447,7 +2473,7 @@ def _calculate_actual_landed_cost(
     elif sim and sim.total_fob_egp > 0:
         actual_total_fob_egp = sim.total_fob_egp
     elif (imp.estimated_cost or 0) > 0:
-        actual_total_fob_egp = float(imp.estimated_cost) * fx.rate(currency, _as_date(imp.file_opening_date))
+        actual_total_fob_egp = float(imp.estimated_cost) * (fx.rate(currency, _as_date(imp.file_opening_date)) if currency else 1.0)
     else:
         actual_total_fob_egp = 0.0
 

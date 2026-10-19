@@ -207,7 +207,7 @@ class EstimatedLandedCostSimulationRequest(BaseModel):
 class EstimatedLandedCostSimulationResponse(BaseModel):
     import_file_id: int
     import_file_code: str
-    currency: str = "USD"
+    currency: Optional[str] = None
     exchange_rate: float
     incoterm: str = "FOB"
     total_fob_fc: float
@@ -283,7 +283,7 @@ class InvoicesAggregationResponse(BaseModel):
     import_file_id: int
     import_file_code: str
     supplier_name: str
-    currency: str = "USD"
+    currency: Optional[str] = None
     exchange_rate: float = 0.0
     total_invoices_count: int = 0
     total_amount_egp: float = 0.0
@@ -376,7 +376,7 @@ class ActualLandedCostCalculationResponse(BaseModel):
     import_file_id: int
     import_file_code: str
     supplier_name: str
-    currency: str = "USD"
+    currency: Optional[str] = None
     exchange_rate: float = 0.0
     incoterm: str = "FOB"
     allocation_preference: str = "Value-Based"

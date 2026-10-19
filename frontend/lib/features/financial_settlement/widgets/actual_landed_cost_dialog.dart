@@ -249,7 +249,7 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
             value: '${formatSettlementMoney(calc.totalFobEgp)} $egp',
             icon: Icons.inventory_2_outlined,
             color: AppTheme.flatCobalt,
-            tooltip: l10n.settlementClo02KpiFobSub(calc.currency, calc.fxRate.toStringAsFixed(2)),
+            tooltip: l10n.settlementClo02KpiFobSub(calc.currency ?? '', calc.fxRate.toStringAsFixed(2)),
           ),
           MetricCardData(
             title: l10n.settlementClo02KpiExpenses,

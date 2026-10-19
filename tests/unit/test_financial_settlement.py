@@ -1543,6 +1543,66 @@ class TestFinancialSettlementModule(unittest.TestCase):
         sum_items_landed = round(sum(i.total_landed_cost_egp for i in sim.items_breakdown), 2)
         self.assertAlmostEqual(sum_items_landed, sim.total_landed_cost_egp, delta=0.01 * len(sim.items_breakdown))
 
+    def test_acc2_t11_no_invented_currency_in_estimate_and_aggregation(self):
+        """ACC2-T11: No invented currency in estimate / aggregation.
+        - invoices_data=[{"invoice_no": "CI-1", "amount": 10000}] without currency -> CLO-01 raises 409 SETTLEMENT_CURRENCY_MISSING with invoice_no CI-1.
+        - with "currency": "EUR" and EUR commercial rate 52.80 -> CLO-01 computes 528,000.00 EGP, currency is "EUR", exchange_rate is 52.80.
+        - file without goods (invoices_data=[], estimated_cost=None) -> CLO-01 returns currency is None, exchange_rate is 0.0 (no "USD" invented).
+        """
+        from fastapi import HTTPException
+        from modules.financial_settlement.service import aggregate_shipment_invoices_service
+        from modules.currencies.model import Currency, ExchangeRate
+
+        # Set up base currency (EGP)
+        egp = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_base_currency=True, is_active=True)
+        self.db.add(egp)
+        self.db.flush()
+
+        imp_file = self.db.get(ImportFile, self.import_file_id)
+
+        # 1. Invoice with amount > 0 and no currency -> 409 SETTLEMENT_CURRENCY_MISSING
+        imp_file.invoices_data = [{"invoice_no": "CI-1", "amount": 10000}]
+        self.db.commit()
+
+        with self.assertRaises(HTTPException) as ctx:
+            aggregate_shipment_invoices_service(self.db, self.import_file_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail.get("code"), "SETTLEMENT_CURRENCY_MISSING")
+        self.assertEqual(ctx.exception.detail.get("invoice_no"), "CI-1")
+
+        # 2. Add EUR currency and exchange rate 52.80
+        eur = Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True)
+        self.db.add(eur)
+        self.db.flush()
+        rate_eur = ExchangeRate(
+            currency_id=eur.currency_id,
+            commercial_rate=52.80,
+            customs_rate=52.80,
+            effective_date=date.today(),
+        )
+        self.db.add(rate_eur)
+        self.db.commit()
+
+        # Update invoice with currency="EUR"
+        imp_file.invoices_data = [{"invoice_no": "CI-1", "amount": 10000, "currency": "EUR"}]
+        self.db.commit()
+
+        agg = aggregate_shipment_invoices_service(self.db, self.import_file_id)
+        self.assertEqual(agg.currency, "EUR")
+        self.assertEqual(agg.exchange_rate, 52.80)
+        self.assertEqual(len(agg.invoices), 1)
+        self.assertEqual(agg.invoices[0].amount_egp, 528000.0)
+        self.assertEqual(agg.total_amount_egp, 528000.0)
+
+        # 3. File without goods (no invoices_data, estimated_cost=0.0, no POs)
+        imp_file.invoices_data = []
+        imp_file.estimated_cost = 0.0
+        self.db.commit()
+
+        agg_empty = aggregate_shipment_invoices_service(self.db, self.import_file_id)
+        self.assertIsNone(agg_empty.currency)
+        self.assertEqual(agg_empty.exchange_rate, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

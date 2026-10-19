@@ -253,7 +253,7 @@ class ActualLandedCostCalculationResponseModel {
   final int importFileId;
   final String importFileCode;
   final String financialSettlementStatus;
-  final String currency;
+  final String? currency;
   final double fxRate;
   final String allocationPreference;
   final double totalFobEgp;
@@ -275,7 +275,7 @@ class ActualLandedCostCalculationResponseModel {
     required this.importFileId,
     required this.importFileCode,
     required this.financialSettlementStatus,
-    required this.currency,
+    this.currency,
     required this.fxRate,
     required this.allocationPreference,
     required this.totalFobEgp,
@@ -302,7 +302,7 @@ class ActualLandedCostCalculationResponseModel {
       importFileId: (json['import_file_id'] as num?)?.toInt() ?? 0,
       importFileCode: json['import_file_code'] ?? '',
       financialSettlementStatus: json['financial_settlement_status'] ?? '',
-      currency: json['currency'] ?? 'USD',
+      currency: json['currency']?.toString(),
       fxRate: _numOf(json, ['exchange_rate', 'fx_rate'], 0.0),
       allocationPreference: json['allocation_preference'] ?? 'Value-Based',
       totalFobEgp: _numOf(json, ['actual_total_fob_egp', 'total_fob_egp'], 0.0),

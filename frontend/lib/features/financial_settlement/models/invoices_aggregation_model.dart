@@ -148,7 +148,7 @@ class InvoicesAggregationResponseModel {
   final int importFileId;
   final String importFileCode;
   final String supplierName;
-  final String currency;
+  final String? currency;
   final double exchangeRate;
   final int totalInvoicesCount;
   final double totalAmountEgp;
@@ -166,7 +166,7 @@ class InvoicesAggregationResponseModel {
     required this.importFileId,
     required this.importFileCode,
     required this.supplierName,
-    this.currency = 'USD',
+    this.currency,
     this.exchangeRate = 0.0,
     this.totalInvoicesCount = 0,
     this.totalAmountEgp = 0.0,
@@ -186,7 +186,7 @@ class InvoicesAggregationResponseModel {
       importFileId: json['import_file_id'] as int? ?? 0,
       importFileCode: json['import_file_code'] ?? '',
       supplierName: json['supplier_name'] ?? '',
-      currency: json['currency'] ?? 'USD',
+      currency: json['currency']?.toString(),
       exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 0.0,
       totalInvoicesCount: json['total_invoices_count'] as int? ?? 0,
       totalAmountEgp: (json['total_amount_egp'] as num?)?.toDouble() ?? 0.0,
