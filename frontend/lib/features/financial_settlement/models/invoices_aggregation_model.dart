@@ -247,12 +247,14 @@ class ConfirmInvoicesSettlementRequestModel {
   final String? settledBy;
   final String? settlementNotes;
   final List<AggregatedInvoiceItemModel>? invoicesOverrides;
+  final bool acknowledgeUnpaid;
 
   ConfirmInvoicesSettlementRequestModel({
     required this.importFileId,
     this.settledBy,
     this.settlementNotes,
     this.invoicesOverrides,
+    this.acknowledgeUnpaid = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -262,6 +264,7 @@ class ConfirmInvoicesSettlementRequestModel {
       if (settlementNotes != null) 'settlement_notes': settlementNotes,
       if (invoicesOverrides != null)
         'invoices_overrides': invoicesOverrides!.map((i) => i.toJson()).toList(),
+      if (acknowledgeUnpaid) 'acknowledge_unpaid': true,
     };
   }
 }

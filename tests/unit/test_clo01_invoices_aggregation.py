@@ -267,6 +267,7 @@ class TestCLO01InvoicesAggregation:
             supplier_name="Milan Leather SpA",
             estimated_cost=15000.0,
             estimated_cost_currency="EUR",
+            swift_no="SWIFT-EUR-15000",
             progress_percent=95.0,
             current_stage="Stage 8: Inland Transport & Receiving",
         )
@@ -338,6 +339,7 @@ class TestCLO01InvoicesAggregation:
             supplier_name="Tokyo Electronics Ltd",
             estimated_cost=50000.0,
             estimated_cost_currency="USD",
+            swift_no="SWIFT-USD-50000",
             progress_percent=95.0,
             current_stage="Stage 8: Inland Transport & Receiving",
         )
@@ -468,4 +470,115 @@ class TestCLO01InvoicesAggregation:
 
         agg3 = aggregate_shipment_invoices_service(db_session, imp3.import_file_id)
         assert agg3.settlement_readiness_percent == 95.2
+
+    def test_be09_t13_confirm_readiness_gate_and_cairo_date(self, db_session, client, monkeypatch):
+        """BE09-T13: CLO-01 confirm readiness gate (< 100% requires acknowledge_unpaid) and Cairo date."""
+        from fastapi import HTTPException
+        from modules.financial_settlement.service import cairo_today
+
+        # 1. Setup file with 1 unpaid invoice (readiness 95.2%, 1 unpaid)
+        imp = ImportFile(
+            import_file_code="IMP-BE09-T13-01",
+            company_name="Sorour Logistics Co.",
+            supplier_name="Global Trading Co",
+            invoices_data=[{"invoice_no": "INV-T13-1", "currency": "EGP", "amount": 100000.0, "payment_status": "PAID"}],
+            is_active=True,
+            current_stage="Stage 8: Inland Transport & Receiving",
+        )
+        db_session.add(imp)
+        db_session.flush()
+
+        # Unpaid transport: 5,000 EGP
+        tr = InlandTransportBooking(
+            transport_code="TR-T13-01",
+            waybill_number="WB-T13-01",
+            import_file_id=imp.import_file_id,
+            carrier_name="Cairo Express",
+            truck_plate_number="س ب ع 1234",
+            driver_name="أحمد حسن",
+            driver_phone="01012345678",
+            pickup_port_location="Alexandria Port",
+            destination_warehouse="Cairo Depot",
+            planned_departure_at=datetime.now(timezone.utc),
+            expected_arrival_at=datetime.now(timezone.utc),
+            transport_fare_egp=5000.0,
+            status="Booked",
+            is_active=True,
+        )
+        db_session.add(tr)
+
+        task_901 = SmartTask(
+            task_code=f"TSK-0901-{imp.import_file_id}",
+            title="تجميع وتسوية الفواتير الختامية للملف (CLO-01)",
+            description="مراجعة وتجميع فواتير الشحنة",
+            task_type="System Generated",
+            import_file_id=imp.import_file_id,
+            import_file_code=imp.import_file_code,
+            phase_name="Stage 9: Landed Cost & File Closure",
+            status="Pending",
+        )
+        db_session.add(task_901)
+        db_session.commit()
+
+        # 2. Try confirming with acknowledge_unpaid=False -> raises 409 INVOICES_NOT_READY
+        req_unacknowledged = ConfirmInvoicesSettlementRequest(
+            import_file_id=imp.import_file_id,
+            acknowledge_unpaid=False,
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            confirm_invoices_settlement_service(db_session, req_unacknowledged, actor="Tester")
+        assert exc_info.value.status_code == 409
+        detail = exc_info.value.detail
+        assert detail["code"] == "INVOICES_NOT_READY"
+        assert detail["readiness"] == 95.2
+        assert detail["unpaid_count"] == 1
+
+        # Also verify HTTP 409 endpoint response
+        api_res = client.post(
+            "/api/v1/financial-settlement/confirm-invoices-settlement",
+            json={"import_file_id": imp.import_file_id, "acknowledge_unpaid": False},
+        )
+        assert api_res.status_code == 409
+        assert api_res.json()["detail"]["code"] == "INVOICES_NOT_READY"
+
+        # 3. Confirm with acknowledge_unpaid=True -> 200 OK, sets Cairo date, appends note to TSK-0901
+        req_acknowledged = ConfirmInvoicesSettlementRequest(
+            import_file_id=imp.import_file_id,
+            acknowledge_unpaid=True,
+        )
+        res = confirm_invoices_settlement_service(db_session, req_acknowledged, actor="Lead Auditor")
+        assert res.success is True
+        assert res.financial_settlement_status == "INVOICES_SETTLED"
+
+        db_session.refresh(imp)
+        assert imp.financial_settlement_date == cairo_today()
+        assert res.financial_settlement_date == str(cairo_today())
+
+        db_session.refresh(task_901)
+        assert task_901.status == "Completed"
+        assert "unpaid acknowledged" in task_901.notes
+
+        # 4. Cairo date verification when UTC time is 23:30 (next Cairo day)
+        from modules.financial_settlement import service as fs_service
+        fake_cairo_date = date(2026, 12, 31)
+        monkeypatch.setattr(fs_service, "cairo_today", lambda: fake_cairo_date)
+
+        imp_late = ImportFile(
+            import_file_code="IMP-BE09-T13-LATE",
+            company_name="Late Test Co",
+            supplier_name="Late Test Sup",
+            invoices_data=[{"invoice_no": "INV-LATE", "currency": "EGP", "amount": 50000.0, "payment_status": "PAID"}],
+            is_active=True,
+        )
+        db_session.add(imp_late)
+        db_session.commit()
+
+        res_late = confirm_invoices_settlement_service(
+            db_session,
+            ConfirmInvoicesSettlementRequest(import_file_id=imp_late.import_file_id),
+            actor="Late Worker",
+        )
+        assert res_late.financial_settlement_date == "2026-12-31"
+        db_session.refresh(imp_late)
+        assert imp_late.financial_settlement_date == fake_cairo_date
 

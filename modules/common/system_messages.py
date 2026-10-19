@@ -1492,6 +1492,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "INVOICES_NOT_SETTLED": {
         "note": "Actual landed cost cannot be approved before shipment invoices are settled (status: {status}).",
     },
+    "INVOICES_NOT_READY": {
+        "note": "Invoices settlement readiness ({readiness}%) is less than 100% due to unpaid invoices ({unpaid_count}). Please confirm payment or acknowledge unpaid amounts.",
+    },
     "SETTLEMENT_NO_ITEMS": {
         "note": "Cannot approve actual landed cost: shipment file has no item lines for cost allocation.",
     },

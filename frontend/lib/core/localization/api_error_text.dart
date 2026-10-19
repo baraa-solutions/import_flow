@@ -33,6 +33,7 @@ class ApiErrorCode {
   static const ctSimulationNoLines = 'CT_SIMULATION_NO_LINES';
   static const ctSimulationNoBroker = 'CT_SIMULATION_NO_BROKER';
   static const settlementDuplicateActive = 'SETTLEMENT_DUPLICATE_ACTIVE';
+  static const invoicesNotReady = 'INVOICES_NOT_READY';
 }
 
 /// User-facing, localized text for a failed API call.

@@ -2294,6 +2294,15 @@
       "note"
     ]
   },
+  "INVOICES_NOT_READY": {
+    "params": [
+      "readiness",
+      "unpaid_count"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "INVOICES_NOT_SETTLED": {
     "params": [
       "status"

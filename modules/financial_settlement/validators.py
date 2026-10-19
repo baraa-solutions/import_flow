@@ -14,6 +14,7 @@ IMPORT_FILE_CLOSED = "IMPORT_FILE_CLOSED"
 SETTLEMENT_CURRENCY_MISSING = "SETTLEMENT_CURRENCY_MISSING"
 SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED = "SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED"
 INVOICES_NOT_SETTLED = "INVOICES_NOT_SETTLED"
+INVOICES_NOT_READY = "INVOICES_NOT_READY"
 SETTLEMENT_NO_ITEMS = "SETTLEMENT_NO_ITEMS"
 SETTLEMENT_RESERVED_INVOICE_NO = "SETTLEMENT_RESERVED_INVOICE_NO"
 SETTLEMENT_NOT_APPROVED = "SETTLEMENT_NOT_APPROVED"
@@ -220,4 +221,20 @@ def ensure_no_client_adjustment_rows(
                     f"رقم الفاتورة '{inv_no}' يبدأ بالبادئة المحجوزة '{RECALC_ADJUSTMENT_PREFIX}' ولا يمكن إنشاؤه أو تعديله إلا عبر محرك إعادة الاحتساب التلقائي.",
                     invoice_no=inv_no,
                 )
+
+
+def ensure_invoices_settlement_ready(
+    readiness: float,
+    unpaid_count: int,
+    acknowledge_unpaid: bool,
+) -> None:
+    """CLO-01 confirm requires 100% readiness or explicit acknowledgement of unpaid invoices (BE09-T13)."""
+    if readiness < 100.0 and not acknowledge_unpaid:
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            INVOICES_NOT_READY,
+            f"نسبة جاهزية تسوية الفواتير ({readiness}%) أقل من 100% لوجود فواتير غير مسددة ({unpaid_count}). يرجى سداد الفواتير أو تأكيد التسوية مع الإقرار بوجود مبالغ غير مسددة.",
+            readiness=readiness,
+            unpaid_count=unpaid_count,
+        )
 

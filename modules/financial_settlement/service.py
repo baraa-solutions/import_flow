@@ -55,6 +55,7 @@ from .validators import (
     ensure_cost_not_approved,
     ensure_file_open,
     ensure_invoices_not_settled,
+    ensure_invoices_settlement_ready,
     ensure_invoices_settled,
     ensure_no_manual_rows,
     ensure_no_other_active_settlement,
@@ -1976,11 +1977,6 @@ def aggregate_shipment_invoices_service(
             amt = round(float(cl_inv.amount_fx * inv_rate), 2)  # stored rows are cents (review 2 #9)
         is_p = (cl_inv.payment_status or "").lower() in ("paid", "مسدد")
         is_part = "part" in (cl_inv.payment_status or "").lower()
-        # A partial payment has no stored paid amount: it is reported as unknown and counted as 0 paid (FS-10).
-        paid = float(cl_inv.net_payable_egp if is_p else 0.0)
-        if is_part:
-            messages.append(_message(PAYMENT_STATUS_UNKNOWN, invoice_no=inv_ref, party_name=cl_inv.provider_name or "-"))
-        rem = max(0.0, float(cl_inv.net_payable_egp or amt) - paid)
         # WHT rate valid on the invoice date (Cairo, tax_rates table); a stored wht_amount always wins.
         wht_rate = 0.0
         if cl_inv.wht_deducted:
@@ -2005,6 +2001,12 @@ def aggregate_shipment_invoices_service(
             wht_rate = configured or 0.0
         wht_amt = float(cl_inv.wht_amount or (wht_amount_for(amt, wht_rate) if cl_inv.wht_deducted else 0.0))
         net = float(cl_inv.net_payable_egp or (amt - wht_amt))
+
+        # A partial payment has no stored paid amount: it is reported as unknown and counted as 0 paid (FS-10).
+        paid = net if is_p else 0.0
+        if is_part:
+            messages.append(_message(PAYMENT_STATUS_UNKNOWN, invoice_no=inv_ref, party_name=cl_inv.provider_name or "-"))
+        rem = max(0.0, net - paid)
 
         invoices.append(AggregatedInvoiceItemSchema(
             invoice_id=f"BROKER-{cl_inv.invoice_id}",
@@ -2330,8 +2332,15 @@ def confirm_invoices_settlement_service(
     agg = aggregate_shipment_invoices_service(db, payload.import_file_id)
     invoices = agg.invoices
 
+    unpaid_count = sum(1 for inv in invoices if inv.payment_status != "PAID")
+    ensure_invoices_settlement_ready(
+        agg.settlement_readiness_percent,
+        unpaid_count,
+        payload.acknowledge_unpaid,
+    )
+
     total_settled_egp = round(sum(inv.amount_egp for inv in invoices), 2)
-    today_date = datetime.now(timezone.utc).date()
+    today_date = cairo_today()
     today_str = str(today_date)
 
     old_data = {
@@ -2358,10 +2367,11 @@ def confirm_invoices_settlement_service(
         SmartTask.status != "Completed",
         SmartTask.task_code.ilike("TSK-0901%"),
     ).all()
+    ack_suffix = " (unpaid acknowledged)" if payload.acknowledge_unpaid else ""
     for t in tasks_901:
         t.status = "Completed"
         t.is_auto_closed = True
-        t.notes = f"Invoices settlement and reconciliation approved by {actor} on {today_str}"
+        t.notes = f"Invoices settlement and reconciliation approved by {actor} on {today_str}{ack_suffix}"
 
     # 3. Create downstream SmartTask TSK-0902
     task_code_902 = f"TSK-0902-{imp.import_file_id}"

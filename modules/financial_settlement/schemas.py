@@ -307,6 +307,9 @@ class ConfirmInvoicesSettlementRequest(BaseModel):
     invoices_overrides: Optional[List[AggregatedInvoiceItemSchema]] = Field(
         None, description="Ignored: the server re-aggregates the invoices"
     )
+    acknowledge_unpaid: bool = Field(
+        False, description="Explicit acknowledgement when confirming with unpaid invoices (readiness < 100%)"
+    )
 
 
 class ConfirmInvoicesSettlementResponse(BaseModel):
