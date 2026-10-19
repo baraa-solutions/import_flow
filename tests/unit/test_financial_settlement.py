@@ -2096,6 +2096,123 @@ class TestFinancialSettlementModule(unittest.TestCase):
         updated = update_settlement_service(self.db, rec.settlement_id, put_ok, actor="Test")
         self.assertEqual(updated.total_expenses_egp, 47500.0)
 
+    def test_acc2_t05_server_derived_egp_foreign_row(self):
+        """ACC2-T05: row USD 1,000 x 50 with amount_egp 10 -> stored 50,000.00, total_expenses_egp 50,000.00."""
+        from modules.financial_settlement.schemas import FinancialSettlementCreate, ExpenseInvoiceSchema, ItemLandedCostSchema
+        from modules.financial_settlement.service import create_settlement_service
+        from modules.currencies.model import Currency, ExchangeRate
+
+        # Set up USD currency and rate
+        usd = self.db.query(Currency).filter(Currency.currency_code == "USD").first()
+        if not usd:
+            usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+            self.db.add(usd)
+            self.db.flush()
+        rate_row = ExchangeRate(
+            currency_id=usd.currency_id,
+            commercial_rate=50.0,
+            customs_rate=50.0,
+            effective_date=date.today(),
+        )
+        self.db.add(rate_row)
+        self.db.commit()
+
+        schema = FinancialSettlementCreate(
+            import_file_id=self.import_file_id,
+            expense_invoices=[
+                ExpenseInvoiceSchema(
+                    invoice_no="INV-FOR-01",
+                    category="Freight",
+                    provider_name="Ocean Carrier",
+                    currency="USD",
+                    amount_fx=1000.0,
+                    exchange_rate=50.0,
+                    amount_egp=10.0,  # client passes bogus 10
+                    allocation_rule="Value-Based",
+                )
+            ],
+            item_landed_costs=[
+                ItemLandedCostSchema(
+                    item_code="ITM-01",
+                    item_name="Item 1",
+                    qty=1,
+                    fob_unit_egp=100000.0,
+                    fob_total_egp=100000.0,
+                )
+            ]
+        )
+        rec = create_settlement_service(self.db, schema)
+        # Client amount_egp=10 is ignored; server derives 1000.0 * 50.0 = 50000.00
+        row = rec.expense_invoices[0]
+        self.assertEqual(row["amount_egp"], 50000.0)
+        self.assertEqual(rec.total_expenses_egp, 50000.0)
+
+    def test_acc2_t05_server_derived_egp_rounding_and_odoo_export(self):
+        """ACC2-T05: Four EGP rows 100.004 -> stored 100.00 each, total_expenses_egp 400.00, Odoo export 200."""
+        from modules.financial_settlement.schemas import FinancialSettlementCreate, ExpenseInvoiceSchema, ItemLandedCostSchema
+        from modules.financial_settlement.service import create_settlement_service
+        from modules.financial_settlement.odoo_export_service import generate_odoo_journal_entry_service
+
+        schema = FinancialSettlementCreate(
+            import_file_id=self.import_file_id,
+            expense_invoices=[
+                ExpenseInvoiceSchema(
+                    invoice_no=f"EGP-INV-{i}",
+                    category="Local Transport",
+                    provider_name="Trucker",
+                    currency="EGP",
+                    amount_fx=100.004,
+                    exchange_rate=1.0,
+                    amount_egp=0.0,
+                    allocation_rule="Value-Based",
+                )
+                for i in range(1, 5)
+            ],
+            item_landed_costs=[
+                ItemLandedCostSchema(
+                    item_code="ITM-EGP",
+                    item_name="Item EGP",
+                    qty=1,
+                    fob_unit_egp=10000.0,
+                    fob_total_egp=10000.0,
+                )
+            ]
+        )
+        rec = create_settlement_service(self.db, schema)
+        for row in rec.expense_invoices:
+            self.assertEqual(row["amount_egp"], 100.00)
+        self.assertEqual(rec.total_expenses_egp, 400.00)
+
+        # Odoo export succeeds (status 200) without JOURNAL_UNBALANCED
+        rec.status = "Approved"
+        self.db.commit()
+        journal = generate_odoo_journal_entry_service(self.db, rec.settlement_id)
+        self.assertIsNotNone(journal)
+        self.assertEqual(journal.total_debit, journal.total_credit)
+
+    def test_acc2_t05_missing_currency_raises_422(self):
+        """ACC2-T05: Missing currency -> 422 (ValidationError)."""
+        from pydantic import ValidationError
+        from modules.financial_settlement.schemas import ExpenseInvoiceSchema
+
+        with self.assertRaises(ValidationError):
+            ExpenseInvoiceSchema(
+                invoice_no="INV-NO-CURR",
+                category="Freight",
+                provider_name="Ocean Carrier",
+                amount_fx=1000.0,
+                # currency omitted!
+            )
+
+        with self.assertRaises(ValidationError):
+            ExpenseInvoiceSchema(
+                invoice_no="INV-EMPTY-CURR",
+                category="Freight",
+                provider_name="Ocean Carrier",
+                currency="  ",
+                amount_fx=1000.0,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

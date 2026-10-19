@@ -30,7 +30,7 @@ class ExpenseInvoiceSchema(BaseModel):
     invoice_no: str
     category: str = Field(..., description="Freight, Customs Duty, Brokerage, Local Transport, Storage, Insurance, Other")
     provider_name: str
-    currency: str = "USD"
+    currency: str = Field(..., min_length=3, max_length=3, description="Currency code (e.g. USD, EUR, EGP)")
     amount_fx: float
     # Optional: missing = 1.0 for EGP, else the rate table on the invoice date (409 SETTLEMENT_FX_RATE_MISSING).
     exchange_rate: Optional[float] = Field(None, gt=0.0)
@@ -40,6 +40,16 @@ class ExpenseInvoiceSchema(BaseModel):
     wht_amount_egp: Optional[float] = 0.0
     net_payable_egp: Optional[float] = None
     duty_component: Optional[str] = None
+
+    @field_validator("currency")
+    @classmethod
+    def _validate_currency(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("currency is required")
+        res = v.strip().upper()
+        if len(res) != 3:
+            raise ValueError("currency must be 3 characters")
+        return res
 
     @model_validator(mode="after")
     def _non_negative_unless_adjustment(self) -> "ExpenseInvoiceSchema":

@@ -663,6 +663,33 @@ def _resolve_client_expense_rates(expenses: List[Dict[str, Any]], fx: "Settlemen
         e["exchange_rate"] = 1.0 if currency == "EGP" else fx.rate(currency, _as_date(e.get("invoice_date")))
 
 
+def _derive_expense_egp(expenses: List[Dict[str, Any]]) -> None:
+    """Server-derived EGP amounts on settlement expense rows (ACC2-T05, F07).
+    - EGP -> exchange_rate = 1.0, amount_egp = round(amount_fx, 2) if amount_fx > 0 else round(amount_egp, 2)
+    - foreign -> amount_egp = round(amount_fx * exchange_rate, 2) (require amount_fx > 0, 400 otherwise)
+    - RECALC-ADJ-* rows only rounded.
+    """
+    for e in expenses:
+        inv_no = str(e.get("invoice_no") or "")
+        if inv_no.startswith(RECALC_ADJUSTMENT_PREFIX):
+            e["amount_egp"] = round(float(e.get("amount_egp") or 0.0), 2)
+            continue
+        currency = (e.get("currency") or "EGP").strip().upper()
+        amount_fx = float(e.get("amount_fx") or 0.0)
+        amount_egp = float(e.get("amount_egp") or 0.0)
+        rate = float(e.get("exchange_rate") or 0.0)
+        if currency == "EGP":
+            e["exchange_rate"] = 1.0
+            e["amount_egp"] = round(amount_fx, 2) if amount_fx > 0 else round(amount_egp, 2)
+            if amount_fx > 0:
+                e["amount_fx"] = round(amount_fx, 2)
+        else:
+            if amount_fx <= 0:
+                raise HTTPException(status_code=400, detail="amount_fx must be > 0 for foreign currency expense row")
+            e["amount_egp"] = round(amount_fx * rate, 2)
+            e["amount_fx"] = round(amount_fx, 2)
+
+
 def _validate_client_expenses(expenses: List[Dict[str, Any]]) -> None:
     """Run after ``_resolve_client_expense_rates``: every row then has a positive rate."""
     for e in expenses:
@@ -818,6 +845,7 @@ def build_initial_settlement(
     expenses = [e if isinstance(e, dict) else e.model_dump() for e in (expenses_in or [])]
     ensure_no_client_adjustment_rows(expenses, stored_rows=[])
     _resolve_client_expense_rates(expenses, SettlementFx(db, "commercial"))
+    _derive_expense_egp(expenses)
     _validate_client_expenses(expenses)
 
     # ── Auto-fetch: Customs Duty totals → expense_invoices pre-fill ──────────
@@ -976,6 +1004,7 @@ def update_settlement_service(
     if update_data.get("expense_invoices") is not None:
         ensure_no_client_adjustment_rows(update_data["expense_invoices"], stored_rows=existing.expense_invoices or [])
         _resolve_client_expense_rates(update_data["expense_invoices"], SettlementFx(db, "commercial"))
+        _derive_expense_egp(update_data["expense_invoices"])
         _validate_client_expenses(update_data["expense_invoices"])
     old_data = {k: getattr(existing, k, None) for k in update_data.keys()}
 
