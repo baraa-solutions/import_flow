@@ -798,10 +798,10 @@ def test_actual_items_use_the_po_rate_and_report_the_header_difference(db):
     seed_actual_sources(db, imp)
     res = fs.calculate_actual_landed_cost_service(db, imp.import_file_id)
     assert res.actual_total_fob_egp == 970000.0
-    assert [i.fob_total_egp for i in res.items_breakdown] == [15000.0 * 50.25, 5000.0 * 50.25]
-    assert res.reconciliation_difference_egp == round(
-        res.actual_total_landed_cost_egp - sum(i.actual_total_landed_cost_egp for i in res.items_breakdown), 2)
-    assert res.reconciliation_difference_egp == -35000.0  # 20,000 x (48.5 - 50.25), reported, not redistributed
+    # ACC2-T06: Single FOB basis aligns items to goods invoice basis
+    assert [i.fob_total_egp for i in res.items_breakdown] == [15000.0 * 48.5, 5000.0 * 48.5]
+    assert res.reconciliation_difference_egp == 0.0
+    assert res.fob_basis == "INVOICE"
 
 
 # ── BE09-T08 ─────────────────────────────────────────────────────────────────
