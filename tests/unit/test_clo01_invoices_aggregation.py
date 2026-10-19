@@ -370,3 +370,102 @@ class TestCLO01InvoicesAggregation:
         # 3. Test 404 on non-existent file
         res_404 = client.get("/api/v1/financial-settlement/invoices-aggregation/999999")
         assert res_404.status_code == 404
+
+    def test_acc2_t04_readiness_on_net_payable_basis(self, db_session):
+        """ACC2-T04: CLO-01 settlement_readiness_percent computed on net-payable basis."""
+        # 1. goods 100,000 PAID + CL-05 invoice amount 50,000, wht_amount 1,500, net 48,500, Paid -> readiness 100.0, total_net_payable_egp 148,500.00
+        imp1 = ImportFile(
+            import_file_code="IMP-ACC2-04-1",
+            company_name="Co",
+            supplier_name="Sup",
+            invoices_data=[{"invoice_no": "CI-1", "currency": "EGP", "amount": 100000.0, "payment_status": "PAID"}],
+            is_active=True,
+        )
+        db_session.add(imp1)
+        db_session.flush()
+
+        inv1 = ClearanceExpenseInvoice(
+            invoice_code="CEI-ACC2-1",
+            import_file_id=imp1.import_file_id,
+            invoice_number="CLI-1",
+            provider_name="Broker",
+            expense_category="CUSTOMS_CLEARANCE_FEES",
+            currency="EGP",
+            amount_egp=50000.0,
+            vat_amount=0.0,
+            wht_amount=1500.0,
+            net_payable_egp=48500.0,
+            payment_status="Paid",
+            is_active=True,
+        )
+        db_session.add(inv1)
+        db_session.commit()
+
+        agg1 = aggregate_shipment_invoices_service(db_session, imp1.import_file_id)
+        assert agg1.settlement_readiness_percent == 100.0
+        assert agg1.total_net_payable_egp == 148500.0
+
+        # 2. Broker 10,000 + VAT 1,400 - WHT 300 (net 11,100) Paid + goods 100,000 PAID -> 100.0
+        imp2 = ImportFile(
+            import_file_code="IMP-ACC2-04-2",
+            company_name="Co",
+            supplier_name="Sup",
+            invoices_data=[{"invoice_no": "CI-2", "currency": "EGP", "amount": 100000.0, "payment_status": "PAID"}],
+            is_active=True,
+        )
+        db_session.add(imp2)
+        db_session.flush()
+
+        inv2 = ClearanceExpenseInvoice(
+            invoice_code="CEI-ACC2-2",
+            import_file_id=imp2.import_file_id,
+            invoice_number="CLI-2",
+            provider_name="Broker",
+            expense_category="CUSTOMS_CLEARANCE_FEES",
+            currency="EGP",
+            amount_egp=10000.0,
+            vat_amount=1400.0,
+            wht_amount=300.0,
+            net_payable_egp=11100.0,
+            payment_status="Paid",
+            is_active=True,
+        )
+        db_session.add(inv2)
+        db_session.commit()
+
+        agg2 = aggregate_shipment_invoices_service(db_session, imp2.import_file_id)
+        assert agg2.settlement_readiness_percent == 100.0
+
+        # 3. Goods 100,000 PAID + transport 5,000 UNPAID (WHT rate 0) -> 100,000 / 105,000 = 95.2
+        imp3 = ImportFile(
+            import_file_code="IMP-ACC2-04-3",
+            company_name="Co",
+            supplier_name="Sup",
+            invoices_data=[{"invoice_no": "CI-3", "currency": "EGP", "amount": 100000.0, "payment_status": "PAID"}],
+            is_active=True,
+        )
+        db_session.add(imp3)
+        db_session.flush()
+
+        tr3 = InlandTransportBooking(
+            transport_code="TR-3",
+            waybill_number="WB-3",
+            import_file_id=imp3.import_file_id,
+            carrier_name="Trucker",
+            truck_plate_number="س ب ع 1234",
+            driver_name="أحمد حسن",
+            driver_phone="01012345678",
+            pickup_port_location="Alexandria Port",
+            destination_warehouse="Cairo Depot",
+            planned_departure_at=datetime.now(timezone.utc),
+            expected_arrival_at=datetime.now(timezone.utc),
+            transport_fare_egp=5000.0,
+            status="Booked",
+            is_active=True,
+        )
+        db_session.add(tr3)
+        db_session.commit()
+
+        agg3 = aggregate_shipment_invoices_service(db_session, imp3.import_file_id)
+        assert agg3.settlement_readiness_percent == 95.2
+

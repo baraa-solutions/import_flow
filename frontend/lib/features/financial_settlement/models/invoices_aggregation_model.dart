@@ -108,6 +108,7 @@ class InvoicesPartySummaryModel {
   final double totalEgp;
   final double paidEgp;
   final double remainingEgp;
+  final double netPayableEgp;
 
   InvoicesPartySummaryModel({
     required this.partyType,
@@ -117,6 +118,7 @@ class InvoicesPartySummaryModel {
     this.totalEgp = 0.0,
     this.paidEgp = 0.0,
     this.remainingEgp = 0.0,
+    this.netPayableEgp = 0.0,
   });
 
   factory InvoicesPartySummaryModel.fromJson(Map<String, dynamic> json) {
@@ -128,6 +130,7 @@ class InvoicesPartySummaryModel {
       totalEgp: (json['total_egp'] as num?)?.toDouble() ?? 0.0,
       paidEgp: (json['paid_egp'] as num?)?.toDouble() ?? 0.0,
       remainingEgp: (json['remaining_egp'] as num?)?.toDouble() ?? 0.0,
+      netPayableEgp: (json['net_payable_egp'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -140,6 +143,7 @@ class InvoicesPartySummaryModel {
       'total_egp': totalEgp,
       'paid_egp': paidEgp,
       'remaining_egp': remainingEgp,
+      'net_payable_egp': netPayableEgp,
     };
   }
 }
@@ -154,6 +158,7 @@ class InvoicesAggregationResponseModel {
   final double totalAmountEgp;
   final double totalPaidEgp;
   final double totalRemainingEgp;
+  final double totalNetPayableEgp;
   final double totalWithholdingTaxEgp;
   final double settlementReadinessPercent;
   final String financialSettlementStatus;
@@ -172,6 +177,7 @@ class InvoicesAggregationResponseModel {
     this.totalAmountEgp = 0.0,
     this.totalPaidEgp = 0.0,
     this.totalRemainingEgp = 0.0,
+    this.totalNetPayableEgp = 0.0,
     this.totalWithholdingTaxEgp = 0.0,
     this.settlementReadinessPercent = 0.0,
     this.financialSettlementStatus = 'PENDING_SETTLEMENT',
@@ -192,6 +198,7 @@ class InvoicesAggregationResponseModel {
       totalAmountEgp: (json['total_amount_egp'] as num?)?.toDouble() ?? 0.0,
       totalPaidEgp: (json['total_paid_egp'] as num?)?.toDouble() ?? 0.0,
       totalRemainingEgp: (json['total_remaining_egp'] as num?)?.toDouble() ?? 0.0,
+      totalNetPayableEgp: (json['total_net_payable_egp'] as num?)?.toDouble() ?? 0.0,
       totalWithholdingTaxEgp: (json['total_withholding_tax_egp'] as num?)?.toDouble() ?? 0.0,
       settlementReadinessPercent: (json['settlement_readiness_percent'] as num?)?.toDouble() ?? 0.0,
       financialSettlementStatus: json['financial_settlement_status'] ?? 'PENDING_SETTLEMENT',
@@ -222,6 +229,7 @@ class InvoicesAggregationResponseModel {
       'total_amount_egp': totalAmountEgp,
       'total_paid_egp': totalPaidEgp,
       'total_remaining_egp': totalRemainingEgp,
+      'total_net_payable_egp': totalNetPayableEgp,
       'total_withholding_tax_egp': totalWithholdingTaxEgp,
       'settlement_readiness_percent': settlementReadinessPercent,
       'financial_settlement_status': financialSettlementStatus,

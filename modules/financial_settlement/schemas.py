@@ -277,6 +277,7 @@ class InvoicesPartySummary(BaseModel):
     total_egp: float = 0.0
     paid_egp: float = 0.0
     remaining_egp: float = 0.0
+    net_payable_egp: float = 0.0
 
 
 class InvoicesAggregationResponse(BaseModel):
@@ -289,6 +290,7 @@ class InvoicesAggregationResponse(BaseModel):
     total_amount_egp: float = 0.0
     total_paid_egp: float = 0.0
     total_remaining_egp: float = 0.0
+    total_net_payable_egp: float = 0.0
     total_withholding_tax_egp: float = 0.0
     settlement_readiness_percent: float = 0.0
     financial_settlement_status: str = "PENDING_SETTLEMENT"

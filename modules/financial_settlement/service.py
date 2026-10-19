@@ -2249,11 +2249,14 @@ def aggregate_shipment_invoices_service(
                 "total_egp": 0.0,
                 "paid_egp": 0.0,
                 "remaining_egp": 0.0,
+                "net_payable_egp": 0.0,
             }
         parties_map[pkey]["invoices_count"] += 1
         parties_map[pkey]["total_egp"] = round(parties_map[pkey]["total_egp"] + inv.amount_egp, 2)
         parties_map[pkey]["paid_egp"] = round(parties_map[pkey]["paid_egp"] + inv.paid_amount_egp, 2)
         parties_map[pkey]["remaining_egp"] = round(parties_map[pkey]["remaining_egp"] + inv.remaining_amount_egp, 2)
+        net_egp = inv.net_payable_egp if inv.net_payable_egp is not None else inv.amount_egp
+        parties_map[pkey]["net_payable_egp"] = round(parties_map[pkey].get("net_payable_egp", 0.0) + net_egp, 2)
 
     parties_summary = [InvoicesPartySummary(**pdata) for pdata in parties_map.values()]
 
@@ -2261,7 +2264,8 @@ def aggregate_shipment_invoices_service(
     total_paid = round(sum(inv.paid_amount_egp for inv in invoices), 2)
     total_rem = round(sum(inv.remaining_amount_egp for inv in invoices), 2)
     total_wht = round(sum(inv.withholding_tax_amount_egp for inv in invoices), 2)
-    readiness = round((total_paid / total_amt * 100.0), 1) if total_amt > 0 else 100.0
+    total_net = round(sum((inv.net_payable_egp if inv.net_payable_egp is not None else inv.amount_egp) for inv in invoices), 2)
+    readiness = min(100.0, round((total_paid / total_net * 100.0), 1)) if total_net > 0 else 100.0
 
     warnings: List[str] = list(wht_warnings)
     for inv in invoices:
@@ -2292,6 +2296,7 @@ def aggregate_shipment_invoices_service(
         total_amount_egp=total_amt,
         total_paid_egp=total_paid,
         total_remaining_egp=total_rem,
+        total_net_payable_egp=total_net,
         total_withholding_tax_egp=total_wht,
         settlement_readiness_percent=readiness,
         financial_settlement_status=imp.financial_settlement_status or "PENDING_SETTLEMENT",
