@@ -40,6 +40,9 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   int? _selectedImportFileId;
   String _selectedImportFileCode = '';
   double _estimatedCost = 0.0;
+  double? _estimatedLandedCostEgp;
+  double? _backendLandedVariancePct;
+  double? _backendLandedVarianceEgp;
   Map<String, dynamic>? _settlementRecord;
   CancelToken? _cancelToken;
 
@@ -87,6 +90,8 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         );
         if (importFileRes.data != null) {
           _estimatedCost = (importFileRes.data['estimated_cost'] ?? 0.0).toDouble();
+          _backendLandedVariancePct = (importFileRes.data['actual_landed_cost_variance_pct'] as num?)?.toDouble();
+          _backendLandedVarianceEgp = (importFileRes.data['actual_landed_cost_variance_egp'] as num?)?.toDouble();
           if (importFileRes.data['import_file_code'] != null) {
             _selectedImportFileCode = importFileRes.data['import_file_code'].toString();
           }
@@ -97,7 +102,31 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
       } catch (e) {
         if (e is DioException && CancelToken.isCancel(e)) return;
         _estimatedCost = 0.0;
+        _estimatedLandedCostEgp = null;
+        _backendLandedVariancePct = null;
+        _backendLandedVarianceEgp = null;
         _selectedIncoterm = 'FOB';
+      }
+
+      // Fetch live calculation if available
+      try {
+        final calcRes = await dio.post(
+          '${ApiConstants.baseUrl}/financial-settlement/calculate-actual-landed-cost/$fileId',
+          cancelToken: _cancelToken,
+        );
+        if (calcRes.data != null) {
+          if (calcRes.data['landed_variance_pct'] != null) {
+            _backendLandedVariancePct = (calcRes.data['landed_variance_pct'] as num?)?.toDouble();
+          }
+          if (calcRes.data['landed_variance_egp'] != null) {
+            _backendLandedVarianceEgp = (calcRes.data['landed_variance_egp'] as num?)?.toDouble();
+          }
+          if (calcRes.data['estimated_landed_cost_egp'] != null) {
+            _estimatedLandedCostEgp = (calcRes.data['estimated_landed_cost_egp'] as num?)?.toDouble();
+          }
+        }
+      } catch (_) {
+        // Safe to ignore if settlement calculation fails
       }
 
       // Fetch settlement record safely
@@ -321,8 +350,8 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     final totalExpensesEgp = (_settlementRecord!['total_expenses_egp'] ?? 0.0).toDouble();
     final totalLandedCostEgp = (_settlementRecord!['total_landed_cost_egp'] ?? 0.0).toDouble();
 
-    final double? fobVariance = _estimatedCost > 0 ? ((totalFobEgp - _estimatedCost) / _estimatedCost) * 100 : null;
-    final double? landedVariance = _estimatedCost > 0 ? ((totalLandedCostEgp - _estimatedCost) / _estimatedCost) * 100 : null;
+    final double? fobVariance = (_settlementRecord?['fob_variance_percent'] as num?)?.toDouble();
+    final double? landedVariance = _backendLandedVariancePct ?? (_settlementRecord?['variance_percent'] as num?)?.toDouble();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -331,7 +360,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         children: [
           _buildMetricStrip(totalFobEgp, totalExpensesEgp, totalLandedCostEgp, landedVariance),
           const SizedBox(height: 16),
-          _buildExportToolbar(),
+          _buildExportToolbar(landedVariance),
           const SizedBox(height: 16),
           _buildIncotermRuleCard(),
           const SizedBox(height: 16),
@@ -367,12 +396,13 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         : landedVariance > 0
             ? AppTheme.crimson
             : AppTheme.emerald;
+    final estDisplay = _estimatedLandedCostEgp ?? (_estimatedCost > 0 ? _estimatedCost : null);
     return MetricCardStrip(
       padding: EdgeInsets.zero,
       metrics: [
         MetricCardData(
           title: l10n.estimatedCostHeader,
-          value: _estimatedCost > 0 ? '${_money(_estimatedCost)} $egp' : '-',
+          value: estDisplay != null ? '${_money(estDisplay)} $egp' : '-',
           icon: Icons.request_quote_outlined,
           color: AppTheme.cobalt,
         ),
@@ -402,14 +432,16 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     );
   }
 
-  Widget _buildExportToolbar() {
+  Widget _buildExportToolbar(double? landedVariance) {
     final l10n = context.l10n;
     final exportService = LandedCostComparisonExportService(
       context: context,
       fileCode: _selectedImportFileCode.isNotEmpty ? _selectedImportFileCode : (_selectedImportFileId != null ? 'IMP-#$_selectedImportFileId' : 'SHIPMENT'),
       incoterm: _selectedIncoterm,
-      estimatedCost: _estimatedCost,
+      estimatedCost: _estimatedLandedCostEgp ?? _estimatedCost,
       settlementRecord: _settlementRecord,
+      backendVariancePct: landedVariance,
+      backendEstimatedLandedEgp: _estimatedLandedCostEgp,
     );
 
     return SettlementPanel(
@@ -582,23 +614,25 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
 
   Widget _buildSummaryCards(double totalFob, double totalExpenses, double totalLanded, double? fobVariance, double? landedVariance) {
     final l10n = context.l10n;
+    final estDisplay = _estimatedLandedCostEgp ?? (_estimatedCost > 0 ? _estimatedCost : null);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _buildCard(l10n.fobValueCardTitle, _estimatedCost, totalFob, fobVariance)),
+        Expanded(child: _buildCard(l10n.fobValueCardTitle, null, totalFob, fobVariance)),
         const SizedBox(width: 16),
-        Expanded(child: _buildCard(l10n.totalExpensesCardTitle, 0, totalExpenses, null)),
+        Expanded(child: _buildCard(l10n.totalExpensesCardTitle, null, totalExpenses, null)),
         const SizedBox(width: 16),
-        Expanded(child: _buildCard(l10n.totalLandedCostCardTitle, _estimatedCost, totalLanded, landedVariance, highlight: true)),
+        Expanded(child: _buildCard(l10n.totalLandedCostCardTitle, estDisplay, totalLanded, landedVariance, highlight: true)),
       ],
     );
   }
 
-  Widget _buildCard(String title, double est, double act, double? variance, {bool highlight = false}) {
+  Widget _buildCard(String title, double? est, double act, double? variance, {bool highlight = false}) {
     final l10n = context.l10n;
     final varColor = variance == null ? null : (variance > 0 ? AppTheme.crimson : AppTheme.emerald);
 
-    final summary = '$title: ${l10n.estAbbreviation} ${est.toStringAsFixed(2)} | ${l10n.actAbbreviation} ${act.toStringAsFixed(2)}${variance != null ? " (${variance > 0 ? '+' : ''}${variance.toStringAsFixed(2)}%)" : ""}';
+    final estStr = est != null ? est.toStringAsFixed(2) : '-';
+    final summary = '$title: ${l10n.estAbbreviation} $estStr | ${l10n.actAbbreviation} ${act.toStringAsFixed(2)}${variance != null ? " (${variance > 0 ? '+' : ''}${variance.toStringAsFixed(2)}%)" : ""}';
 
     return Card(
       elevation: highlight ? 4 : 1,
@@ -632,7 +666,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(l10n.estAbbreviation, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                      LtrText(_money(est), style: const TextStyle(fontSize: 15, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                      LtrText(est != null ? _money(est) : '-', style: const TextStyle(fontSize: 15, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Column(
