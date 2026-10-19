@@ -35,7 +35,6 @@ from .repository import (
     add_with_new_code,
     apply_settlement_update,
     build_settlement,
-    generate_settlement_code,
     get_settlement_by_id,
     get_settlement_by_import_file_id,
     list_settlements,

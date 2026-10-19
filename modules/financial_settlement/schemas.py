@@ -1,7 +1,12 @@
 from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
+
+# Master list of Incoterms codes accepted across the settlement engine (BE09-T14)
+MASTER_INCOTERM_CODES = {
+    "EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP", "DAT",
+}
 
 # Invoice number prefix of the single adjustment row per field written by the recalculation engine (RC-01).
 # Only these rows may carry a negative amount (live total lower than the user invoices).
@@ -70,6 +75,16 @@ class FinancialSettlementCreate(BaseModel):
     accountant_name: Optional[str] = Field(None, description="Ignored: the acting user is recorded")
     notes: Optional[str] = None
 
+    @field_validator("incoterm_code")
+    @classmethod
+    def validate_incoterm_code(cls, v: Optional[str]) -> str:
+        if v is None:
+            return "FOB"
+        code = v.strip().upper()
+        if code not in MASTER_INCOTERM_CODES:
+            raise ValueError(f"Unknown incoterm_code '{v}'. Must be one of: {', '.join(sorted(MASTER_INCOTERM_CODES))}")
+        return code
+
 class FinancialSettlementUpdate(BaseModel):
     incoterm_code: Optional[str] = None
     expense_invoices: Optional[List[ExpenseInvoiceSchema]] = None
@@ -77,6 +92,16 @@ class FinancialSettlementUpdate(BaseModel):
     status: Optional[Literal["Draft", "Calculated"]] = None
     accountant_name: Optional[str] = Field(None, description="Ignored: the acting user is recorded")
     notes: Optional[str] = None
+
+    @field_validator("incoterm_code")
+    @classmethod
+    def validate_incoterm_code(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        code = v.strip().upper()
+        if code not in MASTER_INCOTERM_CODES:
+            raise ValueError(f"Unknown incoterm_code '{v}'. Must be one of: {', '.join(sorted(MASTER_INCOTERM_CODES))}")
+        return code
 
 @read_model
 class FinancialSettlementResponse(LegacyRowTolerantModel):
@@ -94,6 +119,8 @@ class FinancialSettlementResponse(LegacyRowTolerantModel):
     accountant_name: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
+    deleted_at: Optional[datetime] = None
+    deleted_by: Optional[str] = None
     created_at: Optional[datetime] = None
     created_by: Optional[str] = None
     updated_at: Optional[datetime] = None

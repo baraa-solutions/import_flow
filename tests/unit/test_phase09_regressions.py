@@ -1160,3 +1160,133 @@ def test_be09_t10_demurrage_push_and_create_share_initial_settlement_builder(db)
     assert settlement.total_landed_cost_egp == 73000.0
 
 
+# ── BE09-T14: Hygiene (soft-delete, incoterm, justification, dependencies) ──
+
+def test_be09_t14_soft_delete_audit_fields(db):
+    """BE09-T14: Soft delete sets deleted_at and deleted_by; restore clears them."""
+    imp = seed_shipment(db)
+    rec = fs.create_settlement_service(db, FinancialSettlementCreate(import_file_id=imp.import_file_id), actor="creator")
+
+    # Soft delete
+    fs.soft_delete_settlement_service(db, rec.settlement_id, actor="deleter_user")
+    db.refresh(rec)
+    assert rec.is_active is False
+    assert rec.deleted_by == "deleter_user"
+    assert rec.deleted_at is not None
+
+    # Restore
+    fs.restore_settlement_service(db, rec.settlement_id, actor="restorer_user")
+    db.refresh(rec)
+    assert rec.is_active is True
+    assert rec.deleted_by is None
+    assert rec.deleted_at is None
+
+
+def test_be09_t14_incoterm_validation():
+    """BE09-T14: incoterm_code validated against master list; unknown -> ValidationError (422)."""
+    # Valid uppercase/lowercase
+    req_valid = FinancialSettlementCreate(import_file_id=1, incoterm_code="cif")
+    assert req_valid.incoterm_code == "CIF"
+
+    # Unknown code raises ValidationError
+    with pytest.raises(ValidationError) as exc:
+        FinancialSettlementCreate(import_file_id=1, incoterm_code="XYZ")
+    assert "incoterm_code" in str(exc.value)
+
+    # Update schema also validates
+    with pytest.raises(ValidationError) as exc2:
+        FinancialSettlementUpdate(incoterm_code="INVALID")
+    assert "incoterm_code" in str(exc2.value)
+
+
+def test_be09_t14_hard_block_justification_whitespace(db):
+    """BE09-T14: Hard block check rejects whitespace-only justification ('   ') -> 400."""
+    from modules.recalculation.service import apply
+    from modules.users.model import User
+
+    imp = seed_shipment(db)
+    rec = fs.create_settlement_service(db, FinancialSettlementCreate(import_file_id=imp.import_file_id), actor="alice")
+
+    admin_user = User(
+        user_id=999,
+        username="admin_user",
+        email="admin@example.com",
+        full_name="Admin",
+        hashed_password="pw",
+        role="ADMIN",
+        is_active=True,
+    )
+
+    # Mock _evaluate_dependencies to simulate a hard block item
+    from modules.recalculation import service as recalc_svc
+    from modules.recalculation.schemas import RecalculationPreviewItem
+
+    hard_block_item = RecalculationPreviewItem(
+        dependency_id=1,
+        field_name="total_fob_egp",
+        label_ar="إجمالي فوب",
+        label_en="Total FOB",
+        old_value=100000.0,
+        new_value=200000.0,
+        variance_amount=100000.0,
+        variance_percentage=100.0,
+        threshold_percentage=10.0,
+        is_hard_block=True,
+        source_entity_type="purchase_order",
+        status="OK",
+    )
+
+    from modules.recalculation.schemas import RecalculationApplyRequest
+    req = RecalculationApplyRequest(
+        target_entity_type="financial_settlement",
+        target_entity_id=rec.settlement_id,
+        source_page="test",
+        justification="   ",  # whitespace only
+    )
+
+    with patch.object(recalc_svc, "_evaluate_dependencies", return_value=[hard_block_item]):
+        with pytest.raises(HTTPException) as exc:
+            apply(
+                db=db,
+                request=req,
+                current_user=admin_user,
+            )
+        assert exc.value.status_code == 400
+        assert "مبرر كتابي" in exc.value.detail
+
+
+def test_be09_t14_list_dependencies_permission_filter(db):
+    """BE09-T14: Unfiltered list_dependencies returns only target types viewable by the user."""
+    from modules.recalculation.service import list_dependencies
+    from modules.recalculation.seed_dependencies import run_seed
+    from modules.users.model import User
+    from modules.recalculation import service as recalc_svc
+
+    # Ensure dependencies are seeded in this test db
+    run_seed(db)
+
+    # Normal user with no permissions
+    limited_user = User(
+        user_id=888,
+        username="limited_user",
+        email="limited@example.com",
+        full_name="Limited",
+        hashed_password="pw",
+        role="USER",
+        is_active=True,
+    )
+
+    # Patch has_user_permission so user has only financial_settlement.view but NOT financial_approval.view
+    def fake_has_perm(d, u, perm):
+        if perm == "financial_settlement.view":
+            return True
+        return False
+
+    with patch.object(recalc_svc, "has_user_permission", side_effect=fake_has_perm):
+        deps = list_dependencies(db, limited_user)
+        target_types = {d.target_entity_type for d in deps}
+        assert "financial_settlement" in target_types
+        assert "import_budget" not in target_types
+
+
+

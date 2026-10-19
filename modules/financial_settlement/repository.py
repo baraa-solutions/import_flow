@@ -131,15 +131,21 @@ def apply_settlement_update(db: Session, db_obj: LandedCostSettlementRecord, upd
 
 
 def soft_delete_settlement(db: Session, db_obj: LandedCostSettlementRecord, actor: str) -> None:
+    now = datetime.now(timezone.utc)
     db_obj.is_active = False
-    db_obj.updated_at = datetime.now(timezone.utc)
+    db_obj.deleted_at = now
+    db_obj.deleted_by = actor
+    db_obj.updated_at = now
     db_obj.updated_by = actor
     db.flush()
 
 
 def restore_settlement(db: Session, db_obj: LandedCostSettlementRecord, actor: str) -> None:
+    now = datetime.now(timezone.utc)
     db_obj.is_active = True
-    db_obj.updated_at = datetime.now(timezone.utc)
+    db_obj.deleted_at = None
+    db_obj.deleted_by = None
+    db_obj.updated_at = now
     db_obj.updated_by = actor
     db.flush()
 

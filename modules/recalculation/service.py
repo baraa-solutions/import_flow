@@ -871,7 +871,7 @@ def apply(
         )
 
     # 5. Hard Block check
-    if has_hard_block and not justification:
+    if has_hard_block and not (justification or "").strip():
         _log_refusal_and_raise(
             db,
             HTTPException(
@@ -1015,12 +1015,17 @@ def list_dependencies(
     db: Session, current_user: User, target_entity_type: Optional[str] = None
 ) -> List[DependencyMapResponse]:
     """Active dependency rows. Filtering by a target type requires that type's view permission; the unfiltered
-    list is configuration metadata (login only)."""
+    list returns only the target types the user has permission to view (F21)."""
     if target_entity_type:
         ensure_can_view(db, current_user, target_entity_type)
+        viewable = {target_entity_type}
+    else:
+        viewable = {
+            t for t, p in TARGET_VIEW_PERMISSIONS.items()
+            if has_user_permission(db, current_user, p)
+        }
     deps = repo.get_all_dependencies(db, include_inactive=False)
-    if target_entity_type:
-        deps = [d for d in deps if d.target_entity_type == target_entity_type]
+    deps = [d for d in deps if d.target_entity_type in viewable]
     return [
         DependencyMapResponse(
             id=d.id,
