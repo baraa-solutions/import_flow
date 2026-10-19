@@ -34,6 +34,7 @@ class ApiErrorCode {
   static const ctSimulationNoBroker = 'CT_SIMULATION_NO_BROKER';
   static const settlementDuplicateActive = 'SETTLEMENT_DUPLICATE_ACTIVE';
   static const invoicesNotReady = 'INVOICES_NOT_READY';
+  static const settlementActualFobMissing = 'SETTLEMENT_ACTUAL_FOB_MISSING';
 }
 
 /// User-facing, localized text for a failed API call.

@@ -2213,6 +2213,190 @@ class TestFinancialSettlementModule(unittest.TestCase):
                 amount_fx=1000.0,
             )
 
+    def test_acc2_t06_scale_item_fobs_largest_remainder(self):
+        """ACC2-T06: Two items 1/3 - 2/3 of 100,000.01 -> 33,333.34 + 66,666.67 = 100,000.01."""
+        from modules.financial_settlement.service import scale_item_fobs_to_header
+
+        items = [
+            {"qty": 10.0, "fob_total_egp": 100.0},
+            {"qty": 20.0, "fob_total_egp": 200.0},
+        ]
+        scale_item_fobs_to_header(items, 100000.01)
+        self.assertEqual(items[0]["fob_total_egp"], 33333.34)
+        self.assertEqual(items[1]["fob_total_egp"], 66666.67)
+        self.assertEqual(round(items[0]["fob_total_egp"] + items[1]["fob_total_egp"], 2), 100000.01)
+
+    def test_acc2_t06_invoice_fob_basis_and_items_scaled(self):
+        """ACC2-T06: PO 10,000 USD at 48.00 (480,000), invoice 10,000 USD at 50.00 (500,000),
+        expenses 100,000 -> header 600,000.00, item FOB 500,000.00, items sum 600,000.00, rec_diff 0.00."""
+        from modules.currencies.model import Currency, ExchangeRate
+        from modules.purchase_orders.model import PurchaseOrder, POLineItem
+        from modules.financial_settlement.service import (
+            calculate_actual_landed_cost_service,
+            ConfirmInvoicesSettlementRequest,
+            confirm_invoices_settlement_service,
+        )
+        from modules.customs_clearance.model import CustomsClearanceRecord, ClearanceExpenseInvoice
+
+        # Currencies and rates: PO currency rate 48.0, commercial rate 50.0
+        usd = self.db.query(Currency).filter(Currency.currency_code == "USD").first()
+        if not usd:
+            usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+            self.db.add(usd)
+            self.db.flush()
+        # Add commercial rate 50.0
+        rate_50 = ExchangeRate(currency_id=usd.currency_id, commercial_rate=50.0, customs_rate=50.0, effective_date=date.today())
+        self.db.add(rate_50)
+
+        # PO with 1 line item: 10,000 USD at PO rate 48.00
+        po = PurchaseOrder(
+            po_number="PO-ACC2-T06",
+            project_id=1,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=usd.currency_id,
+            exchange_rate=48.0,
+            total_amount_fob=10000.0,
+            order_date=datetime.now(timezone.utc),
+            import_file_id=self.import_file_id,
+            status="Approved",
+            is_active=True,
+        )
+        self.db.add(po)
+        self.db.flush()
+        po_line = POLineItem(
+            po_id=po.po_id,
+            item_code="ITM-T06",
+            description_ar="قطع غيار ميكانيكية",
+            description_en="Machinery Part",
+            quantity=100.0,
+            unit_price=100.0,  # 100 x 100 = 10,000 USD
+            total_price=10000.0,
+            gross_weight_kg=500.0,
+            total_cbm=2.0,
+        )
+        self.db.add(po_line)
+
+        # Clearance and clearance expense invoice: commercial goods invoice 10,000 USD (at rate 50 = 500,000 EGP)
+        # and inland transport expense 100,000 EGP
+        imp = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
+        imp.invoices_data = [{"invoice_no": "CI-T06", "amount": 10000.0, "currency": "USD"}]
+        imp.file_opening_date = date.today()
+
+        cl = CustomsClearanceRecord(
+            clearance_code="CLR-T06",
+            import_file_id=self.import_file_id,
+            status="Final Release Granted",
+            actual_duty_total=0.0,
+            is_active=True,
+        )
+        self.db.add(cl)
+        self.db.flush()
+
+        # Add an expense invoice of 100,000 EGP
+        exp_inv = ClearanceExpenseInvoice(
+            invoice_code="INV-CLR-T06",
+            import_file_id=self.import_file_id,
+            customs_clearance_id=cl.customs_clearance_id,
+            invoice_number="TRK-T06",
+            expense_category="Inland Transport",
+            amount_egp=100000.0,
+            net_payable_egp=100000.0,
+            provider_name="Fast Trucking",
+            payment_status="Paid",
+            is_active=True,
+        )
+        self.db.add(exp_inv)
+        self.db.commit()
+
+        calc = calculate_actual_landed_cost_service(self.db, self.import_file_id)
+        self.assertEqual(calc.fob_basis, "INVOICE")
+        self.assertEqual(calc.actual_total_fob_egp, 500000.0)
+        self.assertEqual(calc.actual_total_expenses_egp, 100000.0)
+        self.assertEqual(calc.actual_total_landed_cost_egp, 600000.0)
+        self.assertEqual(len(calc.items_breakdown), 1)
+        item = calc.items_breakdown[0]
+        self.assertEqual(item.fob_total_egp, 500000.0)
+        self.assertEqual(item.actual_total_landed_cost_egp, 600000.0)
+        self.assertEqual(calc.reconciliation_difference_egp, 0.0)
+
+    def test_acc2_t06_unrounded_unit_fob_preserves_total_on_recalculate(self):
+        """ACC2-T06: qty 100,000, FOB 12,345.60 -> approve then _recalculate_in_place -> FOB 12,345.60."""
+        from modules.financial_settlement.schemas import ActualLandedCostItemLine
+        from modules.financial_settlement.service import settlement_item_row, _recalculate_in_place
+        from modules.financial_settlement.model import LandedCostSettlementRecord
+
+        line = ActualLandedCostItemLine(
+            line_no=1,
+            item_code="BOLT-01",
+            item_name="Small Bolt",
+            hs_code="7318.15",
+            qty=100000.0,
+            gross_weight_kg=100.0,
+            cbm=0.5,
+            fob_unit_egp=0.12,  # rounded display
+            fob_total_egp=12345.60,
+            allocated_freight_egp=0.0,
+            allocated_insurance_egp=0.0,
+            allocated_customs_duty_egp=0.0,
+            allocated_vat_egp=0.0,
+            allocated_clearance_egp=0.0,
+            allocated_inland_transport_egp=0.0,
+            allocated_demurrage_egp=0.0,
+            allocated_other_egp=0.0,
+            total_allocated_expenses_egp=0.0,
+            actual_total_landed_cost_egp=12345.60,
+            actual_unit_landed_cost_egp=0.123456,
+            actual_markup_factor=1.0,
+            actual_markup_pct=0.0,
+        )
+        row = settlement_item_row(line)
+        # Canonical fob_unit_egp must be unrounded: 12345.60 / 100000 = 0.123456
+        self.assertAlmostEqual(row["fob_unit_egp"], 0.123456, places=6)
+
+        rec = LandedCostSettlementRecord(
+            import_file_id=self.import_file_id,
+            settlement_code="LCS-T06-UNROUND",
+            status="Approved",
+            expense_invoices=[],
+            item_landed_costs=[row],
+            is_active=True,
+            accountant_name="Admin",
+        )
+        self.db.add(rec)
+        self.db.commit()
+
+        _recalculate_in_place(rec, actor="System")
+        # Engine recalculates item FOB = qty * fob_unit = 100000 * 0.123456 = 12345.60 (not 12,000.00!)
+        self.assertAlmostEqual(rec.total_fob_egp, 12345.60, places=2)
+
+    def test_acc2_t06_approve_without_fob_raises_409(self):
+        """ACC2-T06: No goods invoice and no PO -> 409 SETTLEMENT_ACTUAL_FOB_MISSING."""
+        from fastapi import HTTPException
+        from modules.financial_settlement.schemas import ApproveActualLandedCostRequest
+        from modules.financial_settlement.service import approve_actual_landed_cost_service
+        from modules.financial_settlement.validators import SETTLEMENT_ACTUAL_FOB_MISSING
+
+        # Create a new import file without PO and without goods invoice
+        imp = ImportFile(
+            import_file_code="IMP-NO-FOB",
+            company_id=1,
+            company_name="Delta Industrial Co",
+            supplier_name="No FOB Supplier",
+            financial_settlement_status="INVOICES_SETTLED",
+            status="Open",
+            is_active=True,
+        )
+        self.db.add(imp)
+        self.db.commit()
+
+        req = ApproveActualLandedCostRequest(import_file_id=imp.import_file_id)
+        with self.assertRaises(HTTPException) as exc:
+            approve_actual_landed_cost_service(self.db, req, actor="Admin")
+        self.assertEqual(exc.exception.status_code, 409)
+        self.assertEqual(exc.exception.detail.get("code"), SETTLEMENT_ACTUAL_FOB_MISSING)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -421,6 +421,7 @@ class ActualLandedCostCalculationResponse(BaseModel):
     currency: Optional[str] = None
     exchange_rate: float = 0.0
     incoterm: str = "FOB"
+    fob_basis: str = "INVOICE"  # "INVOICE", "PO", "ESTIMATE"
     allocation_preference: str = "Value-Based"
     total_items_count: int = 0
     total_invoices_count: int = 0

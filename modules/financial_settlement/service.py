@@ -1,4 +1,5 @@
 import logging
+import math
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional, Dict, Any, Tuple
@@ -48,6 +49,7 @@ from .model import (
     CLEARANCE_CATEGORY_BUCKET,
 )
 from .validators import (
+    SETTLEMENT_ACTUAL_FOB_MISSING,
     SETTLEMENT_DUPLICATE_ACTIVE,
     SETTLEMENT_FX_RATE_MISSING,
     coded_error,
@@ -2517,6 +2519,39 @@ def _is_goods_invoice(inv: AggregatedInvoiceItemSchema) -> bool:
     return "goods" in cat or "fob" in cat or "commercial" in cat
 
 
+def scale_item_fobs_to_header(items: List[Dict[str, Any]], target_fob_egp: float) -> None:
+    """Scale item fob_total_egp so they sum exactly to target_fob_egp using largest remainder (ACC2-T06).
+    Distributes cents with largest remainder so the rounded item FOB sum equals the rounded header.
+    fob_unit = fob_total / qty (unrounded internally).
+    """
+    if not items:
+        return
+    total_fob = sum(float(i.get("fob_total_egp", 0.0) or 0.0) for i in items)
+    if total_fob <= 0:
+        return
+    target_cents = int(round(target_fob_egp * 100))
+    allocations = []
+    for idx, item in enumerate(items):
+        fob = float(item.get("fob_total_egp", 0.0) or 0.0)
+        share_cents = (fob / total_fob) * target_cents
+        base_cents = int(math.floor(share_cents))
+        rem = share_cents - base_cents
+        allocations.append({"idx": idx, "base": base_cents, "rem": rem})
+
+    deficit = target_cents - sum(a["base"] for a in allocations)
+    allocations.sort(key=lambda a: (-a["rem"], a["idx"]))
+    for i in range(deficit):
+        allocations[i]["base"] += 1
+
+    allocations.sort(key=lambda a: a["idx"])
+    for idx, item in enumerate(items):
+        cents = allocations[idx]["base"]
+        item_fob = round(cents / 100.0, 2)
+        qty = float(item.get("qty", 1.0) or 1.0)
+        item["fob_total_egp"] = item_fob
+        item["fob_unit_egp"] = (item_fob / qty) if qty > 0 else item_fob
+
+
 def calculate_actual_landed_cost_service(
     db: Session,
     import_file_id: int,
@@ -2568,16 +2603,6 @@ def _calculate_actual_landed_cost(
     goods_invoices = [inv for inv in all_invoices if _is_goods_invoice(inv)]
     expense_invoices = [inv for inv in all_invoices if inv not in goods_invoices]
 
-    # Calculate actual FOB from goods invoices, or fallback to simulation / estimated_cost
-    if goods_invoices:
-        actual_total_fob_egp = sum(inv.amount_egp for inv in goods_invoices)
-    elif sim and sim.total_fob_egp > 0:
-        actual_total_fob_egp = sim.total_fob_egp
-    elif (imp.estimated_cost or 0) > 0:
-        actual_total_fob_egp = float(imp.estimated_cost) * (fx.rate(currency, _as_date(imp.file_opening_date)) if currency else 1.0)
-    else:
-        actual_total_fob_egp = 0.0
-
     # Category buckets for actual expenses
     cat_expenses = {
         "Freight": {"ar": "النولون والشحن الدولي", "actual": 0.0, "count": 0},
@@ -2602,8 +2627,6 @@ def _calculate_actual_landed_cost(
             cat_expenses[bucket]["count"] += 1
 
     actual_total_expenses_egp = sum(c["actual"] for c in cat_expenses.values())
-    actual_total_landed_cost_egp = actual_total_fob_egp + actual_total_expenses_egp
-    actual_markup_factor = (actual_total_landed_cost_egp / actual_total_fob_egp) if actual_total_fob_egp > 0 else 1.0
 
     # Estimated numbers from simulation (duty / VAT split = the simulation's own totals, FS-07)
     if sim:
@@ -2692,6 +2715,28 @@ def _calculate_actual_landed_cost(
             })
 
     total_items_fob = sum(i["fob_total_egp"] for i in items_raw)
+
+    # 4. Single FOB basis determination and scaling (ACC2-T06, F08, F09)
+    if goods_invoices:
+        fob_basis = "INVOICE"
+        actual_total_fob_egp = sum(inv.amount_egp for inv in goods_invoices)
+        if total_items_fob > 0:
+            scale_item_fobs_to_header(items_raw, actual_total_fob_egp)
+    elif items_raw:
+        fob_basis = "PO"
+        actual_total_fob_egp = total_items_fob
+    elif sim and sim.total_fob_egp > 0:
+        fob_basis = "ESTIMATE"
+        actual_total_fob_egp = sim.total_fob_egp
+    elif (imp.estimated_cost or 0) > 0:
+        fob_basis = "ESTIMATE"
+        actual_total_fob_egp = float(imp.estimated_cost) * (fx.rate(currency, _as_date(imp.file_opening_date)) if currency else 1.0)
+    else:
+        fob_basis = "ESTIMATE"
+        actual_total_fob_egp = 0.0
+
+    actual_total_landed_cost_egp = actual_total_fob_egp + actual_total_expenses_egp
+    actual_markup_factor = (actual_total_landed_cost_egp / actual_total_fob_egp) if actual_total_fob_egp > 0 else 1.0
     total_items_wt = sum(i["gross_weight_kg"] for i in items_raw)
     total_items_cbm = sum(i["cbm"] for i in items_raw)
     n_items = len(items_raw)
@@ -2904,6 +2949,7 @@ def _calculate_actual_landed_cost(
         currency=currency,
         exchange_rate=round(exchange_rate, 4),
         incoterm=imp.incoterm_code or "FOB",
+        fob_basis=fob_basis,
         allocation_preference=pref,
         total_items_count=len(items_breakdown),
         total_invoices_count=len(all_invoices),
@@ -2961,13 +3007,15 @@ def settlement_expense_row(inv: AggregatedInvoiceItemSchema, allocation_rule: st
 def settlement_item_row(line: ActualLandedCostItemLine) -> Dict[str, Any]:
     """An actual item line stored in the canonical ``ItemLandedCostSchema`` keys (FS-01): customs = duty + VAT,
     other = insurance + demurrage + other. The actual line keys stay additively (canonical keys win)."""
+    qty = _unit_qty(line.qty)
+    fob_unit_unrounded = (line.fob_total_egp / qty) if qty > 0 else line.fob_unit_egp
     canonical = {
         "item_code": line.item_code,
         "item_name": line.item_name,
         "qty": line.qty,
         "gross_weight_kg": line.gross_weight_kg,
         "cbm": line.cbm,
-        "fob_unit_egp": line.fob_unit_egp,
+        "fob_unit_egp": fob_unit_unrounded,
         "fob_total_egp": line.fob_total_egp,
         "allocated_freight_egp": line.allocated_freight_egp,
         "allocated_customs_egp": round(line.allocated_customs_duty_egp + line.allocated_vat_egp, 2),
@@ -3011,6 +3059,13 @@ def approve_actual_landed_cost_service(
         custom_category_allocation=payload.custom_category_allocation,
     )
     calc, expense_invoices = _calculate_actual_landed_cost(db, payload.import_file_id, calc_req)
+    if calc.fob_basis == "ESTIMATE":
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            SETTLEMENT_ACTUAL_FOB_MISSING,
+            "لا يمكن اعتماد تكلفة الوصول الفعلية لعدم وجود فواتير بضائع تجارية أو بنود أمر شراء لتحديد قيمة FOB الفعلية.",
+            import_file_id=payload.import_file_id,
+        )
     validate_items_allocation_readiness(calc.items_breakdown)
 
     now_utc = datetime.now(timezone.utc)

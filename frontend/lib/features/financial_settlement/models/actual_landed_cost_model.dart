@@ -268,6 +268,7 @@ class ActualLandedCostCalculationResponseModel {
   final String? currency;
   final double fxRate;
   final String allocationPreference;
+  final String fobBasis;
   final double totalFobEgp;
   final double totalActualExpensesEgp;
   final double actualTotalLandedCostEgp;
@@ -290,6 +291,7 @@ class ActualLandedCostCalculationResponseModel {
     this.currency,
     required this.fxRate,
     required this.allocationPreference,
+    this.fobBasis = 'INVOICE',
     required this.totalFobEgp,
     required this.totalActualExpensesEgp,
     required this.actualTotalLandedCostEgp,
@@ -317,6 +319,7 @@ class ActualLandedCostCalculationResponseModel {
       currency: json['currency']?.toString(),
       fxRate: _numOf(json, ['exchange_rate', 'fx_rate'], 0.0),
       allocationPreference: json['allocation_preference'] ?? 'Value-Based',
+      fobBasis: json['fob_basis'] as String? ?? 'INVOICE',
       totalFobEgp: _numOf(json, ['actual_total_fob_egp', 'total_fob_egp'], 0.0),
       totalActualExpensesEgp: _numOf(json, ['actual_total_expenses_egp', 'total_actual_expenses_egp'], 0.0),
       actualTotalLandedCostEgp: (json['actual_total_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
