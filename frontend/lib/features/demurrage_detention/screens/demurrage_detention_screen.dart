@@ -41,6 +41,8 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
   // Simulator Controllers
   final _simFormKey = GlobalKey<FormState>();
   String _simCarrier = 'MSC';
+  String _simPort = 'Alexandria Port';
+  String? _simTerminal = 'Alexandria Container Terminal (ACCHCO)';
   String _simContainerType = '40ft High Cube';
   int _simContainersCount = 1;
   // null = not set by the user: omitted so the backend's configured defaults apply.
@@ -95,6 +97,8 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
       'carrier_name': _simCarrier,
       'container_type': _simContainerType,
       'containers_count': _simContainersCount,
+      'port_name': _simPort,
+      if (_simTerminal != null && _simTerminal!.isNotEmpty) 'terminal_name': _simTerminal,
       if (_simDemFreeDays != null) 'demurrage_free_days': _simDemFreeDays,
       if (_simDetFreeDays != null) 'detention_free_days': _simDetFreeDays,
       'discharge_date': _formatDate(_simDischargeDate),
@@ -389,7 +393,10 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           : CcStateView.empty(
                         message: l10n.noTrackingsFound,
                         actionLabel: l10n.startNewTrackingBtn,
-                        onAction: () => AddTrackingDialog.show(context),
+                        onAction: () => AddTrackingDialog.show(
+                          context,
+                          initialImportFileId: widget.initialImportFileId,
+                        ),
                       ),
                     )
                   : ListView.separated(
@@ -495,7 +502,10 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             label: l10n.startNewTrackingBtn,
             icon: Icons.add,
             size: AppButtonSize.small,
-            onPressed: () => AddTrackingDialog.show(context),
+            onPressed: () => AddTrackingDialog.show(
+              context,
+              initialImportFileId: widget.initialImportFileId,
+            ),
           )),
           CcUi.fit(AppButton(
             key: const Key('globalEmptyContainerReturnBtn'),
@@ -636,6 +646,34 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                   setState(() => _simContainerType = t);
                   _runQuickSimulation();
                 }
+              },
+            ),
+            const SizedBox(height: 12),
+            SearchableDropdownField<String>(
+              labelText: l10n.arrivalPortFieldLabel,
+              value: _simPort,
+              items: DemurrageLookups.ports.map((p) => SearchableDropdownItem(value: p, label: p)).toList(),
+              onChanged: (p) {
+                if (p != null) {
+                  setState(() {
+                    _simPort = p;
+                    final terms = DemurrageLookups.terminalsByPort[p] ?? [];
+                    _simTerminal = terms.isNotEmpty ? terms.first : null;
+                  });
+                  _runQuickSimulation();
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            SearchableDropdownField<String>(
+              labelText: _isAr ? 'محطة الحاويات (Terminal / Depot)' : 'Container Terminal / Depot',
+              value: _simTerminal,
+              items: (DemurrageLookups.terminalsByPort[_simPort] ?? [])
+                  .map((t) => SearchableDropdownItem(value: t, label: t))
+                  .toList(),
+              onChanged: (t) {
+                setState(() => _simTerminal = t);
+                _runQuickSimulation();
               },
             ),
             const SizedBox(height: 12),

@@ -64,7 +64,7 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
     total_containers: float = 0.0
     if booking.containers_data:
         for item in booking.containers_data:
-            qty = float(item.get("quantity", 1) if isinstance(item, dict) else getattr(item, "quantity", 1))
+            qty = float(item.get("quantity", 1.0) if isinstance(item, dict) else getattr(item, "quantity", 1.0))
             c_type = item.get("container_type", "") if isinstance(item, dict) else getattr(item, "container_type", "")
             if c_type:
                 c_key = str(c_type).strip().upper()
@@ -73,16 +73,21 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
 
     # Calculate preliminary costs
     total_cost = 0.0
+    total_storage_usd = 0.0
+    total_insurance_usd = 0.0
     if booking.cost_charges_data:
         updated_charges = []
         for charge in booking.cost_charges_data:
             c_dict = dict(charge if isinstance(charge, dict) else charge.model_dump())
-            unit = c_dict.get("unit", "Per Container")
+            unit = str(c_dict.get("unit", "Per Container")).strip()
             rate = float(c_dict.get("rate", 0.0))
             qty = float(c_dict.get("quantity", 1.0))
             container_type = c_dict.get("container_type")
 
-            if unit == "Per Container":
+            unit_lower = unit.lower()
+            is_per_container = unit_lower in ("per container", "container") or "container" in unit_lower
+
+            if is_per_container:
                 if container_type:
                     c_type_key = str(container_type).strip().upper()
                     if c_type_key in counts_by_type:
@@ -93,7 +98,12 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
                             detail=f"نوع الحاوية {container_type} في بند {c_dict.get('charge_type', '')} غير موجود في توزيع الحاويات.",
                         )
                 elif total_containers > 0:
-                    calc_qty = total_containers
+                    if "40" in unit_lower and any("40" in k for k in counts_by_type):
+                        calc_qty = sum(q for k, q in counts_by_type.items() if "40" in k)
+                    elif "20" in unit_lower and any("20" in k for k in counts_by_type):
+                        calc_qty = sum(q for k, q in counts_by_type.items() if "20" in k)
+                    else:
+                        calc_qty = total_containers
                 else:
                     calc_qty = qty
             else:
@@ -113,8 +123,11 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
                 amount_usd = item_total
             else:
                 conf_date = getattr(booking, "booking_confirmation_date", None)
+                req_date = getattr(booking, "booking_request_date", None)
                 if conf_date:
                     ref_date = conf_date.date() if hasattr(conf_date, "date") else conf_date
+                elif req_date:
+                    ref_date = req_date.date() if hasattr(req_date, "date") else req_date
                 else:
                     ref_date = date.today()
 
@@ -164,14 +177,24 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
 
             c_dict["fx_rate_to_usd"] = round(fx_rate_to_usd, 6)
             c_dict["amount_usd"] = amount_usd
-            total_cost += amount_usd
+
+            # ACC3-T02: Keep insurance and storage out of the booking freight total
+            # to avoid double-counting in customs CIF valuation and financial landed-cost settlement.
+            resolved_cat = c_dict["charge_category"]
+            if resolved_cat not in ("INSURANCE", "STORAGE"):
+                total_cost += amount_usd
+            elif resolved_cat == "STORAGE":
+                total_storage_usd += amount_usd
+            elif resolved_cat == "INSURANCE":
+                total_insurance_usd += amount_usd
+
             updated_charges.append(c_dict)
 
         booking.cost_charges_data = updated_charges
 
     booking.total_freight_cost_usd = round(total_cost, 2)
 
-    # --- Cost Savings & Rate Variance Calculation Engine ---
+    # --- Cost Savings & Rate Variance Calculation Engine (BE45-T20) ---
     quot_data = dict(booking.quotation_details_data or {})
     scenario_item = None
 
@@ -180,63 +203,171 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
         from modules.shipping_scenarios.model import ShippingScenarioItem
         scenario_item = db.query(ShippingScenarioItem).filter(ShippingScenarioItem.item_id == booking.scenario_item_id).first()
 
+    conf_date = getattr(booking, "booking_confirmation_date", None)
+    req_date = getattr(booking, "booking_request_date", None)
+    if conf_date:
+        ref_date = conf_date.date() if hasattr(conf_date, "date") else conf_date
+    elif req_date:
+        ref_date = req_date.date() if hasattr(req_date, "date") else req_date
+    else:
+        ref_date = date.today()
+
+    def _convert_orig_to_usd(amt: float, cur: Optional[str]) -> float:
+        if amt <= 0.0:
+            return 0.0
+        c = (cur or "USD").strip().upper()
+        if c == "USD":
+            return round(amt, 2)
+        if db is not None:
+            from modules.financial_settlement.service import SettlementFx
+            try:
+                fx = SettlementFx(db, "commercial")
+                rate_from = fx.rate(c, ref_date)
+                rate_usd = fx.rate("USD", ref_date)
+                return round(amt * (rate_from / rate_usd), 2)
+            except Exception:
+                return round(amt, 2)
+        return round(amt, 2)
+
     # Determine original quote amount
     orig_quote_total = float(quot_data.get("original_quote_total_usd") or 0.0)
     if orig_quote_total <= 0.0:
         if scenario_item:
             from modules.shipping_scenarios.service import scenario_item_totals
-            conf_date = getattr(booking, "booking_confirmation_date", None)
-            ref_date = conf_date.date() if hasattr(conf_date, "date") else (conf_date or date.today())
             _, frt_amt = scenario_item_totals(db, scenario_item, ref_date)
             sc_curr = (scenario_item.quotation_currency or "USD").upper().strip()
             if sc_curr == "USD":
                 orig_quote_total = frt_amt
             else:
-                from modules.financial_settlement.service import SettlementFx
-                fx = SettlementFx(db, "commercial")
-                rate_from = fx.rate(sc_curr, ref_date)
-                rate_usd = fx.rate("USD", ref_date)
-                orig_quote_total = round(frt_amt * (rate_from / rate_usd), 2)
+                orig_quote_total = _convert_orig_to_usd(frt_amt, sc_curr)
         elif booking.original_freight_cost_usd and booking.original_freight_cost_usd > 0:
             orig_quote_total = float(booking.original_freight_cost_usd)
 
     booking.original_freight_cost_usd = round(orig_quote_total, 2)
 
     # Rates before modification
-    orig_40ft_rate = float(quot_data.get("original_container_40ft_price") or (scenario_item.container_40ft_price if scenario_item else 0.0))
-    orig_20ft_rate = float(quot_data.get("original_container_20ft_price") or (scenario_item.container_20ft_price if scenario_item else 0.0))
-    orig_lcl_rate = float(quot_data.get("original_lcl_cbm_price") or (scenario_item.lcl_cbm_price if scenario_item else 0.0))
-    orig_air_rate = float(quot_data.get("original_express_courier_price") or (scenario_item.express_courier_price if scenario_item else 0.0))
+    orig_40ft_rate = float(quot_data.get("original_container_40ft_price") or 0.0)
+    if orig_40ft_rate <= 0.0 and scenario_item and getattr(scenario_item, "container_40ft_applicable", False):
+        orig_40ft_rate = _convert_orig_to_usd(
+            float(scenario_item.container_40ft_price or 0.0),
+            scenario_item.container_40ft_currency or scenario_item.quotation_currency,
+        )
 
-    # Calculate item-level savings breakdown
+    orig_20ft_rate = float(quot_data.get("original_container_20ft_price") or 0.0)
+    if orig_20ft_rate <= 0.0 and scenario_item and getattr(scenario_item, "container_20ft_applicable", False):
+        orig_20ft_rate = _convert_orig_to_usd(
+            float(scenario_item.container_20ft_price or 0.0),
+            scenario_item.container_20ft_currency or scenario_item.quotation_currency,
+        )
+
+    orig_lcl_rate = float(quot_data.get("original_lcl_cbm_price") or 0.0)
+    if orig_lcl_rate <= 0.0 and scenario_item and getattr(scenario_item, "lcl_cbm_applicable", False):
+        orig_lcl_rate = _convert_orig_to_usd(
+            float(scenario_item.lcl_cbm_price or 0.0),
+            scenario_item.lcl_cbm_currency or scenario_item.quotation_currency,
+        )
+
+    orig_air_rate = float(quot_data.get("original_express_courier_price") or 0.0)
+    if orig_air_rate <= 0.0 and scenario_item and getattr(scenario_item, "express_courier_applicable", False):
+        orig_air_rate = _convert_orig_to_usd(
+            float(scenario_item.express_courier_price or 0.0),
+            scenario_item.express_courier_currency or scenario_item.quotation_currency,
+        )
+
+    # Calculate item-level savings breakdown (BE45-T20: exact freight matching)
     savings_breakdown = []
     item_savings_sum = 0.0
+
+    NON_FREIGHT_TERMS = (
+        "thc", "dthc", "terminal", "handling", "bl fee", "b/l fee", "bill of lading",
+        "documentation", "doc fee", "telex", "vgm", "solas", "storage", "demurrage",
+        "detention", "insurance", "clearance", "customs", "inland", "trucking",
+        "courier fee", "ics2", "waiver", "port expense", "أرضيات", "تأمين", "إذن تسليم",
+        "تخليص", "نقل بري", "رسوم"
+    )
 
     if booking.cost_charges_data:
         for ch in booking.cost_charges_data:
             c_dict = ch if isinstance(ch, dict) else ch.model_dump()
-            c_type = c_dict.get("charge_type", "")
+            c_type = str(c_dict.get("charge_type", "")).strip()
+            c_type_lower = c_type.lower()
+            c_type_upper = c_type.upper()
+            c_cat = c_dict.get("charge_category") or validators.infer_charge_category(c_type)
+
+            # BE45-T20: Only freight charges can be matched against ocean/air freight quotes.
+            # Local surcharges (like THC, BL fee, VGM, etc.) must NEVER enter the savings breakdown.
+            if c_cat != "FREIGHT":
+                continue
+            if any(term in c_type_lower for term in NON_FREIGHT_TERMS):
+                continue
+
             exec_rate = float(c_dict.get("rate", 0.0))
+            fx_to_usd = float(c_dict.get("fx_rate_to_usd") or 1.0)
+            exec_rate_usd = round(exec_rate * fx_to_usd, 2)
             exec_qty = float(c_dict.get("quantity", 1))
+
+            cntr_type = str(c_dict.get("container_type") or "").strip().upper()
+            unit = str(c_dict.get("unit") or "").strip()
 
             orig_rate = 0.0
             unit_label = "Container"
 
-            if "40ft" in c_type or "40HC" in c_type or "40" in c_type:
+            # 1. 40ft container freight
+            is_40 = (
+                cntr_type in ("40HC", "40GP", "40HQ", "40FT", "40'")
+                or "40FT" in c_type_upper
+                or "40HC" in c_type_upper
+                or "40HQ" in c_type_upper
+                or "40GP" in c_type_upper
+                or "40 قدم" in c_type
+                or ("40" in c_type_upper and "CONTAINER" in c_type_upper)
+            )
+            if not is_40 and not cntr_type and orig_40ft_rate > 0 and orig_20ft_rate == 0:
+                if all("40" in str(k) for k in counts_by_type.keys()) and counts_by_type:
+                    is_40 = True
+
+            # 2. 20ft container freight
+            is_20 = (
+                cntr_type in ("20GP", "20FT", "20'", "20HC")
+                or "20FT" in c_type_upper
+                or "20GP" in c_type_upper
+                or "20 قدم" in c_type
+                or ("20" in c_type_upper and "CONTAINER" in c_type_upper)
+            )
+            if not is_20 and not cntr_type and orig_20ft_rate > 0 and orig_40ft_rate == 0:
+                if all("20" in str(k) for k in counts_by_type.keys()) and counts_by_type:
+                    is_20 = True
+
+            # 3. LCL / CBM freight
+            is_lcl = (
+                unit in ("Per CBM", "CBM")
+                or cntr_type == "LCL"
+                or "LCL" in c_type_upper
+                or "CBM" in c_type_upper
+            )
+
+            # 4. Air / Courier freight
+            is_air = (
+                booking.shipment_type == "Air"
+                or "AIR" in c_type_upper
+                or "COURIER" in c_type_upper
+            )
+
+            if is_40 and orig_40ft_rate > 0.0:
                 orig_rate = orig_40ft_rate
                 unit_label = "40ft Container"
-            elif "20ft" in c_type or "20GP" in c_type or "20" in c_type:
+            elif is_20 and orig_20ft_rate > 0.0:
                 orig_rate = orig_20ft_rate
                 unit_label = "20ft Container"
-            elif "LCL" in c_type or "CBM" in c_type:
+            elif is_lcl and orig_lcl_rate > 0.0:
                 orig_rate = orig_lcl_rate
                 unit_label = "CBM"
-            elif "Air" in c_type or "Courier" in c_type:
+            elif is_air and orig_air_rate > 0.0:
                 orig_rate = orig_air_rate
                 unit_label = "Air shipment / kg"
 
             if orig_rate > 0.0:
-                diff = round(orig_rate - exec_rate, 2)
+                diff = round(orig_rate - exec_rate_usd, 2)
                 sub_savings = round(diff * exec_qty, 2)
                 item_savings_sum += sub_savings
                 savings_breakdown.append({
@@ -245,14 +376,14 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
                     "unit_type": unit_label,
                     "original_rate": orig_rate,
                     "original_unit_rate": orig_rate,
-                    "executed_rate": exec_rate,
-                    "executed_unit_rate": exec_rate,
+                    "executed_rate": exec_rate_usd if fx_to_usd != 1.0 else exec_rate,
+                    "executed_unit_rate": exec_rate_usd if fx_to_usd != 1.0 else exec_rate,
                     "difference": diff,
                     "unit_diff": diff,
                     "quantity": exec_qty,
                     "subtotal_savings": sub_savings,
                     "item_savings": sub_savings,
-                    "currency": c_dict.get("currency", "USD"),
+                    "currency": "USD" if fx_to_usd != 1.0 else c_dict.get("currency", "USD"),
                     "is_saving": diff > 0,
                 })
 
@@ -280,6 +411,9 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
         booking.savings_notes = "Executed rate matches the approved quotation exactly"
 
     # Persist updated breakdown into quotation_details_data
+    quot_data["storage_cost_usd"] = round(total_storage_usd, 2)
+    quot_data["insurance_cost_usd"] = round(total_insurance_usd, 2)
+    quot_data["freight_net_cost_usd"] = booking.total_freight_cost_usd
     quot_data["original_quote_total_usd"] = booking.original_freight_cost_usd
     quot_data["executed_freight_cost_usd"] = booking.total_freight_cost_usd
     quot_data["cost_savings_usd"] = booking.cost_savings_usd

@@ -95,7 +95,28 @@ class DemurrageSimulationPanel extends StatelessWidget {
                 ),
                 _CostTile(
                   title: l.portStorageFeeMetric,
-                  amount: CcMoneyText(res.storageFeeEgp, fontSize: 16, color: AppTheme.cobalt),
+                  amount: res.storageFeeFx > 0 && res.storageCurrency != 'EGP'
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CcMoneyText(
+                              res.storageFeeFx,
+                              currency: res.storageCurrency,
+                              fontSize: 16,
+                              color: AppTheme.cobalt,
+                            ),
+                            if (res.storageFeeEgp > 0)
+                              Text(
+                                '(${res.storageFeeEgp.toStringAsFixed(2)} EGP)',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondaryOf(context),
+                                ),
+                              ),
+                          ],
+                        )
+                      : CcMoneyText(res.storageFeeEgp, fontSize: 16, color: AppTheme.cobalt),
                   days: l.daysOverdueFormatted(res.storageDaysOverdue),
                   color: AppTheme.cobalt,
                 ),
@@ -146,6 +167,8 @@ class DemurrageSimulationPanel extends StatelessWidget {
 
   Widget _breakdown(BuildContext context, AppLocalizations l) {
     final res = result;
+    final hasTiers = res.storageTierBreakdown.isNotEmpty ||
+        res.breakdownDetails.any((b) => (b is Map && (b['tiers_applied'] as List?)?.isNotEmpty == true));
     TextStyle head = TextStyle(
       fontSize: 12.5,
       fontWeight: FontWeight.w700,
@@ -162,74 +185,214 @@ class DemurrageSimulationPanel extends StatelessWidget {
         size: AppButtonSize.small,
         onPressed: onCopyBreakdown,
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 460),
-          child: DataTable(
-            headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
-            headingRowHeight: 40,
-            dataRowMinHeight: 42,
-            dataRowMaxHeight: 48,
-            columnSpacing: 24,
-            columns: [
-              DataColumn(label: Text(l.colCategory, style: head)),
-              DataColumn(label: Text(l.colConsumedDays, style: head), numeric: true),
-              DataColumn(label: Text(l.colFreeDays, style: head), numeric: true),
-              DataColumn(label: Text(l.colOverdueDays, style: head), numeric: true),
-              DataColumn(label: Text(l.colFeeAmount, style: head), numeric: true),
-            ],
-            rows: res.breakdownDetails.map((b) {
-              final cat = l.demurrageCategoryLabel(b['category']);
-              final feeStr = b['currency'] == 'EGP'
-                  ? l.egpCurrencyAmount((b['fee_egp'] ?? 0).toString())
-                  : '${b['fee_fx']} ${b['currency']}';
-              final consumedStr = l.daysCountFormatted(b['days_consumed'] ?? 0);
-              final freeStr = l.daysCountFormatted(b['free_days'] ?? 0);
-              final overdueStr = l.daysCountFormatted(b['days_overdue'] ?? 0);
-              final rowSummary = '$cat | $consumedStr | $freeStr | $overdueStr | $feeStr';
-              final overdue = (b['days_overdue'] ?? 0) > 0;
-              final feeColor = AppTheme.severityForegroundOf(
-                context,
-                overdue ? AppSeverity.danger : AppSeverity.success,
-              );
-              return DataRow(cells: [
-                DataCell(CopyableTableCell(
-                  value: cat,
-                  rowSummary: rowSummary,
-                  child: Text(cat, style: const TextStyle(fontWeight: FontWeight.bold)),
-                )),
-                DataCell(CopyableTableCell(
-                  value: (b['days_consumed'] ?? 0).toString(),
-                  rowSummary: rowSummary,
-                  child: LtrText(consumedStr),
-                )),
-                DataCell(CopyableTableCell(
-                  value: (b['free_days'] ?? 0).toString(),
-                  rowSummary: rowSummary,
-                  child: LtrText(freeStr),
-                )),
-                DataCell(CopyableTableCell(
-                  value: (b['days_overdue'] ?? 0).toString(),
-                  rowSummary: rowSummary,
-                  child: LtrText(
-                    overdueStr,
-                    style: TextStyle(
-                      fontWeight: overdue ? FontWeight.bold : FontWeight.normal,
-                      color: overdue ? feeColor : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 460),
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
+                headingRowHeight: 40,
+                dataRowMinHeight: 42,
+                dataRowMaxHeight: 48,
+                columnSpacing: 24,
+                columns: [
+                  DataColumn(label: Text(l.colCategory, style: head)),
+                  DataColumn(label: Text(l.colConsumedDays, style: head), numeric: true),
+                  DataColumn(label: Text(l.colFreeDays, style: head), numeric: true),
+                  DataColumn(label: Text(l.colOverdueDays, style: head), numeric: true),
+                  DataColumn(label: Text(l.colFeeAmount, style: head), numeric: true),
+                ],
+                rows: res.breakdownDetails.map((b) {
+                  final cat = l.demurrageCategoryLabel(b['category']);
+                  final feeStr = b['currency'] == 'EGP'
+                      ? l.egpCurrencyAmount((b['fee_egp'] ?? 0).toString())
+                      : '${b['fee_fx']} ${b['currency']}';
+                  final consumedStr = l.daysCountFormatted(b['days_consumed'] ?? 0);
+                  final freeStr = l.daysCountFormatted(b['free_days'] ?? 0);
+                  final overdueStr = l.daysCountFormatted(b['days_overdue'] ?? 0);
+                  final rowSummary = '$cat | $consumedStr | $freeStr | $overdueStr | $feeStr';
+                  final overdue = (b['days_overdue'] ?? 0) > 0;
+                  final feeColor = AppTheme.severityForegroundOf(
+                    context,
+                    overdue ? AppSeverity.danger : AppSeverity.success,
+                  );
+                  return DataRow(cells: [
+                    DataCell(CopyableTableCell(
+                      value: cat,
+                      rowSummary: rowSummary,
+                      child: Text(cat, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    )),
+                    DataCell(CopyableTableCell(
+                      value: (b['days_consumed'] ?? 0).toString(),
+                      rowSummary: rowSummary,
+                      child: LtrText(consumedStr),
+                    )),
+                    DataCell(CopyableTableCell(
+                      value: (b['free_days'] ?? 0).toString(),
+                      rowSummary: rowSummary,
+                      child: LtrText(freeStr),
+                    )),
+                    DataCell(CopyableTableCell(
+                      value: (b['days_overdue'] ?? 0).toString(),
+                      rowSummary: rowSummary,
+                      child: LtrText(
+                        overdueStr,
+                        style: TextStyle(
+                          fontWeight: overdue ? FontWeight.bold : FontWeight.normal,
+                          color: overdue ? feeColor : null,
+                        ),
+                      ),
+                    )),
+                    DataCell(CopyableTableCell(
+                      value: feeStr,
+                      rowSummary: rowSummary,
+                      child: LtrText(feeStr, style: TextStyle(fontWeight: FontWeight.bold, color: feeColor)),
+                    )),
+                  ]);
+                }).toList(),
+              ),
+            ),
+          ),
+          if (hasTiers) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            _buildTiersBreakdown(context, l),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTiersBreakdown(BuildContext context, AppLocalizations l) {
+    final res = result;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
+    final List<Widget> sections = [];
+
+    for (final b in res.breakdownDetails) {
+      if (b is! Map) continue;
+      final tiers = (b['tiers_applied'] as List?) ?? [];
+      if (tiers.isEmpty) continue;
+      final catName = l.demurrageCategoryLabel(b['category']?.toString() ?? '');
+      final currency = b['currency']?.toString() ?? 'USD';
+
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                catName,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimaryOf(context),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: tiers.map<Widget>((t) {
+                  final tMap = t is Map ? t : <String, dynamic>{};
+                  final tierName = tMap['tier_name']?.toString() ?? '';
+                  final rate = tMap['rate_per_day'] ?? 0;
+                  final days = tMap['days_applied'] ?? 0;
+                  final cost = tMap['tier_cost'] ?? 0;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceAltOf(context),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      border: Border.all(color: AppTheme.borderOf(context)),
                     ),
-                  ),
-                )),
-                DataCell(CopyableTableCell(
-                  value: feeStr,
-                  rowSummary: rowSummary,
-                  child: LtrText(feeStr, style: TextStyle(fontWeight: FontWeight.bold, color: feeColor)),
-                )),
-              ]);
-            }).toList(),
+                    child: Text(
+                      '$tierName: $days ${isAr ? "يوم" : "days"} × $rate = $cost $currency',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppTheme.textSecondaryOf(context),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ),
         ),
-      ),
+      );
+    }
+
+    if (sections.isEmpty && res.storageTierBreakdown.isNotEmpty) {
+      sections.add(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l.demurrageCategoryLabel('Port Storage'),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryOf(context),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: res.storageTierBreakdown.map<Widget>((t) {
+                final tMap = t is Map ? t : <String, dynamic>{};
+                final tierName = tMap['tier_name']?.toString() ?? '';
+                final rate = tMap['rate_per_day'] ?? 0;
+                final days = tMap['days_applied'] ?? 0;
+                final cost = tMap['tier_cost'] ?? 0;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceAltOf(context),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    border: Border.all(color: AppTheme.borderOf(context)),
+                  ),
+                  child: Text(
+                    '$tierName: $days ${isAr ? "يوم" : "days"} × $rate = $cost ${res.storageCurrency}',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppTheme.textSecondaryOf(context),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.layers_outlined, size: 16, color: AppTheme.cobalt),
+            const SizedBox(width: 6),
+            Text(
+              isAr ? 'الشرائح الزمنية المطبقة (Tier Breakdown):' : 'Applied Tier Breakdown:',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textSecondaryOf(context),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...sections,
+      ],
     );
   }
 }

@@ -85,7 +85,7 @@ def test_booking_cost_engine_golden_values():
 
 
 def test_booking_savings_substring_match_pinned_for_q4():
-    """KNOWN WRONG (FB-06, waits for Q4): "THC 40HC" is compared with the 40ft ocean-freight rate."""
+    """BE45-T20: "THC 40HC" is a local surcharge and is never compared with the 40ft ocean-freight rate."""
     booking = ShipmentBooking(
         containers_data=[{"container_type": "40HC", "quantity": 2}],
         cost_charges_data=[{"charge_type": "THC 40HC", "unit": "Per Container", "quantity": 1, "rate": 150.0}],
@@ -94,12 +94,10 @@ def test_booking_savings_substring_match_pinned_for_q4():
     )
     calculate_transit_time_and_costs(booking)
     assert booking.total_freight_cost_usd == 300.0
-    assert booking.cost_variance_usd == 4100.0
-    assert booking.cost_savings_usd == 4100.0
-    assert booking.savings_notes == (
-        "Freight savings achieved: $4,100.00 USD (0.0% saving on freight cost) "
-        "[THC 40HC: ($2,200.00 - $150.00) × 2 = $4,100.00 USD]"
-    )
+    assert booking.cost_variance_usd == 0.0
+    assert booking.cost_savings_usd == 0.0
+    assert len(booking.quotation_details_data.get("savings_breakdown", [])) == 0
+    assert "THC 40HC" not in booking.savings_notes
 
 
 def test_booking_cost_increase_and_exact_match_notes():

@@ -157,14 +157,14 @@ class DutyPaymentSubmit(BaseModel):
     bank_receipt_no: str
     paying_bank_name: Optional[str] = None
     payment_date: Optional[datetime] = None  # defaults to now
-    actual_duty_total: Optional[float] = None
-    estimated_duty_total: Optional[float] = None
+    actual_duty_total: Optional[float] = Field(None, ge=0.0)
+    estimated_duty_total: Optional[float] = Field(None, ge=0.0)
     duty_variance_reason: Optional[str] = None
     nafeza_assessment_json: Optional[Dict[str, Any]] = None
     payment_notes: Optional[str] = None
     sadad_number: Optional[str] = None
     payment_method: Optional[str] = "SADAD_EFINANCE"
-    duty_paid_amount: Optional[float] = None
+    duty_paid_amount: Optional[float] = Field(None, gt=0.0)
     receipt_file_url: Optional[str] = None
 
 class CompleteReleaseSubmit(BaseModel):
@@ -252,13 +252,13 @@ class ClearanceExpenseInvoiceUpdate(BaseModel):
     provider_name: Optional[str] = None
     expense_category: Optional[str] = None
     currency: Optional[str] = None
-    amount_fx: Optional[float] = None
-    exchange_rate: Optional[float] = None
-    amount_egp: Optional[float] = None
+    amount_fx: Optional[float] = Field(None, ge=0.0)
+    exchange_rate: Optional[float] = Field(None, gt=0.0)
+    amount_egp: Optional[float] = Field(None, ge=0.0)
     vat_included: Optional[bool] = None
-    vat_amount: Optional[float] = None
+    vat_amount: Optional[float] = Field(None, ge=0.0)
     wht_deducted: Optional[bool] = None
-    wht_amount: Optional[float] = None
+    wht_amount: Optional[float] = Field(None, ge=0.0)
     payment_status: Optional[str] = None
     payment_ref: Optional[str] = None
     document_url: Optional[str] = None

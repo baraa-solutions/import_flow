@@ -262,8 +262,42 @@ def test_agreement_create_schema_validation():
         reduction_type="percentage_of_duty",
         reduction_percentage=Decimal("0.10"),
         origin_countries="RS",
+        effective_from=date(2025, 1, 1),
+        effective_to=date(2025, 12, 31),
     )
     assert ag.reduction_percentage == Decimal("0.10")
+
+    # Invalid HS code format (letters) -> ValidationError
+    with pytest.raises(ValidationError):
+        PreferentialAgreementCreate(
+            hs_code="INVALID_HS",
+            agreement_name="Invalid HS",
+            reduction_type="percentage_of_duty",
+            reduction_percentage=Decimal("0.10"),
+            origin_countries="RS",
+        )
+
+    # Invalid HS code format (too short < 4 digits) -> ValidationError
+    with pytest.raises(ValidationError):
+        PreferentialAgreementCreate(
+            hs_code="12",
+            agreement_name="Short HS",
+            reduction_type="percentage_of_duty",
+            reduction_percentage=Decimal("0.10"),
+            origin_countries="RS",
+        )
+
+    # Invalid date range (effective_to <= effective_from) -> ValidationError
+    with pytest.raises(ValidationError):
+        PreferentialAgreementCreate(
+            hs_code="8536.41.00",
+            agreement_name="Invalid Dates",
+            reduction_type="percentage_of_duty",
+            reduction_percentage=Decimal("0.10"),
+            origin_countries="RS",
+            effective_from=date(2025, 1, 1),
+            effective_to=date(2024, 12, 31),
+        )
 
 
 def test_invalid_agreement_data_raises_422():
