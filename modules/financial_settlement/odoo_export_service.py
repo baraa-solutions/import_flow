@@ -16,7 +16,8 @@ from .schemas import (
 )
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
-from .validators import JOURNAL_BALANCE_TOLERANCE_EGP, ensure_journal_balanced
+from .validators import JOURNAL_BALANCE_TOLERANCE_EGP, ensure_journal_balanced, ensure_settlement_approved
+from .repository import get_settlement_by_id
 
 
 def _is_seller_paid(exp: Dict[str, Any]) -> bool:
@@ -293,6 +294,11 @@ def export_odoo_csv_service(db: Session, settlement_id: int) -> str:
     """
     Exports a clean CSV file strictly formatted for Odoo 15/16/17/18 `account.move` and `account.move.line` import.
     """
+    settlement = get_settlement_by_id(db, settlement_id)
+    if not settlement:
+        raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
+    ensure_settlement_approved(settlement)
+
     entry = generate_odoo_journal_entry_service(db, settlement_id)
     ensure_journal_balanced(entry)
     output = io.StringIO()
@@ -343,6 +349,11 @@ def export_odoo_excel_service(db: Session, settlement_id: int) -> bytes:
     - Sheet 2: Accounting Journal Voucher (قيد اليومية المزدوج التفصيلي)
     - Sheet 3: Item Landed Cost Breakdown (تكلفة وصول الأصناف)
     """
+    settlement = get_settlement_by_id(db, settlement_id)
+    if not settlement:
+        raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
+    ensure_settlement_approved(settlement)
+
     entry = generate_odoo_journal_entry_service(db, settlement_id)
     ensure_journal_balanced(entry)
     wb = openpyxl.Workbook()
@@ -554,10 +565,7 @@ def odoo_export_filename(db: Session, settlement_id: int, kind: str) -> str:
     """Download file name built from the import file business code, never the DB id (FS-15)."""
     import re
 
-    settlement = db.query(LandedCostSettlementRecord).filter(
-        LandedCostSettlementRecord.settlement_id == settlement_id,
-        LandedCostSettlementRecord.is_active == True,
-    ).first()
+    settlement = get_settlement_by_id(db, settlement_id)
     if not settlement:
         raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == settlement.import_file_id).first()

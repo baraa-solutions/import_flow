@@ -16,6 +16,7 @@ SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED = "SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED"
 INVOICES_NOT_SETTLED = "INVOICES_NOT_SETTLED"
 SETTLEMENT_NO_ITEMS = "SETTLEMENT_NO_ITEMS"
 SETTLEMENT_RESERVED_INVOICE_NO = "SETTLEMENT_RESERVED_INVOICE_NO"
+SETTLEMENT_NOT_APPROVED = "SETTLEMENT_NOT_APPROVED"
 RECALC_ADJUSTMENT_PREFIX = "RECALC-ADJ-"
 
 from modules.common.validators import ensure_file_open
@@ -73,6 +74,19 @@ def ensure_settlement_editable(record: Any) -> None:
             status.HTTP_409_CONFLICT,
             SETTLEMENT_NOT_EDITABLE,
             f"لا يمكن تعديل أو إعادة احتساب التسوية {record.settlement_code} لأنها في حالة ({current}).",
+            status=current,
+            settlement_code=record.settlement_code,
+        )
+
+
+def ensure_settlement_approved(record: Any) -> None:
+    """Odoo export requires an Approved settlement (BE09-T11)."""
+    current = record.status or ""
+    if current != "Approved":
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            SETTLEMENT_NOT_APPROVED,
+            f"لا يمكن تصدير التسوية {record.settlement_code} لأنها في حالة ({current}). يلزم اعتماد تكلفة الوصول الفعلية أولاً.",
             status=current,
             settlement_code=record.settlement_code,
         )

@@ -1475,6 +1475,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "SETTLEMENT_NOT_EDITABLE": {
         "note": "Settlement {settlement_code} is {status} and cannot be edited or recalculated.",
     },
+    "SETTLEMENT_NOT_APPROVED": {
+        "note": "Cannot export settlement {settlement_code} because its status is '{status}': approval is required first.",
+    },
     # Variant of SETTLEMENT_NOT_EDITABLE for a file whose actual landed cost is already approved (no settlement code).
     "SETTLEMENT_COST_ALREADY_APPROVED": {
         "note": "The actual landed cost of import file {import_file_code} is already approved ({status}).",

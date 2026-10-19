@@ -237,7 +237,7 @@ def test_seller_paid_rows_are_not_credited(db):
 
 def test_unbalanced_journal_is_not_exported_and_fx_rows_name_their_currency(db):
     rows = [dict(ODOO_EXPENSES[0], currency="USD", amount_fx=1000.0, exchange_rate=50.0)]
-    rec = seed_odoo_settlement(db, rows)
+    rec = seed_odoo_settlement(db, rows, status="Approved")
     entry = generate_odoo_journal_entry_service(db, rec.settlement_id)
     # Odoo sign convention: a credit line carries a negative amount_currency (review 2 #8).
     assert entry.lines[2].currency == "USD" and entry.lines[2].amount_currency == -1000.0
@@ -519,7 +519,7 @@ def test_downward_recalculation_still_exports_a_balanced_journal(db):
     rows = ODOO_EXPENSES + [{"invoice_no": "RECALC-ADJ-freight_cost_egp", "category": "Freight",
                              "provider_name": "Upstream Sync", "currency": "EGP", "amount_fx": -7000.0,
                              "exchange_rate": 1.0, "amount_egp": -7000.0, "allocation_rule": "Volume-Based"}]
-    rec = seed_odoo_settlement(db, rows)
+    rec = seed_odoo_settlement(db, rows, status="Approved")
     entry = generate_odoo_journal_entry_service(db, rec.settlement_id)
     adj = next(l for l in entry.lines if "RECALC-ADJ" in l.label)
     assert (adj.debit, adj.credit) == (7000.0, 0.0)

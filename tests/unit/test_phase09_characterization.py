@@ -322,7 +322,7 @@ ODOO_ITEMS = [
 ]
 
 
-def seed_odoo_settlement(db, expenses=None):
+def seed_odoo_settlement(db, expenses=None, status="Calculated"):
     imp = ImportFile(import_file_code="IMP-P09-ODOO", company_name="P09 Importer", supplier_name="P09 Steel",
                      project_names="P09 Project", is_active=True)
     db.add(imp)
@@ -333,7 +333,7 @@ def seed_odoo_settlement(db, expenses=None):
         settlement_code="LCS-2026-0901", import_file_id=imp.import_file_id, incoterm_code="FOB",
         expense_invoices=exp, total_fob_egp=calc["total_fob_egp"], total_expenses_egp=calc["total_expenses_egp"],
         total_landed_cost_egp=calc["total_landed_cost_egp"], average_markup_factor=calc["average_markup_factor"],
-        item_landed_costs=calc["item_landed_costs"], status="Calculated", accountant_name="acc",
+        item_landed_costs=calc["item_landed_costs"], status=status, accountant_name="acc",
         created_at=datetime(2026, 3, 10, 9, 30), is_active=True,
     )
     db.add(rec)
@@ -353,7 +353,7 @@ def test_odoo_journal_golden(db):
 
 
 def test_odoo_csv_golden(db):
-    rec = seed_odoo_settlement(db)
+    rec = seed_odoo_settlement(db, status="Approved")
     csv_text = export_odoo_csv_service(db, rec.settlement_id).replace(
         f"importflow_settlement_{rec.settlement_id}", "importflow_settlement_<id>"
     )

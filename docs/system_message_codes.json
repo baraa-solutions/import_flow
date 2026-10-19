@@ -3909,6 +3909,15 @@
       "note"
     ]
   },
+  "SETTLEMENT_NOT_APPROVED": {
+    "params": [
+      "settlement_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "SETTLEMENT_NOT_EDITABLE": {
     "params": [
       "settlement_code",

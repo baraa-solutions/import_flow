@@ -212,9 +212,27 @@ def test_odoo_journal_lines_category_mapping(db_session):
 
 def test_odoo_csv_export_format(db_session):
     """
-    Test Odoo standard CSV export string and headers.
+    BE09-T11: CSV export requires settlement Approved.
+    - Calculated settlement -> 409 SETTLEMENT_NOT_APPROVED
+    - Approved settlement -> 200 and standard Odoo CSV format
     """
+    from fastapi import HTTPException
+    from modules.financial_settlement.validators import SETTLEMENT_NOT_APPROVED
+
     imp_file, settlement = _create_sample_settlement(db_session)
+    assert settlement.status == "Calculated"
+
+    # 1. Non-approved settlement raises 409 SETTLEMENT_NOT_APPROVED
+    with pytest.raises(HTTPException) as exc:
+        export_odoo_csv_service(db_session, settlement.settlement_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail.get("code") == SETTLEMENT_NOT_APPROVED
+    assert exc.value.detail.get("status") == "Calculated"
+
+    # 2. Approved settlement succeeds
+    settlement.status = "Approved"
+    db_session.commit()
+
     csv_str = export_odoo_csv_service(db_session, settlement.settlement_id)
 
     reader = csv.reader(io.StringIO(csv_str))
@@ -232,9 +250,26 @@ def test_odoo_csv_export_format(db_session):
 
 def test_odoo_excel_export_structure(db_session):
     """
-    Test Excel export generates 3 valid sheets with proper accounting voucher structure.
+    BE09-T11: Excel export requires settlement Approved.
+    - Calculated settlement -> 409 SETTLEMENT_NOT_APPROVED
+    - Approved settlement -> generates 3 valid sheets with proper accounting voucher structure.
     """
+    from fastapi import HTTPException
+    from modules.financial_settlement.validators import SETTLEMENT_NOT_APPROVED
+
     imp_file, settlement = _create_sample_settlement(db_session)
+    assert settlement.status == "Calculated"
+
+    # 1. Non-approved settlement raises 409 SETTLEMENT_NOT_APPROVED
+    with pytest.raises(HTTPException) as exc:
+        export_odoo_excel_service(db_session, settlement.settlement_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail.get("code") == SETTLEMENT_NOT_APPROVED
+
+    # 2. Approved settlement succeeds
+    settlement.status = "Approved"
+    db_session.commit()
+
     excel_bytes = export_odoo_excel_service(db_session, settlement.settlement_id)
 
     wb = openpyxl.load_workbook(io.BytesIO(excel_bytes))
@@ -248,11 +283,15 @@ def test_odoo_excel_export_structure(db_session):
 
 def test_odoo_endpoints_rest_api(client, db_session):
     """
-    Test FastAPI REST endpoints for Odoo JSON preview, CSV download, and Excel download.
+    Test FastAPI REST endpoints for Odoo JSON preview, CSV download, and Excel download (BE09-T11).
+    - JSON preview is allowed on Calculated status (status=200).
+    - CSV and Excel downloads on Calculated status return 409 SETTLEMENT_NOT_APPROVED.
+    - CSV and Excel downloads on Approved status return 200 with appropriate files.
     """
     imp_file, settlement = _create_sample_settlement(db_session)
+    assert settlement.status == "Calculated"
 
-    # 1. GET JSON
+    # 1. GET JSON preview works on Calculated settlement
     res_json = client.get(f"/api/v1/financial-settlement/{settlement.settlement_id}/odoo-journal-entry")
     assert res_json.status_code == 200
     data = res_json.json()
@@ -260,13 +299,27 @@ def test_odoo_endpoints_rest_api(client, db_session):
     assert data["total_debit"] == 695000.0
     assert len(data["lines"]) == 8 # 1 debit + 1 fob credit + 6 expense credit lines
 
-    # 2. GET CSV
+    # 2. GET CSV on Calculated settlement returns 409
+    res_csv_blocked = client.get(f"/api/v1/financial-settlement/{settlement.settlement_id}/export-odoo-csv")
+    assert res_csv_blocked.status_code == 409
+    assert res_csv_blocked.json().get("detail", {}).get("code") == "SETTLEMENT_NOT_APPROVED"
+
+    # 3. GET Excel on Calculated settlement returns 409
+    res_excel_blocked = client.get(f"/api/v1/financial-settlement/{settlement.settlement_id}/export-odoo-excel")
+    assert res_excel_blocked.status_code == 409
+    assert res_excel_blocked.json().get("detail", {}).get("code") == "SETTLEMENT_NOT_APPROVED"
+
+    # Approve settlement
+    settlement.status = "Approved"
+    db_session.commit()
+
+    # 4. GET CSV on Approved settlement returns 200
     res_csv = client.get(f"/api/v1/financial-settlement/{settlement.settlement_id}/export-odoo-csv")
     assert res_csv.status_code == 200
     assert "text/csv" in res_csv.headers["content-type"]
     assert "odoo_landed_cost_settlement_" in res_csv.headers["content-disposition"]
 
-    # 3. GET Excel
+    # 5. GET Excel on Approved settlement returns 200
     res_excel = client.get(f"/api/v1/financial-settlement/{settlement.settlement_id}/export-odoo-excel")
     assert res_excel.status_code == 200
     assert "spreadsheetml.sheet" in res_excel.headers["content-type"]
