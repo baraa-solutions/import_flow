@@ -49,6 +49,8 @@ def _code(exc_info):
 def _approved(db):
     imp = seed_shipment(db, cbm=(12.0, 4.0))
     seed_actual_sources(db, imp)
+    imp.financial_settlement_status = "INVOICES_SETTLED"
+    db.commit()
     res = fs.approve_actual_landed_cost_service(
         db, ApproveActualLandedCostRequest(import_file_id=imp.import_file_id, approved_by="spoofed"), actor="alice"
     )

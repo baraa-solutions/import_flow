@@ -1486,6 +1486,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "note": "Settlement contains manual expense rows that are not in the aggregated invoice sources: {invoice_nos}.",
     },
     "INVOICES_ALREADY_SETTLED": {"note": "Invoices of {import_file_code} are already settled ({status})."},
+    "INVOICES_NOT_SETTLED": {
+        "note": "Actual landed cost cannot be approved before shipment invoices are settled (status: {status}).",
+    },
+    "SETTLEMENT_NO_ITEMS": {
+        "note": "Cannot approve actual landed cost: shipment file has no item lines for cost allocation.",
+    },
     "JOURNAL_UNBALANCED": {"note": "The journal entry is unbalanced by {difference} EGP and cannot be exported."},
     "SETTLEMENT_LINE_NO_HS": {"note": "Line {item_code} has no HS code: it is left out of the customs estimate."},
     "SETTLEMENT_LINE_ZERO_VALUE": {"note": "Line {item_code} has no value: it is left out of the customs estimate."},

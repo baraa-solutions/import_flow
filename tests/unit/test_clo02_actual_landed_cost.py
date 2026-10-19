@@ -524,3 +524,64 @@ class TestCLO02ActualLandedCost:
         assert settlement.status == "Approved"
         assert imp.financial_settlement_status == "COST_ALLOCATED"
 
+    def test_be09_t06_approve_preconditions_invoices_settled_and_items_present(self, db_session):
+        """
+        BE09-T06: Approve preconditions.
+        - File not INVOICES_SETTLED -> 409 INVOICES_NOT_SETTLED.
+        - File INVOICES_SETTLED but 0 items in calculation -> 409 SETTLEMENT_NO_ITEMS.
+        - Normal flow (INVOICES_SETTLED and items present) -> approve succeeds (200).
+        """
+        from fastapi import HTTPException
+        from modules.financial_settlement.validators import INVOICES_NOT_SETTLED, SETTLEMENT_NO_ITEMS
+        from modules.purchase_orders.model import POLineItem, PurchaseOrder
+
+        imp = _seed_sample_shipment(db_session, "IMP-2026-BE09-T06")
+
+        # 1. When file is not INVOICES_SETTLED (e.g. PENDING_SETTLEMENT) -> 409 INVOICES_NOT_SETTLED
+        imp.financial_settlement_status = "PENDING_SETTLEMENT"
+        db_session.commit()
+
+        app_req = ApproveActualLandedCostRequest(
+            import_file_id=imp.import_file_id,
+            allocation_preference="Value-Based",
+        )
+
+        with pytest.raises(HTTPException) as exc1:
+            approve_actual_landed_cost_service(db_session, app_req, actor="Lead")
+        assert exc1.value.status_code == 409
+        assert exc1.value.detail.get("code") == INVOICES_NOT_SETTLED
+
+        # 2. When file is INVOICES_SETTLED but has no PO items -> 409 SETTLEMENT_NO_ITEMS
+        imp.financial_settlement_status = "INVOICES_SETTLED"
+        # Delete PO line items for this shipment's PO
+        po = db_session.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == imp.import_file_id).first()
+        if po:
+            db_session.query(POLineItem).filter(POLineItem.po_id == po.po_id).delete()
+        db_session.commit()
+
+        with pytest.raises(HTTPException) as exc2:
+            approve_actual_landed_cost_service(db_session, app_req, actor="Lead")
+        assert exc2.value.status_code == 409
+        assert exc2.value.detail.get("code") == SETTLEMENT_NO_ITEMS
+
+        # 3. Normal flow: with PO items re-added and INVOICES_SETTLED -> 200 approved
+        line1 = POLineItem(
+            po_id=po.po_id,
+            item_code="ITM-LASER-01",
+            description_ar="ماكينة ليزر صناعية طراز أ",
+            quantity=5.0,
+            unit_price=3000.0,
+            total_price=15000.0,
+            gross_weight_kg=1500.0,
+            total_cbm=12.0,
+            country_of_origin="DE",
+        )
+        db_session.add(line1)
+        db_session.commit()
+
+        res_ok = approve_actual_landed_cost_service(db_session, app_req, actor="Lead")
+        assert res_ok.success is True
+        db_session.refresh(imp)
+        assert imp.financial_settlement_status == "COST_ALLOCATED"
+
+

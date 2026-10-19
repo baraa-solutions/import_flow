@@ -13,6 +13,8 @@ SETTLEMENT_DUPLICATE_ACTIVE = "SETTLEMENT_DUPLICATE_ACTIVE"
 IMPORT_FILE_CLOSED = "IMPORT_FILE_CLOSED"
 SETTLEMENT_CURRENCY_MISSING = "SETTLEMENT_CURRENCY_MISSING"
 SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED = "SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED"
+INVOICES_NOT_SETTLED = "INVOICES_NOT_SETTLED"
+SETTLEMENT_NO_ITEMS = "SETTLEMENT_NO_ITEMS"
 
 from modules.common.validators import ensure_file_open
 
@@ -37,11 +39,26 @@ def validate_expense_invoice(invoice_no: str, amount_fx: float, exchange_rate: f
         raise HTTPException(status_code=400, detail="سعر الصرف يجب أن يكون أكبر من الصفر.")
 
 
-def validate_items_allocation_readiness(items: List[Dict[str, Any]]) -> None:
+def validate_items_allocation_readiness(items: List[Any]) -> None:
+    """Approve requires at least one item line to allocate landed cost onto (BE09-T06)."""
     if not items or len(items) == 0:
-        raise HTTPException(
-            status_code=400,
-            detail="لا توجد بنود أصناف بالشحنة لإجراء توزيع التكاليف وحساب الـ Landed Cost.",
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            SETTLEMENT_NO_ITEMS,
+            "لا توجد أصناف بضاعة في ملف الشحنة لاحتساب وتوزيع تكلفة الوصول الفعلية.",
+        )
+
+
+def ensure_invoices_settled(imp: Any) -> None:
+    """Approve requires the import file to have its invoices settled in CLO-01 first (BE09-T06)."""
+    current = imp.financial_settlement_status or ""
+    if current != "INVOICES_SETTLED":
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            INVOICES_NOT_SETTLED,
+            f"لا يمكن اعتماد تكلفة الوصول الفعلية للملف {imp.import_file_code}: يلزم إتمام وتأكيد تسوية الفواتير (CLO-01) أولاً (الحالة الحالية: {current or 'لم تبدأ'}).",
+            status=current,
+            import_file_code=imp.import_file_code,
         )
 
 

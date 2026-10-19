@@ -55,6 +55,7 @@ from .validators import (
     ensure_cost_not_approved,
     ensure_file_open,
     ensure_invoices_not_settled,
+    ensure_invoices_settled,
     ensure_no_manual_rows,
     ensure_no_other_active_settlement,
     ensure_settlement_editable,
@@ -2613,34 +2614,6 @@ def _calculate_actual_landed_cost(
                 "cbm": round(float(pl.total_cbm or 0.0) * ratio, 4),
                 "estimated_unit_landed_cost_egp": est_u,
             })
-    elif sim and sim.items_breakdown and len(sim.items_breakdown) > 0:
-        for s_itm in sim.items_breakdown:
-            items_raw.append({
-                "line_no": s_itm.line_no,
-                "item_code": s_itm.item_code,
-                "item_name": s_itm.item_name,
-                "hs_code": s_itm.hs_code,
-                "qty": float(s_itm.qty or 1.0),
-                "fob_unit_egp": float(s_itm.fob_unit_egp or 0.0),
-                "fob_total_egp": float(s_itm.fob_total_egp or 0.0),
-                "gross_weight_kg": 0.0,
-                "cbm": 0.0,
-                "estimated_unit_landed_cost_egp": float(s_itm.unit_landed_cost_egp or 0.0),
-            })
-    else:
-        # Fallback to single general cargo item
-        items_raw.append({
-            "line_no": 1,
-            "item_code": "ITM-001",
-            "item_name": imp.product_category or "General Imported Cargo",
-            "hs_code": imp.hs_code or "",
-            "qty": 1.0,
-            "fob_unit_egp": actual_total_fob_egp,
-            "fob_total_egp": actual_total_fob_egp,
-            "gross_weight_kg": 0.0,
-            "cbm": 0.0,
-            "estimated_unit_landed_cost_egp": est_total_landed if sim else None,
-        })
 
     total_items_fob = sum(i["fob_total_egp"] for i in items_raw)
     total_items_wt = sum(i["gross_weight_kg"] for i in items_raw)
@@ -2954,6 +2927,7 @@ def approve_actual_landed_cost_service(
     imp = require_active(db, ImportFile, payload.import_file_id, IMPORT_FILE_LABEL_AR, status_code=404)
     ensure_file_open(imp)
     ensure_cost_not_approved(imp, get_settlement_by_import_file_id(db, imp.import_file_id))
+    ensure_invoices_settled(imp)
 
     # Run calculation
     calc_req = ActualLandedCostCalculationRequest(
@@ -2961,6 +2935,7 @@ def approve_actual_landed_cost_service(
         custom_category_allocation=payload.custom_category_allocation,
     )
     calc, expense_invoices = _calculate_actual_landed_cost(db, payload.import_file_id, calc_req)
+    validate_items_allocation_readiness(calc.items_breakdown)
 
     now_utc = datetime.now(timezone.utc)
     today_str = str(now_utc.date())

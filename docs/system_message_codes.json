@@ -2294,6 +2294,14 @@
       "note"
     ]
   },
+  "INVOICES_NOT_SETTLED": {
+    "params": [
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "IR_ASSESSMENT_EXISTS": {
     "params": [
       "assessment_code"
@@ -3906,6 +3914,12 @@
       "settlement_code",
       "status"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_NO_ITEMS": {
+    "params": [],
     "parts": [
       "note"
     ]

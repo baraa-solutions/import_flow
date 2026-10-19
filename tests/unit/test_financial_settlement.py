@@ -1175,6 +1175,8 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(cats["VAT & Taxes"], 150000.0)
 
         # 3. Test Approval
+        imp.financial_settlement_status = "INVOICES_SETTLED"
+        self.db.commit()
         approve_res = approve_actual_landed_cost_service(
             self.db,
             ApproveActualLandedCostRequest(
@@ -1659,6 +1661,33 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.db.commit()
         self.db.refresh(imp)
 
+        from modules.purchase_orders.model import PurchaseOrder, POLineItem
+        po = PurchaseOrder(
+            po_number="PO-ACC2-T12",
+            import_file_id=imp.import_file_id,
+            project_id=1,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=curr_kwd.currency_id,
+            total_amount_fob=10000.0,
+            status="Approved",
+            is_active=True,
+        )
+        self.db.add(po)
+        self.db.flush()
+
+        line = POLineItem(
+            po_id=po.po_id,
+            item_code="ITM-KWD-01",
+            description_ar="بضاعة كويتية",
+            quantity=100.0,
+            unit_price=100.0,
+            total_price=10000.0,
+        )
+        self.db.add(line)
+        self.db.commit()
+
         # Add an actual clearance expense invoice in EGP
         inv = ClearanceExpenseInvoice(
             invoice_code="INV-CLR-T12",
@@ -1714,6 +1743,8 @@ class TestFinancialSettlementModule(unittest.TestCase):
             self.assertEqual(itm.item_variance_status, "NO_ESTIMATE")
 
         # Approve and verify persistence
+        imp.financial_settlement_status = "INVOICES_SETTLED"
+        self.db.commit()
         appr_req = ApproveActualLandedCostRequest(
             import_file_id=imp.import_file_id,
             allocation_preference="Value-Based",
