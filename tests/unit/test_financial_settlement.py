@@ -1800,6 +1800,84 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertIsNotNone(other_msg, "Missing ACTUAL_SOURCE_MISSING for 'Other & Admin'")
         self.assertEqual(other_msg.params["estimated_egp"], 4500.0)
 
+    def test_acc2_t15_engine_robustness_and_configurable_thresholds(self):
+        """
+        ACC2-T15: Engine robustness and configurable thresholds.
+        Tests:
+        1. row_amount_egp helper:
+           - uses amount_egp if not None and != 0.0
+           - computes amount_fx * exchange_rate when amount_egp is None or 0.0
+           - defaults exchange_rate to 1.0 for EGP, and 0.0 for foreign currency without rate
+           - rounds to 2 decimals
+        2. calculate_landed_cost_engine with no items handles None/0.0 amount_egp without TypeError
+        3. Configurable thresholds:
+           - PARAM_VARIANCE_UNIT_TOLERANCE_EGP overrides unit tolerance
+           - PARAM_VARIANCE_FILE_TOLERANCE_EGP overrides file tolerance
+        """
+        from modules.financial_settlement.service import (
+            row_amount_egp,
+            calculate_landed_cost_engine,
+            calculate_actual_landed_cost_service,
+            PARAM_VARIANCE_UNIT_TOLERANCE_EGP,
+            PARAM_VARIANCE_FILE_TOLERANCE_EGP,
+            DEFAULT_VARIANCE_UNIT_TOLERANCE_EGP,
+            DEFAULT_VARIANCE_FILE_TOLERANCE_EGP,
+        )
+        from modules.financial_settlement.schemas import ActualLandedCostCalculationRequest
+        from modules.common.system_parameters import SystemParameter
+        from unittest.mock import patch, MagicMock
+
+        # 1. row_amount_egp
+        # Uses explicit amount_egp
+        self.assertEqual(row_amount_egp({"amount_egp": 123.456, "amount_fx": 10.0}), 123.46)
+        # amount_egp is None -> amount_fx * rate
+        self.assertEqual(row_amount_egp({"amount_egp": None, "amount_fx": 100.0, "currency": "USD", "exchange_rate": 50.555}), 5055.5)
+        # amount_egp is 0.0 -> amount_fx * rate
+        self.assertEqual(row_amount_egp({"amount_egp": 0.0, "amount_fx": 50.0, "currency": "USD", "exchange_rate": 50.0}), 2500.0)
+        # EGP with no exchange_rate defaults to rate 1.0
+        self.assertEqual(row_amount_egp({"amount_egp": None, "amount_fx": 200.0, "currency": "EGP", "exchange_rate": None}), 200.0)
+        # Foreign currency with no exchange_rate returns 0.0
+        self.assertEqual(row_amount_egp({"amount_egp": None, "amount_fx": 200.0, "currency": "EUR", "exchange_rate": None}), 0.0)
+
+        # 2. calculate_landed_cost_engine without items and None/zero amounts
+        expenses = [
+            {"amount_egp": None, "amount_fx": 1500.0, "currency": "EGP"},
+            {"amount_egp": 3000.0, "amount_fx": 3000.0, "currency": "EGP"},
+            {"amount_egp": 500.0, "amount_fx": 500.0, "currency": "EGP", "is_seller_paid": True},  # excluded
+        ]
+        res = calculate_landed_cost_engine(expenses=expenses, items=[], incoterm="FOB")
+        self.assertEqual(res["total_expenses_egp"], 4500.0)
+        self.assertEqual(res["total_landed_cost_egp"], 4500.0)
+
+        # Also test with items present and None amount_egp
+        items = [{"item_code": "ITM-01", "item_name": "Pumps", "qty": 10, "gross_weight_kg": 100.0, "cbm": 1.0, "fob_unit_egp": 100.0}]
+        res_with_items = calculate_landed_cost_engine(expenses=expenses, items=items, incoterm="FOB")
+        self.assertEqual(res_with_items["total_expenses_egp"], 4500.0)
+
+        # 3. Configurable thresholds verification
+        self.assertEqual(DEFAULT_VARIANCE_UNIT_TOLERANCE_EGP, 0.05)
+        self.assertEqual(DEFAULT_VARIANCE_FILE_TOLERANCE_EGP, 100.0)
+
+        # Test inserting custom parameter rows into DB
+        param_unit = SystemParameter(
+            param_key=PARAM_VARIANCE_UNIT_TOLERANCE_EGP,
+            param_value="2.5",
+            is_active=True,
+        )
+        param_file = SystemParameter(
+            param_key=PARAM_VARIANCE_FILE_TOLERANCE_EGP,
+            param_value="500.0",
+            is_active=True,
+        )
+        self.db.add_all([param_unit, param_file])
+        self.db.commit()
+
+        from modules.common.system_parameters import get_float_parameter
+        u_tol = get_float_parameter(self.db, PARAM_VARIANCE_UNIT_TOLERANCE_EGP, DEFAULT_VARIANCE_UNIT_TOLERANCE_EGP)
+        f_tol = get_float_parameter(self.db, PARAM_VARIANCE_FILE_TOLERANCE_EGP, DEFAULT_VARIANCE_FILE_TOLERANCE_EGP)
+        self.assertEqual(u_tol, 2.5)
+        self.assertEqual(f_tol, 500.0)
+
 
 if __name__ == "__main__":
     unittest.main()

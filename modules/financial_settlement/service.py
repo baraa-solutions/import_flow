@@ -93,6 +93,11 @@ PARAM_DEFAULT_PORT_HANDLING_EGP = "settlement.default_port_handling_egp"
 PARAM_DEFAULT_INLAND_TRANSPORT_EGP = "settlement.default_inland_transport_egp"
 PARAM_DEFAULT_BANK_FEES_EGP = "settlement.default_bank_fees_egp"
 PARAM_DEFAULT_OTHER_EXPENSES_EGP = "settlement.default_other_expenses_egp"
+PARAM_VARIANCE_UNIT_TOLERANCE_EGP = "settlement.variance_unit_tolerance_egp"
+PARAM_VARIANCE_FILE_TOLERANCE_EGP = "settlement.variance_file_tolerance_egp"
+DEFAULT_VARIANCE_UNIT_TOLERANCE_EGP: float = 0.05
+DEFAULT_VARIANCE_FILE_TOLERANCE_EGP: float = 100.0
+
 ESTIMATE_PARAMETER_DEFAULTS: Dict[str, float] = {
     PARAM_DEEMED_FREIGHT_PCT: 2.0,
     PARAM_DEEMED_INSURANCE_PCT: 2.5,
@@ -282,6 +287,23 @@ def allocation_ratios(items: List[Dict[str, Any]], rule: str) -> Tuple[List[floa
     return _val_ratios(), "Value-Based", []
 
 
+def row_amount_egp(exp: Dict[str, Any]) -> float:
+    """Returns the EGP amount for an expense row (ACC2-T15, F19):
+    uses amount_egp when not None and != 0.0, else amount_fx * (exchange_rate or 1.0 if EGP else 0.0),
+    rounded to 2 decimal places."""
+    amt = exp.get("amount_egp")
+    if amt is not None and float(amt) != 0.0:
+        return round(float(amt), 2)
+    fx = float(exp.get("amount_fx") or 0.0)
+    ccy = (exp.get("currency") or "EGP").upper().strip()
+    rate = exp.get("exchange_rate")
+    if rate is None or float(rate) <= 0.0:
+        rate = 1.0 if ccy == "EGP" else 0.0
+    else:
+        rate = float(rate)
+    return round(fx * rate, 2)
+
+
 def calculate_landed_cost_engine(
     expenses: List[Dict[str, Any]],
     items: List[Dict[str, Any]],
@@ -301,7 +323,7 @@ def calculate_landed_cost_engine(
 
     if not items or len(items) == 0:
         # Seller-paid rows are never the importer's cost, with or without items (review 2 #10).
-        importer_total = sum(e.get("amount_egp", 0.0) for e in expenses if not is_seller_paid_expense(e))
+        importer_total = round(sum(row_amount_egp(e) for e in expenses if not is_seller_paid_expense(e)), 2)
         return {
             "incoterm_code": incoterm_normalized,
             "total_fob_egp": 0.0,
@@ -330,10 +352,8 @@ def calculate_landed_cost_engine(
         if is_seller_paid_expense(exp):
             continue
 
-        amount_egp = exp.get("amount_egp", 0.0)
-        if amount_egp == 0.0:
-            amount_egp = exp.get("amount_fx", 0.0) * exp.get("exchange_rate", 1.0)
-            exp["amount_egp"] = amount_egp
+        amount_egp = row_amount_egp(exp)
+        exp["amount_egp"] = amount_egp
 
         total_expenses_egp += amount_egp
         category = exp.get("category", "Other")
@@ -2446,6 +2466,8 @@ def _calculate_actual_landed_cost(
     pref = req.allocation_preference or "Value-Based"
     fx = SettlementFx(db, "commercial")
     messages: List[SettlementMessage] = []
+    unit_tol = get_float_parameter(db, PARAM_VARIANCE_UNIT_TOLERANCE_EGP, DEFAULT_VARIANCE_UNIT_TOLERANCE_EGP)
+    file_tol = get_float_parameter(db, PARAM_VARIANCE_FILE_TOLERANCE_EGP, DEFAULT_VARIANCE_FILE_TOLERANCE_EGP)
 
     # 1. Fetch simulation estimates (PL-08) for baseline comparison. A domain failure (e.g. missing customs rate)
     # leaves the estimate out with a message; anything else propagates (FS-13).
@@ -2717,9 +2739,9 @@ def _calculate_actual_landed_cost(
             est_u = float(itm["estimated_unit_landed_cost_egp"])
             u_var = item_landed_u - est_u
             u_var_pct = (u_var / est_u * 100.0) if est_u > 0 else 0.0
-            if u_var < -0.05:
+            if u_var < -unit_tol:
                 v_status = "SAVING"
-            elif u_var > 0.05:
+            elif u_var > unit_tol:
                 v_status = "INCREASED"
             else:
                 v_status = "MATCHED"
@@ -2772,10 +2794,10 @@ def _calculate_actual_landed_cost(
         landed_var_egp = round(actual_total_landed_cost_egp - est_total_landed, 2)
         landed_var_pct = round((landed_var_egp / est_total_landed * 100.0), 2) if est_total_landed > 0 else 0.0
 
-        if landed_var_egp < -100.0:
+        if landed_var_egp < -file_tol:
             overall_status = "UNDER_BUDGET"
             overall_status_ar = f"وفورات في التكلفة بنسبة {abs(landed_var_pct):.1f}% (تحت الميزانية التقديرية)"
-        elif landed_var_egp > 100.0:
+        elif landed_var_egp > file_tol:
             overall_status = "OVER_BUDGET"
             overall_status_ar = f"تجاوز وحيود في التكلفة بنسبة {landed_var_pct:.1f}% (فوق الميزانية التقديرية)"
         else:

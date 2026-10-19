@@ -899,4 +899,35 @@ def test_approved_settlement_recalculation_refreshes_file_and_stays_approved(db:
     assert exc_info.value.detail.get("code") == "SETTLEMENT_NOT_EDITABLE"
 
 
+def test_aggregate_validation():
+    from modules.recalculation.service import _aggregate
+
+    # Valid functions
+    assert _aggregate([10.0, 20.0, 5.0], "max") == 20.0
+    assert _aggregate([10.0, 20.0, 5.0], "min") == 5.0
+    assert _aggregate([10.0, 20.0, 5.0], "sum") == 35.0
+    assert _aggregate([10.0, 20.0, 5.0], "latest") == 5.0
+    assert _aggregate([], "max") == 0.0
+
+    # Unknown aggregation function raises ValueError
+    with pytest.raises(ValueError) as exc:
+        _aggregate([10.0, 20.0], "average")
+    assert "Unknown aggregation function 'average'" in str(exc.value)
+
+
+def test_upsert_dependency_invalid_aggregation(db: Session):
+    from modules.recalculation.repository import upsert_dependency
+
+    with pytest.raises(ValueError) as exc:
+        upsert_dependency(
+            db=db,
+            target_entity_type="import_budget",
+            target_field="freight_cost_egp",
+            source_entity_type="shipping_scenarios",
+            source_field="freight_cost_egp",
+            aggregation_function="median",
+        )
+    assert "Invalid aggregation function 'median'" in str(exc.value)
+
+
 

@@ -269,7 +269,9 @@ def _aggregate(values: List[float], func_name: str) -> float:
         "sum": sum,
         "latest": lambda v: v[-1],  # callers pass rows ordered by primary key
     }
-    fn = func_map.get(func_name, max)
+    if func_name not in func_map:
+        raise ValueError(f"Unknown aggregation function '{func_name}'")
+    fn = func_map[func_name]
     return round(fn(values), 4)
 
 
@@ -562,6 +564,8 @@ def _evaluate_dependencies(db: Session, entity: Any, target_entity_type: str, de
                 params={"currency": missing.currency, "on_date": missing.on_date},
             ))
             continue
+        except ValueError as err:
+            raise HTTPException(status_code=422, detail=str(err))
         v = _variance(old_value, new_value, threshold_pct)
         items.append(RecalculationPreviewItem(
             **common,
