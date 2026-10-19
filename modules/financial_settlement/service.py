@@ -55,6 +55,7 @@ from .validators import (
     ensure_cost_not_approved,
     ensure_file_open,
     ensure_invoices_not_settled,
+    ensure_no_manual_rows,
     ensure_no_other_active_settlement,
     ensure_settlement_editable,
     fx_rate_missing_error,
@@ -2966,6 +2967,21 @@ def approve_actual_landed_cost_service(
 
     # 1. Update or create LandedCostSettlementRecord
     settlement = get_settlement_by_import_file_id(db, imp.import_file_id)
+    if settlement and settlement.expense_invoices:
+        aggregated_nos = {inv.invoice_no for inv in expense_invoices}
+        for inv in expense_invoices:
+            if getattr(inv, "components", None):
+                for comp in inv.components:
+                    aggregated_nos.add(f"{inv.invoice_no}/{comp.component}")
+        manual_rows = [
+            e for e in settlement.expense_invoices
+            if e.get("invoice_no") not in aggregated_nos
+            and (e.get("invoice_no") or "").split("/")[0] not in aggregated_nos
+            and not str(e.get("note") or "").startswith("Auto-fetched")
+            and not str(e.get("invoice_no") or "").startswith(RECALC_ADJUSTMENT_PREFIX)
+        ]
+        ensure_no_manual_rows(manual_rows)
+
     old_data = _settlement_snapshot_dict(settlement)
 
     rules_used = {c.category: c.allocation_rule for c in calc.categories_breakdown}

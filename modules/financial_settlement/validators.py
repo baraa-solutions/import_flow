@@ -12,6 +12,7 @@ JOURNAL_UNBALANCED = "JOURNAL_UNBALANCED"
 SETTLEMENT_DUPLICATE_ACTIVE = "SETTLEMENT_DUPLICATE_ACTIVE"
 IMPORT_FILE_CLOSED = "IMPORT_FILE_CLOSED"
 SETTLEMENT_CURRENCY_MISSING = "SETTLEMENT_CURRENCY_MISSING"
+SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED = "SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED"
 
 from modules.common.validators import ensure_file_open
 
@@ -140,4 +141,16 @@ def currency_missing_error(source: str, invoice_no: Optional[str] = None) -> HTT
         msg,
         **params,
     )
+
+
+def ensure_no_manual_rows(manual: List[Dict[str, Any]]) -> None:
+    """Approve never drops manually entered settlement rows without aggregation (BE09-T05)."""
+    if manual:
+        invoice_nos = [str(e.get("invoice_no") or "") for e in manual if e.get("invoice_no")]
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED,
+            f"توجد مصاريف مسجلة يدوياً في التسوية ({', '.join(invoice_nos)}) غير موجودة ضمن فواتير الشحنة المجمعة. يلزم تجميعها أو مراجعتها قبل الاعتماد لمنع فقدان البيانات.",
+            invoice_nos=invoice_nos,
+        )
 

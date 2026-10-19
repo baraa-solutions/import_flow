@@ -451,3 +451,76 @@ class TestCLO02ActualLandedCost:
         assert app_data["financial_settlement_status"] == "COST_ALLOCATED"
         assert app_data["progress_percent"] >= 99.0
         assert app_data["next_task_code"].startswith("TSK-0903")
+
+    def test_be09_t05_approve_never_drops_manual_settlement_rows(self, db_session):
+        """
+        BE09-T05: Approve never drops manual settlement rows without aggregation.
+        If the active settlement contains a manual expense row (e.g. BANK-1) not present
+        in the aggregated invoices from CLO-01, approve must raise 409 SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED.
+        """
+        from fastapi import HTTPException
+        from modules.financial_settlement.model import LandedCostSettlementRecord
+        from modules.financial_settlement.validators import SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED
+
+        imp = _seed_sample_shipment(db_session, "IMP-2026-BE09-T05")
+
+        # Create a settlement with an unaggregated manual expense row
+        manual_row = {
+            "invoice_no": "BANK-1",
+            "category": "Bank Charges",
+            "provider_name": "National Bank of Egypt",
+            "currency": "EGP",
+            "amount_fx": 2500.0,
+            "exchange_rate": 1.0,
+            "amount_egp": 2500.0,
+            "allocation_rule": "Equal",
+            "bucket": "Other & Admin",
+        }
+        settlement = LandedCostSettlementRecord(
+            settlement_code="STL-TEST-BE09-T05",
+            import_file_id=imp.import_file_id,
+            incoterm_code="FOB",
+            status="Calculated",
+            total_fob_egp=1250000.0,
+            total_expenses_egp=2500.0,
+            total_landed_cost_egp=1252500.0,
+            average_markup_factor=1.002,
+            expense_invoices=[manual_row],
+            item_landed_costs=[],
+            accountant_name="Accountant",
+            is_active=True,
+        )
+        db_session.add(settlement)
+        db_session.commit()
+
+        app_req = ApproveActualLandedCostRequest(
+            import_file_id=imp.import_file_id,
+            allocation_preference="Value-Based",
+            notes="Attempt approve with manual row",
+        )
+
+        # 1. Attempting approve raises 409 SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED
+        with pytest.raises(HTTPException) as exc_info:
+            approve_actual_landed_cost_service(db_session, app_req, actor="Auditor")
+
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.detail.get("code") == SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED
+        assert exc_info.value.detail.get("invoice_nos") == ["BANK-1"]
+
+        # Settlement remains Calculated, file status remains INVOICES_SETTLED
+        db_session.refresh(settlement)
+        db_session.refresh(imp)
+        assert settlement.status == "Calculated"
+        assert imp.financial_settlement_status == "INVOICES_SETTLED"
+
+        # 2. When manual row is removed (or matches aggregated sources), approve succeeds
+        settlement.expense_invoices = []
+        db_session.commit()
+
+        app_res = approve_actual_landed_cost_service(db_session, app_req, actor="Auditor")
+        assert app_res.success is True
+        db_session.refresh(settlement)
+        db_session.refresh(imp)
+        assert settlement.status == "Approved"
+        assert imp.financial_settlement_status == "COST_ALLOCATED"
+

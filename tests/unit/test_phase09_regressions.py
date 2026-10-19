@@ -821,6 +821,7 @@ def test_settlement_audit_rows_for_all_transitions(db):
                 "exchange_rate": 1.0,
                 "amount_egp": 12000.0,
                 "allocation_rule": "Volume-Based",
+                "note": "Auto-fetched freight quotation",
             },
         ],
         item_landed_costs=[

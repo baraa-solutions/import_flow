@@ -1482,6 +1482,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "SETTLEMENT_DUPLICATE_ACTIVE": {
         "note": "Cannot restore: another active settlement ({settlement_code}) exists for this import file.",
     },
+    "SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED": {
+        "note": "Settlement contains manual expense rows that are not in the aggregated invoice sources: {invoice_nos}.",
+    },
     "INVOICES_ALREADY_SETTLED": {"note": "Invoices of {import_file_code} are already settled ({status})."},
     "JOURNAL_UNBALANCED": {"note": "The journal entry is unbalanced by {difference} EGP and cannot be exported."},
     "SETTLEMENT_LINE_NO_HS": {"note": "Line {item_code} has no HS code: it is left out of the customs estimate."},
