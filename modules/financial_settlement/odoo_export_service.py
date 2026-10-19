@@ -8,7 +8,7 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 
-from .model import LandedCostSettlementRecord
+from .model import LandedCostSettlementRecord, CLEARANCE_CATEGORY_ODOO
 from .schemas import (
     OdooJournalLineItem,
     OdooJournalEntryResponse,
@@ -28,21 +28,26 @@ CLEARANCE_PREFIX = "Clearance / "
 
 
 def classify_odoo_cost_category(category: str) -> str:
-    """Odoo cost bucket of an expense category. Enum codes / English labels of CLEARANCE_EXPENSE_CATEGORY
-    are matched through their legacy label so they land exactly where the legacy text landed."""
-    text = category or ""
+    """Odoo cost bucket of an expense category. Code-first classification for broker categories (ACC2-T02):
+    CLEARANCE_EXPENSE_CATEGORY codes or labels map to Clearance / Demurrage; any Clearance / <body not a code>
+    maps to Clearance; keyword chain only for other free text."""
+    text = (category or "").strip()
     if text.startswith(CLEARANCE_PREFIX):
-        # Settlement snapshot rows written by customs_clearance: the label/code after the prefix is translated.
-        body = text[len(CLEARANCE_PREFIX):]
-        text = CLEARANCE_PREFIX + enum_codes.legacy_text(enum_codes.CLEARANCE_EXPENSE_CATEGORY, body)
-    elif enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, text):
-        # A bare code (only new code writes one). Manual rows with free text / English labels stay as typed.
-        text = enum_codes.legacy_text(enum_codes.CLEARANCE_EXPENSE_CATEGORY, text)
+        body = text[len(CLEARANCE_PREFIX):].strip()
+        norm = enum_codes.normalize(enum_codes.CLEARANCE_EXPENSE_CATEGORY, body)
+        if enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, norm):
+            return CLEARANCE_CATEGORY_ODOO[norm]
+        return "Clearance"
+
+    norm = enum_codes.normalize(enum_codes.CLEARANCE_EXPENSE_CATEGORY, text)
+    if enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, norm):
+        return CLEARANCE_CATEGORY_ODOO[norm]
+
     cat_lower = text.lower()
-    if "freight" in cat_lower or "shipping" in cat_lower or "نولون" in cat_lower:
-        return "Freight"
     if "customs" in cat_lower or "duty" in cat_lower or "جمارك" in cat_lower or "ضرائب" in cat_lower or "vat" in cat_lower:
         return "Customs"
+    if "freight" in cat_lower or "shipping" in cat_lower or "نولون" in cat_lower:
+        return "Freight"
     if "broker" in cat_lower or "clearance" in cat_lower or "تخليص" in cat_lower:
         return "Clearance"
     if "transport" in cat_lower or "truck" in cat_lower or "نقل" in cat_lower:

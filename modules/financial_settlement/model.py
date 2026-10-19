@@ -65,6 +65,23 @@ class LandedCostSettlementRecord(Base):
 WHT_CLEARANCE_SERVICES = "WHT_CLEARANCE_SERVICES"
 WHT_TRANSPORT_SERVICES = "WHT_TRANSPORT_SERVICES"
 
+# Code-first expense classification for customs broker categories (ACC2-T02 / F02, F03).
+# Prevents keyword matching on legacy Arabic labels (e.g. 'نولون' or 'شحن') from misclassifying port dues or stevedoring into Freight.
+CLEARANCE_CATEGORY_BUCKET = {
+    "BROKER_FEES": "Clearance & Port",
+    "PORT_DUES_WHARFAGE": "Clearance & Port",
+    "STEVEDORING_HANDLING": "Clearance & Port",
+    "INSPECTION_WEIGHING": "Clearance & Port",
+    "LABORATORY_TESTING": "Clearance & Port",
+    "STORAGE_DEMURRAGE": "Demurrage & Storage",
+    "OTHER_CLEARANCE": "Clearance & Port",
+}
+
+CLEARANCE_CATEGORY_ODOO = {
+    code: "Demurrage" if bucket == "Demurrage & Storage" else "Clearance"
+    for code, bucket in CLEARANCE_CATEGORY_BUCKET.items()
+}
+
 
 class TaxRate(Base):
     """

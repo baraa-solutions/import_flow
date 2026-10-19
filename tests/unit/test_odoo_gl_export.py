@@ -270,3 +270,74 @@ def test_odoo_endpoints_rest_api(client, db_session):
     assert res_excel.status_code == 200
     assert "spreadsheetml.sheet" in res_excel.headers["content-type"]
     assert "accounting_landed_cost_voucher_" in res_excel.headers["content-disposition"]
+
+
+def test_acc2_t02_odoo_clearance_categories_accounts(db_session):
+    """
+    ACC2-T02: Settlement rows 'Clearance / Customs Broker Fees' 8,000 and
+    'Clearance / Port Dues & Wharfage' 3,000 -> two lines on 210300 (broker),
+    none on 210500 (customs authority) or 210200 (freight); journal balanced.
+    """
+    imp_file = ImportFile(
+        import_file_code="IMP-2026-T02",
+        company_name="Egyptian Import Co",
+        supplier_name="Global Supplier",
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+    db_session.refresh(imp_file)
+
+    payload = FinancialSettlementCreate(
+        import_file_id=imp_file.import_file_id,
+        expense_invoices=[
+            ExpenseInvoiceSchema(
+                invoice_no="CLR-01",
+                category="Clearance / Customs Broker Fees",
+                provider_name="Broker Ahmed",
+                currency="EGP",
+                amount_fx=8000.0,
+                exchange_rate=1.0,
+                amount_egp=8000.0,
+                allocation_rule="Value-Based",
+            ),
+            ExpenseInvoiceSchema(
+                invoice_no="CLR-02",
+                category="Clearance / Port Dues & Wharfage",
+                provider_name="Alexandria Port Dues",
+                currency="EGP",
+                amount_fx=3000.0,
+                exchange_rate=1.0,
+                amount_egp=3000.0,
+                allocation_rule="Value-Based",
+            ),
+        ],
+        item_landed_costs=[
+            ItemLandedCostSchema(
+                item_code="ITM-01",
+                item_name="Item 1",
+                qty=100,
+                fob_unit_egp=100.0,
+                fob_total_egp=10000.0,
+            ),
+        ],
+        accountant_name="Accountant",
+    )
+    settlement = create_settlement_service(db_session, payload)
+    entry = generate_odoo_journal_entry_service(db_session, settlement.settlement_id)
+
+    assert entry.is_balanced is True
+    # Accounts:
+    # Debit 110400 = 10,000 + 11,000 = 21,000
+    # Credit 210100 (Supplier) = 10,000
+    # Credit 210300 (Customs Broker) = 8,000 + 3,000 = 11,000 (two lines on 210300)
+    # None on 210500 (Customs Authority) or 210200 (Freight)
+    broker_lines = [l for l in entry.lines if l.account_code == "210300"]
+    assert len(broker_lines) == 2
+    assert {l.credit for l in broker_lines} == {8000.0, 3000.0}
+    assert all(l.cost_category == "Clearance" for l in broker_lines)
+
+    customs_lines = [l for l in entry.lines if l.account_code == "210500"]
+    assert len(customs_lines) == 0
+
+    freight_lines = [l for l in entry.lines if l.account_code == "210200"]
+    assert len(freight_lines) == 0

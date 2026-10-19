@@ -42,7 +42,11 @@ from .repository import (
     restore_settlement,
     get_effective_tax_rate,
 )
-from .model import WHT_CLEARANCE_SERVICES, WHT_TRANSPORT_SERVICES
+from .model import (
+    WHT_CLEARANCE_SERVICES,
+    WHT_TRANSPORT_SERVICES,
+    CLEARANCE_CATEGORY_BUCKET,
+)
 from .validators import (
     SETTLEMENT_DUPLICATE_ACTIVE,
     SETTLEMENT_FX_RATE_MISSING,
@@ -101,13 +105,24 @@ def _message(code: str, severity: str = "warning", **params: Any) -> SettlementM
 
 
 def actual_expense_bucket(category: Optional[str], party_type: Optional[str] = None) -> str:
-    """Actual landed-cost bucket of an aggregated expense invoice. For broker (clearance) invoices a
-    CLEARANCE_EXPENSE_CATEGORY code or English label is matched through its legacy label, so coded rows land
-    exactly where the legacy text landed."""
-    text = category or ""
+    """Actual landed-cost bucket of an aggregated expense invoice. Code-first classification (ACC2-T02):
+    CLEARANCE_EXPENSE_CATEGORY codes or labels map directly to Clearance & Port / Demurrage & Storage.
+    Keywords are used only for other free text."""
+    raw = (category or "").strip()
+    if raw.startswith("Clearance / "):
+        raw = raw[len("Clearance / "):].strip()
+
+    norm = enum_codes.normalize(enum_codes.CLEARANCE_EXPENSE_CATEGORY, raw)
+    if enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, norm):
+        return CLEARANCE_CATEGORY_BUCKET[norm]
+
     if (party_type or "").upper() == "BROKER":
-        text = enum_codes.legacy_text(enum_codes.CLEARANCE_EXPENSE_CATEGORY, text)
-    cat_lower = text.lower()
+        leg = enum_codes.legacy_text(enum_codes.CLEARANCE_EXPENSE_CATEGORY, raw)
+        leg_norm = enum_codes.normalize(enum_codes.CLEARANCE_EXPENSE_CATEGORY, leg)
+        if enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, leg_norm):
+            return CLEARANCE_CATEGORY_BUCKET[leg_norm]
+
+    cat_lower = raw.lower()
     if any(w in cat_lower for w in ["freight", "ocean", "air", "نولون", "شحن"]):
         return "Freight"
     if any(w in cat_lower for w in ["insurance", "تأمين"]):

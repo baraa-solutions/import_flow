@@ -948,6 +948,131 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(len(skip1), 1)
         self.assertEqual(skip1[0].settlement_id, all_records[1].settlement_id)
 
+    def test_acc2_t02_code_first_expense_classification(self):
+        """ACC2-T02: Code-first classification for the 7 clearance codes."""
+        from modules.common.enum_codes import CLEARANCE_EXPENSE_CATEGORY, label_en
+        from modules.financial_settlement.model import CLEARANCE_CATEGORY_BUCKET
+        from modules.financial_settlement.service import actual_expense_bucket
+
+        for code, expected_bucket in CLEARANCE_CATEGORY_BUCKET.items():
+            en_label = label_en(CLEARANCE_EXPENSE_CATEGORY, code)
+            self.assertEqual(actual_expense_bucket(code, "BROKER"), expected_bucket, f"Failed for code {code}")
+            self.assertEqual(actual_expense_bucket(en_label, "BROKER"), expected_bucket, f"Failed for en {en_label}")
+            self.assertEqual(actual_expense_bucket(f"Clearance / {en_label}"), expected_bucket)
+
+    def test_acc2_t02_clo02_port_dues_clearance_bucket_value_based(self):
+        """ACC2-T02: CLO-02 with PORT_DUES_WHARFAGE allocated as Clearance & Port (not Freight) by Value-Based."""
+        from modules.financial_settlement.service import (
+            calculate_actual_landed_cost_service,
+            confirm_invoices_settlement_service,
+        )
+        from modules.financial_settlement.schemas import (
+            ActualLandedCostCalculationRequest,
+            ConfirmInvoicesSettlementRequest,
+        )
+        from modules.purchase_orders.model import PurchaseOrder, POLineItem
+        from modules.customs_clearance.model import CustomsClearanceRecord, ClearanceExpenseInvoice
+
+        imp = ImportFile(
+            import_file_code="IMP-ACC2-T02-01",
+            company_id=1,
+            company_name="Test Company",
+            supplier_name="Test Supplier",
+        )
+        self.db.add(imp)
+        self.db.commit()
+        self.db.refresh(imp)
+
+        egp_curr = self.db.query(Currency).filter(Currency.currency_code == "EGP").first()
+        if not egp_curr:
+            egp_curr = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_active=True)
+            self.db.add(egp_curr)
+            self.db.flush()
+
+        po = PurchaseOrder(
+            po_number="PO-ACC2-02",
+            import_file_id=imp.import_file_id,
+            company_id=1,
+            supplier_id=1,
+            project_id=1,
+            incoterm_id=1,
+            currency_id=egp_curr.currency_id,
+            total_amount_fob=100000.0,
+            exchange_rate=1.0,
+        )
+        self.db.add(po)
+        self.db.commit()
+        self.db.refresh(po)
+
+        item_a = POLineItem(
+            po_id=po.po_id,
+            item_code="ITM-A",
+            description_ar="بند أ",
+            description_en="Item A",
+            quantity=1.0,
+            unit_price=90000.0,
+            total_price=90000.0,
+            total_cbm=1.0,
+            gross_weight_kg=100.0,
+        )
+        item_b = POLineItem(
+            po_id=po.po_id,
+            item_code="ITM-B",
+            description_ar="بند ب",
+            description_en="Item B",
+            quantity=1.0,
+            unit_price=10000.0,
+            total_price=10000.0,
+            total_cbm=9.0,
+            gross_weight_kg=900.0,
+        )
+        self.db.add_all([item_a, item_b])
+        self.db.commit()
+
+        cl = CustomsClearanceRecord(
+            clearance_code="CLR-ACC2-02",
+            import_file_id=imp.import_file_id,
+            broker_name="Broker Express",
+            actual_duty_total=0.0,
+        )
+        self.db.add(cl)
+        self.db.commit()
+        self.db.refresh(cl)
+
+        inv = ClearanceExpenseInvoice(
+            invoice_code="INV-CLR-ACC2-01",
+            import_file_id=imp.import_file_id,
+            customs_clearance_id=cl.customs_clearance_id,
+            provider_name="Broker Express",
+            invoice_number="INV-PORT-01",
+            expense_category="PORT_DUES_WHARFAGE",
+            amount_egp=10000.0,
+            currency="EGP",
+            payment_status="Paid",
+            is_active=True,
+        )
+        self.db.add(inv)
+        self.db.commit()
+
+        confirm_invoices_settlement_service(
+            self.db,
+            ConfirmInvoicesSettlementRequest(import_file_id=imp.import_file_id),
+            actor="test_user",
+        )
+
+        calc = calculate_actual_landed_cost_service(
+            self.db,
+            imp.import_file_id,
+            ActualLandedCostCalculationRequest(allocation_preference="Value-Based"),
+        )
+
+        item_res_a = next(i for i in calc.items_breakdown if i.item_code == "ITM-A")
+        item_res_b = next(i for i in calc.items_breakdown if i.item_code == "ITM-B")
+        self.assertEqual(item_res_a.allocated_clearance_egp, 9000.0)
+        self.assertEqual(item_res_a.allocated_freight_egp, 0.0)
+        self.assertEqual(item_res_b.allocated_clearance_egp, 1000.0)
+        self.assertEqual(item_res_b.allocated_freight_egp, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

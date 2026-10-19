@@ -188,19 +188,18 @@ def test_landed_cost_totals_unchanged_for_a_mixed_fixture():
         bucket = actual_expense_bucket(code, "BROKER")
         coded_totals[bucket] = coded_totals.get(bucket, 0.0) + amount
     assert coded_totals == legacy_totals
-    # Pinned HEAD buckets (the legacy Arabic words decide, e.g. "نولون" -> Freight)
-    assert actual_expense_bucket("PORT_DUES_WHARFAGE", "BROKER") == "Freight"
-    assert actual_expense_bucket("STEVEDORING_HANDLING", "BROKER") == "Freight"
+    # ACC2-T02: Code-first classification (PORT_DUES_WHARFAGE and STEVEDORING_HANDLING map to Clearance & Port, not Freight)
+    assert actual_expense_bucket("PORT_DUES_WHARFAGE", "BROKER") == "Clearance & Port"
+    assert actual_expense_bucket("STEVEDORING_HANDLING", "BROKER") == "Clearance & Port"
     assert actual_expense_bucket("BROKER_FEES", "BROKER") == "Clearance & Port"
     assert classify_odoo_cost_category("Clearance / Inspection & Weighing") == "Clearance"
 
 
 def test_unprefixed_manual_odoo_rows_keep_their_head_bucket():
-    # Only "Clearance / ..." snapshot rows and bare codes are translated; a manual row typed with the English
-    # label is classified on its own text, exactly as at HEAD.
-    assert classify_odoo_cost_category("Port Dues & Wharfage") == "Other"
-    assert classify_odoo_cost_category("Clearance / Port Dues & Wharfage") == "Freight"
-    assert classify_odoo_cost_category("PORT_DUES_WHARFAGE") == "Freight"
+    # ACC2-T02: CLEARANCE_EXPENSE_CATEGORY codes and English labels map code-first to Clearance / Demurrage
+    assert classify_odoo_cost_category("Port Dues & Wharfage") == "Clearance"
+    assert classify_odoo_cost_category("Clearance / Port Dues & Wharfage") == "Clearance"
+    assert classify_odoo_cost_category("PORT_DUES_WHARFAGE") == "Clearance"
     assert classify_odoo_cost_category("Storage & Demurrage") == "Demurrage"
 
 

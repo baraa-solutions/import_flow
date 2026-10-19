@@ -31,6 +31,10 @@ class ExpenseInvoiceSchema(BaseModel):
     exchange_rate: Optional[float] = Field(None, gt=0.0)
     amount_egp: float = 0.0
     allocation_rule: AllocationRule = Field("Value-Based", description="Value-Based, Weight-Based, Volume-Based, Equal")
+    vat_amount_egp: Optional[float] = 0.0
+    wht_amount_egp: Optional[float] = 0.0
+    net_payable_egp: Optional[float] = None
+    duty_component: Optional[str] = None
 
     @model_validator(mode="after")
     def _non_negative_unless_adjustment(self) -> "ExpenseInvoiceSchema":
@@ -139,6 +143,14 @@ class OdooExportConfig(BaseModel):
     price_adjustment_account_code: str = "210700"
     other_expenses_account_code: str = "210800"
     journal_code: str = "MISC"
+    # ACC2-T13: Tax-aware Odoo journal configuration
+    import_vat_recoverable: bool = False
+    vat_input_account_code: str = "110500"
+    vat_input_account_name: str = "ضريبة القيمة المضافة - مدخلات (VAT Input)"
+    wht_receivable_account_code: str = "110600"
+    wht_receivable_account_name: str = "ضريبة خصم وإضافة - مصلحة الضرائب (WHT Receivable / Advance Tax)"
+    wht_payable_account_code: str = "210900"
+    wht_payable_account_name: str = "ضريبة خصم وتحصيل مستحقة (WHT Payable)"
 
 
 # ==============================================================================
@@ -224,6 +236,12 @@ class EstimatedLandedCostSimulationResponse(BaseModel):
 # CLO-01: Final Settlement Invoices Aggregation Schemas
 # ==============================================================================
 
+class CustomsDutyComponentSchema(BaseModel):
+    component: str
+    category: str
+    amount_egp: float
+
+
 class AggregatedInvoiceItemSchema(BaseModel):
     invoice_id: Optional[str] = None
     invoice_no: str
@@ -247,6 +265,8 @@ class AggregatedInvoiceItemSchema(BaseModel):
     net_payable_egp: float = 0.0
     source_module: str = Field("Manual", description="Source module or table name")
     notes: Optional[str] = None
+    # ACC2-T03: Additive customs components breakdown
+    components: List[CustomsDutyComponentSchema] = Field(default_factory=list, description="Customs components breakdown")
 
 
 class InvoicesPartySummary(BaseModel):
