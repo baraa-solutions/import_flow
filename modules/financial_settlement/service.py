@@ -338,7 +338,9 @@ def calculate_landed_cost_engine(
 
     # Reset allocation buckets on items
     for item in items:
-        qty = item.get("qty", 1)
+        qty = item.get("qty")
+        if qty is None:
+            qty = item.get("quantity", 1)
         fob_unit = item.get("fob_unit_egp", 0.0)
         item["fob_total_egp"] = qty * fob_unit
         item["allocated_freight_egp"] = 0.0

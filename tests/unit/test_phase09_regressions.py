@@ -924,3 +924,93 @@ def test_approve_task_closure_behavior(db):
     assert open_subtask.status == "Completed"
     assert open_subtask.is_auto_closed is True
     assert "approved by finance_lead" in open_subtask.notes
+
+
+def test_be09_t04_customs_clearance_snapshot_respects_lock_and_engine(db):
+    """BE09-T04: Customs clearance snapshot respects settlement lock and landed-cost engine."""
+    from modules.customs_clearance.model import CustomsClearanceRecord
+    from modules.customs_clearance.schemas import ClearanceExpenseInvoiceCreate
+    from modules.customs_clearance.service import (
+        _sync_settlement_snapshot,
+        record_clearance_invoice_service,
+    )
+
+    imp = seed_shipment(db, cbm=(10.0, 10.0))
+    clr = CustomsClearanceRecord(
+        import_file_id=imp.import_file_id,
+        clearance_code=f"CLR-{imp.import_file_id}",
+        status="Final Duty Assessed",
+        is_active=True,
+    )
+    db.add(clr)
+    db.commit()
+
+    settlement = LandedCostSettlementRecord(
+        settlement_code=f"LCS-BE04-{imp.import_file_id}",
+        import_file_id=imp.import_file_id,
+        incoterm_code="FOB",
+        status="Calculated",
+        is_active=True,
+        total_fob_egp=500000.0,
+        total_expenses_egp=150000.0,
+        total_landed_cost_egp=650000.0,
+        expense_invoices=[
+            {"invoice_no": "FRT-1", "category": "Freight", "amount_egp": 50000.0, "currency": "EGP", "exchange_rate": 1.0, "amount_fx": 50000.0},
+            {"invoice_no": "DUTY-1", "category": "Customs Duty", "amount_egp": 100000.0, "currency": "EGP", "exchange_rate": 1.0, "amount_fx": 100000.0},
+        ],
+        item_landed_costs=[
+            {
+                "item_code": "ITEM-1",
+                "item_name": "Widget",
+                "qty": 1000.0,
+                "quantity": 1000.0,
+                "cbm": 10.0,
+                "weight_kg": 500.0,
+                "fob_total_egp": 500000.0,
+                "fob_unit_egp": 500.0,
+                "allocated_freight_egp": 50000.0,
+                "allocated_customs_egp": 100000.0,
+                "allocated_clearance_egp": 0.0,
+                "allocated_other_egp": 0.0,
+                "total_expenses_egp": 150000.0,
+                "total_landed_cost_egp": 650000.0,
+                "unit_landed_cost_egp": 650.0,
+            }
+        ],
+    )
+    db.add(settlement)
+    db.commit()
+
+    # Record CL-05 invoice amount_egp 5,000
+    inv = record_clearance_invoice_service(
+        db,
+        ClearanceExpenseInvoiceCreate(
+            import_file_id=imp.import_file_id,
+            customs_clearance_id=clr.customs_clearance_id,
+            invoice_number="INV-CL-05-1",
+            provider_name="Broker Co",
+            expense_category="PORT_DUES_WHARFAGE",
+            currency="EGP",
+            amount_egp=5000.0,
+        ),
+        current_user="tester",
+    )
+    db.refresh(settlement)
+    assert settlement.total_expenses_egp == 155000.0
+    assert settlement.total_landed_cost_egp == 655000.0
+
+    # Now approve settlement
+    settlement.status = "Approved"
+    db.commit()
+
+    # Direct snapshot sync on approved settlement is a no-op
+    expenses_before = list(settlement.expense_invoices)
+    total_expenses_before = settlement.total_expenses_egp
+    total_landed_before = settlement.total_landed_cost_egp
+
+    _sync_settlement_snapshot(db, imp.import_file_id, actor="tester")
+    db.refresh(settlement)
+    assert settlement.expense_invoices == expenses_before
+    assert settlement.total_expenses_egp == total_expenses_before
+    assert settlement.total_landed_cost_egp == total_landed_before
+
