@@ -55,6 +55,14 @@ def _on_user_change(mapper, connection, target):
     invalidate_permission_cache()
 
 
+@event.listens_for(Role, "after_update")
+@event.listens_for(Role, "after_insert")
+@event.listens_for(Role, "after_delete")
+def _on_role_change(mapper, connection, target):
+    invalidate_permission_cache()
+
+
+
 def merge_role_and_overrides(role: Optional[Role], overrides: Iterable[Tuple[str, bool]]) -> Set[str]:
     """Non-ADMIN effective codes: the active role's permissions, then each (code, is_granted) override in order
     (True adds the code, False removes it). Shared by get_user_effective_permissions and AuthService."""
@@ -270,8 +278,14 @@ def resolve_user(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="حساب المستخدم معطّل. تواصل مع مدير النظام."
             )
+        if payload.get("tv", 0) != (user.token_version or 0):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token session expired or revoked."
+            )
         memory_cache.set(cache_key, {"is_active": True, "role": user.role, "username": user.username}, ttl_seconds=30)
         return user
+
 
     if ALLOW_DEV_AUTH_BYPASS:
         user = _dev_bypass_fallback_user(db, x_user_role, x_user_name)
