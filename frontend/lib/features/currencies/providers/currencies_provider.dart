@@ -90,16 +90,20 @@ class CurrenciesNotifier extends StateNotifier<AsyncValue<List<CurrencyModel>>> 
     }
   }
 
-  Future<bool> addExchangeRate(ExchangeRateModel rate) async {
+  Future<bool> addExchangeRate(ExchangeRateModel rate, {bool replace = false}) async {
     try {
+      final payload = {
+        ...rate.toJson(),
+        'replace': replace,
+      };
       await _dio.post(
         '${ApiConstants.baseUrl}/currencies/rates',
-        data: rate.toJson(),
+        data: payload,
       );
       await fetchCurrencies();
       return true;
     } catch (err) {
-      return false;
+      rethrow;
     }
   }
 

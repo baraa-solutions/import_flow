@@ -1554,6 +1554,12 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'CURRENCY_RATE_MISSING': {
     'note': 'No exchange rate registered for currency \'{currency}\' (rate type \'{rate_type}\') as of {as_of_date}.',
   },
+  'CURRENCY_RATE_EXISTS': {
+    'note': 'An active exchange rate already exists for {currency} on {effective_date}. Pass replace=true to overwrite.',
+  },
+  'CURRENCY_BASE_EXISTS': {
+    'note': 'A base currency ({base_currency}) already exists; cannot set a second base currency.',
+  },
   'CT_CUSTOMS_RATE_MISSING': {
     'note': 'No customs exchange rate registered for currency \'{currency}\' on date {on_date}.',
   },

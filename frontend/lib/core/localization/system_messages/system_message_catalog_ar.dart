@@ -1554,6 +1554,12 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'CURRENCY_RATE_MISSING': {
     'note': 'لا يوجد سعر صرف مسجل للعملة \'{currency}\' من نوع \'{rate_type}\' بتاريخ {as_of_date}.',
   },
+  'CURRENCY_RATE_EXISTS': {
+    'note': 'يوجد سعر صرف نشط بالفعل للعملة {currency} بتاريخ {effective_date}. فعّل خيار الاستبدال replace=true للتحديث.',
+  },
+  'CURRENCY_BASE_EXISTS': {
+    'note': 'العملة الأساسية ({base_currency}) مسجلة بالفعل؛ لا يمكن تعيين عملة أساسية ثانية.',
+  },
   'CT_CUSTOMS_RATE_MISSING': {
     'note': 'لا يوجد سعر صرف جمركي مسجل للعملة \'{currency}\' بتاريخ {on_date}.',
   },

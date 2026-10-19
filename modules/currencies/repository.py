@@ -4,6 +4,7 @@ from typing import List, Optional
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from modules.common.clock import cairo_today
 from modules.currencies.model import Currency, ExchangeRate
 from modules.currencies.schemas import CurrencyCreate, CurrencyUpdate, ExchangeRateCreate
 
@@ -79,6 +80,16 @@ class CurrencyRepository:
 
     # Exchange Rates
     def add_exchange_rate(self, data: ExchangeRateCreate) -> ExchangeRate:
+        if data.replace:
+            (
+                self.db.query(ExchangeRate)
+                .filter(
+                    ExchangeRate.currency_id == data.currency_id,
+                    ExchangeRate.effective_date == data.effective_date,
+                    ExchangeRate.is_active.is_(True),
+                )
+                .update({"is_active": False})
+            )
         rate = ExchangeRate(
             currency_id=data.currency_id,
             commercial_rate=data.commercial_rate,
@@ -100,7 +111,7 @@ class CurrencyRepository:
             ExchangeRate.currency_id == currency_id,
             ExchangeRate.is_active.is_(True),
         )
-        ref_date = target_date or date.today()
+        ref_date = target_date or cairo_today()
         query = query.filter(ExchangeRate.effective_date <= ref_date)
 
         return query.order_by(ExchangeRate.effective_date.desc(), ExchangeRate.created_at.desc()).first()
