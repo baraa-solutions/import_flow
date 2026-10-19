@@ -908,14 +908,10 @@ def push_demurrage_to_financial_settlement_service(
         # an Approved / Closed settlement is frozen: no new expense rows behind the accountant's back (409)
         ensure_settlement_editable(settlement)
     else:
-        # the settlement module's own LCS-YYYY-NNNN generator (retries a concurrently taken code in a savepoint)
-        settlement = add_with_new_code(db, LandedCostSettlementRecord(
-            import_file_id=file_id,
-            accountant_name=user,
-            expense_invoices=[],
-            created_by=user,
-            updated_by=user,
-        ))
+        from modules.financial_settlement.service import build_initial_settlement
+        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == file_id).first()
+        initial = build_initial_settlement(db, imp_file, actor=user)
+        settlement = add_with_new_code(db, initial)
 
     # rows replaced by invoice number; the settlement totals come from its own recalculation only
     rows = _write_settlement_rows(settlement, tracking, user)

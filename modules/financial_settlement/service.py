@@ -803,6 +803,67 @@ def _settlement_snapshot_dict(record: Optional[LandedCostSettlementRecord]) -> D
     }
 
 
+def build_initial_settlement(
+    db: Session,
+    imp_file: ImportFile,
+    actor: str,
+    expenses_in: Optional[List[Dict[str, Any]]] = None,
+    items_in: Optional[List[Dict[str, Any]]] = None,
+    incoterm: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> LandedCostSettlementRecord:
+    """Builds an unflushed, calculated LandedCostSettlementRecord with auto-fetched duties and PO items (BE09-T10)."""
+    incoterm_code = (incoterm or imp_file.incoterm_code or "FOB").upper()
+
+    expenses = [e if isinstance(e, dict) else e.model_dump() for e in (expenses_in or [])]
+    ensure_no_client_adjustment_rows(expenses, stored_rows=[])
+    _resolve_client_expense_rates(expenses, SettlementFx(db, "commercial"))
+    _validate_client_expenses(expenses)
+
+    # ── Auto-fetch: Customs Duty totals → expense_invoices pre-fill ──────────
+    has_duty_expense = any(
+        (e.get("category", "") or "").lower() in ("customs duty", "customs", "import duty", "taxes")
+        for e in expenses
+    )
+    if not has_duty_expense:
+        from modules.customs_clearance.model import CustomsClearanceRecord
+        clearance = db.query(CustomsClearanceRecord).filter(
+            CustomsClearanceRecord.import_file_id == imp_file.import_file_id,
+            CustomsClearanceRecord.is_active == True,
+            CustomsClearanceRecord.status == "Final Release Granted",
+        ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
+        if clearance and (clearance.actual_duty_total or 0) > 0:
+            # actual_duty_total already contains the lab fees: one row per duty component when the components add
+            # up to the assessed total, else one row for the assessed total. Never a second lab-fee row (review #3).
+            expenses.extend(_customs_duty_rows(clearance))
+        elif clearance and (clearance.lab_service_fees or 0) > 0:
+            expenses.append(_duty_row(clearance, "Clearance", float(clearance.lab_service_fees), "lab_service_fees"))
+
+    # ── Auto-populate: item_landed_costs from PO Line Items (FS-05) ─────────
+    messages_settlement: List[SettlementMessage] = []
+    items = [i if isinstance(i, dict) else i.model_dump() for i in (items_in or [])]
+    if not items:
+        items = _items_from_purchase_orders(
+            db, imp_file, SettlementFx(db, "commercial"), messages=messages_settlement
+        )
+
+    record = build_settlement(
+        imp_file.import_file_id, expenses, items, accountant_name=actor, notes=notes, actor=actor
+    )
+    record.incoterm_code = incoterm_code
+
+    # Perform Landed Cost Engine calculation
+    calc_res = calculate_landed_cost_engine(record.expense_invoices, record.item_landed_costs, incoterm=incoterm_code)
+    record.total_fob_egp = calc_res["total_fob_egp"]
+    record.total_expenses_egp = calc_res["total_expenses_egp"]
+    record.total_landed_cost_egp = calc_res["total_landed_cost_egp"]
+    record.average_markup_factor = calc_res["average_markup_factor"]
+    record.item_landed_costs = calc_res["item_landed_costs"]
+    record.status = "Calculated"
+    record.messages = messages_settlement
+    return record
+
+
 def create_settlement_service(
     db: Session, schema: FinancialSettlementCreate, actor: str = "System"
 ) -> LandedCostSettlementRecord:
@@ -818,53 +879,18 @@ def create_settlement_service(
             settlement_code=existing.settlement_code,
         )
 
-    incoterm = (schema.incoterm_code or imp_file.incoterm_code or "FOB").upper()
-
     expenses_in = [e if isinstance(e, dict) else e.model_dump() for e in (schema.expense_invoices or [])]
-    ensure_no_client_adjustment_rows(expenses_in, stored_rows=[])
-    _resolve_client_expense_rates(expenses_in, SettlementFx(db, "commercial"))
-    _validate_client_expenses(expenses_in)
-
-    # ── Auto-fetch: Customs Duty totals → expense_invoices pre-fill ──────────
-    has_duty_expense = any(
-        (e.get("category", "") or "").lower() in ("customs duty", "customs", "import duty", "taxes")
-        for e in expenses_in
-    )
-    if not has_duty_expense:
-        from modules.customs_clearance.model import CustomsClearanceRecord
-        clearance = db.query(CustomsClearanceRecord).filter(
-            CustomsClearanceRecord.import_file_id == schema.import_file_id,
-            CustomsClearanceRecord.is_active == True,
-            CustomsClearanceRecord.status == "Final Release Granted",
-        ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
-        if clearance and (clearance.actual_duty_total or 0) > 0:
-            # actual_duty_total already contains the lab fees: one row per duty component when the components add
-            # up to the assessed total, else one row for the assessed total. Never a second lab-fee row (review #3).
-            expenses_in.extend(_customs_duty_rows(clearance))
-        elif clearance and (clearance.lab_service_fees or 0) > 0:
-            expenses_in.append(_duty_row(clearance, "Clearance", float(clearance.lab_service_fees), "lab_service_fees"))
-
-    # ── Auto-populate: item_landed_costs from PO Line Items (FS-05) ─────────
-    messages_settlement: List[SettlementMessage] = []
     items_in = [i if isinstance(i, dict) else i.model_dump() for i in (schema.item_landed_costs or [])]
-    if not items_in:
-        items_in = _items_from_purchase_orders(
-            db, imp_file, SettlementFx(db, "commercial"), messages=messages_settlement
-        )
 
-    record = build_settlement(
-        schema.import_file_id, expenses_in, items_in, accountant_name=actor, notes=schema.notes, actor=actor
+    record = build_initial_settlement(
+        db,
+        imp_file,
+        actor=actor,
+        expenses_in=expenses_in,
+        items_in=items_in,
+        incoterm=schema.incoterm_code,
+        notes=schema.notes,
     )
-    record.incoterm_code = incoterm
-
-    # Perform Landed Cost Engine calculation
-    calc_res = calculate_landed_cost_engine(record.expense_invoices, record.item_landed_costs, incoterm=incoterm)
-    record.total_fob_egp = calc_res["total_fob_egp"]
-    record.total_expenses_egp = calc_res["total_expenses_egp"]
-    record.total_landed_cost_egp = calc_res["total_landed_cost_egp"]
-    record.average_markup_factor = calc_res["average_markup_factor"]
-    record.item_landed_costs = calc_res["item_landed_costs"]
-    record.status = "Calculated"
     add_with_new_code(db, record)
 
     # Update Import File progress
@@ -876,9 +902,11 @@ def create_settlement_service(
         stage_code="LANDED_COST_CALCULATED",
         next_action=msg("NA_REVIEW_SETTLEMENT_AND_CLOSE"),
     )
+    saved_messages = list(getattr(record, "messages", []) or [])
+    incoterm = record.incoterm_code
     db.commit()
     db.refresh(record)
-    record.messages = messages_settlement
+    record.messages = saved_messages
     code = record.settlement_code
     audit_data = {
         "import_file_id": schema.import_file_id,

@@ -1014,3 +1014,149 @@ def test_be09_t04_customs_clearance_snapshot_respects_lock_and_engine(db):
     assert settlement.total_expenses_egp == total_expenses_before
     assert settlement.total_landed_cost_egp == total_landed_before
 
+
+def test_be09_t10_demurrage_push_and_create_share_initial_settlement_builder(db):
+    """BE09-T10: Demurrage push uses build_initial_settlement with PO items and Final Release duty rows."""
+    from modules.customs_clearance.model import CustomsClearanceRecord
+    from modules.demurrage_detention.model import DemurrageTracking
+    from modules.demurrage_detention.schemas import PushToSettlementRequest
+    from modules.demurrage_detention.service import push_demurrage_to_financial_settlement_service
+    from modules.incoterms.model import Incoterm
+    from modules.projects.model import Project
+    from modules.purchase_orders.model import PurchaseOrder, POLineItem
+    from modules.suppliers.model import Supplier
+
+    supplier = Supplier(
+        supplier_code=f"SUP-BE10-{datetime.now().strftime('%f')}",
+        company_name="BE10 Supplier",
+        supplier_type="Manufacturer",
+        registration_type="CargoX",
+        foreign_exporter_id="EXP-BE10",
+        foreign_exporter_country="Germany",
+        foreign_exporter_country_code="DE",
+        address="DE",
+        is_active=True,
+    )
+    inc = Incoterm(incoterm_code=f"FOB-{datetime.now().strftime('%f')[:4]}", incoterm_name="Free On Board", is_active=True)
+    db.add_all([supplier, inc])
+    db.flush()
+
+    project = Project(
+        project_code=f"PRJ-BE10-{datetime.now().strftime('%f')}",
+        project_name="BE10 Project",
+        project_owner="tester",
+        company_id=1,
+        supplier_id=supplier.supplier_id,
+        incoterm_id=inc.incoterm_id,
+        is_active=True,
+    )
+    db.add(project)
+    db.flush()
+
+    imp = ImportFile(
+        import_file_code=f"IMP-BE10-{datetime.now().strftime('%f')}",
+        company_id=1,
+        company_name="Test Co",
+        supplier_id=supplier.supplier_id,
+        supplier_name="Test Supplier",
+        incoterm_code="FOB",
+        is_active=True,
+    )
+    db.add(imp)
+    db.flush()
+
+    usd = db.query(Currency).filter(Currency.currency_code == "USD").first()
+    if not usd:
+        usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+        db.add(usd)
+        db.flush()
+
+    po = PurchaseOrder(
+        po_number=f"PO-BE10-{imp.import_file_id}",
+        import_file_id=imp.import_file_id,
+        project_id=project.project_id,
+        company_id=1,
+        supplier_id=supplier.supplier_id,
+        incoterm_id=inc.incoterm_id,
+        currency_id=usd.currency_id,
+        exchange_rate=50.0,
+        total_amount_fob=1000.0,
+        is_active=True,
+    )
+    db.add(po)
+    db.flush()
+
+    line = POLineItem(
+        po_id=po.po_id,
+        item_code="ITM-BE10-1",
+        description_ar="بند 1",
+        description_en="Item 1",
+        quantity=10,
+        unit_price=100.0,
+        total_price=1000.0,
+    )
+    db.add(line)
+
+    clr = CustomsClearanceRecord(
+        clearance_code=f"CLR-BE10-{imp.import_file_id}",
+        import_file_id=imp.import_file_id,
+        declaration_46_no="D46-BE10",
+        actual_duty_total=20000.0,
+        status="Final Release Granted",
+        is_active=True,
+    )
+    db.add(clr)
+
+    # Demurrage tracking with 3,000 EGP total
+    tracking = DemurrageTracking(
+        tracking_code=f"DND-BE10-{imp.import_file_id}",
+        import_file_id=imp.import_file_id,
+        carrier_name="MSC",
+        bill_of_lading_no="BL-BE10",
+        port_name="Alexandria Port",
+        discharge_date=date(2026, 8, 1),
+        containers=[{"container_no": "MSCU1234567", "container_type": "40HC"}],
+        currency="USD",
+        exchange_rate=50.0,
+        total_demurrage_fx=60.0,
+        total_detention_fx=0.0,
+        total_storage_egp=0.0,
+        total_cost_egp=3000.0,
+        is_active=True,
+    )
+    db.add(tracking)
+    db.commit()
+
+    class Actor:
+        user_id = 1
+        username = "lead"
+        role = "ADMIN"
+        is_active = True
+        is_superuser = True
+
+    with patch("modules.demurrage_detention.service._recalculate_containers", return_value=(tracking.containers, 60.0, 0.0, 0.0)):
+        push_res = push_demurrage_to_financial_settlement_service(
+            db,
+            PushToSettlementRequest(tracking_id=tracking.tracking_id),
+            user="lead",
+            actor=Actor(),
+        )
+
+    settlement = db.query(LandedCostSettlementRecord).filter(
+        LandedCostSettlementRecord.import_file_id == imp.import_file_id,
+        LandedCostSettlementRecord.is_active == True,
+    ).first()
+
+    assert settlement is not None
+    assert settlement.total_fob_egp == 50000.0
+    assert len(settlement.item_landed_costs) == 1
+    assert settlement.item_landed_costs[0]["fob_total_egp"] == 50000.0
+
+    duty_rows = [e for e in settlement.expense_invoices if "Customs" in e.get("category", "") or "Duty" in e.get("category", "")]
+    dem_rows = [e for e in settlement.expense_invoices if "Demurrage" in e.get("category", "") or "Storage" in e.get("category", "") or "Detention" in e.get("category", "")]
+    assert sum(e.get("amount_egp", 0.0) for e in duty_rows) == 20000.0
+    assert sum(e.get("amount_egp", 0.0) for e in dem_rows) == 3000.0
+    assert settlement.total_expenses_egp == 23000.0
+    assert settlement.total_landed_cost_egp == 73000.0
+
+
