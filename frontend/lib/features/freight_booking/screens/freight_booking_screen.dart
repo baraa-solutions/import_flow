@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -43,6 +45,7 @@ class FreightBookingScreen extends ConsumerStatefulWidget {
 
 class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   String _selectedStatusFilter = 'All';
   int? _selectedImportFileId;
   GuideMatchResultModel? _guideMatchResult;
@@ -52,12 +55,10 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
     super.initState();
     _selectedImportFileId = widget.initialImportFileId;
     Future.microtask(() {
-      if (!ref.read(freightBookingProvider).isLoading) {
-        ref.read(freightBookingProvider.notifier).fetchBookings(
-          importFileId: _selectedImportFileId,
-          status: _selectedStatusFilter != 'All' ? _selectedStatusFilter : null,
-        );
-      }
+      ref.read(freightBookingProvider.notifier).fetchBookings(
+        importFileId: _selectedImportFileId,
+        status: _selectedStatusFilter != 'All' ? _selectedStatusFilter : null,
+      );
       if (!ref.read(importFilesProvider).isLoading) {
         ref.read(importFilesProvider.notifier).fetchImportFiles();
       }
@@ -107,16 +108,14 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
   }
 
   void _refreshData() {
-    ref.read(freightBookingProvider.notifier).fetchBookings(
-      importFileId: _selectedImportFileId,
-      status: _selectedStatusFilter != 'All' ? _selectedStatusFilter : null,
-    );
+    ref.read(freightBookingProvider.notifier).refresh();
     ref.read(shippingScenariosProvider.notifier).fetchSessions();
     ref.read(importFilesProvider.notifier).fetchImportFiles();
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -196,16 +195,55 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
     }
   }
 
+  Future<void> _confirmCancel(ShipmentBookingModel bkg) async {
+    final l = context.l10n;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => FbkPromptDialog(
+        title: l.fbkCancelBookingTitle,
+        icon: Icons.cancel_outlined,
+        severity: AppSeverity.danger,
+        content: Text(
+          l.fbkCancelBookingConfirm,
+          style: TextStyle(color: AppTheme.textPrimaryOf(ctx)),
+        ),
+        actions: [
+          AppButton(
+            label: l.cancel,
+            variant: AppButtonVariant.ghost,
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+          AppButton(
+            key: const Key('confirmCancelBookingBtn'),
+            label: l.fbkCancelBookingTitle,
+            variant: AppButtonVariant.danger,
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(freightBookingProvider.notifier).updateBooking(bkg.bookingId, {'status': 'Cancelled'});
+      if (mounted) {
+        FbkUi.snack(context, l.fbkCancelBookingSuccess, severity: AppSeverity.success);
+      }
+    } catch (e) {
+      if (mounted) {
+        FbkUi.snack(context, '${l.error}: ${ApiErrorText.of(l, e)}', severity: AppSeverity.danger);
+      }
+    }
+  }
+
   void _onCloneBooking(ShipmentBookingModel booking) {
     final l = AppLocalizations.of(context);
-    final newDraftCode = 'BK-DRAFT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
 
     showDialog(
       context: context,
       builder: (dialogCtx) => CloneEntityReviewDialog(
         entityType: l.fbkCloneEntityType,
         sourceCode: booking.bookingCode,
-        suggestedNewCode: newDraftCode,
+        suggestedNewCode: l.fbkCodeAssignedOnSave,
         sourceTitle: '${booking.shippingLineName ?? "—"} (${booking.polName ?? "—"} ➔ ${booking.podName ?? "—"})',
         copiedFieldsSummary: {
           l.freightBookingColCarrierForwarder: '${booking.shippingLineName ?? "—"} / ${booking.freightForwarderName ?? "—"}',
@@ -218,6 +256,8 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
           l.fbkCloneReset2,
           l.fbkCloneReset3,
           l.fbkCloneReset4,
+          l.fbkCloneResetFile,
+          l.fbkCloneResetDates,
         ],
         allowCopyLineItems: true,
         allowCopyAttachments: false,
@@ -232,8 +272,8 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
             bookingId: 0,
             bookingCode: newCode,
             bookingConfirmationNo: '',
-            importFileId: booking.importFileId,
-            importFileCode: booking.importFileCode,
+            importFileId: null,
+            importFileCode: null,
             shippingLineId: booking.shippingLineId,
             shippingLineName: booking.shippingLineName,
             freightForwarderId: booking.freightForwarderId,
@@ -244,8 +284,8 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
             podName: booking.podName,
             vesselName: booking.vesselName,
             voyageNumber: booking.voyageNumber,
-            etd: booking.etd,
-            eta: booking.eta,
+            etd: null,
+            eta: null,
             atd: null,
             expectedWarehouseArrivalDate: null,
             containersData: copyLineItems ? booking.containersData : [],
@@ -361,7 +401,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
         subtitle: 'Sorour Logistics ERP — سجل حجوزات الشحن والناقلين',
         metadata: {
           'Total Bookings': bookings.length.toString(),
-          'Confirmed': bookings.where((b) => b.status == 'Confirmed').length.toString(),
+          'Confirmed': bookings.where((b) => b.status == 'Confirmed' || b.status == 'Amended').length.toString(),
           'Total USD': '\$${bookings.fold(0.0, (acc, b) => acc + (b.totalFreightCostUsd ?? 0)).toStringAsFixed(2)}',
         },
       ),
@@ -379,7 +419,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
       ),
       MetricCardData(
         title: l.freightBookingStatusConfirmed,
-        value: '${bookings.where((b) => b.status == 'Confirmed').length}',
+        value: '${bookings.where((b) => b.status == 'Confirmed' || b.status == 'Amended').length}',
         icon: Icons.verified_outlined,
         color: AppTheme.emerald,
       ),
@@ -434,6 +474,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
               onConfirmBooking: () => _showConfirmBookingDialog(bkg),
               onDeparture: () => _showDepartureConfirmationDialog(bkg),
               onReviewDraftBl: () => _showDraftBlReviewDialog(bkg),
+              onCancelBooking: () => _confirmCancel(bkg),
             ),
           );
         },
@@ -526,7 +567,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
               MasterDataToolbarWidget(
                 moduleEndpoint: 'freight-booking',
                 title: 'Freight_Bookings',
-                onRefreshNeeded: () => ref.read(freightBookingProvider.notifier).fetchBookings(),
+                onRefreshNeeded: () => ref.read(freightBookingProvider.notifier).refresh(),
               ),
               const SizedBox(height: 12),
 
@@ -550,18 +591,30 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                 status: _selectedStatusFilter,
                 shipmentChipLabel: shipmentChip,
                 onSearchChanged: (val) {
-                  ref.read(freightBookingProvider.notifier).fetchBookings(search: val, status: _selectedStatusFilter);
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                    ref.read(freightBookingProvider.notifier).fetchBookings(
+                      search: val,
+                      status: _selectedStatusFilter != 'All' ? _selectedStatusFilter : null,
+                      importFileId: _selectedImportFileId,
+                    );
+                  });
                 },
                 onStatusChanged: (val) {
                   setState(() => _selectedStatusFilter = val);
-                  ref.read(freightBookingProvider.notifier).fetchBookings(search: _searchController.text, status: val);
+                  ref.read(freightBookingProvider.notifier).fetchBookings(
+                    search: _searchController.text,
+                    status: val != 'All' ? val : null,
+                    importFileId: _selectedImportFileId,
+                  );
                 },
                 onClearShipment: () {
                   setState(() => _selectedImportFileId = null);
                   ref.read(freightBookingProvider.notifier).fetchBookings(
-                        search: _searchController.text,
-                        status: _selectedStatusFilter != 'All' ? _selectedStatusFilter : null,
-                      );
+                    search: _searchController.text,
+                    status: _selectedStatusFilter != 'All' ? _selectedStatusFilter : null,
+                    importFileId: null,
+                  );
                 },
               ),
               const SizedBox(height: 16),

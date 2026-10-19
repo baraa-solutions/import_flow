@@ -129,8 +129,9 @@ void main() {
 
   group('InlandTransportDialog UI status buttons & edit mode (FE08-T02, FE08-T03)', () {
     Future<void> openDialog(WidgetTester tester, _Adapter a) async {
-      await tester.binding.setSurfaceSize(const Size(1280, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.view.physicalSize = const Size(1500, 1100);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
       final dio = _dio(a);
       await tester.pumpWidget(
         ProviderScope(
@@ -138,10 +139,8 @@ void main() {
             dioProvider.overrideWithValue(dio),
             uploadDioProvider.overrideWithValue(dio),
           ],
-          child: MaterialApp(
-            locale: AppLocales.en,
-            localizationsDelegates: AppLocales.delegates,
-            supportedLocales: AppLocales.supportedLocales,
+          child: localizedApp(
+            locale: AppLocales.english,
             home: Scaffold(
               body: Builder(
                 builder: (ctx) => Center(
@@ -180,7 +179,7 @@ void main() {
       await openDialog(tester, a);
 
       expect(find.byKey(const Key('inlandEditBookingBtn')), findsNothing);
-      expect(find.text('Goods have arrived at warehouse'), findsOneWidget);
+      expect(find.textContaining('The truck arrived at the warehouse'), findsOneWidget);
     });
 
     testWidgets('edit booking toggles edit form and submits PUT to update booking', (tester) async {
@@ -198,6 +197,10 @@ void main() {
 
       // Submit button should say Save Changes
       expect(find.text('Save Changes'), findsOneWidget);
+
+      // Ensure button is visible in scrollview before tapping
+      await tester.ensureVisible(find.byKey(const Key('inlandSubmitBookingBtn')));
+      await tester.pumpAndSettle();
 
       // Tap Save Changes
       await tester.tap(find.byKey(const Key('inlandSubmitBookingBtn')));

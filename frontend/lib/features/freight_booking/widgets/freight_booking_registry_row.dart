@@ -19,6 +19,7 @@ class FbkRowActions {
     required this.onConfirmBooking,
     required this.onDeparture,
     required this.onReviewDraftBl,
+    this.onCancelBooking,
   });
 
   final VoidCallback onView;
@@ -30,6 +31,7 @@ class FbkRowActions {
   final VoidCallback onConfirmBooking;
   final VoidCallback onDeparture;
   final VoidCallback onReviewDraftBl;
+  final VoidCallback? onCancelBooking;
 }
 
 /// One booking of the registry: code / status chips, route, the key facts
@@ -50,8 +52,6 @@ class FbkRegistryRow extends StatelessWidget {
   final String fileCode;
   final String fileTitle;
   final FbkRowActions actions;
-
-  bool get _isDone => booking.status == 'Confirmed' || booking.status == 'Sailed';
 
   @override
   Widget build(BuildContext context) {
@@ -89,9 +89,15 @@ class FbkRegistryRow extends StatelessWidget {
 
   Widget _header(BuildContext context, AppLocalizations l, ({AppSeverity severity, String label, IconData icon}) st) {
     final b = booking;
-    final tip = b.status == 'Confirmed'
+    final tip = (b.status == 'Confirmed' || b.status == 'Amended')
         ? l.fbkStatusTipConfirmed
         : (b.status == 'Sailed' ? l.fbkStatusTipSailed(b.billOfLadingNo ?? '-') : l.fbkStatusTipPending);
+    VoidCallback? statusTap;
+    if (b.status == 'Sailed' || FbkUi.canDepart(b.status)) {
+      statusTap = actions.onDeparture;
+    } else if (FbkUi.canConfirm(b.status)) {
+      statusTap = actions.onConfirmBooking;
+    }
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 8,
@@ -128,12 +134,12 @@ class FbkRegistryRow extends StatelessWidget {
           message: tip,
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
-            onTap: _isDone ? actions.onDeparture : actions.onConfirmBooking,
+            onTap: statusTap,
             child: AppStatusBadge(
               label: st.label,
               severity: st.severity,
               size: AppStatusBadgeSize.small,
-              icon: _isDone ? st.icon : Icons.touch_app,
+              icon: (b.status == 'Sailed' || FbkUi.canDepart(b.status) || statusTap == null) ? st.icon : Icons.touch_app,
             ),
           ),
         ),
@@ -297,7 +303,7 @@ class FbkRegistryRow extends StatelessWidget {
           onView: actions.onView,
           onEdit: actions.onEdit,
           onPrint: actions.onPrint,
-          onDelete: actions.onDelete,
+          onDelete: FbkUi.canDelete(b.status) ? actions.onDelete : null,
           viewTooltip: l.freightBookingViewTooltip,
           editTooltip: l.freightBookingEditTooltip,
           printTooltip: l.freightBookingPrintTooltip,
@@ -308,11 +314,11 @@ class FbkRegistryRow extends StatelessWidget {
         _icon(Key('cloneBookingRowBtn_${b.bookingCode}'), Icons.copy_all_rounded, l.cloneBookingRowTooltip,
             actions.onClone,
             color: AppTheme.cobalt),
-        if (b.status != 'Confirmed' && b.status != 'Sailed')
+        if (FbkUi.canConfirm(b.status))
           _icon(Key('confirmBookingRowBtn_${b.bookingCode}'), Icons.verified_outlined, l.fbkTipConfirmBooking,
               actions.onConfirmBooking,
               color: AppTheme.emerald),
-        if (b.status == 'Confirmed')
+        if (FbkUi.canDepart(b.status))
           _icon(Key('confirmDepartureRowBtn_${b.bookingCode}'), Icons.sailing_rounded, l.fbkTipConfirmDeparture,
               actions.onDeparture,
               color: AppTheme.cobalt),
@@ -324,6 +330,10 @@ class FbkRegistryRow extends StatelessWidget {
               actions.onReviewDraftBl,
               color: AppTheme.emerald),
         ],
+        if (actions.onCancelBooking != null && FbkUi.canCancel(b.status))
+          _icon(Key('cancelBookingRowBtn_${b.bookingCode}'), Icons.cancel_outlined, l.fbkCancelBookingTitle,
+              actions.onCancelBooking!,
+              color: AppTheme.crimson),
       ],
     );
   }
