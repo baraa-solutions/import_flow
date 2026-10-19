@@ -1208,6 +1208,21 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "FA_PAYMENT_RATE_REQUIRED": {
         "note": "When changing the currency of payment request {payment_code}, the new exchange rate for {currency_code} must be provided.",
     },
+    "FA_EGP_RATE_NOT_ONE": {
+        "note": "When the payment currency is EGP, the exchange rate must be 1.0 (received {exchange_rate}).",
+    },
+    "FA_PAYMENT_EXCEEDS_PO": {
+        "note": "Payment amount {requested} exceeds the purchase order {po_number} ceiling (total {po_total}, already committed {committed}).",
+    },
+    "FA_PAYMENT_CURRENCY_MISMATCH": {
+        "note": "The payment request currency {request_currency} does not match the purchase order currency {po_currency}.",
+    },
+    "CURRENCY_RATE_EXISTS": {
+        "note": "An active exchange rate already exists for {currency} on {effective_date}. Pass replace=true to overwrite.",
+    },
+    "CURRENCY_BASE_EXISTS": {
+        "note": "A base currency ({base_currency}) already exists; cannot set a second base currency.",
+    },
     "FA_BUDGET_LOCKED": {
         "note": "An approved or superseded budget ({budget_code}, {status}) cannot be changed: sync it to create a new revision.",
     },
@@ -1482,6 +1497,15 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "ALLOCATION_BASIS_INCOMPLETE": {
         "note": "Allocation basis '{rule}' for {bucket} is incomplete (missing values on {item_codes}); fell back to Value-Based.",
+    },
+    "SETTLEMENT_ACTUAL_FOB_MISSING": {
+        "note": "The actual landed cost cannot be approved without an actual goods invoice or purchase order FOB value.",
+    },
+    "SETTLEMENT_CURRENCY_MISSING": {
+        "note": "Currency is missing for {source} invoice {invoice_no}; please provide a valid currency.",
+    },
+    "ACTUAL_SOURCE_MISSING": {
+        "note": "Expense bucket '{bucket}' has an estimated amount of {estimated_egp} EGP but no actual source invoices.",
     },
     "SETTLEMENT_UNPAID_INVOICE": {"note": "Unpaid balance for {party_name}: {amount} EGP (invoice {invoice_no})."},
     "WHT_RATE_MISSING_WARNING": {

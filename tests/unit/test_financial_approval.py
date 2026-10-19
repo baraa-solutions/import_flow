@@ -58,6 +58,16 @@ def db_session():
     db.commit()
     db.add(ExchangeRate(currency_id=usd.currency_id, commercial_rate=50.0, customs_rate=50.0,
                         effective_date=date(2020, 1, 1), is_active=True))
+    egp = Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="E£", is_base_currency=True)
+    db.add(egp)
+    db.commit()
+    db.add(ExchangeRate(currency_id=egp.currency_id, commercial_rate=1.0, customs_rate=1.0,
+                        effective_date=date(2020, 1, 1), is_active=True))
+    eur = Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€")
+    db.add(eur)
+    db.commit()
+    db.add(ExchangeRate(currency_id=eur.currency_id, commercial_rate=55.0, customs_rate=55.0,
+                        effective_date=date(2020, 1, 1), is_active=True))
     db.commit()
     try:
         yield db
@@ -1217,5 +1227,204 @@ class TestFinancialApprovalBackend:
             assert client.get("/api/v1/financial-approval/import-budgets?limit=501", headers=headers).status_code == 422
         finally:
             app.dependency_overrides.clear()
+
+    def test_acc2_t08_egp_payment_rate_validation(self, db_session):
+        # 1. EGP request with rate != 1.0 (e.g. 48.75) raises 422 FA_EGP_RATE_NOT_ONE
+        payload_invalid = PaymentRequestCreate(
+            title="EGP Payment Invalid Rate",
+            supplier_name="Local Egyptian Supplier",
+            payment_type="Advance Payment",
+            requested_amount=100000.0,
+            currency_code="EGP",
+            exchange_rate=48.75,
+            due_date=date(2026, 9, 1),
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            service.create_payment_request_service(db_session, payload_invalid)
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail["code"] == "FA_EGP_RATE_NOT_ONE"
+
+        # 2. EGP request with rate 1.0 succeeds and requested_amount_egp is 100,000.00
+        payload_valid = PaymentRequestCreate(
+            title="EGP Payment Valid Rate",
+            supplier_name="Local Egyptian Supplier",
+            payment_type="Advance Payment",
+            requested_amount=100000.0,
+            currency_code="EGP",
+            exchange_rate=1.0,
+            due_date=date(2026, 9, 1),
+        )
+        req = service.create_payment_request_service(db_session, payload_valid)
+        assert req.payment_id is not None
+        assert req.requested_amount == 100000.0
+        assert req.exchange_rate == 1.0
+        assert req.requested_amount_egp == 100000.0
+
+        # 3. Foreign request: rate 48.7523 x 200,000 -> 9,750,460.00 (rounded)
+        payload_usd = PaymentRequestCreate(
+            title="USD Payment Rate Precision",
+            supplier_name="Foreign Supplier",
+            payment_type="Advance Payment",
+            requested_amount=200000.0,
+            currency_code="USD",
+            exchange_rate=48.7523,
+            due_date=date(2026, 9, 1),
+        )
+        req_usd = service.create_payment_request_service(db_session, payload_usd)
+        assert req_usd.requested_amount_egp == 9750460.0
+
+    def test_acc2_t08_po_ceiling_and_currency_mismatch(self, db_session):
+        # Create a test PO with 100,000 USD
+        comp = ImportCompany(
+            importer_name="Test Company",
+            vat_id="999-888-777",
+            registration_number="12345",
+            address="Cairo, Egypt",
+            country="Egypt",
+            importer_id="IMP-009",
+            importer_id_expiry=date(2028, 1, 1),
+            vat_id_expiry=date(2028, 1, 1),
+            registration_expiry=date(2028, 1, 1),
+            is_active=True,
+        )
+        db_session.add(comp)
+        sup = Supplier(
+            supplier_code="SUP-01",
+            company_name="Test Supplier",
+            supplier_type="Manufacturer",
+            registration_type="Foreign Exporter",
+            foreign_exporter_id="CN-99",
+            foreign_exporter_country="China",
+            foreign_exporter_country_code="CN",
+            address="Shanghai",
+            is_active=True,
+        )
+        db_session.add(sup)
+        inco = Incoterm(incoterm_code="FOB", incoterm_name="Free On Board", is_active=True)
+        db_session.add(inco)
+        db_session.commit()
+        db_session.refresh(comp)
+        db_session.refresh(sup)
+        db_session.refresh(inco)
+
+        proj = Project(
+            project_code="PRJ-01",
+            project_name="Test Project",
+            project_owner="Project Owner",
+            company_id=comp.company_id,
+            supplier_id=sup.supplier_id,
+            incoterm_id=inco.incoterm_id,
+            is_active=True,
+        )
+        db_session.add(proj)
+        db_session.commit()
+        db_session.refresh(proj)
+
+        usd_curr = db_session.query(Currency).filter(Currency.currency_code == "USD").first()
+        po = PurchaseOrder(
+            po_number="PO-2026-T08",
+            project_id=proj.project_id,
+            company_id=comp.company_id,
+            supplier_id=sup.supplier_id,
+            incoterm_id=inco.incoterm_id,
+            currency_id=usd_curr.currency_id,
+            total_amount_fob=100000.0,
+            is_active=True,
+        )
+        db_session.add(po)
+        db_session.commit()
+        db_session.refresh(po)
+
+        # 1. Request with currency EUR against PO in USD raises 422 FA_PAYMENT_CURRENCY_MISMATCH
+        payload_mismatch = PaymentRequestCreate(
+            title="EUR on USD PO",
+            po_id=po.po_id,
+            supplier_id=sup.supplier_id,
+            supplier_name=sup.company_name,
+            payment_type="Advance Payment",
+            requested_amount=10000.0,
+            currency_code="EUR",
+            exchange_rate=55.0,
+            due_date=date(2026, 9, 1),
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            service.create_payment_request_service(db_session, payload_mismatch)
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail["code"] == "FA_PAYMENT_CURRENCY_MISMATCH"
+
+        # 2. Advance 30,000 USD on PO (total 100,000) -> 201, advance_percentage = 30.0
+        payload_p1 = PaymentRequestCreate(
+            title="PO Advance 30k",
+            po_id=po.po_id,
+            supplier_id=sup.supplier_id,
+            supplier_name=sup.company_name,
+            payment_type="Advance Payment",
+            requested_amount=30000.0,
+            currency_code="USD",
+            exchange_rate=50.0,
+            due_date=date(2026, 9, 1),
+        )
+        req1 = service.create_payment_request_service(db_session, payload_p1)
+        assert req1.advance_percentage == 30.0
+
+        # Mark req1 as Approved or Paid
+        req1.status = "Paid"
+        db_session.commit()
+
+        # 3. New request 80,000 USD on PO (committed 30,000 + 80,000 = 110,000 > 100,000) -> 409 FA_PAYMENT_EXCEEDS_PO
+        payload_overflow = PaymentRequestCreate(
+            title="PO Overflow 80k",
+            po_id=po.po_id,
+            supplier_id=sup.supplier_id,
+            supplier_name=sup.company_name,
+            payment_type="Against B/L",
+            requested_amount=80000.0,
+            currency_code="USD",
+            exchange_rate=50.0,
+            due_date=date(2026, 9, 1),
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            service.create_payment_request_service(db_session, payload_overflow)
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.detail["code"] == "FA_PAYMENT_EXCEEDS_PO"
+        assert exc_info.value.detail["committed"] == 30000.0
+        assert exc_info.value.detail["requested"] == 80000.0
+        assert exc_info.value.detail["po_total"] == 100000.0
+
+        # 4. New request 70,000 USD on PO (committed 30,000 + 70,000 = 100,000) -> 201, advance_percentage = 70.0
+        payload_p2 = PaymentRequestCreate(
+            title="PO Final 70k",
+            po_id=po.po_id,
+            supplier_id=sup.supplier_id,
+            supplier_name=sup.company_name,
+            payment_type="Against B/L",
+            requested_amount=70000.0,
+            currency_code="USD",
+            exchange_rate=50.0,
+            due_date=date(2026, 9, 1),
+        )
+        req2 = service.create_payment_request_service(db_session, payload_p2)
+        assert req2.payment_id is not None
+        assert req2.advance_percentage == 70.0
+
+        # 5. Rejected requests do not count against ceiling
+        req2.status = "Rejected"
+        db_session.commit()
+        # Now committed is only 30,000. Another request of 70,000 is allowed.
+        payload_p3 = PaymentRequestCreate(
+            title="PO Final 70k retry",
+            po_id=po.po_id,
+            supplier_id=sup.supplier_id,
+            supplier_name=sup.company_name,
+            payment_type="Against B/L",
+            requested_amount=70000.0,
+            currency_code="USD",
+            exchange_rate=50.0,
+            due_date=date(2026, 9, 1),
+        )
+        req3 = service.create_payment_request_service(db_session, payload_p3)
+        assert req3.payment_id is not None
+        assert req3.advance_percentage == 70.0
+
 
 

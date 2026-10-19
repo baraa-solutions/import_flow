@@ -1,4 +1,13 @@
 {
+  "ACTUAL_SOURCE_MISSING": {
+    "params": [
+      "bucket",
+      "estimated_egp"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "ALERT_ACID_EXPIRY_RADAR": {
     "params": [
       "acid_numbers",
@@ -586,6 +595,14 @@
       "note"
     ]
   },
+  "CURRENCY_BASE_EXISTS": {
+    "params": [
+      "base_currency"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CURRENCY_CODE_UNKNOWN": {
     "params": [
       "currency_code"
@@ -597,6 +614,15 @@
   "CURRENCY_NOT_FOUND": {
     "params": [
       "currency"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CURRENCY_RATE_EXISTS": {
+    "params": [
+      "currency",
+      "effective_date"
     ],
     "parts": [
       "note"
@@ -1746,9 +1772,26 @@
       "note"
     ]
   },
+  "FA_EGP_RATE_NOT_ONE": {
+    "params": [
+      "exchange_rate"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FA_FX_RATE_MISSING": {
     "params": [
       "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_PAYMENT_CURRENCY_MISMATCH": {
+    "params": [
+      "po_currency",
+      "request_currency"
     ],
     "parts": [
       "note"
@@ -1758,6 +1801,17 @@
     "params": [
       "payment_code",
       "payment_type"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_PAYMENT_EXCEEDS_PO": {
+    "params": [
+      "committed",
+      "po_number",
+      "po_total",
+      "requested"
     ],
     "parts": [
       "note"
@@ -3782,10 +3836,25 @@
       "note"
     ]
   },
+  "SETTLEMENT_ACTUAL_FOB_MISSING": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "SETTLEMENT_COST_ALREADY_APPROVED": {
     "params": [
       "import_file_code",
       "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_CURRENCY_MISSING": {
+    "params": [
+      "invoice_no",
+      "source"
     ],
     "parts": [
       "note"

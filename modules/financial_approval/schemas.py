@@ -68,6 +68,7 @@ class PaymentRequestUpdate(BaseModel):
     (written only by pay / reconcile); ``swift_code`` (beneficiary BIC) stays editable. ``status`` may only follow the user transitions (validators)."""
     title: Optional[str] = Field(None, min_length=3, max_length=200)
     import_file_id: Optional[int] = None
+    po_id: Optional[int] = None
     payment_type: Optional[str] = None
     requested_amount: Optional[float] = Field(None, gt=0.0)
     advance_percentage: Optional[float] = Field(None, ge=0.0, le=100.0)

@@ -87,8 +87,10 @@ from modules.financial_approval.validators import (
     require_known_currency,
     require_payment_status,
     require_same_currency,
+    validate_payment_rate,
     validate_payment_request_inputs,
     validate_payment_update,
+    validate_po_ceiling,
 )
 from modules.notifications.model import SystemNotification
 from modules.users.model import User
@@ -433,7 +435,11 @@ def create_payment_request_service(
         project_id=schema.project_id,
     )
     norm_currency = require_known_currency(db, schema.currency_code)
+    validate_payment_rate(norm_currency, schema.exchange_rate)
     updates: Dict[str, Any] = {"currency_code": norm_currency}
+    if schema.po_id:
+        adv_pct = validate_po_ceiling(db, schema.po_id, norm_currency, schema.requested_amount)
+        updates["advance_percentage"] = adv_pct
     if schema.supplier_id:
         from modules.suppliers.model import Supplier
 
@@ -504,6 +510,19 @@ def update_payment_request_service(
     if "currency_code" in changes and changes["currency_code"] is not None:
         changes["currency_code"] = require_known_currency(db, changes["currency_code"])
     _require_reject_permission(db, db_item, changes, current_user)
+
+    target_po_id = changes.get("po_id", db_item.po_id)
+    target_curr = changes.get("currency_code", db_item.currency_code)
+    target_amount = changes.get("requested_amount", db_item.requested_amount)
+    target_rate = changes.get("exchange_rate", db_item.exchange_rate)
+    validate_payment_rate(target_curr, target_rate)
+
+    if target_po_id and ("po_id" in changes or "requested_amount" in changes or "currency_code" in changes
+                         or (changes.get("status") == PAYMENT_DRAFT and db_item.status == PAYMENT_REJECTED)):
+        new_adv_pct = validate_po_ceiling(
+            db, target_po_id, target_curr, target_amount, exclude_id=db_item.payment_id
+        )
+        changes["advance_percentage"] = new_adv_pct
 
     if changes.get("import_file_id") is not None:
         from modules.import_files.model import ImportFile
@@ -816,6 +835,7 @@ def clone_payment_request_service(
     rate = orig.exchange_rate
     if not rate or rate <= 0:
         raise _fx_missing(orig.currency_code)
+    validate_payment_rate(orig.currency_code, rate)
 
     supplier_id = schema.target_supplier_id or orig.supplier_id
     supplier_name = orig.supplier_name
@@ -832,6 +852,9 @@ def clone_payment_request_service(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="يجب أن يكون المبلغ المطلوب أكبر من صفر.")
     import_file_id = None if schema.unlink_import_file else orig.import_file_id
     po_id = None if schema.unlink_import_file else orig.po_id
+    cloned_adv_pct = orig.advance_percentage
+    if po_id:
+        cloned_adv_pct = validate_po_ceiling(db, po_id, orig.currency_code, amount)
     payment_type = normalize_payment_type(orig.payment_type)
     if import_file_id:
         _ensure_no_open_payment_of_type(db, import_file_id, payment_type)
@@ -851,9 +874,10 @@ def clone_payment_request_service(
             project_id=orig.project_id,
             payment_type=payment_type,
             requested_amount=amount,
+            advance_percentage=cloned_adv_pct,
             currency_code=orig.currency_code,
             exchange_rate=rate,
-            requested_amount_egp=amount * rate,
+            requested_amount_egp=round(amount * rate, 2),
             request_date=date.today(),
             due_date=date.today() + timedelta(days=12),
             status=PAYMENT_DRAFT,
