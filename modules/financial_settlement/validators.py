@@ -87,6 +87,15 @@ def ensure_no_other_active_settlement(existing: Optional[Any], settlement_id: in
         )
 
 
+def duplicate_active_error(import_file_id: Optional[int] = None) -> HTTPException:
+    return coded_error(
+        status.HTTP_409_CONFLICT,
+        SETTLEMENT_DUPLICATE_ACTIVE,
+        "توجد بالفعل تسوية مالية نشطة لهذا الملف. لا يمكن إنشاء أكثر من تسوية نشطة لنفس ملف الشحنة.",
+        import_file_id=import_file_id,
+    )
+
+
 COST_APPROVED_FILE_STATUSES = ("COST_ALLOCATED", "CLOSED")
 
 

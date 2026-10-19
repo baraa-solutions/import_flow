@@ -1909,6 +1909,70 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(u_tol, 2.5)
         self.assertEqual(f_tol, 500.0)
 
+    def test_be09_t07_one_active_settlement_per_file_at_db_level(self):
+        """
+        BE09-T07: One active settlement per file at DB level.
+        - Partial unique index uq_fs_records_active_file forbids two active settlements for the same import file.
+        - Inserting a second active row via session raises IntegrityError.
+        - Inactive records (is_active=False) do not violate the partial index.
+        - add_with_new_code on a file that already has an active settlement raises HTTP 409 SETTLEMENT_DUPLICATE_ACTIVE.
+        """
+        from sqlalchemy.exc import IntegrityError
+        from fastapi import HTTPException
+        from modules.financial_settlement.repository import add_with_new_code
+        from modules.financial_settlement.validators import SETTLEMENT_DUPLICATE_ACTIVE
+
+        # 1. Create first active settlement
+        rec1 = LandedCostSettlementRecord(
+            settlement_code="LCS-2026-T07A",
+            import_file_id=self.import_file_id,
+            incoterm_code="FOB",
+            is_active=True,
+            status="Draft",
+            accountant_name="Test User",
+        )
+        self.db.add(rec1)
+        self.db.commit()
+
+        # 2. Direct session insert of second active settlement for same import_file_id raises IntegrityError
+        rec2 = LandedCostSettlementRecord(
+            settlement_code="LCS-2026-T07B",
+            import_file_id=self.import_file_id,
+            incoterm_code="FOB",
+            is_active=True,
+            status="Draft",
+            accountant_name="Test User",
+        )
+        self.db.add(rec2)
+        with self.assertRaises(IntegrityError):
+            self.db.commit()
+        self.db.rollback()
+
+        # Inactive record for same file is allowed (is_active=False)
+        rec_inactive = LandedCostSettlementRecord(
+            settlement_code="LCS-2026-T07-INACTIVE",
+            import_file_id=self.import_file_id,
+            incoterm_code="FOB",
+            is_active=False,
+            status="Draft",
+            accountant_name="Test User",
+        )
+        self.db.add(rec_inactive)
+        self.db.commit()
+
+        # 3. add_with_new_code on file with active settlement raises 409 SETTLEMENT_DUPLICATE_ACTIVE
+        rec3 = LandedCostSettlementRecord(
+            import_file_id=self.import_file_id,
+            incoterm_code="FOB",
+            is_active=True,
+            status="Draft",
+            accountant_name="Test User",
+        )
+        with self.assertRaises(HTTPException) as exc:
+            add_with_new_code(self.db, rec3)
+        self.assertEqual(exc.exception.status_code, 409)
+        self.assertEqual(exc.exception.detail.get("code"), SETTLEMENT_DUPLICATE_ACTIVE)
+
 
 if __name__ == "__main__":
     unittest.main()

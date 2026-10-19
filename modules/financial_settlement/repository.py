@@ -27,7 +27,11 @@ def add_with_new_code(db: Session, record: LandedCostSettlementRecord) -> Landed
                 db.add(record)
                 db.flush()
             return record
-        except IntegrityError:
+        except IntegrityError as exc:
+            err_msg = str(exc).lower()
+            if "uq_fs_records_active_file" in err_msg or "financial_settlement_records.import_file_id" in err_msg:
+                from modules.financial_settlement.validators import duplicate_active_error
+                raise duplicate_active_error(record.import_file_id)
             if attempt == _CODE_ATTEMPTS - 1:
                 raise
     return record
@@ -43,7 +47,7 @@ def get_settlement_by_import_file_id(db: Session, import_file_id: int) -> Option
     return db.query(LandedCostSettlementRecord).filter(
         LandedCostSettlementRecord.import_file_id == import_file_id,
         LandedCostSettlementRecord.is_active == True
-    ).first()
+    ).order_by(desc(LandedCostSettlementRecord.settlement_id)).first()
 
 def list_settlements(
     db: Session,

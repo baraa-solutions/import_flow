@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
     Date,
+    Index,
     Integer,
     Numeric,
     UniqueConstraint,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Float,
     JSON,
     Text,
+    text,
 )
 from sqlalchemy.orm import relationship
 from database.database import Base
@@ -26,6 +28,14 @@ class LandedCostSettlementRecord(Base):
     allocates costs by Value/Weight/Volume/Equal, and calculates unit landed cost and markup factor per item line.
     """
     __tablename__ = "financial_settlement_records"
+    __table_args__ = (
+        Index(
+            "uq_fs_records_active_file",
+            "import_file_id",
+            unique=True,
+            sqlite_where=text("is_active = 1"),
+        ),
+    )
 
     settlement_id = Column(Integer, primary_key=True, index=True)
     settlement_code = Column(String(50), unique=True, index=True, nullable=False) # e.g. LCS-2026-0001
