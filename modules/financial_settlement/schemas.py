@@ -330,10 +330,10 @@ class ConfirmInvoicesSettlementResponse(BaseModel):
 class ActualLandedCostCategoryBreakdown(BaseModel):
     category: str
     category_ar: str
-    estimated_egp: float = 0.0
+    estimated_egp: Optional[float] = None
     actual_egp: float = 0.0
-    variance_egp: float = 0.0
-    variance_pct: float = 0.0
+    variance_egp: Optional[float] = None
+    variance_pct: Optional[float] = None
     invoices_count: int = 0
     allocation_rule: str = "Value-Based"
 
@@ -361,10 +361,10 @@ class ActualLandedCostItemLine(BaseModel):
     actual_unit_landed_cost_egp: float = 0.0
     actual_markup_factor: float = 1.0
     actual_markup_pct: float = 0.0
-    estimated_unit_landed_cost_egp: float = 0.0
-    unit_cost_variance_egp: float = 0.0
-    unit_cost_variance_pct: float = 0.0
-    item_variance_status: str = "MATCHED" # "SAVING", "MATCHED", "INCREASED"
+    estimated_unit_landed_cost_egp: Optional[float] = None
+    unit_cost_variance_egp: Optional[float] = None
+    unit_cost_variance_pct: Optional[float] = None
+    item_variance_status: Optional[str] = "MATCHED" # "SAVING", "MATCHED", "INCREASED", "NO_ESTIMATE"
 
 
 class ActualLandedCostCalculationRequest(BaseModel):
@@ -382,21 +382,21 @@ class ActualLandedCostCalculationResponse(BaseModel):
     allocation_preference: str = "Value-Based"
     total_items_count: int = 0
     total_invoices_count: int = 0
-    estimated_total_fob_egp: float = 0.0
+    estimated_total_fob_egp: Optional[float] = None
     actual_total_fob_egp: float = 0.0
-    fob_variance_egp: float = 0.0
-    fob_variance_pct: float = 0.0
-    estimated_total_expenses_egp: float = 0.0
+    fob_variance_egp: Optional[float] = None
+    fob_variance_pct: Optional[float] = None
+    estimated_total_expenses_egp: Optional[float] = None
     actual_total_expenses_egp: float = 0.0
-    expenses_variance_egp: float = 0.0
-    expenses_variance_pct: float = 0.0
-    estimated_total_landed_cost_egp: float = 0.0
+    expenses_variance_egp: Optional[float] = None
+    expenses_variance_pct: Optional[float] = None
+    estimated_total_landed_cost_egp: Optional[float] = None
     actual_total_landed_cost_egp: float = 0.0
-    landed_variance_egp: float = 0.0
-    landed_variance_pct: float = 0.0
-    estimated_markup_factor: float = 1.0
+    landed_variance_egp: Optional[float] = None
+    landed_variance_pct: Optional[float] = None
+    estimated_markup_factor: Optional[float] = None
     actual_markup_factor: float = 1.0
-    variance_status: str = "ON_BUDGET" # "UNDER_BUDGET", "ON_BUDGET", "OVER_BUDGET"
+    variance_status: str = "ON_BUDGET" # "UNDER_BUDGET", "ON_BUDGET", "OVER_BUDGET", "NO_ESTIMATE"
     variance_status_ar: str = "مطابق للميزانية التقديرية"
     categories_breakdown: List[ActualLandedCostCategoryBreakdown] = []
     items_breakdown: List[ActualLandedCostItemLine] = []
@@ -423,8 +423,8 @@ class ApproveActualLandedCostResponse(BaseModel):
     financial_settlement_status: str = "COST_ALLOCATED"
     actual_landed_cost_total_egp: float
     actual_landed_cost_markup_factor: float
-    landed_variance_egp: float
-    landed_variance_pct: float
+    landed_variance_egp: Optional[float] = None
+    landed_variance_pct: Optional[float] = None
     variance_status: str
     progress_percent: float
     current_stage: str

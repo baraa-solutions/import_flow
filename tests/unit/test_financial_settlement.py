@@ -1603,6 +1603,134 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertIsNone(agg_empty.currency)
         self.assertEqual(agg_empty.exchange_rate, 0.0)
 
+    def test_acc2_t12_no_fabricated_variance_when_estimate_unavailable(self):
+        """
+        ACC2-T12: No fabricated variance when estimate is unavailable.
+        When simulation fails (e.g. missing customs rate for invoice currency):
+        1. Actual calculation succeeds and calculates actual FOB and expenses.
+        2. Estimated totals and variances are None (not 0.0 or fabricated diffs).
+        3. Variance status is NO_ESTIMATE (with Arabic translation).
+        4. Category and item lines have None for estimates and variances, item_variance_status='NO_ESTIMATE'.
+        5. Approval preserves None on import_files.actual_landed_cost_variance_egp/pct and returns NO_ESTIMATE.
+        """
+        from modules.financial_settlement.service import (
+            calculate_actual_landed_cost_service,
+            approve_actual_landed_cost_service,
+        )
+        from modules.financial_settlement.schemas import (
+            ActualLandedCostCalculationRequest,
+            ApproveActualLandedCostRequest,
+        )
+        from modules.customs_clearance.model import ClearanceExpenseInvoice
+        from modules.currencies.model import Currency, ExchangeRate
+
+        # Setup currency KWD
+        curr_kwd = self.db.query(Currency).filter(Currency.currency_code == "KWD").first()
+        if not curr_kwd:
+            curr_kwd = Currency(currency_code="KWD", currency_name="Kuwaiti Dinar", currency_symbol="KD", is_active=True)
+            self.db.add(curr_kwd)
+            self.db.commit()
+            self.db.refresh(curr_kwd)
+
+        # Commercial rate exists, but customs rate is 0.0 (treated as missing/unannounced)
+        rate_kwd = ExchangeRate(
+            currency_id=curr_kwd.currency_id,
+            commercial_rate=160.0,
+            customs_rate=0.0,
+            effective_date=date.today(),
+        )
+        self.db.add(rate_kwd)
+
+        # Create an ImportFile with an invoice in KWD
+        imp = ImportFile(
+            import_file_code="IMP-ACC2-T12",
+            company_name="ACC2-T12 Test Co.",
+            supplier_name="Kuwait Supplier",
+            shipment_mode="Sea FCL",
+            status="OPEN",
+            is_active=True,
+            estimated_cost=0.0,
+            estimated_cost_currency="USD",
+            invoices_data=[
+                {"invoice_no": "CI-KWD-01", "amount": 10000.0, "currency": "KWD"}
+            ],
+        )
+        self.db.add(imp)
+        self.db.commit()
+        self.db.refresh(imp)
+
+        # Add an actual clearance expense invoice in EGP
+        inv = ClearanceExpenseInvoice(
+            invoice_code="INV-CLR-T12",
+            import_file_id=imp.import_file_id,
+            invoice_number="INV-CLR-T12",
+            expense_category="Customs Clearance",
+            provider_name="Broker T12",
+            currency="EGP",
+            amount_egp=50000.0,
+            payment_status="Paid",
+            is_active=True,
+        )
+        self.db.add(inv)
+        self.db.commit()
+
+        calc_req = ActualLandedCostCalculationRequest(allocation_preference="Value-Based")
+        calc = calculate_actual_landed_cost_service(self.db, imp.import_file_id, calc_req)
+
+        # Actuals are computed properly
+        self.assertEqual(calc.actual_total_fob_egp, 1600000.0)  # 10,000 * 160.0
+        self.assertEqual(calc.actual_total_expenses_egp, 50000.0)
+        self.assertEqual(calc.actual_total_landed_cost_egp, 1650000.0)
+
+        # Estimates and variances MUST be None (no fabricated 0.0 or delta)
+        self.assertIsNone(calc.estimated_total_fob_egp)
+        self.assertIsNone(calc.estimated_total_expenses_egp)
+        self.assertIsNone(calc.estimated_total_landed_cost_egp)
+        self.assertIsNone(calc.estimated_markup_factor)
+        self.assertIsNone(calc.fob_variance_egp)
+        self.assertIsNone(calc.fob_variance_pct)
+        self.assertIsNone(calc.expenses_variance_egp)
+        self.assertIsNone(calc.expenses_variance_pct)
+        self.assertIsNone(calc.landed_variance_egp)
+        self.assertIsNone(calc.landed_variance_pct)
+        self.assertEqual(calc.variance_status, "NO_ESTIMATE")
+        self.assertIn("لا يوجد تقدير مبدئي للمقارنة", calc.variance_status_ar)
+
+        # Messages must report ESTIMATE_UNAVAILABLE
+        msg_codes = [m.code for m in calc.messages]
+        self.assertIn("ESTIMATE_UNAVAILABLE", msg_codes)
+
+        # Category lines must have None for estimates and variances
+        for cat in calc.categories_breakdown:
+            self.assertIsNone(cat.estimated_egp)
+            self.assertIsNone(cat.variance_egp)
+            self.assertIsNone(cat.variance_pct)
+
+        # Item lines must have None for estimates and variances
+        for itm in calc.items_breakdown:
+            self.assertIsNone(itm.estimated_unit_landed_cost_egp)
+            self.assertIsNone(itm.unit_cost_variance_egp)
+            self.assertIsNone(itm.unit_cost_variance_pct)
+            self.assertEqual(itm.item_variance_status, "NO_ESTIMATE")
+
+        # Approve and verify persistence
+        appr_req = ApproveActualLandedCostRequest(
+            import_file_id=imp.import_file_id,
+            allocation_preference="Value-Based",
+            approved_by="Auditor",
+        )
+        appr = approve_actual_landed_cost_service(self.db, appr_req, actor="Auditor")
+        self.assertTrue(appr.success)
+        self.assertIsNone(appr.landed_variance_egp)
+        self.assertIsNone(appr.landed_variance_pct)
+        self.assertEqual(appr.variance_status, "NO_ESTIMATE")
+
+        self.db.refresh(imp)
+        self.assertEqual(imp.financial_settlement_status, "COST_ALLOCATED")
+        self.assertEqual(imp.actual_landed_cost_total_egp, 1650000.0)
+        self.assertIsNone(imp.actual_landed_cost_variance_egp)
+        self.assertIsNone(imp.actual_landed_cost_variance_pct)
+
 
 if __name__ == "__main__":
     unittest.main()

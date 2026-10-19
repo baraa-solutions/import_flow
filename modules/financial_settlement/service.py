@@ -2505,31 +2505,45 @@ def _calculate_actual_landed_cost(
     actual_markup_factor = (actual_total_landed_cost_egp / actual_total_fob_egp) if actual_total_fob_egp > 0 else 1.0
 
     # Estimated numbers from simulation (duty / VAT split = the simulation's own totals, FS-07)
-    est_total_fob = sim.total_fob_egp if sim else actual_total_fob_egp
-    est_freight = sim.total_freight_egp if sim else 0.0
-    est_ins = sim.total_insurance_egp if sim else 0.0
-    est_taxes = sim.total_customs_and_taxes_egp if sim else 0.0
-    est_duty = sim.total_customs_duty_egp if sim else 0.0
-    est_vat = sim.total_vat_and_fees_egp if sim else 0.0
-    est_clearance = sim.total_clearance_and_port_egp if sim else 0.0
-    est_transport = sim.total_inland_transport_egp if sim else 0.0
-    est_demurrage = 0.0 # usually 0 planned
-    est_other = sim.total_other_expenses_egp if sim else 0.0
-
-    est_total_expenses = sim.total_expenses_egp if sim else (est_freight + est_ins + est_taxes + est_clearance + est_transport + est_other)
-    est_total_landed = sim.total_landed_cost_egp if sim else (est_total_fob + est_total_expenses)
-    est_markup = sim.average_markup_factor if sim else 1.0
-
-    cat_est_map = {
-        "Freight": est_freight,
-        "Insurance": est_ins,
-        "Customs Duty": est_duty,
-        "VAT & Taxes": est_vat,
-        "Clearance & Port": est_clearance,
-        "Inland Transport": est_transport,
-        "Demurrage & Storage": est_demurrage,
-        "Other & Admin": est_other,
-    }
+    if sim:
+        est_total_fob = sim.total_fob_egp
+        est_freight = sim.total_freight_egp
+        est_ins = sim.total_insurance_egp
+        est_taxes = sim.total_customs_and_taxes_egp
+        est_duty = sim.total_customs_duty_egp
+        est_vat = sim.total_vat_and_fees_egp
+        est_clearance = sim.total_clearance_and_port_egp
+        est_transport = sim.total_inland_transport_egp
+        est_demurrage = 0.0 # usually 0 planned
+        est_other = sim.total_other_expenses_egp
+        est_total_expenses = sim.total_expenses_egp
+        est_total_landed = sim.total_landed_cost_egp
+        est_markup = sim.average_markup_factor
+        cat_est_map = {
+            "Freight": est_freight,
+            "Insurance": est_ins,
+            "Customs Duty": est_duty,
+            "VAT & Taxes": est_vat,
+            "Clearance & Port": est_clearance,
+            "Inland Transport": est_transport,
+            "Demurrage & Storage": est_demurrage,
+            "Other & Admin": est_other,
+        }
+    else:
+        est_total_fob = None
+        est_freight = None
+        est_ins = None
+        est_taxes = None
+        est_duty = None
+        est_vat = None
+        est_clearance = None
+        est_transport = None
+        est_demurrage = None
+        est_other = None
+        est_total_expenses = None
+        est_total_landed = None
+        est_markup = None
+        cat_est_map = {}
 
     # 3. Extract items to allocate across: Prefer POLineItem directly if available (ACC2-T01)
     items_raw = []
@@ -2552,7 +2566,7 @@ def _calculate_actual_landed_cost(
             fob_u_egp = fob_tot_egp / qty if qty > 0 else 0.0
 
             s_match = sim_map.get(pl.item_code)
-            est_u = float(s_match.unit_landed_cost_egp) if s_match else (fob_u_egp * est_markup)
+            est_u = float(s_match.unit_landed_cost_egp) if s_match else (float(fob_u_egp * est_markup) if (sim and est_markup) else None)
 
             items_raw.append({
                 "line_no": idx + 1,
@@ -2592,7 +2606,7 @@ def _calculate_actual_landed_cost(
             "fob_total_egp": actual_total_fob_egp,
             "gross_weight_kg": 0.0,
             "cbm": 0.0,
-            "estimated_unit_landed_cost_egp": est_total_landed,
+            "estimated_unit_landed_cost_egp": est_total_landed if sim else None,
         })
 
     total_items_fob = sum(i["fob_total_egp"] for i in items_raw)
@@ -2633,18 +2647,26 @@ def _calculate_actual_landed_cost(
     # Build Categories Breakdown
     categories_breakdown: List[ActualLandedCostCategoryBreakdown] = []
     for c_key, c_data in cat_expenses.items():
-        est_val = cat_est_map.get(c_key, 0.0)
         act_val = c_data["actual"]
-        v_egp = round(act_val - est_val, 2)
-        v_pct = round((v_egp / est_val * 100.0), 2) if est_val > 0 else (100.0 if act_val > 0 else 0.0)
+        if sim is not None:
+            est_val = cat_est_map.get(c_key, 0.0)
+            v_egp = round(act_val - est_val, 2)
+            v_pct = round((v_egp / est_val * 100.0), 2) if est_val > 0 else (100.0 if act_val > 0 else 0.0)
+            c_est_egp: Optional[float] = round(est_val, 2)
+            c_var_egp: Optional[float] = v_egp
+            c_var_pct: Optional[float] = v_pct
+        else:
+            c_est_egp = None
+            c_var_egp = None
+            c_var_pct = None
 
         categories_breakdown.append(ActualLandedCostCategoryBreakdown(
             category=c_key,
             category_ar=c_data["ar"],
-            estimated_egp=round(est_val, 2),
+            estimated_egp=c_est_egp,
             actual_egp=round(act_val, 2),
-            variance_egp=v_egp,
-            variance_pct=v_pct,
+            variance_egp=c_var_egp,
+            variance_pct=c_var_pct,
             invoices_count=c_data["count"],
             allocation_rule=rules_used[c_key],
         ))
@@ -2681,16 +2703,24 @@ def _calculate_actual_landed_cost(
         item_mkp = (item_landed_u / fob_u) if fob_u > 0 else 1.0
         item_mkp_pct = (item_mkp - 1.0) * 100.0
 
-        est_u = itm.get("estimated_unit_landed_cost_egp") or fob_u
-        u_var = item_landed_u - est_u
-        u_var_pct = (u_var / est_u * 100.0) if est_u > 0 else 0.0
-
-        if u_var < -0.05:
-            v_status = "SAVING"
-        elif u_var > 0.05:
-            v_status = "INCREASED"
+        if sim is not None and itm.get("estimated_unit_landed_cost_egp") is not None:
+            est_u = float(itm["estimated_unit_landed_cost_egp"])
+            u_var = item_landed_u - est_u
+            u_var_pct = (u_var / est_u * 100.0) if est_u > 0 else 0.0
+            if u_var < -0.05:
+                v_status = "SAVING"
+            elif u_var > 0.05:
+                v_status = "INCREASED"
+            else:
+                v_status = "MATCHED"
+            i_est_u: Optional[float] = round(est_u, 2)
+            i_u_var: Optional[float] = round(u_var, 2)
+            i_u_var_pct: Optional[float] = round(u_var_pct, 2)
         else:
-            v_status = "MATCHED"
+            i_est_u = None
+            i_u_var = None
+            i_u_var_pct = None
+            v_status = "NO_ESTIMATE"
 
         items_breakdown.append(ActualLandedCostItemLine(
             line_no=itm["line_no"],
@@ -2715,43 +2745,70 @@ def _calculate_actual_landed_cost(
             actual_unit_landed_cost_egp=round(item_landed_u, 2),
             actual_markup_factor=round(item_mkp, 4),
             actual_markup_pct=round(item_mkp_pct, 2),
-            estimated_unit_landed_cost_egp=round(est_u, 2),
-            unit_cost_variance_egp=round(u_var, 2),
-            unit_cost_variance_pct=round(u_var_pct, 2),
+            estimated_unit_landed_cost_egp=i_est_u,
+            unit_cost_variance_egp=i_u_var,
+            unit_cost_variance_pct=i_u_var_pct,
             item_variance_status=v_status,
         ))
 
     # Overall file variances
-    fob_var_egp = round(actual_total_fob_egp - est_total_fob, 2)
-    fob_var_pct = round((fob_var_egp / est_total_fob * 100.0), 2) if est_total_fob > 0 else 0.0
+    if sim is not None:
+        fob_var_egp = round(actual_total_fob_egp - est_total_fob, 2)
+        fob_var_pct = round((fob_var_egp / est_total_fob * 100.0), 2) if est_total_fob > 0 else 0.0
 
-    exp_var_egp = round(actual_total_expenses_egp - est_total_expenses, 2)
-    exp_var_pct = round((exp_var_egp / est_total_expenses * 100.0), 2) if est_total_expenses > 0 else 0.0
+        exp_var_egp = round(actual_total_expenses_egp - est_total_expenses, 2)
+        exp_var_pct = round((exp_var_egp / est_total_expenses * 100.0), 2) if est_total_expenses > 0 else 0.0
 
-    landed_var_egp = round(actual_total_landed_cost_egp - est_total_landed, 2)
-    landed_var_pct = round((landed_var_egp / est_total_landed * 100.0), 2) if est_total_landed > 0 else 0.0
+        landed_var_egp = round(actual_total_landed_cost_egp - est_total_landed, 2)
+        landed_var_pct = round((landed_var_egp / est_total_landed * 100.0), 2) if est_total_landed > 0 else 0.0
 
-    if landed_var_egp < -100.0:
-        overall_status = "UNDER_BUDGET"
-        overall_status_ar = f"وفورات في التكلفة بنسبة {abs(landed_var_pct):.1f}% (تحت الميزانية التقديرية)"
-    elif landed_var_egp > 100.0:
-        overall_status = "OVER_BUDGET"
-        overall_status_ar = f"تجاوز وحيود في التكلفة بنسبة {landed_var_pct:.1f}% (فوق الميزانية التقديرية)"
+        if landed_var_egp < -100.0:
+            overall_status = "UNDER_BUDGET"
+            overall_status_ar = f"وفورات في التكلفة بنسبة {abs(landed_var_pct):.1f}% (تحت الميزانية التقديرية)"
+        elif landed_var_egp > 100.0:
+            overall_status = "OVER_BUDGET"
+            overall_status_ar = f"تجاوز وحيود في التكلفة بنسبة {landed_var_pct:.1f}% (فوق الميزانية التقديرية)"
+        else:
+            overall_status = "ON_BUDGET"
+            overall_status_ar = "مطابق للميزانية التقديرية بدقة عالية"
+
+        res_est_fob: Optional[float] = round(est_total_fob, 2)
+        res_est_exp: Optional[float] = round(est_total_expenses, 2)
+        res_est_landed: Optional[float] = round(est_total_landed, 2)
+        res_est_markup: Optional[float] = round(est_markup, 4) if est_markup is not None else None
+
+        exec_summary = (
+            f"بلغت التكلفة الإجمالية الفعلية الواصلة للشحنة {imp.import_file_code} ما قيمته "
+            f"{actual_total_landed_cost_egp:,.2f} جنيه مصري، مقارنة بالتكلفة التقديرية البالغة "
+            f"{est_total_landed:,.2f} جنيه مصري، بفارق انحراف قدره {landed_var_egp:+,.2f} جنيه "
+            f"({landed_var_pct:+.1f}% — {overall_status_ar}). "
+            f"بلغت قيمة البضاعة الفعلية {actual_total_fob_egp:,.2f} جنيه، ومجموع المصاريف الفعلية "
+            f"{actual_total_expenses_egp:,.2f} جنيه موزعة عبر {len(expense_invoices)} فاتورة ومطالبة. "
+            f"متوسط معامل الزيادة الفعلي (Landed Markup Factor) يبلغ {actual_markup_factor:.3f}x، "
+            f"وتم توزيع المصاريف بنجاح على عدد {len(items_breakdown)} صنف طبقا لقاعدة '{pref}'."
+        )
     else:
-        overall_status = "ON_BUDGET"
-        overall_status_ar = "مطابق للميزانية التقديرية بدقة عالية"
+        fob_var_egp = None
+        fob_var_pct = None
+        exp_var_egp = None
+        exp_var_pct = None
+        landed_var_egp = None
+        landed_var_pct = None
+        overall_status = "NO_ESTIMATE"
+        overall_status_ar = "لا يوجد تقدير مبدئي للمقارنة"
+        res_est_fob = None
+        res_est_exp = None
+        res_est_landed = None
+        res_est_markup = None
 
-    # Executive Summary in Arabic (deprecated)
-    exec_summary = (
-        f"بلغت التكلفة الإجمالية الفعلية الواصلة للشحنة {imp.import_file_code} ما قيمته "
-        f"{actual_total_landed_cost_egp:,.2f} جنيه مصري، مقارنة بالتكلفة التقديرية البالغة "
-        f"{est_total_landed:,.2f} جنيه مصري، بفارق انحراف قدره {landed_var_egp:+,.2f} جنيه "
-        f"({landed_var_pct:+.1f}% — {overall_status_ar}). "
-        f"بلغت قيمة البضاعة الفعلية {actual_total_fob_egp:,.2f} جنيه، ومجموع المصاريف الفعلية "
-        f"{actual_total_expenses_egp:,.2f} جنيه موزعة عبر {len(expense_invoices)} فاتورة ومطالبة. "
-        f"متوسط معامل الزيادة الفعلي (Landed Markup Factor) يبلغ {actual_markup_factor:.3f}x، "
-        f"وتم توزيع المصاريف بنجاح على عدد {len(items_breakdown)} صنف طبقا لقاعدة '{pref}'."
-    )
+        exec_summary = (
+            f"بلغت التكلفة الإجمالية الفعلية الواصلة للشحنة {imp.import_file_code} ما قيمته "
+            f"{actual_total_landed_cost_egp:,.2f} جنيه مصري (لا يوجد تقدير مبدئي للمقارنة). "
+            f"بلغت قيمة البضاعة الفعلية {actual_total_fob_egp:,.2f} جنيه، ومجموع المصاريف الفعلية "
+            f"{actual_total_expenses_egp:,.2f} جنيه موزعة عبر {len(expense_invoices)} فاتورة ومطالبة. "
+            f"متوسط معامل الزيادة الفعلي (Landed Markup Factor) يبلغ {actual_markup_factor:.3f}x، "
+            f"وتم توزيع المصاريف بنجاح على عدد {len(items_breakdown)} صنف طبقا لقاعدة '{pref}'."
+        )
 
     # Header vs items reconciliation (FS-08, Q6): reported, never redistributed.
     reconciliation_difference = round(
@@ -2768,19 +2825,19 @@ def _calculate_actual_landed_cost(
         allocation_preference=pref,
         total_items_count=len(items_breakdown),
         total_invoices_count=len(all_invoices),
-        estimated_total_fob_egp=round(est_total_fob, 2),
+        estimated_total_fob_egp=res_est_fob,
         actual_total_fob_egp=round(actual_total_fob_egp, 2),
         fob_variance_egp=fob_var_egp,
         fob_variance_pct=fob_var_pct,
-        estimated_total_expenses_egp=round(est_total_expenses, 2),
+        estimated_total_expenses_egp=res_est_exp,
         actual_total_expenses_egp=round(actual_total_expenses_egp, 2),
         expenses_variance_egp=exp_var_egp,
         expenses_variance_pct=exp_var_pct,
-        estimated_total_landed_cost_egp=round(est_total_landed, 2),
+        estimated_total_landed_cost_egp=res_est_landed,
         actual_total_landed_cost_egp=round(actual_total_landed_cost_egp, 2),
         landed_variance_egp=landed_var_egp,
         landed_variance_pct=landed_var_pct,
-        estimated_markup_factor=round(est_markup, 4),
+        estimated_markup_factor=res_est_markup,
         actual_markup_factor=round(actual_markup_factor, 4),
         variance_status=overall_status,
         variance_status_ar=overall_status_ar,

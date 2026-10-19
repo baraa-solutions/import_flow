@@ -321,8 +321,8 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     final totalExpensesEgp = (_settlementRecord!['total_expenses_egp'] ?? 0.0).toDouble();
     final totalLandedCostEgp = (_settlementRecord!['total_landed_cost_egp'] ?? 0.0).toDouble();
 
-    final fobVariance = _estimatedCost > 0 ? ((totalFobEgp - _estimatedCost) / _estimatedCost) * 100 : 0.0;
-    final landedVariance = _estimatedCost > 0 ? ((totalLandedCostEgp - _estimatedCost) / _estimatedCost) * 100 : 0.0;
+    final double? fobVariance = _estimatedCost > 0 ? ((totalFobEgp - _estimatedCost) / _estimatedCost) * 100 : null;
+    final double? landedVariance = _estimatedCost > 0 ? ((totalLandedCostEgp - _estimatedCost) / _estimatedCost) * 100 : null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -359,16 +359,20 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     );
   }
 
-  Widget _buildMetricStrip(double totalFob, double totalExpenses, double totalLanded, double landedVariance) {
+  Widget _buildMetricStrip(double totalFob, double totalExpenses, double totalLanded, double? landedVariance) {
     final l10n = context.l10n;
     final egp = l10n.financialSettlementCurrencyEgp;
-    final varianceColor = landedVariance > 0 ? AppTheme.crimson : AppTheme.emerald;
+    final varianceColor = landedVariance == null
+        ? AppTheme.textSecondary
+        : landedVariance > 0
+            ? AppTheme.crimson
+            : AppTheme.emerald;
     return MetricCardStrip(
       padding: EdgeInsets.zero,
       metrics: [
         MetricCardData(
           title: l10n.estimatedCostHeader,
-          value: '${_money(_estimatedCost)} $egp',
+          value: _estimatedCost > 0 ? '${_money(_estimatedCost)} $egp' : '-',
           icon: Icons.request_quote_outlined,
           color: AppTheme.cobalt,
         ),
@@ -386,8 +390,12 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         ),
         MetricCardData(
           title: l10n.settlementCmpVarianceLabel,
-          value: formatSettlementPercent(landedVariance, digits: 2),
-          icon: landedVariance > 0 ? Icons.trending_up : Icons.trending_down,
+          value: landedVariance != null ? formatSettlementPercent(landedVariance, digits: 2) : '-',
+          icon: landedVariance == null
+              ? Icons.remove
+              : landedVariance > 0
+                  ? Icons.trending_up
+                  : Icons.trending_down,
           color: varianceColor,
         ),
       ],
@@ -572,7 +580,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     );
   }
 
-  Widget _buildSummaryCards(double totalFob, double totalExpenses, double totalLanded, double fobVariance, double landedVariance) {
+  Widget _buildSummaryCards(double totalFob, double totalExpenses, double totalLanded, double? fobVariance, double? landedVariance) {
     final l10n = context.l10n;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -804,7 +812,8 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     );
   }
 
-  Widget _buildSummaryBanner(double landedVariance) {
+  Widget _buildSummaryBanner(double? landedVariance) {
+    if (landedVariance == null) return const SizedBox.shrink();
     final l10n = context.l10n;
     if (landedVariance > 10) {
       return _banner(
