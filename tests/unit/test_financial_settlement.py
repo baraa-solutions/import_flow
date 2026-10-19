@@ -1425,7 +1425,126 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(res2_a.allocated_demurrage_egp, 1000.0)
         self.assertEqual(res2_b.allocated_demurrage_egp, 3000.0)
 
+    def test_acc2_t10_pl08_estimate_reconciles_with_lines(self):
+        from unittest.mock import patch, MagicMock
+
+        # Create PO with 1 line item
+        curr = self.db.query(Currency).first()
+        if not curr:
+            curr = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$")
+            self.db.add(curr)
+            self.db.commit()
+            self.db.add(ExchangeRate(currency_id=curr.currency_id, commercial_rate=50.0, customs_rate=50.0,
+                                     effective_date=date(2020, 1, 1), is_active=True))
+            self.db.commit()
+
+        tariff = CustomsTariff(
+            hs_code="8415.10.00",
+            hs_description="Air conditioners",
+            customs_duty_rate=Decimal("10.00"),
+            vat_rate=Decimal("14.00"),
+            schedule_tax_rate=Decimal("0.00"),
+            development_fee_rate=Decimal("0.00"),
+            import_fee_rate=Decimal("0.00"),
+            customs_service_fee_rate=Decimal("0.00"),
+            is_active=True,
+        )
+        self.db.add(tariff)
+        self.db.commit()
+
+        proj = self.db.query(Project).first()
+        if not proj:
+            proj = Project(
+                project_code="PRJ-PL08-T10",
+                project_name="Test Project",
+                project_owner="Owner",
+                company_id=1,
+                supplier_id=1,
+                incoterm_id=1,
+                is_active=True,
+            )
+            self.db.add(proj)
+            self.db.commit()
+
+        po = PurchaseOrder(
+            po_number="PO-PL08-T10",
+            import_file_id=self.import_file_id,
+            project_id=proj.project_id,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=curr.currency_id,
+            total_amount_fob=10000.0,
+            is_active=True,
+        )
+        self.db.add(po)
+        self.db.commit()
+
+        po_item = POLineItem(
+            po_id=po.po_id,
+            item_code="ITM-T10",
+            description_ar="تكييف",
+            tariff_id=tariff.tariff_id,
+            quantity=100.0,
+            unit_price=100.0,
+            total_price=10000.0,
+            cbm_per_unit=0.1,
+            total_cbm=10.0,
+            gross_weight_kg=1000.0,
+            net_weight_kg=900.0,
+        )
+        self.db.add(po_item)
+        self.db.commit()
+
+        mock_breakdown = MagicMock()
+        mock_breakdown.total_duty_egp = Decimal("10000.00")
+        mock_breakdown.total_vat_egp = Decimal("15000.00")
+        mock_breakdown.total_schedule_tax_egp = Decimal("0.00")
+        mock_breakdown.total_customs_service_fee_egp = Decimal("500.00")
+        mock_breakdown.total_development_fee_egp = Decimal("300.00")
+        mock_breakdown.total_import_fee_egp = Decimal("0.00")
+        mock_breakdown.total_inspection_fees_egp = Decimal("200.00")
+        mock_breakdown.items_taxes_total_egp = Decimal("26000.00")
+
+        mock_line = MagicMock()
+        mock_line.line_no = 1
+        mock_line.duty_egp = Decimal("10000.00")
+        mock_line.vat_egp = Decimal("15000.00")
+        mock_line.schedule_tax_egp = Decimal("0.00")
+        mock_line.customs_service_fee_egp = Decimal("500.00")
+        mock_line.development_fee_egp = Decimal("300.00")
+        mock_line.import_fee_egp = Decimal("0.00")
+        mock_line.inspection_fee_egp = Decimal("200.00")
+        mock_breakdown.lines = [mock_line]
+
+        with patch("modules.customs_tariff.service.estimate_multi_item_customs_duty_service", return_value=mock_breakdown):
+            sim = simulate_estimated_landed_cost_service(self.db, self.import_file_id)
+
+        # 1. "VAT & Taxes" line amount = total_taxes_and_fees_egp - total_customs_duty_egp = 26,000 - 10,000 = 16,000.00
+        vat_line = next(e for e in sim.expenses_breakdown if e.category == "VAT & Taxes")
+        self.assertEqual(vat_line.amount_egp, 16000.0)
+        self.assertEqual(sim.total_vat_and_fees_egp, 16000.0)
+
+        # 2. Items customs sum = alloc_duty + alloc_vat = 10,000 + 16,000 = 26,000.00
+        item = sim.items_breakdown[0]
+        self.assertEqual(item.allocated_customs_duty_egp, 10000.0)
+        self.assertEqual(item.allocated_vat_egp, 16000.0)
+        self.assertEqual(item.allocated_customs_duty_egp + item.allocated_vat_egp, 26000.0)
+
+        # 3. Currency of every expense line is the goods currency (USD)
+        for exp in sim.expenses_breakdown:
+            self.assertEqual(exp.currency, sim.currency, f"Expense {exp.category} currency {exp.currency} != {sim.currency}")
+
+        # 4. Reconciliation acceptance criteria:
+        # sum(expenses_breakdown.amount_egp) == total_expenses_egp
+        # sum(items.total_landed_cost_egp) == total_landed_cost_egp
+        sum_expenses = round(sum(e.amount_egp for e in sim.expenses_breakdown), 2)
+        self.assertAlmostEqual(sum_expenses, sim.total_expenses_egp, delta=0.01 * len(sim.expenses_breakdown))
+        sum_items_landed = round(sum(i.total_landed_cost_egp for i in sim.items_breakdown), 2)
+        self.assertAlmostEqual(sum_items_landed, sim.total_landed_cost_egp, delta=0.01 * len(sim.items_breakdown))
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

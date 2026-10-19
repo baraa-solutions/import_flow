@@ -1273,18 +1273,22 @@ def simulate_estimated_landed_cost_service(
         total_vat_egp = float(customs_breakdown.total_vat_egp)
         total_schedule_tax_egp = float(customs_breakdown.total_schedule_tax_egp)
         total_service_fee_egp = float(customs_breakdown.total_customs_service_fee_egp)
-        total_taxes_and_fees_egp = float(getattr(customs_breakdown, "items_taxes_total_egp", None) or getattr(customs_breakdown, "grand_total_payable_egp", 0.0) or (total_customs_duty_egp + total_vat_egp + total_schedule_tax_egp + total_service_fee_egp))
+        total_inspection_fees_egp = float(getattr(customs_breakdown, "total_inspection_fees_egp", 0.0) or 0.0)
+        total_taxes_and_fees_egp = float(getattr(customs_breakdown, "items_taxes_total_egp", None) or getattr(customs_breakdown, "grand_total_payable_egp", 0.0) or (total_customs_duty_egp + total_vat_egp + total_schedule_tax_egp + total_service_fee_egp + total_inspection_fees_egp))
         customs_line_map = {l.line_no: l for l in customs_breakdown.lines}
     else:
         total_customs_duty_egp = total_vat_egp = total_schedule_tax_egp = total_service_fee_egp = 0.0
+        total_inspection_fees_egp = 0.0
         total_taxes_and_fees_egp = 0.0
         customs_line_map = {}
+
+    vat_and_taxes_line_egp = round(total_taxes_and_fees_egp - total_customs_duty_egp, 2)
 
     expenses_breakdown.append(EstimatedLandedCostExpenseItem(
         category="Customs Duties",
         description="ضريبة الوارد الجمركية (Import Duty)",
         amount_fc=round(total_customs_duty_egp / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(total_customs_duty_egp, 2),
         is_estimated=True,
         source="محرك التعريفة الجمركية المصري MD-008",
@@ -1294,9 +1298,9 @@ def simulate_estimated_landed_cost_service(
     expenses_breakdown.append(EstimatedLandedCostExpenseItem(
         category="VAT & Taxes",
         description="ضريبة القيمة المضافة وضريبة الجدول ورسوم الخدمات الجمركية",
-        amount_fc=round((total_vat_egp + total_schedule_tax_egp + total_service_fee_egp) / fx_rate, 2),
-        currency="EGP",
-        amount_egp=round(total_vat_egp + total_schedule_tax_egp + total_service_fee_egp, 2),
+        amount_fc=round(vat_and_taxes_line_egp / fx_rate, 2),
+        currency=currency,
+        amount_egp=vat_and_taxes_line_egp,
         is_estimated=True,
         source="مصلحة الضرائب المصرية وقانون القيمة المضافة",
         allocation_rule="Direct HS Code Allocation",
@@ -1313,7 +1317,7 @@ def simulate_estimated_landed_cost_service(
         category="Customs Clearance & Brokerage",
         description="أتعاب التخليص الجمركي وإصدار إذن التسليم والتراخيص",
         amount_fc=round(clearance_fee / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(clearance_fee, 2),
         is_estimated=True,
         source="تقدير قياسي / مخلص معتمد" if req.clearance_fees_egp_override is None else "تعديل يدوي",
@@ -1324,7 +1328,7 @@ def simulate_estimated_landed_cost_service(
         category="Port & Terminal Handling (THC)",
         description="مصاريف الميناء والتفريغ والعتالة والتخزين المؤقت",
         amount_fc=round(port_handling / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(port_handling, 2),
         is_estimated=True,
         source="تعريفة محطة الحاويات والميناء" if req.port_handling_egp_override is None else "تعديل يدوي",
@@ -1344,7 +1348,7 @@ def simulate_estimated_landed_cost_service(
         category="Inland Transport",
         description="النقل الداخلي بالشاحنات من ميناء الوصول لمخازن الشركة",
         amount_fc=round(inland_trucking / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(inland_trucking, 2),
         is_estimated=True,
         source="أسعار النقل البري المعتمدة" if req.inland_transport_egp_override is None else "تعديل يدوي",
@@ -1355,7 +1359,7 @@ def simulate_estimated_landed_cost_service(
         category="Banking & Form 4 Fees",
         description="عمولات التحويلات البنكية ومصاريف استخراج نموذج 4 وفتح الاعتماد",
         amount_fc=round(bank_fees / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(bank_fees, 2),
         is_estimated=True,
         source="جدول العمولات البنكية الرسمي" if req.bank_fees_egp_override is None else "تعديل يدوي",
@@ -1366,7 +1370,7 @@ def simulate_estimated_landed_cost_service(
         category="Inspection & Administrative",
         description="فحص الرقابة على الصادرات والواردات، رسوم كارجو إكس، ومصاريف إدارية",
         amount_fc=round(other_fees / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(other_fees, 2),
         is_estimated=True,
         source="مصاريف إدارية تقديرية" if req.other_expenses_egp_override is None else "تعديل يدوي",
@@ -1404,7 +1408,9 @@ def simulate_estimated_landed_cost_service(
             alloc_duty = 0.0
             alloc_vat = 0.0
         else:
-            alloc_duty = float(c_line.duty_egp) if c_line else (total_customs_duty_egp * val_ratios[idx])
+            inc_val_ratio = (itm["fob_total_fc"] / included_fob_fc) if included_fob_fc > 0 else 0.0
+            alloc_duty = float(c_line.duty_egp) if c_line else (total_customs_duty_egp * inc_val_ratio)
+            alloc_inspection = total_inspection_fees_egp * inc_val_ratio
             alloc_vat = (
                 float(
                     c_line.vat_egp
@@ -1413,8 +1419,9 @@ def simulate_estimated_landed_cost_service(
                     + getattr(c_line, "development_fee_egp", 0.0)
                     + getattr(c_line, "import_fee_egp", 0.0)
                 )
+                + alloc_inspection
                 if c_line
-                else ((total_vat_egp + total_schedule_tax_egp + total_service_fee_egp) * val_ratios[idx])
+                else ((total_taxes_and_fees_egp - total_customs_duty_egp) * inc_val_ratio)
             )
 
         alloc_clearance_port = (clearance_fee + port_handling) * primary_ratios[idx]
