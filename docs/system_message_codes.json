@@ -3932,6 +3932,14 @@
       "note"
     ]
   },
+  "SETTLEMENT_RESERVED_INVOICE_NO": {
+    "params": [
+      "invoice_no"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "SETTLEMENT_UNPAID_INVOICE": {
     "params": [
       "amount",

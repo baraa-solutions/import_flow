@@ -58,6 +58,7 @@ from .validators import (
     ensure_invoices_settled,
     ensure_no_manual_rows,
     ensure_no_other_active_settlement,
+    ensure_no_client_adjustment_rows,
     ensure_settlement_editable,
     fx_rate_missing_error,
     currency_missing_error,
@@ -818,6 +819,7 @@ def create_settlement_service(
     incoterm = (schema.incoterm_code or imp_file.incoterm_code or "FOB").upper()
 
     expenses_in = [e if isinstance(e, dict) else e.model_dump() for e in (schema.expense_invoices or [])]
+    ensure_no_client_adjustment_rows(expenses_in, stored_rows=[])
     _resolve_client_expense_rates(expenses_in, SettlementFx(db, "commercial"))
     _validate_client_expenses(expenses_in)
 
@@ -942,6 +944,7 @@ def update_settlement_service(
         if key in update_data and update_data[key] is None:
             del update_data[key]
     if update_data.get("expense_invoices") is not None:
+        ensure_no_client_adjustment_rows(update_data["expense_invoices"], stored_rows=existing.expense_invoices or [])
         _resolve_client_expense_rates(update_data["expense_invoices"], SettlementFx(db, "commercial"))
         _validate_client_expenses(update_data["expense_invoices"])
     old_data = {k: getattr(existing, k, None) for k in update_data.keys()}

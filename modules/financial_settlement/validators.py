@@ -15,6 +15,8 @@ SETTLEMENT_CURRENCY_MISSING = "SETTLEMENT_CURRENCY_MISSING"
 SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED = "SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED"
 INVOICES_NOT_SETTLED = "INVOICES_NOT_SETTLED"
 SETTLEMENT_NO_ITEMS = "SETTLEMENT_NO_ITEMS"
+SETTLEMENT_RESERVED_INVOICE_NO = "SETTLEMENT_RESERVED_INVOICE_NO"
+RECALC_ADJUSTMENT_PREFIX = "RECALC-ADJ-"
 
 from modules.common.validators import ensure_file_open
 
@@ -179,4 +181,29 @@ def ensure_no_manual_rows(manual: List[Dict[str, Any]]) -> None:
             f"توجد مصاريف مسجلة يدوياً في التسوية ({', '.join(invoice_nos)}) غير موجودة ضمن فواتير الشحنة المجمعة. يلزم تجميعها أو مراجعتها قبل الاعتماد لمنع فقدان البيانات.",
             invoice_nos=invoice_nos,
         )
+
+
+def ensure_no_client_adjustment_rows(
+    rows: List[Dict[str, Any]],
+    stored_rows: Optional[List[Dict[str, Any]]] = None,
+) -> None:
+    """Only the recalculation engine creates or modifies adjustment rows (BE09-T09)."""
+    stored_map: Dict[str, float] = {}
+    if stored_rows:
+        for s in stored_rows:
+            inv = str(s.get("invoice_no") or "")
+            if inv.startswith(RECALC_ADJUSTMENT_PREFIX):
+                stored_map[inv] = round(float(s.get("amount_egp", 0.0) or s.get("amount_fx", 0.0) or 0.0), 2)
+
+    for r in rows:
+        inv_no = str(r.get("invoice_no") or "")
+        if inv_no.startswith(RECALC_ADJUSTMENT_PREFIX):
+            r_amt = round(float(r.get("amount_egp", 0.0) or r.get("amount_fx", 0.0) or 0.0), 2)
+            if inv_no not in stored_map or stored_map[inv_no] != r_amt:
+                raise coded_error(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    SETTLEMENT_RESERVED_INVOICE_NO,
+                    f"رقم الفاتورة '{inv_no}' يبدأ بالبادئة المحجوزة '{RECALC_ADJUSTMENT_PREFIX}' ولا يمكن إنشاؤه أو تعديله إلا عبر محرك إعادة الاحتساب التلقائي.",
+                    invoice_no=inv_no,
+                )
 

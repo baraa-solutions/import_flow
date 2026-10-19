@@ -1973,6 +1973,129 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(exc.exception.status_code, 409)
         self.assertEqual(exc.exception.detail.get("code"), SETTLEMENT_DUPLICATE_ACTIVE)
 
+    def test_be09_t09_server_only_recalc_adjustment_prefix(self):
+        """
+        BE09-T09: Reserved RECALC-ADJ invoice numbers are server-only.
+        1. create with a RECALC-ADJ-* row -> 422 SETTLEMENT_RESERVED_INVOICE_NO.
+        2. PUT with a new or modified RECALC-ADJ-* row not stored -> 422, totals unchanged.
+        3. PUT resending a stored adjustment row with identical amount -> 200, total_expenses_egp unchanged.
+        """
+        from fastapi import HTTPException
+        from modules.financial_settlement.schemas import FinancialSettlementCreate, FinancialSettlementUpdate
+        from modules.financial_settlement.service import create_settlement_service, update_settlement_service
+        from modules.financial_settlement.validators import SETTLEMENT_RESERVED_INVOICE_NO
+
+        # Create a new ImportFile
+        imp = ImportFile(
+            import_file_code="IMP-FILE-BE09-T09",
+            company_id=1,
+            company_name="Test Company",
+            supplier_name="Global Supplier",
+            po_number="PO-BE09-T09",
+            is_active=True,
+        )
+        self.db.add(imp)
+        self.db.commit()
+        self.db.refresh(imp)
+
+        # 1. create with a RECALC-ADJ-* row -> 422 SETTLEMENT_RESERVED_INVOICE_NO
+        create_req = FinancialSettlementCreate(
+            import_file_id=imp.import_file_id,
+            incoterm_code="FOB",
+            expense_invoices=[
+                {
+                    "invoice_no": "RECALC-ADJ-freight_cost_egp",
+                    "category": "Freight",
+                    "provider_name": "Test Provider",
+                    "currency": "EGP",
+                    "amount_fx": -5000.0,
+                    "exchange_rate": 1.0,
+                    "amount_egp": -5000.0,
+                    "allocation_rule": "Volume-Based",
+                }
+            ],
+            item_landed_costs=[
+                {"item_code": "ITM-01", "item_name": "Valves", "qty": 10, "fob_unit_egp": 100.0}
+            ],
+        )
+        with self.assertRaises(HTTPException) as exc1:
+            create_settlement_service(self.db, create_req, actor="Test")
+        self.assertEqual(exc1.exception.status_code, 422)
+        self.assertEqual(exc1.exception.detail.get("code"), SETTLEMENT_RESERVED_INVOICE_NO)
+        self.assertEqual(exc1.exception.detail.get("invoice_no"), "RECALC-ADJ-freight_cost_egp")
+
+        # Create a valid settlement with one normal invoice and one stored adjustment row (-2,500)
+        stored_adj_row = {
+            "invoice_no": "RECALC-ADJ-freight_cost_egp",
+            "category": "Freight",
+            "provider_name": "Upstream Sync",
+            "currency": "EGP",
+            "amount_fx": -2500.0,
+            "exchange_rate": 1.0,
+            "amount_egp": -2500.0,
+            "allocation_rule": "Volume-Based",
+            "is_recalc_adjustment": True,
+        }
+        normal_inv = {
+            "invoice_no": "INV-FRT-99",
+            "category": "Freight",
+            "provider_name": "Maersk",
+            "currency": "EGP",
+            "amount_fx": 50000.0,
+            "exchange_rate": 1.0,
+            "amount_egp": 50000.0,
+            "allocation_rule": "Volume-Based",
+        }
+        rec = LandedCostSettlementRecord(
+            settlement_code="LCS-2026-T09-OK",
+            import_file_id=imp.import_file_id,
+            incoterm_code="FOB",
+            expense_invoices=[normal_inv, stored_adj_row],
+            item_landed_costs=[
+                {"item_code": "ITM-01", "item_name": "Valves", "qty": 10, "fob_unit_egp": 100.0, "fob_total_egp": 1000.0}
+            ],
+            total_fob_egp=1000.0,
+            total_expenses_egp=47500.0,
+            total_landed_cost_egp=48500.0,
+            status="Draft",
+            is_active=True,
+            accountant_name="Test User",
+        )
+        self.db.add(rec)
+        self.db.commit()
+        self.db.refresh(rec)
+
+        # 2. PUT with a new or tampered RECALC-ADJ row -> 422, totals unchanged
+        put_tampered = FinancialSettlementUpdate(
+            expense_invoices=[
+                normal_inv,
+                {
+                    "invoice_no": "RECALC-ADJ-freight_cost_egp",
+                    "category": "Freight",
+                    "provider_name": "Upstream Sync",
+                    "currency": "EGP",
+                    "amount_fx": -100000.0,
+                    "exchange_rate": 1.0,
+                    "amount_egp": -100000.0,
+                    "allocation_rule": "Volume-Based",
+                },
+            ]
+        )
+        with self.assertRaises(HTTPException) as exc2:
+            update_settlement_service(self.db, rec.settlement_id, put_tampered, actor="Test")
+        self.assertEqual(exc2.exception.status_code, 422)
+        self.assertEqual(exc2.exception.detail.get("code"), SETTLEMENT_RESERVED_INVOICE_NO)
+
+        self.db.refresh(rec)
+        self.assertEqual(rec.total_expenses_egp, 47500.0)
+
+        # 3. PUT resending the stored adjustment row of -2,500 unchanged -> 200, total_expenses_egp unchanged
+        put_ok = FinancialSettlementUpdate(
+            expense_invoices=[normal_inv, stored_adj_row]
+        )
+        updated = update_settlement_service(self.db, rec.settlement_id, put_ok, actor="Test")
+        self.assertEqual(updated.total_expenses_egp, 47500.0)
+
 
 if __name__ == "__main__":
     unittest.main()
