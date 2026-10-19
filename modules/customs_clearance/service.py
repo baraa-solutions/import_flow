@@ -461,6 +461,12 @@ def update_customs_clearance_service(
     record = get_customs_clearance_service(db, record_id)
     ensure_file_open(db, record.import_file_id)
     data = _normalize_clearance_update(schema.model_dump(exclude_unset=True))
+    duty_costing_fields = set(DUTY_COMPONENT_FIELDS) | {
+        "cif_base_amount", "customs_exchange_rate", "estimated_duty_total",
+        "total_duty_payable", "actual_duty_total", "duty_paid_amount", "delivery_order_fees",
+    }
+    if any(k in data for k in duty_costing_fields):
+        validate_settlement_open(db, record.import_file_id, "الرسوم الجمركية")
     protected = not_null_columns(CustomsClearanceRecord) | _MONEY_UPDATE_FIELDS
     nulls = sorted(name for name, value in data.items() if value is None and name in protected)
     if nulls:
@@ -509,6 +515,7 @@ def update_customs_clearance_service(
 def delete_customs_clearance_service(db: Session, record_id: int, user: str = SYSTEM_USER) -> bool:
     record = get_customs_clearance_service(db, record_id)
     ensure_file_open(db, record.import_file_id)
+    validate_settlement_open(db, record.import_file_id, "سجل التخليص الجمركي")
     record.is_active = False
     _touch(record, user)
     db.commit()
@@ -523,6 +530,7 @@ def restore_customs_clearance_service(db: Session, record_id: int, user: str = S
     if not record:
         raise HTTPException(status_code=404, detail="السجل المطلوب استعادته غير موجود.")
     ensure_file_open(db, record.import_file_id)
+    validate_settlement_open(db, record.import_file_id, "سجل التخليص الجمركي")
     other = repo.get_active_clearance_for_file(db, record.import_file_id, exclude_record_id=record.customs_clearance_id)
     if other:
         raise coded_error(
@@ -915,6 +923,7 @@ def assess_final_customs_duties_service(
     """CL-02: itemised duties, total (7 components, or the claim override), variance vs the estimate. Needs the
     file's clearance record with a registered declaration 46 (409). Then tasks, notification, STEP_15 advance."""
     _require_import_file(db, payload.import_file_id)
+    validate_settlement_open(db, payload.import_file_id, "الرسوم الجمركية النهائية")
 
     claim_no = (payload.nafeza_claim_number or "").strip()
     if len(claim_no) < 3:
@@ -1089,6 +1098,7 @@ def record_customs_duty_payment_service(
     """CL-03: needs the file's assessed record (409, never auto-created) and a payment covering the assessed
     total (400, partial payments are refused)."""
     _require_import_file(db, payload.import_file_id, "ملف الشحنة الاستيرادية المحدد غير موجود أو غير نشط.")
+    validate_settlement_open(db, payload.import_file_id, "سداد الرسوم الجمركية")
     receipt_no = payload.bank_receipt_no.strip()
     validate_bank_receipt_no(receipt_no)
     sadad_no = payload.sadad_number.strip()
@@ -1117,6 +1127,7 @@ def submit_duty_payment_service(
     estimated totals any more."""
     validate_bank_receipt_no(payload.bank_receipt_no)
     record = get_customs_clearance_service(db, record_id)
+    validate_settlement_open(db, record.import_file_id, "سداد الرسوم الجمركية")
     paid_amount = payload.duty_paid_amount if payload.duty_paid_amount is not None else payload.actual_duty_total
     if paid_amount is None or paid_amount <= 0:
         raise coded_error(

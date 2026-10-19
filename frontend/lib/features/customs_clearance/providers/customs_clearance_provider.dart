@@ -246,6 +246,21 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
     }
   }
 
+  Future<CustomsClearanceModel?> updateRecord(int recordId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/customs-clearance/$recordId',
+        data: payload,
+      );
+      final updated = CustomsClearanceModel.fromJson(response.data);
+      _invalidateRelated();
+      await refresh();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<CustomsClearanceModel?> submitDutyPayment(int recordId, Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(

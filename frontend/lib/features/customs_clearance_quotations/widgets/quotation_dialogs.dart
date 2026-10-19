@@ -102,8 +102,8 @@ Future<void> showCreateRfqDialog(
   );
   final commodityCtrl = TextEditingController();
   final hsCodeCtrl = TextEditingController();
-  final grossWeightCtrl = TextEditingController(text: '10000');
-  final cbmCtrl = TextEditingController(text: '30');
+  final grossWeightCtrl = TextEditingController();
+  final cbmCtrl = TextEditingController();
   int containersCount = 1;
   String shipmentType = 'Ocean FCL (40HQ)';
   String portName = initialPortName ?? 'Alexandria Port';
@@ -302,12 +302,12 @@ Future<void> showAddQuotationDialog(
   int? selectedProviderId = prefill?['provider_id'];
   String selectedProviderName = prefill?['provider_name'] ?? '';
 
-  final clearanceFeeCtrl = TextEditingController(text: prefill?['clearance_fee']?.toString() ?? '3000');
-  final inlandFeeCtrl = TextEditingController(text: prefill?['inland_transport_fee']?.toString() ?? '6000');
-  final inspectionFeeCtrl = TextEditingController(text: prefill?['inspection_fee']?.toString() ?? '1500');
-  final portExpCtrl = TextEditingController(text: prefill?['port_expenses']?.toString() ?? '2000');
-  final miscCtrl = TextEditingController(text: prefill?['miscellaneous_fee']?.toString() ?? '500');
-  final daysCtrl = TextEditingController(text: prefill?['transit_clearance_days']?.toString() ?? '3');
+  final clearanceFeeCtrl = TextEditingController(text: prefill?['clearance_fee']?.toString() ?? '');
+  final inlandFeeCtrl = TextEditingController(text: prefill?['inland_transport_fee']?.toString() ?? '');
+  final inspectionFeeCtrl = TextEditingController(text: prefill?['inspection_fee']?.toString() ?? '');
+  final portExpCtrl = TextEditingController(text: prefill?['port_expenses']?.toString() ?? '');
+  final miscCtrl = TextEditingController(text: prefill?['miscellaneous_fee']?.toString() ?? '');
+  final daysCtrl = TextEditingController(text: prefill?['transit_clearance_days']?.toString() ?? '');
   final remarksCtrl = TextEditingController(text: prefill?['notes']?.toString() ?? '');
   bool busy = false;
 
@@ -445,7 +445,7 @@ Future<void> showAddQuotationDialog(
                 portExpenses: double.tryParse(portExpCtrl.text) ?? 0.0,
                 miscellaneousFee: double.tryParse(miscCtrl.text) ?? 0.0,
                 totalCost: total,
-                estimatedTurnaroundDays: int.tryParse(daysCtrl.text) ?? 3,
+                estimatedTurnaroundDays: int.tryParse(daysCtrl.text) ?? 0,
                 remarks: remarksCtrl.text.trim().isNotEmpty ? remarksCtrl.text.trim() : null,
               );
               setDState(() => busy = true);

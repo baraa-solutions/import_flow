@@ -781,12 +781,12 @@ def estimate_multi_item_customs_duty_service(
     freight_rate_source: Optional[str] = None
 
     if request.has_freight_document and freight_curr != "EGP" and freight_foreign_amt > Decimal("0.00"):
-        if freight_curr == (request.currency or "").strip().upper():
-            freight_rate_used = effective_exchange_rate
-            freight_rate_source = "invoice_currency"
-        elif request.freight_exchange_rate is not None and request.freight_exchange_rate > Decimal("0.00"):
+        if request.freight_exchange_rate is not None and request.freight_exchange_rate > Decimal("0.00"):
             freight_rate_used = request.freight_exchange_rate
             freight_rate_source = "manual"
+        elif freight_curr == (request.currency or "").strip().upper():
+            freight_rate_used = effective_exchange_rate
+            freight_rate_source = "invoice_currency"
         else:
             freight_rate_used, _, _ = _customs_rate(db, freight_curr, on_date)
             freight_rate_source = "table"

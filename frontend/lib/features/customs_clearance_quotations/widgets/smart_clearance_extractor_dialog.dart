@@ -57,6 +57,7 @@ Future<void> showSmartClearanceExtractorDialog(
     builder: (ctx) => _SmartClearanceExtractorDialog(
       hostContext: context,
       hostRef: ref,
+      targetRfqId: targetRfqId,
       onExtracted: onExtracted,
     ),
   );
@@ -66,11 +67,13 @@ class _SmartClearanceExtractorDialog extends StatefulWidget {
   const _SmartClearanceExtractorDialog({
     required this.hostContext,
     required this.hostRef,
+    this.targetRfqId,
     this.onExtracted,
   });
 
   final BuildContext hostContext;
   final WidgetRef hostRef;
+  final int? targetRfqId;
   final Function(Map<String, dynamic> extracted)? onExtracted;
 
   @override

@@ -275,6 +275,74 @@ class TestCustomsClearanceModule(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertEqual(ctx.exception.detail["code"], "IMPORT_FILE_CLOSED")
 
+    def test_bew0_06_customs_locked_after_settlement_approval(self):
+        """BEW0-06: Customs duty assessment, payment, update, and deletion are rejected once settlement is Approved."""
+        from modules.financial_settlement.model import LandedCostSettlementRecord
+
+        # 1. Create active clearance record with Form 46
+        record = create_customs_clearance_service(
+            self.db,
+            CustomsClearanceCreate(
+                import_file_id=self.import_file_id,
+                declaration_46_no="DEC-46-BEW0",
+                customs_office_name="Alexandria Port",
+                channel_type="Yellow Channel",
+                import_duty_amount=10000.0,
+                vat_amount=14000.0,
+            ),
+        )
+        rec_id = record.customs_clearance_id
+
+        # 2. Create Approved landed-cost settlement
+        settlement = LandedCostSettlementRecord(
+            settlement_code="SET-2026-BEW0",
+            import_file_id=self.import_file_id,
+            status="Approved",
+            is_active=True,
+        )
+        self.db.add(settlement)
+        self.db.commit()
+
+        # 3. Assessment (CL-02) must be blocked
+        cl02_data = FinalDutyAssessmentSubmit(
+            import_file_id=self.import_file_id,
+            nafeza_claim_number="CLM-BEW0-001",
+            cif_base_amount=100000.0,
+            import_duty_amount=12000.0,
+            vat_amount=16800.0,
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            assess_final_customs_duties_service(self.db, cl02_data)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "CC_SETTLEMENT_LOCKED")
+
+        # 4. Duty payment must be blocked
+        pay_data = DutyPaymentSubmit(
+            bank_receipt_no="RCP-BEW0-001",
+            sadad_number="SAD-BEW0-001",
+            duty_paid_amount=24000.0,
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            submit_duty_payment_service(self.db, rec_id, pay_data)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "CC_SETTLEMENT_LOCKED")
+
+        # 5. Duty/costing update on clearance record must be blocked
+        with self.assertRaises(HTTPException) as ctx:
+            update_customs_clearance_service(
+                self.db, rec_id, CustomsClearanceUpdate(import_duty_amount=15000.0)
+            )
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "CC_SETTLEMENT_LOCKED")
+
+        # 6. Deletion of clearance record must be blocked
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_customs_clearance_service(self.db, rec_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "CC_SETTLEMENT_LOCKED")
+
+
 if __name__ == "__main__":
     unittest.main()
+
 

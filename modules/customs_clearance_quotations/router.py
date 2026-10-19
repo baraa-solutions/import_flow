@@ -39,7 +39,7 @@ can_manage = Depends(require_permission("quotations.manage"))
 @router.get("/rfqs", response_model=List[CustomsClearanceRFQResponse], dependencies=[can_view])
 def get_clearance_rfqs(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=2000),
     status: Optional[str] = None,
     port_name: Optional[str] = None,
     import_file_id: Optional[int] = None,
