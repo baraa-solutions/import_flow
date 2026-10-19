@@ -47,8 +47,11 @@ class CustomsTariffModel {
 
   final String? notes;
   final bool isActive;
+  final int totalVersions;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  bool get hasMultiplePhases => totalVersions > 1;
 
   const CustomsTariffModel({
     required this.tariffId,
@@ -74,6 +77,7 @@ class CustomsTariffModel {
     this.confidence,
     this.notes,
     required this.isActive,
+    this.totalVersions = 1,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -109,6 +113,7 @@ class CustomsTariffModel {
       confidence: json['confidence']?.toString(),
       notes: json['notes']?.toString(),
       isActive: json['is_active'] as bool? ?? true,
+      totalVersions: _numToInt(json['total_versions'], 1),
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import List, Optional, Tuple
 
 from sqlalchemy import or_
@@ -15,7 +15,11 @@ def get_tariff_by_id(db: Session, tariff_id: int) -> Optional[CustomsTariff]:
     return db.query(CustomsTariff).filter(CustomsTariff.tariff_id == tariff_id).first()
 
 
-def get_tariff_by_hs_code(db: Session, hs_code: str) -> Optional[CustomsTariff]:
+def get_tariff_by_hs_code(
+    db: Session, hs_code: str, on_date: Optional[date] = None
+) -> Optional[CustomsTariff]:
+    if on_date is not None:
+        return get_active_tariff_on_date(db, hs_code, on_date, strict=False)
     clean_hs = hs_code.strip()
     nodots = clean_hs.replace(".", "")
     formatted8 = f"{nodots[:4]}.{nodots[4:6]}.{nodots[6:8]}" if len(nodots) >= 8 else clean_hs
@@ -30,9 +34,18 @@ def get_tariff_by_hs_code(db: Session, hs_code: str) -> Optional[CustomsTariff]:
     if res:
         return res
     from sqlalchemy import func
-    return (
+    res = (
         db.query(CustomsTariff)
         .filter(func.replace(CustomsTariff.hs_code, '.', '') == nodots, CustomsTariff.is_active == True)
+        .order_by(CustomsTariff.effective_from.desc())
+        .first()
+    )
+    if res:
+        return res
+    # Fallback to latest version by effective_from if none marked active
+    return (
+        db.query(CustomsTariff)
+        .filter(func.replace(CustomsTariff.hs_code, '.', '') == nodots)
         .order_by(CustomsTariff.effective_from.desc())
         .first()
     )
@@ -96,39 +109,73 @@ def archive_and_create_new_tariff_version(
     db: Session, current_tariff: CustomsTariff, new_data: dict, effective_date: date
 ) -> CustomsTariff:
     """
-    سلسلة الأتمتة التاريخية (Addendum 3):
-    1. إغلاق السجل القديم بتحديد effective_to = effective_date.
-    2. إنشاء سجل جديد فعّال يبدأ من effective_date مع effective_to = NULL.
+    سلسلة الأتمتة التاريخية (Addendum 3 / BE67-T08 & ACC1-T08):
+    1. إغلاق السجل القديم بتحديد effective_to = effective_date - 1 يوم (لتفادي تداخل اليوم الواحد).
+    2. إنشاء سجل جديد فعّال يبدأ من effective_date.
+    3. الحفاظ على تاريخ سريان الاتفاقيات التفضيلية بإغلاق السابقة واستنساخ السارية للإصدار الجديد.
     """
-    current_tariff.effective_to = effective_date
-    current_tariff.is_active = False  # Mark historical version inactive for default list query
+    if effective_date > current_tariff.effective_from:
+        current_tariff.effective_to = effective_date - timedelta(days=1)
+    else:
+        current_tariff.effective_to = effective_date
+    current_tariff.is_active = False
 
     new_version_data = {
         "hs_code": current_tariff.hs_code,
         "hs_description": new_data.get("hs_description", current_tariff.hs_description),
-        "customs_category": current_tariff.customs_category,
+        "customs_category": new_data.get("customs_category", current_tariff.customs_category),
         "customs_duty_rate": new_data.get("customs_duty_rate", current_tariff.customs_duty_rate),
         "vat_rate": new_data.get("vat_rate", current_tariff.vat_rate),
         "schedule_tax_rate": new_data.get("schedule_tax_rate", current_tariff.schedule_tax_rate),
         "development_fee_rate": new_data.get("development_fee_rate", current_tariff.development_fee_rate),
         "import_fee_rate": new_data.get("import_fee_rate", current_tariff.import_fee_rate),
-        "requires_coo": current_tariff.requires_coo,
-        "requires_inspection": current_tariff.requires_inspection,
-        "requires_acid": current_tariff.requires_acid,
+        "customs_service_fee_rate": new_data.get("customs_service_fee_rate", current_tariff.customs_service_fee_rate),
+        "requires_coo": new_data.get("requires_coo", current_tariff.requires_coo),
+        "requires_inspection": new_data.get("requires_inspection", current_tariff.requires_inspection),
+        "requires_acid": new_data.get("requires_acid", current_tariff.requires_acid),
         "regulatory_authority": new_data.get("regulatory_authority", current_tariff.regulatory_authority),
         "prior_approval_note": new_data.get("prior_approval_note", current_tariff.prior_approval_note),
         "effective_from": effective_date,
-        "effective_to": None,
+        "effective_to": new_data.get("effective_to", None),
         "source_url": new_data.get("source_url", current_tariff.source_url),
         "last_verified_date": date.today(),
         "verified_by": new_data.get("verified_by", "System Admin"),
         "confidence": new_data.get("confidence", "verified_manual"),
-        "notes": current_tariff.notes,
+        "notes": new_data.get("notes", current_tariff.notes),
         "is_active": True,
     }
 
     new_tariff = CustomsTariff(**new_version_data)
     db.add(new_tariff)
+
+    # BE67-T08 & ACC1-T08: Preserve preferential agreements for the new tariff version
+    old_agreements = (
+        db.query(PreferentialAgreement)
+        .filter(
+            PreferentialAgreement.hs_code == current_tariff.hs_code,
+            PreferentialAgreement.effective_to == None,
+        )
+        .all()
+    )
+    for old_ag in old_agreements:
+        old_ag.effective_to = current_tariff.effective_to
+        new_ag = PreferentialAgreement(
+            hs_code=old_ag.hs_code,
+            agreement_name=old_ag.agreement_name,
+            reduction_type=old_ag.reduction_type,
+            reduction_percentage=old_ag.reduction_percentage,
+            preferential_duty_rate=old_ag.preferential_duty_rate,
+            publication_notice=old_ag.publication_notice,
+            required_document=old_ag.required_document,
+            origin_countries=old_ag.origin_countries,
+            conditions_note=old_ag.conditions_note,
+            effective_from=effective_date,
+            effective_to=None,
+            source_url=old_ag.source_url,
+            created_by=new_data.get("verified_by", "System Admin"),
+        )
+        db.add(new_ag)
+
     db.flush()
     return new_tariff
 

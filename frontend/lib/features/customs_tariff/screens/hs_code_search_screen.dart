@@ -472,6 +472,32 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
+                                        if (item.hasMultiplePhases) ...[
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.amber.shade50,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.amber.shade400),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.timeline_rounded, size: 11, color: Colors.amber.shade900),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  '${item.totalVersions} مراحل',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.amber.shade900,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                        ],
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
@@ -716,6 +742,34 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
             ),
           ),
 
+          if (tariff.hasMultiplePhases)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.amber.shade50,
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.amber.shade800, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'تنبيه زمني: هذا البند له ${tariff.totalVersions} مراحل تاريخية بتعريفات واشتراطات مختلفة. يمكنك مراجعة كافة المراحل والاشتراطات بالضغط على تبويب "تاريخ التحديثات".',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber.shade900,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _tabController.animateTo(3),
+                    icon: const Icon(Icons.arrow_forward, size: 14),
+                    label: const Text('عرض المراحل', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+
           // Adaptive Tab Navigation
           Expanded(
             child: AdaptiveTabScaffold(
@@ -851,6 +905,12 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                   final dev = ver['development_fee_rate'] ?? 0.0;
                   final agCount = ver['agreements_count'] ?? 0;
                   final createdAt = ver['created_at'] != null ? ver['created_at'].toString().split('T').first : '—';
+                  final stageLabel = ver['stage_label'] as String?;
+                  final requiresAcid = ver['requires_acid'] == true;
+                  final requiresCoo = ver['requires_coo'] == true;
+                  final requiresInspection = ver['requires_inspection'] == true;
+                  final authority = ver['regulatory_authority'] as String?;
+                  final priorApproval = ver['prior_approval_note'] as String?;
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -887,6 +947,25 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                                       color: isActive ? AppTheme.emerald : Colors.grey.shade700,
                                     ),
                                   ),
+                                  if (stageLabel != null) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade50,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: Colors.blue.shade300),
+                                      ),
+                                      child: Text(
+                                        stageLabel,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                               Container(
@@ -957,6 +1036,46 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                               ),
                             ],
                           ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              _reqChip(l.hsReqAcidSystem, requiresAcid),
+                              _reqChip(l.hsReqCertificateOfOrigin, requiresCoo),
+                              _reqChip(l.hsReqQualityInspection, requiresInspection),
+                              if (authority != null && authority.isNotEmpty)
+                                Chip(
+                                  avatar: const Icon(Icons.account_balance, size: 14, color: Colors.purple),
+                                  label: Text(authority),
+                                  backgroundColor: Colors.purple.shade50,
+                                  labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.purple),
+                                ),
+                            ],
+                          ),
+                          if (priorApproval != null && priorApproval.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.amber.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.info_outline, size: 14, color: AppTheme.orange),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      priorApproval,
+                                      style: const TextStyle(fontSize: 10, color: AppTheme.charcoal),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

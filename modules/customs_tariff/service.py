@@ -28,6 +28,7 @@ from .schemas import (
 from .validators import (
     validate_effective_date_range,
     validate_no_duplicate_hs_code,
+    validate_no_overlapping_hs_code_dates,
     validate_tariff_exists,
 )
 
@@ -95,11 +96,18 @@ def _agreement_duty_rate(standard_rate: Decimal, ag: Any) -> Decimal:
 # ==================================================
 
 def create_tariff_service(db: Session, data: CustomsTariffCreate) -> CustomsTariff:
-    validate_no_duplicate_hs_code(db, data.hs_code)
+    validate_no_duplicate_hs_code(
+        db,
+        data.hs_code,
+        effective_from=data.effective_from,
+        effective_to=data.effective_to,
+    )
     validate_effective_date_range(data.effective_from, data.effective_to)
     tariff = repository.create_tariff(db, data.model_dump())
     db.commit()
     db.refresh(tariff)
+    versions = repository.get_all_tariff_versions_by_hs_code(db, tariff.hs_code)
+    tariff.total_versions = len(versions)
     return tariff
 
 
@@ -110,7 +118,7 @@ def get_all_tariffs_service(
     skip: int = 0,
     limit: Optional[int] = None,
 ) -> Tuple[List[CustomsTariff], int]:
-    return repository.get_all_tariffs(
+    tariffs, total = repository.get_all_tariffs(
         db,
         include_inactive=include_inactive,
         search=search,
@@ -118,6 +126,18 @@ def get_all_tariffs_service(
         limit=limit,
         category_values=customs_category_search_values(search),
     )
+    if tariffs:
+        hs_codes = list({t.hs_code for t in tariffs})
+        from sqlalchemy import func
+        counts = dict(
+            db.query(CustomsTariff.hs_code, func.count(CustomsTariff.tariff_id))
+            .filter(CustomsTariff.hs_code.in_(hs_codes))
+            .group_by(CustomsTariff.hs_code)
+            .all()
+        )
+        for t in tariffs:
+            t.total_versions = counts.get(t.hs_code, 1)
+    return tariffs, total
 
 
 def customs_category_search_values(search: Optional[str]) -> List[str]:
@@ -137,13 +157,19 @@ def get_tariff_by_id_service(db: Session, tariff_id: int) -> CustomsTariff:
     tariff = repository.get_tariff_by_id(db, tariff_id)
     if not tariff:
         raise HTTPException(status_code=404, detail="Customs Tariff record not found")
+    versions = repository.get_all_tariff_versions_by_hs_code(db, tariff.hs_code)
+    tariff.total_versions = len(versions)
     return tariff
 
 
-def get_tariff_by_hs_code_service(db: Session, hs_code: str) -> CustomsTariff:
-    tariff = repository.get_tariff_by_hs_code(db, hs_code)
+def get_tariff_by_hs_code_service(
+    db: Session, hs_code: str, on_date: Optional[date] = None
+) -> CustomsTariff:
+    tariff = repository.get_tariff_by_hs_code(db, hs_code, on_date=on_date)
     if not tariff:
         raise HTTPException(status_code=404, detail=f"Customs Tariff for HS Code '{hs_code}' not found")
+    versions = repository.get_all_tariff_versions_by_hs_code(db, hs_code)
+    tariff.total_versions = len(versions)
     return tariff
 
 
@@ -160,11 +186,57 @@ def update_tariff_service(
         eff_from = update_dict.get("effective_from", tariff.effective_from)
         eff_to = update_dict.get("effective_to", tariff.effective_to)
         validate_effective_date_range(eff_from, eff_to)
+        validate_no_overlapping_hs_code_dates(
+            db,
+            hs_code=tariff.hs_code,
+            effective_from=eff_from,
+            effective_to=eff_to,
+            exclude_id=tariff_id,
+        )
 
-    updated = repository.update_tariff(db, tariff_id, update_dict)
+    # Check if rate or regulatory values have changed
+    has_rate_or_req_change = False
+    rate_and_req_fields = [
+        "customs_duty_rate",
+        "vat_rate",
+        "schedule_tax_rate",
+        "development_fee_rate",
+        "import_fee_rate",
+        "customs_service_fee_rate",
+        "requires_coo",
+        "requires_inspection",
+        "requires_acid",
+        "regulatory_authority",
+        "prior_approval_note",
+    ]
+    for field in rate_and_req_fields:
+        if field in update_dict:
+            curr_val = getattr(tariff, field)
+            new_val = update_dict[field]
+            if isinstance(curr_val, Decimal) or isinstance(new_val, Decimal):
+                if Decimal(str(curr_val or 0)) != Decimal(str(new_val or 0)):
+                    has_rate_or_req_change = True
+                    break
+            elif curr_val != new_val:
+                has_rate_or_req_change = True
+                break
+
+    eff_date = update_dict.get("effective_from") or date.today()
+
+    if has_rate_or_req_change and eff_date > tariff.effective_from:
+        # BE67-T08 & ACC1-T08: Archive old version to protect past confirmed cost snapshots
+        result = repository.archive_and_create_new_tariff_version(
+            db, tariff, update_dict, effective_date=eff_date
+        )
+    else:
+        # In-place update (same day or metadata only)
+        result = repository.update_tariff(db, tariff_id, update_dict)
+
     db.commit()
-    db.refresh(updated)
-    return updated
+    db.refresh(result)
+    versions = repository.get_all_tariff_versions_by_hs_code(db, result.hs_code)
+    result.total_versions = len(versions)
+    return result
 
 
 def delete_tariff_service(db: Session, tariff_id: int) -> CustomsTariff:
@@ -1267,24 +1339,34 @@ def get_tariff_version_history_service(db: Session, hs_code: str) -> dict:
 
     version_items = []
     for idx, v in enumerate(versions):
-        agreements = repository.get_agreements_by_hs_code(db, v.hs_code)
+        agreements = repository.get_agreements_by_hs_code(db, v.hs_code, on_date=v.effective_from)
+        version_num = len(versions) - idx
         version_items.append({
             "tariff_id": v.tariff_id,
             "hs_code": v.hs_code,
             "hs_description": v.hs_description,
+            "customs_category": v.customs_category,
+            "version_number": version_num,
+            "stage_label": f"المرحلة {version_num}: من {v.effective_from} إلى {v.effective_to or 'الآن (ساري)'}",
             "customs_duty_rate": float(v.customs_duty_rate) if v.customs_duty_rate is not None else 0.0,
             "vat_rate": float(v.vat_rate) if v.vat_rate is not None else 14.0,
             "schedule_tax_rate": float(v.schedule_tax_rate) if v.schedule_tax_rate is not None else 0.0,
             "development_fee_rate": float(v.development_fee_rate) if v.development_fee_rate is not None else 0.0,
             "import_fee_rate": float(v.import_fee_rate) if v.import_fee_rate is not None else 0.0,
             "customs_service_fee_rate": float(v.customs_service_fee_rate) if v.customs_service_fee_rate is not None else 1.0,
+            # Regulatory requirements (الاشتراطات الجمركية والرقابية لكل مرحلة)
+            "requires_coo": bool(v.requires_coo),
+            "requires_inspection": bool(v.requires_inspection),
+            "requires_acid": bool(v.requires_acid),
             "regulatory_authority": v.regulatory_authority,
             "prior_approval_note": v.prior_approval_note,
+            "notes": v.notes,
             "effective_from": v.effective_from.isoformat() if v.effective_from else None,
             "effective_to": v.effective_to.isoformat() if v.effective_to else None,
             "created_at": v.created_at.isoformat() if v.created_at else None,
             "updated_at": v.updated_at.isoformat() if v.updated_at else None,
-            "is_current_active": v.is_active,
+            "is_current_active": bool(v.is_active),
+            "is_current": bool(v.is_active),
             "agreements_count": len(agreements),
             "agreements": [
                 {

@@ -1,3 +1,4 @@
+from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -203,12 +204,16 @@ def export_tariffs_pdf(db: Session = Depends(get_db)):
 
 
 @customs_tariff_router.get("/hs/{hs_code}", response_model=CustomsTariffResponse, dependencies=[can_view])
-def get_tariff_by_hs_code(hs_code: str, db: Session = Depends(get_db)):
-    cache_key = f"customs_tariff:hs:{hs_code}"
+def get_tariff_by_hs_code(
+    hs_code: str,
+    on_date: Optional[date] = Query(None, description="تاريخ الاستعلام لتحديد الإصدار الساري في ذلك التاريخ"),
+    db: Session = Depends(get_db),
+):
+    cache_key = f"customs_tariff:hs:{hs_code}:{on_date}"
     cached = memory_cache.get(cache_key)
     if cached is not None:
         return cached
-    res = get_tariff_by_hs_code_service(db, hs_code)
+    res = get_tariff_by_hs_code_service(db, hs_code, on_date=on_date)
     memory_cache.set(cache_key, res, ttl_seconds=300)
     return res
 
