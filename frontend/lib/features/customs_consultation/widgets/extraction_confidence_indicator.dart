@@ -26,10 +26,13 @@ class ExtractionConfidenceIndicator extends StatelessWidget {
   });
 
   ExtractionConfidenceLevel get level {
-    if (isUncoded || (confidence != null && confidence! < 60)) {
+    final double? normConf = (confidence != null && confidence! <= 1.0 && confidence! > 0)
+        ? confidence! * 100
+        : confidence;
+    if (isUncoded || (normConf != null && normConf < 60)) {
       return ExtractionConfidenceLevel.uncoded;
     }
-    if (confidence != null && confidence! >= 85) {
+    if (normConf != null && normConf >= 85) {
       return ExtractionConfidenceLevel.high;
     }
     return ExtractionConfidenceLevel.medium;
@@ -44,7 +47,10 @@ class ExtractionConfidenceIndicator extends StatelessWidget {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final l = context.l10n;
     final currentLevel = level;
-    final score = confidence?.round() ?? (currentLevel == ExtractionConfidenceLevel.uncoded ? 50 : 80);
+    final double? normConf = (confidence != null && confidence! <= 1.0 && confidence! > 0)
+        ? confidence! * 100
+        : confidence;
+    final score = normConf?.round() ?? (currentLevel == ExtractionConfidenceLevel.uncoded ? 50 : 80);
 
     Color badgeColor;
     IconData icon;
@@ -58,12 +64,12 @@ class ExtractionConfidenceIndicator extends StatelessWidget {
         break;
       case ExtractionConfidenceLevel.medium:
         badgeColor = AppTheme.wcagOrange;
-        icon = Icons.lightbulb_outline_rounded;
+        icon = Icons.warning_amber_rounded;
         statusTitle = isAr ? 'مطابقة مقترحة تحتاج مراجعة ($score%)' : 'Suggested Match - Review Needed ($score%)';
         break;
       case ExtractionConfidenceLevel.uncoded:
         badgeColor = AppTheme.crimson;
-        icon = Icons.warning_amber_rounded;
+        icon = Icons.help_outline_rounded;
         statusTitle = isAr
             ? (confidence != null ? '${l.needsCodingBadge} ($score%)' : l.needsCodingBadge)
             : (confidence != null ? 'Needs Coding ($score%)' : 'Needs Coding');

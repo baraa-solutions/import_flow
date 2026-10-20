@@ -74,9 +74,18 @@ class ExtractionSummaryDialog extends StatelessWidget {
     final l = context.l10n;
 
     final totalItems = items.length;
-    final highConfidenceItems = items.where((i) => !i.isUncoded && i.confidence >= 85).length;
-    final mediumConfidenceItems = items.where((i) => !i.isUncoded && i.confidence >= 60 && i.confidence < 85).length;
-    final uncodedItems = items.where((i) => i.isUncoded || i.confidence < 60).length;
+    final highConfidenceItems = items.where((i) {
+      final double norm = (i.confidence <= 1.0 && i.confidence > 0) ? i.confidence * 100 : i.confidence;
+      return !i.isUncoded && norm >= 85;
+    }).length;
+    final mediumConfidenceItems = items.where((i) {
+      final double norm = (i.confidence <= 1.0 && i.confidence > 0) ? i.confidence * 100 : i.confidence;
+      return !i.isUncoded && norm >= 60 && norm < 85;
+    }).length;
+    final uncodedItems = items.where((i) {
+      final double norm = (i.confidence <= 1.0 && i.confidence > 0) ? i.confidence * 100 : i.confidence;
+      return i.isUncoded || norm < 60;
+    }).length;
 
     final mediaQuery = MediaQuery.of(context);
     final dialogWidth = (mediaQuery.size.width * 0.75).clamp(600.0, 850.0);
@@ -109,7 +118,7 @@ class ExtractionSummaryDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isAr ? 'ملخص نتائج الاستخراج بالذكاء الاصطناعي' : 'AI Extraction Results Summary',
+                        isAr ? 'ملخص استخراج البيانات بالذكاء الاصطناعي' : 'AI Extraction Results Summary',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                       ),
                       const SizedBox(height: 2),
@@ -223,10 +232,14 @@ class ExtractionSummaryDialog extends StatelessWidget {
                   isAr ? 'معاينة البنود وحالة المطابقة:' : 'Extracted Items & Match Status:',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                 ),
-                const Spacer(),
-                Text(
-                  isAr ? 'يرجى مراجعة البنود قبل اعتماد إدراجها بالنموذج' : 'Please review items before confirming import',
-                  style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isAr ? 'يرجى مراجعة البنود قبل اعتماد إدراجها بالنموذج' : 'Please review items before confirming import',
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -319,9 +332,13 @@ class ExtractionSummaryDialog extends StatelessWidget {
                                 const SizedBox(width: 10),
 
                                 // Category & Unit
-                                Text(
-                                  '${item.category} • ${item.unitType}',
-                                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                Flexible(
+                                  flex: 2,
+                                  child: Text(
+                                    '${item.category} • ${item.unitType}',
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                                 const SizedBox(width: 14),
 
