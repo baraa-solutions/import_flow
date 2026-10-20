@@ -179,6 +179,7 @@ class TestCLO01InvoicesAggregation:
 
         # 7. Demurrage & Detention (TR-02)
         demurrage = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-001",
             import_file_id=imp.import_file_id,
             carrier_name="MSC",

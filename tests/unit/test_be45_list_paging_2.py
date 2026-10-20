@@ -203,6 +203,7 @@ class TestBE45Paging2AndRadar:
         db_session.commit()
 
         t_active = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-0001",
             import_file_id=1,
             carrier_name="MSC",
@@ -215,6 +216,7 @@ class TestBE45Paging2AndRadar:
             is_active=True,
         )
         t_none_status = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-0002",
             import_file_id=1,
             carrier_name="Maersk",
@@ -227,6 +229,7 @@ class TestBE45Paging2AndRadar:
             is_active=True,
         )
         t_returned = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-0003",
             import_file_id=1,
             carrier_name="CMA",
@@ -239,6 +242,7 @@ class TestBE45Paging2AndRadar:
             is_active=True,
         )
         t_closed = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-0004",
             import_file_id=1,
             carrier_name="Hapag",
@@ -279,6 +283,7 @@ class TestBE45Paging2AndRadar:
         # Create 5 active trackings
         for i in range(1, 6):
             t = DemurrageTracking(
+                port_name="Alexandria",
                 tracking_code=f"DND-2026-{i:04d}",
                 import_file_id=1,
                 carrier_name=f"Carrier {i}",
@@ -315,6 +320,7 @@ class TestBE45Paging2AndRadar:
             # Add 5 more trackings and verify that call count remains constant per request
             for j in range(6, 11):
                 t2 = DemurrageTracking(
+                    port_name="Alexandria",
                     tracking_code=f"DND-2026-{j:04d}",
                     import_file_id=1,
                     carrier_name=f"Carrier {j}",

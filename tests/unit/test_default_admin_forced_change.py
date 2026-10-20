@@ -246,6 +246,8 @@ def test_exempt_routes_work_while_change_is_required(forced_client):
     refreshed = client.post("/api/v1/auth/refresh")
     assert refreshed.status_code == 200
     assert refreshed.json()["user"]["must_change_password"] is True
+    # BEX-T08: refresh revokes the old token, so logout uses the refreshed one.
+    client.headers.update({"Authorization": f"Bearer {refreshed.json()['access_token']}"})
     assert client.post("/api/v1/auth/logout").status_code == 200
 
 
@@ -259,7 +261,9 @@ def test_change_password_success_clears_flag_and_unlocks_routes(forced_client):
     assert body["must_change_password"] is False
     assert body["user_id"] == user_id and body["username"] == "admin"
 
-    # Same token keeps working, now on every route.
+    # BEX-T08: the password change bumps token_version; the response carries the new token, which works everywhere.
+    assert body["access_token"]
+    client.headers.update({"Authorization": f"Bearer {body['access_token']}"})
     assert client.get("/api/v1/currencies").status_code == 200
     assert client.get("/api/v1/purchase-orders").status_code == 200
     assert client.get("/api/v1/auth/users").status_code == 200
@@ -338,6 +342,7 @@ def test_regular_user_without_flag_is_unaffected_and_can_change_password(api):
     assert client.get("/api/v1/auth/me").json()["must_change_password"] is False
     res = client.post(CHANGE_URL, json={"current_password": "Operator-123", "new_password": "Operator-456"})
     assert res.status_code == 200 and res.json()["must_change_password"] is False
+    client.headers.update({"Authorization": f"Bearer {res.json()['access_token']}"})  # BEX-T08: new token version
     # No extra permission is needed, but a permission-gated route still checks the permission.
     assert client.get("/api/v1/auth/users").status_code == 403
     assert client.get("/api/v1/auth/users").json()["detail"] != FORCED_DETAIL

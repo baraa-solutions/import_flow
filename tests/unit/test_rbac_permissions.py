@@ -69,7 +69,12 @@ class TestRBACPermissionsBackend(unittest.TestCase):
         Base.metadata.drop_all(self.engine)
 
     def _create_token_header(self, user: User) -> dict:
-        token = create_access_token({"sub": str(user.user_id), "username": user.username, "role": user.role})
+        # BEX-T08: tokens carry the user's current token_version ("tv"); grants and role changes bump it.
+        fresh = self.db.get(User, user.user_id)
+        if fresh is not None:
+            self.db.refresh(fresh)
+        tv = (fresh.token_version if fresh is not None else user.token_version) or 0
+        token = create_access_token({"sub": str(user.user_id), "username": user.username, "role": user.role, "tv": tv})
         return {"Authorization": f"Bearer {token}"}
 
     # ─── 1. Deny by Default Tests ─────────────────────────────────────────────
