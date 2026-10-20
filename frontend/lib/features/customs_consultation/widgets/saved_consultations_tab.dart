@@ -154,7 +154,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
     );
   }
 
-  Future<void> _handleDeleteOrRestore(BuildContext context, CustomsConsultationModel session) async {
+  Future<void> _handleDeleteOrRestore(CustomsConsultationModel session) async {
     final l = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     if (session.isActive == false) {
@@ -203,7 +203,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
           if (mounted) {
             messenger.showSnackBar(
               SnackBar(
-                content: Text('❌ ${ApiErrorText.of(context.l10n, e)}'),
+                content: Text('❌ ${ApiErrorText.of(l, e)}'),
                 backgroundColor: AppTheme.crimson,
               ),
             );
@@ -256,7 +256,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
           if (mounted) {
             messenger.showSnackBar(
               SnackBar(
-                content: Text('❌ ${ApiErrorText.of(context.l10n, e)}'),
+                content: Text('❌ ${ApiErrorText.of(l, e)}'),
                 backgroundColor: AppTheme.crimson,
               ),
             );
@@ -687,7 +687,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                     name: 'Customs_Consultation_${session.consultationCode}',
                                                   );
                                                 },
-                                                onDelete: () => _handleDeleteOrRestore(context, session),
+                                                onDelete: () => _handleDeleteOrRestore(session),
                                                 deleteTooltip: session.isActive == false ? l.restoreDeletedTooltip : l.deleteStudyTooltip,
                                               ),
                                               const SizedBox(width: 4),
@@ -1105,7 +1105,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                             name: 'Customs_Consultation_${session.consultationCode}',
                           );
                         },
-                        onDelete: () => _handleDeleteOrRestore(context, session),
+                        onDelete: () => _handleDeleteOrRestore(session),
                         deleteTooltip: session.isActive == false ? l.restoreDeletedTooltip : l.deleteStudyTooltip,
                       ),
                       IconButton(

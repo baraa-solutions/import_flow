@@ -1,4 +1,4 @@
-﻿"""
+"""
 Expense Catalog Schemas (AI-EXPENSE-CATALOG-002)
 Pydantic schemas for Coded Reference Expense Catalog operations.
 """
@@ -43,6 +43,33 @@ class ExpenseCatalogResponse(ExpenseCatalogBase):
 
 class AddPatternRequest(BaseModel):
     pattern: str = Field(..., min_length=2, max_length=255, description="New phrasing or synonym to add to recognition_patterns")
+
+
+class BrokerMappingCreate(BaseModel):
+    broker_name: Optional[str] = Field(None, max_length=200, description="Broker name or empty for global")
+    raw_item_name: str = Field(..., min_length=2, max_length=255, description="Extracted raw item name")
+    catalog_code: str = Field(..., max_length=30, description="Canonical catalog code to map to")
+    canonical_name_ar: Optional[str] = Field(None, max_length=255)
+    canonical_name_en: Optional[str] = Field(None, max_length=255)
+    category: Optional[str] = Field(None, max_length=50)
+    unit_type: Optional[str] = Field(None, max_length=30)
+
+
+class BrokerMappingResponse(BaseModel):
+    broker_name: str
+    broker_key: str
+    raw_item_name: str
+    item_key: str
+    catalog_code: str
+    code: str
+    canonical_name_ar: str
+    canonical_name_en: Optional[str] = None
+    category: str
+    unit_type: str = "fixed"
+    confidence_score: float = 1.0
+    match_confidence: str = "high"
+    source: str = "broker_memory"
+    updated_at: Optional[str] = None
 
 
 class ExpenseCatalogSeedItem(BaseModel):

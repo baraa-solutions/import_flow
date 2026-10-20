@@ -937,7 +937,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         setDlgState(() => isSaving = false);
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
+                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(l, e)}'), backgroundColor: AppTheme.crimson),
                           );
                         }
                       }
@@ -998,7 +998,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         setDlgState(() => isDeleting = false);
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
+                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(l, e)}'), backgroundColor: AppTheme.crimson),
                           );
                         }
                       }
@@ -1142,7 +1142,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         setDlgState(() => isSaving = false);
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
+                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(l, e)}'), backgroundColor: AppTheme.crimson),
                           );
                         }
                       }

@@ -14,6 +14,10 @@ import '../providers/customs_consultation_provider.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/localization/api_error_text.dart';
+import '../utils/customs_expense_group_helper.dart';
+import 'quick_expense_coding_dialog.dart';
+import 'extraction_confidence_indicator.dart';
+import 'extraction_summary_dialog.dart';
 
 String getCategoryLabel(String category, BuildContext context) {
   final isAr = Localizations.localeOf(context).languageCode == 'ar';
@@ -308,6 +312,8 @@ void showPriceListFormDialog(
           itm['code'] = bestExtItem['code'];
           itm['is_uncoded'] = bestExtItem['is_uncoded'] == true;
         }
+        itm['confidence'] = (bestExtItem['confidence'] as num?)?.toDouble() ?? bestScore.toDouble();
+        itm['raw_extracted_text'] = ((bestExtItem['item_name'] ?? bestExtItem['expense_name']) as String? ?? '').trim();
         matchedExtractedIndices.add(bestExtIdx);
       }
 
@@ -316,16 +322,28 @@ void showPriceListFormDialog(
         // IMPORTANT: NEVER overwrite LCL with cFee (2500)!
         if (cFee != null && cFee > 0 && name.contains('تخليص') && (name.contains('40') || name.contains('20')) && !name.contains('LCL')) {
           foundPrice = cFee;
+          itm['confidence'] = 90.0;
+          itm['raw_extracted_text'] = 'أتعاب تخليص جمركي';
         } else if (inlandFee != null && inlandFee > 0 && (name.contains('نقل') || name.contains('شاحنة')) && name.contains('40')) {
           foundPrice = inlandFee;
+          itm['confidence'] = 90.0;
+          itm['raw_extracted_text'] = 'نقل داخلي 40 قدم';
         } else if (inlandFee != null && inlandFee > 0 && (name.contains('نقل') || name.contains('شاحنة')) && name.contains('20') && !name.contains('20*2')) {
           foundPrice = inlandFee * 0.8;
+          itm['confidence'] = 85.0;
+          itm['raw_extracted_text'] = 'نقل داخلي 20 قدم';
         } else if (inspFee != null && inspFee > 0 && (name.contains('فحص') || name.contains('واردات') || name.contains('إيباك'))) {
           foundPrice = inspFee;
+          itm['confidence'] = 90.0;
+          itm['raw_extracted_text'] = 'فحص وإجراءات جمركية';
         } else if (portFee != null && portFee > 0 && name.contains('أول حاوية')) {
           foundPrice = portFee;
+          itm['confidence'] = 88.0;
+          itm['raw_extracted_text'] = 'مصاريف ميناء';
         } else if (miscFee != null && miscFee > 0 && (name.contains('بريد') || name.contains('دمغات') || name.contains('نثريات'))) {
           foundPrice = miscFee;
+          itm['confidence'] = 85.0;
+          itm['raw_extracted_text'] = 'رسوم ودمغات إدارية';
         }
       }
 
@@ -359,10 +377,14 @@ void showPriceListFormDialog(
           return calculateMatchScore(existingName, extName) >= 80;
         });
         if (!alreadyInItems) {
+          final isUncoded = extItem['is_uncoded'] == true || extItem['code'] == null;
+          final conf = (extItem['confidence'] as num?)?.toDouble() ?? (isUncoded ? 50.0 : 75.0);
           itemsState.insert(0, {
             'expense_type_id': null,
             'code': extItem['code'],
-            'is_uncoded': extItem['is_uncoded'] == true,
+            'is_uncoded': isUncoded,
+            'confidence': conf,
+            'raw_extracted_text': extName,
             'expense_name': extName,
             'category': (extItem['category']?.toString() ?? 'Other Fees').split('(').first.trim(),
             'unit_type': (((extItem['pricing_unit'] ?? extItem['unit_type'])?.toString()) ?? 'Per Shipment').split('(').first.trim(),
@@ -383,6 +405,9 @@ void showPriceListFormDialog(
       itemsState.add({
         'item_id': itm.itemId,
         'expense_type_id': itm.expenseTypeId,
+        'code': itm.code,
+        'is_uncoded': itm.isUncoded,
+        'price_type': itm.priceType,
         'expense_name': itm.expenseName,
         'category': itm.category,
         'unit_type': itm.unitType,
@@ -392,12 +417,17 @@ void showPriceListFormDialog(
         'max_price': itm.maxPrice,
         'notes': itm.notes ?? '',
         'is_active': itm.isActive,
+        'confidence': itm.confidence,
+        'raw_extracted_text': itm.rawExtractedText,
       });
     }
   } else {
     for (final exp in catalog) {
       itemsState.add({
         'expense_type_id': exp.expenseId,
+        'code': exp.expenseCode,
+        'is_uncoded': false,
+        'price_type': 'fixed',
         'expense_name': exp.nameAr,
         'category': exp.category,
         'unit_type': exp.defaultUnit,
@@ -425,6 +455,21 @@ void showPriceListFormDialog(
     }
   }
 
+  for (var itm in itemsState) {
+    if (itm['price_type'] == null) {
+      final stdP = (itm['standard_price'] as num?)?.toDouble() ?? 0.0;
+      final minP = (itm['min_price'] as num?)?.toDouble();
+      final maxP = (itm['max_price'] as num?)?.toDouble();
+      if (minP != null || maxP != null) {
+        itm['price_type'] = 'range';
+      } else if (stdP == 0.0) {
+        itm['price_type'] = 'negotiable';
+      } else {
+        itm['price_type'] = 'fixed';
+      }
+    }
+  }
+
   // Pre-fill broker from initialExtractedData if provided
   if (initialExtractedData != null && !isEditing) {
     final bName = (initialExtractedData['broker_name'] as String?)?.toLowerCase() ?? '';
@@ -439,6 +484,8 @@ void showPriceListFormDialog(
     }
   }
 
+  final usdRateCtrl = TextEditingController();
+  final Set<CustomsExpenseGroup> expandedGroups = {...CustomsExpenseGroup.values};
   String itemSearchQuery = '';
   String selectedCategoryFilter = 'All';
   bool isSaving = false;
@@ -1211,6 +1258,7 @@ void showPriceListFormDialog(
         final mediaQuery = MediaQuery.of(ctx);
         final dialogWidth = (mediaQuery.size.width * 0.92).clamp(750.0, 1050.0);
         final dialogHeight = (mediaQuery.size.height * 0.88).clamp(420.0, 750.0);
+        final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
 
         return CallbackShortcuts(
           bindings: {
@@ -1374,9 +1422,36 @@ void showPriceListFormDialog(
                               ],
                             ),
                             const SizedBox(height: 8),
-                            TextFormField(
-                              controller: notesCtrl,
-                              decoration: InputDecoration(labelText: l.generalTermsAndNotesField, isDense: true, border: const OutlineInputBorder()),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: TextFormField(
+                                    controller: notesCtrl,
+                                    decoration: InputDecoration(
+                                      labelText: l.generalTermsAndNotesField,
+                                      isDense: true,
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 1,
+                                  child: TextFormField(
+                                    controller: usdRateCtrl,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: InputDecoration(
+                                      labelText: isAr ? 'سعر الصرف المرجعي (\$)' : 'Ref USD Rate',
+                                      hintText: '48.50',
+                                      prefixIcon: const Icon(Icons.currency_exchange_rounded, size: 16, color: AppTheme.cobalt),
+                                      isDense: true,
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                    onChanged: (_) => setDlgState(() {}),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1432,6 +1507,24 @@ void showPriceListFormDialog(
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  // Expand All Button (M3-1)
+                                  AppButton(
+                                    label: isAr ? 'توسيع الكل' : 'Expand All',
+                                    icon: Icons.unfold_more_rounded,
+                                    variant: AppButtonVariant.secondary,
+                                    size: AppButtonSize.small,
+                                    onPressed: () => setDlgState(() => expandedGroups.addAll(CustomsExpenseGroup.values)),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  // Collapse All Button (M3-1)
+                                  AppButton(
+                                    label: isAr ? 'طي الكل' : 'Collapse All',
+                                    icon: Icons.unfold_less_rounded,
+                                    variant: AppButtonVariant.secondary,
+                                    size: AppButtonSize.small,
+                                    onPressed: () => setDlgState(() => expandedGroups.clear()),
+                                  ),
+                                  const SizedBox(width: 6),
                                   // Add Custom Item Button
                                   AppButton(
                                     label: l.addCustomItemOrAliasBtn,
@@ -1454,6 +1547,7 @@ void showPriceListFormDialog(
                                           for (var entry in standardRatesMap.entries) {
                                             if (name.contains(entry.key) || entry.key.contains(name)) {
                                               itm['standard_price'] = entry.value;
+                                              itm['price_type'] = 'fixed';
                                               break;
                                             }
                                           }
@@ -1475,6 +1569,9 @@ void showPriceListFormDialog(
                                       setDlgState(() {
                                         for (var itm in itemsState) {
                                           itm['standard_price'] = 0.0;
+                                          itm['min_price'] = null;
+                                          itm['max_price'] = null;
+                                          itm['price_type'] = 'negotiable';
                                         }
                                       });
                                     },
@@ -1487,173 +1584,590 @@ void showPriceListFormDialog(
                       ),
                 const SizedBox(height: 8),
 
-                // Interactive Items Table
+                // Interactive Grouped Items Table (M3-1, M2-1, M2-2, M1-3)
                 Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.cloudWhite),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: ListView.separated(
-                        itemCount: filteredItems.length,
-                        separatorBuilder: (ctx, idx) => const Divider(height: 1, color: AppTheme.cloudWhite),
-                        itemBuilder: (ctx, idx) {
-                          final itm = filteredItems[idx];
-                          final realIdx = itemsState.indexOf(itm);
-                          final standardPrice = (itm['standard_price'] as num?)?.toDouble() ?? 0.0;
-                          final isCustomItem = itm['expense_type_id'] == null;
+                  child: Builder(
+                    builder: (tableCtx) {
+                      final double? usdRefRate = double.tryParse(usdRateCtrl.text.trim());
+
+                      // Group filteredItems into 7 categories
+                      final groupedMap = <CustomsExpenseGroup, List<Map<String, dynamic>>>{};
+                      for (final grp in CustomsExpenseGroup.values) {
+                        groupedMap[grp] = [];
+                      }
+                      for (final itm in filteredItems) {
+                        final grp = CustomsExpenseGroup.classify(
+                          name: itm['expense_name']?.toString() ?? '',
+                          category: itm['category']?.toString(),
+                          currency: itm['currency']?.toString(),
+                          code: itm['code']?.toString(),
+                        );
+                        groupedMap[grp]!.add(itm);
+                      }
+
+                      final activeGroups = CustomsExpenseGroup.values.where((g) => groupedMap[g]!.isNotEmpty).toList();
+
+                      if (activeGroups.isEmpty) {
+                        return Container(
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            isAr ? 'لم يتم العثور على بنود مطابقة للبحث أو الفلتر' : 'No items match filter',
+                            style: const TextStyle(color: AppTheme.textMuted),
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        itemCount: activeGroups.length,
+                        itemBuilder: (ctx, gIdx) {
+                          final grp = activeGroups[gIdx];
+                          final grpItems = groupedMap[grp]!;
+                          final isGrpExpanded = itemSearchQuery.isNotEmpty || expandedGroups.contains(grp);
+
+                          // Calculate group priced counter
+                          final pricedCount = grpItems.where((i) {
+                            final pType = i['price_type']?.toString() ?? '';
+                            final stdP = (i['standard_price'] as num?)?.toDouble() ?? 0.0;
+                            final minP = (i['min_price'] as num?)?.toDouble();
+                            return pType == 'negotiable' || stdP > 0 || (minP != null && minP > 0);
+                          }).length;
+
+                          final egpSubtotal = grpItems
+                              .where((i) => (i['currency']?.toString() ?? 'EGP') == 'EGP')
+                              .fold(0.0, (sum, i) => sum + ((i['standard_price'] as num?)?.toDouble() ?? 0.0));
+                          final usdSubtotal = grpItems
+                              .where((i) => (i['currency']?.toString() ?? 'EGP') == 'USD')
+                              .fold(0.0, (sum, i) => sum + ((i['standard_price'] as num?)?.toDouble() ?? 0.0));
 
                           return Container(
-                            color: isCustomItem ? AppTheme.orangeLight : (idx.isEven ? AppTheme.white : AppTheme.charcoalSurface),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            child: Row(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: grp.badgeColor.withValues(alpha: 0.35)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                // Item Name & Category
-                                Expanded(
-                                  flex: 4,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          if (itm['code'] != null)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              margin: const EdgeInsetsDirectional.only(start: 6),
-                                              decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
-                                              child: Text(itm['code'].toString(), style: const TextStyle(color: AppTheme.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                                            )
-                                          else if (itm['is_uncoded'] == true)
-                                            InkWell(
-                                              onTap: () => showAddCustomItemDialog(initialName: itm['expense_name'], initialPrice: standardPrice, targetItem: itm),
-                                              child: Container(
+                                // Category Header Card (M3-1)
+                                InkWell(
+                                  onTap: () {
+                                    setDlgState(() {
+                                      if (expandedGroups.contains(grp)) {
+                                        expandedGroups.remove(grp);
+                                      } else {
+                                        expandedGroups.add(grp);
+                                      }
+                                    });
+                                  },
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: grp.badgeColor.withValues(alpha: 0.08),
+                                      borderRadius: isGrpExpanded
+                                          ? const BorderRadius.vertical(top: Radius.circular(7))
+                                          : BorderRadius.circular(7),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(grp.icon, size: 18, color: grp.badgeColor),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  grp.localizedTitle(isAr),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                    color: grp.badgeColor,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                margin: const EdgeInsetsDirectional.only(start: 6),
-                                                decoration: BoxDecoration(color: AppTheme.crimson, borderRadius: BorderRadius.circular(4)),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.white,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(color: grp.badgeColor.withValues(alpha: 0.4)),
+                                                ),
+                                                child: Text(
+                                                  '${grpItems.length} بند • $pricedCount مسعر',
+                                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: grp.badgeColor),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (egpSubtotal > 0) ...[
+                                          Text(
+                                            '${egpSubtotal.toStringAsFixed(0)} ج.م',
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                          ),
+                                          const SizedBox(width: 6),
+                                        ],
+                                        if (usdSubtotal > 0) ...[
+                                          Text(
+                                            '\$${usdSubtotal.toStringAsFixed(0)} USD',
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
+                                          ),
+                                          const SizedBox(width: 6),
+                                        ],
+                                        Icon(
+                                          isGrpExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                          color: grp.badgeColor,
+                                          size: 20,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                                // Category Items
+                                if (isGrpExpanded) ...[
+                                  const Divider(height: 1, color: AppTheme.cloudWhite),
+                                  ...grpItems.asMap().entries.map((entry) {
+                                    final itemIdxInGrp = entry.key;
+                                    final itm = entry.value;
+                                    final realIdx = itemsState.indexOf(itm);
+                                    final standardPrice = (itm['standard_price'] as num?)?.toDouble() ?? 0.0;
+                                    final minPrice = (itm['min_price'] as num?)?.toDouble();
+                                    final maxPrice = (itm['max_price'] as num?)?.toDouble();
+                                    final isCustomItem = itm['expense_type_id'] == null;
+                                    final isForeign = (itm['currency']?.toString() ?? 'EGP').toUpperCase() != 'EGP';
+                                    final pType = itm['price_type']?.toString() ??
+                                        (minPrice != null || maxPrice != null
+                                            ? 'range'
+                                            : (standardPrice == 0.0 ? 'negotiable' : 'fixed'));
+                                    final isNegotiable = pType == 'negotiable' ||
+                                        (standardPrice == 0.0 && minPrice == null && maxPrice == null);
+                                    final isRange = pType == 'range';
+
+                                    return Container(
+                                      color: isCustomItem
+                                          ? AppTheme.orangeLight
+                                          : (itemIdxInGrp.isEven ? AppTheme.white : AppTheme.charcoalSurface),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      child: Row(
+                                        children: [
+                                          // ── Title, Badges & Coding (M1-3, M2-2) ───────
+                                          Expanded(
+                                            flex: 4,
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
                                                   children: [
-                                                    const Icon(Icons.warning_amber_rounded, color: AppTheme.white, size: 10),
-                                                    const SizedBox(width: 2),
-                                                    Text(l.needsCodingBadge, style: const TextStyle(color: AppTheme.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                                    // Code chip if coded
+                                                    if (itm['code'] != null && itm['code'].toString().isNotEmpty) ...[
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                        decoration: BoxDecoration(
+                                                          color: AppTheme.cobalt,
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          itm['code'].toString(),
+                                                          style: const TextStyle(color: AppTheme.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                    ] else if (itm['is_uncoded'] == true) ...[
+                                                      // Uncoded Badge (M1-3)
+                                                      InkWell(
+                                                        onTap: () {
+                                                          QuickExpenseCodingDialog.show(
+                                                            context: ctx,
+                                                            ref: ref,
+                                                            currentExpenseName: itm['expense_name'],
+                                                            currentCategory: itm['category'],
+                                                            onSelected: (sel) {
+                                                              setDlgState(() {
+                                                                itm['code'] = sel.code;
+                                                                itm['expense_name'] = sel.canonicalNameAr;
+                                                                itm['category'] = sel.category;
+                                                                itm['unit_type'] = sel.unitType;
+                                                                itm['is_uncoded'] = false;
+                                                              });
+                                                            },
+                                                          );
+                                                        },
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                          decoration: BoxDecoration(
+                                                            color: AppTheme.crimson,
+                                                            borderRadius: BorderRadius.circular(4),
+                                                          ),
+                                                          child: Row(
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              const Icon(Icons.warning_amber_rounded, color: AppTheme.white, size: 10),
+                                                              const SizedBox(width: 2),
+                                                              Text(
+                                                                l.needsCodingBadge,
+                                                                style: const TextStyle(color: AppTheme.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                    ] else if (isCustomItem) ...[
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                        decoration: BoxDecoration(
+                                                          color: AppTheme.wcagOrange,
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          l.customItemBadge,
+                                                          style: const TextStyle(color: AppTheme.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                    ],
+
+                                                    // Foreign currency indicator badge (M2-2)
+                                                    if (isForeign) ...[
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                        decoration: BoxDecoration(
+                                                          color: AppTheme.orangeLight,
+                                                          borderRadius: BorderRadius.circular(4),
+                                                          border: Border.all(color: AppTheme.wcagOrange.withValues(alpha: 0.6)),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            const Icon(Icons.monetization_on_outlined, size: 10, color: AppTheme.wcagOrange),
+                                                            const SizedBox(width: 2),
+                                                            Text(
+                                                              itm['currency']?.toString() ?? 'USD',
+                                                              style: const TextStyle(color: AppTheme.wcagOrange, fontSize: 9, fontWeight: FontWeight.bold),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                    ],
+
+                                                    // Name
+                                                    Expanded(
+                                                      child: Text(
+                                                        itm['expense_name'] ?? '',
+                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+
+                                                    // Quick coding button
+                                                    if (itm['is_uncoded'] == true || itm['code'] == null) ...[
+                                                      IconButton(
+                                                        icon: const Icon(Icons.qr_code_2_rounded, size: 16, color: AppTheme.cobalt),
+                                                        tooltip: isAr ? 'تكويد سريع من الدليل' : 'Quick Code from Catalog',
+                                                        padding: EdgeInsets.zero,
+                                                        constraints: const BoxConstraints(),
+                                                        onPressed: () {
+                                                          QuickExpenseCodingDialog.show(
+                                                            context: ctx,
+                                                            ref: ref,
+                                                            currentExpenseName: itm['expense_name'],
+                                                            currentCategory: itm['category'],
+                                                            onSelected: (sel) {
+                                                              setDlgState(() {
+                                                                itm['code'] = sel.code;
+                                                                itm['expense_name'] = sel.canonicalNameAr;
+                                                                itm['category'] = sel.category;
+                                                                itm['unit_type'] = sel.unitType;
+                                                                itm['is_uncoded'] = false;
+                                                              });
+                                                            },
+                                                          );
+                                                        },
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                    ],
+                                                  ],
+                                                ),
+                                                Text(
+                                                  '${getCategoryLabel(itm['category']?.toString() ?? '', ctx)} | ${getUnitLabel(itm['unit_type']?.toString() ?? '', ctx)}',
+                                                  style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+
+                                          // ── Price Type Selector (M2-1) ───────────────
+                                          PopupMenuButton<String>(
+                                            tooltip: isAr ? 'تغيير نوع السعر (ثابت / نطاق / تفاوضي)' : 'Change price type',
+                                            icon: Icon(
+                                              isNegotiable
+                                                  ? Icons.handshake_outlined
+                                                  : (isRange ? Icons.linear_scale_rounded : Icons.price_check_rounded),
+                                              size: 18,
+                                              color: isNegotiable ? AppTheme.wcagOrange : AppTheme.cobalt,
+                                            ),
+                                            onSelected: (type) {
+                                              setDlgState(() {
+                                                itm['price_type'] = type;
+                                                if (type == 'negotiable') {
+                                                  itm['standard_price'] = 0.0;
+                                                }
+                                              });
+                                            },
+                                            itemBuilder: (c) => [
+                                              PopupMenuItem(
+                                                value: 'fixed',
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.price_check_rounded, size: 16, color: AppTheme.cobalt),
+                                                    const SizedBox(width: 8),
+                                                    Text(isAr ? 'سعر ثابت' : 'Fixed Price', style: const TextStyle(fontSize: 12)),
                                                   ],
                                                 ),
                                               ),
-                                            )
-                                          else if (isCustomItem)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              margin: const EdgeInsetsDirectional.only(start: 6),
-                                              decoration: BoxDecoration(color: AppTheme.wcagOrange, borderRadius: BorderRadius.circular(4)),
-                                              child: Text(l.customItemBadge, style: const TextStyle(color: AppTheme.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                                            ),
-                                          Expanded(
-                                            child: Text(
-                                              itm['expense_name'],
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                                              PopupMenuItem(
+                                                value: 'range',
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.linear_scale_rounded, size: 16, color: AppTheme.cobalt),
+                                                    const SizedBox(width: 8),
+                                                    Text(isAr ? 'نطاق سعري (حد أدنى / أقصى)' : 'Price Range', style: const TextStyle(fontSize: 12)),
+                                                  ],
+                                                ),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'negotiable',
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.handshake_outlined, size: 16, color: AppTheme.wcagOrange),
+                                                    const SizedBox(width: 8),
+                                                    Text(isAr ? 'سعر تفاوضي' : 'Negotiable', style: const TextStyle(fontSize: 12, color: AppTheme.wcagOrange)),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(width: 4),
+
+                                          // ── Price Input Field / Range / Negotiable ────
+                                          SizedBox(
+                                            width: 140,
+                                            child: isNegotiable
+                                                ? InkWell(
+                                                    onTap: () => setDlgState(() => itm['price_type'] = 'fixed'),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.orangeLight,
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        border: Border.all(color: AppTheme.wcagOrange.withValues(alpha: 0.6)),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: [
+                                                          const Icon(Icons.handshake_outlined, size: 13, color: AppTheme.wcagOrange),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            isAr ? 'تفاوضي' : 'Negotiable',
+                                                            style: const TextStyle(
+                                                              fontSize: 11,
+                                                              fontWeight: FontWeight.bold,
+                                                              color: AppTheme.wcagOrange,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  )
+                                                : isRange
+                                                    ? Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: TextFormField(
+                                                              key: ValueKey('dlg_min_${itm["expense_type_id"] ?? itm["expense_name"]}_$minPrice'),
+                                                              initialValue: minPrice != null && minPrice > 0
+                                                                  ? (minPrice % 1 == 0 ? minPrice.toInt().toString() : minPrice.toString())
+                                                                  : '',
+                                                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                              decoration: InputDecoration(
+                                                                labelText: isAr ? 'أدنى' : 'Min',
+                                                                isDense: true,
+                                                                border: const OutlineInputBorder(),
+                                                                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                                              ),
+                                                              onChanged: (v) {
+                                                                itm['min_price'] = double.tryParse(v);
+                                                              },
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 4),
+                                                          Expanded(
+                                                            child: TextFormField(
+                                                              key: ValueKey('dlg_max_${itm["expense_type_id"] ?? itm["expense_name"]}_$maxPrice'),
+                                                              initialValue: maxPrice != null && maxPrice > 0
+                                                                  ? (maxPrice % 1 == 0 ? maxPrice.toInt().toString() : maxPrice.toString())
+                                                                  : '',
+                                                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                              decoration: InputDecoration(
+                                                                labelText: isAr ? 'أقصى' : 'Max',
+                                                                isDense: true,
+                                                                border: const OutlineInputBorder(),
+                                                                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                                              ),
+                                                              onChanged: (v) {
+                                                                itm['max_price'] = double.tryParse(v);
+                                                              },
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      )
+                                                    : Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                        children: [
+                                                          TextFormField(
+                                                            key: ValueKey('dlg_price_${itm["expense_type_id"] ?? itm["expense_name"]}_$standardPrice'),
+                                                            initialValue: standardPrice == 0.0
+                                                                ? ''
+                                                                : (standardPrice % 1 == 0 ? standardPrice.toInt().toString() : standardPrice.toString()),
+                                                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                            decoration: InputDecoration(
+                                                              labelText: l.approvedPriceField,
+                                                              isDense: true,
+                                                              border: const OutlineInputBorder(),
+                                                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                                            ),
+                                                            onChanged: (v) {
+                                                              final p = double.tryParse(v) ?? 0.0;
+                                                              itm['standard_price'] = p;
+                                                              itm['price_type'] = p > 0 ? 'fixed' : 'negotiable';
+                                                            },
+                                                          ),
+                                                          if (isForeign && usdRefRate != null && usdRefRate > 0 && standardPrice > 0) ...[
+                                                            const SizedBox(height: 2),
+                                                            Text(
+                                                              '≈ ${(standardPrice * usdRefRate).toStringAsFixed(0)} ج.م',
+                                                              style: const TextStyle(color: AppTheme.cobalt, fontSize: 9, fontWeight: FontWeight.bold),
+                                                              textAlign: TextAlign.center,
+                                                            ),
+                                                          ],
+                                                        ],
+                                                      ),
+                                          ),
+                                          const SizedBox(width: 8),
+
+                                          // ── Currency Dropdown (M2-2) ─────────────────
+                                          SizedBox(
+                                            width: 100,
+                                            child: SearchableDropdownField<String>(
+                                              value: itm['currency'] ?? 'EGP',
+                                              items: const [
+                                                SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                                                SearchableDropdownItem(value: 'USD', label: 'USD'),
+                                                SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                                              ],
+                                              onChanged: (v) => setDlgState(() => itemsState[realIdx]['currency'] = v ?? 'EGP'),
                                             ),
                                           ),
+                                          const SizedBox(width: 8),
+
+                                          // ── Notes / Conditions Input ─────────────────
+                                          Expanded(
+                                            flex: 3,
+                                            child: TextFormField(
+                                              key: ValueKey('dlg_notes_${itm['expense_type_id'] ?? itm['expense_name']}_${itm['notes']}'),
+                                              initialValue: itm['notes'] ?? '',
+                                              decoration: InputDecoration(
+                                                labelText: l.notesPriceRangeField,
+                                                isDense: true,
+                                                border: const OutlineInputBorder(),
+                                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                              ),
+                                              onChanged: (v) => itemsState[realIdx]['notes'] = v,
+                                            ),
+                                          ),
+
+                                          // Clone Row Action
+                                          IconButton(
+                                            icon: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 18),
+                                            tooltip: l.cloneRowTooltip,
+                                            onPressed: () => cloneRowAt(realIdx),
+                                          ),
+
+                                          // Delete Custom Item Action
+                                          if (isCustomItem)
+                                            IconButton(
+                                              icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
+                                              tooltip: l.deleteCustomItemTooltip,
+                                              onPressed: () => setDlgState(() => itemsState.removeAt(realIdx)),
+                                            ),
                                         ],
                                       ),
-                                      Text(
-                                        '${getCategoryLabel(itm['category']?.toString() ?? '', ctx)} | ${getUnitLabel(itm['unit_type']?.toString() ?? '', ctx)}',
-                                        style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-
-                                // Standard Price Input
-                                SizedBox(
-                                  width: 130,
-                                  child: TextFormField(
-                                    key: ValueKey('dlg_price_${itm["expense_type_id"] ?? itm["expense_name"]}_$standardPrice'),
-                                    initialValue: standardPrice == 0.0 ? '' : (standardPrice % 1 == 0 ? standardPrice.toInt().toString() : standardPrice.toString()),
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: InputDecoration(
-                                      labelText: l.approvedPriceField,
-                                      isDense: true,
-                                      border: const OutlineInputBorder(),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                    ),
-                                    onChanged: (v) {
-                                      final p = double.tryParse(v) ?? 0.0;
-                                      itemsState[realIdx]['standard_price'] = p;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-
-                                // Currency Dropdown
-                                SizedBox(
-                                  width: 110,
-                                  child: SearchableDropdownField<String>(
-                                    value: itm['currency'] ?? 'EGP',
-                                    items: const [
-                                      SearchableDropdownItem(value: 'EGP', label: 'EGP'),
-                                      SearchableDropdownItem(value: 'USD', label: 'USD'),
-                                      SearchableDropdownItem(value: 'EUR', label: 'EUR'),
-                                    ],
-                                    onChanged: (v) => setDlgState(() => itemsState[realIdx]['currency'] = v ?? 'EGP'),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-
-                                // Notes / Min-Max Input
-                                Expanded(
-                                  flex: 3,
-                                  child: TextFormField(
-                                    key: ValueKey('dlg_notes_${itm['expense_type_id'] ?? itm['expense_name']}_${itm['notes']}'),
-                                    initialValue: itm['notes'] ?? '',
-                                    decoration: InputDecoration(
-                                      labelText: l.notesPriceRangeField,
-                                      isDense: true,
-                                      border: const OutlineInputBorder(),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                    ),
-                                    onChanged: (v) => itemsState[realIdx]['notes'] = v,
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 18),
-                                  tooltip: l.cloneRowTooltip,
-                                  onPressed: () => cloneRowAt(realIdx),
-                                ),
-                                if (isCustomItem)
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
-                                    tooltip: l.deleteCustomItemTooltip,
-                                    onPressed: () => setDlgState(() => itemsState.removeAt(realIdx)),
-                                  ),
+                                    );
+                                  }),
+                                ],
                               ],
                             ),
                           );
                         },
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 6),
 
-                // Actions Footer
-                Container(
-                  padding: const EdgeInsets.only(top: 8),
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: AppTheme.cloudWhite)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                    Text(
-                      l.totalExpensesCountSummary(
-                        itemsState.length,
-                        itemsState.where((i) => (i['standard_price'] as num) > 0).length,
+                // Actions Footer with Multi-Currency & Reference Rate Summary
+                Builder(
+                  builder: (ctx) {
+                    final double? usdRefRate = double.tryParse(usdRateCtrl.text.trim());
+                    final egpTotal = itemsState
+                        .where((i) => (i['currency']?.toString() ?? 'EGP') == 'EGP')
+                        .fold(0.0, (sum, i) => sum + ((i['standard_price'] as num?)?.toDouble() ?? 0.0));
+                    final usdTotal = itemsState
+                        .where((i) => (i['currency']?.toString() ?? 'EGP') == 'USD')
+                        .fold(0.0, (sum, i) => sum + ((i['standard_price'] as num?)?.toDouble() ?? 0.0));
+                    final totalPriced = itemsState.where((i) {
+                      final pType = i['price_type']?.toString() ?? '';
+                      final stdP = (i['standard_price'] as num?)?.toDouble() ?? 0.0;
+                      final minP = (i['min_price'] as num?)?.toDouble();
+                      return pType == 'negotiable' || stdP > 0 || (minP != null && minP > 0);
+                    }).length;
+
+                    return Container(
+                      padding: const EdgeInsets.only(top: 8),
+                      decoration: const BoxDecoration(
+                        border: Border(top: BorderSide(color: AppTheme.cloudWhite)),
                       ),
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                    ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '${l.totalExpensesCountSummary(itemsState.length, totalPriced)}  |  ${egpTotal.toStringAsFixed(0)} ج.م',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                              ),
+                              if (usdTotal > 0) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  '|  \$${usdTotal.toStringAsFixed(0)} USD',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
+                                ),
+                                if (usdRefRate != null && usdRefRate > 0) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '(إجمالي تقديري: ${(egpTotal + (usdTotal * usdRefRate)).toStringAsFixed(0)} ج.م)',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                  ),
+                                ],
+                              ],
+                            ],
+                          ),
                     Row(
                       children: [
                         AppButton(
@@ -1746,6 +2260,9 @@ void showPriceListFormDialog(
                                 itemsPayload.add({
                                   if (isEditing && itm['item_id'] != null) 'item_id': itm['item_id'],
                                   'expense_type_id': itm['expense_type_id'],
+                                  if (itm['code'] != null && itm['code'].toString().isNotEmpty) 'code': itm['code'].toString(),
+                                  'is_uncoded': itm['is_uncoded'] == true,
+                                  'price_type': itm['price_type']?.toString() ?? (stdPrice == 0 ? 'negotiable' : 'fixed'),
                                   'expense_name': expName,
                                   'category': cat,
                                   'unit_type': unit,
@@ -1804,11 +2321,11 @@ void showPriceListFormDialog(
                                 } else if (resData != null) {
                                   errorMsg = resData.toString();
                                 } else {
-                                  errorMsg = e.message ?? (context.l10n.ccServerConnectionFailed);
+                                  errorMsg = e.message ?? l.ccServerConnectionFailed;
                                 }
                               }
                               if (ctx.mounted) {
-                                setDlgState(() => dialogErrorMessage = '❌ ${(context.l10n.ccFailedToSave)}: $errorMsg');
+                                setDlgState(() => dialogErrorMessage = '❌ ${l.ccFailedToSave}: $errorMsg');
                               }
                             } finally {
                               if (ctx.mounted) {
@@ -1821,13 +2338,15 @@ void showPriceListFormDialog(
                     ),
                   ],
                 ),
-              ),
-            ],
+              );
+            },
           ),
-        ),
+        ],
       ),
     ),
   ),
+),
+),
 );
 },
 ),

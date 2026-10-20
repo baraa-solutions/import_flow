@@ -8,12 +8,17 @@ completeness validation layer.
 
 from __future__ import annotations
 
+import difflib
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from modules.smart_document_upload.extractors.base_extractor import BaseExtractor
 from modules.smart_document_upload.extractors.quotation_validation_layer import QuotationValidationLayer
 from modules.expense_catalog.seed_data import EXPENSE_CATALOG_SEED_DATA
+from modules.expense_catalog.broker_mapping_service import (
+    BrokerMappingMemoryService,
+    normalize_arabic_for_matching,
+)
 
 
 PORT_NAME_MAP: Dict[str, str] = {
@@ -83,6 +88,7 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
         # 2. Extract dynamic expenses catalog (with multi-value cell splitting and conditional range items)
         expenses_catalog = self._extract_expenses_catalog(
             text,
+            broker_name=broker_name,
             extracted_clearance_fee=clearance_fee,
             extracted_inland_fee=inland_transport_fee,
             extracted_inspection_fee=inspection_fee,
@@ -922,16 +928,47 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
             "notes": f"بند نطاق سعري شرطي خارج الجدول (من {int(min_p)} إلى {int(max_p)} ج.م): {line.strip()}",
         }
 
-    def _match_catalog_item(self, item_name: str, category_hint: str = "") -> Optional[Dict[str, Any]]:
+    def _match_catalog_item(
+        self,
+        item_name: str,
+        category_hint: str = "",
+        broker_name: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
         """
-        AI-EXPENSE-CATALOG-002: Matches an item name against the canonical expense catalog.
-        Returns the matching code and canonical metadata.
+        AI-EXPENSE-CATALOG-002 & M1-2 & M1-4:
+        Matches an item name against:
+        1. Broker Mapping Memory (M1-4)
+        2. Canonical expense catalog with SequenceMatcher & Arabic Normalization (M1-2)
+        Classifies confidence into:
+        - high (>=85%)
+        - medium (60-84%)
+        - uncoded (<60%)
         """
         if not item_name or not item_name.strip():
             return None
 
-        from modules.expense_catalog.service import normalize_text
-        norm_name = normalize_text(item_name)
+        # 1. Check Broker Mapping Memory first (M1-4)
+        try:
+            mem_match = BrokerMappingMemoryService.get_mapping(broker_name, item_name)
+            if mem_match:
+                return {
+                    "code": mem_match["code"],
+                    "canonical_name_ar": mem_match["canonical_name_ar"],
+                    "canonical_name_en": mem_match.get("canonical_name_en"),
+                    "category": mem_match["category"],
+                    "unit_type": mem_match.get("unit_type", "fixed"),
+                    "confidence_score": 1.0,
+                    "match_confidence": "high",
+                    "source": "broker_memory",
+                    "is_uncoded": False,
+                    "status": "coded",
+                }
+        except Exception:
+            pass
+
+        norm_name = normalize_arabic_for_matching(item_name)
+        if not norm_name:
+            return None
 
         best_match = None
         best_score = 0.0
@@ -940,9 +977,9 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
             code_lower = entry["code"].lower()
 
             # Prevent cross-matching between 20ft and 40ft
-            if ("40" in norm_name and "20" in code_lower and "20" not in norm_name):
+            if "40" in norm_name and "20" in code_lower and "20" not in norm_name:
                 continue
-            if ("20" in norm_name and "40" in code_lower and "40" not in norm_name):
+            if "20" in norm_name and "40" in code_lower and "40" not in norm_name:
                 continue
             # Prevent cross-matching between LCL and FCL
             if "lcl" in norm_name and ("fcl" in code_lower or "20" in code_lower or "40" in code_lower):
@@ -956,7 +993,7 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                 patterns.append(entry["canonical_name_en"])
 
             for pat in patterns:
-                norm_pat = normalize_text(pat)
+                norm_pat = normalize_arabic_for_matching(pat)
                 if not norm_pat:
                     continue
 
@@ -971,29 +1008,64 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                     words_name = set(norm_name.split())
                     words_pat = set(norm_pat.split())
                     if words_pat and words_pat.issubset(words_name):
-                        score = 0.85
-                    elif len(words_name & words_pat) >= 2:
+                        score = 0.88
+                    elif words_name and words_name.issubset(words_pat):
+                        score = 0.84
+                    elif len(words_name & words_pat) >= 1:
                         overlap = len(words_name & words_pat) / len(words_pat)
-                        if overlap >= 0.6:
-                            score = 0.70 * overlap
+                        jaccard = len(words_name & words_pat) / len(words_name | words_pat)
+                        score = max(score, 0.75 * overlap + 0.15 * jaccard)
+
+                # difflib.SequenceMatcher for fuzzy character-level similarity
+                seq_ratio = difflib.SequenceMatcher(None, norm_name, norm_pat).ratio()
+                score = max(score, seq_ratio)
+
+                # Section / Category bonus if relevant
+                if category_hint and score > 0.50:
+                    cat_lower = entry.get("category", "").lower()
+                    hint_lower = category_hint.lower()
+                    if ("clearance" in hint_lower and "clearance" in cat_lower) or \
+                       ("transport" in hint_lower and "transport" in cat_lower) or \
+                       ("port" in hint_lower and "port" in cat_lower) or \
+                       ("procedure" in hint_lower and "procedure" in cat_lower):
+                        score = min(1.0, score + 0.05)
 
                 if score > best_score:
                     best_score = score
                     best_match = entry
 
-        if best_match and best_score >= 0.70:
+        # Thresholds per M1-2:
+        # high (>= 85%), medium (60-84%), uncoded (< 60%)
+        if best_match and best_score >= 0.60:
+            conf_level = "high" if best_score >= 0.85 else "medium"
             return {
                 "code": best_match["code"],
                 "canonical_name_ar": best_match["canonical_name_ar"],
                 "canonical_name_en": best_match.get("canonical_name_en"),
                 "category": best_match["category"],
                 "unit_type": best_match.get("unit_type", "fixed"),
+                "confidence_score": round(best_score, 3),
+                "match_confidence": conf_level,
+                "is_uncoded": False,
+                "status": "coded",
             }
-        return None
+
+        return {
+            "code": None,
+            "canonical_name_ar": item_name,
+            "canonical_name_en": None,
+            "category": category_hint or "Other Fees",
+            "unit_type": "fixed",
+            "confidence_score": round(best_score, 3),
+            "match_confidence": "uncoded",
+            "is_uncoded": True,
+            "status": "needs_coding",
+        }
 
     def _extract_expenses_catalog(
         self,
         text: str,
+        broker_name: Optional[str] = None,
         extracted_clearance_fee: Optional[float] = None,
         extracted_inland_fee: Optional[float] = None,
         extracted_inspection_fee: Optional[float] = None,
@@ -1054,7 +1126,8 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                     catalog.append(cond_item)
                 continue
 
-            if any(line.startswith(kw) for kw in ["ملاحظات", "شروط", "السادة", "عناية", "التاريخ"]):
+            if any(line.startswith(kw) for kw in ["ملاحظات", "شروط", "السادة", "عناية", "التاريخ"]) or \
+               any(kw in line for kw in ["السادة:", "السادة شركة", "عناية:", "تاريخ العرض", "صلاحية العرض", "ساري حتى:"]):
                 continue
 
             # Sub-task 4.3: Try multi-value cell splitting first
@@ -1103,12 +1176,18 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
             if not raw_name or not raw_price_str:
                 continue
 
+            # Skip dates disguised as prices without explicit currency token (e.g. 2026/04/01)
+            if re.search(r"\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b", raw_price_str) and not any(c in raw_price_str for c in ["EGP", "ج.م", "جنيه", "$", "USD"]):
+                continue
+
             clean_name = re.sub(r"^(?:EGP|ج\.م|جنيه|[\-–—•*])\s*", "", raw_name).strip()
-            if any(kw in clean_name.lower() for kw in ignore_keywords) or len(clean_name) < 3:
+            if any(kw in clean_name.lower() for kw in ignore_keywords) or any(kw in clean_name for kw in ["سكاس", "تشطيبات", "مقاولات"]) or len(clean_name) < 3:
                 continue
 
             price, min_p, max_p, p_notes, price_type = self._parse_price_details(raw_price_str)
             if price <= 0:
+                continue
+            if 2020 <= price <= 2035 and not any(c in line for c in ["EGP", "ج.م", "جنيه", "$", "USD"]):
                 continue
 
             norm_name = clean_name
@@ -1327,21 +1406,25 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                         "is_applicable": True,
                     })
 
-        # Enrich all items with canonical Expense Catalog codes and validation flags (AI-EXPENSE-CATALOG-002)
+        # Enrich all items with canonical Expense Catalog codes and validation flags (AI-EXPENSE-CATALOG-002 & M1-2 & M1-4)
         for itm in catalog:
-            matched = self._match_catalog_item(itm["item_name"], itm.get("category", ""))
-            if matched:
+            matched = self._match_catalog_item(itm["item_name"], itm.get("category", ""), broker_name=broker_name)
+            if matched and matched.get("code"):
                 itm["code"] = matched["code"]
                 itm["canonical_name_ar"] = matched["canonical_name_ar"]
                 itm["canonical_name_en"] = matched.get("canonical_name_en")
                 itm["category"] = matched["category"]
                 itm["unit_type"] = matched.get("unit_type", itm.get("unit_type", "fixed"))
+                itm["confidence_score"] = matched.get("confidence_score", 1.0)
+                itm["match_confidence"] = matched.get("match_confidence", "high")
                 itm["is_uncoded"] = False
                 itm["status"] = "coded"
             else:
                 itm["code"] = None
                 itm["canonical_name_ar"] = itm["item_name"]
                 itm["canonical_name_en"] = None
+                itm["confidence_score"] = matched.get("confidence_score", 0.0) if matched else 0.0
+                itm["match_confidence"] = "uncoded"
                 itm["is_uncoded"] = True
                 itm["status"] = "needs_coding"
 

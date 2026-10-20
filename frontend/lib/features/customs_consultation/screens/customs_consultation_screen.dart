@@ -2491,6 +2491,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                       categoryFilter: _brokerExpenseCategoryFilter,
                       isExpanded: _isBrokerQuoteExpanded,
                       currenciesList: currenciesList,
+                      referenceUsdExchangeRate: double.tryParse(_exchangeRateController.text.trim()),
                       onToggleExpanded: () => setState(() => _isBrokerQuoteExpanded = !_isBrokerQuoteExpanded),
                       onCategoryChanged: (cat) => setState(() => _brokerExpenseCategoryFilter = cat),
                       onAddCustomExpense: _addCustomBrokerExpenseRow,
