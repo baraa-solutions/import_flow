@@ -62,6 +62,8 @@ import modules.original_documents_collection.model
 import modules.smart_email_listener.model
 import modules.expense_catalog.model
 import modules.logistics_invoices.model
+import modules.bank_form4.model
+import modules.broker_custody.model
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
