@@ -488,6 +488,7 @@ void showPriceListFormDialog(
   final Set<CustomsExpenseGroup> expandedGroups = {...CustomsExpenseGroup.values};
   String itemSearchQuery = '';
   String selectedCategoryFilter = 'All';
+  String quickFilterChip = 'all';
   bool isSaving = false;
   String? dialogErrorMessage;
   int? activeRowIndex;
@@ -568,6 +569,95 @@ void showPriceListFormDialog(
 
             if (response.data != null) {
               final extracted = (response.data['extracted_fields'] as Map<String, dynamic>?) ?? {};
+
+              // Prepare summary items list for ExtractionSummaryDialog (M1-6)
+              final expensesCatalog = (extracted['expenses_catalog'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? [];
+              final List<ExtractedSummaryItem> summaryItems = [];
+
+              for (final extItem in expensesCatalog) {
+                final rawName = ((extItem['item_name'] ?? extItem['expense_name']) as String? ?? '').trim();
+                final price = ((extItem['price'] ?? extItem['amount']) as num?)?.toDouble() ?? 0.0;
+                if (price <= 0 && rawName.isEmpty) continue;
+
+                int bestScore = 0;
+                String? matchedCanonical;
+                String? matchedCode = extItem['code']?.toString();
+
+                for (final itm in itemsState) {
+                  final name = (itm['expense_name'] as String? ?? '').trim();
+                  final score = calculateMatchScore(name, rawName);
+                  if (score > bestScore) {
+                    bestScore = score;
+                    matchedCanonical = name;
+                    if (itm['code'] != null && (matchedCode == null || matchedCode.isEmpty)) {
+                      matchedCode = itm['code']?.toString();
+                    }
+                  }
+                }
+
+                final double conf = (extItem['confidence'] as num?)?.toDouble() ?? (bestScore > 0 ? bestScore.toDouble() : 50.0);
+                final bool isUncoded = extItem['is_uncoded'] == true || (matchedCode == null && conf < 60);
+
+                summaryItems.add(ExtractedSummaryItem(
+                  rawName: rawName,
+                  matchedCanonicalName: bestScore >= 80 ? matchedCanonical : null,
+                  code: matchedCode,
+                  category: (extItem['category']?.toString() ?? 'Other Fees').split('(').first.trim(),
+                  unitType: (((extItem['pricing_unit'] ?? extItem['unit_type'])?.toString()) ?? 'Per Shipment').split('(').first.trim(),
+                  price: price,
+                  currency: extItem['currency']?.toString() ?? 'EGP',
+                  confidence: conf,
+                  isUncoded: isUncoded,
+                  notes: extItem['notes']?.toString(),
+                ));
+              }
+
+              // Also include high-level fees if extracted and not in expenses_catalog
+              final cFee = (extracted['clearance_fee'] as num?)?.toDouble();
+              if (cFee != null && cFee > 0 && !summaryItems.any((s) => s.rawName.contains('تخليص'))) {
+                summaryItems.add(ExtractedSummaryItem(
+                  rawName: 'أتعاب تخليص جمركي',
+                  matchedCanonicalName: 'أتعاب تخليص حاوية 40 قدم',
+                  code: 'CLR-40FT-FEE',
+                  category: 'Clearance Fees',
+                  unitType: 'Per Shipment',
+                  price: cFee,
+                  currency: 'EGP',
+                  confidence: 90.0,
+                  isUncoded: false,
+                ));
+              }
+              final inlandFee = (extracted['inland_transport_fee'] as num?)?.toDouble();
+              if (inlandFee != null && inlandFee > 0 && !summaryItems.any((s) => s.rawName.contains('نقل') || s.rawName.contains('شاحنة'))) {
+                summaryItems.add(ExtractedSummaryItem(
+                  rawName: 'نقل داخلي',
+                  matchedCanonicalName: 'حاوية 40 قدم إسكندرية - قاهرة',
+                  code: 'INL-40FT-CAI',
+                  category: 'Inland Transport',
+                  unitType: 'Per Truck',
+                  price: inlandFee,
+                  currency: 'EGP',
+                  confidence: 90.0,
+                  isUncoded: false,
+                ));
+              }
+
+              if (!ctx.mounted) return;
+
+              // Display ExtractionSummaryDialog (M1-6)
+              final bool? shouldApply = await ExtractionSummaryDialog.show(
+                context: ctx,
+                fileName: file.name,
+                brokerName: extracted['broker_name']?.toString(),
+                portName: extracted['port_name']?.toString(),
+                title: extracted['title']?.toString(),
+                items: summaryItems,
+              );
+
+              if (shouldApply != true) {
+                return; // User cancelled
+              }
+
               setDlgState(() {
                 if (extracted['title'] != null && (extracted['title'] as String).isNotEmpty) {
                   titleCtrl.text = extracted['title'] as String;
@@ -611,7 +701,7 @@ void showPriceListFormDialog(
             if (ctx.mounted) {
               try { Navigator.of(ctx, rootNavigator: true).pop(); } catch (_) {}
               ScaffoldMessenger.of(ctx).showSnackBar(
-                SnackBar(content: Text('خطأ أثناء الاستخراج: ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
+                SnackBar(content: Text('خطأ أثناء الاستخراج: ${ApiErrorText.of(ctx.l10n, e)}'), backgroundColor: AppTheme.crimson),
               );
             }
           }
@@ -1219,16 +1309,137 @@ void showPriceListFormDialog(
             ),
           );
         }
+        final q = itemSearchQuery.trim().toLowerCase();
         final filteredItems = itemsState.where((itm) {
-          final name = (itm['expense_name'] as String).toLowerCase();
-          final cat = (itm['category'] as String);
-          final matchSearch = itemSearchQuery.isEmpty || name.contains(itemSearchQuery.toLowerCase());
+          final name = (itm['expense_name']?.toString() ?? '').toLowerCase();
+          final code = (itm['code']?.toString() ?? '').toLowerCase();
+          final notes = (itm['notes']?.toString() ?? '').toLowerCase();
+          final cat = (itm['category']?.toString() ?? '').toLowerCase();
+
+          final matchSearch = q.isEmpty ||
+              name.contains(q) ||
+              code.contains(q) ||
+              notes.contains(q) ||
+              cat.contains(q);
+
           final matchCat = selectedCategoryFilter == 'All' ||
-              cat == selectedCategoryFilter ||
-              cat.toLowerCase().contains(selectedCategoryFilter.toLowerCase()) ||
-              selectedCategoryFilter.toLowerCase().contains(cat.toLowerCase());
-          return matchSearch && matchCat;
+              cat == selectedCategoryFilter.toLowerCase() ||
+              cat.contains(selectedCategoryFilter.toLowerCase()) ||
+              selectedCategoryFilter.toLowerCase().contains(cat);
+
+          final stdPrice = (itm['standard_price'] as num?)?.toDouble() ?? 0.0;
+          final minP = (itm['min_price'] as num?)?.toDouble();
+          final maxP = (itm['max_price'] as num?)?.toDouble();
+          final pType = itm['price_type']?.toString() ?? '';
+          final isNegotiable = pType == 'negotiable' || (stdPrice == 0.0 && minP == null && maxP == null);
+          final isPriced = (stdPrice > 0) || (minP != null && minP > 0) || (maxP != null && maxP > 0);
+          final isForeign = (itm['currency']?.toString() ?? 'EGP').toUpperCase() != 'EGP';
+          final isUncoded = itm['is_uncoded'] == true || (itm['code'] == null || itm['code'].toString().trim().isEmpty);
+
+          bool matchChip = true;
+          switch (quickFilterChip) {
+            case 'priced':
+              matchChip = isPriced && !isNegotiable;
+              break;
+            case 'negotiable':
+              matchChip = isNegotiable;
+              break;
+            case 'foreign':
+              matchChip = isForeign;
+              break;
+            case 'uncoded':
+              matchChip = isUncoded;
+              break;
+            case 'all':
+            default:
+              matchChip = true;
+              break;
+          }
+
+          return matchSearch && matchCat && matchChip;
         }).toList();
+
+        final countPriced = itemsState.where((itm) {
+          final stdP = (itm['standard_price'] as num?)?.toDouble() ?? 0.0;
+          final minP = (itm['min_price'] as num?)?.toDouble();
+          final maxP = (itm['max_price'] as num?)?.toDouble();
+          final pType = itm['price_type']?.toString() ?? '';
+          return (stdP > 0 || (minP != null && minP > 0) || (maxP != null && maxP > 0)) && pType != 'negotiable';
+        }).length;
+
+        final countNegotiable = itemsState.where((itm) {
+          final stdP = (itm['standard_price'] as num?)?.toDouble() ?? 0.0;
+          final minP = (itm['min_price'] as num?)?.toDouble();
+          final maxP = (itm['max_price'] as num?)?.toDouble();
+          final pType = itm['price_type']?.toString() ?? '';
+          return pType == 'negotiable' || (stdP == 0.0 && minP == null && maxP == null);
+        }).length;
+
+        final countForeign = itemsState.where((itm) {
+          return (itm['currency']?.toString() ?? 'EGP').toUpperCase() != 'EGP';
+        }).length;
+
+        final countUncoded = itemsState.where((itm) {
+          final c = itm['code']?.toString() ?? '';
+          return itm['is_uncoded'] == true || c.trim().isEmpty;
+        }).length;
+
+        Widget buildQuickFilterChip({
+          required String label,
+          required int count,
+          required bool isSelected,
+          required Color activeColor,
+          required IconData icon,
+          required VoidCallback onTap,
+        }) {
+          return InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? activeColor.withValues(alpha: 0.12) : AppTheme.charcoalSurface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isSelected ? activeColor : AppTheme.cloudWhite,
+                  width: isSelected ? 1.5 : 1.0,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 12, color: isSelected ? activeColor : AppTheme.textMuted),
+                  const SizedBox(width: 4),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected ? activeColor : AppTheme.charcoal,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: isSelected ? activeColor : AppTheme.cloudWhite,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? AppTheme.white : AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
 
         void cloneRowAt(int realIdx) {
           if (realIdx < 0 || realIdx >= itemsState.length) return;
@@ -1463,118 +1674,208 @@ void showPriceListFormDialog(
                         scrollDirection: Axis.horizontal,
                         child: ConstrainedBox(
                           constraints: BoxConstraints(minWidth: dialogWidth - 36),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  // Search Box
-                                  SizedBox(
-                                    width: 180,
-                                    child: TextField(
-                                      decoration: InputDecoration(
-                                        hintText: l.searchExpenseCatalogHint,
-                                        prefixIcon: const Icon(Icons.search, size: 16),
-                                        isDense: true,
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Search Box
+                                      SizedBox(
+                                        width: 200,
+                                        child: TextField(
+                                          decoration: InputDecoration(
+                                            hintText: isAr ? 'بحث بالاسم، الكود، الملاحظات...' : 'Search name, code, notes...',
+                                            prefixIcon: const Icon(Icons.search, size: 16),
+                                            isDense: true,
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                          ),
+                                          onChanged: (v) => setDlgState(() => itemSearchQuery = v),
+                                        ),
                                       ),
-                                      onChanged: (v) => setDlgState(() => itemSearchQuery = v),
-                                    ),
+                                      const SizedBox(width: 8),
+                                      // Category Filter
+                                      SizedBox(
+                                        width: 200,
+                                        child: SearchableDropdownField<String>(
+                                          value: selectedCategoryFilter,
+                                          labelText: l.filterCategoryLabel,
+                                          items: [
+                                            SearchableDropdownItem(value: 'All', label: l.allCategoriesItem),
+                                            SearchableDropdownItem(value: 'Clearance Fees', label: getCategoryLabel('Clearance Fees', ctx)),
+                                            SearchableDropdownItem(value: 'Procedures & Approvals', label: getCategoryLabel('Procedures & Approvals', ctx)),
+                                            SearchableDropdownItem(value: 'Inland Transport', label: getCategoryLabel('Inland Transport', ctx)),
+                                            SearchableDropdownItem(value: 'Port & Handling', label: getCategoryLabel('Port & Handling', ctx)),
+                                            SearchableDropdownItem(value: 'Other Fees', label: getCategoryLabel('Other Fees', ctx)),
+                                          ],
+                                          onChanged: (v) => setDlgState(() => selectedCategoryFilter = v ?? 'All'),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
-                                  // Category Filter
-                                  SizedBox(
-                                    width: 200,
-                                    child: SearchableDropdownField<String>(
-                                      value: selectedCategoryFilter,
-                                      labelText: l.filterCategoryLabel,
-                                      items: [
-                                        SearchableDropdownItem(value: 'All', label: l.allCategoriesItem),
-                                        SearchableDropdownItem(value: 'Clearance Fees', label: getCategoryLabel('Clearance Fees', ctx)),
-                                        SearchableDropdownItem(value: 'Procedures & Approvals', label: getCategoryLabel('Procedures & Approvals', ctx)),
-                                        SearchableDropdownItem(value: 'Inland Transport', label: getCategoryLabel('Inland Transport', ctx)),
-                                        SearchableDropdownItem(value: 'Port & Handling', label: getCategoryLabel('Port & Handling', ctx)),
-                                        SearchableDropdownItem(value: 'Other Fees', label: getCategoryLabel('Other Fees', ctx)),
-                                      ],
-                                      onChanged: (v) => setDlgState(() => selectedCategoryFilter = v ?? 'All'),
-                                    ),
+                                  const SizedBox(width: 10),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Expand All Button (M3-1)
+                                      AppButton(
+                                        label: isAr ? 'توسيع الكل' : 'Expand All',
+                                        icon: Icons.unfold_more_rounded,
+                                        variant: AppButtonVariant.secondary,
+                                        size: AppButtonSize.small,
+                                        onPressed: () => setDlgState(() => expandedGroups.addAll(CustomsExpenseGroup.values)),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      // Collapse All Button (M3-1)
+                                      AppButton(
+                                        label: isAr ? 'طي الكل' : 'Collapse All',
+                                        icon: Icons.unfold_less_rounded,
+                                        variant: AppButtonVariant.secondary,
+                                        size: AppButtonSize.small,
+                                        onPressed: () => setDlgState(() => expandedGroups.clear()),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      // Add Custom Item Button
+                                      AppButton(
+                                        label: l.addCustomItemOrAliasBtn,
+                                        icon: Icons.qr_code_2,
+                                        variant: AppButtonVariant.primary,
+                                        size: AppButtonSize.small,
+                                        onPressed: () => showAddCustomItemDialog(),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      // Quick Fill Button
+                                      AppButton(
+                                        label: l.fillStandardRatesBtn,
+                                        icon: Icons.flash_on,
+                                        variant: AppButtonVariant.secondary,
+                                        size: AppButtonSize.small,
+                                        onPressed: () {
+                                          setDlgState(() {
+                                            for (var itm in itemsState) {
+                                              final name = itm['expense_name'] as String;
+                                              for (var entry in standardRatesMap.entries) {
+                                                if (name.contains(entry.key) || entry.key.contains(name)) {
+                                                  itm['standard_price'] = entry.value;
+                                                  itm['price_type'] = 'fixed';
+                                                  break;
+                                                }
+                                              }
+                                            }
+                                          });
+                                          ScaffoldMessenger.of(ctx).showSnackBar(
+                                            SnackBar(content: Text('⚡ ${l.standardRatesFilledToast}'), backgroundColor: AppTheme.cobalt),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(width: 6),
+                                      // Zero Out Button
+                                      AppButton(
+                                        label: l.zeroOutRatesBtn,
+                                        icon: Icons.clear_all,
+                                        variant: AppButtonVariant.danger,
+                                        size: AppButtonSize.small,
+                                        onPressed: () {
+                                          setDlgState(() {
+                                            for (var itm in itemsState) {
+                                              itm['standard_price'] = 0.0;
+                                              itm['min_price'] = null;
+                                              itm['max_price'] = null;
+                                              itm['price_type'] = 'negotiable';
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(height: 8),
+
+                              // Row 2: Advanced Filter Chips & Match Count Badge (M3-2)
                               Row(
-                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  // Expand All Button (M3-1)
-                                  AppButton(
-                                    label: isAr ? 'توسيع الكل' : 'Expand All',
-                                    icon: Icons.unfold_more_rounded,
-                                    variant: AppButtonVariant.secondary,
-                                    size: AppButtonSize.small,
-                                    onPressed: () => setDlgState(() => expandedGroups.addAll(CustomsExpenseGroup.values)),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Filter Chip: All
+                                      buildQuickFilterChip(
+                                        label: isAr ? 'الكل' : 'All',
+                                        count: itemsState.length,
+                                        isSelected: quickFilterChip == 'all',
+                                        activeColor: AppTheme.cobalt,
+                                        icon: Icons.list_alt_rounded,
+                                        onTap: () => setDlgState(() => quickFilterChip = 'all'),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      // Filter Chip: Priced
+                                      buildQuickFilterChip(
+                                        label: isAr ? 'مسعر فقط' : 'Priced Only',
+                                        count: countPriced,
+                                        isSelected: quickFilterChip == 'priced',
+                                        activeColor: AppTheme.emerald,
+                                        icon: Icons.monetization_on_outlined,
+                                        onTap: () => setDlgState(() => quickFilterChip = 'priced'),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      // Filter Chip: Negotiable
+                                      buildQuickFilterChip(
+                                        label: isAr ? 'تفاوضي فقط' : 'Negotiable Only',
+                                        count: countNegotiable,
+                                        isSelected: quickFilterChip == 'negotiable',
+                                        activeColor: AppTheme.wcagOrange,
+                                        icon: Icons.handshake_outlined,
+                                        onTap: () => setDlgState(() => quickFilterChip = 'negotiable'),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      // Filter Chip: Foreign Currency
+                                      buildQuickFilterChip(
+                                        label: isAr ? 'عملات أجنبية' : 'Foreign Currency',
+                                        count: countForeign,
+                                        isSelected: quickFilterChip == 'foreign',
+                                        activeColor: AppTheme.cobalt,
+                                        icon: Icons.currency_exchange_rounded,
+                                        onTap: () => setDlgState(() => quickFilterChip = 'foreign'),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      // Filter Chip: Uncoded
+                                      buildQuickFilterChip(
+                                        label: isAr ? 'بحاجة لتكويد' : 'Uncoded Only',
+                                        count: countUncoded,
+                                        isSelected: quickFilterChip == 'uncoded',
+                                        activeColor: AppTheme.crimson,
+                                        icon: Icons.warning_amber_rounded,
+                                        onTap: () => setDlgState(() => quickFilterChip = 'uncoded'),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 6),
-                                  // Collapse All Button (M3-1)
-                                  AppButton(
-                                    label: isAr ? 'طي الكل' : 'Collapse All',
-                                    icon: Icons.unfold_less_rounded,
-                                    variant: AppButtonVariant.secondary,
-                                    size: AppButtonSize.small,
-                                    onPressed: () => setDlgState(() => expandedGroups.clear()),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  // Add Custom Item Button
-                                  AppButton(
-                                    label: l.addCustomItemOrAliasBtn,
-                                    icon: Icons.qr_code_2,
-                                    variant: AppButtonVariant.primary,
-                                    size: AppButtonSize.small,
-                                    onPressed: () => showAddCustomItemDialog(),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  // Quick Fill Button
-                                  AppButton(
-                                    label: l.fillStandardRatesBtn,
-                                    icon: Icons.flash_on,
-                                    variant: AppButtonVariant.secondary,
-                                    size: AppButtonSize.small,
-                                    onPressed: () {
-                                      setDlgState(() {
-                                        for (var itm in itemsState) {
-                                          final name = itm['expense_name'] as String;
-                                          for (var entry in standardRatesMap.entries) {
-                                            if (name.contains(entry.key) || entry.key.contains(name)) {
-                                              itm['standard_price'] = entry.value;
-                                              itm['price_type'] = 'fixed';
-                                              break;
-                                            }
-                                          }
-                                        }
-                                      });
-                                      ScaffoldMessenger.of(ctx).showSnackBar(
-                                        SnackBar(content: Text('⚡ ${l.standardRatesFilledToast}'), backgroundColor: AppTheme.cobalt),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(width: 6),
-                                  // Zero Out Button
-                                  AppButton(
-                                    label: l.zeroOutRatesBtn,
-                                    icon: Icons.clear_all,
-                                    variant: AppButtonVariant.danger,
-                                    size: AppButtonSize.small,
-                                    onPressed: () {
-                                      setDlgState(() {
-                                        for (var itm in itemsState) {
-                                          itm['standard_price'] = 0.0;
-                                          itm['min_price'] = null;
-                                          itm['max_price'] = null;
-                                          itm['price_type'] = 'negotiable';
-                                        }
-                                      });
-                                    },
+                                  const SizedBox(width: 12),
+                                  // Result count badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.cobalt.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.filter_list_rounded, size: 13, color: AppTheme.cobalt),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          isAr
+                                              ? '${filteredItems.length} بند مطابق من إجمالي ${itemsState.length}'
+                                              : '${filteredItems.length} matching of ${itemsState.length}',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1776,10 +2077,15 @@ void showPriceListFormDialog(
                                                         ),
                                                       ),
                                                       const SizedBox(width: 4),
-                                                    ] else if (itm['is_uncoded'] == true) ...[
-                                                      // Uncoded Badge (M1-3)
-                                                      InkWell(
-                                                        onTap: () {
+                                                    ],
+
+                                                    // AI/OCR Confidence indicator or uncoded badge (M1-5)
+                                                    if (itm['confidence'] != null || itm['raw_extracted_text'] != null || itm['is_uncoded'] == true) ...[
+                                                      ExtractionConfidenceIndicator(
+                                                        confidence: (itm['confidence'] as num?)?.toDouble(),
+                                                        rawExtractedText: itm['raw_extracted_text']?.toString(),
+                                                        isUncoded: itm['is_uncoded'] == true,
+                                                        onUncodedTap: () {
                                                           QuickExpenseCodingDialog.show(
                                                             context: ctx,
                                                             ref: ref,
@@ -1796,24 +2102,6 @@ void showPriceListFormDialog(
                                                             },
                                                           );
                                                         },
-                                                        child: Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                          decoration: BoxDecoration(
-                                                            color: AppTheme.crimson,
-                                                            borderRadius: BorderRadius.circular(4),
-                                                          ),
-                                                          child: Row(
-                                                            mainAxisSize: MainAxisSize.min,
-                                                            children: [
-                                                              const Icon(Icons.warning_amber_rounded, color: AppTheme.white, size: 10),
-                                                              const SizedBox(width: 2),
-                                                              Text(
-                                                                l.needsCodingBadge,
-                                                                style: const TextStyle(color: AppTheme.white, fontSize: 9, fontWeight: FontWeight.bold),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
                                                       ),
                                                       const SizedBox(width: 4),
                                                     ] else if (isCustomItem) ...[
@@ -1863,6 +2151,24 @@ void showPriceListFormDialog(
                                                         overflow: TextOverflow.ellipsis,
                                                       ),
                                                     ),
+
+                                                    // Note indicator 💬 icon with preview Tooltip (M2-3)
+                                                    if (itm['notes'] != null && itm['notes'].toString().trim().isNotEmpty) ...[
+                                                      Tooltip(
+                                                        message: '${isAr ? "ملاحظات البند:" : "Item Notes:"}\n${itm['notes'].toString().trim()}',
+                                                        triggerMode: TooltipTriggerMode.tap,
+                                                        child: Container(
+                                                          margin: const EdgeInsetsDirectional.only(start: 4),
+                                                          padding: const EdgeInsets.all(2),
+                                                          decoration: BoxDecoration(
+                                                            color: AppTheme.cobalt.withValues(alpha: 0.1),
+                                                            borderRadius: BorderRadius.circular(4),
+                                                          ),
+                                                          child: const Icon(Icons.chat_bubble_outline_rounded, size: 12, color: AppTheme.cobalt),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                    ],
 
                                                     // Quick coding button
                                                     if (itm['is_uncoded'] == true || itm['code'] == null) ...[
@@ -2076,19 +2382,52 @@ void showPriceListFormDialog(
                                           ),
                                           const SizedBox(width: 8),
 
-                                          // ── Notes / Conditions Input ─────────────────
+                                          // ── Notes / Conditions Input & Templates (M2-3) ──
                                           Expanded(
                                             flex: 3,
-                                            child: TextFormField(
-                                              key: ValueKey('dlg_notes_${itm['expense_type_id'] ?? itm['expense_name']}_${itm['notes']}'),
-                                              initialValue: itm['notes'] ?? '',
-                                              decoration: InputDecoration(
-                                                labelText: l.notesPriceRangeField,
-                                                isDense: true,
-                                                border: const OutlineInputBorder(),
-                                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                              ),
-                                              onChanged: (v) => itemsState[realIdx]['notes'] = v,
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  child: TextFormField(
+                                                    key: ValueKey('dlg_notes_${itm['expense_type_id'] ?? itm['expense_name']}_${itm['notes']}'),
+                                                    initialValue: itm['notes'] ?? '',
+                                                    decoration: InputDecoration(
+                                                      labelText: l.notesPriceRangeField,
+                                                      isDense: true,
+                                                      border: const OutlineInputBorder(),
+                                                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                                    ),
+                                                    onChanged: (v) => itemsState[realIdx]['notes'] = v,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                PopupMenuButton<String>(
+                                                  tooltip: isAr ? 'قوالب ملاحظات جاهزة' : 'Note templates',
+                                                  icon: const Icon(Icons.playlist_add_rounded, size: 18, color: AppTheme.cobalt),
+                                                  padding: EdgeInsets.zero,
+                                                  constraints: const BoxConstraints(),
+                                                  onSelected: (template) {
+                                                    setDlgState(() {
+                                                      final currentNotes = (itemsState[realIdx]['notes']?.toString() ?? '').trim();
+                                                      final newNotes = currentNotes.isEmpty
+                                                          ? template
+                                                          : (currentNotes.contains(template) ? currentNotes : '$currentNotes • $template');
+                                                      itemsState[realIdx]['notes'] = newNotes;
+                                                    });
+                                                  },
+                                                  itemBuilder: (c) => const [
+                                                    'يُضاف عند الحاجة فقط',
+                                                    'يشمل الضريبة',
+                                                    'يتغير حسب سعر الصرف',
+                                                    'يُحسب على الوزن الفعلي',
+                                                    'لا يشمل الغرامات والأرضيات',
+                                                    'شامل الروافع والكلارك',
+                                                  ].map((t) => PopupMenuItem(
+                                                    value: t,
+                                                    child: Text(t, style: const TextStyle(fontSize: 12)),
+                                                  )).toList(),
+                                                ),
+                                              ],
                                             ),
                                           ),
 
@@ -2272,6 +2611,9 @@ void showPriceListFormDialog(
                                   'max_price': parseNullableDouble(itm['max_price']),
                                   'notes': itm['notes']?.toString() ?? '',
                                   'is_active': itm['is_active'] ?? true,
+                                  if (itm['confidence'] != null) 'confidence': parseNullableDouble(itm['confidence']),
+                                  if (itm['raw_extracted_text'] != null && itm['raw_extracted_text'].toString().isNotEmpty)
+                                    'raw_extracted_text': itm['raw_extracted_text'].toString(),
                                 });
                               }
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -114,6 +115,7 @@ def delete_expense_catalog_item(
     "/broker-mappings/all",
     response_model=List[BrokerMappingResponse],
     summary="List remembered item mappings for customs brokers",
+    dependencies=[Depends(require_permission("master_data.view"))],
 )
 def list_broker_mappings(
     broker_name: Optional[str] = Query(None, description="Filter by broker name"),
@@ -127,6 +129,7 @@ def list_broker_mappings(
     response_model=BrokerMappingResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Remember an extracted item mapping for a specific customs broker (M1-4)",
+    dependencies=[Depends(require_permission("master_data.edit"))],
 )
 def create_broker_mapping(
     payload: BrokerMappingCreate,
@@ -146,6 +149,7 @@ def create_broker_mapping(
 @router.delete(
     "/broker-mappings/forget",
     summary="Delete a remembered mapping for a customs broker",
+    dependencies=[Depends(require_permission("master_data.edit"))],
 )
 def delete_broker_mapping(
     broker_name: Optional[str] = Query(None, description="Broker name"),
