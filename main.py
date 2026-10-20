@@ -119,6 +119,8 @@ from modules.logistics_invoices.model import (
 )
 from modules.containers.model import ShipmentContainer
 from modules.vessel_tracking.model import Vessel, VesselPositionLog, ShipmentVesselTracking
+from modules.reexport_protocol.model import ReexportDossier
+from modules.container_deposit.model import ContainerDepositLedger
 
 
 
@@ -180,6 +182,8 @@ from modules.app_update.router import router as app_update_router
 from modules.logistics_invoices.router import router as logistics_invoices_router
 from modules.containers.router import router as containers_router
 from modules.vessel_tracking.router import router as vessel_tracking_router
+from modules.reexport_protocol.router import router as reexport_protocol_router
+from modules.container_deposit.router import router as container_deposit_router
 from modules.system_observability.middleware import ObservabilityMiddleware
 from modules.system_observability.service import setup_query_listener
 
@@ -406,6 +410,8 @@ app.include_router(app_update_router)
 app.include_router(logistics_invoices_router)
 app.include_router(containers_router)
 app.include_router(vessel_tracking_router)
+app.include_router(reexport_protocol_router)
+app.include_router(container_deposit_router)
 
 
 
