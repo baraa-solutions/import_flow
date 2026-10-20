@@ -38,7 +38,7 @@ from modules.customs_clearance.service import (
     record_delivery_order_payment_service,
 )
 from modules.smart_tasks.model import SmartTask
-from modules.customs_clearance.validators import validate_bank_receipt_no, validate_release_permit
+from modules.customs_clearance.validators import validate_bank_receipt_no
 from fastapi import HTTPException
 from pydantic import ValidationError
 
