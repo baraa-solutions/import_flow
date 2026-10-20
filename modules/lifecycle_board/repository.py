@@ -41,6 +41,7 @@ def save_or_update_activity(
     notes: Optional[str] = None,
     msg_code: Optional[str] = None,
     msg_params: Optional[Dict[str, Any]] = None,
+    completion_type: Optional[str] = None,
 ) -> ShipmentStageActivity:
     """``msg_code`` / ``msg_params`` describe ``notes`` (system message code + params, English render in
     ``notes``). Whenever ``notes`` is written they are written too, so user text clears a stale code."""
@@ -57,6 +58,7 @@ def save_or_update_activity(
             notes=notes,
             msg_code=msg_code if notes else None,
             msg_params=msg_params if notes else None,
+            completion_type=completion_type,
         )
         db.add(rec)
     else:
@@ -73,6 +75,8 @@ def save_or_update_activity(
             rec.notes = notes
             rec.msg_code = msg_code
             rec.msg_params = msg_params
+        if completion_type is not None:
+            rec.completion_type = completion_type
     db.flush()
     return rec
 

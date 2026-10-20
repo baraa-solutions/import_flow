@@ -30,6 +30,8 @@ from modules.lifecycle_board.schemas import (
     RegisterPendingReferenceRequest,
     RegisterPendingReferenceResponse,
     SkipStepPayload,
+    StageActivityTimelineItem,
+    ShipmentTimelineResponse,
 )
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
@@ -236,6 +238,7 @@ def get_board_summary_service(db: Session) -> LifecycleBoardSummaryResponse:
                 notes=act.notes,
                 msg_code=act.msg_code,
                 msg_params=act.msg_params,
+                completion_type=getattr(act, "completion_type", None),
             )
         )
 
@@ -292,6 +295,7 @@ def advance_lifecycle_step_service(
     notes_msg: Optional[SysMsg] = None,
     next_action_msg: Optional[SysMsg] = None,
     stage_code: Optional[str] = None,
+    enforce_gatekeeper: bool = False,
     commit: bool = True,
 ) -> Dict[str, Any]:
     """
@@ -360,6 +364,20 @@ def advance_lifecycle_step_service(
     else:
         validators.validate_multi_step_codes(target_step_codes)
 
+    # Gatekeeper check (Checklist Enforcement)
+    if enforce_gatekeeper and file_rec and file_rec.import_file_id:
+        chk_target = target_step_codes[0] if target_step_codes else completed_step_code
+        chk_target_pid = STEP_TO_PHASE_MAP.get(chk_target, 1)
+        phase_to_checklist = {
+            4: "IN_TRANSIT",
+            5: "PORT_ARRIVAL",
+            6: "POST_CLEARANCE",
+        }
+        target_chk_phase = phase_to_checklist.get(chk_target_pid)
+        if target_chk_phase:
+            from modules.smart_checklists.service import enforce_gatekeeper_transition
+            enforce_gatekeeper_transition(db, file_rec.import_file_id, target_chk_phase)
+
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # 4. Auto-Reconciliation of prior steps (mark all prior active/unrecorded steps as Completed)
@@ -380,10 +398,12 @@ def advance_lifecycle_step_service(
                     notes=render_en(auto_msg.code, auto_msg.params, "note"),
                     msg_code=auto_msg.code,
                     msg_params=auto_msg.params,
+                    completion_type="auto",
                 )
                 auto_completed_steps.append(prior_code)
             elif existing_act.status in ["In-Progress", "Pending"]:
                 existing_act.status = "Completed"
+                existing_act.completion_type = "auto"
                 if not existing_act.completed_at:
                     existing_act.completed_at = now_str
                 _append_system_note(
@@ -419,6 +439,7 @@ def advance_lifecycle_step_service(
         notes=completed_notes,
         msg_code=completed_code,
         msg_params=completed_params,
+        completion_type="real",
     )
 
     # 6. Activate target steps as In-Progress
@@ -497,6 +518,18 @@ def advance_lifecycle_step_service(
         db.commit()
         if file_rec:
             db.refresh(file_rec)
+            # 10. Auto-sync smart checklist upon step completion
+            try:
+                from modules.smart_checklists.service import auto_sync_checklist
+                auto_sync_checklist(db, file_rec.import_file_id)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Checklist auto-sync failed after advancing step %s for file #%s: %s",
+                    completed_step_code,
+                    file_rec.import_file_id,
+                    e,
+                )
     else:
         db.flush()
 
@@ -891,6 +924,7 @@ def http_advance_step_service(
     auto_complete_prior: bool = True,
     action_data: Optional[Any] = None,
     notes: Optional[str] = None,
+    enforce_gatekeeper: bool = False,
     actor: User,
 ) -> Dict[str, Any]:
     """HTTP entry point for advancing lifecycle steps (BEX-T01).
@@ -949,6 +983,7 @@ def http_advance_step_service(
         assigned_user=actor.username,
         action_data=action_data,
         notes=notes,
+        enforce_gatekeeper=enforce_gatekeeper,
         source_module="Lifecycle Operations Board",
     )
 
@@ -1389,6 +1424,28 @@ def skip_step_service(
                 detail=f"دورك '{effective_role}' غير مخول باعتماد تخطي هذه الخطوة. الأدوار المعتمدة: {cfg.approver_roles if cfg else ['Manager']}."
             )
 
+    # Check for incomplete SmartTasks associated with this step
+    from modules.smart_tasks.model import SmartTask
+    open_tasks = db.query(SmartTask).filter(
+        SmartTask.import_file_id == file_rec.import_file_id,
+        SmartTask.is_active == True,
+        SmartTask.status.in_(["Pending", "In Progress"]),
+        or_(
+            SmartTask.step_code == payload.current_step_code,
+            and_(SmartTask.step_code.is_(None), SmartTask.title.ilike(f"%{payload.current_step_code}%")),
+        ),
+    ).all()
+
+    force_skip = getattr(payload, "force_skip", False)
+    if open_tasks and not force_skip:
+        raise CodedHTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            code="LC_SKIP_HAS_OPEN_TASKS",
+            message_ar=f"المرحلة '{payload.current_step_code}' تحتوي على {len(open_tasks)} مهمة غير مكتملة. يلزم تأكيد التخطي (force_skip=True) لتجاوز المهام.",
+            step_code=payload.current_step_code,
+            open_tasks_count=len(open_tasks),
+        )
+
     # Auto-infer next step from sequence if not explicitly provided
     if not payload.next_step_codes:
         _, natural_next = get_step_neighbors(payload.current_step_code)
@@ -1411,6 +1468,7 @@ def skip_step_service(
         notes=render_en(skipped_msg.code, skipped_msg.params, "note"),
         msg_code=skipped_msg.code,
         msg_params=skipped_msg.params,
+        completion_type="skipped",
     )
 
     # Activate next step(s)
@@ -1465,6 +1523,13 @@ def skip_step_service(
         "activated_steps": payload.next_step_codes,
         "skip_reason": payload.skip_reason,
         "skip_policy": skip_policy,
+        "warnings": [
+            {
+                "code": "OPEN_TASKS_BYPASSED",
+                "count": len(open_tasks),
+                "message": f"تم تجاوز {len(open_tasks)} مهمة غير مكتملة عند التخطي الإجباري",
+            }
+        ] if open_tasks else [],
     }
 
 
@@ -1493,6 +1558,7 @@ def initialize_file_lifecycle_service(db: Session, import_file_code: str, starti
             notes=render_en(bypass_msg.code, bypass_msg.params, "note"),
             msg_code=bypass_msg.code,
             msg_params=bypass_msg.params,
+            completion_type="bypassed",
         )
 
     # Legacy STEP_08 fallback record for backward-compatibility
@@ -1506,6 +1572,7 @@ def initialize_file_lifecycle_service(db: Session, import_file_code: str, starti
             notes=render_en(bypass_msg.code, bypass_msg.params, "note"),
             msg_code=bypass_msg.code,
             msg_params=bypass_msg.params,
+            completion_type="bypassed",
         )
 
     # Activate starting step
@@ -1592,6 +1659,125 @@ def resume_shipment_activities_service(db: Session, import_file_code: str, resum
 
 def get_all_activities_service(db: Session, import_file_code: str):
     return repo.get_all_activities(db, import_file_code=import_file_code)
+
+
+def get_shipment_timeline_service(db: Session, import_file_code: str) -> ShipmentTimelineResponse:
+    """
+    Builds an execution timeline for the shipment across the 25 lifecycle steps,
+    detecting sequence gaps, auto-completed steps without real operations, and overall integrity.
+    """
+    activities = repo.get_all_activities(db, import_file_code=import_file_code)
+    act_by_code = {act.step_code: act for act in activities}
+
+    step_items: List[StageActivityTimelineItem] = []
+    completed_real_count = 0
+    completed_auto_count = 0
+    skipped_count = 0
+    in_progress_count = 0
+    sequence_warnings: List[Dict[str, Any]] = []
+
+    # Map of ordered steps
+    for step_code in ORDERED_STEP_CODES:
+        names = STEP_NAME_MAP.get(step_code, (step_code, step_code))
+        phase_id = STEP_TO_PHASE_MAP.get(step_code, 1)
+        act = act_by_code.get(step_code)
+
+        if not act:
+            status_val = "Pending"
+            comp_type = None
+            has_data = False
+            is_gap = False
+            started_at = None
+            completed_at = None
+            assigned_user = None
+            notes = None
+            msg_code = None
+            msg_params = None
+        else:
+            status_val = act.status
+            comp_type = getattr(act, "completion_type", None)
+            
+            # Infer completion_type for historical records if not set
+            if not comp_type:
+                if status_val == "Completed":
+                    if act.msg_code == "LC_STEP_AUTO_COMPLETED" or (act.notes and "Auto-completed" in act.notes):
+                        comp_type = "auto"
+                    elif act.msg_code == "LC_STEP_BYPASSED_FOR_LATER_START":
+                        comp_type = "bypassed"
+                    else:
+                        comp_type = "real"
+                elif status_val == "Skipped":
+                    comp_type = "skipped"
+
+            has_data = bool(act.action_data and act.action_data not in ("{}", "null", ""))
+            if comp_type == "real":
+                has_data = True
+            
+            is_gap = comp_type in ("auto", "bypassed")
+            started_at = act.started_at
+            completed_at = act.completed_at
+            assigned_user = act.assigned_user
+            notes = act.notes
+            msg_code = act.msg_code
+            msg_params = act.msg_params
+
+            if status_val == "Completed":
+                if comp_type == "auto":
+                    completed_auto_count += 1
+                else:
+                    completed_real_count += 1
+            elif status_val == "Skipped":
+                skipped_count += 1
+            elif status_val == "In-Progress":
+                in_progress_count += 1
+
+        if is_gap:
+            sequence_warnings.append({
+                "step_code": step_code,
+                "step_name_ar": names[1],
+                "step_name_en": names[0],
+                "issue": "AUTO_COMPLETED_NO_DIRECT_ACTION",
+                "message": f"المرحلة {names[1]} ({step_code}) تم إكمالها تلقائياً بدون تسجيل بيانات تشغيلية مباشرة.",
+            })
+
+        step_items.append(
+            StageActivityTimelineItem(
+                step_code=step_code,
+                step_name_en=names[0],
+                step_name_ar=names[1],
+                phase_id=phase_id,
+                status=status_val,
+                completion_type=comp_type,
+                has_real_data=has_data,
+                is_sequence_gap=is_gap,
+                started_at=started_at,
+                completed_at=completed_at,
+                assigned_user=assigned_user,
+                notes=notes,
+                msg_code=msg_code,
+                msg_params=msg_params,
+            )
+        )
+
+    # Determine overall integrity
+    if not sequence_warnings:
+        integrity = "Clean"
+    elif completed_auto_count > 0:
+        integrity = "Sequence Gaps Detected"
+    else:
+        integrity = "Incomplete Real Data"
+
+    return ShipmentTimelineResponse(
+        import_file_code=import_file_code,
+        total_steps=len(ORDERED_STEP_CODES),
+        completed_real_count=completed_real_count,
+        completed_auto_count=completed_auto_count,
+        skipped_count=skipped_count,
+        in_progress_count=in_progress_count,
+        sequence_integrity=integrity,
+        sequence_warnings=sequence_warnings,
+        steps=step_items,
+    )
 
 
 def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResponse:

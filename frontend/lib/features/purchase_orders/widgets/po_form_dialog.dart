@@ -1701,10 +1701,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           ),
 
         ),
-        content: SizedBox(
-          width: 850,
-          height: 520,
-          child: Form(
+        content: SelectionArea(
+          child: SizedBox(
+            width: 850,
+            height: 520,
+            child: Form(
             key: _formKey,
             child: TabBarView(
               children: [
@@ -3390,6 +3391,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                 ),
               ),
             ),
+          ),
         actions: [
           AppButton(
             label: context.l10n.cancel,

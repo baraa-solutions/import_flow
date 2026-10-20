@@ -25,6 +25,7 @@ class StageActivityBase(BaseModel):
     assigned_user: Optional[str] = None
     action_data: Optional[str] = None
     notes: Optional[str] = None
+    completion_type: Optional[str] = None
 
 
 class StageActivityCreate(StageActivityBase):
@@ -69,6 +70,7 @@ class LifecycleSyncRequest(BaseModel):
     notes: Optional[str] = None
     source_module: Optional[str] = None
     auto_complete_prior: bool = Field(True, description="Auto-complete prior steps (honoured for ADMIN only)")
+    enforce_gatekeeper: bool = Field(False, description="Enforce checklist gatekeeper before advancing across phases")
 
 
 
@@ -77,6 +79,7 @@ class SkipStepPayload(BaseModel):
     current_step_code: str
     skip_reason: str = Field(..., min_length=2, description="Reason for skipping the operational step")
     next_step_codes: List[str] = Field(default_factory=list, description="Next operational step codes to activate")
+    force_skip: bool = Field(False, description="Force skip even if open tasks exist")
 
 
 class MultiStageSetPayload(BaseModel):
@@ -109,6 +112,7 @@ class ShipmentStageCard(BaseModel):
     notes: Optional[str] = None
     msg_code: Optional[str] = None  # system message code of ``notes`` (English render in ``notes``)
     msg_params: Optional[Dict[str, Any]] = None
+    completion_type: Optional[str] = None
 
 
 class PhaseSummary(BaseModel):
@@ -249,4 +253,33 @@ class RegisterPendingReferenceResponse(BaseModel):
     expected_completion_date: Optional[str] = None
     status: str = "Reference recorded – pending full documentation"
     registered_at: str
+
+
+class StageActivityTimelineItem(BaseModel):
+    step_code: str
+    step_name_en: str
+    step_name_ar: str
+    phase_id: int
+    status: str
+    completion_type: Optional[str] = None # real, auto, skipped, bypassed
+    has_real_data: bool = False
+    is_sequence_gap: bool = False
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    assigned_user: Optional[str] = None
+    notes: Optional[str] = None
+    msg_code: Optional[str] = None
+    msg_params: Optional[Dict[str, Any]] = None
+
+
+class ShipmentTimelineResponse(BaseModel):
+    import_file_code: str
+    total_steps: int = 25
+    completed_real_count: int
+    completed_auto_count: int
+    skipped_count: int
+    in_progress_count: int
+    sequence_integrity: str # "Clean", "Sequence Gaps Detected", "Incomplete Real Data"
+    sequence_warnings: List[Dict[str, Any]] = Field(default_factory=list)
+    steps: List[StageActivityTimelineItem]
 

@@ -25,6 +25,7 @@ from modules.import_files.schemas import (
     ResumeShipmentPayload,
     CloneImportFileRequest,
     CreatePartialBatchRequest,
+    SearchInsightsResponse,
 )
 import modules.import_files.service as service
 from modules.auth.permissions import require_permission
@@ -142,6 +143,53 @@ def list_paginated_import_files(
     )
     response.headers["X-Total-Count"] = str(result["total"])
     return result
+
+
+@router.get(
+    "/search/insights",
+    response_model=SearchInsightsResponse,
+    summary="Smart Insight Bar aggregations for advanced search (UX-SEARCH-013)",
+)
+def get_search_insights_endpoint(
+    search: Optional[str] = None,
+    company_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    hs_code: Optional[str] = None,
+    incoterm_code: Optional[str] = None,
+    port_of_loading: Optional[str] = None,
+    port_of_discharge: Optional[str] = None,
+    shipment_mode: Optional[str] = None,
+    carrier: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
+):
+    return service.get_search_insights_service(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        company_id=company_id,
+        supplier_id=supplier_id,
+        status=status,
+        owner=owner,
+        hs_code=hs_code,
+        incoterm_code=incoterm_code,
+        port_of_loading=port_of_loading,
+        port_of_discharge=port_of_discharge,
+        shipment_mode=shipment_mode,
+        carrier=carrier,
+        date_from=date_from,
+        date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
+    )
+
 
 
 

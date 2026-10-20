@@ -97,11 +97,12 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
     return Dialog(
       backgroundColor: AppTheme.surfaceOf(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820, maxHeight: 680),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820, maxHeight: 680),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Header
@@ -382,6 +383,7 @@ class _SearchAndClonePoReconciliationDialogState extends State<SearchAndClonePoR
             ],
           ),
         ),
+      ),
       ),
     );
   }

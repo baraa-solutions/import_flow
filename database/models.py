@@ -82,4 +82,5 @@ from modules.smart_tasks.model import SmartTask
 from modules.suppliers.model import Supplier
 from modules.transport_locations.model import TransportLocation
 from modules.users.model import User
+from modules.vessel_tracking.model import Vessel, VesselPositionLog, ShipmentVesselTracking
 from modules.warehouse_receiving.model import WarehouseReceivingRecord

@@ -65,7 +65,6 @@ class _SearchAndCloneBudgetDialogState
   Widget build(BuildContext context) {
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Dialog(
       backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
@@ -74,13 +73,14 @@ class _SearchAndCloneBudgetDialogState
         side: BorderSide(
             color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 620),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 620),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Header
               Row(
                 children: [
@@ -441,6 +441,7 @@ class _SearchAndCloneBudgetDialogState
             ],
           ),
         ),
+      ),
       ),
     );
   }

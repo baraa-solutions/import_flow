@@ -408,3 +408,13 @@ class PaginatedImportFilesResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class SearchInsightsResponse(BaseModel):
+    total_count: int = 0
+    mode_route: Optional[str] = None
+    mode_shipping_mode: Optional[str] = None
+    latest_freight_cost: Optional[float] = None
+    latest_freight_currency: str = "USD"
+    avg_landed_cost: Optional[float] = None
+    avg_landed_currency: str = "EGP"

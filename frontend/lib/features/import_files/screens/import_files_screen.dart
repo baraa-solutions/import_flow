@@ -32,7 +32,7 @@ import '../../../core/theme/density_provider.dart';
 import '../widgets/visual_container_load_planner_dialog.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
-import '../../../core/utils/bidi_text.dart';
+
 class ImportFilesScreen extends ConsumerStatefulWidget {
   final String? initialSearchQuery;
   final int? highlightedFileId;
@@ -346,13 +346,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 }
                               }
 
-                              Clipboard.setData(ClipboardData(text: stripBidiIsolates(buffer.toString())));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l.reportCopiedToClipboard),
-                                  backgroundColor: AppTheme.cobalt,
-                                ),
-                              );
+                              CopyHelper.copy(context, buffer.toString(), customMessage: l.reportCopiedToClipboard);
                             },
                             icon: const Icon(Icons.print, size: 16),
                             label: Text(l.printReport),

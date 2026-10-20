@@ -455,6 +455,11 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'LC_SKIP_DUAL_APPROVAL_REQUIRED': {
     'note': 'المرحلة {step_code} تتطلب اعتماداً مزدوجاً ولا يمكن تجاوزها لغير مديري النظام.',
   },
+  'LC_SKIP_HAS_OPEN_TASKS': {
+    'title': 'تعليق تخطي المرحلة: مهام مفتوحة ({step_code})',
+    'body': 'المرحلة {step_code} تحتوي على {open_tasks_count} مهمة غير مكتملة. يلزم تأكيد التخطي (force_skip) لتجاوز المهام.',
+    'note': 'تعذر تخطي المرحلة {step_code}: يوجد {open_tasks_count} مهمة غير مكتملة.',
+  },
   'LC_STARTING_POINT_SET': {
     'note': 'نقطة البداية المحددة للشحنة: {step_code}',
   },
@@ -808,6 +813,14 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'NOTIF_CARGOX_UPLOAD_DELAY': {
     'title': 'تنبيه تأخر رفع مستندات CargoX: {import_file_code}',
     'body': 'الشحنة {import_file_code} متوقع وصولها خلال {days_left} يوماً (ETA: {eta_date}) ولم يقم المورد {supplier_name} برفع أو اعتماد مظروف المستندات على CargoX. يرجى المتابعة العاجلة.',
+  },
+  'NOTIF_CHECKLIST_ETA_APPROACHING': {
+    'title': 'تنبيه جاهزية قائمة التحقق قبل وصول الباخرة: {import_file_code}',
+    'body': 'موعد وصول الباخرة المتوقع للشحنة {import_file_code} خلال {days_left} يوماً (ETA: {eta_date}) مع وجود {blocking_count} بند إلزامي معلق بقائمة التحقق. يرجى استيفاء المتطلبات لتجنب الاختناقات في الميناء.',
+  },
+  'NOTIF_CHECKLIST_GATE_BLOCKED': {
+    'title': 'قائمة التحقق توقف الانتقال للمرحلة التالية: {import_file_code}',
+    'body': 'الشحنة {import_file_code} لديها {blocking_count} بند إلزامي معلق في قائمة التحقق للمرحلة {target_phase}. تم تعليق الانتقال التلقائي أو اليدوي للمرحلة حتى التحقق أو منح استثناء رسمي.',
   },
   'NOTIF_COMPANY_IMPORTER_ID_EXPIRY': {
     'title': 'تنبيه انتهاء البطاقة الاستيرادية: {company_name}',
@@ -1481,6 +1494,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'CCQ_PRICE_LIST_DATE_RANGE': {
     'note': 'بداية الصلاحية {effective_from} بعد نهايتها {effective_to}.',
+  },
+  'SS_FX_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف تجاري مسجل للعملة {currency} في تاريخ {on_date}.',
   },
   'WR_GRN_EXISTS': {
     'note': 'يوجد بالفعل إذن إضافة مخزنية (GRN) نشط ({grn_code}) لهذا الملف الاستيرادي.',

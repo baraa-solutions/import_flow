@@ -23,6 +23,7 @@ from modules.customs_clearance.schemas import (
     DutyPaymentSubmit,
     CompleteReleaseSubmit,
     FinalDutyAssessmentSubmit,
+    DeliveryOrderPaymentSubmit,
 )
 from modules.customs_clearance.service import (
     create_customs_clearance_service,
@@ -34,7 +35,9 @@ from modules.customs_clearance.service import (
     restore_customs_clearance_service,
     update_customs_clearance_service,
     assess_final_customs_duties_service,
+    record_delivery_order_payment_service,
 )
+from modules.smart_tasks.model import SmartTask
 from modules.customs_clearance.validators import validate_bank_receipt_no, validate_release_permit
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -340,6 +343,55 @@ class TestCustomsClearanceModule(unittest.TestCase):
             soft_delete_customs_clearance_service(self.db, rec_id)
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertEqual(ctx.exception.detail["code"], "CC_SETTLEMENT_LOCKED")
+
+    def test_delivery_order_payment_closes_arrival_notice_task(self):
+        # 1. Create a pending SmartTask with reminder_type='Arrival Notice Payment'
+        task = SmartTask(
+            task_code="TSK-ARV-99999",
+            title="سداد مصاريف إذن التسليم",
+            description="متابعة سداد إذن التسليم والرسوم البحرية",
+            task_type="System Generated",
+            import_file_id=self.import_file_id,
+            import_file_code="IMP-001",
+            reminder_type="Arrival Notice Payment",
+            priority="High",
+            status="Pending",
+            due_date=date.today().isoformat(),
+            created_by="SmartEmailListener",
+        )
+        self.db.add(task)
+        self.db.commit()
+
+        # 2. Record Delivery Order Payment (CS-02)
+        payload = DeliveryOrderPaymentSubmit(
+            import_file_id=self.import_file_id,
+            delivery_order_number="DO-TEST-99999",
+            delivery_order_expiry=datetime(2028, 1, 1, tzinfo=timezone.utc),
+            free_days_allowed=14,
+            delivery_order_fees=15000.0,
+            delivery_order_currency="EGP",
+            delivery_order_payment_ref="RCP-DO-TEST-99999",
+            shipping_agent_name="Test Shipping Agency",
+            notes="Maritime fees payment verified and receipt recorded.",
+        )
+        record = record_delivery_order_payment_service(self.db, payload, user="Finance Team")
+
+        # 3. Assertions
+        self.assertEqual(record.delivery_order_number, "DO-TEST-99999")
+        self.assertEqual(record.delivery_order_status, "Paid & Received")
+        self.assertEqual(record.delivery_order_fees, 15000.0)
+        self.assertEqual(record.delivery_order_payment_ref, "RCP-DO-TEST-99999")
+
+        # ImportFile assertions
+        imp = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
+        self.assertEqual(imp.delivery_order_no, "DO-TEST-99999")
+        self.assertEqual(imp.delivery_order_status, "PAID_AND_RECEIVED")
+        self.assertGreaterEqual(imp.progress_percent, 83.0)
+
+        # SmartTask must be automatically completed
+        self.db.refresh(task)
+        self.assertEqual(task.status, "Completed")
+        self.assertIn("DO-TEST-99999", task.notes)
 
 
 if __name__ == "__main__":

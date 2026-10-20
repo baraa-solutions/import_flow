@@ -139,6 +139,11 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "LC_SKIP_DUAL_APPROVAL_REQUIRED": {
         "note": "Step {step_code} requires dual approval and cannot be skipped by non-admin users.",
     },
+    "LC_SKIP_HAS_OPEN_TASKS": {
+        "title": "Skip blocked: {step_code} has open tasks",
+        "body": "Step {step_code} has {open_tasks_count} open task(s). Confirm skip with force_skip to proceed.",
+        "note": "Cannot skip {step_code}: {open_tasks_count} open tasks remain",
+    },
     "LC_APPROVER_ROLE_UNKNOWN": {
         "note": "Approver role {role_code} does not match any known system role.",
     },
@@ -562,6 +567,15 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "{voyage_number}. Match the B/L data (Shipper, Consignee, Notify, Goods, Net/Gross Wt) with the purchase "
         "order and commercial invoice to avoid customs amendment penalties.",
     },
+    "LOG_VESSEL_ARRIVED_PORT": {
+        "title": "Vessel berthed at {port_name} - {import_file_code}",
+        "body": "Vessel {vessel_name} has berthed at {port_name}. Free days demurrage countdown is active. Settle shipping agency charges and collect Delivery Order.",
+        "note": "Vessel {vessel_name} berthed at {port_name} on {arrival_date}.",
+    },
+    "LOG_TASK_DELIVERY_ORDER": {
+        "title": "Pay shipping agency charges and collect delivery order (D/O) - {import_file_code}",
+        "body": "Vessel {vessel_name} arrived at {port_name}. Settle container and agency charges to obtain Delivery Order before demurrage incurs.",
+    },
     "DOC_TASK_FREIGHT_BOOKING": {
         "title": "Confirm the freight booking and the shipping line: {import_file_code} (BK-01)",
         "body": "ACID {acid_number} issued and verified. Confirm the booking (Booking No) with the shipping line or "
@@ -875,6 +889,14 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "title": "ETA imminent without clearance: {import_file_code}",
         "body": "{import_file_code} arrives within {hours} hours and no customs clearance file has been opened. "
         "Start the declaration 46 procedures now.",
+    },
+    "NOTIF_CHECKLIST_GATE_BLOCKED": {
+        "title": "Checklist gate blocked: {import_file_code}",
+        "body": "{import_file_code} has {blocking_count} mandatory checklist item(s) pending for phase {target_phase}. Automatic or manual progression is blocked until verified or waived.",
+    },
+    "NOTIF_CHECKLIST_ETA_APPROACHING": {
+        "title": "Checklist readiness alert before arrival: {import_file_code}",
+        "body": "{import_file_code} vessel arrival expected in {days_left} days (ETA: {eta_date}) with {blocking_count} mandatory checklist item(s) still unverified. Settle requirements to avoid port bottlenecks.",
     },
     # ── Observability alerts / daily report ─────────────────────────────────────
     "ALERT_BACKUP_OVERDUE": {

@@ -8517,6 +8517,29 @@ abstract class AppLocalizations {
   String get inqDossierRowShippingMode;
   String get inqDossierRowIncoterm;
   String get inqDossierRowFreight;
+
+  // ── UX-SEARCH-013: Advanced Search & Unified Shipment Reference ──────────
+  String get inqInsightModeRoute;
+  String get inqInsightModeShippingMode;
+  String get inqInsightLatestFreight;
+  String get inqInsightLatestFreightNote;
+  String get inqInsightAvgLandedCost;
+  String get inqInsightMatchingCount;
+  String get inqInsightBarTitle;
+  String get inqColFinalCost;
+  String get inqColStatus;
+  String get inqColDate;
+  String get inqPrintRowTooltip;
+  String get inqFilterStatus;
+  String get inqAllStatuses;
+  String get inqStatusDraft;
+  String get inqStatusInProgress;
+  String get inqStatusCompleted;
+  String get inqStatusClosed;
+  String get inqStatusDelayed;
+  String get inqPrintSingleSummaryTitle;
+  String get inqPdfSingleShipmentHeader;
+
   String get themeToggleTooltip;
   String get darkMode;
   String get lightMode;

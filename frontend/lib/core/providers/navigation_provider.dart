@@ -34,6 +34,7 @@ import '../../features/warehouse_receiving/providers/warehouse_receiving_provide
 import '../../features/warehouse_receiving/providers/goods_in_transit_provider.dart';
 import '../../features/lifecycle_board/providers/step_config_provider.dart';
 import '../../features/logistics_invoices/providers/logistics_invoices_provider.dart';
+import '../../features/vessel_tracking/providers/vessel_tracking_provider.dart';
 
 // ============================================================
 // Navigation Index Provider
@@ -99,9 +100,10 @@ import '../../features/logistics_invoices/providers/logistics_invoices_provider.
 //  66 = UsersManagementScreen
 //  67 = StepConfigManagementScreen (Addendum: Section 10)
 //  70 = LogisticsInvoicesScreen
+//  71 = VesselTrackingRadarScreen
 // ============================================================
 
-const int _totalScreens = 71; // indices 0–70
+const int _totalScreens = 72; // indices 0–71
 
 
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
@@ -184,6 +186,7 @@ _ScreenTabInfo _getScreenTabInfo(int index) {
     case 66: return const _ScreenTabInfo('إدارة المستخدمين', Icons.manage_accounts_rounded);
     case 67: return const _ScreenTabInfo('إعدادات تصنيف المراحل', Icons.admin_panel_settings_rounded);
     case 70: return const _ScreenTabInfo('فواتير ومدفوعات الخدمات اللوجستية', Icons.receipt_long_outlined);
+    case 71: return const _ScreenTabInfo('رادار تتبع السفن', Icons.radar_outlined);
     default: return _ScreenTabInfo('شاشة $index', Icons.tab_outlined);
   }
 }
@@ -351,6 +354,9 @@ void _liveRefreshScreenData(WidgetRef ref, int index) {
       ref.invalidate(paymentVouchersListProvider);
       ref.invalidate(clearanceAdvancesListProvider);
       ref.invalidate(insurancePoliciesListProvider);
+      break;
+    case 71:
+      ref.read(vesselTrackingRadarProvider.notifier).fetchRadarOverview();
       break;
 
     default:

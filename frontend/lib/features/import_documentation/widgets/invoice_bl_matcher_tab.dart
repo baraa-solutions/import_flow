@@ -1367,14 +1367,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                         icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
                         tooltip: context.l10n.idocACopyRowDataAsTSV,
                         onPressed: () {
-                          Clipboard.setData(ClipboardData(text: rowSummary));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(context.l10n.idocARowCopiedTsv(checkItemName)),
-                              duration: const Duration(seconds: 2),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                          CopyHelper.copy(context, rowSummary, customMessage: context.l10n.idocARowCopiedTsv(checkItemName));
                         },
                       ),
                     ),
@@ -1390,7 +1383,6 @@ Total Items: 31 Total: 20,030.000 kgs.
 
   Widget _buildExtractedFieldsCards() {
     final l = context.l10n;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final Map<String, dynamic> inv = _matchResult?['invoice_data'] is Map
         ? Map<String, dynamic>.from(_matchResult!['invoice_data'] as Map)
         : <String, dynamic>{};
@@ -2254,10 +2246,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                           icon: const Icon(Icons.copy, size: 14, color: AppTheme.cobalt),
                           tooltip: context.l10n.idocACopyCode,
                           onPressed: () {
-                            Clipboard.setData(ClipboardData(text: session.sessionCode));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.idocASessionCodeCopiedToTheClipboard), duration: Duration(seconds: 1)),
-                            );
+                            CopyHelper.copy(context, session.sessionCode, customMessage: context.l10n.idocASessionCodeCopiedToTheClipboard);
                           },
                         ),
                       ],

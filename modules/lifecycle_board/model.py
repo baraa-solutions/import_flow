@@ -20,6 +20,7 @@ class ShipmentStageActivity(Base):
     notes = Column(Text, nullable=True)
     msg_code = Column(String(80), nullable=True)  # system message code for notes (English render in notes)
     msg_params = Column(JSON, nullable=True)
+    completion_type = Column(String(30), nullable=True) # real, auto, skipped, bypassed
 
 
 class StepConfig(Base):

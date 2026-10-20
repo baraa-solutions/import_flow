@@ -469,6 +469,12 @@ def _sync_import_file_with_booking(db: Session, booking: ShipmentBooking, tracki
             carrier_label += f" ({booking.vessel_name})"
         file_rec.selected_scenario = f"Confirmed booking: {carrier_label}"
 
+    if tracking_step == "STEP_07":
+        if booking.booking_confirmation_no or booking.booking_code:
+            file_rec.booking_no = booking.booking_confirmation_no or booking.booking_code
+        if booking.vessel_name:
+            file_rec.vessel_name = booking.vessel_name
+
     if tracking_step and _file_past_step(file_rec, tracking_step):
         tracking_step = None  # the file is already further on the board: attributes only
     if tracking_step == "STEP_07":

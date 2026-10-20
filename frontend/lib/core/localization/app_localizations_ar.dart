@@ -10997,6 +10997,29 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get inqDossierRowShippingMode => 'أسلوب الشحن';
   @override String get inqDossierRowIncoterm => 'شرط التسليم';
   @override String get inqDossierRowFreight => 'النولون';
+
+  // ── UX-SEARCH-013: Advanced Search & Unified Shipment Reference ──────────
+  @override String get inqInsightModeRoute => 'المسار المعتاد';
+  @override String get inqInsightModeShippingMode => 'طريقة الشحن المعتادة';
+  @override String get inqInsightLatestFreight => 'آخر سعر نولون';
+  @override String get inqInsightLatestFreightNote => 'أحدث شحنة مسجلة للتفاوض';
+  @override String get inqInsightAvgLandedCost => 'متوسط التكلفة النهائية';
+  @override String get inqInsightMatchingCount => 'عدد الشحنات المطابقة';
+  @override String get inqInsightBarTitle => 'شريط الملخص الذكي ومؤشرات الشحن';
+  @override String get inqColFinalCost => 'التكلفة النهائية';
+  @override String get inqColStatus => 'الحالة';
+  @override String get inqColDate => 'التاريخ';
+  @override String get inqPrintRowTooltip => 'طباعة ملخص هذا الصف فقط';
+  @override String get inqFilterStatus => 'حالة الشحنة';
+  @override String get inqAllStatuses => 'كل الحالات';
+  @override String get inqStatusDraft => 'مسودة';
+  @override String get inqStatusInProgress => 'جارية';
+  @override String get inqStatusCompleted => 'مكتملة';
+  @override String get inqStatusClosed => 'مغلقة';
+  @override String get inqStatusDelayed => 'متأخرة';
+  @override String get inqPrintSingleSummaryTitle => 'بطاقة ملخص الشحنة المرجعية';
+  @override String get inqPdfSingleShipmentHeader => 'بيان ملخص الشحنة المرجعية المستعلم عنها';
+
   @override String get themeToggleTooltip => 'تبديل المظهر الداكن والنهاري';
   @override String get darkMode => 'الوضع الداكن';
   @override String get lightMode => 'الوضع النهاري';

@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 
 import '../../features/import_files/models/import_file_model.dart';
 import '../theme/app_theme.dart';
+import '../widgets/copyable_data_helper.dart';
 import 'file_save_helper.dart';
 
 class FreightRfqGeneratorService {
@@ -338,13 +339,11 @@ class FreightRfqGeneratorService {
 
   /// Copy text to clipboard and show snackbar
   static void copyToClipboard(BuildContext context, String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✅ تم نسخ $label إلى الحافظة بنجاح!'),
-        backgroundColor: AppTheme.emerald,
-        duration: const Duration(seconds: 3),
-      ),
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    CopyHelper.copy(
+      context,
+      text,
+      customMessage: isAr ? 'تم نسخ $label إلى الحافظة بنجاح' : '$label copied to clipboard successfully',
     );
   }
 

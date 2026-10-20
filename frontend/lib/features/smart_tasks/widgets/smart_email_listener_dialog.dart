@@ -257,11 +257,12 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
     return Dialog(
       backgroundColor: isDark ? AppTheme.darkSurface : null,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 860,
-        height: 680,
-        padding: const EdgeInsets.all(24),
-        child: Column(
+      child: SelectionArea(
+        child: Container(
+          width: 860,
+          height: 680,
+          padding: const EdgeInsets.all(24),
+          child: Column(
           children: [
             // Header
             Row(
@@ -647,6 +648,7 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

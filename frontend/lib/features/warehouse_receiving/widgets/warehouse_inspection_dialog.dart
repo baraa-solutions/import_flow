@@ -273,24 +273,26 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
       content: SizedBox(
         width: (MediaQuery.of(context).size.width - 48).clamp(360.0, 860.0),
         height: (MediaQuery.of(context).size.height * 0.7).clamp(360.0, 560.0),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildMetricStrip(l10n, isDark, rec, totalDiscrepancy, discrepancyRate),
-                const SizedBox(height: 16),
-                if (rec.grnItems.isNotEmpty) ...[
-                  _buildItemsTable(l10n, isDark, rec),
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildMetricStrip(l10n, isDark, rec, totalDiscrepancy, discrepancyRate),
                   const SizedBox(height: 16),
+                  if (rec.grnItems.isNotEmpty) ...[
+                    _buildItemsTable(l10n, isDark, rec),
+                    const SizedBox(height: 16),
+                  ],
+                  _buildVerdictRow(l10n),
+                  const SizedBox(height: 12),
+                  _buildRootCauseRow(l10n),
+                  const SizedBox(height: 14),
+                  _buildClaimsPanel(l10n, isDark, currencies.map((c) => c.currencyCode).toList()),
                 ],
-                _buildVerdictRow(l10n),
-                const SizedBox(height: 12),
-                _buildRootCauseRow(l10n),
-                const SizedBox(height: 14),
-                _buildClaimsPanel(l10n, isDark, currencies.map((c) => c.currencyCode).toList()),
-              ],
+              ),
             ),
           ),
         ),

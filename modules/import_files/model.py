@@ -206,6 +206,7 @@ class ImportFile(Base):
     __table_args__ = (
         Index("idx_import_files_current_phase_id", "current_phase_id"),
         Index("idx_import_files_parent_id", "parent_import_file_id"),
+        Index("idx_import_files_search_comp", "company_id", "supplier_id", "hs_code"),
     )
 
 

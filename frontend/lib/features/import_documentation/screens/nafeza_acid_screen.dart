@@ -2795,14 +2795,7 @@ CargoX Platform ID: 00000000-0000-0000-0000-000000000000''';
       buffer.writeln('${l.idocBAcidReportOverride}: ${_discrepancyOverrideReasonCtrl.text.trim()}');
     }
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.discrepancyReportCopiedSuccess),
-        backgroundColor: AppTheme.wcagEmerald,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    CopyHelper.copy(context, buffer.toString(), customMessage: context.l10n.discrepancyReportCopiedSuccess);
   }
 
   Future<void> _runComparison() async {

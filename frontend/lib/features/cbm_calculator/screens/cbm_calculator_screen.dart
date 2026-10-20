@@ -221,8 +221,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
     return Scaffold(
       backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : AppTheme.charcoalSurface,
-      body: Column(
-        children: [
+      body: SelectionArea(
+        child: Column(
+          children: [
           // Header Banner (Responsive LayoutBuilder)
           LayoutBuilder(
             builder: (context, constraints) {
@@ -343,7 +344,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   // ---------------------------------------------------------------------------

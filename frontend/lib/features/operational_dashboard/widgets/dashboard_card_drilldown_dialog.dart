@@ -7,7 +7,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../smart_tasks/models/smart_task_model.dart';
-import '../../../core/utils/bidi_text.dart';
 
 enum DashboardCardType {
   todaysTasks,
@@ -485,20 +484,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
       buffer.writeln();
     }
 
-    Clipboard.setData(ClipboardData(text: stripBidiIsolates(buffer.toString())));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white, size: 16),
-            const SizedBox(width: 8),
-            Text(l.drillDownCopiedAllToast),
-          ],
-        ),
-        backgroundColor: AppTheme.emerald,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    CopyHelper.copy(context, buffer.toString(), customMessage: l.drillDownCopiedAllToast);
   }
 
   void _copySingleRecord(BuildContext context, DrillDownItem r, AppLocalizations l) {
@@ -515,20 +501,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
       buffer.writeln('[${l.drillDownDataGapBadge}]: ${r.dataGaps.join(" | ")}');
     }
 
-    Clipboard.setData(ClipboardData(text: stripBidiIsolates(buffer.toString())));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white, size: 16),
-            const SizedBox(width: 8),
-            Text(l.drillDownCopiedItemToast),
-          ],
-        ),
-        backgroundColor: AppTheme.cobalt,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    CopyHelper.copy(context, buffer.toString(), customMessage: l.drillDownCopiedItemToast);
   }
 
   Color _getStatusColor(String? type) {
@@ -559,8 +532,9 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
       ),
       backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
-      child: Container(
-        width: 880,
+      child: SelectionArea(
+        child: Container(
+          width: 880,
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.85,
         ),
@@ -737,7 +711,8 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildEmptyState(BuildContext context, AppLocalizations l, {bool isDark = false}) {

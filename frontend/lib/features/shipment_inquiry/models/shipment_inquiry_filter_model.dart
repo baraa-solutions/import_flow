@@ -7,6 +7,7 @@ class ShipmentInquiryFilterModel {
   final String? portOfDischarge;
   final String? shipmentMode;
   final String? carrier;
+  final List<String> statuses;
   final DateTime? dateFrom;
   final DateTime? dateTo;
   final String search;
@@ -20,6 +21,7 @@ class ShipmentInquiryFilterModel {
     this.portOfDischarge,
     this.shipmentMode,
     this.carrier,
+    this.statuses = const [],
     this.dateFrom,
     this.dateTo,
     this.search = '',
@@ -41,6 +43,7 @@ class ShipmentInquiryFilterModel {
     bool clearMode = false,
     String? carrier,
     bool clearCarrier = false,
+    List<String>? statuses,
     DateTime? dateFrom,
     bool clearDateFrom = false,
     DateTime? dateTo,
@@ -56,6 +59,7 @@ class ShipmentInquiryFilterModel {
       portOfDischarge: clearPod ? null : (portOfDischarge ?? this.portOfDischarge),
       shipmentMode: clearMode ? null : (shipmentMode ?? this.shipmentMode),
       carrier: clearCarrier ? null : (carrier ?? this.carrier),
+      statuses: statuses ?? this.statuses,
       dateFrom: clearDateFrom ? null : (dateFrom ?? this.dateFrom),
       dateTo: clearDateTo ? null : (dateTo ?? this.dateTo),
       search: search ?? this.search,
@@ -71,9 +75,11 @@ class ShipmentInquiryFilterModel {
       (portOfDischarge != null && portOfDischarge!.trim().isNotEmpty) ||
       (shipmentMode != null && shipmentMode != 'All') ||
       (carrier != null && carrier!.trim().isNotEmpty) ||
+      statuses.isNotEmpty ||
       dateFrom != null ||
       dateTo != null ||
       search.trim().isNotEmpty;
 
   static const ShipmentInquiryFilterModel empty = ShipmentInquiryFilterModel();
 }
+

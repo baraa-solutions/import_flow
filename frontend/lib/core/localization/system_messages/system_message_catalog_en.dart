@@ -455,6 +455,11 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'LC_SKIP_DUAL_APPROVAL_REQUIRED': {
     'note': 'Step {step_code} requires dual approval and cannot be skipped by non-admin users.',
   },
+  'LC_SKIP_HAS_OPEN_TASKS': {
+    'title': 'Skip blocked: {step_code} has open tasks',
+    'body': 'Step {step_code} has {open_tasks_count} open task(s). Confirm skip with force_skip to proceed.',
+    'note': 'Cannot skip {step_code}: {open_tasks_count} open tasks remain',
+  },
   'LC_STARTING_POINT_SET': {
     'note': 'Shipment starting point set to {step_code}',
   },
@@ -808,6 +813,14 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'NOTIF_CARGOX_UPLOAD_DELAY': {
     'title': 'CargoX documents upload delayed: {import_file_code}',
     'body': '{import_file_code} is expected to arrive in {days_left} days (ETA: {eta_date}) and supplier {supplier_name} has not uploaded or approved the CargoX document envelope. Follow up urgently.',
+  },
+  'NOTIF_CHECKLIST_ETA_APPROACHING': {
+    'title': 'Checklist readiness alert before arrival: {import_file_code}',
+    'body': '{import_file_code} vessel arrival expected in {days_left} days (ETA: {eta_date}) with {blocking_count} mandatory checklist item(s) still unverified. Settle requirements to avoid port bottlenecks.',
+  },
+  'NOTIF_CHECKLIST_GATE_BLOCKED': {
+    'title': 'Checklist gate blocked: {import_file_code}',
+    'body': '{import_file_code} has {blocking_count} mandatory checklist item(s) pending for phase {target_phase}. Automatic or manual progression is blocked until verified or waived.',
   },
   'NOTIF_COMPANY_IMPORTER_ID_EXPIRY': {
     'title': 'Importer card expiring: {company_name}',
@@ -1481,6 +1494,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'CCQ_PRICE_LIST_DATE_RANGE': {
     'note': 'The validity start {effective_from} is after its end {effective_to}.',
+  },
+  'SS_FX_RATE_MISSING': {
+    'note': 'No commercial exchange rate found for currency {currency} on date {on_date}.',
   },
   'WR_GRN_EXISTS': {
     'note': 'An active goods receipt note ({grn_code}) already exists for this import file.',

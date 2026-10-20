@@ -89,9 +89,11 @@ class CcStageDialogShell extends StatelessWidget {
           children: [
             _header(context, l),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsetsDirectional.all(24),
-                child: body,
+              child: SelectionArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsetsDirectional.all(24),
+                  child: body,
+                ),
               ),
             ),
             _footer(context, l),

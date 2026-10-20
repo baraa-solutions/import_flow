@@ -69,7 +69,6 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
       backgroundColor: AppTheme.surfaceOf(context),
@@ -77,11 +76,12 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: AppTheme.borderOf(context)),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 750, maxHeight: 620),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 750, maxHeight: 620),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
@@ -287,6 +287,7 @@ class _SearchAndCloneBankForm4DialogState extends State<SearchAndCloneBankForm4D
             ],
           ),
         ),
+      ),
       ),
     );
   }

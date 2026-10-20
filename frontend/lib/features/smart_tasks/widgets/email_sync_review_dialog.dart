@@ -46,18 +46,18 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
   late List<_ItemReviewState> _items;
   bool _isSubmitting = false;
 
-  final List<Map<String, String>> _assigneeOptions = [
-    {'value': 'Finance Team', 'label': 'فريق الحسابات (Finance Team)'},
-    {'value': 'Clearance Team', 'label': 'فريق التخليص الجمركي (Clearance Team)'},
-    {'value': 'Operations Team', 'label': 'إدارة العمليات (Operations Team)'},
-    {'value': 'Ahmed Sorour', 'label': 'أحمد سرور (Ahmed Sorour)'},
-    {'value': 'Kamal', 'label': 'كمال (Kamal)'},
+  List<Map<String, String>> _assigneeOptions(bool isArabic) => [
+    {'value': 'Finance Team', 'label': isArabic ? 'فريق الحسابات' : 'Finance Team'},
+    {'value': 'Clearance Team', 'label': isArabic ? 'فريق التخليص الجمركي' : 'Clearance Team'},
+    {'value': 'Operations Team', 'label': isArabic ? 'إدارة العمليات' : 'Operations Team'},
+    {'value': 'Ahmed Sorour', 'label': isArabic ? 'أحمد سرور' : 'Ahmed Sorour'},
+    {'value': 'Kamal', 'label': isArabic ? 'كمال' : 'Kamal'},
   ];
 
-  final List<Map<String, String>> _priorityOptions = [
-    {'value': 'Critical', 'label': 'عاجل جداً (Critical)'},
-    {'value': 'High', 'label': 'مرتفع (High)'},
-    {'value': 'Medium', 'label': 'متوسط (Medium)'},
+  List<Map<String, String>> _priorityOptions(bool isArabic) => [
+    {'value': 'Critical', 'label': isArabic ? 'عاجل جداً' : 'Critical'},
+    {'value': 'High', 'label': isArabic ? 'مرتفع' : 'High'},
+    {'value': 'Medium', 'label': isArabic ? 'متوسط' : 'Medium'},
   ];
 
   @override
@@ -177,15 +177,18 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
     final selectedCount = _items.where((i) => i.isSelected).length;
     final allSelected = _items.isNotEmpty && selectedCount == _items.length;
 
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
       child: Dialog(
         backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: 880,
-          height: 750,
-          padding: const EdgeInsets.all(24),
+        child: SelectionArea(
+          child: Container(
+            width: 880,
+            height: 750,
+            padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -292,7 +295,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
                             icon: const Icon(Icons.arrow_drop_down, size: 18),
                             style: TextStyle(fontSize: 12, color: textColor),
                             dropdownColor: isDark ? AppTheme.darkSurface : Colors.white,
-                            items: _assigneeOptions.map((opt) {
+                            items: _assigneeOptions(isArabic).map((opt) {
                               return DropdownMenuItem<String>(
                                 value: opt['value'],
                                 child: Text(opt['label']!),
@@ -324,7 +327,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
                         separatorBuilder: (ctx, i) => const SizedBox(height: 10),
                         itemBuilder: (ctx, index) {
                           final itemState = _items[index];
-                          return _buildTaskReviewCard(itemState, isDark, borderColor, textColor, secTextColor);
+                          return _buildTaskReviewCard(itemState, isDark, borderColor, textColor, secTextColor, isArabic);
                         },
                       ),
               ),
@@ -380,7 +383,8 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildStatPill(String label, String value, IconData icon, Color color) {
@@ -401,6 +405,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
     Color borderColor,
     Color textColor,
     Color secTextColor,
+    bool isArabic,
   ) {
     final it = itemState.item;
     final shipmentCode = it.importFileCode ?? 'IMP-UNKNOWN';
@@ -540,7 +545,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
                           icon: const Icon(Icons.arrow_drop_down, size: 16),
                           style: TextStyle(fontSize: 11.5, color: textColor),
                           dropdownColor: isDark ? AppTheme.darkSurface : Colors.white,
-                          items: _assigneeOptions.map((opt) {
+                          items: _assigneeOptions(isArabic).map((opt) {
                             return DropdownMenuItem<String>(
                               value: opt['value'],
                               child: Text(opt['label']!),
@@ -575,7 +580,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
                           icon: const Icon(Icons.arrow_drop_down, size: 16),
                           style: TextStyle(fontSize: 11.5, color: textColor),
                           dropdownColor: isDark ? AppTheme.darkSurface : Colors.white,
-                          items: _priorityOptions.map((opt) {
+                          items: _priorityOptions(isArabic).map((opt) {
                             return DropdownMenuItem<String>(
                               value: opt['value'],
                               child: Text(opt['label']!),

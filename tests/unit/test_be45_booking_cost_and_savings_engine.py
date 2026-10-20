@@ -46,8 +46,9 @@ def db_session():
 
     # Commercial rates: USD = 50.0 EGP, EUR = 55.0 EGP
     today = date.today()
-    usd_rate = ExchangeRate(currency_id=usd.currency_id, commercial_rate=50.0, customs_rate=49.5, effective_date=today, is_active=True)
-    eur_rate = ExchangeRate(currency_id=eur.currency_id, commercial_rate=55.0, customs_rate=54.0, effective_date=today, is_active=True)
+    rate_date = date(2020, 1, 1)
+    usd_rate = ExchangeRate(currency_id=usd.currency_id, commercial_rate=50.0, customs_rate=49.5, effective_date=rate_date, is_active=True)
+    eur_rate = ExchangeRate(currency_id=eur.currency_id, commercial_rate=55.0, customs_rate=54.0, effective_date=rate_date, is_active=True)
     session.add_all([usd_rate, eur_rate])
 
     # Import file

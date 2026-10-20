@@ -152,13 +152,7 @@ class _SwiftReconciliationScreenState
       ].join('\t'));
     }
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.swiftExportTsvSuccess),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
+    CopyHelper.copy(context, buffer.toString(), customMessage: l10n.swiftExportTsvSuccess);
   }
 
   void _copyPaymentDossier(PaymentRequestModel pay) {
@@ -190,13 +184,7 @@ ${l10n.swiftReconciliationNotesLabel}: ${pay.swiftReconciliationNotes ?? "-"}
 '''
         .trim();
 
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.swiftCopySummarySuccess),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
+    CopyHelper.copy(context, text, customMessage: l10n.swiftCopySummarySuccess);
   }
 
   void _copyFilteredSummary(List<PaymentRequestModel> payments) {
@@ -222,13 +210,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
 '''
         .trim();
 
-    Clipboard.setData(ClipboardData(text: summary));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.swiftCopySummarySuccess),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
+    CopyHelper.copy(context, summary, customMessage: l10n.swiftCopySummarySuccess);
   }
 
   Future<void> _pickAndExtractFile({int? targetPaymentId}) async {

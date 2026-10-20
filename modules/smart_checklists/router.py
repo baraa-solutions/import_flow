@@ -99,3 +99,40 @@ def get_gatekeeper_status(
         file_id=file_id,
         target_phase=target_phase,
     )
+
+
+@router.post("/{file_id}/checklist/enforce-gate", response_model=GatekeeperStatusResponse)
+def enforce_gatekeeper_gate(
+    file_id: int,
+    target_phase: str = Query(..., description="Target phase to enforce: IN_TRANSIT, PORT_ARRIVAL, CLEARANCE, POST_CLEARANCE"),
+    db: Session = Depends(get_db),
+):
+    """
+    Enforces the stage transition gatekeeper.
+    Raises HTTP 409 Conflict if any mandatory items for target_phase are pending.
+    """
+    return service.enforce_gatekeeper_transition(
+        db=db,
+        file_id=file_id,
+        target_phase=target_phase,
+    )
+
+
+@router.post("/{file_id}/checklist/resolve-all", response_model=ChecklistSummaryResponse)
+def resolve_all_checklist_items(
+    file_id: int,
+    target_status: str = Query("PASSED", description="Target status: PASSED or WAIVED"),
+    verified_by: Optional[str] = Query("Operations Team", description="Name of operator/verifier"),
+    notes: Optional[str] = Query("All operational checklist items verified and cleared", description="Operational notes"),
+    db: Session = Depends(get_db),
+):
+    """Batch-verifies or waives all checklist items for an import file to clear all pending gates."""
+    return service.resolve_all_checklist_items_for_file(
+        db=db,
+        file_id=file_id,
+        target_status=target_status,
+        verified_by=verified_by,
+        notes=notes,
+    )
+
+

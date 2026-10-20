@@ -63,3 +63,8 @@ Landed Cost = Purchase Cost (FOB/CIF)
 6. **Origin Country & Document Verification**: Check origin country ISO code against active agreements on calculation date. Verify certificate of origin (`EUR.1` / Mercosur Certificate). Fall back to base duty rate with explicit document warnings if certificate is missing.
 7. **Currency Conversion**: Apply the official customs exchange rate valid at the declaration date.
 8. **Not All Items Apply**: Some HS Codes have Schedule Tax, others don't. Some have Development Fee, others don't. The system must handle optional charge items.
+9. **UI & Data Presentation Standards**:
+   - **Universal Mouse Selection (`SelectionArea`):** All customs clearance, landed cost breakdown tables, simulation dialogs, and cost cards MUST be wrapped in `SelectionArea` so users can highlight and select figures, CIF values, taxes, and breakdown items freely.
+   - **Pure View Separation:** Zero bilingual parenthesized stacking in fee titles or breakdown categories (pure Arabic labels in Arabic locale, pure English in English locale).
+   - **Sanitized Clipboard Operations:** Any action copying Landed Cost calculations or breakdowns to the clipboard must use `CopyHelper.copy(context, text)` or `TableCopyHelper.copyTable(context, ...)` to strip invisible Bidi isolates.
+

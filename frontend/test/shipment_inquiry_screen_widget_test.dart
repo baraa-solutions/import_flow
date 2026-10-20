@@ -139,10 +139,13 @@ void main() {
       expect(find.text(ar.inqScreenTitle), findsOneWidget);
       expect(find.text(ar.inqSubtitle), findsOneWidget);
 
-      // KPI items
-      expect(find.text(ar.inqTotalMatchingShipments), findsOneWidget);
-      expect(find.text(ar.inqAverageFreightCost), findsOneWidget);
-      expect(find.text(ar.inqTotalIncurredCost), findsOneWidget);
+      // Smart Insight Bar items (UX-SEARCH-013 Section 3.1)
+      expect(find.text(ar.inqInsightBarTitle), findsOneWidget);
+      expect(find.text(ar.inqInsightMatchingCount), findsOneWidget);
+      expect(find.text(ar.inqInsightModeRoute), findsOneWidget);
+      expect(find.text(ar.inqInsightModeShippingMode), findsOneWidget);
+      expect(find.text(ar.inqInsightLatestFreight), findsOneWidget);
+      expect(find.text(ar.inqInsightAvgLandedCost), findsOneWidget);
 
       // 4 Export Toolbar Actions
       expect(find.text(ar.inqExportPdfBtn), findsOneWidget);
@@ -152,8 +155,11 @@ void main() {
 
       // Table columns and cell data
       expect(find.text(ar.inqColShipmentName), findsOneWidget);
+      expect(find.text(ar.inqColDate), findsOneWidget);
       expect(find.text(ar.inqColSupplier), findsOneWidget);
       expect(find.text(ar.inqColImporter), findsOneWidget);
+      expect(find.text(ar.inqColFinalCost), findsOneWidget);
+      expect(find.text(ar.inqColStatus), findsOneWidget);
       expect(find.text('Primary Medical Shipment'), findsOneWidget);
       expect(find.text('IMP-2026-0001'), findsOneWidget);
       expect(find.text('Siemens Healthineers'), findsOneWidget);

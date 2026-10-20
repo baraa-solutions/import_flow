@@ -54,6 +54,7 @@ class VerticalStageScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectableBody = SelectionArea(child: body);
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       body: Column(
@@ -298,7 +299,7 @@ class VerticalStageScaffold extends StatelessWidget {
                           },
                         ),
                       ),
-                      Expanded(child: body),
+                      Expanded(child: selectableBody),
                     ],
                   );
                 }
@@ -426,7 +427,7 @@ class VerticalStageScaffold extends StatelessWidget {
                 Expanded(
                   child: Container(
                     color: Colors.grey.shade100,
-                    child: body,
+                    child: selectableBody,
                   ),
                 ),
               ],

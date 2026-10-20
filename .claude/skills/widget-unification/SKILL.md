@@ -39,6 +39,8 @@ import 'package:frontend/core/widgets/widgets.dart';
 | **القوائم المنسدلة المرجعية** | `SearchableDropdownField<T>(...)` | `DropdownButtonFormField(...)` (ممنوع قطعي) |
 | **حقول الإدخال النصية** | `CustomTextField(controller: ..., label: ...)` | `TextFormField(...)` مكرر بـ borders محلية |
 | **بطاقات وحاويات الشاشة** | `AppTheme.cardDecorationOf(context)` | `BoxDecoration(color: Colors.white, ...)` |
+| **تحديد النصوص بالماوس** | `SelectionArea(child: ...)` إلزامي للشاشات والنوافذ | ترك الشاشات أو الـ Dialogs دون إمكانية تحديد بالماوس ❌ |
+| **نسخ النصوص والجداول** | `CopyHelper.copy(context, text)` <br> `TableCopyHelper.copyTable(context, ...)` | `Clipboard.setData(ClipboardData(...))` مباشر دون تنظيف Bidi ❌ |
 
 ---
 
@@ -154,3 +156,7 @@ AppStatusBadge.fromStatus(status: item.status, label: item.statusLabel);
 5. [ ] شاشات Type B لا تحتوي أزرار مراحل تشغيلية ولا تزيد أزرار الترويسة عن 2.
 6. [ ] شريط الأدوات مدمج (أقل من 40px) والجداول تبدأ مباشرة أسفله.
 7. [ ] تم استيراد المكونات عبر `import 'package:frontend/core/widgets/widgets.dart';`.
+8. [ ] تم تغليف جذر الشاشة أو الـ Dialog بـ `SelectionArea` لتمكين المستخدم من تحديد ونسخ النصوص بالماوس بحرية.
+9. [ ] لا يوجد أي استدعاء مباشر لـ `Clipboard.setData` (استخدم `CopyHelper.copy` أو `TableCopyHelper.copyTable` لنزع Bidi Unicode Isolates).
+10. [ ] لا يوجد تكديس ثنائي اللغة بين أقواس مثل `(PO)` أو `(Terminal / Depot)` (فصل لغوي نقي 100% مع تخزين Tier 2 English بالـ Backend).
+

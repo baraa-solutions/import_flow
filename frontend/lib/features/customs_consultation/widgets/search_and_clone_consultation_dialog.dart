@@ -66,13 +66,14 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680, maxHeight: 620),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680, maxHeight: 620),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Header
               Row(
                 children: [
@@ -237,6 +238,7 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
             ],
           ),
         ),
+      ),
       ),
     );
   }

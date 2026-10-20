@@ -252,11 +252,12 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
     return Dialog(
       backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 820,
-        height: 720,
-        padding: const EdgeInsets.all(24),
-        child: Column(
+      child: SelectionArea(
+        child: Container(
+          width: 820,
+          height: 720,
+          padding: const EdgeInsets.all(24),
+          child: Column(
           children: [
             // Title Header
             Row(
@@ -906,8 +907,9 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildProviderRadio(String value, String title, IconData icon) {
     final isSelected = _providerType == value;

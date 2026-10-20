@@ -37,3 +37,5 @@ paths:
 - No `except Exception: pass`. User-facing validation errors: `HTTPException` with an Arabic `detail`.
 - Tests: `tests/unit/test_<module>.py`. Read results from `--junitxml` + exit code (the console summary
   is suppressed after `import main`).
+- Single-language constants storage (Tier 2 English): All statuses, stage codes, enum keys, and DB values must remain in English (`PENDING`, `CUSTOMS_RELEASE`). Never store localized Arabic strings in DB columns or status enums.
+

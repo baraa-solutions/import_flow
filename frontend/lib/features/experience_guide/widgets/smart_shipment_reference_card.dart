@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../purchase_orders/models/purchase_order_model.dart';
 import '../models/smart_reference_card_model.dart';
@@ -78,14 +79,7 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
     buffer.writeln('${isArabic ? "الفعلي" : "Actual"}: ${card.actualCost} ${card.currency}');
     buffer.writeln('${isArabic ? "الفارق" : "Variance"}: ${card.varianceAmount} (${card.variancePercentage}%)');
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.referenceCardCopiedSuccess),
-        backgroundColor: AppTheme.flatEmerald,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    CopyHelper.copy(context, buffer.toString(), customMessage: l10n.referenceCardCopiedSuccess);
   }
 
   void _openAddGuidelineDialog(BuildContext context) {
@@ -126,44 +120,46 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
       ),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? AppTheme.darkCardBackground : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: cardAsync.when(
-          loading: () => const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32.0),
-              child: CircularProgressIndicator(),
-            ),
+      child: SelectionArea(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            borderRadius: BorderRadius.circular(12),
           ),
-          error: (err, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.info_outline, color: AppTheme.flatOrange, size: 36),
-                  const SizedBox(height: 8),
-                  Text(
-                    isArabic
-                        ? 'تعذر تحميل المرجع الذكي للشحنة: $err'
-                        : 'Failed to load shipment smart reference: $err',
-                    style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.flatCharcoal),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    icon: const Icon(Icons.refresh),
-                    label: Text(isArabic ? 'إعادة المحاولة' : 'Retry'),
-                    onPressed: () => ref.invalidate(smartReferenceCardProvider(widget.importFileId)),
-                  )
-                ],
+          child: cardAsync.when(
+            loading: () => const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: CircularProgressIndicator(),
               ),
             ),
+            error: (err, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.info_outline, color: AppTheme.flatOrange, size: 36),
+                    const SizedBox(height: 8),
+                    Text(
+                      isArabic
+                          ? 'تعذر تحميل المرجع الذكي للشحنة: $err'
+                          : 'Failed to load shipment smart reference: $err',
+                      style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.flatCharcoal),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      icon: const Icon(Icons.refresh),
+                      label: Text(isArabic ? 'إعادة المحاولة' : 'Retry'),
+                      onPressed: () => ref.invalidate(smartReferenceCardProvider(widget.importFileId)),
+                    )
+                  ],
+                ),
+              ),
+            ),
+            data: (card) => _buildCardContent(context, l10n, card, isDark: isDark, isArabic: isArabic),
           ),
-          data: (card) => _buildCardContent(context, l10n, card, isDark: isDark, isArabic: isArabic),
         ),
       ),
     );

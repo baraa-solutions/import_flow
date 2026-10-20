@@ -73,7 +73,6 @@ class _SearchAndCloneCustomsDeclaration46DialogState
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Dialog(
       backgroundColor: AppTheme.surfaceOf(context),
@@ -83,11 +82,12 @@ class _SearchAndCloneCustomsDeclaration46DialogState
           color: AppTheme.borderOf(context),
         ),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820, maxHeight: 650),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820, maxHeight: 650),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
@@ -344,6 +344,7 @@ class _SearchAndCloneCustomsDeclaration46DialogState
             ],
           ),
         ),
+      ),
       ),
     );
   }

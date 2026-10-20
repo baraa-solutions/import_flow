@@ -26,11 +26,7 @@ from utils.migration_linter import MigrationLinter
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS_HEAD = "d3e4f5a6b7c8"
-
-
-
-# Current Alembic head (users.must_change_password). BASELINE_REVISION is the stamp baseline before it.
-HEAD_REVISION = "c9d0e1f2a3b4"
+HEAD_REVISION = "b4c5d6e7f8a9"
 
 
 class _SpyMasterData:
@@ -392,9 +388,10 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     # -> e4f5a6b7c8d9 (pre-Form 4 readiness pipeline)
     # -> a1b2c3d4e5f6 (budget_currency in projects)
     # -> e2f3a4b5c6d7 (legacy budget column backfill)
-    # -> f3a4b5c6d7e8 (partial shipments linkage DEV-OPS-04)
-    # -> 73cee71ca978 (shipment_containers table DEV-OPS-01)
-    assert script.get_revision(HEAD_REVISION).down_revision == "b8c9d0e1f2a3"
+    assert script.get_revision(HEAD_REVISION).down_revision == "f3a1b2c4d5e6"
+    assert script.get_revision("f3a1b2c4d5e6").down_revision == "ad470b9c8474"
+    assert script.get_revision("ad470b9c8474").down_revision == "c9d0e1f2a3b4"
+    assert script.get_revision("c9d0e1f2a3b4").down_revision == "b8c9d0e1f2a3"
     assert script.get_revision("b8c9d0e1f2a3").down_revision == "a7b8c9d0e1f2"
     assert script.get_revision("a7b8c9d0e1f2").down_revision == "73cee71ca978"
     assert script.get_revision("73cee71ca978").down_revision == "f3a4b5c6d7e8"

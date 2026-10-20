@@ -230,15 +230,18 @@ def _complete_tasks(
     note_msg: SysMsg,
     user: str,
     *,
+    reminder_types: Sequence[str] = (),
     note_part: str = "note",
     task_codes: Sequence[str] = (),
     open_statuses: Optional[Sequence[str]] = None,
 ) -> None:
-    """Close the file's open SmartTasks of ``task_types`` (plus legacy ``task_codes``); the English note goes to
+    """Close the file's open SmartTasks of ``task_types`` (plus legacy ``task_codes`` and ``reminder_types``); the English note goes to
     ``SmartTask.notes``."""
     from modules.smart_tasks.model import SmartTask
 
     match = SmartTask.task_type.in_(list(task_types))
+    if reminder_types:
+        match = or_(match, SmartTask.reminder_type.in_(list(reminder_types)))
     if task_codes:
         match = or_(match, SmartTask.task_code.in_(list(task_codes)))
     query = db.query(SmartTask).filter(SmartTask.import_file_id == import_file_id, match)
@@ -333,11 +336,24 @@ def _step_follow_ups(
     user: str,
     complete_types: Sequence[str],
     note_msg: SysMsg,
+    reminder_types: Sequence[str] = (),
+    task_codes: Sequence[str] = (),
     dispatch: Optional[Dict[str, Any]] = None,
     lifecycle: Optional[Dict[str, Any]] = None,
 ) -> None:
     """The standard side effects of a CS/CL step: close its tasks, open the next task, notify, advance the board."""
-    _follow_up(db, f"{step} task completion", _complete_tasks, db, import_file_id, complete_types, note_msg, user)
+    _follow_up(
+        db,
+        f"{step} task completion",
+        _complete_tasks,
+        db,
+        import_file_id,
+        complete_types,
+        note_msg,
+        user,
+        reminder_types=reminder_types,
+        task_codes=task_codes,
+    )
     if dispatch:
         _follow_up(db, f"{step} downstream task", _dispatch_task, db, import_file_id, user=user, **dispatch)
     _follow_up(db, f"{step} notification", _notify, db, import_file_id, note_msg)
@@ -735,7 +751,10 @@ def record_delivery_order_payment_service(
     )
     _step_follow_ups(
         db, "CS-02", payload.import_file_id, user=user,
-        complete_types=("DELIVERY_ORDER_PAYMENT", "CS-02"), note_msg=do_msg,
+        complete_types=("DELIVERY_ORDER_PAYMENT", "CS-02"),
+        reminder_types=("Arrival Notice Payment", "Delivery Order Payment"),
+        task_codes=("TSK-ARV-00009",),
+        note_msg=do_msg,
         dispatch=dict(
             existing_types=("CUSTOMS_DECLARATION_46", "CS-03"),
             task_msg=msg("CC_TASK_DECLARATION_46", import_file_code=file_label, do_number=do_number, expiry_date=expiry_str),

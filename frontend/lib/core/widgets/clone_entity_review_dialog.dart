@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../localization/app_localizations.dart';
 import '../localization/app_localizations_ar.dart';
+import 'copyable_data_helper.dart';
 
 /// Reusable Mandatory Review Dialog for Universal Entity Cloning (UX-CLONE-011).
 /// Differentiates clearly between copied data and mandatorily reset fields.
@@ -211,11 +211,12 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
           horizontal: isMobile ? 8 : 16,
           vertical: isMobile ? 12 : 16,
         ),
-        child: Container(
-          width: dialogWidth,
-          constraints: BoxConstraints(maxHeight: dialogMaxHeight),
-          padding: EdgeInsets.all(isMobile ? 12 : 20),
-          child: Form(
+        child: SelectionArea(
+          child: Container(
+            width: dialogWidth,
+            constraints: BoxConstraints(maxHeight: dialogMaxHeight),
+            padding: EdgeInsets.all(isMobile ? 12 : 20),
+            child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -258,19 +259,7 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
                       const SizedBox(width: 8),
                       // Source Code Badge with Copy Action
                       InkWell(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: widget.sourceCode));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                isAr
-                                    ? 'تم نسخ الكود المرجعي للأصل: ${widget.sourceCode}'
-                                    : 'Source reference code copied: ${widget.sourceCode}',
-                              ),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        },
+                        onTap: () => CopyHelper.copy(context, widget.sourceCode),
                         borderRadius: BorderRadius.circular(6),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -302,19 +291,7 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
                 if (isMobile) ...[
                   const SizedBox(height: 8),
                   InkWell(
-                    onTap: () {
-                      Clipboard.setData(ClipboardData(text: widget.sourceCode));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isAr
-                                ? 'تم نسخ الكود المرجعي للأصل: ${widget.sourceCode}'
-                                : 'Source reference code copied: ${widget.sourceCode}',
-                          ),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    },
+                    onTap: () => CopyHelper.copy(context, widget.sourceCode),
                     borderRadius: BorderRadius.circular(6),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -730,6 +707,7 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

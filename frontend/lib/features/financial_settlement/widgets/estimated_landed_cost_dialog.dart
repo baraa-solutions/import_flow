@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/ltr_text.dart';
 import '../../../core/widgets/metric_card.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -187,14 +188,7 @@ class _EstimatedLandedCostDialogState
           "${itm.lineNo}\t${itm.itemCode}\t${itm.itemName}\t${itm.hsCode}\t${itm.qty}\t${itm.unitPriceFc}\t${itm.fobUnitEgp}\t${itm.fobTotalEgp}\t${itm.allocatedCustomsDutyEgp}\t${itm.allocatedVatEgp}\t${itm.allocatedFreightEgp}\t${itm.allocatedClearanceAndPortEgp}\t${itm.allocatedInlandTransportEgp}\t${itm.totalLandedCostEgp}\t${itm.unitLandedCostEgp}\t${itm.unitLandedCostFc}\t${itm.markupFactor}\t${itm.markupPercent}%");
     }
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.settlementEstCopySuccess),
-        backgroundColor: AppTheme.emerald,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    CopyHelper.copy(context, buffer.toString(), customMessage: context.l10n.settlementEstCopySuccess);
   }
 
   Future<void> _exportCsv() async {
@@ -242,25 +236,27 @@ class _EstimatedLandedCostDialogState
       child: Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: SizedBox(
-          width: dialogWidth,
-          height: dialogHeight,
-          child: Column(
-            children: [
-              _buildHeader(l10n),
-              Expanded(
-                child: _isLoading
-                    ? SettlementStateView.loading(message: l10n.settlementEstLoading)
-                    : _errorMessage != null
-                        ? SettlementStateView.error(
-                            message: l10n.settlementEstError(_errorMessage!),
-                            actionLabel: l10n.settlementRetry,
-                            onAction: _loadSimulation,
-                          )
-                        : _buildContent(l10n),
-              ),
-              _buildBottomBar(l10n),
-            ],
+        child: SelectionArea(
+          child: SizedBox(
+            width: dialogWidth,
+            height: dialogHeight,
+            child: Column(
+              children: [
+                _buildHeader(l10n),
+                Expanded(
+                  child: _isLoading
+                      ? SettlementStateView.loading(message: l10n.settlementEstLoading)
+                      : _errorMessage != null
+                          ? SettlementStateView.error(
+                              message: l10n.settlementEstError(_errorMessage!),
+                              actionLabel: l10n.settlementRetry,
+                              onAction: _loadSimulation,
+                            )
+                          : _buildContent(l10n),
+                ),
+                _buildBottomBar(l10n),
+              ],
+            ),
           ),
         ),
       ),

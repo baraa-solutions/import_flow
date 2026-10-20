@@ -87,6 +87,7 @@ import '../../core/providers/ai_assistant_provider.dart';
 import '../../core/widgets/system_settings_dialog.dart';
 import '../system_observability/screens/system_observability_screen.dart';
 import '../logistics_invoices/screens/logistics_invoices_screen.dart';
+import '../vessel_tracking/screens/vessel_tracking_radar_screen.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -238,6 +239,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 70: Logistics Service Invoices & Payments Hub
         LogisticsInvoicesScreen(),
+
+        // 71: Live Vessel & Carrier Tracking Radar
+        VesselTrackingRadarScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -419,22 +423,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               if (!ref.watch(focusModeProvider) && tabsState.tabs.length > 1)
                                 const MultiTabWorkspaceBar(),
                               Expanded(
-                                child: tabsState.tabs.isEmpty
-                                    ? _screens[0]
-                                    : IndexedStack(
-                                        index: safeActiveTabIndex < tabsState.tabs.length
-                                            ? safeActiveTabIndex
-                                            : 0,
-                                        children: [
-                                          for (final tab in tabsState.tabs)
-                                            KeyedSubtree(
-                                              key: ValueKey('${tab.id}_${ref.watch(localeProvider).languageCode}'),
-                                              child: _screens[tab.routeIndex < _screens.length
-                                                  ? tab.routeIndex
-                                                  : 0],
-                                            ),
-                                        ],
-                                      ),
+                                child: SelectionArea(
+                                  child: tabsState.tabs.isEmpty
+                                      ? _screens[0]
+                                      : IndexedStack(
+                                          index: safeActiveTabIndex < tabsState.tabs.length
+                                              ? safeActiveTabIndex
+                                              : 0,
+                                          children: [
+                                            for (final tab in tabsState.tabs)
+                                              KeyedSubtree(
+                                                key: ValueKey('${tab.id}_${ref.watch(localeProvider).languageCode}'),
+                                                child: _screens[tab.routeIndex < _screens.length
+                                                    ? tab.routeIndex
+                                                    : 0],
+                                              ),
+                                          ],
+                                        ),
+                                ),
                               ),
                             ],
                           ),
@@ -933,6 +939,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 initiallyExpanded: false,
                 children: [
                   _buildMenuItem(Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 25, selectedIndex),
+                  _buildMenuItem(Icons.radar_outlined, 'Live Vessel Tracking Radar', 'رادار التتبع الحي لخطوط الملاحة والسفن', 71, selectedIndex),
                   _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping & Tracking', 'حركة وتتبع الشحن وتوزيع الحاويات', 26, selectedIndex),
                   _buildMenuItem(Icons.shield_outlined, 'Cargo Insurance', 'شهادات ووثائق التأمين على البضائع', 65, selectedIndex),
                   _buildMenuItem(Icons.fact_check_outlined, '1. PO & Packing Reconciliation', '1. مطابقة الفاتورة والباكينج مع أمر الشراء', 21, selectedIndex),
@@ -1004,7 +1011,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildMenuItem(Icons.travel_explore_rounded, 'Shipment History & Inquiry', 'استعلام وسجل الشحنات والتكاليف التاريخية', 68, selectedIndex),
                   _buildMenuItem(Icons.request_quote_outlined, 'Freight RFQ & Quotations Comparison', 'طلب ومقارنة عروض النولون والترسية', 49, selectedIndex),
-                  _buildMenuItem(Icons.calculate_outlined, 'Cargo Measurement Engine', 'حاسبة الأحجام وتوزيع الحاويات (CBM)', 3, selectedIndex),
+                  _buildMenuItem(Icons.calculate_outlined, 'Cargo Measurement Engine', 'حاسبة الأحجام وتوزيع الحاويات', 3, selectedIndex),
                 ],
               ),
 

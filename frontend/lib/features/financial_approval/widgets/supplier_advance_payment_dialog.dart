@@ -306,7 +306,6 @@ class _SupplierAdvancePaymentDialogState
   }
 
   Future<void> _submitAdvancePayment() async {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     if (!_formKey.currentState!.validate()) return;
 
     final amount = double.tryParse(_amountController.text.trim()) ?? 0.0;
@@ -400,7 +399,6 @@ class _SupplierAdvancePaymentDialogState
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     final dialogWidth = (screenWidth - 32).clamp(360.0, 740.0);
@@ -418,14 +416,15 @@ class _SupplierAdvancePaymentDialogState
           color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite,
         ),
       ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: dialogWidth,
-          maxHeight: MediaQuery.of(context).size.height * 0.88,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: dialogWidth,
+            maxHeight: MediaQuery.of(context).size.height * 0.88,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1043,6 +1042,7 @@ class _SupplierAdvancePaymentDialogState
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

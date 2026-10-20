@@ -68,10 +68,11 @@ class _SearchAndCloneFinancialSettlementDialogState
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: SizedBox(
-        width: dialogWidth,
-        height: dialogHeight,
-        child: Column(
+      child: SelectionArea(
+        child: SizedBox(
+          width: dialogWidth,
+          height: dialogHeight,
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SettlementDialogHeader(
@@ -245,6 +246,7 @@ class _SearchAndCloneFinancialSettlementDialogState
             ),
           ],
         ),
+      ),
       ),
     );
   }

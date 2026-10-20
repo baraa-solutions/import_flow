@@ -381,7 +381,7 @@ class DemurrageSimulationPanel extends StatelessWidget {
             const Icon(Icons.layers_outlined, size: 16, color: AppTheme.cobalt),
             const SizedBox(width: 6),
             Text(
-              isAr ? 'الشرائح الزمنية المطبقة (Tier Breakdown):' : 'Applied Tier Breakdown:',
+              isAr ? 'الشرائح الزمنية المطبقة:' : 'Applied Tier Breakdown:',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,

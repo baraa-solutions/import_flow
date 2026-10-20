@@ -2096,12 +2096,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
       }
     }
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    AppTheme.snackBar(
+    CopyHelper.copy(
       context,
-      context.l10n.poPODetailsCopiedToClipboard,
-      severity: AppSeverity.success,
-      duration: const Duration(seconds: 2),
+      buffer.toString(),
+      customMessage: context.l10n.poPODetailsCopiedToClipboard,
     );
   }
 

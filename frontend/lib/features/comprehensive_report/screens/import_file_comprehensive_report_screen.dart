@@ -24,6 +24,17 @@ import '../models/comprehensive_dossier_model.dart';
 import '../widgets/comprehensive_dossier_export_dialog.dart';
 import '../../purchase_orders/utils/po_packing_matcher.dart';
 import '../../../core/providers/navigation_provider.dart';
+import '../../smart_checklists/providers/smart_checklists_provider.dart';
+import '../../smart_checklists/widgets/smart_checklist_dialog.dart';
+import '../../customs_tariff/widgets/hs_code_compliance_insight_card.dart';
+import '../../customs_tariff/providers/customs_tariff_provider.dart';
+import '../../customs_tariff/models/customs_tariff_model.dart';
+import '../../../core/utils/container_requirement_engine.dart';
+import '../../../core/utils/import_file_po_linker.dart';
+import '../../purchase_orders/providers/purchase_orders_provider.dart';
+import '../../purchase_orders/models/purchase_order_model.dart' hide PackingListItemModel;
+import '../../import_files/widgets/visual_container_load_planner_dialog.dart';
+import '../../import_files/widgets/create_partial_batch_dialog.dart';
 
 // ============================================================
 // Comprehensive Import File Report Screen
@@ -80,6 +91,16 @@ class _ImportFileComprehensiveReportScreenState
     ref.read(shipmentUpdatesProvider.notifier).fetchLogs(importFileId: val);
     ref.read(customsClearanceProvider.notifier).fetchRecords(importFileId: val);
     ref.read(warehouseReceivingProvider.notifier).fetchRecords(importFileId: val);
+    ref.invalidate(comprehensiveDossierProvider(val));
+    ref.read(smartChecklistProvider.notifier).fetchChecklist(val);
+  }
+
+  String _mapIndexToChecklistStage(int idx) {
+    if (idx < 4) return 'PRE_SHIPMENT';
+    if (idx == 4) return 'IN_TRANSIT';
+    if (idx == 5) return 'PORT_ARRIVAL';
+    if (idx == 6) return 'CLEARANCE';
+    return 'POST_CLEARANCE';
   }
 
   int _currentPhaseIndex(ImportFileModel file) {
@@ -131,6 +152,8 @@ class _ImportFileComprehensiveReportScreenState
     final clearanceState = ref.watch(customsClearanceProvider);
     final warehouseState = ref.watch(warehouseReceivingProvider);
     final targetId = ref.watch(selectedComprehensiveReportFileIdProvider);
+    final checklistState = ref.watch(smartChecklistProvider);
+    final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
 
     // Auto-select shipment if not already selected or if targetId is specified
     importFilesState.whenData((files) {
@@ -383,6 +406,30 @@ class _ImportFileComprehensiveReportScreenState
                         file: _selectedFile!,
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      key: const Key('smartChecklistToolbarBtn'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: checklistState.summary?.isGateBlocked == true
+                            ? AppTheme.crimson
+                            : const Color(0xFF0D9488), // Teal
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      ),
+                      icon: Icon(
+                        checklistState.summary?.isGateBlocked == true
+                            ? Icons.warning_amber_rounded
+                            : Icons.checklist_rtl_outlined,
+                        size: 15,
+                        color: Colors.white,
+                      ),
+                      label: Text(
+                        checklistState.summary != null
+                            ? 'قائمة التحقق (${checklistState.summary!.readinessScorePct}%)'
+                            : 'قائمة التحقق',
+                        style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () => SmartChecklistDialog.show(context, _selectedFile!),
+                    ),
                   ],
                 ),
               ),
@@ -405,11 +452,16 @@ class _ImportFileComprehensiveReportScreenState
                           const SizedBox(height: 14),
 
                           // Executive KPI Physical & Financial Metric Tiles
-                          _buildExecutiveMetricTiles(context, _selectedFile!, dossier),
+                          _buildExecutiveMetricTiles(
+                            context,
+                            _selectedFile!,
+                            dossier,
+                            isLoading: dossierAsync?.isLoading ?? false,
+                          ),
                           const SizedBox(height: 16),
 
                           // Section 2: 10-Phase Progress Pipeline
-                          _buildPhasePipeline(context, _selectedFile!, updatesState),
+                          _buildPhasePipeline(context, _selectedFile!, updatesState, checklistState),
                           const SizedBox(height: 16),
 
                           // Section 2.5: Institutional Knowledge & Pattern Engine
@@ -434,6 +486,10 @@ class _ImportFileComprehensiveReportScreenState
                                     _buildInvoicesCard(context, _selectedFile!, dossier),
                                     const SizedBox(height: 14),
                                     _buildPackingListCard(context, _selectedFile!, dossier),
+                                    const SizedBox(height: 14),
+                                    _buildTradeAgreementsSection(context, _selectedFile!, allPOs),
+                                    const SizedBox(height: 14),
+                                    _buildCargoStackingSection(context, _selectedFile!, allPOs, dossier),
                                   ],
                                 ),
                               ),
@@ -580,6 +636,48 @@ class _ImportFileComprehensiveReportScreenState
                   DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: Localizations.localeOf(context).languageCode == 'ar'),
                   style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 13),
                 ),
+                if (file.isChildPartial && file.parentFileCode != null)
+                  Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.amber.shade300, width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.call_split_rounded, size: 14, color: Colors.amber),
+                        const SizedBox(width: 6),
+                        Text(
+                          'دفعة شحن جزئية تابعة للملف الأساسي: ${file.parentFileCode}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (file.isParentPartial)
+                  Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.lightBlueAccent, width: 0.8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.call_split_rounded, size: 14, color: Colors.lightBlueAccent),
+                        SizedBox(width: 6),
+                        Text(
+                          'ملف شحنة مجزأة رئيسية (تم تفريغ دفعات جزئية منه)',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.lightBlueAccent),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 10),
 
                 // Progress Bar
@@ -703,18 +801,98 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   // ── Section 2: 10-Phase Pipeline ──────────────────────────────────
-  Widget _buildPhasePipeline(BuildContext context, ImportFileModel file, ShipmentUpdatesState updatesState) {
+  Widget _buildPhasePipeline(
+    BuildContext context,
+    ImportFileModel file,
+    ShipmentUpdatesState updatesState,
+    SmartChecklistState checklistState,
+  ) {
     final l = context.l10n;
     final phases = _getPhases(context);
     final currentIdx = _currentPhaseIndex(file);
     final isClosed = file.status == 'Closed';
+    final checklistSummary = checklistState.summary;
 
     return _reportCard(
       title: l.compReportPipelineTitle,
       icon: Icons.linear_scale,
       iconColor: AppTheme.cobalt,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Top Checklist & Gatekeeper Status Bar
+          if (checklistSummary != null) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: checklistSummary.isGateBlocked
+                    ? AppTheme.crimson.withOpacity(0.08)
+                    : AppTheme.emerald.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: checklistSummary.isGateBlocked
+                      ? AppTheme.crimson.withOpacity(0.3)
+                      : AppTheme.emerald.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    checklistSummary.isGateBlocked
+                        ? Icons.gpp_bad_outlined
+                        : Icons.verified_user_outlined,
+                    color: checklistSummary.isGateBlocked
+                        ? AppTheme.crimson
+                        : AppTheme.emerald,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'جاهزية قائمة التحقق (Checklist Readiness): ${checklistSummary.readinessScorePct}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: checklistSummary.isGateBlocked
+                          ? AppTheme.crimson
+                          : AppTheme.emerald,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '(${checklistSummary.passedItems + checklistSummary.waivedItems}/${checklistSummary.totalItems} بنود مكتملة)',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                  ),
+                  if (checklistSummary.isGateBlocked) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.crimson,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'حظر البوابة (${checklistSummary.mandatoryPendingItems} إلزامي معلق)',
+                        style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    icon: const Icon(Icons.open_in_new, size: 14),
+                    label: const Text('عرض وتدقيق القائمة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    onPressed: () => SmartChecklistDialog.show(context, file),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           // Phase Stepper Row
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -726,6 +904,13 @@ class _ImportFileComprehensiveReportScreenState
 
                 bool isCompleted = isClosed || idx < currentIdx;
                 bool isCurrent = !isClosed && idx == currentIdx;
+
+                final stageCode = _mapIndexToChecklistStage(idx);
+                final items = checklistSummary?.items ?? [];
+                final stageItems = items.where((i) => i.phaseCode == stageCode).toList();
+                final totalStage = stageItems.length;
+                final passedStage = stageItems.where((i) => i.isPassed || i.isWaived).length;
+                final mandatoryPendingStage = stageItems.where((i) => i.isMandatory && i.isPending).length;
 
                 Color dotColor = isCompleted
                     ? AppTheme.emerald
@@ -748,7 +933,7 @@ class _ImportFileComprehensiveReportScreenState
                 return Row(
                   children: [
                     Container(
-                      width: 130,
+                      width: 142,
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: isCompleted
@@ -810,6 +995,65 @@ class _ImportFileComprehensiveReportScreenState
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
+                          const SizedBox(height: 6),
+                          InkWell(
+                            onTap: () => SmartChecklistDialog.show(context, file, initialPhase: stageCode),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: mandatoryPendingStage > 0
+                                    ? (isCurrent ? AppTheme.crimson.withOpacity(0.12) : AppTheme.orange.withOpacity(0.12))
+                                    : (totalStage > 0 && passedStage == totalStage
+                                        ? AppTheme.emerald.withOpacity(0.12)
+                                        : Colors.black.withOpacity(0.04)),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: mandatoryPendingStage > 0
+                                      ? (isCurrent ? AppTheme.crimson.withOpacity(0.4) : AppTheme.orange.withOpacity(0.4))
+                                      : (totalStage > 0 && passedStage == totalStage
+                                          ? AppTheme.emerald.withOpacity(0.4)
+                                          : Colors.grey.withOpacity(0.25)),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    mandatoryPendingStage > 0
+                                        ? Icons.warning_amber_rounded
+                                        : (totalStage > 0 && passedStage == totalStage
+                                            ? Icons.check_circle_outline
+                                            : Icons.checklist),
+                                    size: 11,
+                                    color: mandatoryPendingStage > 0
+                                        ? (isCurrent ? AppTheme.crimson : AppTheme.orange)
+                                        : (totalStage > 0 && passedStage == totalStage
+                                            ? AppTheme.emerald
+                                            : AppTheme.charcoal),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      totalStage > 0
+                                          ? '$passedStage/$totalStage بنود'
+                                          : 'قائمة التحقق',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: mandatoryPendingStage > 0
+                                            ? (isCurrent ? AppTheme.crimson : AppTheme.orange)
+                                            : (totalStage > 0 && passedStage == totalStage
+                                                ? AppTheme.emerald
+                                                : AppTheme.charcoal),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -2878,13 +3122,14 @@ class _ImportFileComprehensiveReportScreenState
   Widget _buildExecutiveMetricTiles(
     BuildContext context,
     ImportFileModel file,
-    ComprehensiveShipmentDossierModel? dossier,
-  ) {
+    ComprehensiveShipmentDossierModel? dossier, {
+    bool isLoading = false,
+  }) {
     // 1. CBM
     final fallbackCbm = file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
     final cbmVal = (dossier?.cargoPhysicalSummary?['total_cbm'] as num?)?.toDouble() ??
         (dossier != null && dossier.totalCbm > 0 ? dossier.totalCbm : fallbackCbm);
-    final displayCbm = cbmVal > 0 ? '${cbmVal.toStringAsFixed(3)} m³' : '—';
+    final displayCbm = cbmVal > 0 ? '${cbmVal.toStringAsFixed(3)} m³' : (isLoading ? '...' : '—');
 
     // 2. Gross Weight
     final fallbackGross = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
@@ -2895,8 +3140,8 @@ class _ImportFileComprehensiveReportScreenState
     // cargoPhysicalSummary['total_net_weight_kg'] may come from container loader sessions (unreliable).
     final netVal = dossier?.netWeightKg ??
         (dossier?.cargoPhysicalSummary?['total_net_weight_kg'] as num?)?.toDouble();
-    final displayGross = grossVal > 0 ? '${PoPackingMatcher.formatWeight(grossVal)} كجم' : '—';
-    final displayNet = netVal != null && netVal > 0 ? 'صافي: ${PoPackingMatcher.formatWeight(netVal)} كجم' : 'وزن الشحن القائم';
+    final displayGross = grossVal > 0 ? '${PoPackingMatcher.formatWeight(grossVal)} كجم' : (isLoading ? '...' : '—');
+    final displayNet = netVal != null && netVal > 0 ? 'صافي: ${PoPackingMatcher.formatWeight(netVal)} كجم' : (isLoading ? '...' : 'وزن الشحن القائم');
 
     // 3. POs & Invoices
     final invCount = dossier?.invoicesCount ?? dossier?.cargoPhysicalSummary?['invoices_count'] ?? file.invoicesData.length;
@@ -2907,7 +3152,7 @@ class _ImportFileComprehensiveReportScreenState
     final actualLanded = dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp;
     final displayCost = actualLanded > 0
         ? '${actualLanded.toStringAsFixed(0)} ج.م'
-        : (file.estimatedCost > 0 ? '${file.estimatedCost.toStringAsFixed(0)} \$' : '—');
+        : (file.estimatedCost > 0 ? '${file.estimatedCost.toStringAsFixed(0)} \$' : (isLoading ? '...' : '—'));
     final variancePct = dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct;
     final varianceEgp = dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp;
     final hasVariance = actualLanded > 0 && varianceEgp != 0;
@@ -3140,6 +3385,29 @@ class _ImportFileComprehensiveReportScreenState
             label: const Text('إعادة احتساب تكلفة الوصول', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
             onPressed: () => selectNavigationIndex(ref, 29),
           ),
+          if (file.status != 'Closed') ...[
+            const SizedBox(width: 8),
+            // 5. Create Partial Batch
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber.shade700,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              icon: const Icon(Icons.call_split_rounded, size: 15),
+              label: const Text('إنشاء دفعة جزئية', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              onPressed: () async {
+                final created = await showDialog<ImportFileModel>(
+                  context: context,
+                  builder: (c) => CreatePartialBatchDialog(parentFile: file),
+                );
+                if (created != null && context.mounted) {
+                  ref.invalidate(importFilesProvider);
+                }
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -3271,6 +3539,598 @@ class _ImportFileComprehensiveReportScreenState
               );
             },
             child: const Text('تأكيد الإيقاف', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Trade Agreements & Compliance Section ───────────────────────────
+  Widget _buildTradeAgreementsSection(
+    BuildContext context,
+    ImportFileModel file,
+    List<PurchaseOrderModel> allPOs,
+  ) {
+    final linkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
+    final allItems = <({
+      String description,
+      String hsCode,
+      double quantity,
+      String uom,
+      double unitPrice,
+      String currency,
+      String poNumber,
+    })>[];
+
+    for (final po in linkedPOs) {
+      if (po.items.isNotEmpty) {
+        for (final item in po.items) {
+          String resolvedHs = item.hsCode?.trim() ?? '';
+          if (resolvedHs.isEmpty && po.packingListItems.isNotEmpty) {
+            for (final pl in po.packingListItems) {
+              if (pl.hsCode.trim().isNotEmpty) {
+                resolvedHs = pl.hsCode.trim();
+                break;
+              }
+            }
+          }
+          if (resolvedHs.isEmpty && file.hsCode != null) {
+            resolvedHs = file.hsCode!.trim();
+          }
+          allItems.add((
+            description: item.itemDescription.trim().isNotEmpty
+                ? item.itemDescription.trim()
+                : 'منتج غير محدد',
+            hsCode: resolvedHs,
+            quantity: item.quantity,
+            uom: item.unitOfMeasure,
+            unitPrice: item.unitPrice,
+            currency: po.currencyCode ?? 'USD',
+            poNumber: po.poNumber,
+          ));
+        }
+      } else if (po.packingListItems.isNotEmpty) {
+        for (final pl in po.packingListItems) {
+          allItems.add((
+            description: pl.mainDescription?.trim().isNotEmpty == true
+                ? pl.mainDescription!.trim()
+                : (pl.description?.trim().isNotEmpty == true
+                    ? pl.description!.trim()
+                    : 'منتج غير محدد'),
+            hsCode: pl.hsCode.trim(),
+            quantity: pl.qtyPcs > 0 ? pl.qtyPcs : pl.qtyPkg,
+            uom: pl.packageType.trim().isNotEmpty ? pl.packageType.trim() : 'CTN',
+            unitPrice: 0.0,
+            currency: po.currencyCode ?? 'USD',
+            poNumber: po.poNumber,
+          ));
+        }
+      }
+    }
+
+    if (allItems.isEmpty && file.packingListsData.isNotEmpty) {
+      for (final pl in file.packingListsData) {
+        allItems.add((
+          description: file.productCategory ?? 'قائمة تعبئة (${pl.plNo})',
+          hsCode: file.hsCode ?? '',
+          quantity: pl.totalPackages.toDouble(),
+          uom: 'PKG',
+          unitPrice: 0.0,
+          currency: 'USD',
+          poNumber: file.poNumber ?? file.importFileCode,
+        ));
+      }
+    }
+
+    final distinctHsCodes = <String>{};
+    for (final item in allItems) {
+      if (item.hsCode.isNotEmpty) distinctHsCodes.add(item.hsCode);
+    }
+    if (distinctHsCodes.isEmpty && file.hsCode != null && file.hsCode!.trim().isNotEmpty) {
+      distinctHsCodes.add(file.hsCode!.trim());
+    }
+
+    final hsCodes = distinctHsCodes.toList()..sort();
+    if (hsCodes.isEmpty) return const SizedBox.shrink();
+
+    final registeredTariffs = ref.watch(customsTariffProvider).valueOrNull ?? [];
+
+    return _reportCard(
+      title: 'شروط الاستيراد الرقابية والاتفاقيات التفضيلية (Compliance & Trade Agreements)',
+      icon: Icons.verified_user_outlined,
+      iconColor: const Color(0xFF0D9488),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...hsCodes.map((hs) {
+            final cleanHs = hs.trim();
+            final tariff = registeredTariffs.cast<CustomsTariffModel?>().firstWhere(
+              (t) => t != null && (t.hsCode == cleanHs || t.hsCode.replaceAll('.', '') == cleanHs.replaceAll('.', '')),
+              orElse: () => null,
+            );
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10.0),
+              child: HsCodeComplianceInsightCard(
+                hsCode: hs,
+                tariff: tariff,
+                countryOfOrigin: linkedPOs.firstOrNull?.countryOfOrigin,
+                isDark: false,
+                isArabic: true,
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ── Cargo Stacking & Container Plan Section ─────────────────────────
+  Widget _buildCargoStackingSection(
+    BuildContext context,
+    ImportFileModel file,
+    List<PurchaseOrderModel> allPOs,
+    ComprehensiveShipmentDossierModel? dossier,
+  ) {
+    final l = context.l10n;
+    final linkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
+    final metrics = ImportFilePoLinker.computeMetrics(file: file, linkedPOs: linkedPOs);
+    final totalPackingListCbm = metrics.cbm > 0 ? metrics.cbm : (dossier?.totalCbm ?? 0.0);
+    final totalPackingListWeight = metrics.weightKg > 0 ? metrics.weightKg : (dossier?.grossWeightKg ?? 0.0);
+
+    final dualRec = ContainerRequirementEngine.calculateBoth(
+      totalCbm: totalPackingListCbm,
+      totalWeightKg: totalPackingListWeight,
+    );
+    final modeRec = dualRec.modeRecommendation;
+
+    final baseCargoItems = ImportFilePoLinker.buildCargoItems(
+      pos: linkedPOs,
+      file: file,
+      fallbackCbm: totalPackingListCbm,
+      fallbackWeight: totalPackingListWeight,
+    );
+
+    final planStackable = ContainerRequirementEngine.planShipment(baseCargoItems, forceStackable: true);
+    final planNonStackable = ContainerRequirementEngine.planShipment(baseCargoItems, forceStackable: false);
+    final planMixed = ContainerRequirementEngine.planShipment(baseCargoItems, forceStackable: null);
+
+    String getFleetText(List<ContainerPackingResult> pList) {
+      final Map<String, int> counts = {};
+      for (final p in pList) {
+        if (p.containerCode != 'FAILED') {
+          counts[p.containerCode] = (counts[p.containerCode] ?? 0) + 1;
+        }
+      }
+      return counts.isEmpty ? '1 x 40HC' : counts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
+    }
+
+    final stackableFleet = getFleetText(planStackable);
+    final nonStackableFleet = getFleetText(planNonStackable);
+    final mixedFleet = getFleetText(planMixed);
+
+    final stackableTotalCapVol = planStackable.fold(0.0, (s, p) => s + p.spec.internalVolumeCbm);
+    final stackableTotalCapPay = planStackable.fold(0.0, (s, p) => s + p.spec.maxPayloadKg);
+    final stackableSpaceUtil = stackableTotalCapVol > 0 ? (planStackable.fold(0.0, (s, p) => s + p.totalVolume) / stackableTotalCapVol * 100) : 0.0;
+    final stackablePayloadUtil = stackableTotalCapPay > 0 ? (planStackable.fold(0.0, (s, p) => s + p.totalWeight) / stackableTotalCapPay * 100) : 0.0;
+
+    final nonStackableTotalCapVol = planNonStackable.fold(0.0, (s, p) => s + p.spec.internalVolumeCbm);
+    final nonStackableTotalCapPay = planNonStackable.fold(0.0, (s, p) => s + p.spec.maxPayloadKg);
+    final nonStackableSpaceUtil = nonStackableTotalCapVol > 0 ? (planNonStackable.fold(0.0, (s, p) => s + p.totalVolume) / nonStackableTotalCapVol * 100) : 0.0;
+    final nonStackablePayloadUtil = nonStackableTotalCapPay > 0 ? (planNonStackable.fold(0.0, (s, p) => s + p.totalWeight) / nonStackableTotalCapPay * 100) : 0.0;
+
+    final mixedTotalCapVol = planMixed.fold(0.0, (s, p) => s + p.spec.internalVolumeCbm);
+    final mixedTotalCapPay = planMixed.fold(0.0, (s, p) => s + p.spec.maxPayloadKg);
+    final mixedSpaceUtil = mixedTotalCapVol > 0 ? (planMixed.fold(0.0, (s, p) => s + p.totalVolume) / mixedTotalCapVol * 100) : 0.0;
+    final mixedPayloadUtil = mixedTotalCapPay > 0 ? (planMixed.fold(0.0, (s, p) => s + p.totalWeight) / mixedTotalCapPay * 100) : 0.0;
+
+    final mixedStackCount = baseCargoItems.where((i) => i.isStackable).length;
+    final mixedNonStackCount = baseCargoItems.where((i) => !i.isStackable).length;
+
+    return _reportCard(
+      title: 'دراسة رص وتوزيع البضائع واحتياج الحاويات (Cargo Stacking & Containers)',
+      icon: Icons.inventory_2_outlined,
+      iconColor: Colors.purple.shade700,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Flexible(
+                child: Text(
+                  'سيناريوهات التحميل واحتياج أسطول الشحن:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    icon: const Icon(Icons.table_chart, size: 14, color: Colors.white),
+                    label: Text(
+                      l.scenariosMatrixButton,
+                      style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => _showContainerComparisonDialog(
+                      context,
+                      dualRec,
+                      totalPackingListCbm,
+                      totalPackingListWeight,
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.cobalt,
+                      side: const BorderSide(color: AppTheme.cobalt),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    icon: const Icon(Icons.view_in_ar, size: 14, color: AppTheme.cobalt),
+                    label: Text(
+                      l.containerLoadPlanButton,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => _showVisualLoadPlanDialog(context, file, linkedPOs, totalPackingListCbm, totalPackingListWeight),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 1. All Stackable
+          _buildScenarioResultCard(
+            context,
+            title: '📦 ${l.scenarioAllStackableTitle}',
+            fleet: stackableFleet,
+            description: l.multiLayerStacking,
+            badgeColor: AppTheme.emerald,
+            containerCount: planStackable.length,
+            spaceUtil: stackableSpaceUtil,
+            payloadUtil: stackablePayloadUtil,
+            detailsText: stackableFleet,
+          ),
+          const SizedBox(height: 8),
+
+          // 2. All Non-Stackable
+          _buildScenarioResultCard(
+            context,
+            title: '🚫 ${l.scenarioAllNonStackableTitle}',
+            fleet: nonStackableFleet,
+            description: l.floorPlacementZ0,
+            badgeColor: Colors.orange.shade800,
+            containerCount: planNonStackable.length,
+            spaceUtil: nonStackableSpaceUtil,
+            payloadUtil: nonStackablePayloadUtil,
+            detailsText: nonStackableFleet,
+          ),
+          const SizedBox(height: 8),
+
+          // 3. Mixed Stacking
+          _buildScenarioResultCard(
+            context,
+            title: '🔀 ${l.scenarioMixedStackingTitle}',
+            fleet: mixedFleet,
+            description: l.mixedStackingCargoDesc(mixedNonStackCount, mixedStackCount),
+            badgeColor: AppTheme.cobalt,
+            containerCount: planMixed.length,
+            spaceUtil: mixedSpaceUtil,
+            payloadUtil: mixedPayloadUtil,
+            detailsText: mixedFleet,
+            isHighlighted: true,
+          ),
+          const SizedBox(height: 12),
+
+          // Recommendation banner
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  modeRec.isAirSuggested
+                      ? Icons.airplanemode_active
+                      : (modeRec.isLclSuggested ? Icons.inventory : Icons.directions_boat),
+                  color: modeRec.isAirSuggested
+                      ? Colors.purple
+                      : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.cobalt),
+                  size: 24,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '🚢 ${modeRec.reasonAr}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$mixedFleet (${modeRec.recommendedModeAr})',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScenarioResultCard(
+    BuildContext context, {
+    required String title,
+    required String fleet,
+    required String description,
+    required Color badgeColor,
+    required int containerCount,
+    required double spaceUtil,
+    required double payloadUtil,
+    required String detailsText,
+    bool isHighlighted = false,
+  }) {
+    final l = context.l10n;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isHighlighted ? badgeColor.withOpacity(0.06) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isHighlighted ? badgeColor : Colors.grey.shade300,
+          width: isHighlighted ? 1.5 : 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: badgeColor)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  fleet,
+                  style: TextStyle(fontWeight: FontWeight.bold, color: badgeColor, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(description, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Text(
+                '${l.spaceUtilizationPercent}: ${spaceUtil.toStringAsFixed(1)}% | ${l.weightUtilizationPercent}: ${payloadUtil.toStringAsFixed(1)}%',
+                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showVisualLoadPlanDialog(
+    BuildContext context,
+    ImportFileModel file,
+    List<PurchaseOrderModel> pos,
+    double fallbackCbm,
+    double fallbackWeight,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => VisualContainerLoadPlannerDialog(
+        file: file,
+        linkedPOs: pos,
+        fallbackCbm: fallbackCbm,
+        fallbackWeight: fallbackWeight,
+      ),
+    );
+  }
+
+  void _showContainerComparisonDialog(
+    BuildContext context,
+    ContainerDualRecommendationResult dualRec,
+    double totalCbm,
+    double totalWeightKg,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final l = context.l10n;
+        return DefaultTabController(
+          length: 3,
+          child: AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.inventory_2, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l.containerOptionsAnalysisTitle,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${l.totalShipmentSummary}: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg',
+                        style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 820,
+              height: 500,
+              child: Column(
+                children: [
+                  Container(
+                    color: AppTheme.charcoal,
+                    child: TabBar(
+                      indicatorColor: AppTheme.cobalt,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.white70,
+                      tabs: [
+                        Tab(icon: const Icon(Icons.layers), text: l.containerStackableTab),
+                        Tab(icon: const Icon(Icons.view_array), text: l.containerNonStackableTab),
+                        Tab(icon: const Icon(Icons.shuffle), text: l.containerMixedTab),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildComparisonTable(dualRec.stackableResult),
+                        _buildComparisonTable(dualRec.nonStackableResult),
+                        _buildComparisonTable(dualRec.stackableResult),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: Text(l.closeDiagramBtn)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildComparisonTable(ContainerRecommendationResult rec) {
+    final l = context.l10n;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800,
+              ),
+            ),
+            child: Text(
+              '${l.approvedRecommendationPrefix}: ${rec.recommendationSummary}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Table(
+            border: TableBorder.all(color: Colors.grey.shade300),
+            columnWidths: const {
+              0: FlexColumnWidth(2.0),
+              1: FlexColumnWidth(1.2),
+              2: FlexColumnWidth(1.5),
+              3: FlexColumnWidth(1.5),
+              4: FlexColumnWidth(1.5),
+            },
+            children: [
+              TableRow(
+                decoration: const BoxDecoration(color: AppTheme.charcoal),
+                children: [
+                  Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.containerSpecType, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.requiredCount, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.effectiveCapacityCbm, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.spaceUtilizationPercent, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.weightUtilizationPercent, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                ],
+              ),
+              ...rec.comparisonDetails.map((detail) {
+                final spec = detail['spec'] as ContainerSpec;
+                final reqCount = detail['reqCount'] as int;
+                final effVol = detail['effectiveVolumeCbm'] as double;
+                final spaceUtil = detail['spaceUtil'] as double;
+                final payloadUtil = detail['payloadUtil'] as double;
+                final isBest = spec.code == rec.recommendedContainerCode;
+
+                return TableRow(
+                  decoration: BoxDecoration(color: isBest ? AppTheme.cobalt.withOpacity(0.08) : null),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Row(
+                        children: [
+                          if (isBest) const Icon(Icons.star, color: Colors.amber, size: 16),
+                          if (isBest) const SizedBox(width: 4),
+                          Text(
+                            '${spec.code} (${spec.name})',
+                            style: TextStyle(
+                              fontWeight: isBest ? FontWeight.bold : FontWeight.normal,
+                              color: isBest ? AppTheme.cobalt : AppTheme.charcoal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        '$reqCount',
+                        style: TextStyle(fontWeight: isBest ? FontWeight.bold : FontWeight.normal),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        '${effVol.toStringAsFixed(1)} m³',
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        '${spaceUtil.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          color: spaceUtil > 80 ? Colors.green : Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        '${payloadUtil.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          color: payloadUtil > 80 ? Colors.green : Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ],
           ),
         ],
       ),

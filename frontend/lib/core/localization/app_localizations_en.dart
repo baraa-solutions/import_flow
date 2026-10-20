@@ -10996,6 +10996,29 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get inqDossierRowShippingMode => 'Shipping Mode';
   @override String get inqDossierRowIncoterm => 'Incoterm';
   @override String get inqDossierRowFreight => 'Freight Cost';
+
+  // ── UX-SEARCH-013: Advanced Search & Unified Shipment Reference ──────────
+  @override String get inqInsightModeRoute => 'Usual Route';
+  @override String get inqInsightModeShippingMode => 'Usual Shipping Method';
+  @override String get inqInsightLatestFreight => 'Latest Freight Rate';
+  @override String get inqInsightLatestFreightNote => 'Latest recorded rate for negotiation';
+  @override String get inqInsightAvgLandedCost => 'Average Landed Cost';
+  @override String get inqInsightMatchingCount => 'Matching Shipments';
+  @override String get inqInsightBarTitle => 'Smart Insight Bar';
+  @override String get inqColFinalCost => 'Final Cost';
+  @override String get inqColStatus => 'Status';
+  @override String get inqColDate => 'Date';
+  @override String get inqPrintRowTooltip => 'Print this row summary';
+  @override String get inqFilterStatus => 'Shipment Status';
+  @override String get inqAllStatuses => 'All Statuses';
+  @override String get inqStatusDraft => 'Draft';
+  @override String get inqStatusInProgress => 'In Progress';
+  @override String get inqStatusCompleted => 'Completed';
+  @override String get inqStatusClosed => 'Closed';
+  @override String get inqStatusDelayed => 'Delayed';
+  @override String get inqPrintSingleSummaryTitle => 'Shipment Reference Summary Card';
+  @override String get inqPdfSingleShipmentHeader => 'Single Shipment Inquiry Dossier';
+
   @override String get themeToggleTooltip => 'Toggle Dark / Light Mode';
   @override String get darkMode => 'Dark Mode';
   @override String get lightMode => 'Light Mode';

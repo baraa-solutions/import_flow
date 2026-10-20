@@ -5,6 +5,7 @@ import '../constants/api_constants.dart';
 import '../localization/app_localizations.dart';
 import '../localization/app_localizations_ar.dart';
 import '../theme/app_theme.dart';
+import 'copyable_data_helper.dart';
 
 class ValidationIssueItem {
   final String fieldName;
@@ -222,9 +223,10 @@ Future<void> showErrorDetailsDialog(
                 ],
               ),
             ),
-            content: SizedBox(
-              width: 680,
-              child: SingleChildScrollView(
+            content: SelectionArea(
+              child: SizedBox(
+                width: 680,
+                child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -418,14 +420,7 @@ ${loc.errorReportRawLog}
 ${parsed.rawTechnicalLog}
 ================================================
 ''';
-                              Clipboard.setData(ClipboardData(text: report));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(loc.errorReportCopiedSnackBar),
-                                  backgroundColor: AppTheme.charcoal,
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
+                              CopyHelper.copy(context, report, customMessage: loc.errorReportCopiedSnackBar);
                             },
                           ),
                         ],
@@ -454,6 +449,7 @@ ${parsed.rawTechnicalLog}
                 ),
               ),
             ),
+          ),
             actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             actions: [
               if (onRetry != null)

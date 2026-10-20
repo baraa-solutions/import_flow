@@ -11,6 +11,7 @@ import 'package:frontend/features/purchase_orders/models/purchase_order_model.da
 import '../utils/po_packing_matcher.dart';
 import 'package:frontend/core/widgets/buttons/app_button.dart';
 import 'po_table_cells.dart';
+import 'package:frontend/core/widgets/copyable_data_helper.dart';
 
 class POReportPreviewDialog extends StatefulWidget {
   final String poNumber;
@@ -180,13 +181,14 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
           backgroundColor: isDark ? AppTheme.darkSurface : null,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Container(
-            width: screenWidth > 1150 ? 1080 : (screenWidth * 0.95),
-            constraints: const BoxConstraints(maxHeight: 820),
-            decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkSurface : AppTheme.charcoalSurface,
-              borderRadius: BorderRadius.circular(16),
-            ),
+          child: SelectionArea(
+            child: Container(
+              width: screenWidth > 1150 ? 1080 : (screenWidth * 0.95),
+              constraints: const BoxConstraints(maxHeight: 820),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkSurface : AppTheme.charcoalSurface,
+                borderRadius: BorderRadius.circular(16),
+              ),
             child: Column(
               children: [
                 // Top Bar
@@ -419,7 +421,8 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildSectionTitle(String title, IconData icon, bool isDark) {
@@ -1046,13 +1049,10 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
       }
     }
 
-    Clipboard.setData(ClipboardData(text: sb.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l.poReportCopiedToClipboard),
-        backgroundColor: AppTheme.cobalt,
-        duration: const Duration(seconds: 2),
-      ),
+    CopyHelper.copy(
+      context,
+      sb.toString(),
+      customMessage: l.poReportCopiedToClipboard,
     );
   }
 

@@ -610,7 +610,7 @@ Best regards,
       othersFeePrice: extraFeeAmount,
       othersFeeCurrency: curr,
       notes: [
-        if (!isDirect) 'رحلة غير مباشرة (Transshipment)',
+        if (!isDirect) 'رحلة غير مباشرة',
         if (notes != null && notes.isNotEmpty) notes,
         if (localCharges != null && localCharges > 0) 'مصاريف محلية / EXW: \$$localCharges',
       ].join(' — '),
@@ -3270,7 +3270,7 @@ Best regards,
         if (FieldChangeItem.isDifferent(oldSession.cargoReadyDate, newCrd)) {
           changes.add(FieldChangeItem(
             section: 'البيانات العامة للدراسة',
-            fieldName: 'تاريخ جاهزية البضاعة (CRD)',
+            fieldName: 'تاريخ جاهزية البضاعة',
             oldValue: oldSession.cargoReadyDate,
             newValue: newCrd,
           ));
@@ -3316,7 +3316,7 @@ Best regards,
         if (FieldChangeItem.isDifferent(oldSession.poId, _selectedPoId)) {
           changes.add(FieldChangeItem(
             section: 'الربط التشغيلي',
-            fieldName: 'أمر الشراء المرتبط (PO)',
+            fieldName: 'أمر الشراء المرتبط',
             oldValue: oldSession.poNumber ?? (oldSession.poId != null ? 'ID: ${oldSession.poId}' : null),
             newValue: _selectedPoId != null ? 'ID: $_selectedPoId' : null,
           ));
@@ -3341,7 +3341,7 @@ Best regards,
             if (FieldChangeItem.isDifferent(o.providerName, n.providerName)) {
               changes.add(FieldChangeItem(
                 section: 'عروض أسعار الشحن المقارنة',
-                fieldName: '$quoteTitle - وكيل الشحن (Forwarder)',
+                fieldName: '$quoteTitle - وكيل الشحن',
                 oldValue: o.providerName,
                 newValue: n.providerName,
               ));
@@ -3349,7 +3349,7 @@ Best regards,
             if (FieldChangeItem.isDifferent(o.vesselName, n.vesselName)) {
               changes.add(FieldChangeItem(
                 section: 'عروض أسعار الشحن المقارنة',
-                fieldName: '$quoteTitle - الخط الملاحي / الباخرة (Carrier / Vessel)',
+                fieldName: '$quoteTitle - الخط الملاحي / الباخرة',
                 oldValue: o.vesselName,
                 newValue: n.vesselName,
               ));
@@ -3357,7 +3357,7 @@ Best regards,
             if (FieldChangeItem.isDifferent(o.sailingDate, n.sailingDate)) {
               changes.add(FieldChangeItem(
                 section: 'عروض أسعار الشحن المقارنة',
-                fieldName: '$quoteTitle - تاريخ الإبحار (ETD)',
+                fieldName: '$quoteTitle - تاريخ الإبحار',
                 oldValue: o.sailingDate,
                 newValue: n.sailingDate,
               ));
@@ -3365,7 +3365,7 @@ Best regards,
             if (FieldChangeItem.isDifferent(o.estimatedArrivalDate, n.estimatedArrivalDate)) {
               changes.add(FieldChangeItem(
                 section: 'عروض أسعار الشحن المقارنة',
-                fieldName: '$quoteTitle - تاريخ الوصول المتوقع (ETA)',
+                fieldName: '$quoteTitle - تاريخ الوصول المتوقع',
                 oldValue: o.estimatedArrivalDate,
                 newValue: n.estimatedArrivalDate,
               ));
@@ -3373,7 +3373,7 @@ Best regards,
             if (FieldChangeItem.isDifferent(o.freeTimeDays, n.freeTimeDays)) {
               changes.add(FieldChangeItem(
                 section: 'عروض أسعار الشحن المقارنة',
-                fieldName: '$quoteTitle - أيام السماح (Free Time)',
+                fieldName: '$quoteTitle - أيام السماح',
                 oldValue: '${o.freeTimeDays} يوم',
                 newValue: '${n.freeTimeDays} يوم',
               ));
@@ -4268,10 +4268,11 @@ class _SearchAndCloneStudyDialogState extends State<SearchAndCloneStudyDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-      child: Container(
-        width: math.min(720.0, screenWidth - 32),
-        height: math.min(600.0, screenHeight - 64),
-        padding: const EdgeInsets.all(20),
+      child: SelectionArea(
+        child: Container(
+          width: math.min(720.0, screenWidth - 32),
+          height: math.min(600.0, screenHeight - 64),
+          padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -4414,6 +4415,7 @@ class _SearchAndCloneStudyDialogState extends State<SearchAndCloneStudyDialog> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

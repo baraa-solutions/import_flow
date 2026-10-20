@@ -82,10 +82,11 @@ class _SearchAndCloneWarehouseReceivingDialogState
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
       backgroundColor: AppTheme.surfaceOf(context),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        padding: const EdgeInsetsDirectional.all(20),
+      child: SelectionArea(
+        child: Container(
+          width: dialogWidth,
+          height: dialogHeight,
+          padding: const EdgeInsetsDirectional.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -246,6 +247,7 @@ class _SearchAndCloneWarehouseReceivingDialogState
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -1207,10 +1207,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   ),
                                   InkWell(
                                     onTap: () {
-                                      Clipboard.setData(ClipboardData(text: _draftBlNumberCtrl.text));
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text(context.l10n.draftBlCopiedBlNumberSnackbar(_draftBlNumberCtrl.text))),
-                                      );
+                                      CopyHelper.copy(context, _draftBlNumberCtrl.text, customMessage: context.l10n.draftBlCopiedBlNumberSnackbar(_draftBlNumberCtrl.text));
                                     },
                                     child: Tooltip(
                                       message: context.l10n.draftBlCopyBlNumberTooltip,

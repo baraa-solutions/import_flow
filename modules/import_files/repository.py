@@ -6,7 +6,7 @@ import re
 from typing import Dict, Iterable, List, Optional
 from datetime import datetime, timezone, date
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func, desc
 from sqlalchemy.exc import IntegrityError
 
 from modules.import_files.model import ImportFile
@@ -485,5 +485,191 @@ def get_operational_dashboard_data(
         "last_updated_at": datetime.now(timezone.utc),
         "available_brokers": available_brokers,
         "phase_counts": phase_counts,
+    }
+
+
+def get_search_insights(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    company_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    hs_code: Optional[str] = None,
+    incoterm_code: Optional[str] = None,
+    port_of_loading: Optional[str] = None,
+    port_of_discharge: Optional[str] = None,
+    shipment_mode: Optional[str] = None,
+    carrier: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
+) -> Dict[str, any]:
+    """Calculates Smart Insight Bar aggregations (Mode route, Mode mode, Latest freight, Avg landed cost)."""
+    base_q = _apply_import_file_filters(
+        db.query(ImportFile),
+        include_inactive=include_inactive,
+        search=search,
+        company_id=company_id,
+        supplier_id=supplier_id,
+        status=status,
+        owner=owner,
+        hs_code=hs_code,
+        incoterm_code=incoterm_code,
+        port_of_loading=port_of_loading,
+        port_of_discharge=port_of_discharge,
+        shipment_mode=shipment_mode,
+        carrier=carrier,
+        date_from=date_from,
+        date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
+    )
+    total_count = base_q.count()
+    if total_count == 0:
+        return {
+            "total_count": 0,
+            "mode_route": None,
+            "mode_shipping_mode": None,
+            "latest_freight_cost": None,
+            "latest_freight_currency": "USD",
+            "avg_landed_cost": None,
+            "avg_landed_currency": "EGP",
+        }
+
+    # 1. Mode of route (most common POL -> POD)
+    route_row = (
+        _apply_import_file_filters(
+            db.query(
+                ImportFile.port_of_loading,
+                ImportFile.port_of_discharge,
+                func.count().label("cnt"),
+            ),
+            include_inactive=include_inactive,
+            search=search,
+            company_id=company_id,
+            supplier_id=supplier_id,
+            status=status,
+            owner=owner,
+            hs_code=hs_code,
+            incoterm_code=incoterm_code,
+            port_of_loading=port_of_loading,
+            port_of_discharge=port_of_discharge,
+            shipment_mode=shipment_mode,
+            carrier=carrier,
+            date_from=date_from,
+            date_to=date_to,
+            parent_import_file_id=parent_import_file_id,
+            is_partial_shipment=is_partial_shipment,
+        )
+        .filter(
+            or_(
+                ImportFile.port_of_loading.isnot(None),
+                ImportFile.port_of_discharge.isnot(None),
+            )
+        )
+        .group_by(ImportFile.port_of_loading, ImportFile.port_of_discharge)
+        .order_by(desc("cnt"))
+        .first()
+    )
+    mode_route = None
+    if route_row:
+        pol = route_row[0] or "-"
+        pod = route_row[1] or "-"
+        mode_route = f"{pol} → {pod}"
+
+    # 2. Mode of shipping mode (most common shipment_mode)
+    mode_row = (
+        _apply_import_file_filters(
+            db.query(
+                ImportFile.shipment_mode,
+                func.count().label("cnt"),
+            ),
+            include_inactive=include_inactive,
+            search=search,
+            company_id=company_id,
+            supplier_id=supplier_id,
+            status=status,
+            owner=owner,
+            hs_code=hs_code,
+            incoterm_code=incoterm_code,
+            port_of_loading=port_of_loading,
+            port_of_discharge=port_of_discharge,
+            shipment_mode=shipment_mode,
+            carrier=carrier,
+            date_from=date_from,
+            date_to=date_to,
+            parent_import_file_id=parent_import_file_id,
+            is_partial_shipment=is_partial_shipment,
+        )
+        .filter(ImportFile.shipment_mode.isnot(None))
+        .group_by(ImportFile.shipment_mode)
+        .order_by(desc("cnt"))
+        .first()
+    )
+    mode_shipping_mode = mode_row[0] if mode_row else None
+
+    # 3. Latest Freight Cost (most recent matching shipment by date, with freight > 0)
+    latest_file = (
+        base_q.filter(
+            or_(
+                ImportFile.estimated_cost > 0,
+                ImportFile.actual_landed_cost_total_egp > 0,
+            )
+        )
+        .order_by(
+            func.coalesce(ImportFile.file_opening_date, ImportFile.created_at).desc(),
+            ImportFile.import_file_id.desc(),
+        )
+        .first()
+    )
+    latest_freight_cost = None
+    latest_freight_currency = "USD"
+    if latest_file:
+        latest_freight_cost = latest_file.estimated_cost
+        latest_freight_currency = latest_file.estimated_cost_currency or "USD"
+
+    # 4. Average final landed cost
+    avg_cost_row = (
+        _apply_import_file_filters(
+            db.query(
+                func.avg(
+                    func.coalesce(
+                        func.nullif(ImportFile.actual_landed_cost_total_egp, 0),
+                        func.nullif(ImportFile.financial_settlement_total_egp, 0),
+                        func.nullif(ImportFile.estimated_cost, 0),
+                    )
+                )
+            ),
+            include_inactive=include_inactive,
+            search=search,
+            company_id=company_id,
+            supplier_id=supplier_id,
+            status=status,
+            owner=owner,
+            hs_code=hs_code,
+            incoterm_code=incoterm_code,
+            port_of_loading=port_of_loading,
+            port_of_discharge=port_of_discharge,
+            shipment_mode=shipment_mode,
+            carrier=carrier,
+            date_from=date_from,
+            date_to=date_to,
+            parent_import_file_id=parent_import_file_id,
+            is_partial_shipment=is_partial_shipment,
+        ).scalar()
+    )
+    avg_landed_cost = round(float(avg_cost_row), 2) if avg_cost_row is not None else None
+
+    return {
+        "total_count": total_count,
+        "mode_route": mode_route,
+        "mode_shipping_mode": mode_shipping_mode,
+        "latest_freight_cost": latest_freight_cost,
+        "latest_freight_currency": latest_freight_currency,
+        "avg_landed_cost": avg_landed_cost,
+        "avg_landed_currency": "EGP",
     }
 

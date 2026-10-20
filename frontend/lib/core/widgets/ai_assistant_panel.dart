@@ -1665,7 +1665,13 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
             TextButton.icon(
               onPressed: () async {
                 const url = 'https://aistudio.google.com/app/apikey';
-                await Clipboard.setData(const ClipboardData(text: url));
+                CopyHelper.copy(
+                  context,
+                  url,
+                  customMessage: isAr
+                      ? l.aiAssistantCopiedUrlSuccess
+                      : 'Opened Google AI Studio in browser and copied URL to clipboard',
+                );
                 try {
                   if (Platform.isWindows) {
                     await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);
@@ -1675,19 +1681,6 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
                     await Process.run('xdg-open', [url]);
                   }
                 } catch (_) {}
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isAr
-                            ? l.aiAssistantCopiedUrlSuccess
-                            : 'Opened Google AI Studio in browser and copied URL to clipboard',
-                      ),
-                      backgroundColor: AppTheme.cobalt,
-                      duration: const Duration(seconds: 4),
-                    ),
-                  );
-                }
               },
               icon: Icon(Icons.open_in_new, size: 13, color: Colors.grey.shade600),
               label: Text(
@@ -1748,7 +1741,13 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
                       TextButton.icon(
                         onPressed: () async {
                           const url = 'https://aistudio.google.com/app/apikey';
-                          await Clipboard.setData(const ClipboardData(text: url));
+                          CopyHelper.copy(
+                            context,
+                            url,
+                            customMessage: isAr
+                                ? l.aiAssistantCopiedUrlSuccess
+                                : 'Opened Google AI Studio in browser and copied URL to clipboard',
+                          );
                           try {
                             if (Platform.isWindows) {
                               await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);

@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
@@ -7,16 +8,18 @@ import 'checklist_item_card.dart';
 
 class SmartChecklistDialog extends ConsumerStatefulWidget {
   final ImportFileModel file;
+  final String? initialPhase;
 
   const SmartChecklistDialog({
     super.key,
     required this.file,
+    this.initialPhase,
   });
 
-  static void show(BuildContext context, ImportFileModel file) {
+  static void show(BuildContext context, ImportFileModel file, {String? initialPhase}) {
     showDialog(
       context: context,
-      builder: (ctx) => SmartChecklistDialog(file: file),
+      builder: (ctx) => SmartChecklistDialog(file: file, initialPhase: initialPhase),
     );
   }
 
@@ -30,6 +33,9 @@ class _SmartChecklistDialogState extends ConsumerState<SmartChecklistDialog> {
     super.initState();
     Future.microtask(() {
       ref.read(smartChecklistProvider.notifier).fetchChecklist(widget.file.importFileId);
+      if (widget.initialPhase != null) {
+        ref.read(smartChecklistProvider.notifier).setPhaseFilter(widget.initialPhase!);
+      }
     });
   }
 
@@ -117,7 +123,7 @@ class _SmartChecklistDialogState extends ConsumerState<SmartChecklistDialog> {
                 children: [
                   Text(
                     isAr
-                        ? 'قائمة التحقق التشغيلية الذكية (Smart Import Checklist)'
+                        ? 'قائمة التحقق التشغيلية الذكية'
                         : 'Smart Import Operational Checklist',
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                   ),
@@ -181,9 +187,10 @@ class _SmartChecklistDialogState extends ConsumerState<SmartChecklistDialog> {
           ],
         ),
       ),
-      content: SizedBox(
-        width: 980,
-        height: 650,
+      content: SelectionArea(
+        child: SizedBox(
+          width: 980,
+          height: 650,
         child: state.isLoading
             ? const Center(child: CircularProgressIndicator())
             : Column(
@@ -383,6 +390,7 @@ class _SmartChecklistDialogState extends ConsumerState<SmartChecklistDialog> {
                   ),
                 ],
               ),
+        ),
       ),
       actions: [
         if (summary != null) ...[

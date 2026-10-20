@@ -62,8 +62,14 @@ import '../../file_closure/widgets/official_file_closure_dialog.dart';
 import 'create_partial_batch_dialog.dart';
 import 'logistics_shipment_expenses_summary_card.dart';
 import '../../logistics_invoices/screens/logistics_invoices_screen.dart';
-
-
+import 'shipment_milestone_tracker.dart';
+import '../../comprehensive_report/services/comprehensive_dossier_service.dart';
+import '../../comprehensive_report/services/comprehensive_report_export_service.dart';
+import '../../comprehensive_report/models/comprehensive_dossier_model.dart';
+import '../../shipment_updates/providers/shipment_updates_provider.dart';
+import '../../customs_clearance/providers/customs_clearance_provider.dart';
+import '../../customs_clearance/models/customs_clearance_model.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 import 'package:frontend/core/widgets/ltr_text.dart';
 class ImportFileDetailsDialog extends ConsumerStatefulWidget {
@@ -235,34 +241,36 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 ),
               ],
             ),
-            content: SizedBox(
-              width: 820,
-              height: 500,
-              child: Column(
-                children: [
-                  Container(
-                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
-                    child: TabBar(
-                      indicatorColor: AppTheme.cobalt,
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.white70,
-                      tabs: [
-                        Tab(icon: const Icon(Icons.layers), text: l.containerStackableTab),
-                        Tab(icon: const Icon(Icons.view_array), text: l.containerNonStackableTab),
-                        Tab(icon: const Icon(Icons.shuffle), text: l.containerMixedTab),
-                      ],
+            content: SelectionArea(
+              child: SizedBox(
+                width: 820,
+                height: 500,
+                child: Column(
+                  children: [
+                    Container(
+                      color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
+                      child: TabBar(
+                        indicatorColor: AppTheme.cobalt,
+                        labelColor: Colors.white,
+                        unselectedLabelColor: Colors.white70,
+                        tabs: [
+                          Tab(icon: const Icon(Icons.layers), text: l.containerStackableTab),
+                          Tab(icon: const Icon(Icons.view_array), text: l.containerNonStackableTab),
+                          Tab(icon: const Icon(Icons.shuffle), text: l.containerMixedTab),
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildComparisonTable(dualRec.stackableResult, isDark: isDark),
-                        _buildComparisonTable(dualRec.nonStackableResult, isDark: isDark),
-                        _buildComparisonTable(dualRec.stackableResult, isDark: isDark),
-                      ],
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          _buildComparisonTable(dualRec.stackableResult, isDark: isDark),
+                          _buildComparisonTable(dualRec.nonStackableResult, isDark: isDark),
+                          _buildComparisonTable(dualRec.stackableResult, isDark: isDark),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -446,6 +454,12 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
       !poNumbersToExclude.contains(inv) &&
       !(inv.toUpperCase().startsWith('PO-') && !inv.toUpperCase().contains('INV') && !inv.toUpperCase().contains('PI'))
     ).toSet();
+
+    final dossierAsync = ref.watch(comprehensiveDossierProvider(file.importFileId));
+    final dossier = dossierAsync.valueOrNull;
+    final updatesState = ref.watch(shipmentUpdatesProvider);
+    final clearanceState = ref.watch(customsClearanceProvider);
+    final warehouseState = ref.watch(warehouseReceivingProvider);
 
     final dualRec = ContainerRequirementEngine.calculateBoth(
       totalCbm: totalPackingListCbm,
@@ -1203,13 +1217,31 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           ),
         ],
       ),
-      content: SizedBox(
-        width: 920,
-        height: 620,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      content: SelectionArea(
+        child: SizedBox(
+          width: 920,
+          height: 620,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+              // 1. 10-Phase Milestone Journey Tracker (Operational Cockpit)
+              ShipmentMilestoneTracker(importFile: file),
+              const SizedBox(height: 12),
+
+              // 2. Quick Export & Dossier Actions Toolbar
+              _buildQuickExportToolbar(
+                context,
+                file,
+                dossier,
+                updatesState,
+                clearanceState,
+                warehouseState,
+                isDark: isDark,
+                isAr: isAr,
+              ),
+              const SizedBox(height: 14),
+
               // Smart Shipment Experience Guide Alert Banner (Institutional Memory)
               if (_guideMatchResult != null && _guideMatchResult!.matchedEntries.isNotEmpty)
                 ExperienceGuideAlertBanner(
@@ -1233,9 +1265,13 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               LogisticsShipmentExpensesSummaryCard(file: file),
               const SizedBox(height: 12),
 
-              // Top Metric Summary Cards
+              // FX Reconciliation Card
+              _buildFxReconciliationCard(context, dossier, file, isDark: isDark),
+              const SizedBox(height: 12),
+
+              // Top Executive Metric Summary Cards (5 Key Physical & Financial Metrics)
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppTheme.cobalt.withOpacity(isDark ? 0.14 : 0.06),
                   borderRadius: BorderRadius.circular(10),
@@ -1245,57 +1281,93 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '📊 ${l.cargoAndLinkedPosSection}:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                      '📊 مؤشرات الشحنة التنفيذية والمطابقة الفعلية:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
+                    const SizedBox(height: 10),
+                    () {
+                      final netWeight = dossier?.netWeightKg;
+                    final displayNet = (netWeight != null && netWeight > 0)
+                        ? 'صافي: ${PoPackingMatcher.formatWeight(netWeight)} kg'
+                        : l.grossWeightSumDescription;
+
+                    final actualLanded = dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp;
+                    final variancePct = dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct;
+                    final varianceEgp = dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp;
+                    final hasVariance = actualLanded > 0 && varianceEgp != 0;
+
+                    int driftDays = 0;
+                    if (dossier != null && dossier.etaRevisionsLog.isNotEmpty) {
+                      final lastLog = dossier.etaRevisionsLog.last;
+                      driftDays = (lastLog['drift_days'] as num?)?.toInt() ?? 0;
+                    }
+                    final isDrifted = driftDays > 0;
+
+                    return Row(
                       children: [
-                        Expanded(
-                          child: _buildMetricTile(
-                            l.invoicesCountAndNumbers,
-                            '${invoiceNumbers.length} ${l.invoicesUnit}',
-                            subtitle: invoiceNumbers.isEmpty ? '-' : invoiceNumbers.join(', '),
-                            icon: Icons.receipt_long,
-                            color: AppTheme.cobalt,
-                            isDark: isDark,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
                         Expanded(
                           child: _buildMetricTile(
                             l.totalCbmFromPackingList,
                             '${totalPackingListCbm.toStringAsFixed(3)} m³',
-                            subtitle: l.cbmSumDescription,
+                            subtitle: '$totalPackingListsCount ${l.packingListsUnit}',
                             icon: Icons.view_in_ar,
                             color: Colors.orange,
                             isDark: isDark,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: _buildMetricTile(
                             l.totalGrossWeightFromPl,
                             '${PoPackingMatcher.formatWeight(totalPackingListWeight)} kg',
-                            subtitle: l.grossWeightSumDescription,
+                            subtitle: displayNet,
                             icon: Icons.fitness_center,
                             color: AppTheme.emerald,
                             isDark: isDark,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: _buildMetricTile(
-                            l.linkedPurchaseOrdersTitle,
-                            '${linkedPOs.length} ${l.posUnit}',
-                            subtitle: '$totalPackingListsCount ${l.packingListsUnit}',
-                            icon: Icons.shopping_bag,
-                            color: Colors.purple,
+                            'الفواتير وأوامر الشراء',
+                            '${invoiceNumbers.length} فاتورة • ${linkedPOs.length} PO',
+                            subtitle: '${dossier?.itemsCount ?? 0} صنف تفصيلي',
+                            icon: Icons.receipt_long,
+                            color: AppTheme.cobalt,
+                            isDark: isDark,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildMetricTile(
+                            actualLanded > 0 ? 'تكلفة الوصول والتسوية' : 'التكلفة التقديرية',
+                            actualLanded > 0
+                                ? '${actualLanded.toStringAsFixed(0)} ج.م'
+                                : (file.estimatedCost > 0 ? '${file.estimatedCost.toStringAsFixed(0)} \$' : '—'),
+                            subtitle: hasVariance
+                                ? 'تباين: ${variancePct > 0 ? "+" : ""}${variancePct.toStringAsFixed(1)}%'
+                                : (file.estimatedCost > 0 ? 'تقديري مبدئي' : 'بانتظار التسوية'),
+                            icon: Icons.account_balance_wallet,
+                            color: hasVariance ? (variancePct.abs() > 5 ? AppTheme.crimson : const Color(0xFFD97706)) : const Color(0xFF0D9488),
+                            isDark: isDark,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildMetricTile(
+                            'الجدول الزمني والانحراف',
+                            file.requiredEta ?? '—',
+                            subtitle: isDrifted
+                                ? '⚠️ تأخير +$driftDays يوم'
+                                : (driftDays < 0 ? 'تبكير $driftDays يوم' : 'منتظم بالجدول'),
+                            icon: Icons.access_time,
+                            color: isDrifted ? Colors.orange.shade800 : AppTheme.cobalt,
                             isDark: isDark,
                           ),
                         ),
                       ],
-                    ),
+                    );
+                  }(),
                   ],
                 ),
               ),
@@ -1511,6 +1583,10 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Containers & Seal Matrix Card (Operational Seal Tracker)
+              _buildContainersCard(context, dossier, file, isDark: isDark),
               const SizedBox(height: 16),
 
               // ── Smart Shipment Experience Guide Card ───────────────────────
@@ -2036,7 +2112,8 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           ),
         ),
       ),
-      actions: [
+    ),
+    actions: [
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             foregroundColor: AppTheme.cobalt,
@@ -2630,6 +2707,454 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           const SizedBox(height: 2),
           Text(subtitle, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : Colors.grey), overflow: TextOverflow.ellipsis, maxLines: 1),
         ],
+      ),
+    );
+  }
+
+  Widget _buildContainersCard(
+    BuildContext context,
+    ComprehensiveShipmentDossierModel? dossier,
+    ImportFileModel file, {
+    bool isDark = false,
+  }) {
+    final containers = dossier?.containers ?? [];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.blueGrey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.directions_boat_filled_outlined, color: AppTheme.cobalt, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'حاويات الشحنة ومطابقة أرقام السيل (Containers & Seal Matrix)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                ),
+              ),
+              const Spacer(),
+              if (containers.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${containers.length} حاويات مسجلة',
+                    style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (containers.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF2E2419) : Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: isDark ? Colors.amber.shade300 : Colors.amber.shade900, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'لم يتم تسجيل الحاويات وأرقام السيل بعد. يتم تأكيدها فور رص الحاويات في مرحلة الشحن الدولي (Phase 5).',
+                      style: TextStyle(color: isDark ? Colors.amber.shade300 : Colors.amber.shade900, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: containers.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (ctx, idx) {
+                final c = containers[idx];
+                final cNo = c['container_no']?.toString() ?? 'CONT-${idx + 1}';
+                final cType = c['container_type']?.toString() ?? '-';
+                final lSeal = c['liner_seal_no']?.toString() ?? c['seal_no']?.toString() ?? '—';
+                final cSeal = c['customs_seal_no']?.toString() ?? '—';
+                final tare = c['tare_weight_kg'] ?? 0.0;
+                final gross = c['gross_weight_kg'] ?? 0.0;
+
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkSurface : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.blueGrey.shade100),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 16),
+                          const SizedBox(width: 8),
+                          SelectableText(
+                            cNo,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _buildCopyBadge(context, cNo, tooltip: 'نسخ رقم الحاوية'),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cobalt.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              cType,
+                              style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Divider(height: 14, color: isDark ? AppTheme.darkBorder : null),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            Text('سيل التوكيل / الخط الملاحي:', style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
+                            const SizedBox(width: 8),
+                            SelectableText(
+                              lSeal,
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                            ),
+                            if (lSeal != '—') ...[
+                              const SizedBox(width: 4),
+                              _buildCopyBadge(context, lSeal, tooltip: 'نسخ رقم سيل الخط'),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            Text('سيل الجمارك / الترصيص الجمركي:', style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700)),
+                            const SizedBox(width: 8),
+                            SelectableText(
+                              cSeal,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: cSeal != '—' ? AppTheme.emerald : (isDark ? AppTheme.darkTextMuted : Colors.grey.shade600),
+                              ),
+                            ),
+                            if (cSeal != '—') ...[
+                              const SizedBox(width: 4),
+                              _buildCopyBadge(context, cSeal, tooltip: 'نسخ رقم سيل الجمارك'),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Text('وزن فارغ: $tare كجم', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+                          const SizedBox(width: 14),
+                          Text('وزن قائم: $gross كجم', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+                          const Spacer(),
+                          Text('VGM: ${c['vgm_status'] ?? "-"}', style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFxReconciliationCard(
+    BuildContext context,
+    ComprehensiveShipmentDossierModel? dossier,
+    ImportFileModel file, {
+    bool isDark = false,
+  }) {
+    final fx = dossier?.fxReconciliation;
+    final customsRate = fx?['customs_exchange_rate'];
+    final bankRate = fx?['commercial_bank_exchange_rate'];
+    final varianceRate = fx?['fx_variance_rate'] ?? 0.0;
+    final varianceTotal = fx?['fx_variance_total_egp'] ?? 0.0;
+    final hasVariance = fx?['has_variance'] == true;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.blueGrey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.currency_exchange_outlined, color: AppTheme.emerald, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'مطابقة أسعار الصرف وفروق تدبير العملة (FX Variance)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'سعر الصرف الجمركي: ${customsRate != null ? "$customsRate ج.م" : "—"}',
+                  style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'سعر صرف البنك: ${bankRate != null ? "$bankRate ج.م" : "—"}',
+                  style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'فرق السعر لكل وحدة عملة: $varianceRate ج.م',
+                  style: TextStyle(fontSize: 11.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                ),
+              ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Text('إجمالي الفروق: ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
+                    Text(
+                      '${varianceTotal.toStringAsFixed(2)} ج.م',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: hasVariance ? AppTheme.crimson : AppTheme.emerald,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: hasVariance
+                  ? (isDark ? Colors.red.shade900.withOpacity(0.3) : AppTheme.crimson.withOpacity(0.08))
+                  : (isDark ? Colors.green.shade900.withOpacity(0.3) : AppTheme.emerald.withOpacity(0.08)),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  hasVariance ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                  size: 14,
+                  color: hasVariance ? (isDark ? Colors.red.shade300 : AppTheme.crimson) : (isDark ? Colors.green.shade300 : AppTheme.emerald),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    hasVariance
+                        ? 'يوجد فروق أسعار صرف بين تقييم الجمارك والتحويل البنكي الفعلي تؤثر على تكلفة الوصول.'
+                        : 'أسعار الصرف مطابقة تماماً أو لم يتم تسجيل تسويات بنكية بالعملة الأجنبية بعد.',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: hasVariance ? (isDark ? Colors.red.shade300 : AppTheme.crimson) : (isDark ? Colors.green.shade300 : AppTheme.emerald),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickExportToolbar(
+    BuildContext context,
+    ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
+    ShipmentUpdatesState updatesState,
+    AsyncValue<List<CustomsClearanceModel>> clearanceState,
+    AsyncValue<List<WarehouseReceivingModel>> warehouseState, {
+    bool isDark = false,
+    bool isAr = false,
+  }) {
+    final clr = clearanceState.valueOrNull?.firstOrNull;
+    final wh = warehouseState.valueOrNull?.firstOrNull;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.output_rounded, size: 16, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
+          const SizedBox(width: 6),
+          Text(
+            isAr ? 'أدوات التصدير والمشاركة السريعة:' : 'Quick Export Tools:',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+            ),
+          ),
+          const Spacer(),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.cobalt,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+            icon: const Icon(Icons.copy, size: 13),
+            label: Text(isAr ? 'نسخ ملخص الشحنة' : 'Copy Dossier', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              final text = ComprehensiveReportExportService.buildDossierText(
+                context: context,
+                file: file,
+                dossier: dossier,
+                logs: updatesState.logs,
+                clearance: clr,
+                warehouse: wh,
+              );
+              CopyHelper.copy(context, text, customMessage: isAr ? 'تم نسخ ملخص الشحنة الشامل' : 'Dossier copied');
+            },
+          ),
+          const SizedBox(width: 6),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+            icon: const Icon(Icons.table_view, size: 13),
+            label: const Text('Excel', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            onPressed: () => ComprehensiveReportExportService.exportToExcel(
+              context: context,
+              file: file,
+              dossier: dossier,
+              logs: updatesState.logs,
+              clearance: clr,
+              warehouse: wh,
+            ),
+          ),
+          const SizedBox(width: 6),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.charcoal,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 13),
+            label: const Text('PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            onPressed: () => ComprehensiveReportExportService.printOrSavePdf(
+              context: context,
+              file: file,
+              dossier: dossier,
+              logs: updatesState.logs,
+              clearance: clr,
+              warehouse: wh,
+            ),
+          ),
+          const SizedBox(width: 6),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.cobalt,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+            icon: const Icon(Icons.inventory_2_outlined, size: 13),
+            label: Text(isAr ? 'تصدير الملف المعتمد' : 'Export Dossier', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            onPressed: () => ComprehensiveDossierExportDialog.show(context, file: file),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCopyBadge(
+    BuildContext context,
+    String text, {
+    String? tooltip,
+    String? customMessage,
+    Color? color,
+    Color? textColor,
+    Color? borderColor,
+  }) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final tip = tooltip ?? (isAr ? 'نسخ: $text' : 'Copy: $text');
+
+    return Tooltip(
+      message: tip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () => CopyHelper.copy(context, text, customMessage: customMessage),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: color ?? Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: borderColor ?? Colors.grey.shade300),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                text,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: textColor ?? AppTheme.charcoal,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.copy_rounded,
+                size: 11,
+                color: textColor ?? Colors.grey.shade600,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
