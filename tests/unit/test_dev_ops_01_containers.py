@@ -256,6 +256,7 @@ class TestContainersService:
 
         # 2. Add DemurrageTracking with dates and charges
         tracking = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-901",
             import_file_id=file_id,
             carrier_name="CMA CGM",
@@ -328,6 +329,7 @@ class TestContainersService:
         )
 
         tracking = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-MSK",
             import_file_id=file_id,
             policy_id=policy.policy_id,

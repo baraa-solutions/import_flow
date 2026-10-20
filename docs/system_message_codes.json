@@ -102,6 +102,12 @@
       "note"
     ]
   },
+  "CCQ_RFQ_AWARDED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "CCQ_PRICE_LIST_DATE_RANGE": {
     "params": [
       "effective_from",

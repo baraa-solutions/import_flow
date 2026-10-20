@@ -76,6 +76,7 @@ class TestComprehensiveAlertsEngine(unittest.TestCase):
 
     def test_empty_container_detention_alert(self):
         tracking = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-001",
             carrier_name="MSC",
             bill_of_lading_no="MEDU12345678",

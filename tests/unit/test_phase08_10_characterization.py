@@ -123,6 +123,7 @@ def test_grn_create_totals_type_and_file_sync(db_session):
         expected_arrival_at=datetime.now(timezone.utc), status="In Transit", is_active=True,
     )
     tracking = DemurrageTracking(
+        port_name="Alexandria",
         tracking_code="DND-CHAR-1", import_file_id=imp.import_file_id, carrier_name="MSC",
         bill_of_lading_no="BL-1", discharge_date=date.today(), is_active=True,
         exchange_rate=50.0,  # no default rate since the review wave (NOT NULL, no fabricated 50.0)

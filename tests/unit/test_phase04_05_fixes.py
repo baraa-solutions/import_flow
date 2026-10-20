@@ -375,8 +375,8 @@ def test_dd07_push_uses_settlement_code_and_recalculates(db, monkeypatch):
 
 
 def test_dd09_tracking_without_rate_uses_bank_rate_or_409(db):
-    req = DemurrageTrackingCreate(import_file_id=1, carrier_name="MSC", bill_of_lading_no="BL-NR", discharge_date=date(2026, 8, 1),
-                                  containers=[ContainerItemInput(container_no="MSCU0000009")])
+    req = DemurrageTrackingCreate(port_name="Alexandria", import_file_id=1, carrier_name="MSC", bill_of_lading_no="BL-NR", discharge_date=date(2026, 8, 1),
+                                  containers=[ContainerItemInput(container_no="MSCU0000009", container_type="40HC")])
     with pytest.raises(HTTPException) as exc:
         dd.create_demurrage_tracking_service(db, req)
     assert exc.value.status_code == 409
@@ -533,10 +533,10 @@ def test_dd_put_after_bk02_keeps_agreed_free_days(db, with_booking):
 
 
 def test_dd_no_policy_parameter_path_equals_head_numbers(db):
-    req = DemurrageTrackingCreate(import_file_id=None, carrier_name="NOPOLICY", bill_of_lading_no="BL-HEAD",
+    req = DemurrageTrackingCreate(port_name="Alexandria", import_file_id=None, carrier_name="NOPOLICY", bill_of_lading_no="BL-HEAD",
                                   discharge_date=date(2026, 8, 1), gate_out_date=date(2026, 8, 21),
                                   empty_return_date=date(2026, 8, 25), exchange_rate=50.0,
-                                  containers=[ContainerItemInput(container_no="MSCU0000005")])
+                                  containers=[ContainerItemInput(container_no="MSCU0000005", container_type="40HC")])
     # HEAD constants: 20 days - 14 free = 6 days x 40; storage 20 - 5 = 15 x 250; EGP = 240 x 50 + 3750
     head = (240.0, 0.0, 3750.0, 15750.0)
     t1 = dd.create_demurrage_tracking_service(db, req)

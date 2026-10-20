@@ -777,7 +777,7 @@ def test_aggregation_converts_a_foreign_delivery_order_and_keeps_demurrage(db):
     db.add(CustomsClearanceRecord(clearance_code="CLR-DO", import_file_id=imp.import_file_id, is_active=True,
                                   delivery_order_fees=100.0, delivery_order_currency="USD",
                                   delivery_order_date=datetime(2026, 3, 2), delivery_order_status="Paid"))
-    dnd = _fill_required(DemurrageTracking(import_file_id=imp.import_file_id, tracking_code="DND-P09",
+    dnd = _fill_required(DemurrageTracking(port_name="Alexandria", import_file_id=imp.import_file_id, tracking_code="DND-P09",
                                            currency="USD", exchange_rate=49.0, total_demurrage_fx=200.0,
                                            total_detention_fx=0.0, total_storage_egp=150.0, total_cost_egp=0.0,
                                            is_active=True))
