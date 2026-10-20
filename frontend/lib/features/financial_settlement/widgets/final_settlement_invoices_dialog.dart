@@ -51,6 +51,7 @@ class _FinalSettlementInvoicesDialogState
   InvoicesAggregationResponseModel? _aggregationData;
 
   String _selectedPartyFilter = 'ALL';
+  bool _acknowledgeUnpaid = false;
   final _settledByController = TextEditingController();
   final _notesController = TextEditingController();
 
@@ -108,6 +109,7 @@ class _FinalSettlementInvoicesDialogState
         settlementNotes: _notesController.text.trim().isNotEmpty
             ? _notesController.text.trim()
             : null,
+        acknowledgeUnpaid: _acknowledgeUnpaid,
       );
 
       final res = await ref
@@ -586,6 +588,36 @@ class _FinalSettlementInvoicesDialogState
               ),
             ],
           ),
+          if ((_aggregationData?.settlementReadinessPercent ?? 100.0) < 100.0) ...[
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _acknowledgeUnpaid = !_acknowledgeUnpaid;
+                });
+              },
+              child: Row(
+                children: [
+                  Checkbox(
+                    key: const Key('acknowledgeUnpaidCheckbox'),
+                    value: _acknowledgeUnpaid,
+                    onChanged: (val) {
+                      setState(() {
+                        _acknowledgeUnpaid = val ?? false;
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'إقرار بوجود فواتير ومصروفات غير مسددة (${_aggregationData?.settlementReadinessPercent.toStringAsFixed(1)}% جاهزية) والمتابعة في اعتماد التسوية',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.orange, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

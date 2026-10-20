@@ -68,6 +68,7 @@ class PaymentRequestUpdate(BaseModel):
     (written only by pay / reconcile); ``swift_code`` (beneficiary BIC) stays editable. ``status`` may only follow the user transitions (validators)."""
     title: Optional[str] = Field(None, min_length=3, max_length=200)
     import_file_id: Optional[int] = None
+    po_id: Optional[int] = None
     payment_type: Optional[str] = None
     requested_amount: Optional[float] = Field(None, gt=0.0)
     advance_percentage: Optional[float] = Field(None, ge=0.0, le=100.0)
@@ -102,6 +103,7 @@ class SwiftReconciliationRequest(BaseModel):
     swift_receipt_date: date = Field(..., description="Date SWIFT was received from the bank")
     swift_transferred_amount: float = Field(..., gt=0.0, description="Actual transferred amount according to SWIFT")
     swift_transferred_currency: str = Field(..., min_length=3, max_length=10)
+    swift_debit_amount_egp: Optional[float] = Field(default=None, gt=0.0, description="Actual bank debit amount in EGP (ACC2-T07)")
     swift_reconciliation_notes: Optional[str] = None
 
 
@@ -123,6 +125,8 @@ class PaymentRequestResponse(PaymentRequestBase):
     swift_variance_status: Optional[str] = None
     swift_processing_days: Optional[int] = None
     swift_reconciliation_notes: Optional[str] = None
+    paid_amount_egp: Optional[float] = None
+    paid_exchange_rate: Optional[float] = None
     smart_task_code: Optional[str] = None
     is_active: bool
     created_at: datetime
@@ -395,6 +399,7 @@ class SmartSwiftReconcileRequest(BaseModel):
     swift_code: Optional[str] = None
     iban_account_no: Optional[str] = None
     swift_reconciliation_notes: Optional[str] = None
+    swift_debit_amount_egp: Optional[float] = Field(default=None, gt=0.0)
     auto_execute: bool = True
 
 

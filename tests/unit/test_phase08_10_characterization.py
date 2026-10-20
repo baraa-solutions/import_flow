@@ -124,7 +124,7 @@ def test_grn_create_totals_type_and_file_sync(db_session):
     )
     tracking = DemurrageTracking(
         tracking_code="DND-CHAR-1", import_file_id=imp.import_file_id, carrier_name="MSC",
-        bill_of_lading_no="BL-1", discharge_date=date.today(), is_active=True,
+        bill_of_lading_no="BL-1", port_name="Alexandria Port", discharge_date=date.today(), is_active=True,
         exchange_rate=50.0,  # no default rate since the review wave (NOT NULL, no fabricated 50.0)
     )
     db_session.add_all([booking, tracking])

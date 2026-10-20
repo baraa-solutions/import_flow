@@ -108,6 +108,7 @@ class InvoicesPartySummaryModel {
   final double totalEgp;
   final double paidEgp;
   final double remainingEgp;
+  final double netPayableEgp;
 
   InvoicesPartySummaryModel({
     required this.partyType,
@@ -117,6 +118,7 @@ class InvoicesPartySummaryModel {
     this.totalEgp = 0.0,
     this.paidEgp = 0.0,
     this.remainingEgp = 0.0,
+    this.netPayableEgp = 0.0,
   });
 
   factory InvoicesPartySummaryModel.fromJson(Map<String, dynamic> json) {
@@ -128,6 +130,7 @@ class InvoicesPartySummaryModel {
       totalEgp: (json['total_egp'] as num?)?.toDouble() ?? 0.0,
       paidEgp: (json['paid_egp'] as num?)?.toDouble() ?? 0.0,
       remainingEgp: (json['remaining_egp'] as num?)?.toDouble() ?? 0.0,
+      netPayableEgp: (json['net_payable_egp'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -140,6 +143,7 @@ class InvoicesPartySummaryModel {
       'total_egp': totalEgp,
       'paid_egp': paidEgp,
       'remaining_egp': remainingEgp,
+      'net_payable_egp': netPayableEgp,
     };
   }
 }
@@ -148,14 +152,16 @@ class InvoicesAggregationResponseModel {
   final int importFileId;
   final String importFileCode;
   final String supplierName;
-  final String currency;
+  final String? currency;
   final double exchangeRate;
   final int totalInvoicesCount;
   final double totalAmountEgp;
   final double totalPaidEgp;
   final double totalRemainingEgp;
+  final double totalNetPayableEgp;
   final double totalWithholdingTaxEgp;
   final double settlementReadinessPercent;
+  final double? fxDifferenceEgp;
   final String financialSettlementStatus;
   final List<InvoicesPartySummaryModel> partiesSummary;
   final List<AggregatedInvoiceItemModel> invoices;
@@ -166,14 +172,16 @@ class InvoicesAggregationResponseModel {
     required this.importFileId,
     required this.importFileCode,
     required this.supplierName,
-    this.currency = 'USD',
+    this.currency,
     this.exchangeRate = 0.0,
     this.totalInvoicesCount = 0,
     this.totalAmountEgp = 0.0,
     this.totalPaidEgp = 0.0,
     this.totalRemainingEgp = 0.0,
+    this.totalNetPayableEgp = 0.0,
     this.totalWithholdingTaxEgp = 0.0,
     this.settlementReadinessPercent = 0.0,
+    this.fxDifferenceEgp,
     this.financialSettlementStatus = 'PENDING_SETTLEMENT',
     this.partiesSummary = const [],
     this.invoices = const [],
@@ -186,14 +194,16 @@ class InvoicesAggregationResponseModel {
       importFileId: json['import_file_id'] as int? ?? 0,
       importFileCode: json['import_file_code'] ?? '',
       supplierName: json['supplier_name'] ?? '',
-      currency: json['currency'] ?? 'USD',
+      currency: json['currency']?.toString(),
       exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 0.0,
       totalInvoicesCount: json['total_invoices_count'] as int? ?? 0,
       totalAmountEgp: (json['total_amount_egp'] as num?)?.toDouble() ?? 0.0,
       totalPaidEgp: (json['total_paid_egp'] as num?)?.toDouble() ?? 0.0,
       totalRemainingEgp: (json['total_remaining_egp'] as num?)?.toDouble() ?? 0.0,
+      totalNetPayableEgp: (json['total_net_payable_egp'] as num?)?.toDouble() ?? 0.0,
       totalWithholdingTaxEgp: (json['total_withholding_tax_egp'] as num?)?.toDouble() ?? 0.0,
       settlementReadinessPercent: (json['settlement_readiness_percent'] as num?)?.toDouble() ?? 0.0,
+      fxDifferenceEgp: (json['fx_difference_egp'] as num?)?.toDouble(),
       financialSettlementStatus: json['financial_settlement_status'] ?? 'PENDING_SETTLEMENT',
       partiesSummary: (json['parties_summary'] as List<dynamic>?)
               ?.map((p) => InvoicesPartySummaryModel.fromJson(p as Map<String, dynamic>))
@@ -222,8 +232,10 @@ class InvoicesAggregationResponseModel {
       'total_amount_egp': totalAmountEgp,
       'total_paid_egp': totalPaidEgp,
       'total_remaining_egp': totalRemainingEgp,
+      'total_net_payable_egp': totalNetPayableEgp,
       'total_withholding_tax_egp': totalWithholdingTaxEgp,
       'settlement_readiness_percent': settlementReadinessPercent,
+      if (fxDifferenceEgp != null) 'fx_difference_egp': fxDifferenceEgp,
       'financial_settlement_status': financialSettlementStatus,
       'parties_summary': partiesSummary.map((p) => p.toJson()).toList(),
       'invoices': invoices.map((i) => i.toJson()).toList(),
@@ -239,12 +251,14 @@ class ConfirmInvoicesSettlementRequestModel {
   final String? settledBy;
   final String? settlementNotes;
   final List<AggregatedInvoiceItemModel>? invoicesOverrides;
+  final bool acknowledgeUnpaid;
 
   ConfirmInvoicesSettlementRequestModel({
     required this.importFileId,
     this.settledBy,
     this.settlementNotes,
     this.invoicesOverrides,
+    this.acknowledgeUnpaid = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -254,6 +268,7 @@ class ConfirmInvoicesSettlementRequestModel {
       if (settlementNotes != null) 'settlement_notes': settlementNotes,
       if (invoicesOverrides != null)
         'invoices_overrides': invoicesOverrides!.map((i) => i.toJson()).toList(),
+      if (acknowledgeUnpaid) 'acknowledge_unpaid': true,
     };
   }
 }

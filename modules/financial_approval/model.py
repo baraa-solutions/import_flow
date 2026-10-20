@@ -77,6 +77,9 @@ class PaymentRequestSession(Base):
     swift_variance_status: Mapped[str] = mapped_column(String(50), nullable=True, default="Pending") # 'Matched', 'Deficit', 'Surplus', 'Pending'
     swift_processing_days: Mapped[int] = mapped_column(Integer, nullable=True)
     swift_reconciliation_notes: Mapped[str] = mapped_column(Text, nullable=True)
+    # Realised Payment in EGP (ACC2-T07)
+    paid_amount_egp: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    paid_exchange_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     notes: Mapped[str] = mapped_column(Text, nullable=True)
 
     # Audit & Soft Delete

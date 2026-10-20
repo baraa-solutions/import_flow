@@ -17,6 +17,9 @@ class LandedCostComparisonExportService {
   final String incoterm;
   final double estimatedCost;
   final Map<String, dynamic>? settlementRecord;
+  final double? backendVariancePct;
+  final double? backendEstimatedFobEgp;
+  final double? backendEstimatedLandedEgp;
 
   LandedCostComparisonExportService({
     required this.context,
@@ -24,6 +27,9 @@ class LandedCostComparisonExportService {
     required this.incoterm,
     required this.estimatedCost,
     required this.settlementRecord,
+    this.backendVariancePct,
+    this.backendEstimatedFobEgp,
+    this.backendEstimatedLandedEgp,
   });
 
   AppLocalizations get _l10n => context.l10n;
@@ -31,8 +37,8 @@ class LandedCostComparisonExportService {
   double get _totalFob => (settlementRecord?['total_fob_egp'] ?? 0.0).toDouble();
   double get _totalExpenses => (settlementRecord?['total_expenses_egp'] ?? 0.0).toDouble();
   double get _totalLanded => (settlementRecord?['total_landed_cost_egp'] ?? 0.0).toDouble();
-  double get _fobVariance => estimatedCost > 0 ? ((_totalFob - estimatedCost) / estimatedCost) * 100 : 0.0;
-  double get _landedVariance => estimatedCost > 0 ? ((_totalLanded - estimatedCost) / estimatedCost) * 100 : 0.0;
+  double? get _landedVariance => backendVariancePct ?? (settlementRecord?['variance_percent'] as num?)?.toDouble();
+  double? get _fobVariance => (settlementRecord?['fob_variance_percent'] as num?)?.toDouble();
   List<dynamic> get _expenses => (settlementRecord?['expense_invoices'] as List?) ?? [];
   List<dynamic> get _items => (settlementRecord?['item_landed_costs'] as List?) ?? [];
 
@@ -50,9 +56,9 @@ class LandedCostComparisonExportService {
     buffer.writeln('');
     buffer.writeln('--- ${l10n.estimatedCostHeader} vs ${l10n.actualCostHeader} ---');
     buffer.writeln('${l10n.estimatedCostHeader}: ${estimatedCost.toStringAsFixed(2)} EGP');
-    buffer.writeln('${l10n.fobValueCardTitle}: ${_totalFob.toStringAsFixed(2)} EGP (${_fobVariance >= 0 ? "+" : ""}${_fobVariance.toStringAsFixed(2)}%)');
+    buffer.writeln('${l10n.fobValueCardTitle}: ${_totalFob.toStringAsFixed(2)} EGP${_fobVariance != null ? " (${_fobVariance! >= 0 ? "+" : ""}${_fobVariance!.toStringAsFixed(2)}%)" : ""}');
     buffer.writeln('${l10n.totalExpensesCardTitle}: ${_totalExpenses.toStringAsFixed(2)} EGP');
-    buffer.writeln('${l10n.totalLandedCostCardTitle}: ${_totalLanded.toStringAsFixed(2)} EGP (${_landedVariance >= 0 ? "+" : ""}${_landedVariance.toStringAsFixed(2)}%)');
+    buffer.writeln('${l10n.totalLandedCostCardTitle}: ${_totalLanded.toStringAsFixed(2)} EGP${_landedVariance != null ? " (${_landedVariance! >= 0 ? "+" : ""}${_landedVariance!.toStringAsFixed(2)}%)" : ""}');
     buffer.writeln('');
 
     if (_expenses.isNotEmpty) {
@@ -140,7 +146,7 @@ class LandedCostComparisonExportService {
       _totalFob.toStringAsFixed(2),
       '1.00',
       _totalFob.toStringAsFixed(2),
-      '${_fobVariance >= 0 ? "+" : ""}${_fobVariance.toStringAsFixed(2)}%',
+      _fobVariance != null ? '${_fobVariance! >= 0 ? "+" : ""}${_fobVariance!.toStringAsFixed(2)}%' : '-',
     ].join('\t'));
 
     buffer.writeln([
@@ -162,7 +168,7 @@ class LandedCostComparisonExportService {
       _totalLanded.toStringAsFixed(2),
       '1.00',
       _totalLanded.toStringAsFixed(2),
-      '${_landedVariance >= 0 ? "+" : ""}${_landedVariance.toStringAsFixed(2)}%',
+      _landedVariance != null ? '${_landedVariance! >= 0 ? "+" : ""}${_landedVariance!.toStringAsFixed(2)}%' : '-',
     ].join('\t'));
 
     // Expenses Breakdown
@@ -255,7 +261,7 @@ class LandedCostComparisonExportService {
       _csvCell(_totalFob.toStringAsFixed(2)),
       _csvCell('1.00'),
       _csvCell(_totalFob.toStringAsFixed(2)),
-      _csvCell('${_fobVariance >= 0 ? "+" : ""}${_fobVariance.toStringAsFixed(2)}%'),
+      _csvCell(_fobVariance != null ? '${_fobVariance! >= 0 ? "+" : ""}${_fobVariance!.toStringAsFixed(2)}%' : '-'),
     ].join(','));
 
     buffer.writeln([
@@ -277,7 +283,7 @@ class LandedCostComparisonExportService {
       _csvCell(_totalLanded.toStringAsFixed(2)),
       _csvCell('1.00'),
       _csvCell(_totalLanded.toStringAsFixed(2)),
-      _csvCell('${_landedVariance >= 0 ? "+" : ""}${_landedVariance.toStringAsFixed(2)}%'),
+      _csvCell(_landedVariance != null ? '${_landedVariance! >= 0 ? "+" : ""}${_landedVariance!.toStringAsFixed(2)}%' : '-'),
     ].join(','));
 
     // Expenses Breakdown
@@ -400,7 +406,7 @@ class LandedCostComparisonExportService {
                 child: _buildPdfSummaryBox(
                   title: l10n.fobValueCardTitle,
                   value: '${_totalFob.toStringAsFixed(2)} EGP',
-                  badge: '${_fobVariance >= 0 ? "+" : ""}${_fobVariance.toStringAsFixed(2)}%',
+                  badge: _fobVariance != null ? '${_fobVariance! >= 0 ? "+" : ""}${_fobVariance!.toStringAsFixed(2)}%' : null,
                   color: charcoal,
                   font: cairoBold,
                 ),
@@ -420,8 +426,8 @@ class LandedCostComparisonExportService {
                 child: _buildPdfSummaryBox(
                   title: l10n.totalLandedCostCardTitle,
                   value: '${_totalLanded.toStringAsFixed(2)} EGP',
-                  badge: '${_landedVariance >= 0 ? "+" : ""}${_landedVariance.toStringAsFixed(2)}%',
-                  color: _landedVariance > 0 ? crimson : emerald,
+                  badge: _landedVariance != null ? '${_landedVariance! >= 0 ? "+" : ""}${_landedVariance!.toStringAsFixed(2)}%' : null,
+                  color: (_landedVariance ?? 0) > 0 ? crimson : emerald,
                   font: cairoBold,
                 ),
               ),

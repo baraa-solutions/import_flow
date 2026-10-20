@@ -76,6 +76,8 @@ def auth_client():
         json={"current_password": ADMIN_INITIAL_PASSWORD, "new_password": temp_password},
     )
     assert changed.status_code == 200
+    # BEX-T08: a password change bumps token_version; continue with the token it returns.
+    client.headers = {"Authorization": f"Bearer {changed.json()['access_token']}"}
     yield client
     restored = client.post(
         "/api/v1/auth/me/change-password",
@@ -145,6 +147,7 @@ def test_daily_report_flagged_needs_attention_for_demurrage_risk(isolated_db):
         tracking_code="DND-TEST-001",
         carrier_name="MSC",
         bill_of_lading_no="BL-TEST-999",
+        port_name="Alexandria",
         discharge_date=now.date() - timedelta(days=13),
         containers=[{"container_no": "MSCU1234567", "demurrage_days": 1, "demurrage_fx": 40.0}],
         exchange_rate=50.0,  # no default rate since the review wave (NOT NULL, no fabricated 50.0)

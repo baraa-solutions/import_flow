@@ -1,4 +1,13 @@
 {
+  "ACTUAL_SOURCE_MISSING": {
+    "params": [
+      "bucket",
+      "estimated_egp"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "ALERT_ACID_EXPIRY_RADAR": {
     "params": [
       "acid_numbers",
@@ -96,6 +105,16 @@
       "body"
     ]
   },
+  "ALLOCATION_BASIS_INCOMPLETE": {
+    "params": [
+      "bucket",
+      "item_codes",
+      "rule"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CCQ_AWARDED_QUOTE_DELETE": {
     "params": [],
     "parts": [
@@ -115,6 +134,12 @@
     "params": [
       "validity_date"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CCQ_RFQ_AWARDED": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -570,6 +595,14 @@
       "note"
     ]
   },
+  "CURRENCY_BASE_EXISTS": {
+    "params": [
+      "base_currency"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CURRENCY_CODE_UNKNOWN": {
     "params": [
       "currency_code"
@@ -581,6 +614,15 @@
   "CURRENCY_NOT_FOUND": {
     "params": [
       "currency"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CURRENCY_RATE_EXISTS": {
+    "params": [
+      "currency",
+      "effective_date"
     ],
     "parts": [
       "note"
@@ -1730,9 +1772,26 @@
       "note"
     ]
   },
+  "FA_EGP_RATE_NOT_ONE": {
+    "params": [
+      "exchange_rate"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FA_FX_RATE_MISSING": {
     "params": [
       "currency_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_PAYMENT_CURRENCY_MISMATCH": {
+    "params": [
+      "po_currency",
+      "request_currency"
     ],
     "parts": [
       "note"
@@ -1742,6 +1801,17 @@
     "params": [
       "payment_code",
       "payment_type"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FA_PAYMENT_EXCEEDS_PO": {
+    "params": [
+      "committed",
+      "po_number",
+      "po_total",
+      "requested"
     ],
     "parts": [
       "note"
@@ -2218,6 +2288,23 @@
   "INVOICES_ALREADY_SETTLED": {
     "params": [
       "import_file_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "INVOICES_NOT_READY": {
+    "params": [
+      "readiness",
+      "unpaid_count"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "INVOICES_NOT_SETTLED": {
+    "params": [
       "status"
     ],
     "parts": [
@@ -3824,10 +3911,25 @@
       "note"
     ]
   },
+  "SETTLEMENT_ACTUAL_FOB_MISSING": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "SETTLEMENT_COST_ALREADY_APPROVED": {
     "params": [
       "import_file_code",
       "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_CURRENCY_MISSING": {
+    "params": [
+      "invoice_no",
+      "source"
     ],
     "parts": [
       "note"
@@ -3866,6 +3968,23 @@
       "note"
     ]
   },
+  "SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED": {
+    "params": [
+      "invoice_nos"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_NOT_APPROVED": {
+    "params": [
+      "settlement_code",
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "SETTLEMENT_NOT_EDITABLE": {
     "params": [
       "settlement_code",
@@ -3875,9 +3994,23 @@
       "note"
     ]
   },
+  "SETTLEMENT_NO_ITEMS": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "SETTLEMENT_PO_NOT_ALLOCATED": {
     "params": [
       "po_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SETTLEMENT_RESERVED_INVOICE_NO": {
+    "params": [
+      "invoice_no"
     ],
     "parts": [
       "note"

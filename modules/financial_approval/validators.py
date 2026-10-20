@@ -278,3 +278,86 @@ def validate_payment_request_inputs(
         require_active(db, ImportFile, import_file_id, "ملف الاستيراد")
     if currency_code is not None:
         require_known_currency(db, currency_code)
+
+
+def validate_payment_rate(currency: Optional[str], rate: Optional[float]) -> None:
+    """When the payment currency is EGP, exchange_rate must be 1.0 (within 0.0001).
+    Raises 422 FA_EGP_RATE_NOT_ONE if rate != 1.0."""
+    if not currency or rate is None:
+        return
+    norm = enum_codes.normalize_currency(currency)
+    if norm == "EGP":
+        if abs(float(rate) - 1.0) >= 0.0001:
+            raise fa_error(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "FA_EGP_RATE_NOT_ONE",
+                f"عند اختيار عملة الجنيه المصري (EGP) يجب أن يكون سعر الصرف 1.0 تماماً (تم استلام {rate}).",
+                exchange_rate=float(rate),
+            )
+
+
+def validate_po_ceiling(
+    db: Session,
+    po_id: Optional[int],
+    currency: Optional[str],
+    amount: Optional[float],
+    exclude_id: Optional[int] = None,
+) -> Optional[float]:
+    """Validates that payment request currency matches PO currency and cumulative requests do not exceed PO ceiling.
+
+    1. If PO currency != request currency -> 422 FA_PAYMENT_CURRENCY_MISMATCH.
+    2. Sum of requested_amount of active, non-Rejected requests of this PO + amount > total_amount_fob + 0.01 -> 409 FA_PAYMENT_EXCEEDS_PO.
+    3. Recomputes and returns advance_percentage = round(amount / po_total * 100, 2).
+    """
+    if po_id is None:
+        return None
+    from modules.currencies.model import Currency
+    from modules.financial_approval.model import PaymentRequestSession
+
+    po = db.query(PurchaseOrder).filter(PurchaseOrder.po_id == po_id).first()
+    if po is None:
+        return None
+
+    # 1. Currency check
+    po_curr_code = None
+    if po.currency_id:
+        curr_row = db.query(Currency).filter(Currency.currency_id == po.currency_id).first()
+        if curr_row:
+            po_curr_code = enum_codes.normalize_currency(curr_row.currency_code)
+    req_curr_code = enum_codes.normalize_currency(currency)
+    if po_curr_code and req_curr_code and po_curr_code != req_curr_code:
+        raise fa_error(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "FA_PAYMENT_CURRENCY_MISMATCH",
+            f"عملة طلب الصرف ({req_curr_code}) لا تطابق عملة أمر الشراء ({po_curr_code}).",
+            request_currency=req_curr_code,
+            po_currency=po_curr_code,
+        )
+
+    # 2. Cumulative requests ceiling check
+    q = db.query(PaymentRequestSession).filter(
+        PaymentRequestSession.po_id == po_id,
+        PaymentRequestSession.is_active == True,
+        PaymentRequestSession.status != PAYMENT_REJECTED,
+    )
+    if exclude_id is not None:
+        q = q.filter(PaymentRequestSession.payment_id != exclude_id)
+    existing_requests = q.all()
+    committed = sum(float(r.requested_amount or 0.0) for r in existing_requests)
+    req_amount = float(amount or 0.0)
+    po_total = float(po.total_amount_fob or 0.0)
+
+    if committed + req_amount > po_total + 0.01:
+        raise fa_error(
+            status.HTTP_409_CONFLICT,
+            "FA_PAYMENT_EXCEEDS_PO",
+            f"مجموع طلبات الصرف لأمر الشراء {po.po_number} ({committed:.2f} ملتزم بها + {req_amount:.2f} مطلوبة) يتجاوز سقف أمر الشراء ({po_total:.2f}).",
+            po_number=po.po_number,
+            po_total=round(po_total, 2),
+            committed=round(committed, 2),
+            requested=round(req_amount, 2),
+        )
+
+    # 3. Advance percentage calculation
+    advance_percentage = round((req_amount / po_total) * 100.0, 2) if po_total > 0 else 0.0
+    return advance_percentage
