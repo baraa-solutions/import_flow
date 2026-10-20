@@ -909,7 +909,47 @@ def get_comprehensive_shipment_dossier_service(
         except Exception:
             pass
 
-    timeline_events = [
+    from sqlalchemy import text
+    try:
+        snapshots_res = db.execute(
+            text("SELECT * FROM shipment_timeline_snapshots WHERE import_file_id = :fid ORDER BY snapshot_id ASC"),
+            {"fid": import_file_id}
+        ).fetchall()
+    except Exception:
+        snapshots_res = []
+
+    if snapshots_res:
+        timeline_events = []
+        for sn in snapshots_res:
+            m = dict(sn._mapping)
+            details = m.get("delay_reason") or ""
+            if not details and m.get("event_details_json"):
+                try:
+                    import json
+                    ej = json.loads(m["event_details_json"]) if isinstance(m["event_details_json"], str) else m["event_details_json"]
+                    details = ej.get("note", "")
+                except Exception:
+                    pass
+            p_date = m.get("planned_date")
+            a_date = m.get("actual_date")
+            p_str = p_date.strftime("%Y-%m-%d") if hasattr(p_date, "strftime") else (str(p_date)[:10] if p_date else None)
+            a_str = a_date.strftime("%Y-%m-%d") if hasattr(a_date, "strftime") else (str(a_date)[:10] if a_date else None)
+            v_days = m.get("variance_days", 0)
+            st_val = m.get("status", "PENDING")
+            sla_lbl = f"الفارق: +{v_days} يوم" if v_days > 0 else ("في الموعد المحدد" if (v_days == 0 and st_val == "COMPLETED") else None)
+            timeline_events.append({
+                "event_code": f"EVT_{m.get('stage_code')}",
+                "stage_code": m.get("stage_code"),
+                "stage_name_ar": m.get("stage_name_ar"),
+                "stage_name_en": m.get("stage_name_en"),
+                "planned_date": p_str,
+                "actual_date": a_str,
+                "status": st_val,
+                "details": details,
+                "sla_label": sla_lbl,
+            })
+    else:
+        timeline_events = [
         {
             "event_code": "EVT_PO",
             "stage_code": "STEP_01",
