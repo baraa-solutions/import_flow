@@ -123,6 +123,8 @@ from modules.bank_form4.model import BankForm4Record
 from modules.broker_custody.model import BrokerCustodyAdvance, BrokerExpenseItem
 from modules.port_storage.model import PortTerminalRate, PortStorageAccrual
 from modules.customs_abandonment.model import CustomsAbandonmentRadar
+from modules.inspection_appeals.model import InspectionAppeal
+from modules.custody_release.model import CustodyReleaseDossier
 
 
 
@@ -188,6 +190,8 @@ from modules.bank_form4.router import router as bank_form4_router
 from modules.broker_custody.router import router as broker_custody_router
 from modules.port_storage.router import router as port_storage_router
 from modules.customs_abandonment.router import router as customs_abandonment_router
+from modules.inspection_appeals.router import router as inspection_appeals_router
+from modules.custody_release.router import router as custody_release_router
 from modules.system_observability.middleware import ObservabilityMiddleware
 from modules.system_observability.service import setup_query_listener
 
@@ -418,6 +422,8 @@ app.include_router(bank_form4_router)
 app.include_router(broker_custody_router)
 app.include_router(port_storage_router)
 app.include_router(customs_abandonment_router)
+app.include_router(inspection_appeals_router)
+app.include_router(custody_release_router)
 
 
 
