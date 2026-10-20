@@ -64,6 +64,8 @@ import modules.expense_catalog.model
 import modules.logistics_invoices.model
 import modules.bank_form4.model
 import modules.broker_custody.model
+import modules.port_storage.model
+import modules.customs_abandonment.model
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
@@ -130,3 +132,14 @@ def reset_currency_cache_each_test():
     clear_currency_cache()
     yield
     clear_currency_cache()
+
+
+@pytest.fixture
+def db_session():
+    """Provides a transactional database session for unit tests."""
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.rollback()
+        session.close()
