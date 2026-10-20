@@ -106,6 +106,7 @@ class TestEmptyContainerReturnServiceAndAPI:
         ]
 
         tracking = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-0099",
             import_file_id=imp_file.import_file_id,
             import_file_code=imp_file.import_file_code,
@@ -217,6 +218,7 @@ class TestEmptyContainerReturnServiceAndAPI:
         ]
 
         tracking = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-0100",
             # the model has no default rate any more (no fake FX): the service always sets one
             exchange_rate=50.0,
@@ -264,6 +266,7 @@ class TestEmptyContainerReturnServiceAndAPI:
 
         today = date.today()
         tracking = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-0101",
             # the model has no default rate any more (no fake FX): the service always sets one
             exchange_rate=50.0,
