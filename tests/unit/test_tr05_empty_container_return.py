@@ -113,7 +113,6 @@ class TestEmptyContainerReturnServiceAndAPI:
             policy_id=policy.policy_id,
             carrier_name="MSC",
             bill_of_lading_no="MEDU99887766",
-            port_name="Alexandria Port",
             discharge_date=discharge,
             gate_out_date=gate_out,
             containers=containers_data,
@@ -226,7 +225,6 @@ class TestEmptyContainerReturnServiceAndAPI:
             import_file_id=imp_file.import_file_id,
             carrier_name="MSC",
             bill_of_lading_no="MEDU12345678",
-            port_name="Alexandria Port",
             discharge_date=discharge,
             containers=containers_data,
             is_active=True,
@@ -275,7 +273,6 @@ class TestEmptyContainerReturnServiceAndAPI:
             import_file_id=imp_file.import_file_id,
             carrier_name="CMA CGM",
             bill_of_lading_no="CMAU88776655",
-            port_name="Alexandria Port",
             discharge_date=today - timedelta(days=6),
             # ACC3-T04: an empty return needs the container's gate-out from the port first.
             containers=[{
