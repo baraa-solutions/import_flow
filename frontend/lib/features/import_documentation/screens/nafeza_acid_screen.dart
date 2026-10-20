@@ -2862,11 +2862,13 @@ CargoX Platform ID: 00000000-0000-0000-0000-000000000000''';
     }
     setState(() => _isSaving = true);
     try {
+      final genDateVal = (_parsedMtsData?['generated_date'] ?? _generatedDateCtrl.text.trim())?.toString().trim();
+      final expDateVal = (_parsedMtsData?['expiry_date'] ?? _expiryDateCtrl.text.trim())?.toString().trim();
       final payload = {
         'import_file_id': _selectedImportFileId,
         'acid_number': _parsedMtsData?['acid_number'] ?? _acidNumberCtrl.text.trim(),
-        'generated_date': _parsedMtsData?['generated_date'] ?? _generatedDateCtrl.text.trim(),
-        'expiry_date': _parsedMtsData?['expiry_date'] ?? _expiryDateCtrl.text.trim(),
+        if (genDateVal != null && genDateVal.isNotEmpty) 'generated_date': genDateVal,
+        if (expDateVal != null && expDateVal.isNotEmpty) 'expiry_date': expDateVal,
         'importer_name': _importerNameCtrl.text.trim(),
         'importer_tax_id': _importerTaxIdCtrl.text.trim(),
         'exporter_name': _exporterNameCtrl.text.trim(),
@@ -3020,7 +3022,8 @@ CargoX Platform ID: 00000000-0000-0000-0000-000000000000''';
         'po_number': _poNoCtrl.text.trim(),
         'proforma_invoice_no': _parsedMtsData!['proforma_invoice_no']?.toString().trim() ?? _proformaNoCtrl.text.trim(),
         'proforma_invoice_date': _parsedMtsData!['proforma_invoice_date']?.toString().trim() ?? _proformaDateCtrl.text.trim(),
-        'invoice_date': _parsedMtsData!['invoice_date']?.toString().trim(),
+        if (_parsedMtsData!['invoice_date'] != null && _parsedMtsData!['invoice_date'].toString().trim().isNotEmpty)
+          'invoice_date': _parsedMtsData!['invoice_date'].toString().trim(),
         'invoice_type': _parsedMtsData!['invoice_type']?.toString().trim() ?? _invoiceType,
         'pol_name': _parsedMtsData!['pol_name']?.toString().trim() ?? _polCtrl.text.trim(),
         'pod_name': _parsedMtsData!['pod_name']?.toString().trim() ?? _podCtrl.text.trim(),
@@ -3028,8 +3031,10 @@ CargoX Platform ID: 00000000-0000-0000-0000-000000000000''';
         'customs_broker_name': _brokerNameCtrl.text.trim(),
         'customs_broker_phone': _brokerPhoneCtrl.text.trim(),
         'requested_date': _parsedMtsData!['requested_date']?.toString().trim() ?? _requestedDateCtrl.text.trim(),
-        'generated_date': _parsedMtsData!['generated_date']?.toString().trim(),
-        'expiry_date': _parsedMtsData!['expiry_date']?.toString().trim(),
+        if (_parsedMtsData!['generated_date'] != null && _parsedMtsData!['generated_date'].toString().trim().isNotEmpty)
+          'generated_date': _parsedMtsData!['generated_date'].toString().trim(),
+        if (_parsedMtsData!['expiry_date'] != null && _parsedMtsData!['expiry_date'].toString().trim().isNotEmpty)
+          'expiry_date': _parsedMtsData!['expiry_date'].toString().trim(),
         'acid_number': acidNum.isNotEmpty ? acidNum : 'PENDING',
         'raw_nafeza_text': _rawMtsTextCtrl.text.trim(),
         'status': isDraft ? 'DRAFT' : (acidNum.isNotEmpty ? 'Issued' : 'Pending Issue'),

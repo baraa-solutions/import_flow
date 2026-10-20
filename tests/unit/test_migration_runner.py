@@ -29,8 +29,7 @@ PREVIOUS_HEAD = "d3e4f5a6b7c8"
 
 
 
-# Current Alembic head (shipment_stage_activity uniqueness BEX-T16). BASELINE_REVISION is the stamp baseline before it.
-HEAD_REVISION = "d0e1f2a3b4c5"
+HEAD_REVISION = "a6b7c8d9e0f1"
 
 
 class _SpyMasterData:
@@ -394,10 +393,12 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     # -> e2f3a4b5c6d7 (legacy budget column backfill)
     # -> f3a4b5c6d7e8 (partial shipments linkage DEV-OPS-04)
     # -> 73cee71ca978 (shipment_containers table DEV-OPS-01)
-    # -> a7b8c9d0e1f2 (customs clearance nullable office/result BE67-T17)
-    # -> c9d0e1f2a3b4 (phase 01 nullable currencies BE01-T18)
-    # -> head d0e1f2a3b4c5 (shipment tracking and timeline snapshots)
-    assert script.get_revision(HEAD_REVISION).down_revision == "c9d0e1f2a3b4"
+    assert script.get_revision(HEAD_REVISION).down_revision == "a5b6c7d8e9f0"
+    assert script.get_revision("a5b6c7d8e9f0").down_revision == "f4b5c6d7e8f9"
+    assert script.get_revision("f4b5c6d7e8f9").down_revision == "d0e1f2a3b4c5"
+    assert script.get_revision("d0e1f2a3b4c5").down_revision == "f2a3b4c5d6e7"
+    assert script.get_revision("f2a3b4c5d6e7").down_revision == "f1a2b3c4d5e6"
+    assert script.get_revision("f1a2b3c4d5e6").down_revision == "c9d0e1f2a3b4"
     assert script.get_revision("c9d0e1f2a3b4").down_revision == "b8c9d0e1f2a3"
     assert script.get_revision("b8c9d0e1f2a3").down_revision == "a7b8c9d0e1f2"
     assert script.get_revision("a7b8c9d0e1f2").down_revision == "73cee71ca978"

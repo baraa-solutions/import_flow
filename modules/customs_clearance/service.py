@@ -20,7 +20,7 @@ from modules.common import enum_codes
 from modules.common.errors import best_effort
 from modules.common.file_tracking import set_file_tracking
 from modules.common.system_messages import SysMsg, msg, render_en
-from modules.common.validators import not_null_columns
+from modules.common.validators import ensure_file_open, not_null_columns
 from modules.import_files.model import ImportFile
 
 from . import repository as repo
@@ -191,6 +191,7 @@ def _require_import_file(db: Session, import_file_id: int, detail: str = _FILE_N
     )
     if not imp_file:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    ensure_file_open(imp_file)
     return imp_file
 
 
@@ -477,6 +478,7 @@ def update_customs_clearance_service(
     never writes total_duty_payable / actual_duty_total and a duty-component change is a 409 (re-assess via CL-02);
     before assessment the total is the CL-03 component sum."""
     record = get_customs_clearance_service(db, record_id)
+    ensure_file_open(db, record.import_file_id)
     data = _normalize_clearance_update(schema.model_dump(exclude_unset=True))
     protected = not_null_columns(CustomsClearanceRecord) | _MONEY_UPDATE_FIELDS
     nulls = sorted(name for name, value in data.items() if value is None and name in protected)
@@ -525,6 +527,7 @@ def update_customs_clearance_service(
 
 def delete_customs_clearance_service(db: Session, record_id: int, user: str = SYSTEM_USER) -> bool:
     record = get_customs_clearance_service(db, record_id)
+    ensure_file_open(db, record.import_file_id)
     record.is_active = False
     _touch(record, user)
     db.commit()
@@ -538,6 +541,7 @@ def restore_customs_clearance_service(db: Session, record_id: int, user: str = S
     record = repo.get_customs_clearance_by_id(db, record_id, include_inactive=True)
     if not record:
         raise HTTPException(status_code=404, detail="السجل المطلوب استعادته غير موجود.")
+    ensure_file_open(db, record.import_file_id)
     other = repo.get_active_clearance_for_file(db, record.import_file_id, exclude_record_id=record.customs_clearance_id)
     if other:
         raise coded_error(
@@ -1448,6 +1452,7 @@ def record_lab_result_and_lift_quarantine_service(
     holds ``customs_clearance.release`` (``can_release``, resolved by the router). Refused (409) once the lock is
     lifted or the record is finally released."""
     record = get_customs_clearance_service(db, record_id)
+    ensure_file_open(db, record.import_file_id)
     if not record.is_under_bond_release:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1735,6 +1740,7 @@ def delete_clearance_invoice_service(
         raise HTTPException(status_code=404, detail="فاتورة التخليص غير موجودة أو محذوفة.")
     import_file_id = inv.import_file_id
     clearance_id = inv.customs_clearance_id
+    ensure_file_open(db, import_file_id)
     validate_settlement_open(db, import_file_id)
 
     inv.is_active = False

@@ -740,7 +740,8 @@ def update_acid_session_service(
     if {"expiry_date", "requested_date"} & schema.model_fields_set:
         new_expiry = schema.expiry_date if "expiry_date" in schema.model_fields_set else db_item.expiry_date
         new_requested = schema.requested_date if "requested_date" in schema.model_fields_set else db_item.requested_date
-        validate_acid_expiry(new_expiry, new_requested)
+        if new_expiry is not None:
+            validate_acid_expiry(new_expiry, new_requested)
 
     prev_status = db_item.status
     prev_ref = db_item.acid_number
@@ -748,6 +749,23 @@ def update_acid_session_service(
     payload_data = schema.model_dump(exclude_unset=True)
     for f in repo._SERVER_OWNED_ACID_FIELDS:
         payload_data.pop(f, None)
+
+    # DOC-15: expiry_date and requested_date are NOT NULL at database level.
+    # If the update payload sends None, preserve existing value or apply safe business default.
+    if "expiry_date" in payload_data and payload_data["expiry_date"] is None:
+        if db_item.expiry_date is not None:
+            payload_data.pop("expiry_date", None)
+        else:
+            base = payload_data.get("generated_date") or db_item.generated_date or payload_data.get("requested_date") or db_item.requested_date or date.today()
+            if isinstance(base, datetime):
+                base = base.date()
+            payload_data["expiry_date"] = base + timedelta(days=ACID_DEFAULT_VALIDITY_DAYS)
+
+    if "requested_date" in payload_data and payload_data["requested_date"] is None:
+        if db_item.requested_date is not None:
+            payload_data.pop("requested_date", None)
+        else:
+            payload_data["requested_date"] = date.today()
 
     updated = repo.update_acid_session(db, db_item, payload_data, commit=False, user=user)
 

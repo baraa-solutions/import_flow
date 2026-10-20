@@ -64,6 +64,11 @@ def upsert_dependency(
     Idempotent: matches on (target_entity_type, target_field, source_entity_type, source_field).
     Used by seed_dependencies.py (flush only: the caller commits).
     """
+    valid_aggregations = ("max", "min", "sum", "latest")
+    if aggregation_function not in valid_aggregations:
+        raise ValueError(
+            f"Invalid aggregation function '{aggregation_function}'. Must be one of {valid_aggregations}."
+        )
     dep = (
         db.query(RecalculationDependencyMap)
         .filter(

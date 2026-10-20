@@ -214,6 +214,21 @@ class PreferentialAgreementCreate(BaseModel):
     effective_to: Optional[date] = None
     source_url: Optional[str] = None
 
+    @field_validator("hs_code")
+    @classmethod
+    def validate_hs_code_format(cls, v: str) -> str:
+        clean = (v or "").strip()
+        digits = clean.replace(".", "")
+        if not digits.isdigit() or len(digits) < 4 or len(digits) > 10:
+            raise ValueError("صيغة البند الجمركي غير صحيحة. يجب أن يتكون البند الجمركي من 4 إلى 10 أرقام.")
+        return clean
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> "PreferentialAgreementCreate":
+        if self.effective_to and self.effective_to <= self.effective_from:
+            raise ValueError("تاريخ انتهاء السريان يجب أن يكون بعد تاريخ البداية (effective_to must be after effective_from).")
+        return self
+
 
 class PreferentialAgreementResponse(BaseModel):
     agreement_id: int

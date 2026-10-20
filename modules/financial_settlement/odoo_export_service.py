@@ -8,8 +8,7 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 
-from .model import LandedCostSettlementRecord
-from .repository import get_settlement_by_id
+from .model import LandedCostSettlementRecord, CLEARANCE_CATEGORY_ODOO
 from .schemas import (
     OdooJournalLineItem,
     OdooJournalEntryResponse,
@@ -17,7 +16,8 @@ from .schemas import (
 )
 from modules.import_files.model import ImportFile
 from modules.common import enum_codes
-from .validators import JOURNAL_BALANCE_TOLERANCE_EGP, ensure_journal_balanced
+from .validators import JOURNAL_BALANCE_TOLERANCE_EGP, ensure_journal_balanced, ensure_settlement_approved
+from .repository import get_settlement_by_id
 
 
 def _is_seller_paid(exp: Dict[str, Any]) -> bool:
@@ -29,21 +29,26 @@ CLEARANCE_PREFIX = "Clearance / "
 
 
 def classify_odoo_cost_category(category: str) -> str:
-    """Odoo cost bucket of an expense category. Enum codes / English labels of CLEARANCE_EXPENSE_CATEGORY
-    are matched through their legacy label so they land exactly where the legacy text landed."""
-    text = category or ""
+    """Odoo cost bucket of an expense category. Code-first classification for broker categories (ACC2-T02):
+    CLEARANCE_EXPENSE_CATEGORY codes or labels map to Clearance / Demurrage; any Clearance / <body not a code>
+    maps to Clearance; keyword chain only for other free text."""
+    text = (category or "").strip()
     if text.startswith(CLEARANCE_PREFIX):
-        # Settlement snapshot rows written by customs_clearance: the label/code after the prefix is translated.
-        body = text[len(CLEARANCE_PREFIX):]
-        text = CLEARANCE_PREFIX + enum_codes.legacy_text(enum_codes.CLEARANCE_EXPENSE_CATEGORY, body)
-    elif enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, text):
-        # A bare code (only new code writes one). Manual rows with free text / English labels stay as typed.
-        text = enum_codes.legacy_text(enum_codes.CLEARANCE_EXPENSE_CATEGORY, text)
+        body = text[len(CLEARANCE_PREFIX):].strip()
+        norm = enum_codes.normalize(enum_codes.CLEARANCE_EXPENSE_CATEGORY, body)
+        if enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, norm):
+            return CLEARANCE_CATEGORY_ODOO[norm]
+        return "Clearance"
+
+    norm = enum_codes.normalize(enum_codes.CLEARANCE_EXPENSE_CATEGORY, text)
+    if enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, norm):
+        return CLEARANCE_CATEGORY_ODOO[norm]
+
     cat_lower = text.lower()
-    if "freight" in cat_lower or "shipping" in cat_lower or "نولون" in cat_lower:
-        return "Freight"
     if "customs" in cat_lower or "duty" in cat_lower or "جمارك" in cat_lower or "ضرائب" in cat_lower or "vat" in cat_lower:
         return "Customs"
+    if "freight" in cat_lower or "shipping" in cat_lower or "نولون" in cat_lower:
+        return "Freight"
     if "broker" in cat_lower or "clearance" in cat_lower or "تخليص" in cat_lower:
         return "Clearance"
     if "transport" in cat_lower or "truck" in cat_lower or "نقل" in cat_lower:
@@ -93,21 +98,60 @@ def generate_odoo_journal_entry_service(
 
     lines: List[OdooJournalLineItem] = []
 
-    # 1. DEBIT: Total Landed Cost -> Goods in Transit / Inventory Valuation Account
+    expense_invoices = settlement.expense_invoices or []
+
+    # ACC2-T13: Calculate tax aggregates for tax-aware accounting
+    total_customs_vat_egp = 0.0
+    total_vendor_vat_egp = 0.0
+    if config.import_vat_recoverable:
+        for exp in expense_invoices:
+            if _is_seller_paid(exp):
+                continue
+            from .service import row_amount_egp  # no fabricated 1.0 rate for foreign-currency rows
+
+            amt = row_amount_egp(exp)
+            duty_comp = exp.get("duty_component")
+            cat = (exp.get("category") or "").strip()
+            if duty_comp in ("vat_amount", "schedule_tax_amount") or (cat == "VAT" and duty_comp):
+                total_customs_vat_egp += amt
+            v_vat = float(exp.get("vat_amount_egp") or 0.0)
+            if v_vat > 0:
+                total_vendor_vat_egp += v_vat
+
+    total_vat_input = round(total_customs_vat_egp + total_vendor_vat_egp, 2)
+
+    # 1. DEBIT: Total Landed Cost (net of recoverable VAT if flagged) -> Inventory Valuation Account
     total_landed_cost = round(settlement.total_landed_cost_egp, 2)
+    inventory_debit = round(total_landed_cost - (total_vat_input if config.import_vat_recoverable else 0.0), 2)
     lines.append(
         OdooJournalLineItem(
             account_code=config.inventory_account_code,
             account_name=config.inventory_account_name,
             partner_name=company_name,
             label=f"إثبات تكلفة وصول الشحنة الإجمالية (Landed Cost) - ملف {file_code}",
-            debit=total_landed_cost,
+            debit=inventory_debit,
             credit=0.0,
             currency="EGP",
             analytic_account=project_name,
             cost_category="Goods",
         )
     )
+
+    # 1b. DEBIT: Recoverable Import & Vendor VAT Input (ACC2-T13)
+    if config.import_vat_recoverable and total_vat_input > 0:
+        lines.append(
+            OdooJournalLineItem(
+                account_code=config.vat_input_account_code,
+                account_name=config.vat_input_account_name,
+                partner_name="مصلحة الضرائب المصرية",
+                label=f"ضريبة القيمة المضافة مدخلات قابلة للخصم (VAT Input) - ملف {file_code}",
+                debit=total_vat_input,
+                credit=0.0,
+                currency="EGP",
+                analytic_account=project_name,
+                cost_category="Tax",
+            )
+        )
 
     # 2. CREDIT: Foreign Supplier Payable (FOB Value)
     total_fob_egp = round(settlement.total_fob_egp, 2)
@@ -129,22 +173,27 @@ def generate_odoo_journal_entry_service(
     # 3. CREDIT: Breakdown of Actual Expense Invoices
     # Categorizes freight, customs, clearance, transport, demurrage, and adjustments. Seller-paid rows are left
     # out exactly like the engine leaves them out of the debited landed cost (FS-14).
-    expense_invoices = settlement.expense_invoices or []
     for exp in expense_invoices:
         if _is_seller_paid(exp):
             continue
         category = (exp.get("category") or "Other").strip()
         provider = (exp.get("provider_name") or "مقدم الخدمة").strip()
         inv_no = (exp.get("invoice_no") or "N/A").strip()
-        amount_egp = round(exp.get("amount_egp") or 0.0, 2)
-        if amount_egp == 0:
-            amount_egp = round((exp.get("amount_fx") or 0.0) * (exp.get("exchange_rate") or 1.0), 2)
+        from .service import row_amount_egp  # no fabricated 1.0 rate for foreign-currency rows
+
+        amount_egp = row_amount_egp(exp)
 
         if amount_egp == 0:
             continue
+
+        wht_amt = round(float(exp.get("wht_amount_egp") or 0.0), 2)
         # A negative row (downward recalculation adjustment) reduces the payable: posted as a debit.
         debit_egp = -amount_egp if amount_egp < 0 else 0.0
-        credit_egp = amount_egp if amount_egp > 0 else 0.0
+        if wht_amt > 0 and amount_egp > 0:
+            net_payable = round(float(exp.get("net_payable_egp") or (amount_egp - wht_amt)), 2)
+            credit_egp = net_payable
+        else:
+            credit_egp = amount_egp if amount_egp > 0 else 0.0
 
         cost_cat = classify_odoo_cost_category(category)
         if cost_cat == "Freight":
@@ -176,6 +225,9 @@ def generate_odoo_journal_entry_service(
             acct_name = f"مصروفات استيراد متنوعة - {provider}"
             desc_label = f"مصروفات استيرادية {enum_codes.label_en(enum_codes.CLEARANCE_EXPENSE_CATEGORY, category)} فاتورة {inv_no} - {provider}"
 
+        if wht_amt > 0 and credit_egp > 0:
+            desc_label = f"{desc_label} (صافي بعد استقطاع ضريبة أرباح {wht_amt:,.2f})"
+
         # amount_currency is the foreign amount: the currency column names that currency (Odoo semantics).
         inv_currency = (exp.get("currency") or "EGP").upper()
         # Odoo: amount_currency carries the sign of the line balance (credit = negative, debit = positive).
@@ -195,6 +247,21 @@ def generate_odoo_journal_entry_service(
                 cost_category=cost_cat,
             )
         )
+
+        if wht_amt > 0 and credit_egp > 0:
+            lines.append(
+                OdooJournalLineItem(
+                    account_code=config.wht_payable_account_code,
+                    account_name=config.wht_payable_account_name,
+                    partner_name="مصلحة الضرائب المصرية - خصم وتحصيل",
+                    label=f"ضريبة خصم وتحصيل من المنبع مستحقة عن فاتورة {inv_no} - {provider}",
+                    debit=0.0,
+                    credit=wht_amt,
+                    currency="EGP",
+                    analytic_account=project_name,
+                    cost_category="Tax",
+                )
+            )
 
     # Balance Calculation
     total_debit = round(sum(l.debit for l in lines), 2)
@@ -224,6 +291,11 @@ def export_odoo_csv_service(db: Session, settlement_id: int) -> str:
     """
     Exports a clean CSV file strictly formatted for Odoo 15/16/17/18 `account.move` and `account.move.line` import.
     """
+    settlement = get_settlement_by_id(db, settlement_id)
+    if not settlement:
+        raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
+    ensure_settlement_approved(settlement)
+
     entry = generate_odoo_journal_entry_service(db, settlement_id)
     ensure_journal_balanced(entry)
     output = io.StringIO()
@@ -274,6 +346,11 @@ def export_odoo_excel_service(db: Session, settlement_id: int) -> bytes:
     - Sheet 2: Accounting Journal Voucher (قيد اليومية المزدوج التفصيلي)
     - Sheet 3: Item Landed Cost Breakdown (تكلفة وصول الأصناف)
     """
+    settlement = get_settlement_by_id(db, settlement_id)
+    if not settlement:
+        raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
+    ensure_settlement_approved(settlement)
+
     entry = generate_odoo_journal_entry_service(db, settlement_id)
     ensure_journal_balanced(entry)
     wb = openpyxl.Workbook()

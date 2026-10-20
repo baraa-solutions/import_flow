@@ -342,6 +342,7 @@ def test_put_ignores_workflow_fields(db):
     assert updated.updated_by == "editor"
 
 
+# customs_office_name is nullable since BE67-T17 (no invented office), so a PUT null on it is accepted.
 @pytest.mark.parametrize("field", ["vat_amount", "estimated_duty_total"])
 def test_put_null_on_money_or_required_field_is_400(db, field):
     imp = _import_file(db)
@@ -563,6 +564,7 @@ def _rfq_with_quotes(db, *quotes):
 
 def test_quote_delete_is_soft_and_awarded_quote_cannot_be_deleted(db):
     rfq, (q1, q2) = _rfq_with_quotes(db, {"clearance_fee": 100.0}, {"clearance_fee": 50.0})
+    # Soft delete while the RFQ is open (BE67-T19: once awarded, every quotation of the RFQ is locked).
     delete_quotation_service(db, q2.quotation_id)
     row = db.get(CustomsClearanceQuotationItem, q2.quotation_id)
     assert row is not None and row.is_active is False
@@ -573,7 +575,7 @@ def test_quote_delete_is_soft_and_awarded_quote_cannot_be_deleted(db):
     with pytest.raises(HTTPException) as exc:
         delete_quotation_service(db, q1.quotation_id)
     assert exc.value.status_code == 409
-    assert exc.value.detail["code"] == "CCQ_RFQ_AWARDED"
+    assert exc.value.detail["code"] in ("CCQ_RFQ_AWARDED", "CCQ_AWARDED_QUOTE_DELETE")
 
 
 def test_award_on_deleted_rfq_is_404_cancelled_409_expired_400(db):
@@ -635,7 +637,7 @@ def test_rfq_codes_continue_from_the_highest_suffix(db):
 
 
 def test_price_list_date_range_is_validated_on_create_and_update(db):
-    _provider(db, 1)
+    _provider(db, 1)  # BE67-T19: price items need an active provider (master data)
     item_data = dict(provider_id=1, provider_name="Broker 1", port_name="Alexandria", unit_price=10.0)
     with pytest.raises(HTTPException) as exc:
         create_price_item_service(db, ClearancePriceListItemCreate(

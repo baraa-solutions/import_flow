@@ -6,6 +6,7 @@ from typing import List, Optional, Dict, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from modules.common.clock import cairo_today
 from modules.currencies.model import Currency, ExchangeRate
 from modules.currencies.repository import CurrencyRepository
 from modules.currencies.schemas import (
@@ -53,7 +54,7 @@ class CurrencyService:
         currencies = self.repo.get_all_currencies(include_inactive=include_inactive, search=search)
         result = []
         for c in currencies:
-            latest_rate = self.repo.get_latest_rate(c.currency_id)
+            latest_rate = self.repo.get_latest_rate(c.currency_id, target_date=cairo_today())
             c_resp = CurrencyResponse(
                 currency_id=c.currency_id,
                 currency_code=c.currency_code,
@@ -77,7 +78,7 @@ class CurrencyService:
 
     def get_currency_by_id(self, currency_id: int) -> CurrencyResponse:
         c = self.validator.validate_currency_exists(currency_id)
-        latest_rate = self.repo.get_latest_rate(c.currency_id)
+        latest_rate = self.repo.get_latest_rate(c.currency_id, target_date=cairo_today())
         rates_history = self.repo.get_rates_history(c.currency_id)
 
         rates_resp = [
@@ -111,12 +112,16 @@ class CurrencyService:
 
     def create_currency(self, data: CurrencyCreate) -> Currency:
         self.validator.validate_no_duplicate_code(data.currency_code)
+        if data.is_base_currency:
+            self.validator.validate_no_second_base_currency(data.is_base_currency)
         created = self.repo.create_currency(data)
         clear_currency_cache()
         return created
 
     def update_currency(self, currency_id: int, data: CurrencyUpdate) -> Currency:
         currency = self.validator.validate_currency_exists(currency_id)
+        if data.is_base_currency is True:
+            self.validator.validate_no_second_base_currency(data.is_base_currency, exclude_id=currency_id)
         updated = self.repo.update_currency(currency, data)
         clear_currency_cache()
         return updated
@@ -135,6 +140,7 @@ class CurrencyService:
 
     def add_exchange_rate(self, data: ExchangeRateCreate) -> ExchangeRateResponse:
         self.validator.validate_currency_exists(data.currency_id)
+        self.validator.validate_no_active_rate(data.currency_id, data.effective_date, replace=data.replace)
         rate = self.repo.add_exchange_rate(data)
         clear_currency_cache()
         return ExchangeRateResponse(
@@ -154,7 +160,7 @@ class CurrencyService:
         self, currency_code: str, rate_type: str = "commercial", as_of_date: Optional[date] = None
     ) -> tuple[float, Optional[date], Optional[int]]:
         code = currency_code.upper().strip()
-        ref_date = as_of_date or date.today()
+        ref_date = as_of_date or cairo_today()
         if code == "EGP":
             return 1.0, ref_date, None
 

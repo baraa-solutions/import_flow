@@ -16,7 +16,7 @@ class GrnItemModel {
     this.shortageQty = 0,
     this.damagedQty = 0,
     this.quarantineFlag = false,
-    this.poNumber,
+    this.poNumber = '',
   });
 
   factory GrnItemModel.fromJson(Map<String, dynamic> json) {
@@ -28,7 +28,7 @@ class GrnItemModel {
       shortageQty: (json['shortage_qty'] as num?)?.toInt() ?? 0,
       damagedQty: (json['damaged_qty'] as num?)?.toInt() ?? 0,
       quarantineFlag: json['quarantine_flag'] ?? false,
-      poNumber: json['po_number'] as String?,
+      poNumber: json['po_number'] as String? ?? '',
     );
   }
 
@@ -41,7 +41,7 @@ class GrnItemModel {
       'shortage_qty': shortageQty,
       'damaged_qty': damagedQty,
       'quarantine_flag': quarantineFlag,
-      if (poNumber != null) 'po_number': poNumber,
+      'po_number': poNumber,
     };
   }
 }

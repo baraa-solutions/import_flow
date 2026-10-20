@@ -23,6 +23,17 @@ from .schemas import (
     ContainerRadarOverviewResponse,
     EmptyContainerReturnSubmit,
     EmptyContainerReturnResponse,
+    TerminalCreate,
+    TerminalUpdate,
+    TerminalResponse,
+    TerminalStorageRateCreate,
+    TerminalStorageRateResponse,
+    CarrierCreate,
+    CarrierUpdate,
+    CarrierResponse,
+    CarrierDemurrageRateCreate,
+    CarrierDemurrageRateResponse,
+    RatesHistoryResponse,
 )
 from .service import (
     simulate_with_defaults,
@@ -44,6 +55,19 @@ from .service import (
     record_empty_container_return_service,
     delete_demurrage_tracking_service,
     restore_demurrage_tracking_service,
+    create_terminal_service,
+    get_terminals_service,
+    get_terminal_by_id_service,
+    update_terminal_service,
+    create_terminal_storage_rate_service,
+    get_terminal_storage_rates_service,
+    create_carrier_service,
+    get_carriers_service,
+    get_carrier_by_id_service,
+    update_carrier_service,
+    create_carrier_demurrage_rate_service,
+    get_carrier_demurrage_rates_service,
+    get_rates_history_service,
 )
 
 router = APIRouter(prefix="/api/v1/demurrage-detention", tags=["Demurrage & Detention Engine"], dependencies=[Depends(get_current_user)])
@@ -219,5 +243,157 @@ def record_empty_container_return_endpoint(
     current_user: User = Depends(require_permission("demurrage_detention.manage")),
 ):
     return record_empty_container_return_service(db, req, user=current_user.username, actor=current_user)
+
+
+# ----------------------------------------------------
+# Terminal Management & Storage Rate Cards Endpoints
+# ----------------------------------------------------
+
+@router.get("/terminals", response_model=List[TerminalResponse], summary="استعراض قائمة مشغلي محطات الحاويات بالموانئ")
+def get_terminals_endpoint(
+    response: Response,
+    port_name: Optional[str] = Query(None, description="تصفية بالميناء"),
+    is_active: Optional[bool] = Query(True, description="الحالة"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.view")),
+):
+    items, total = get_terminals_service(db, port_name=port_name, is_active=is_active, skip=skip, limit=limit)
+    response.headers["X-Total-Count"] = str(total)
+    return items
+
+
+@router.post("/terminals", response_model=TerminalResponse, status_code=status.HTTP_201_CREATED, summary="تسجيل مشغل محطة حاويات جديد")
+def create_terminal_endpoint(
+    req: TerminalCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.manage")),
+):
+    return create_terminal_service(db, req, user=current_user.username)
+
+
+@router.get("/terminals/{terminal_id}", response_model=TerminalResponse, summary="جلب بيانات محطة حاويات محددة")
+def get_terminal_by_id_endpoint(
+    terminal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.view")),
+):
+    return get_terminal_by_id_service(db, terminal_id)
+
+
+@router.put("/terminals/{terminal_id}", response_model=TerminalResponse, summary="تعديل بيانات محطة حاويات")
+def update_terminal_endpoint(
+    terminal_id: int,
+    req: TerminalUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.manage")),
+):
+    return update_terminal_service(db, terminal_id, req, user=current_user.username)
+
+
+@router.get("/terminals/{terminal_id}/rates", response_model=List[TerminalStorageRateResponse], summary="استعراض السجل التاريخي لشرائح أرضيات وتخزين المحطة")
+def get_terminal_storage_rates_endpoint(
+    terminal_id: int,
+    container_type: Optional[str] = Query(None, description="تصفية بنوع الحاوية"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.view")),
+):
+    return get_terminal_storage_rates_service(db, terminal_id, container_type=container_type)
+
+
+@router.post("/terminals/{terminal_id}/rates", response_model=TerminalStorageRateResponse, status_code=status.HTTP_201_CREATED, summary="تسجيل إصدار تعريفة أرضيات جديد لمحطة (تاريخ سريان)")
+def create_terminal_storage_rate_endpoint(
+    terminal_id: int,
+    req: TerminalStorageRateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.manage")),
+):
+    return create_terminal_storage_rate_service(db, terminal_id, req, user=current_user.username)
+
+
+# ----------------------------------------------------
+# Carrier Management & Demurrage Rate Cards Endpoints
+# ----------------------------------------------------
+
+@router.get("/carriers", response_model=List[CarrierResponse], summary="استعراض قائمة الخطوط والتوكيلات الملاحية")
+def get_carriers_endpoint(
+    response: Response,
+    is_active: Optional[bool] = Query(True, description="الحالة"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.view")),
+):
+    items, total = get_carriers_service(db, is_active=is_active, skip=skip, limit=limit)
+    response.headers["X-Total-Count"] = str(total)
+    return items
+
+
+@router.post("/carriers", response_model=CarrierResponse, status_code=status.HTTP_201_CREATED, summary="تسجيل خط ملاحي جديد")
+def create_carrier_endpoint(
+    req: CarrierCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.manage")),
+):
+    return create_carrier_service(db, req, user=current_user.username)
+
+
+@router.get("/carriers/{carrier_id}", response_model=CarrierResponse, summary="جلب بيانات خط ملاحي محدد")
+def get_carrier_by_id_endpoint(
+    carrier_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.view")),
+):
+    return get_carrier_by_id_service(db, carrier_id)
+
+
+@router.put("/carriers/{carrier_id}", response_model=CarrierResponse, summary="تعديل بيانات خط ملاحي")
+def update_carrier_endpoint(
+    carrier_id: int,
+    req: CarrierUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.manage")),
+):
+    return update_carrier_service(db, carrier_id, req, user=current_user.username)
+
+
+@router.get("/carriers/{carrier_id}/rates", response_model=List[CarrierDemurrageRateResponse], summary="استعراض السجل التاريخي لتعريفات غرامات الخط الملاحي")
+def get_carrier_demurrage_rates_endpoint(
+    carrier_id: int,
+    container_type: Optional[str] = Query(None, description="تصفية بنوع الحاوية"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.view")),
+):
+    return get_carrier_demurrage_rates_service(db, carrier_id, container_type=container_type)
+
+
+@router.post("/carriers/{carrier_id}/rates", response_model=CarrierDemurrageRateResponse, status_code=status.HTTP_201_CREATED, summary="تسجيل إصدار تعريفة غرامات وتأخير جديد لخط ملاحي (تاريخ سريان)")
+def create_carrier_demurrage_rate_endpoint(
+    carrier_id: int,
+    req: CarrierDemurrageRateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.manage")),
+):
+    return create_carrier_demurrage_rate_service(db, carrier_id, req, user=current_user.username)
+
+
+# ----------------------------------------------------
+# Historical Rate Cards Overview Endpoint
+# ----------------------------------------------------
+
+@router.get("/rates-history", response_model=RatesHistoryResponse, summary="استعراض السجل التاريخي لتعريفات المحطات والخطوط الملاحية")
+def get_rates_history_endpoint(
+    terminal_id: Optional[int] = Query(None, description="تصفية بالمحطة"),
+    carrier_id: Optional[int] = Query(None, description="تصفية بالخط الملاحي"),
+    container_type: Optional[str] = Query(None, description="تصفية بنوع الحاوية"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.view")),
+):
+    return get_rates_history_service(
+        db, terminal_id=terminal_id, carrier_id=carrier_id, container_type=container_type
+    )
+
+
 
 

@@ -277,6 +277,8 @@ class ShippingScenarioItemCalculated(ShippingScenarioItemBase):
     ready_for_shipping_days: int
     expected_total_days_to_warehouse: int
     expected_warehouse_arrival_date: date
+    freight_total_amount: Optional[float] = None
+    totals_rate_date: Optional[date] = None
 
     model_config = ConfigDict(from_attributes=True)
 

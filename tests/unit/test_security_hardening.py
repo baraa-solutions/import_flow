@@ -192,7 +192,10 @@ class TestSecurityHardening(unittest.TestCase):
         token_revocation_manager._initialized = False
         self.assertFalse(token_revocation_manager.is_revoked(token))
 
-        # Reload from DB (as happens on application startup)
+        # Reload from DB (as happens on application startup). is_revoked() above lazily loads the app DB
+        # (BEX-T08 ensure_loaded), so reset the flag again before loading this test's DB.
+        token_revocation_manager._revoked_hashes.clear()
+        token_revocation_manager._initialized = False
         token_revocation_manager.init_from_db(self.db)
         self.assertTrue(token_revocation_manager.is_revoked(token))
 

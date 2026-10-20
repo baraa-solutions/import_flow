@@ -813,7 +813,18 @@ class DomainEnums {
       'Shortage Only': 'SHORTAGE',
       'Shortage and Damage': 'SHORTAGE_AND_DAMAGE',
     },
-    DomainEnumType.inlandTransportStatus: {},
+    DomainEnumType.inlandTransportStatus: {
+      'BOOKED': 'BOOKING_CONFIRMED',
+      'ARRIVED': 'ARRIVED_AT_WAREHOUSE',
+      'In Transit (Gate-Out)': 'IN_TRANSIT',
+      'Arrived Warehouse': 'ARRIVED_AT_WAREHOUSE',
+      'Booking Confirmed': 'BOOKING_CONFIRMED',
+      'Dispatched': 'DISPATCHED',
+      'In Transit': 'IN_TRANSIT',
+      'Arrived at Warehouse': 'ARRIVED_AT_WAREHOUSE',
+      'Delivered': 'DELIVERED',
+      'Cancelled': 'CANCELLED',
+    },
     DomainEnumType.fileClosureStatus: {},
   };
 
@@ -822,6 +833,12 @@ class DomainEnums {
   /// [labelIfKnown] and [englishLabel] fall back to this table, so a label added
   /// to the localization files later wins.
   static const Map<String, List<String>> _supplementalLabels = {
+    'inland_transport_status.BOOKING_CONFIRMED': ['Booking Confirmed', 'تم تأكيد الحجز'],
+    'inland_transport_status.DISPATCHED': ['Dispatched', 'تم الإرسال'],
+    'inland_transport_status.IN_TRANSIT': ['In Transit', 'في الطريق'],
+    'inland_transport_status.ARRIVED_AT_WAREHOUSE': ['Arrived at Warehouse', 'وصل إلى المخزن'],
+    'inland_transport_status.DELIVERED': ['Delivered', 'تم التسليم'],
+    'inland_transport_status.CANCELLED': ['Cancelled', 'ملغي'],
     'payment_type.ADVANCE_PAYMENT': ['Advance Payment', 'دفعة مقدمة'],
     'payment_type.AGAINST_BL': ['Against B/L', 'مقابل بوليصة الشحن'],
     'payment_type.DOCUMENTARY_COLLECTION': ['Documentary Collection (CAD)', 'تحصيل مستندي (CAD)'],
@@ -914,11 +931,6 @@ class DomainEnums {
     'grn_discrepancy_type.SHORTAGE': ['Shortage', 'عجز'],
     'grn_discrepancy_type.SHORTAGE_AND_DAMAGE': ['Shortage & Damaged', 'عجز وتلف'],
     'grn_discrepancy_type.WRONG_ITEM': ['Wrong Item', 'صنف خاطئ'],
-    'inland_transport_status.BOOKING_CONFIRMED': ['Booking Confirmed', 'تم تأكيد الحجز'],
-    'inland_transport_status.DISPATCHED': ['Dispatched', 'تم الإرسال'],
-    'inland_transport_status.IN_TRANSIT': ['In Transit', 'في الطريق'],
-    'inland_transport_status.ARRIVED_AT_WAREHOUSE': ['Arrived at Warehouse', 'وصلت إلى المخزن'],
-    'inland_transport_status.DELIVERED': ['Delivered', 'تم التسليم'],
     'file_closure_status.DRAFT': ['Draft', 'مسودة'],
     'file_closure_status.CLOSED': ['Closed', 'مغلق'],
     'file_closure_status.ARCHIVED': ['Archived', 'مؤرشف'],

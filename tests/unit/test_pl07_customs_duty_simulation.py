@@ -1203,3 +1203,23 @@ class TestPL07CustomsDutySimulation:
         assert res.breakdown.freight_egp == Decimal("1000.00")
 
 
+def test_simulate_import_file_closed_file_raises_409(db_session):
+    """BEW0-03: simulate_import_file_customs_duty_service refuses closed files with 409 IMPORT_FILE_CLOSED."""
+    imp_file = ImportFile(
+        import_file_code="IMP-CLOSED-PL07",
+        company_name="Test Importer",
+        supplier_name="Test Supplier",
+        status="Closed",
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        simulate_import_file_customs_duty_service(db_session, imp_file.import_file_id)
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail["code"] == "IMPORT_FILE_CLOSED"
+    assert exc_info.value.detail["import_file_code"] == "IMP-CLOSED-PL07"
+
+
+

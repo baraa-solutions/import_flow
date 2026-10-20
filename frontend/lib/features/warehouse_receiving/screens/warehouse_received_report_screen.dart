@@ -68,7 +68,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
         ),
         data: (records) {
           final shipments = ref.watch(importFilesProvider).valueOrNull ?? [];
-          final fileCodeById = <int, String>{
+          final fileCodeById = {
             for (final f in shipments) f.importFileId: f.importFileCode,
           };
           final allItems = WarehouseReceivedReportItem.fromReceivingRecords(
@@ -252,7 +252,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
       onTabSelected: (_) {},
       headerActions: [
         IconButton(
-          icon: Icon(Icons.refresh, color: AppTheme.white.withValues(alpha: 0.7), size: density.buttonIconSize),
+          icon: Icon(Icons.refresh, color: AppTheme.white.withOpacity(0.7), size: density.buttonIconSize),
           tooltip: l.warehouseReceivingRefreshTooltip,
           onPressed: () {
             ref.read(warehouseReceivingProvider.notifier).fetchRecords();

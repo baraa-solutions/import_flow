@@ -11,6 +11,15 @@ INVOICES_ALREADY_SETTLED = "INVOICES_ALREADY_SETTLED"
 JOURNAL_UNBALANCED = "JOURNAL_UNBALANCED"
 SETTLEMENT_DUPLICATE_ACTIVE = "SETTLEMENT_DUPLICATE_ACTIVE"
 IMPORT_FILE_CLOSED = "IMPORT_FILE_CLOSED"
+SETTLEMENT_CURRENCY_MISSING = "SETTLEMENT_CURRENCY_MISSING"
+SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED = "SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED"
+INVOICES_NOT_SETTLED = "INVOICES_NOT_SETTLED"
+INVOICES_NOT_READY = "INVOICES_NOT_READY"
+SETTLEMENT_NO_ITEMS = "SETTLEMENT_NO_ITEMS"
+SETTLEMENT_RESERVED_INVOICE_NO = "SETTLEMENT_RESERVED_INVOICE_NO"
+SETTLEMENT_NOT_APPROVED = "SETTLEMENT_NOT_APPROVED"
+SETTLEMENT_ACTUAL_FOB_MISSING = "SETTLEMENT_ACTUAL_FOB_MISSING"
+RECALC_ADJUSTMENT_PREFIX = "RECALC-ADJ-"
 
 from modules.common.validators import ensure_file_open
 
@@ -35,11 +44,26 @@ def validate_expense_invoice(invoice_no: str, amount_fx: float, exchange_rate: f
         raise HTTPException(status_code=400, detail="سعر الصرف يجب أن يكون أكبر من الصفر.")
 
 
-def validate_items_allocation_readiness(items: List[Dict[str, Any]]) -> None:
+def validate_items_allocation_readiness(items: List[Any]) -> None:
+    """Approve requires at least one item line to allocate landed cost onto (BE09-T06)."""
     if not items or len(items) == 0:
-        raise HTTPException(
-            status_code=400,
-            detail="لا توجد بنود أصناف بالشحنة لإجراء توزيع التكاليف وحساب الـ Landed Cost.",
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            SETTLEMENT_NO_ITEMS,
+            "لا توجد أصناف بضاعة في ملف الشحنة لاحتساب وتوزيع تكلفة الوصول الفعلية.",
+        )
+
+
+def ensure_invoices_settled(imp: Any) -> None:
+    """Approve requires the import file to have its invoices settled in CLO-01 first (BE09-T06)."""
+    current = imp.financial_settlement_status or ""
+    if current != "INVOICES_SETTLED":
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            INVOICES_NOT_SETTLED,
+            f"لا يمكن اعتماد تكلفة الوصول الفعلية للملف {imp.import_file_code}: يلزم إتمام وتأكيد تسوية الفواتير (CLO-01) أولاً (الحالة الحالية: {current or 'لم تبدأ'}).",
+            status=current,
+            import_file_code=imp.import_file_code,
         )
 
 
@@ -57,6 +81,19 @@ def ensure_settlement_editable(record: Any) -> None:
         )
 
 
+def ensure_settlement_approved(record: Any) -> None:
+    """Odoo export requires an Approved settlement (BE09-T11)."""
+    current = record.status or ""
+    if current != "Approved":
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            SETTLEMENT_NOT_APPROVED,
+            f"لا يمكن تصدير التسوية {record.settlement_code} لأنها في حالة ({current}). يلزم اعتماد تكلفة الوصول الفعلية أولاً.",
+            status=current,
+            settlement_code=record.settlement_code,
+        )
+
+
 def ensure_no_other_active_settlement(existing: Optional[Any], settlement_id: int) -> None:
     """Restore must not create a second active settlement on the same import file (FS-11)."""
     if existing is not None and existing.settlement_id != settlement_id:
@@ -66,6 +103,16 @@ def ensure_no_other_active_settlement(existing: Optional[Any], settlement_id: in
             f"لا يمكن استرجاع التسوية: توجد تسوية نشطة أخرى ({existing.settlement_code}) لنفس ملف الشحنة.",
             settlement_code=existing.settlement_code,
         )
+
+
+def duplicate_active_error(import_file_id: Optional[int] = None, settlement_code: Optional[str] = None) -> HTTPException:
+    return coded_error(
+        status.HTTP_409_CONFLICT,
+        SETTLEMENT_DUPLICATE_ACTIVE,
+        "توجد بالفعل تسوية مالية نشطة لهذا الملف. لا يمكن إنشاء أكثر من تسوية نشطة لنفس ملف الشحنة.",
+        import_file_id=import_file_id,
+        settlement_code=settlement_code or "-",
+    )
 
 
 COST_APPROVED_FILE_STATUSES = ("COST_ALLOCATED", "CLOSED")
@@ -123,3 +170,73 @@ def ensure_journal_balanced(entry: Any) -> None:
             difference=entry.difference,
             settlement_code=entry.settlement_code,
         )
+
+
+def currency_missing_error(source: str, invoice_no: Optional[str] = None) -> HTTPException:
+    msg = f"العملة غير محددة لفاتورة {source}"
+    if invoice_no:
+        msg += f" رقم {invoice_no}"
+    msg += "؛ يرجى تحديد عملة صالحة."
+    params: Dict[str, Any] = {"source": source}
+    if invoice_no is not None:
+        params["invoice_no"] = invoice_no
+    return coded_error(
+        status.HTTP_409_CONFLICT,
+        SETTLEMENT_CURRENCY_MISSING,
+        msg,
+        **params,
+    )
+
+
+def ensure_no_manual_rows(manual: List[Dict[str, Any]]) -> None:
+    """Approve never drops manually entered settlement rows without aggregation (BE09-T05)."""
+    if manual:
+        invoice_nos = [str(e.get("invoice_no") or "") for e in manual if e.get("invoice_no")]
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED,
+            f"توجد مصاريف مسجلة يدوياً في التسوية ({', '.join(invoice_nos)}) غير موجودة ضمن فواتير الشحنة المجمعة. يلزم تجميعها أو مراجعتها قبل الاعتماد لمنع فقدان البيانات.",
+            invoice_nos=invoice_nos,
+        )
+
+
+def ensure_no_client_adjustment_rows(
+    rows: List[Dict[str, Any]],
+    stored_rows: Optional[List[Dict[str, Any]]] = None,
+) -> None:
+    """Only the recalculation engine creates or modifies adjustment rows (BE09-T09)."""
+    stored_map: Dict[str, float] = {}
+    if stored_rows:
+        for s in stored_rows:
+            inv = str(s.get("invoice_no") or "")
+            if inv.startswith(RECALC_ADJUSTMENT_PREFIX):
+                stored_map[inv] = round(float(s.get("amount_egp", 0.0) or s.get("amount_fx", 0.0) or 0.0), 2)
+
+    for r in rows:
+        inv_no = str(r.get("invoice_no") or "")
+        if inv_no.startswith(RECALC_ADJUSTMENT_PREFIX):
+            r_amt = round(float(r.get("amount_egp", 0.0) or r.get("amount_fx", 0.0) or 0.0), 2)
+            if inv_no not in stored_map or stored_map[inv_no] != r_amt:
+                raise coded_error(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    SETTLEMENT_RESERVED_INVOICE_NO,
+                    f"رقم الفاتورة '{inv_no}' يبدأ بالبادئة المحجوزة '{RECALC_ADJUSTMENT_PREFIX}' ولا يمكن إنشاؤه أو تعديله إلا عبر محرك إعادة الاحتساب التلقائي.",
+                    invoice_no=inv_no,
+                )
+
+
+def ensure_invoices_settlement_ready(
+    readiness: float,
+    unpaid_count: int,
+    acknowledge_unpaid: bool,
+) -> None:
+    """CLO-01 confirm requires 100% readiness or explicit acknowledgement of unpaid invoices (BE09-T13)."""
+    if readiness < 100.0 and not acknowledge_unpaid:
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            INVOICES_NOT_READY,
+            f"نسبة جاهزية تسوية الفواتير ({readiness}%) أقل من 100% لوجود فواتير غير مسددة ({unpaid_count}). يرجى سداد الفواتير أو تأكيد التسوية مع الإقرار بوجود مبالغ غير مسددة.",
+            readiness=readiness,
+            unpaid_count=unpaid_count,
+        )
+

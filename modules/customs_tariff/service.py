@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from modules.common import enum_codes
+from modules.common.validators import ensure_file_open
 from . import repository
 from .model import CustomsTariff, PreferentialAgreement
 from .schemas import normalize_customs_category
@@ -1533,6 +1534,7 @@ def simulate_import_file_customs_duty_service(
             status_code=404,
             detail=f"ملف الشحنة رقم {import_file_id} غير موجود.",
         )
+    ensure_file_open(import_file)
 
     # 1. Gather POs and Line Items
     pos = (

@@ -8,8 +8,8 @@ Invented defaults ('USD', 'EGP') were removed across:
 - customs_broker_quote_items (currency)
 - freight_quotation_items (currency_code)
 
-Revision ID: c9d0e1f2a3b4
-Revises: b8c9d0e1f2a3
+Revision ID: a5b6c7d8e9f0
+Revises: f4b5c6d7e8f9
 Create Date: 2026-10-18
 """
 
@@ -20,8 +20,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers
-revision: str = "c9d0e1f2a3b4"
-down_revision: Union[str, Sequence[str], None] = "b8c9d0e1f2a3"
+revision: str = "a5b6c7d8e9f0"
+down_revision: Union[str, Sequence[str], None] = "f4b5c6d7e8f9"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

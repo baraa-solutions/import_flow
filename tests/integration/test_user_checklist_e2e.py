@@ -641,11 +641,11 @@ def test_complete_user_testing_checklist_flow(e2e_context):
 
     # TR-02 & TR-05: رادار مراقبة فترات السماح وغرامات التأخير
     demurrage_tracker = DemurrageTracking(
+        port_name="Alexandria",
         tracking_code="DND-2026-0001",
         import_file_id=imp_file.import_file_id,
         carrier_name=shipping_line.partner_name,
         bill_of_lading_no="MSK99214001",
-        port_name="Alexandria Port",
         discharge_date=date.today() - timedelta(days=3),
         empty_return_date=date.today(),
         exchange_rate=48.50,  # no default rate since the review wave (NOT NULL, no fabricated 50.0)

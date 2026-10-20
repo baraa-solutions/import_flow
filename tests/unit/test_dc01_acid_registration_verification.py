@@ -365,4 +365,12 @@ def test_api_acid_registration_endpoints(db_session, seed_data):
     assert put_res.status_code == 200
     assert put_res.json()["status"] == "Verified"
 
+    # Verify update with explicit null expiry_date does not fail with NOT NULL IntegrityError
+    put_null_res = client.put(
+        f"/api/v1/import-documentation/acid-sessions/{acid_id}",
+        json={"expiry_date": None, "verification_notes": "Updated without explicit expiry"},
+    )
+    assert put_null_res.status_code == 200
+    assert put_null_res.json()["expiry_date"] is not None
+
     app.dependency_overrides.clear()

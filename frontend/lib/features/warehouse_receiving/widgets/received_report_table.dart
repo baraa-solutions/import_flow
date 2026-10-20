@@ -65,38 +65,6 @@ class ReceivedReportTable extends StatelessWidget {
           final rowSummary = item.toRowSummary(l);
           final varianceText = '${variance >= 0 ? "+" : ""}$variance';
 
-          final statusCode = DomainEnums.legacyToCode(
-                DomainEnumType.warehouseReceivingStatus,
-                item.status,
-              ) ??
-              item.status;
-          final statusLabel = DomainEnums.label(
-            l,
-            DomainEnumType.warehouseReceivingStatus,
-            item.status,
-          );
-
-          AppSeverity severity;
-          switch (statusCode) {
-            case 'INSPECTION_PASSED':
-            case 'GOODS_RECEIVED':
-            case 'CLOSED':
-            case 'GRN_AUDITED':
-              severity = AppSeverity.success;
-              break;
-            case 'DISCREPANCY_REPORTED':
-              severity = AppSeverity.warning;
-              break;
-            case 'UNDER_QUARANTINE_INSPECTION':
-            case 'UNDER_BOND_QUARANTINE':
-              severity = AppSeverity.danger;
-              break;
-            case 'PENDING_COUNT':
-            default:
-              severity = AppSeverity.info;
-              break;
-          }
-
           return DataRow(cells: [
             DataCell(
               CopyableTableCell(
@@ -153,11 +121,10 @@ class ReceivedReportTable extends StatelessWidget {
             ),
             DataCell(
               CopyableTableCell(
-                value: item.poNumber.isEmpty ? '—' : item.poNumber,
+                value: item.poNumber.isNotEmpty ? item.poNumber : '—',
                 rowSummary: rowSummary,
-                child: item.poNumber.isEmpty
-                    ? Text('—', style: TextStyle(color: AppTheme.textMutedOf(context)))
-                    : InkWell(
+                child: item.poNumber.isNotEmpty
+                    ? InkWell(
                         onTap: () => CopyHelper.copy(
                           context,
                           item.poNumber,
@@ -172,17 +139,15 @@ class ReceivedReportTable extends StatelessWidget {
                             const Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
                           ],
                         ),
-                      ),
+                      )
+                    : const Text('—'),
               ),
             ),
             DataCell(
               CopyableTableCell(
-                value: item.truckPlateNumber.isEmpty ? '—' : item.truckPlateNumber,
+                value: item.truckPlateNumber.isNotEmpty ? item.truckPlateNumber : '—',
                 rowSummary: rowSummary,
-                child: Text(
-                  item.truckPlateNumber.isEmpty ? '—' : item.truckPlateNumber,
-                  style: item.truckPlateNumber.isEmpty ? TextStyle(color: AppTheme.textMutedOf(context)) : null,
-                ),
+                child: Text(item.truckPlateNumber.isNotEmpty ? item.truckPlateNumber : '—'),
               ),
             ),
             DataCell(
@@ -236,23 +201,49 @@ class ReceivedReportTable extends StatelessWidget {
                 summary: rowSummary,
               ),
             ),
-            DataCell(
-              CopyableTableCell(
+            DataCell(() {
+              final statusLabel = DomainEnums.label(
+                l,
+                DomainEnumType.warehouseReceivingStatus,
+                item.status,
+                fallback: item.status,
+              );
+              final code = DomainEnums.legacyToCode(DomainEnumType.warehouseReceivingStatus, item.status) ?? item.status;
+              AppSeverity severity;
+              IconData icon;
+              switch (code) {
+                case 'INSPECTION_PASSED':
+                case 'GOODS_RECEIVED':
+                case 'CLOSED':
+                case 'GRN_AUDITED':
+                  severity = AppSeverity.success;
+                  icon = Icons.verified_outlined;
+                  break;
+                case 'DISCREPANCY_REPORTED':
+                  severity = AppSeverity.warning;
+                  icon = Icons.warning_amber_rounded;
+                  break;
+                case 'UNDER_QUARANTINE_INSPECTION':
+                case 'UNDER_BOND_QUARANTINE':
+                  severity = AppSeverity.danger;
+                  icon = Icons.lock_clock_outlined;
+                  break;
+                case 'PENDING_COUNT':
+                default:
+                  severity = AppSeverity.info;
+                  icon = Icons.pending_actions_outlined;
+                  break;
+              }
+              return CopyableTableCell(
                 value: statusLabel,
                 rowSummary: rowSummary,
                 child: OpsStatusChip(
                   label: statusLabel,
                   severity: severity,
-                  icon: severity == AppSeverity.success
-                      ? Icons.verified_outlined
-                      : (severity == AppSeverity.danger
-                          ? Icons.warning_amber_rounded
-                          : (severity == AppSeverity.warning
-                              ? Icons.report_problem_outlined
-                              : Icons.info_outline)),
+                  icon: icon,
                 ),
-              ),
-            ),
+              );
+            }()),
             DataCell(
               IconButton(
                 icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),

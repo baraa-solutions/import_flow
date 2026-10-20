@@ -102,18 +102,28 @@ def not_null_columns(model: Type) -> FrozenSet[str]:
 CLOSED_FILE_STATUSES: FrozenSet[str] = frozenset({"Closed", "Archived"})
 
 
-def ensure_file_open(imp: Any) -> None:
+def ensure_file_open(db_or_imp: Any, import_file_id: Optional[Any] = None) -> None:
     """Validate that the import file is not Closed or Archived.
 
     Args:
-        imp: An ImportFile instance, mapping, or any object with status and import_file_code.
+        db_or_imp: An ImportFile instance, mapping, or SQLAlchemy Session (when import_file_id is passed).
+        import_file_id: Optional import_file_id when passing db as first argument.
 
     Raises:
         CodedHTTPException (409): with code IMPORT_FILE_CLOSED when the file status is
         'Closed' or 'Archived'.
     """
-    if imp is None:
+    if db_or_imp is None:
         return
+
+    if import_file_id is not None:
+        from modules.import_files.model import ImportFile
+
+        imp = db_or_imp.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+        if imp is None:
+            return
+    else:
+        imp = db_or_imp
 
     if isinstance(imp, Mapping):
         status_val = str(imp.get("status") or "").strip()
@@ -130,7 +140,11 @@ def ensure_file_open(imp: Any) -> None:
             if raw_id:
                 code = f"#{raw_id}"
 
-    if status_val in CLOSED_FILE_STATUSES or status_val.capitalize() in CLOSED_FILE_STATUSES:
+    if (
+        status_val in CLOSED_FILE_STATUSES
+        or status_val.capitalize() in CLOSED_FILE_STATUSES
+        or status_val.upper() in {"CLOSED", "ARCHIVED"}
+    ):
         from modules.common.errors import CodedHTTPException
 
         msg_ar = (

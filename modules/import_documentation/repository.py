@@ -257,7 +257,28 @@ def update_acid_session(
     data = schema.copy() if isinstance(schema, dict) else schema.model_dump(exclude_unset=True)
     for field in _SERVER_OWNED_ACID_FIELDS:
         data.pop(field, None)
+    # Defense-in-depth: do not overwrite NOT NULL fields with None
+    if "expiry_date" in data and data["expiry_date"] is None:
+        if db_item.expiry_date is not None:
+            data.pop("expiry_date", None)
+        else:
+            base = data.get("generated_date") or db_item.generated_date or data.get("requested_date") or db_item.requested_date or date.today()
+            if isinstance(base, datetime):
+                base = base.date()
+            data["expiry_date"] = base + timedelta(days=ACID_DEFAULT_VALIDITY_DAYS)
+    if "requested_date" in data and data["requested_date"] is None:
+        if db_item.requested_date is not None:
+            data.pop("requested_date", None)
+        else:
+            data["requested_date"] = date.today()
     _apply(db_item, data)
+    if db_item.expiry_date is None:
+        base = db_item.generated_date or db_item.requested_date or date.today()
+        if isinstance(base, datetime):
+            base = base.date()
+        db_item.expiry_date = base + timedelta(days=ACID_DEFAULT_VALIDITY_DAYS)
+    if db_item.requested_date is None:
+        db_item.requested_date = date.today()
     db_item.updated_at = _now()
     if user is not None:
         db_item.updated_by = user

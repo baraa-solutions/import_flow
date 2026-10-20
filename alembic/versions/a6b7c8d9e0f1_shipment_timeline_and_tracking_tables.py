@@ -1,7 +1,7 @@
 """create shipment tracking logs, clearance followup, and 25-stage timeline snapshots (TASK-DB-04 to TASK-DB-08)
 
-Revision ID: d0e1f2a3b4c5
-Revises: c9d0e1f2a3b4
+Revision ID: a6b7c8d9e0f1
+Revises: a5b6c7d8e9f0
 Create Date: 2026-10-18
 """
 
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers
-revision: str = "d0e1f2a3b4c5"
-down_revision: Union[str, Sequence[str], None] = "c9d0e1f2a3b4"
+revision: str = "a6b7c8d9e0f1"
+down_revision: Union[str, Sequence[str], None] = "a5b6c7d8e9f0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

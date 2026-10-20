@@ -190,6 +190,8 @@ class PaymentRequestModel {
   final String? notes;
   final double? advancePercentage;
   final String? smartTaskCode;
+  final double? paidAmountEgp;
+  final double? paidExchangeRate;
   final int version;
   final bool isActive;
   final String createdAt;
@@ -231,6 +233,8 @@ class PaymentRequestModel {
     this.notes,
     this.advancePercentage,
     this.smartTaskCode,
+    this.paidAmountEgp,
+    this.paidExchangeRate,
     this.version = 1,
     this.isActive = true,
     required this.createdAt,
@@ -276,6 +280,8 @@ class PaymentRequestModel {
       notes: json['notes'],
       advancePercentage: (json['advance_percentage'] as num?)?.toDouble(),
       smartTaskCode: json['smart_task_code'],
+      paidAmountEgp: (json['paid_amount_egp'] as num?)?.toDouble(),
+      paidExchangeRate: (json['paid_exchange_rate'] as num?)?.toDouble(),
       version: json['version'] ?? 1,
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
@@ -320,6 +326,8 @@ class PaymentRequestModel {
       'notes': notes,
       'advance_percentage': advancePercentage,
       'smart_task_code': smartTaskCode,
+      if (paidAmountEgp != null) 'paid_amount_egp': paidAmountEgp,
+      if (paidExchangeRate != null) 'paid_exchange_rate': paidExchangeRate,
       'version': version,
       'is_active': isActive,
       'created_by': createdBy,

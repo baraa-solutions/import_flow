@@ -105,11 +105,17 @@ def test_login_refresh_me_succeed_for_stored_invalid_email(db, client, email):
     refresh = client.post("/api/v1/auth/refresh", headers=headers)
     assert refresh.status_code == 200, refresh.text
     assert refresh.json()["user"]["email"] == email
+    new_headers = {"Authorization": f"Bearer {refresh.json()['access_token']}"}
 
-    me = client.get("/api/v1/auth/me", headers=headers)
+    # Old token is revoked per BEX-T08
+    old_me = client.get("/api/v1/auth/me", headers=headers)
+    assert old_me.status_code == 401
+
+    me = client.get("/api/v1/auth/me", headers=new_headers)
     assert me.status_code == 200, me.text
     assert me.json()["email"] == email
     assert me.json()["user_id"] == user.user_id
+
 
 
 def test_login_by_stored_invalid_email_itself(db, client):

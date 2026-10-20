@@ -64,6 +64,18 @@ class InlandTransportNotifier extends StateNotifier<AsyncValue<List<InlandTransp
     return created;
   }
 
+  Future<InlandTransportModel?> updateBooking(int transportId, Map<String, dynamic> payload) async {
+    final response = await _dio.put(
+      '${ApiConstants.baseUrl}/inland-transport/bookings/$transportId',
+      data: payload,
+    );
+    final updated = InlandTransportModel.fromJson(response.data as Map<String, dynamic>);
+    _ref?.invalidate(importFilesProvider);
+    _ref?.invalidate(smartTasksProvider);
+    await fetchBookings();
+    return updated;
+  }
+
   Future<InlandTransportModel?> recordGateOut(int transportId, Map<String, dynamic> payload) async {
     final response = await _dio.post(
       '${ApiConstants.baseUrl}/inland-transport/bookings/$transportId/gate-out',

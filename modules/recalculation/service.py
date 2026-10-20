@@ -269,7 +269,9 @@ def _aggregate(values: List[float], func_name: str) -> float:
         "sum": sum,
         "latest": lambda v: v[-1],  # callers pass rows ordered by primary key
     }
-    fn = func_map.get(func_name, max)
+    if func_name not in func_map:
+        raise ValueError(f"Unknown aggregation function '{func_name}'")
+    fn = func_map[func_name]
     return round(fn(values), 4)
 
 
@@ -562,6 +564,8 @@ def _evaluate_dependencies(db: Session, entity: Any, target_entity_type: str, de
                 params={"currency": missing.currency, "on_date": missing.on_date},
             ))
             continue
+        except ValueError as err:
+            raise HTTPException(status_code=422, detail=str(err))
         v = _variance(old_value, new_value, threshold_pct)
         items.append(RecalculationPreviewItem(
             **common,
@@ -1011,18 +1015,17 @@ def list_dependencies(
     db: Session, current_user: User, target_entity_type: Optional[str] = None
 ) -> List[DependencyMapResponse]:
     """Active dependency rows. Filtering by a target type requires that type's view permission; the unfiltered
-    list returns only dependencies for target types the user has permission to view (BE09-F21)."""
+    list returns only the target types the user has permission to view (F21)."""
     if target_entity_type:
         ensure_can_view(db, current_user, target_entity_type)
-    deps = repo.get_all_dependencies(db, include_inactive=False)
-    if target_entity_type:
-        deps = [d for d in deps if d.target_entity_type == target_entity_type]
+        viewable = {target_entity_type}
     else:
-        allowed_targets = {
-            target for target, perm in TARGET_VIEW_PERMISSIONS.items()
-            if has_user_permission(db, current_user, perm)
+        viewable = {
+            t for t, p in TARGET_VIEW_PERMISSIONS.items()
+            if has_user_permission(db, current_user, p)
         }
-        deps = [d for d in deps if d.target_entity_type in allowed_targets]
+    deps = repo.get_all_dependencies(db, include_inactive=False)
+    deps = [d for d in deps if d.target_entity_type in viewable]
     return [
         DependencyMapResponse(
             id=d.id,

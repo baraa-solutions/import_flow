@@ -34,6 +34,12 @@ def db():
         Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True),
         Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="E£", is_active=True),
     ])
+    from modules.currencies.model import Currency, ExchangeRate
+    session.add_all([
+        Currency(currency_id=1, currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_base_currency=True, decimal_places=2, is_active=True),
+        Currency(currency_id=2, currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_base_currency=False, decimal_places=2, is_active=True),
+        ExchangeRate(rate_id=1, currency_id=2, commercial_rate=50.0, customs_rate=50.0, effective_date=date(2020, 1, 1), is_active=True),
+    ])
     session.commit()
     try:
         yield session
@@ -394,6 +400,9 @@ class TestShippingScenariosBackend:
                     sailing_date=crd + timedelta(days=4),
                     estimated_arrival_date=crd + timedelta(days=26),
                     free_time_days=21,
+                    container_40ft_applicable=True,
+                    container_40ft_price=3200.0,
+                    container_40ft_qty=1,
                     total_quotation_amount=3200.0,
                     quotation_currency="USD",
                 )
@@ -466,6 +475,115 @@ class TestShippingScenariosBackend:
         # Crucial invariants: recommended and selected must be reset
         assert cloned_item.is_recommended is False
         assert cloned_item.is_selected is False
+
+    def test_server_computes_totals(self, db: Session):
+        crd = date.today() + timedelta(days=5)
+        item = ShippingScenarioItemCreate(
+            provider_name="Maersk Line",
+            vessel_name="MAERSK MC-KINNEY",
+            voyage_number="202W",
+            sailing_date=crd + timedelta(days=4),
+            estimated_arrival_date=crd + timedelta(days=28),
+            quotation_currency="USD",
+            container_40ft_applicable=True,
+            container_40ft_price=2000.0,
+            container_40ft_qty=2,
+            container_40ft_currency="USD",
+            solas_vgm_applicable=True,
+            solas_vgm_price=25.0,
+            solas_vgm_currency="USD",
+            clearance_fee_applicable=True,
+            clearance_fee_price=15000.0,
+            clearance_fee_currency="EGP",
+            insurance_applicable=True,
+            insurance_price=100.0,
+            insurance_currency="USD",
+        )
+        payload = ShippingEvaluationCreate(
+            title="Server Totals Calculation Test",
+            cargo_ready_date=crd,
+            items=[item],
+        )
+        created = ShippingScenarioService.create_session_service(db, payload)
+        assert len(created.items) == 1
+        calc_item = created.items[0]
+        # Freight = 2 * 2000 = 4000.0 USD
+        assert calc_item.freight_total_amount == 4000.0
+        # SOLAS = 25 * 2 = 50.0 USD; Clearance = 15000 / 50 = 300.0 USD; Insurance = 100.0 USD
+        # Total = 4000 + 50 + 300 + 100 = 4450.0 USD
+        assert calc_item.total_quotation_amount == 4450.0
+        assert calc_item.totals_rate_date is not None
+
+    def test_client_total_ignored(self, db: Session):
+        crd = date.today() + timedelta(days=5)
+        item = ShippingScenarioItemCreate(
+            provider_name="COSCO Shipping",
+            vessel_name="COSCO UNIVERSE",
+            voyage_number="101E",
+            sailing_date=crd + timedelta(days=2),
+            estimated_arrival_date=crd + timedelta(days=22),
+            quotation_currency="USD",
+            container_40ft_applicable=True,
+            container_40ft_price=2000.0,
+            container_40ft_qty=2,
+            container_40ft_currency="USD",
+            total_quotation_amount=999999.0,  # Untrusted client total
+        )
+        payload = ShippingEvaluationCreate(
+            title="Client Total Ignored Test",
+            cargo_ready_date=crd,
+            items=[item],
+        )
+        created = ShippingScenarioService.create_session_service(db, payload)
+        assert created.items[0].total_quotation_amount == 4000.0
+        assert created.items[0].freight_total_amount == 4000.0
+
+        # Also test on update: client passes forged total_quotation_amount
+        update_item = ShippingScenarioItemCreate(
+            provider_name="COSCO Shipping",
+            vessel_name="COSCO UNIVERSE",
+            voyage_number="101E",
+            sailing_date=crd + timedelta(days=2),
+            estimated_arrival_date=crd + timedelta(days=22),
+            quotation_currency="USD",
+            container_40ft_applicable=True,
+            container_40ft_price=2000.0,
+            container_40ft_qty=1,
+            container_40ft_currency="USD",
+            total_quotation_amount=777777.0,
+        )
+        updated = ShippingScenarioService.update_session_service(
+            db, created.session_id, ShippingEvaluationUpdate(items=[update_item])
+        )
+        assert updated.items[0].total_quotation_amount == 2000.0
+        assert updated.items[0].freight_total_amount == 2000.0
+
+    def test_missing_rate_409(self, db: Session):
+        crd = date.today() + timedelta(days=5)
+        item = ShippingScenarioItemCreate(
+            provider_name="Hapag-Lloyd",
+            vessel_name="AL DAHNA EXPRESS",
+            voyage_number="303S",
+            sailing_date=crd + timedelta(days=2),
+            estimated_arrival_date=crd + timedelta(days=24),
+            quotation_currency="USD",
+            clearance_fee_applicable=True,
+            clearance_fee_price=1000.0,
+            clearance_fee_currency="EUR",  # EUR has no rate seeded in DB
+        )
+        payload = ShippingEvaluationCreate(
+            title="Missing Rate 409 Test",
+            cargo_ready_date=crd,
+            items=[item],
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            ShippingScenarioService.create_session_service(db, payload)
+        assert exc_info.value.status_code == 409
+        detail = exc_info.value.detail
+        assert isinstance(detail, dict)
+        assert detail.get("code") == "SS_FX_RATE_MISSING"
+        assert detail.get("currency") == "EUR"
+
 
 
 

@@ -29,6 +29,8 @@ class ShippingScenarioItemModel {
   final int freeTimeDays;
   final String? quotationCurrency;
   final double? totalQuotationAmount;
+  final double? freightTotalAmount;
+  final String? totalsRateDate;
 
   final bool container40ftApplicable;
   final double container40ftPrice;
@@ -149,6 +151,8 @@ class ShippingScenarioItemModel {
     this.freeTimeDays = 14,
     this.quotationCurrency,
     this.totalQuotationAmount,
+    this.freightTotalAmount,
+    this.totalsRateDate,
     
     this.container40ftApplicable = false,
     this.container40ftPrice = 0.0,
@@ -280,6 +284,8 @@ class ShippingScenarioItemModel {
       freeTimeDays: toInt(json['free_time_days'] ?? 14),
       quotationCurrency: json['quotation_currency'] as String?,
       totalQuotationAmount: json['total_quotation_amount'] != null ? toDouble(json['total_quotation_amount']) : null,
+      freightTotalAmount: json['freight_total_amount'] != null ? toDouble(json['freight_total_amount']) : null,
+      totalsRateDate: json['totals_rate_date'] as String?,
       
       container40ftApplicable: json['container_40ft_applicable'] ?? false,
       container40ftPrice: toDouble(json['container_40ft_price']),
@@ -397,6 +403,8 @@ class ShippingScenarioItemModel {
       'free_time_days': freeTimeDays,
       'quotation_currency': quotationCurrency,
       'total_quotation_amount': totalQuotationAmount,
+      if (freightTotalAmount != null) 'freight_total_amount': freightTotalAmount,
+      if (totalsRateDate != null) 'totals_rate_date': totalsRateDate,
       
       'container_40ft_applicable': container40ftApplicable,
       'container_40ft_price': container40ftPrice,
@@ -512,6 +520,9 @@ class ShippingScenarioItemModel {
     String? quotationCurrency,
     double? totalQuotationAmount,
     bool clearTotalQuotationAmount = false,
+    double? freightTotalAmount,
+    String? totalsRateDate,
+    bool clearFreightTotalAmount = false,
     bool? container40ftApplicable,
     double? container40ftPrice,
     String? container40ftCurrency,
@@ -615,6 +626,8 @@ class ShippingScenarioItemModel {
       freeTimeDays: freeTimeDays ?? this.freeTimeDays,
       quotationCurrency: quotationCurrency ?? this.quotationCurrency,
       totalQuotationAmount: clearTotalQuotationAmount ? null : (totalQuotationAmount ?? this.totalQuotationAmount),
+      freightTotalAmount: clearFreightTotalAmount ? null : (freightTotalAmount ?? this.freightTotalAmount),
+      totalsRateDate: totalsRateDate ?? this.totalsRateDate,
       container40ftApplicable: container40ftApplicable ?? this.container40ftApplicable,
       container40ftPrice: container40ftPrice ?? this.container40ftPrice,
       container40ftCurrency: container40ftCurrency ?? this.container40ftCurrency,
