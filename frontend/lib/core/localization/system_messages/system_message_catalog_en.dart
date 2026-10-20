@@ -1482,9 +1482,6 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'CCQ_AWARDED_QUOTE_DELETE': {
     'note': 'The awarded quotation cannot be deleted.',
   },
-  'CCQ_RFQ_AWARDED': {
-    'note': 'This quotation request is already awarded: its quotations and status can no longer change.',
-  },
   'CCQ_PRICE_LIST_DATE_RANGE': {
     'note': 'The validity start {effective_from} is after its end {effective_to}.',
   },

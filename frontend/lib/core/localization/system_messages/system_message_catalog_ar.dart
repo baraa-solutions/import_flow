@@ -1482,9 +1482,6 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'CCQ_AWARDED_QUOTE_DELETE': {
     'note': 'لا يمكن حذف عرض السعر الذي تمت ترسيته.',
   },
-  'CCQ_RFQ_AWARDED': {
-    'note': 'طلب عرض الأسعار تمت ترسيته بالفعل: لا يمكن تعديل عروضه أو حالته.',
-  },
   'CCQ_PRICE_LIST_DATE_RANGE': {
     'note': 'بداية الصلاحية {effective_from} بعد نهايتها {effective_to}.',
   },
