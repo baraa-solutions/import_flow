@@ -12,6 +12,7 @@ from modules.freight_booking.schemas import (
     BookingChargeItem,
 )
 from modules.freight_booking.service import (
+    calculate_transit_time_and_costs,
     create_booking_service,
     get_booking_service,
     list_bookings_service,
@@ -189,8 +190,9 @@ class TestFreightBookingBackend:
         assert booking.vessel_name == "MSC Oscar"
         assert booking.free_demurrage_days == 21
         assert len(booking.containers_data) == 1
-        assert len(booking.cost_charges_data) == 3
-        assert booking.total_freight_cost_usd == (2200.0 * 2) + 350.0 + 200.0
+        # ACC3-T02: Storage is separated from ocean freight total to avoid double counting in customs & financial settlement.
+        assert booking.total_freight_cost_usd == (2200.0 * 2) + 350.0
+        assert booking.quotation_details_data.get("storage_cost_usd") == 200.0
 
     def test_actual_departure_delay_and_warehouse_arrival_calc(self, db_session):
         payload = ShipmentBookingCreate(
@@ -446,6 +448,10 @@ class TestFreightBookingBackend:
         # list_bookings_service also reads without validation
         all_bookings, _ = list_bookings_service(db_session)
         assert any(b.booking_code == "BKG-LEGACY-001" for b in all_bookings)
+
+        # Recalculating does not sum legacy insurance into total_freight_cost_usd (ACC3-T02)
+        calculate_transit_time_and_costs(legacy_booking, db=db_session)
+        assert legacy_booking.total_freight_cost_usd == 2000.0
 
     def test_charge_category_inferred_and_persisted(self, db_session):
         payload = ShipmentBookingCreate(

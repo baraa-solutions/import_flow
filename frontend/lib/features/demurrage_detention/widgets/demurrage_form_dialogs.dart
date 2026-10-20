@@ -8,6 +8,7 @@ import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../customs_clearance/widgets/cc_dialog_shell.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../models/demurrage_model.dart';
 import '../providers/demurrage_provider.dart';
 import '../../currencies/providers/currencies_provider.dart';
@@ -46,16 +47,58 @@ class DemurrageLookups {
     'Adabiya Port',
     'Cairo Dry Port (6th of October)',
   ];
+
+  static const Map<String, List<String>> terminalsByPort = {
+    'Alexandria Port': [
+      'Alexandria Container Terminal (ACCHCO)',
+      'Alexandria Old Terminal',
+      'Tahya Misr Multipurpose Terminal',
+    ],
+    'Dekheila Port': [
+      'Dekheila Container Terminal (ACCHCO)',
+      'Dekheila Berth 96 Terminal',
+    ],
+    'Damietta Port': [
+      'Damietta Container Handling (DCHC)',
+      'Damietta Alliance Terminal',
+    ],
+    'Port Said East': [
+      'Suez Canal Container Terminal (SCCT - APMT)',
+    ],
+    'Port Said West': [
+      'Port Said Container Handling (PSCCHC)',
+    ],
+    'Sokhna Port': [
+      'DP World Sokhna Terminal',
+      'Basin 2 Container Terminal',
+    ],
+    'Adabiya Port': [
+      'Adabiya Port Terminal',
+    ],
+    'Cairo Dry Port (6th of October)': [
+      'October Dry Port (ODP)',
+    ],
+  };
+
+  static const List<String> ancillaryFeeTypes = [
+    'كشف وفحص بالأشعة (X-Ray Inspection)',
+    'وزن ميزان بسكول (Weighing & Scales)',
+    'سيل جمركي ملاحي (Customs/Carrier Seal)',
+    'حراسة ومراقبة ساحة (Yard Guarding)',
+    'تطهير وتبخير (Fumigation & Cleaning)',
+    'أذونات ونولون إضافي (Ancillary Clearance Permit)',
+  ];
 }
 
 String _fmtDate(DateTime dt) => dt.toIso8601String().split('T').first;
 
 /// Start a new container tracking session.
 class AddTrackingDialog extends ConsumerStatefulWidget {
-  const AddTrackingDialog({super.key});
+  final int? initialImportFileId;
+  const AddTrackingDialog({super.key, this.initialImportFileId});
 
-  static Future<void> show(BuildContext context) =>
-      showDialog<void>(context: context, builder: (_) => const AddTrackingDialog());
+  static Future<void> show(BuildContext context, {int? initialImportFileId}) =>
+      showDialog<void>(context: context, builder: (_) => AddTrackingDialog(initialImportFileId: initialImportFileId));
 
   @override
   ConsumerState<AddTrackingDialog> createState() => _AddTrackingDialogState();
@@ -63,32 +106,72 @@ class AddTrackingDialog extends ConsumerStatefulWidget {
 
 class _AddTrackingDialogState extends ConsumerState<AddTrackingDialog> {
   final _formKey = GlobalKey<FormState>();
+  int? _selectedImportFileId;
   String _carrier = DemurrageLookups.carriers.first;
   String _port = DemurrageLookups.ports.first;
+  String? _terminal;
   String _cType = DemurrageLookups.containerTypes.first;
   String _blNo = '';
   String _cNo = '';
   DateTime _dischargeDate = DateTime.now().subtract(const Duration(days: 5));
   bool _isSaving = false;
+  final List<Map<String, dynamic>> _ancillaryFees = [];
+  final TextEditingController _customFeeNameController = TextEditingController();
+  final TextEditingController _customFeeAmountController = TextEditingController();
+  String _customFeeCurrency = 'USD';
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedImportFileId = widget.initialImportFileId;
+    final terms = DemurrageLookups.terminalsByPort[_port] ?? [];
+    if (terms.isNotEmpty) {
+      _terminal = terms.first;
+    }
+  }
+
+  @override
+  void dispose() {
+    _customFeeNameController.dispose();
+    _customFeeAmountController.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    _formKey.currentState!.save();
     final l = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+
+    if (_selectedImportFileId == null) {
+      messenger.showSnackBar(
+        AppTheme.snackBar(
+          context,
+          l.pleaseSelectImportFileError,
+          severity: AppSeverity.warning,
+        ),
+      );
+      return;
+    }
+
+    _formKey.currentState!.save();
     setState(() => _isSaving = true);
 
-    final success = await ref.read(demurrageProvider.notifier).createTracking({
+    final payload = {
+      'import_file_id': _selectedImportFileId!,
       'carrier_name': _carrier,
       'port_name': _port,
+      if (_terminal != null && _terminal!.isNotEmpty) 'terminal_name': _terminal,
       'bill_of_lading_no': _blNo,
       'discharge_date': _fmtDate(_dischargeDate),
       'containers': [
         {'container_no': _cNo, 'container_type': _cType}
       ],
+      if (_ancillaryFees.isNotEmpty) 'ancillary_fees': _ancillaryFees,
       // exchange_rate is resolved by the backend at the discharge date.
-    });
+    };
+
+    final success = await ref.read(demurrageProvider.notifier).createTracking(payload);
 
     final error = ref.read(demurrageProvider).errorObject;
     if (!mounted) return;
@@ -104,12 +187,15 @@ class _AddTrackingDialogState extends ConsumerState<AddTrackingDialog> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final terminals = DemurrageLookups.terminalsByPort[_port] ?? [];
+
     return Form(
       key: _formKey,
       child: CcStageDialogShell(
         title: l.addTrackingDialogTitle,
         icon: Icons.add_road_rounded,
-        maxWidth: 640,
+        maxWidth: 680,
         confirmLabel: l.saveAndStartTrackingBtn,
         confirmVariant: AppButtonVariant.primary,
         confirmIcon: Icons.play_circle_outline,
@@ -122,7 +208,28 @@ class _AddTrackingDialogState extends ConsumerState<AddTrackingDialog> {
               title: l.addTrackingDialogTitle,
               icon: Icons.directions_boat_outlined,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 1. Mandatory Import File selection (FE05-T01)
+                  CcField(
+                    label: l.importFileLabel,
+                    isRequired: true,
+                    child: SearchableDropdownField<int>(
+                      hintText: l.selectImportFilePrompt,
+                      value: _selectedImportFileId,
+                      items: importFiles
+                          .map((f) => SearchableDropdownItem(
+                                value: f.importFileId,
+                                label: '${f.importFileCode} - ${f.companyName}',
+                              ))
+                          .toList(),
+                      onChanged: (id) => setState(() => _selectedImportFileId = id),
+                      validator: (id) => id == null ? l.pleaseSelectImportFileError : null,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 2. Carrier & Port & Terminal Selection
                   CcFieldRow(
                     children: [
                       SearchableDropdownField<String>(
@@ -139,11 +246,31 @@ class _AddTrackingDialogState extends ConsumerState<AddTrackingDialog> {
                         items: DemurrageLookups.ports
                             .map((p) => SearchableDropdownItem(value: p, label: p))
                             .toList(),
-                        onChanged: (p) => setState(() => _port = p ?? _port),
+                        onChanged: (p) {
+                          if (p != null) {
+                            setState(() {
+                              _port = p;
+                              final terms = DemurrageLookups.terminalsByPort[p] ?? [];
+                              _terminal = terms.isNotEmpty ? terms.first : null;
+                            });
+                          }
+                        },
                       ),
                     ],
                   ),
                   const SizedBox(height: 14),
+
+                  // Terminal selection
+                  SearchableDropdownField<String>(
+                    labelText: 'محطة الحاويات (Terminal / Depot)',
+                    value: _terminal,
+                    items: terminals
+                        .map((t) => SearchableDropdownItem(value: t, label: t))
+                        .toList(),
+                    onChanged: (t) => setState(() => _terminal = t),
+                  ),
+                  const SizedBox(height: 14),
+
                   CcField(
                     label: l.blNumberFieldLabel,
                     isRequired: true,
@@ -194,6 +321,109 @@ class _AddTrackingDialogState extends ConsumerState<AddTrackingDialog> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+
+            // 3. Ancillary Terminal Fees Section (الرسوم الإضافية بالمحطة)
+            CcFormSection(
+              title: 'الرسوم الإضافية بالمحطة (Ancillary Fees)',
+              icon: Icons.receipt_long_outlined,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: SearchableDropdownField<String>(
+                          labelText: 'نوع الرسم الإضافي',
+                          value: _customFeeNameController.text.isNotEmpty ? _customFeeNameController.text : null,
+                          items: DemurrageLookups.ancillaryFeeTypes
+                              .map((f) => SearchableDropdownItem(value: f, label: f))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _customFeeNameController.text = v);
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          controller: _customFeeAmountController,
+                          decoration: ccInputDecoration(
+                            prefix: Icons.attach_money_rounded,
+                            hint: 'المبلغ',
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 90,
+                        child: SearchableDropdownField<String>(
+                          labelText: 'العملة',
+                          value: _customFeeCurrency,
+                          items: const [
+                            SearchableDropdownItem(value: 'USD', label: 'USD'),
+                            SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                          ],
+                          onChanged: (c) {
+                            if (c != null) setState(() => _customFeeCurrency = c);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: AppButton(
+                          label: 'إضافة',
+                          icon: Icons.add,
+                          variant: AppButtonVariant.secondary,
+                          size: AppButtonSize.small,
+                          onPressed: () {
+                            final name = _customFeeNameController.text.trim();
+                            final amt = double.tryParse(_customFeeAmountController.text.trim());
+                            if (name.isNotEmpty && amt != null && amt > 0) {
+                              setState(() {
+                                _ancillaryFees.add({
+                                  'fee_name': name,
+                                  'fee_amount': amt,
+                                  'currency': _customFeeCurrency,
+                                });
+                                _customFeeNameController.clear();
+                                _customFeeAmountController.clear();
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_ancillaryFees.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _ancillaryFees.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final fee = entry.value;
+                        return Chip(
+                          backgroundColor: AppTheme.cobalt.withValues(alpha: 0.08),
+                          label: Text(
+                            '${fee['fee_name']}: ${fee['fee_amount']} ${fee['currency']}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          onDeleted: () => setState(() => _ancillaryFees.removeAt(idx)),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -219,6 +449,10 @@ class _UpdateTrackingDatesDialogState extends ConsumerState<UpdateTrackingDatesD
   late DateTime? _emptyReturn;
   late final DateTime _discharge;
   bool _isSaving = false;
+  late List<Map<String, dynamic>> _ancillaryFees;
+  final TextEditingController _customFeeNameController = TextEditingController();
+  final TextEditingController _customFeeAmountController = TextEditingController();
+  String _customFeeCurrency = 'USD';
 
   @override
   void initState() {
@@ -227,6 +461,17 @@ class _UpdateTrackingDatesDialogState extends ConsumerState<UpdateTrackingDatesD
     _gateOut = item.gateOutDate != null ? DateTime.tryParse(item.gateOutDate!) : null;
     _emptyReturn = item.emptyReturnDate != null ? DateTime.tryParse(item.emptyReturnDate!) : null;
     _discharge = DateTime.tryParse(item.dischargeDate) ?? DateTime.now();
+    _ancillaryFees = item.ancillaryFees
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  @override
+  void dispose() {
+    _customFeeNameController.dispose();
+    _customFeeAmountController.dispose();
+    super.dispose();
   }
 
   Future<void> _submit() async {
@@ -250,6 +495,7 @@ class _UpdateTrackingDatesDialogState extends ConsumerState<UpdateTrackingDatesD
           widget.item.trackingId,
           gateOutDate: _gateOut != null ? _fmtDate(_gateOut!) : null,
           emptyReturnDate: _emptyReturn != null ? _fmtDate(_emptyReturn!) : null,
+          ancillaryFees: _ancillaryFees,
         );
     final error = ref.read(demurrageProvider).errorObject;
     if (!mounted) return;
@@ -280,7 +526,7 @@ class _UpdateTrackingDatesDialogState extends ConsumerState<UpdateTrackingDatesD
     return CcStageDialogShell(
       title: l.updateTrackingDatesDialogTitle(item.trackingCode),
       icon: Icons.edit_calendar_outlined,
-      maxWidth: 520,
+      maxWidth: 620,
       chips: [
         CcHeaderChip(Icons.tag, item.trackingCode, ltr: true),
         CcHeaderChip(Icons.directions_boat_outlined, item.carrierName),
@@ -290,40 +536,150 @@ class _UpdateTrackingDatesDialogState extends ConsumerState<UpdateTrackingDatesD
       confirmIcon: Icons.calculate_outlined,
       isSubmitting: _isSaving,
       onConfirm: _submit,
-      body: CcFormSection(
-        title: l.updateGateOutAndReturnDatesBtn,
-        icon: Icons.event_available_outlined,
-        child: Column(
-          children: [
-            CcField(
-              label: l.gateOutDateTile,
-              child: CcDateTile(
-                date: _gateOut,
-                placeholder: l.notRecordedOption,
-                onTap: () async {
-                  final picked = await _pick(_gateOut ?? _discharge, _discharge);
-                  if (picked != null) setState(() => _gateOut = picked);
-                },
-              ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          CcFormSection(
+            title: l.updateGateOutAndReturnDatesBtn,
+            icon: Icons.event_available_outlined,
+            child: Column(
+              children: [
+                CcField(
+                  label: l.gateOutDateTile,
+                  child: CcDateTile(
+                    date: _gateOut,
+                    placeholder: l.notRecordedOption,
+                    onTap: () async {
+                      final picked = await _pick(_gateOut ?? _discharge, _discharge);
+                      if (picked != null) setState(() => _gateOut = picked);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 14),
+                CcField(
+                  label: l.emptyReturnDateTile,
+                  child: CcDateTile(
+                    date: _emptyReturn,
+                    placeholder: l.notRecordedOption,
+                    onTap: () async {
+                      final picked = await _pick(_emptyReturn ?? (_gateOut ?? _discharge), _gateOut ?? _discharge);
+                      if (picked != null) setState(() => _emptyReturn = picked);
+                    },
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 14),
-            CcField(
-              label: l.emptyReturnDateTile,
-              child: CcDateTile(
-                date: _emptyReturn,
-                placeholder: l.notRecordedOption,
-                onTap: () async {
-                  final picked = await _pick(_emptyReturn ?? (_gateOut ?? _discharge), _gateOut ?? _discharge);
-                  if (picked != null) setState(() => _emptyReturn = picked);
-                },
-              ),
+          ),
+          const SizedBox(height: 16),
+          CcFormSection(
+            title: 'الرسوم الإضافية بالمحطة (Ancillary Fees)',
+            icon: Icons.receipt_long_outlined,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: SearchableDropdownField<String>(
+                        labelText: 'نوع الرسم الإضافي',
+                        value: _customFeeNameController.text.isNotEmpty ? _customFeeNameController.text : null,
+                        items: DemurrageLookups.ancillaryFeeTypes
+                            .map((f) => SearchableDropdownItem(value: f, label: f))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() => _customFeeNameController.text = v);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _customFeeAmountController,
+                        decoration: ccInputDecoration(
+                          prefix: Icons.attach_money_rounded,
+                          hint: 'المبلغ',
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 90,
+                      child: SearchableDropdownField<String>(
+                        labelText: 'العملة',
+                        value: _customFeeCurrency,
+                        items: const [
+                          SearchableDropdownItem(value: 'USD', label: 'USD'),
+                          SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                        ],
+                        onChanged: (c) {
+                          if (c != null) setState(() => _customFeeCurrency = c);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: AppButton(
+                        label: 'إضافة',
+                        icon: Icons.add,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.small,
+                        onPressed: () {
+                          final name = _customFeeNameController.text.trim();
+                          final amt = double.tryParse(_customFeeAmountController.text.trim());
+                          if (name.isNotEmpty && amt != null && amt > 0) {
+                            setState(() {
+                              _ancillaryFees.add({
+                                'fee_name': name,
+                                'fee_amount': amt,
+                                'currency': _customFeeCurrency,
+                              });
+                              _customFeeNameController.clear();
+                              _customFeeAmountController.clear();
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                if (_ancillaryFees.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _ancillaryFees.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final fee = entry.value;
+                      final feeName = fee['fee_name'] ?? fee['fee_type'] ?? 'رسم إضافي';
+                      final feeAmt = fee['fee_amount'] ?? fee['amount_usd'] ?? 0;
+                      final feeCurr = fee['currency'] ?? 'USD';
+                      return Chip(
+                        backgroundColor: AppTheme.cobalt.withValues(alpha: 0.08),
+                        label: Text(
+                          '$feeName: $feeAmt $feeCurr',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        deleteIcon: const Icon(Icons.close, size: 16),
+                        onDeleted: () => setState(() => _ancillaryFees.removeAt(idx)),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
+
 
 /// Add a carrier tariff policy.
 class AddPolicyDialog extends ConsumerStatefulWidget {

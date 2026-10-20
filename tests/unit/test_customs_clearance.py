@@ -222,5 +222,59 @@ class TestCustomsClearanceModule(unittest.TestCase):
         self.assertEqual(restored.customs_clearance_id, rec_id)
         self.assertTrue(restored.is_active)
 
+    def test_closed_file_guards_customs_clearance(self):
+        """BEW0-03: Closed import file prevents create, update, delete, restore, and assessment."""
+        # 1. Closed file prevents create
+        closed_file = ImportFile(
+            import_file_code="IMP-CLOSED-CC",
+            company_name="Delta Import Ltd",
+            supplier_name="Global Steel Ltd",
+            status="Closed",
+        )
+        self.db.add(closed_file)
+        self.db.commit()
+        self.db.refresh(closed_file)
+
+        create_schema = CustomsClearanceCreate(import_file_id=closed_file.import_file_id)
+        with self.assertRaises(HTTPException) as ctx:
+            create_customs_clearance_service(self.db, create_schema)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "IMPORT_FILE_CLOSED")
+
+        # 2. Existing record on a file that gets closed
+        record = create_customs_clearance_service(self.db, CustomsClearanceCreate(import_file_id=self.import_file_id))
+        rec_id = record.customs_clearance_id
+
+        # Mark file as Closed
+        file_obj = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
+        file_obj.status = "Closed"
+        self.db.commit()
+
+        # Update should fail with 409
+        with self.assertRaises(HTTPException) as ctx:
+            update_customs_clearance_service(self.db, rec_id, CustomsClearanceUpdate(notes="new notes"))
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "IMPORT_FILE_CLOSED")
+
+        # Delete should fail with 409
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_customs_clearance_service(self.db, rec_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "IMPORT_FILE_CLOSED")
+
+        # Assessment (CL-02) should fail with 409
+        cl02_data = FinalDutyAssessmentSubmit(
+            import_file_id=self.import_file_id,
+            nafeza_claim_number="CLM-TEST-001",
+            cif_base_amount=100000.0,
+            import_duty_amount=5000.0,
+            vat_amount=14000.0,
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            assess_final_customs_duties_service(self.db, cl02_data)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "IMPORT_FILE_CLOSED")
+
 if __name__ == "__main__":
     unittest.main()
+

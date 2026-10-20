@@ -13,8 +13,8 @@ def validate_tier_rates(tiers: List[TierRateItem], tier_name: str = "Tiers") -> 
         return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"{tier_name}: {detail}")
 
     sorted_tiers = sorted(tiers, key=lambda t: t.from_day)
-    if sorted_tiers[0].from_day != 1:
-        raise fail("يجب أن تبدأ الشريحة الأولى من اليوم 1.")
+    if sorted_tiers[0].from_day < 1:
+        raise fail("يجب أن تبدأ الشريحة الأولى من اليوم 1 على الأقل.")
 
     for i, t in enumerate(sorted_tiers):
         if t.rate_per_day < 0:
