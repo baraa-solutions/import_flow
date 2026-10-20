@@ -84,3 +84,5 @@ from modules.transport_locations.model import TransportLocation
 from modules.users.model import User
 from modules.vessel_tracking.model import Vessel, VesselPositionLog, ShipmentVesselTracking
 from modules.warehouse_receiving.model import WarehouseReceivingRecord
+from modules.inspection_appeals.model import InspectionAppeal
+from modules.custody_release.model import CustodyReleaseDossier
