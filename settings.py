@@ -148,3 +148,8 @@ ADMIN_INITIAL_PASSWORD = resolve_admin_initial_password(IS_PRODUCTION_BUILD)
 # Authentication & Session Lifetime (7 days for Desktop ERP, 14 days refresh grace period)
 JWT_ACCESS_TOKEN_EXPIRE_SECONDS = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", str(86400 * 7)))
 JWT_REFRESH_GRACE_PERIOD_SECONDS = int(os.getenv("JWT_REFRESH_GRACE_PERIOD_SECONDS", str(86400 * 14)))
+
+# Trusted reverse proxy IPs (for X-Forwarded-For evaluation in login limiter)
+raw_trusted = os.getenv("TRUSTED_PROXY_IPS", "")
+TRUSTED_PROXY_IPS: list[str] = [ip.strip() for ip in raw_trusted.split(",") if ip.strip()]
+

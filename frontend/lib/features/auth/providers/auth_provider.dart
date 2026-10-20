@@ -194,7 +194,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> applyUserJson(Map<String, dynamic> userJson) async {
     if (!state.isAuthenticated) return;
     final user = UserModel.fromJson(userJson);
-    state = state.copyWith(user: user);
+    final newToken = userJson['access_token'] as String?;
+    if (newToken != null && newToken.isNotEmpty) {
+      await _storage.write(key: _tokenKey, value: newToken);
+      state = state.copyWith(user: user, token: newToken);
+    } else {
+      state = state.copyWith(user: user);
+    }
     await _persistUser(user);
   }
 

@@ -1,7 +1,7 @@
 """add deleted_at and deleted_by soft delete audit fields to financial_settlement_records (BE09-T14)
 
-Revision ID: c9d0e1f2a3b4
-Revises: b8c9d0e1f2a3
+Revision ID: f2a3b4c5d6e7
+Revises: f1a2b3c4d5e6
 Create Date: 2026-10-19
 """
 
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers
-revision: str = "c9d0e1f2a3b4"
-down_revision: Union[str, Sequence[str], None] = "b8c9d0e1f2a3"
+revision: str = "f2a3b4c5d6e7"
+down_revision: Union[str, Sequence[str], None] = "f1a2b3c4d5e6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

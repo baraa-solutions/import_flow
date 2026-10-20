@@ -1,7 +1,7 @@
 """create partial unique index uq_fs_records_active_file on financial_settlement_records (BE09-T07)
 
-Revision ID: b8c9d0e1f2a3
-Revises: a7b8c9d0e1f2
+Revision ID: f1a2b3c4d5e6
+Revises: c9d0e1f2a3b4
 Create Date: 2026-10-19
 """
 
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers
-revision: str = "b8c9d0e1f2a3"
-down_revision: Union[str, Sequence[str], None] = "a7b8c9d0e1f2"
+revision: str = "f1a2b3c4d5e6"
+down_revision: Union[str, Sequence[str], None] = "c9d0e1f2a3b4"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

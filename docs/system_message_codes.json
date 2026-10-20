@@ -3968,6 +3968,15 @@
       "note"
     ]
   },
+  "SS_FX_RATE_MISSING": {
+    "params": [
+      "currency",
+      "on_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "TASK_AUTO_PHASE_FOLLOW_UP": {
     "params": [
       "import_file_code",

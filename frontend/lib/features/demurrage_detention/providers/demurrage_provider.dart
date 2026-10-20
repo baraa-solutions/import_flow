@@ -12,6 +12,9 @@ import '../models/demurrage_model.dart';
 class DemurrageState {
   final List<DemurragePolicyModel> policies;
   final List<DemurrageTrackingModel> trackings;
+  final List<TerminalModel> terminals;
+  final List<CarrierModel> carriers;
+  final RatesHistoryModel? ratesHistory;
   final DemurrageSimulationResultModel? simulationResult;
   final FreeDaysAgreementModel? activeAgreement;
   final bool isLoading;
@@ -31,6 +34,9 @@ class DemurrageState {
   const DemurrageState({
     this.policies = const [],
     this.trackings = const [],
+    this.terminals = const [],
+    this.carriers = const [],
+    this.ratesHistory,
     this.simulationResult,
     this.activeAgreement,
     this.isLoading = false,
@@ -47,6 +53,9 @@ class DemurrageState {
   DemurrageState copyWith({
     List<DemurragePolicyModel>? policies,
     List<DemurrageTrackingModel>? trackings,
+    List<TerminalModel>? terminals,
+    List<CarrierModel>? carriers,
+    RatesHistoryModel? ratesHistory,
     DemurrageSimulationResultModel? simulationResult,
     FreeDaysAgreementModel? activeAgreement,
     bool? isLoading,
@@ -62,6 +71,9 @@ class DemurrageState {
     return DemurrageState(
       policies: policies ?? this.policies,
       trackings: trackings ?? this.trackings,
+      terminals: terminals ?? this.terminals,
+      carriers: carriers ?? this.carriers,
+      ratesHistory: ratesHistory ?? this.ratesHistory,
       simulationResult: simulationResult ?? this.simulationResult,
       activeAgreement: activeAgreement ?? this.activeAgreement,
       isLoading: isLoading ?? this.isLoading,
@@ -76,6 +88,7 @@ class DemurrageState {
     );
   }
 }
+
 
 class DemurrageNotifier extends StateNotifier<DemurrageState> {
   final Dio _dio;
@@ -108,6 +121,9 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
       await Future.wait([
         fetchPolicies(),
         fetchTrackings(),
+        fetchTerminals(),
+        fetchCarriers(),
+        fetchRatesHistory(),
       ]);
     } catch (e) {
       if (e is DioException && CancelToken.isCancel(e)) {
@@ -294,12 +310,20 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
     }
   }
 
-  Future<bool> updateTrackingDates(int trackingId, {String? gateOutDate, String? emptyReturnDate}) async {
+  Future<bool> updateTrackingDates(
+    int trackingId, {
+    String? gateOutDate,
+    String? emptyReturnDate,
+    List<Map<String, dynamic>>? ancillaryFees,
+    double? exchangeRate,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final payload = <String, dynamic>{};
       if (gateOutDate != null) payload['gate_out_date'] = gateOutDate;
       if (emptyReturnDate != null) payload['empty_return_date'] = emptyReturnDate;
+      if (ancillaryFees != null) payload['ancillary_fees'] = ancillaryFees;
+      if (exchangeRate != null) payload['exchange_rate'] = exchangeRate;
 
       await _dio.put('/demurrage-detention/trackings/$trackingId', data: payload);
       await fetchTrackings();
@@ -309,6 +333,54 @@ class DemurrageNotifier extends StateNotifier<DemurrageState> {
       return false;
     }
   }
+
+  Future<void> fetchTerminals() async {
+    try {
+      final res = await _dio.get('/demurrage-detention/terminals');
+      if (res.data is List) {
+        final list = (res.data as List).map((t) => TerminalModel.fromJson(t)).toList();
+        state = state.copyWith(terminals: list);
+      }
+    } catch (e) {
+      state = state.copyWith(error: ApiError.message(e), errorObject: e);
+    }
+  }
+
+  Future<void> fetchCarriers() async {
+    try {
+      final res = await _dio.get('/demurrage-detention/carriers');
+      if (res.data is List) {
+        final list = (res.data as List).map((c) => CarrierModel.fromJson(c)).toList();
+        state = state.copyWith(carriers: list);
+      }
+    } catch (e) {
+      state = state.copyWith(error: ApiError.message(e), errorObject: e);
+    }
+  }
+
+  Future<RatesHistoryModel?> fetchRatesHistory({
+    int? terminalId,
+    int? carrierId,
+    String? containerType,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (terminalId != null) query['terminal_id'] = terminalId;
+      if (carrierId != null) query['carrier_id'] = carrierId;
+      if (containerType != null && containerType.isNotEmpty) query['container_type'] = containerType;
+
+      final res = await _dio.get('/demurrage-detention/rates-history', queryParameters: query);
+      if (res.data is Map<String, dynamic>) {
+        final history = RatesHistoryModel.fromJson(res.data);
+        state = state.copyWith(ratesHistory: history);
+        return history;
+      }
+    } catch (e) {
+      state = state.copyWith(error: ApiError.message(e), errorObject: e);
+    }
+    return null;
+  }
+
 
   Future<Map<String, dynamic>?> pushToSettlement(int trackingId, {int? importFileId}) async {
     try {

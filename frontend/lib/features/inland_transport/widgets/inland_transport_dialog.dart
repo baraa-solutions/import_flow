@@ -14,12 +14,35 @@ import '../models/inland_transport_model.dart';
 import '../providers/inland_transport_provider.dart';
 import '../../warehouse_receiving/widgets/ops_ui_kit.dart';
 
-/// Booking statuses written by the backend (legacy labels until the status enum lands).
+/// Booking statuses written by the backend and domain enums.
 class InlandStatus {
   InlandStatus._();
-  static const bookingConfirmed = 'Booking Confirmed';
-  static const inTransit = 'In Transit (Gate-Out)';
-  static const arrived = 'Arrived Warehouse';
+  static const bookingConfirmed = 'BOOKING_CONFIRMED';
+  static const dispatched = 'DISPATCHED';
+  static const inTransit = 'IN_TRANSIT';
+  static const arrived = 'ARRIVED_AT_WAREHOUSE';
+  static const delivered = 'DELIVERED';
+  static const cancelled = 'CANCELLED';
+
+  static String codeOf(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return '';
+    return DomainEnums.legacyToCode(DomainEnumType.inlandTransportStatus, raw.trim()) ?? raw.trim();
+  }
+
+  static bool isArrivedOrDelivered(String? raw) {
+    final code = codeOf(raw);
+    return code == arrived || code == delivered;
+  }
+
+  static bool isInTransit(String? raw) {
+    final code = codeOf(raw);
+    return code == inTransit;
+  }
+
+  static bool isBookingConfirmedOrDispatched(String? raw) {
+    final code = codeOf(raw);
+    return code == bookingConfirmed || code == dispatched;
+  }
 }
 
 /// A note is sent only when the user typed one: the server never receives an invented text.
@@ -74,6 +97,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
   bool _isLoading = true;
   bool _isSubmitting = false;
   bool _showBookingForm = false;
+  bool _isEditing = false;
   // FE-06: a failed lookup must never fall through to the empty "create booking" form.
   Object? _loadError;
   InlandTransportModel? _existingBooking;
@@ -169,6 +193,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
       if (!mounted) return;
       setState(() {
         _existingBooking = booking;
+        _isEditing = false;
         if (booking != null) {
           _showBookingForm = false;
           _carrierId = booking.carrierId;
@@ -241,30 +266,54 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
       return;
     }
 
-    final payload = {
-      'import_file_id': widget.file.importFileId,
-      'waybill_number': _waybillController.text.trim(),
-      if (_carrierId != null) 'carrier_id': _carrierId,
-      'carrier_name': _carrierNameController.text.trim(),
-      'truck_plate_number': _truckPlateController.text.trim(),
-      'truck_type': _truckType,
-      'driver_name': _driverNameController.text.trim(),
-      'driver_phone': _driverPhoneController.text.trim(),
-      'driver_national_id': inlandNotesOrNull(_driverNationalIdController.text),
-      'container_numbers': inlandNotesOrNull(_containerNumbersController.text),
-      'pickup_port_location': _pickupLocationController.text.trim(),
-      'destination_warehouse': _destinationWarehouseController.text.trim(),
-      'planned_departure_at': plannedDepartureDateTime.toIso8601String(),
-      'expected_arrival_at': expectedArrivalDateTime.toIso8601String(),
-      'transport_fare_egp': double.parse(_fareEgpController.text.trim()),
-      'tracking_notes': inlandNotesOrNull(_trackingNotesController.text),
-    };
-
     setState(() => _isSubmitting = true);
     try {
-      final created = await ref.read(inlandTransportProvider.notifier).createBooking(payload);
-      _toast(l10n.inlandBookedSnack(created?.transportCode ?? ''), AppTheme.emerald);
-      if (mounted) await _loadBookingData();
+      if (_isEditing && _existingBooking != null) {
+        final updatePayload = <String, dynamic>{
+          'waybill_number': _waybillController.text.trim(),
+          if (_carrierId != null) 'carrier_id': _carrierId,
+          'carrier_name': _carrierNameController.text.trim(),
+          'truck_plate_number': _truckPlateController.text.trim(),
+          'truck_type': _truckType,
+          'driver_name': _driverNameController.text.trim(),
+          'driver_phone': _driverPhoneController.text.trim(),
+          'driver_national_id': inlandNotesOrNull(_driverNationalIdController.text),
+          'container_numbers': inlandNotesOrNull(_containerNumbersController.text),
+          'pickup_port_location': _pickupLocationController.text.trim(),
+          'destination_warehouse': _destinationWarehouseController.text.trim(),
+          'planned_departure_at': plannedDepartureDateTime.toIso8601String(),
+          'expected_arrival_at': expectedArrivalDateTime.toIso8601String(),
+          'transport_fare_egp': double.parse(_fareEgpController.text.trim()),
+          'tracking_notes': inlandNotesOrNull(_trackingNotesController.text),
+        };
+        await ref.read(inlandTransportProvider.notifier).updateBooking(_existingBooking!.transportId, updatePayload);
+        _toast(l10n.inlandUpdatedSnack, AppTheme.emerald);
+      } else {
+        final payload = {
+          'import_file_id': widget.file.importFileId,
+          'waybill_number': _waybillController.text.trim(),
+          if (_carrierId != null) 'carrier_id': _carrierId,
+          'carrier_name': _carrierNameController.text.trim(),
+          'truck_plate_number': _truckPlateController.text.trim(),
+          'truck_type': _truckType,
+          'driver_name': _driverNameController.text.trim(),
+          'driver_phone': _driverPhoneController.text.trim(),
+          'driver_national_id': inlandNotesOrNull(_driverNationalIdController.text),
+          'container_numbers': inlandNotesOrNull(_containerNumbersController.text),
+          'pickup_port_location': _pickupLocationController.text.trim(),
+          'destination_warehouse': _destinationWarehouseController.text.trim(),
+          'planned_departure_at': plannedDepartureDateTime.toIso8601String(),
+          'expected_arrival_at': expectedArrivalDateTime.toIso8601String(),
+          'transport_fare_egp': double.parse(_fareEgpController.text.trim()),
+          'tracking_notes': inlandNotesOrNull(_trackingNotesController.text),
+        };
+        final created = await ref.read(inlandTransportProvider.notifier).createBooking(payload);
+        _toast(l10n.inlandBookedSnack(created?.transportCode ?? ''), AppTheme.emerald);
+      }
+      if (mounted) {
+        _isEditing = false;
+        await _loadBookingData();
+      }
     } catch (e) {
       // A 409 IT_BOOKING_EXISTS carries `message` (rendered by ApiErrorText).
       _toast(ApiErrorText.of(l10n, e), AppTheme.crimson);
@@ -323,43 +372,49 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
     }
   }
 
-  AppSeverity _statusSeverity(String status) {
-    switch (status) {
+  AppSeverity _statusSeverity(String? status) {
+    final code = InlandStatus.codeOf(status);
+    switch (code) {
       case InlandStatus.arrived:
+      case InlandStatus.delivered:
         return AppSeverity.success;
       case InlandStatus.inTransit:
         return AppSeverity.info;
       case InlandStatus.bookingConfirmed:
+      case InlandStatus.dispatched:
         return AppSeverity.warning;
+      case InlandStatus.cancelled:
+        return AppSeverity.danger;
       default:
         return AppSeverity.info;
     }
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
+  Color _getStatusColor(String? status) {
+    final code = InlandStatus.codeOf(status);
+    switch (code) {
       case InlandStatus.arrived:
+      case InlandStatus.delivered:
         return AppTheme.emerald;
       case InlandStatus.inTransit:
         return AppTheme.cobalt;
       case InlandStatus.bookingConfirmed:
+      case InlandStatus.dispatched:
         return AppTheme.flatOrange;
+      case InlandStatus.cancelled:
+        return AppTheme.crimson;
       default:
         return AppTheme.charcoal;
     }
   }
 
-  String _statusLabel(AppLocalizations l10n, String status) {
-    switch (status) {
-      case InlandStatus.arrived:
-        return l10n.inlandStatusArrived;
-      case InlandStatus.inTransit:
-        return l10n.inlandStatusInTransit;
-      case InlandStatus.bookingConfirmed:
-        return l10n.inlandStatusConfirmed;
-      default:
-        return l10n.inlandStatusNotBooked;
+  String _statusLabel(AppLocalizations l10n, String? status) {
+    if (status == null || status.trim().isEmpty) return l10n.inlandStatusNotBooked;
+    final code = InlandStatus.codeOf(status);
+    if (DomainEnums.isCode(DomainEnumType.inlandTransportStatus, code)) {
+      return DomainEnums.label(l10n, DomainEnumType.inlandTransportStatus, code);
     }
+    return status;
   }
 
   @override
@@ -668,16 +723,27 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
-              OpsFit(
-                child: AppButton(
-                  label: _showBookingForm ? l10n.inlandHideForm : l10n.inlandEditOrRebook,
-                  icon: _showBookingForm ? Icons.expand_less : Icons.edit,
-                  variant: AppButtonVariant.ghost,
-                  size: AppButtonSize.small,
-                  onPressed: () => setState(() => _showBookingForm = !_showBookingForm),
+              if (!InlandStatus.isArrivedOrDelivered(b.status)) ...[
+                const SizedBox(width: 8),
+                OpsFit(
+                  child: AppButton(
+                    key: const Key('inlandEditBookingBtn'),
+                    label: _showBookingForm ? l10n.inlandHideForm : l10n.inlandEditBookingBtn,
+                    icon: _showBookingForm ? Icons.expand_less : Icons.edit,
+                    variant: AppButtonVariant.ghost,
+                    size: AppButtonSize.small,
+                    onPressed: () => setState(() {
+                      if (_showBookingForm) {
+                        _showBookingForm = false;
+                        _isEditing = false;
+                      } else {
+                        _showBookingForm = true;
+                        _isEditing = true;
+                      }
+                    }),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
           const Divider(height: 20),
@@ -700,7 +766,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
             ],
           ),
           const SizedBox(height: 16),
-          if (b.status == InlandStatus.bookingConfirmed)
+          if (InlandStatus.isBookingConfirmedOrDispatched(b.status))
             _buildActionPanel(
               color: AppTheme.cobalt,
               icon: Icons.departure_board,
@@ -726,7 +792,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                 onPressed: _isSubmitting ? null : _recordGateOut,
               ),
             )
-          else if (b.status == InlandStatus.inTransit)
+          else if (InlandStatus.isInTransit(b.status))
             _buildActionPanel(
               color: AppTheme.emerald,
               icon: Icons.warehouse_rounded,
@@ -772,7 +838,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                 onPressed: _isSubmitting ? null : _recordWarehouseArrival,
               ),
             )
-          else if (b.status == InlandStatus.arrived)
+          else if (InlandStatus.isArrivedOrDelivered(b.status))
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -915,7 +981,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    l10n.inlandFormTitle,
+                    _isEditing ? l10n.inlandEditBookingBtn : l10n.inlandFormTitle,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1113,7 +1179,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
               alignment: AlignmentDirectional.centerStart,
               child: AppButton(
                 key: const Key('inlandSubmitBookingBtn'),
-                label: l10n.inlandSubmitBtn,
+                label: _isEditing ? l10n.inlandSaveChangesBtn : l10n.inlandSubmitBtn,
                 variant: AppButtonVariant.success,
                 icon: Icons.check_circle,
                 isLoading: _isSubmitting,

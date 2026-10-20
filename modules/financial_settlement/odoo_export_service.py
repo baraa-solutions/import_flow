@@ -107,9 +107,9 @@ def generate_odoo_journal_entry_service(
         for exp in expense_invoices:
             if _is_seller_paid(exp):
                 continue
-            amt = round(float(exp.get("amount_egp") or 0.0), 2)
-            if amt == 0:
-                amt = round((float(exp.get("amount_fx") or 0.0)) * (float(exp.get("exchange_rate") or 1.0)), 2)
+            from .service import row_amount_egp  # no fabricated 1.0 rate for foreign-currency rows
+
+            amt = row_amount_egp(exp)
             duty_comp = exp.get("duty_component")
             cat = (exp.get("category") or "").strip()
             if duty_comp in ("vat_amount", "schedule_tax_amount") or (cat == "VAT" and duty_comp):
@@ -179,9 +179,9 @@ def generate_odoo_journal_entry_service(
         category = (exp.get("category") or "Other").strip()
         provider = (exp.get("provider_name") or "مقدم الخدمة").strip()
         inv_no = (exp.get("invoice_no") or "N/A").strip()
-        amount_egp = round(exp.get("amount_egp") or 0.0, 2)
-        if amount_egp == 0:
-            amount_egp = round((exp.get("amount_fx") or 0.0) * (exp.get("exchange_rate") or 1.0), 2)
+        from .service import row_amount_egp  # no fabricated 1.0 rate for foreign-currency rows
+
+        amount_egp = row_amount_egp(exp)
 
         if amount_egp == 0:
             continue

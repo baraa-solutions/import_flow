@@ -6,6 +6,7 @@ from modules.users.model import User
 from .rate_limiter import login_limiter
 from .schemas import (
     ChangeOwnPasswordRequest,
+    ChangeOwnPasswordResponse,
     LoginRequest,
     TokenResponse,
     UserCreate,
@@ -18,7 +19,9 @@ from .schemas import (
 )
 from datetime import datetime, timezone, timedelta
 from .security import decode_access_token, token_revocation_manager
+from .revoked_token_model import RevokedToken
 from .service import AuthService
+
 from .permissions import (
     require_permission,
     get_user_effective_permissions,
@@ -80,16 +83,20 @@ def require_manager_or_admin(current_user: User = Depends(get_current_user)) -> 
 
 @router.post("/login", response_model=TokenResponse)
 def login(request: Request, credentials: LoginRequest, db: Session = Depends(get_db)):
+    user_key = f"login:user:{credentials.username_or_email.strip().lower()}"
     login_limiter.check_rate_limit(request)
+    login_limiter.check_key(user_key)
     service = AuthService(db)
     user = service.authenticate_user(credentials.username_or_email, credentials.password)
     if not user:
         login_limiter.record_failure(request)
+        login_limiter.record_failure_key(user_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="اسم المستخدم أو كلمة المرور غير صحيحة."
         )
     login_limiter.record_success(request)
+    login_limiter.record_success_key(user_key)
     token = service.generate_user_token(user)
     return TokenResponse(access_token=token, user=user)
 
@@ -102,7 +109,8 @@ def refresh_token(
     """
     Refreshes an access token without requiring password re-entry.
     Accepts valid unexpired tokens, as well as recently expired tokens (within the 14-day refresh grace period),
-    provided the cryptographic HMAC signature is valid and the token has not been revoked via logout.
+    provided the cryptographic HMAC signature is valid, token_version matches, and the token has not been revoked.
+    Revokes the old token upon successful refresh.
     """
     token_revocation_manager.init_from_db(db)
     if not authorization:
@@ -134,8 +142,20 @@ def refresh_token(
             detail="User account is inactive or not found."
         )
 
+    if payload.get("tv", 0) != (user.token_version or 0):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token session expired or revoked."
+        )
+
     service = AuthService(db)
     new_token = service.generate_user_token(user)
+
+    # Revoke old token on refresh
+    exp_ts = payload.get("exp")
+    expires_at = datetime.fromtimestamp(exp_ts, tz=timezone.utc) if exp_ts else datetime.now(timezone.utc) + timedelta(days=14)
+    token_revocation_manager.revoke(token, user.user_id, expires_at, db)
+
     return TokenResponse(access_token=new_token, user=user)
 
 
@@ -144,15 +164,19 @@ def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.post("/me/change-password", response_model=UserResponse)
+@router.post("/me/change-password", response_model=ChangeOwnPasswordResponse)
 def change_my_password(
     payload: ChangeOwnPasswordRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Change the logged-in user's own password; clears must_change_password."""
+    """Change the logged-in user's own password; clears must_change_password and returns a new access_token."""
     service = AuthService(db)
-    return service.change_own_password(current_user, payload.current_password, payload.new_password)
+    updated_user = service.change_own_password(current_user, payload.current_password, payload.new_password)
+    new_token = service.generate_user_token(updated_user)
+    res = ChangeOwnPasswordResponse.model_validate(updated_user)
+    res.access_token = new_token
+    return res
 
 
 @router.post("/logout")

@@ -306,6 +306,7 @@ class TestDemurrageDetentionEngine:
         req = DemurrageTrackingCreate(
             import_file_id=501,
             carrier_name="MSC",
+            port_name="Alexandria Port",
             bill_of_lading_no="BL-NO-GATEOUT",
             port_name="Alexandria Port",
             discharge_date=date(2026, 9, 1),
@@ -324,6 +325,7 @@ class TestDemurrageDetentionEngine:
         req_valid = DemurrageTrackingCreate(
             import_file_id=501,
             carrier_name="MSC",
+            port_name="Alexandria Port",
             bill_of_lading_no="BL-VALID-INIT",
             port_name="Alexandria Port",
             discharge_date=date(2026, 9, 1),
@@ -410,6 +412,7 @@ class TestDemurrageDetentionEngine:
         req = DemurrageTrackingCreate(
             import_file_id=601,
             carrier_name="MSC",
+            port_name="Alexandria Port",
             bill_of_lading_no="BL-EIR-TEST",
             port_name="Alexandria Port",
             discharge_date=date(2026, 9, 1),

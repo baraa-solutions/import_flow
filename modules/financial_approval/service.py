@@ -1434,13 +1434,10 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
     highest_freight_egp = 0.0
     freight_currency: Optional[str] = None
     for s in shipping_sessions:
+        s_date = s.created_at.date() if getattr(s, "created_at", None) else date.today()
         for itm in s.items:
-            f_amt = float(getattr(itm, "total_quotation_amount", 0.0) or 0.0)
-            if f_amt == 0.0:
-                c40 = (itm.container_40ft_price or 0.0) * (itm.container_40ft_qty or 1) if itm.container_40ft_applicable else 0.0
-                c20 = (itm.container_20ft_price or 0.0) * (itm.container_20ft_qty or 1) if itm.container_20ft_applicable else 0.0
-                lcl = (itm.lcl_cbm_price or 0.0) * (itm.lcl_cbm_qty or 1) if itm.lcl_cbm_applicable else 0.0
-                f_amt = c40 + c20 + lcl
+            from modules.shipping_scenarios.service import scenario_item_totals
+            _, f_amt = scenario_item_totals(db, itm, s_date)
             if f_amt <= 0:
                 continue
             source = f"freight quotation ({s.session_code})" if getattr(s, "session_code", None) else "freight quotation"

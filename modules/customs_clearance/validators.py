@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 from fastapi import HTTPException, status
 
+from modules.common.validators import ensure_file_open
+
 # Payment amounts are EGP with 2 decimals: a difference below one piastre is rounding noise.
 MONEY_TOLERANCE = 0.01
 PAID_PAYMENT_STATUSES = ("Paid & Verified", "Paid", "Duties Paid")

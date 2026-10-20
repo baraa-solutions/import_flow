@@ -15,7 +15,7 @@ from modules.common.system_parameters import get_float_parameter, get_parameter
 from modules.common.validators import not_found, require_active
 from modules.import_files.model import ImportFile
 
-from .model import DemurragePolicy, DemurrageTracking
+from .model import DemurragePolicy, DemurrageTracking, Terminal, TerminalStorageRate, Carrier, CarrierDemurrageRate
 from .schemas import (
     DemurragePolicyCreate,
     DemurragePolicyUpdate,
@@ -35,6 +35,16 @@ from .schemas import (
     ContainerRadarOverviewResponse,
     EmptyContainerReturnSubmit,
     EmptyContainerReturnResponse,
+    TerminalCreate,
+    TerminalUpdate,
+    TerminalResponse,
+    TerminalStorageRateCreate,
+    TerminalStorageRateResponse,
+    CarrierCreate,
+    CarrierUpdate,
+    CarrierResponse,
+    CarrierDemurrageRateCreate,
+    CarrierDemurrageRateResponse,
 )
 from .validators import (
     validate_tier_rates,
@@ -104,7 +114,11 @@ class Tariff:
     storage_rate_egp: float
     demurrage_tiers: List[Dict[str, Any]]
     detention_tiers: List[Dict[str, Any]]
+    storage_tiers: Optional[List[Dict[str, Any]]] = None
     currency: str = "USD"
+    storage_currency: str = "USD"
+    imo_free_days: int = 0
+    imo_rate_multiplier: float = 2.0
 
 
 def _tiers_parameter(db: Session, key: str, default: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -130,24 +144,89 @@ def default_tariff(db: Session) -> Tariff:
         storage_rate_egp=get_float_parameter(db, DD_DEFAULT_STORAGE_RATE_EGP, DEFAULT_STORAGE_RATE_EGP),
         demurrage_tiers=_tiers_parameter(db, DD_DEFAULT_DEMURRAGE_TIERS, DEFAULT_DEMURRAGE_TIERS),
         detention_tiers=_tiers_parameter(db, DD_DEFAULT_DETENTION_TIERS, DEFAULT_DETENTION_TIERS),
+        storage_tiers=None,
         currency=get_parameter(db, DD_DEFAULT_TARIFF_CURRENCY) or DEFAULT_TARIFF_CURRENCY,
+        storage_currency="USD",
+        imo_free_days=0,
+        imo_rate_multiplier=2.0,
     )
 
 
-def _resolve_tariff(db: Session, policy: Optional[DemurragePolicy], fallback: Optional[Tariff] = None) -> Tariff:
-    """The policy's tariff, or the configured default tariff when there is no policy (empty tiers -> default)."""
+def _resolve_tariff(
+    db: Session,
+    policy: Optional[DemurragePolicy] = None,
+    fallback: Optional[Tariff] = None,
+    carrier_id: Optional[int] = None,
+    carrier_name: Optional[str] = None,
+    terminal_id: Optional[int] = None,
+    port_name: Optional[str] = None,
+    container_type: Optional[str] = None,
+    discharge_date: Optional[date] = None,
+) -> Tariff:
+    """The policy's tariff, or resolved historical rate cards, or the configured default tariff."""
     if fallback is None:
         fallback = default_tariff(db)
-    if not policy:
-        return fallback
+
+    # 1. Start with policy or fallback
+    c_free = policy.demurrage_free_days if policy else fallback.demurrage_free_days
+    det_free = policy.detention_free_days if policy else fallback.detention_free_days
+    s_free = policy.port_storage_free_days if policy else fallback.storage_free_days
+    s_rate_egp = policy.port_storage_daily_rate_egp if policy else fallback.storage_rate_egp
+    dem_tiers = policy.demurrage_tiers if policy and policy.demurrage_tiers else fallback.demurrage_tiers
+    det_tiers = policy.detention_tiers if policy and policy.detention_tiers else fallback.detention_tiers
+    stor_tiers = None
+    curr = policy.currency if policy and policy.currency else fallback.currency
+    stor_curr = "USD"
+    imo_free = 0
+    imo_mult = 2.0
+
+    target_d = discharge_date or _today()
+    c_type = container_type or "40ft High Cube"
+
+    # 2. Check Carrier Historical Rate Card
+    c_rec = None
+    if carrier_id:
+        c_rec = repository.get_effective_demurrage_rate(db, carrier_id, c_type, target_d)
+    elif carrier_name:
+        carrier = repository.find_carrier_by_name(db, carrier_name)
+        if carrier:
+            c_rec = repository.get_effective_demurrage_rate(db, carrier.carrier_id, c_type, target_d)
+
+    if c_rec:
+        c_free = c_rec.demurrage_free_days_standard
+        det_free = c_rec.detention_free_days_standard
+        dem_tiers = c_rec.demurrage_tiers
+        det_tiers = c_rec.detention_tiers
+        curr = c_rec.currency
+
+    # 3. Check Terminal Historical Storage Rate Card
+    s_rec = None
+    if terminal_id:
+        s_rec = repository.get_effective_storage_rate(db, terminal_id, c_type, target_d)
+    elif port_name:
+        terminal = repository.find_terminal_for_port(db, port_name)
+        if terminal:
+            s_rec = repository.get_effective_storage_rate(db, terminal.terminal_id, c_type, target_d)
+
+    if s_rec:
+        s_free = s_rec.free_days
+        stor_tiers = s_rec.storage_tiers
+        stor_curr = s_rec.currency
+        imo_free = s_rec.imo_free_days
+        imo_mult = s_rec.imo_rate_multiplier
+
     return Tariff(
-        demurrage_free_days=policy.demurrage_free_days,
-        detention_free_days=policy.detention_free_days,
-        storage_free_days=policy.port_storage_free_days,
-        storage_rate_egp=policy.port_storage_daily_rate_egp,
-        demurrage_tiers=policy.demurrage_tiers or fallback.demurrage_tiers,
-        detention_tiers=policy.detention_tiers or fallback.detention_tiers,
-        currency=policy.currency or fallback.currency,
+        demurrage_free_days=c_free,
+        detention_free_days=det_free,
+        storage_free_days=s_free,
+        storage_rate_egp=s_rate_egp,
+        demurrage_tiers=dem_tiers,
+        detention_tiers=det_tiers,
+        storage_tiers=stor_tiers,
+        currency=curr,
+        storage_currency=stor_curr,
+        imo_free_days=imo_free,
+        imo_rate_multiplier=imo_mult,
     )
 
 
@@ -195,7 +274,20 @@ def _tracking_tariff(db: Session, tracking: DemurrageTracking, booking_free_days
     radar): policy (or configured default) + the file's free-days agreement."""
     if booking_free_days is _UNSET:
         booking_free_days = _booking_free_days(db, tracking.import_file_id)
-    base_tariff = _resolve_tariff(db, tracking.policy, fallback=fallback)
+    first_c_type = None
+    if tracking.containers and isinstance(tracking.containers, list) and len(tracking.containers) > 0:
+        first_c_type = tracking.containers[0].get("container_type")
+    base_tariff = _resolve_tariff(
+        db,
+        tracking.policy,
+        fallback=fallback,
+        carrier_id=tracking.carrier_id,
+        carrier_name=tracking.carrier_name,
+        terminal_id=tracking.terminal_id,
+        port_name=tracking.port_name,
+        container_type=first_c_type,
+        discharge_date=tracking.discharge_date,
+    )
     if tracking.currency and base_tariff.currency and tracking.currency.upper() != base_tariff.currency.upper():
         logger.warning(
             "Tracking %s has currency %s, but resolved policy currency is now %s. Keeping tracking currency.",
@@ -217,14 +309,21 @@ SETTLEMENT_STALE_CODE = "DD_SETTLEMENT_STALE"
 PUSHED_STATUS = "Pushed to Settlement"
 
 
-def _settlement_invoice_nos(tracking: DemurrageTracking) -> Tuple[str, str]:
-    return f"INV-DND-{tracking.tracking_code}", f"INV-STO-{tracking.tracking_code}"
+def _settlement_invoice_nos(tracking: DemurrageTracking) -> Tuple[str, str, str]:
+    return (
+        f"INV-DND-{tracking.tracking_code}",
+        f"INV-STO-{tracking.tracking_code}",
+        f"INV-ANC-{tracking.tracking_code}",
+    )
 
 
 def _settlement_rows(tracking: DemurrageTracking) -> List[Dict[str, Any]]:
-    """Two expense rows, each with amount_fx x exchange_rate == amount_egp: the carrier charges (demurrage +
-    detention, tracking currency) and the port storage (EGP, rate 1.0, only when there is storage)."""
-    carrier_no, storage_no = _settlement_invoice_nos(tracking)
+    """Expense rows, each with amount_fx x exchange_rate == amount_egp:
+    1. Carrier charges (demurrage + detention, tracking currency)
+    2. Port storage (EGP, rate 1.0, only when there is storage)
+    3. Terminal ancillary fees (inspection, weighing, etc., in USD or EGP)
+    """
+    carrier_no, storage_no, anc_no = _settlement_invoice_nos(tracking)
     rate = float(tracking.exchange_rate)
     carrier_fx = round((tracking.total_demurrage_fx or 0.0) + (tracking.total_detention_fx or 0.0), 2)
     storage_egp = round(tracking.total_storage_egp or 0.0, 2)
@@ -251,6 +350,29 @@ def _settlement_rows(tracking: DemurrageTracking) -> List[Dict[str, Any]]:
             "allocation_rule": "Volume-Based",
             "notes": f"Automated port storage fee for B/L: {tracking.bill_of_lading_no} (Tracking: {tracking.tracking_code})",
         })
+
+    # Ancillary terminal fees (Inspection, Weighing, Reefer electricity)
+    ancillary = tracking.ancillary_fees or []
+    if ancillary:
+        total_anc_usd = sum(float(f.get("amount_usd", 0.0)) for f in ancillary if isinstance(f, dict))
+        total_anc_egp = sum(float(f.get("amount_egp", 0.0)) for f in ancillary if isinstance(f, dict))
+        if total_anc_usd > 0 or total_anc_egp > 0:
+            if total_anc_usd > 0 and total_anc_egp == 0:
+                total_anc_egp = round(total_anc_usd * rate, 2)
+            elif total_anc_egp > 0 and total_anc_usd == 0:
+                total_anc_usd = round(total_anc_egp / rate, 2)
+
+            rows.append({
+                "invoice_no": anc_no,
+                "category": "Port Charges",
+                "provider_name": tracking.port_name,
+                "currency": tracking.currency or "USD",
+                "amount_fx": round(total_anc_usd, 2),
+                "exchange_rate": rate,
+                "amount_egp": round(total_anc_egp, 2),
+                "allocation_rule": "Volume-Based",
+                "notes": f"Automated terminal ancillary fees (Inspection/Weighing) for B/L: {tracking.bill_of_lading_no} (Tracking: {tracking.tracking_code})",
+            })
     return rows
 
 
@@ -361,6 +483,11 @@ def _recalculate_containers(
             port_storage_daily_rate_egp=tariff.storage_rate_egp,
             demurrage_tiers=tariff.demurrage_tiers,
             detention_tiers=tariff.detention_tiers,
+            storage_tiers=tariff.storage_tiers,
+            storage_currency=tariff.storage_currency,
+            port_name=tracking.port_name,
+            carrier_id=tracking.carrier_id,
+            terminal_id=tracking.terminal_id,
             discharge_date=tracking.discharge_date,
             gate_out_date=c_gate_out,
             empty_return_date=c_return,
@@ -375,6 +502,7 @@ def _recalculate_containers(
             "demurrage_fx": sim.demurrage_fee_fx,
             "detention_fx": sim.detention_fee_fx,
             "storage_egp": sim.storage_fee_egp,
+            "storage_fx": sim.storage_fee_fx,
             "total_egp": sim.total_cost_egp,
             "status": status_fn(item, sim, c_gate_out, c_return) if status_fn else sim.status_badge,
         })
@@ -404,46 +532,59 @@ def _incurred_status(dem: float, det: float) -> str:
     return "Free Time Active"
 
 
-def calculate_tiered_fee(overdue_days: int, tiers: List[Dict[str, Any]]) -> Dict[str, Any]:
+def calculate_tiered_fee(
+    overdue_days: int,
+    tiers: List[Dict[str, Any]],
+    day_offset: int = 0,
+) -> Dict[str, Any]:
     """
     Calculates the accumulated fee over overdue days based on tiered rate brackets.
+    Supports day_offset for calendar-anchored tiers or concession free-time offsets.
     Returns total fee and tier breakdown.
     """
     if overdue_days <= 0 or not tiers:
         return {"total_fee": 0.0, "tier_breakdown": []}
 
-    total_fee = 0.0
-    tier_breakdown = []
-    
-    # Sort tiers by starting day
     sorted_tiers = sorted(tiers, key=lambda t: t.get("from_day", 1))
+    min_from = sorted_tiers[0].get("from_day", 1)
+
+    effective_offset = day_offset
+    if effective_offset == 0 and min_from > 1:
+        # If tiers start beyond day 1 (e.g. from_day: 8), auto-anchor to calendar days
+        effective_offset = min_from - 1
+
+    total_fee = 0.0
+    tier_counts: Dict[int, int] = {i: 0 for i in range(len(sorted_tiers))}
 
     for day in range(1, overdue_days + 1):
-        matching_rate = 0.0
-        applied_tier_name = "Base Tier"
-        for t in sorted_tiers:
+        actual_day = day + effective_offset
+        matched = False
+        for idx, t in enumerate(sorted_tiers):
             from_d = t.get("from_day", 1)
             to_d = t.get("to_day")
-            if from_d <= day and (to_d is None or day <= to_d):
+            if from_d <= actual_day and (to_d is None or actual_day <= to_d):
                 matching_rate = float(t.get("rate_per_day", 0.0))
-                applied_tier_name = f"Day {from_d} to {to_d or '∞'}"
+                total_fee += matching_rate
+                tier_counts[idx] += 1
+                matched = True
                 break
-        total_fee += matching_rate
+        if not matched and sorted_tiers:
+            last_idx = len(sorted_tiers) - 1
+            total_fee += float(sorted_tiers[last_idx].get("rate_per_day", 0.0))
+            tier_counts[last_idx] += 1
 
-    # Generate summary per tier
-    for t in sorted_tiers:
-        from_d = t.get("from_day", 1)
-        to_d = t.get("to_day")
-        rate = float(t.get("rate_per_day", 0.0))
-        if overdue_days >= from_d:
-            days_in_this_tier = min(overdue_days, to_d) - from_d + 1 if to_d else overdue_days - from_d + 1
-            days_in_this_tier = max(0, days_in_this_tier)
-            cost_in_tier = days_in_this_tier * rate
+    tier_breakdown = []
+    for idx, t in enumerate(sorted_tiers):
+        count = tier_counts[idx]
+        if count > 0:
+            from_d = t.get("from_day", 1)
+            to_d = t.get("to_day")
+            rate = float(t.get("rate_per_day", 0.0))
             tier_breakdown.append({
                 "tier_name": f"الأيام {from_d} - {to_d or 'ما بعدها'}",
                 "rate_per_day": rate,
-                "days_applied": days_in_this_tier,
-                "tier_cost": round(cost_in_tier, 2),
+                "days_applied": count,
+                "tier_cost": round(count * rate, 2),
             })
 
     return {"total_fee": round(total_fee, 2), "tier_breakdown": tier_breakdown}
@@ -473,7 +614,15 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
     demurrage_days_overdue = max(0, demurrage_days_consumed - req.demurrage_free_days)
     demurrage_expiry_date = req.discharge_date + timedelta(days=req.demurrage_free_days)
 
-    dem_calc = calculate_tiered_fee(demurrage_days_overdue, dem_tiers)
+    # Determine demurrage day offset (tier anchor logic)
+    dem_day_offset = 0
+    if dem_tiers:
+        min_dem_from = min(t.get("from_day", 1) for t in dem_tiers)
+        max_dem_to = max(t.get("to_day") or 9999 for t in dem_tiers)
+        if min_dem_from == 1 and req.demurrage_free_days > 14 and max_dem_to > req.demurrage_free_days:
+            dem_day_offset = req.demurrage_free_days
+
+    dem_calc = calculate_tiered_fee(demurrage_days_overdue, dem_tiers, day_offset=dem_day_offset)
     single_container_dem_fx = dem_calc["total_fee"]
     total_demurrage_fx = round(single_container_dem_fx * req.containers_count, 2)
 
@@ -493,18 +642,65 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
         total_detention_fx = round(det_calc["total_fee"] * req.containers_count, 2)
 
     # 3. Port Storage calculation
-    storage_end_date = req.gate_out_date or calc_date
-    if req.empty_return_date and req.empty_return_date < storage_end_date:
-        storage_end_date = req.empty_return_date
+    # Decouple storage end date: port storage stops strictly at gate-out.
+    # If gate_out_date is not set, empty_return_date implies it already gated out.
+    storage_end_date = req.gate_out_date or req.empty_return_date or calc_date
     storage_days_consumed = max(0, (storage_end_date - req.discharge_date).days)
-    storage_days_overdue = max(0, storage_days_consumed - req.port_storage_free_days)
-    storage_fee_egp = round(storage_days_overdue * req.port_storage_daily_rate_egp * req.containers_count, 2)
 
-    # 4. Totals and Currency Conversions
+    # IMO adjustments if is_imo is True
+    effective_storage_free_days = req.port_storage_free_days
+    imo_multiplier = 1.0
+    if req.is_imo:
+        effective_storage_free_days = min(effective_storage_free_days, 1)
+        imo_multiplier = 2.0
+
+    storage_days_overdue = max(0, storage_days_consumed - effective_storage_free_days)
+
+    storage_tier_breakdown = []
+    storage_fee_fx = 0.0
+    storage_fee_egp = 0.0
+
+    if req.storage_tiers:
+        stor_tiers = [t.model_dump() if hasattr(t, 'model_dump') else t for t in req.storage_tiers]
+        stor_calc = calculate_tiered_fee(storage_days_overdue, stor_tiers, day_offset=effective_storage_free_days)
+        base_storage_fee = stor_calc["total_fee"] * imo_multiplier
+        storage_tier_breakdown = stor_calc.get("tier_breakdown", [])
+
+        if (req.storage_currency or "USD").upper() == "USD":
+            storage_fee_fx = round(base_storage_fee * req.containers_count, 2)
+            storage_fee_egp = round(storage_fee_fx * req.exchange_rate, 2)
+        else:
+            storage_fee_egp = round(base_storage_fee * req.containers_count, 2)
+            storage_fee_fx = round(storage_fee_egp / req.exchange_rate, 2) if req.exchange_rate else 0.0
+    else:
+        # Legacy daily rate fallback
+        storage_fee_egp = round(storage_days_overdue * req.port_storage_daily_rate_egp * req.containers_count * imo_multiplier, 2)
+        storage_fee_fx = round(storage_fee_egp / req.exchange_rate, 2) if req.exchange_rate else 0.0
+
+    # 4. Ancillary fees calculation (Inspection, Weighing, Reefer Monitoring)
+    ancillary_fee_fx = 0.0
+    ancillary_fee_egp = 0.0
+    ancillary_items = []
+    if req.ancillary_fees:
+        for f in req.ancillary_fees:
+            if isinstance(f, dict):
+                usd = float(f.get("amount_usd", 0.0))
+                egp = float(f.get("amount_egp", 0.0))
+                if usd > 0:
+                    ancillary_fee_fx += usd
+                    ancillary_fee_egp += usd * req.exchange_rate
+                elif egp > 0:
+                    ancillary_fee_egp += egp
+                    ancillary_fee_fx += (egp / req.exchange_rate) if req.exchange_rate else 0.0
+                ancillary_items.append(f)
+        ancillary_fee_fx = round(ancillary_fee_fx * req.containers_count, 2)
+        ancillary_fee_egp = round(ancillary_fee_egp * req.containers_count, 2)
+
+    # 5. Totals and Currency Conversions
     total_fee_fx = round(total_demurrage_fx + total_detention_fx, 2)
-    total_cost_egp = round((total_fee_fx * req.exchange_rate) + storage_fee_egp, 2)
+    total_cost_egp = round((total_fee_fx * req.exchange_rate) + storage_fee_egp + ancillary_fee_egp, 2)
 
-    # 5. Status & Countdown Summary
+    # 6. Status & Countdown Summary
     if demurrage_days_overdue > 0 and detention_days_overdue > 0:
         status_badge = "DEMURRAGE_AND_DETENTION_INCURRED"
         countdown_summary = f"⚠️ تم تجاوز فترة السماح: تأخير أرضيات {demurrage_days_overdue} يوم + تأخير فارغ {detention_days_overdue} يوم."
@@ -547,12 +743,23 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
         {
             "category": "Port Storage (تخزين ساحات الميناء)",
             "days_consumed": storage_days_consumed,
-            "free_days": req.port_storage_free_days,
+            "free_days": effective_storage_free_days,
             "days_overdue": storage_days_overdue,
+            "fee_fx": storage_fee_fx,
             "fee_egp": storage_fee_egp,
-            "currency": "EGP",
+            "currency": req.storage_currency,
+            "tiers_applied": storage_tier_breakdown,
         }
     ]
+
+    if ancillary_items:
+        breakdown_details.append({
+            "category": "Terminal Ancillary Fees (مصاريف المحطة الملحقة: كشف/وزن)",
+            "fee_fx": ancillary_fee_fx,
+            "fee_egp": ancillary_fee_egp,
+            "currency": req.currency,
+            "items": ancillary_items,
+        })
 
     return DemurrageSimulationResponse(
         demurrage_days_consumed=demurrage_days_consumed,
@@ -566,9 +773,14 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
         detention_fee_fx=total_detention_fx,
         detention_expiry_date=detention_expiry_date,
         storage_days_consumed=storage_days_consumed,
-        storage_free_days=req.port_storage_free_days,
+        storage_free_days=effective_storage_free_days,
         storage_days_overdue=storage_days_overdue,
+        storage_fee_fx=storage_fee_fx,
         storage_fee_egp=storage_fee_egp,
+        storage_currency=req.storage_currency,
+        storage_tier_breakdown=storage_tier_breakdown,
+        ancillary_fee_fx=ancillary_fee_fx,
+        ancillary_fee_egp=ancillary_fee_egp,
         total_fee_fx=total_fee_fx,
         total_cost_egp=total_cost_egp,
         status_badge=status_badge,
@@ -577,22 +789,56 @@ def simulate_demurrage_and_detention(req: DemurrageSimulationRequest) -> Demurra
     )
 
 
-def simulate_with_defaults(db: Session, req: DemurrageSimulationRequest) -> DemurrageSimulationResponse:
-    """/simulate: fields the client did not send come from the configured default tariff (system parameters).
-    A request that carries all its values gets the same result as ``simulate_demurrage_and_detention``."""
-    tariff = default_tariff(db)
+def calculate_demurrage_detention_service(
+    db: Session, req: DemurrageSimulationRequest
+) -> DemurrageSimulationResponse:
+    """
+    Core Demurrage & Detention Calculation Service (MD-TERM-CARR-001).
+    1. Automatically resolves effective Carrier Demurrage and Terminal Storage rate cards
+       using (effective_date <= discharge_date) rather than fixed policies.
+    2. Overrides default tiers/free days with effective historical rate cards when not explicitly supplied.
+    3. Calculates tiered demurrage, detention, and terminal storage (with IMO support).
+    4. Calculates terminal ancillary fees (ancillary_fees: inspection, weighing, reefer).
+    """
+    first_c_type = req.container_type or "40ft High Cube"
+    resolved_tariff = _resolve_tariff(
+        db,
+        policy=None,
+        carrier_id=req.carrier_id,
+        carrier_name=req.carrier_name,
+        terminal_id=req.terminal_id,
+        port_name=req.port_name,
+        container_type=first_c_type,
+        discharge_date=req.discharge_date,
+    )
+
     sent = req.model_fields_set
-    filled = req.model_copy(update={
-        k: v for k, v in {
-            "demurrage_free_days": tariff.demurrage_free_days,
-            "detention_free_days": tariff.detention_free_days,
-            "port_storage_free_days": tariff.storage_free_days,
-            "port_storage_daily_rate_egp": tariff.storage_rate_egp,
-            "demurrage_tiers": [TierRateItem(**t) for t in tariff.demurrage_tiers],
-            "detention_tiers": [TierRateItem(**t) for t in tariff.detention_tiers],
-        }.items() if k not in sent or getattr(req, k) is None
-    })
+    update_dict: Dict[str, Any] = {}
+
+    if "demurrage_free_days" not in sent or req.demurrage_free_days is None:
+        update_dict["demurrage_free_days"] = resolved_tariff.demurrage_free_days
+    if "detention_free_days" not in sent or req.detention_free_days is None:
+        update_dict["detention_free_days"] = resolved_tariff.detention_free_days
+    if "port_storage_free_days" not in sent or req.port_storage_free_days is None:
+        update_dict["port_storage_free_days"] = resolved_tariff.storage_free_days
+    if "port_storage_daily_rate_egp" not in sent or req.port_storage_daily_rate_egp is None:
+        update_dict["port_storage_daily_rate_egp"] = resolved_tariff.storage_rate_egp
+    if ("demurrage_tiers" not in sent or not req.demurrage_tiers) and resolved_tariff.demurrage_tiers:
+        update_dict["demurrage_tiers"] = [TierRateItem(**t) for t in resolved_tariff.demurrage_tiers]
+    if ("detention_tiers" not in sent or not req.detention_tiers) and resolved_tariff.detention_tiers:
+        update_dict["detention_tiers"] = [TierRateItem(**t) for t in resolved_tariff.detention_tiers]
+    if ("storage_tiers" not in sent or not req.storage_tiers) and resolved_tariff.storage_tiers:
+        update_dict["storage_tiers"] = [TierRateItem(**t) for t in resolved_tariff.storage_tiers]
+    if "storage_currency" not in sent or not req.storage_currency:
+        update_dict["storage_currency"] = resolved_tariff.storage_currency
+
+    filled = req.model_copy(update=update_dict)
     return simulate_demurrage_and_detention(filled)
+
+
+def simulate_with_defaults(db: Session, req: DemurrageSimulationRequest) -> DemurrageSimulationResponse:
+    """/simulate: resolves historical rate cards for carrier & terminal and calculates charges."""
+    return calculate_demurrage_detention_service(db, req)
 
 
 # ----------------------------------------------------
@@ -685,13 +931,38 @@ def create_demurrage_tracking_service(
 
     # Fetch policy if provided or search matching policy (DD-10: first container type, pinned until Q13)
     policy = None
+    # Auto-resolve carrier and terminal IDs if not explicitly passed
+    carrier_id = req.carrier_id
+    if not carrier_id and req.carrier_name:
+        carrier_obj = repository.find_carrier_by_name(db, req.carrier_name)
+        if carrier_obj:
+            carrier_id = carrier_obj.carrier_id
+
+    terminal_id = req.terminal_id
+    if not terminal_id and req.port_name:
+        terminal_obj = repository.find_terminal_for_port(db, req.port_name)
+        if terminal_obj:
+            terminal_id = terminal_obj.terminal_id
+
+    # Fetch policy if provided or search matching policy (DD-10: first container type, pinned until Q13)
+    policy = None
+    first_container_type = req.containers[0].container_type if req.containers else "40ft High Cube"
     if req.policy_id:
         policy = repository.get_policy_by_id(db, req.policy_id)
     if not policy and req.carrier_name:
-        first_container_type = req.containers[0].container_type if req.containers else "40ft High Cube"
         policy = repository.get_policy_for_carrier_container(db, req.carrier_name, first_container_type)
 
-    tariff = _agreed_tariff(_resolve_tariff(db, policy), _booking_free_days(db, req.import_file_id), None)
+    resolved_tariff = _resolve_tariff(
+        db,
+        policy,
+        carrier_id=carrier_id,
+        carrier_name=req.carrier_name,
+        terminal_id=terminal_id,
+        port_name=req.port_name,
+        container_type=first_container_type,
+        discharge_date=req.discharge_date,
+    )
+    tariff = _agreed_tariff(resolved_tariff, _booking_free_days(db, req.import_file_id), None)
     tracking_currency = tariff.currency
 
     if req.currency and req.currency.strip().upper() != tracking_currency.strip().upper():
@@ -711,6 +982,8 @@ def create_demurrage_tracking_service(
         import_file_id=req.import_file_id,
         import_file_code=file_code,
         policy_id=policy.policy_id if policy else None,
+        carrier_id=carrier_id,
+        terminal_id=terminal_id,
         carrier_name=req.carrier_name,
         bill_of_lading_no=req.bill_of_lading_no,
         port_name=req.port_name,
@@ -718,6 +991,7 @@ def create_demurrage_tracking_service(
         gate_out_date=req.gate_out_date,
         empty_return_date=req.empty_return_date,
         containers=[{"container_no": c.container_no, "container_type": c.container_type} for c in req.containers],
+        ancillary_fees=req.ancillary_fees or [],
         currency=tracking_currency,
         exchange_rate=rate,
         notes=req.notes,
@@ -734,8 +1008,9 @@ def create_demurrage_tracking_service(
         db.rollback()
         db.expunge_all()
         tracking = DemurrageTracking(**{c: getattr(tracking, c) for c in (
-            "import_file_id", "import_file_code", "policy_id", "carrier_name", "bill_of_lading_no", "port_name",
-            "discharge_date", "gate_out_date", "empty_return_date", "containers", "total_demurrage_fx",
+            "import_file_id", "import_file_code", "policy_id", "carrier_id", "terminal_id",
+            "carrier_name", "bill_of_lading_no", "port_name", "discharge_date", "gate_out_date",
+            "empty_return_date", "containers", "ancillary_fees", "total_demurrage_fx",
             "total_detention_fx", "total_storage_egp", "currency", "exchange_rate", "total_cost_egp", "status", "notes",
         )})
         repository.add_tracking(db, tracking, user=user)
@@ -845,6 +1120,9 @@ def recalculate_and_update_tracking_service(
     tracking.gate_out_date = gate_out
     tracking.empty_return_date = empty_return
     tracking.exchange_rate = rate
+    if "ancillary_fees" in sent and req.ancillary_fees is not None:
+        tracking.ancillary_fees = req.ancillary_fees
+        flag_modified(tracking, "ancillary_fees")
     _apply_totals(tracking, containers, dem, det, stor, rate)
     # status: computed, or "Closed" when the user closes the session (other free text is ignored);
     # a pushed tracking keeps "Pushed to Settlement" and its settlement rows follow the new totals
@@ -978,8 +1256,9 @@ def get_dual_clock_status_service(
     demurrage_expiry = tracking.discharge_date + timedelta(days=carrier_free)
 
     today = calc_date or _today()
-    ref_date = tracking.gate_out_date or today
-    carrier_days_consumed = max(0, (ref_date - tracking.discharge_date).days)
+    # Carrier clock: demurrage stops at gate-out (or empty return if gate-out omitted)
+    carrier_ref_date = tracking.gate_out_date or tracking.empty_return_date or today
+    carrier_days_consumed = max(0, (carrier_ref_date - tracking.discharge_date).days)
     carrier_days_remaining = max(0, carrier_free - carrier_days_consumed)
 
     # DD-08 / Q11: the last free day (remaining == 0) is flagged OVERDUE; pinned until the CTO decides
@@ -1012,9 +1291,11 @@ def get_dual_clock_status_service(
     )
 
     # 2. Port Storage Clock (EGP)
+    # Port storage strictly ceases the moment container leaves port gates (gate_out_date)
     storage_free = tariff.storage_free_days
     storage_rate = tariff.storage_rate_egp
-    storage_days_consumed = max(0, (ref_date - tracking.discharge_date).days)
+    storage_ref_date = tracking.gate_out_date or tracking.empty_return_date or today
+    storage_days_consumed = max(0, (storage_ref_date - tracking.discharge_date).days)
     storage_days_remaining = max(0, storage_free - storage_days_consumed)
     hours_until_penalties = max(0, storage_days_remaining * 24)
 
@@ -1903,3 +2184,173 @@ def record_empty_container_return_service(
         message_ar=f"تم توثيق إرجاع الحاويات بنجاح بموجب إيصال EIR #{payload.eir_number} وإيقاف عدادات الغرامات بالكامل.",
         returned_at=datetime.now(timezone.utc),
     )
+
+
+# =========================================================================
+# Terminal & Terminal Storage Rate Services
+# =========================================================================
+
+def create_terminal_service(db: Session, req: TerminalCreate, user: str = "System") -> Terminal:
+    existing = repository.get_terminal_by_code(db, req.terminal_code)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"كود المحطة '{req.terminal_code}' مسجل مسبقاً لمشغل محطة آخر.",
+        )
+    terminal = repository.create_terminal(db, req.model_dump(), user=user)
+    db.commit()
+    db.refresh(terminal)
+    return terminal
+
+
+def get_terminals_service(
+    db: Session,
+    port_name: Optional[str] = None,
+    is_active: Optional[bool] = True,
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[Terminal], int]:
+    return repository.get_terminals(db, port_name=port_name, is_active=is_active, skip=skip, limit=limit)
+
+
+def get_terminal_by_id_service(db: Session, terminal_id: int) -> Terminal:
+    terminal = repository.get_terminal_by_id(db, terminal_id)
+    if not terminal:
+        raise not_found("المحطة البحرية", terminal_id)
+    return terminal
+
+
+def update_terminal_service(db: Session, terminal_id: int, req: TerminalUpdate, user: str = "System") -> Terminal:
+    terminal = get_terminal_by_id_service(db, terminal_id)
+    update_data = req.model_dump(exclude_unset=True)
+    if "terminal_code" in update_data and update_data["terminal_code"] != terminal.terminal_code:
+        dup = repository.get_terminal_by_code(db, update_data["terminal_code"])
+        if dup and dup.terminal_id != terminal_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"كود المحطة '{update_data['terminal_code']}' مسجل مسبقاً.",
+            )
+    for k, v in update_data.items():
+        setattr(terminal, k, v)
+    terminal.updated_by = user
+    terminal.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(terminal)
+    return terminal
+
+
+def create_terminal_storage_rate_service(
+    db: Session, terminal_id: int, req: TerminalStorageRateCreate, user: str = "System"
+) -> TerminalStorageRate:
+    terminal = get_terminal_by_id_service(db, terminal_id)
+    validate_tier_rates(req.storage_tiers, "شرائح رسوم أرضيات المحطة")
+    data = req.model_dump()
+    data["terminal_id"] = terminal.terminal_id
+    rate = repository.add_terminal_storage_rate(db, data, user=user)
+    db.commit()
+    db.refresh(rate)
+    return rate
+
+
+def get_terminal_storage_rates_service(
+    db: Session, terminal_id: int, container_type: Optional[str] = None
+) -> List[TerminalStorageRate]:
+    get_terminal_by_id_service(db, terminal_id)
+    return repository.get_storage_rates_history(db, terminal_id, container_type=container_type)
+
+
+# =========================================================================
+# Carrier & Carrier Demurrage Rate Services
+# =========================================================================
+
+def create_carrier_service(db: Session, req: CarrierCreate, user: str = "System") -> Carrier:
+    existing = repository.get_carrier_by_code(db, req.carrier_code)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"كود الخط الملاحي '{req.carrier_code}' مسجل مسبقاً.",
+        )
+    carrier = repository.create_carrier(db, req.model_dump(), user=user)
+    db.commit()
+    db.refresh(carrier)
+    return carrier
+
+
+def get_carriers_service(
+    db: Session,
+    is_active: Optional[bool] = True,
+    skip: int = 0,
+    limit: int = 200,
+) -> Tuple[List[Carrier], int]:
+    return repository.get_carriers(db, is_active=is_active, skip=skip, limit=limit)
+
+
+def get_carrier_by_id_service(db: Session, carrier_id: int) -> Carrier:
+    carrier = repository.get_carrier_by_id(db, carrier_id)
+    if not carrier:
+        raise not_found("الخط الملاحي", carrier_id)
+    return carrier
+
+
+def update_carrier_service(db: Session, carrier_id: int, req: CarrierUpdate, user: str = "System") -> Carrier:
+    carrier = get_carrier_by_id_service(db, carrier_id)
+    update_data = req.model_dump(exclude_unset=True)
+    if "carrier_code" in update_data and update_data["carrier_code"] != carrier.carrier_code:
+        dup = repository.get_carrier_by_code(db, update_data["carrier_code"])
+        if dup and dup.carrier_id != carrier_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"كود الخط الملاحي '{update_data['carrier_code']}' مسجل مسبقاً.",
+            )
+    for k, v in update_data.items():
+        setattr(carrier, k, v)
+    carrier.updated_by = user
+    carrier.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(carrier)
+    return carrier
+
+
+def create_carrier_demurrage_rate_service(
+    db: Session, carrier_id: int, req: CarrierDemurrageRateCreate, user: str = "System"
+) -> CarrierDemurrageRate:
+    carrier = get_carrier_by_id_service(db, carrier_id)
+    validate_tier_rates(req.demurrage_tiers, "شرائح غرامة الأرضيات للخط الملاحي")
+    validate_tier_rates(req.detention_tiers, "شرائح غرامة تأخير الفارغ للخط الملاحي")
+    data = req.model_dump()
+    data["carrier_id"] = carrier.carrier_id
+    rate = repository.add_carrier_demurrage_rate(db, data, user=user)
+    db.commit()
+    db.refresh(rate)
+    return rate
+
+
+def get_carrier_demurrage_rates_service(
+    db: Session, carrier_id: int, container_type: Optional[str] = None
+) -> List[CarrierDemurrageRate]:
+    get_carrier_by_id_service(db, carrier_id)
+    return repository.get_demurrage_rates_history(db, carrier_id, container_type=container_type)
+
+
+def get_rates_history_service(
+    db: Session,
+    terminal_id: Optional[int] = None,
+    carrier_id: Optional[int] = None,
+    container_type: Optional[str] = None,
+) -> Dict[str, Any]:
+    terminal_rates = []
+    carrier_rates = []
+    if terminal_id or not carrier_id:
+        terminal_rates = repository.get_storage_rates_history(
+            db, terminal_id=terminal_id, container_type=container_type
+        )
+    if carrier_id or not terminal_id:
+        carrier_rates = repository.get_demurrage_rates_history(
+            db, carrier_id=carrier_id, container_type=container_type
+        )
+    return {
+        "terminal_rates": terminal_rates,
+        "carrier_rates": carrier_rates,
+    }
+
+
