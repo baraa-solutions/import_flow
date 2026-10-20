@@ -93,9 +93,9 @@ class TerminalResponse(TerminalBase):
 class TerminalStorageRateCreate(BaseModel):
     terminal_id: Optional[int] = Field(None, description="معرف المحطة (اختياري إذا تم تحديده في مسار URL)")
     container_type: str = Field(..., min_length=2, max_length=50, description="نوع الحاوية")
-    free_days: int = Field(7, ge=0, description="أيام سماح الأرضيات بالمحطة")
+    free_days: int = Field(..., ge=0, description="أيام سماح الأرضيات بالمحطة")
     storage_tiers: List[TierRateItem] = Field(default_factory=list, description="شرائح الأرضيات اليومية بالدولار")
-    currency: str = Field("USD", min_length=3, max_length=10, description="عملة الأرضيات")
+    currency: str = Field(..., min_length=3, max_length=10, description="عملة الأرضيات")
     imo_free_days: int = Field(0, ge=0, description="أيام سماح الحاويات الخطرة")
     imo_rate_multiplier: float = Field(2.0, ge=1.0, description="معامل مضاعفة سعر الحاويات الخطرة")
     effective_date: date = Field(..., description="تاريخ سريان التعريفة")
@@ -155,11 +155,11 @@ class CarrierResponse(CarrierBase):
 class CarrierDemurrageRateCreate(BaseModel):
     carrier_id: Optional[int] = Field(None, description="معرف الخط الملاحي (اختياري إذا تم تحديده في مسار URL)")
     container_type: str = Field(..., min_length=2, max_length=50, description="نوع الحاوية")
-    demurrage_free_days_standard: int = Field(14, ge=0, description="أيام السماح المعيارية لغرامات التأخير")
-    detention_free_days_standard: int = Field(7, ge=0, description="أيام السماح المعيارية لإعادة الفارغ")
+    demurrage_free_days_standard: int = Field(..., ge=0, description="أيام السماح المعيارية لغرامات التأخير")
+    detention_free_days_standard: int = Field(..., ge=0, description="أيام السماح المعيارية لإعادة الفارغ")
     demurrage_tiers: List[TierRateItem] = Field(default_factory=list, description="شرائح غرامات التأخير بالدولار")
     detention_tiers: List[TierRateItem] = Field(default_factory=list, description="شرائح غرامات تأخير الفارغ")
-    currency: str = Field("USD", min_length=3, max_length=10, description="عملة الغرامات")
+    currency: str = Field(..., min_length=3, max_length=10, description="عملة الغرامات")
     effective_date: date = Field(..., description="تاريخ سريان التعريفة")
     notes: Optional[str] = None
 
