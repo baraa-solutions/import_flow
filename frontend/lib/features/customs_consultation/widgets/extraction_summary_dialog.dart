@@ -231,6 +231,8 @@ class ExtractionSummaryDialog extends StatelessWidget {
                 Text(
                   isAr ? 'معاينة البنود وحالة المطابقة:' : 'Extracted Items & Match Status:',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -238,6 +240,7 @@ class ExtractionSummaryDialog extends StatelessWidget {
                     isAr ? 'يرجى مراجعة البنود قبل اعتماد إدراجها بالنموذج' : 'Please review items before confirming import',
                     style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
                     textAlign: TextAlign.end,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
