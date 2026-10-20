@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_locales.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
@@ -139,9 +140,10 @@ void main() {
             uploadDioProvider.overrideWithValue(dio),
           ],
           child: MaterialApp(
-            locale: AppLocales.en,
-            localizationsDelegates: AppLocales.delegates,
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocales.localizationsDelegates,
             supportedLocales: AppLocales.supportedLocales,
+            builder: (context, child) => AppLocalizationsProvider(locale: const Locale('en'), child: child!),
             home: Scaffold(
               body: Builder(
                 builder: (ctx) => Center(
@@ -180,7 +182,7 @@ void main() {
       await openDialog(tester, a);
 
       expect(find.byKey(const Key('inlandEditBookingBtn')), findsNothing);
-      expect(find.text('Goods have arrived at warehouse'), findsOneWidget);
+      expect(find.text(AppLocalizationsEn().inlandArrivedMsg), findsOneWidget);
     });
 
     testWidgets('edit booking toggles edit form and submits PUT to update booking', (tester) async {
@@ -196,8 +198,11 @@ void main() {
       await tester.tap(find.byKey(const Key('inlandEditBookingBtn')));
       await tester.pumpAndSettle();
 
-      // Submit button should say Save Changes
-      expect(find.text('Save Changes'), findsOneWidget);
+      // Submit button (below the fold of the dialog) should say Save Changes
+      final submitBtn = find.byKey(const Key('inlandSubmitBookingBtn'));
+      await tester.scrollUntilVisible(submitBtn, 200, scrollable: find.byType(Scrollable).last);
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: submitBtn, matching: find.text(AppLocalizationsEn().inlandSaveChangesBtn)), findsOneWidget);
 
       // Tap Save Changes
       await tester.tap(find.byKey(const Key('inlandSubmitBookingBtn')));

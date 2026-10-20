@@ -21,13 +21,12 @@ void main() {
       const WarehouseReceivedReportItem(
         importFileCode: 'IMP-101',
         poNumber: 'PO-MAIN-101',
-        containerInfo: '1 × 40ft HQ (TRK-987)',
+        truckPlateNumber: 'TRK-987',
         itemCode: 'SKU-001',
         itemName: 'Industrial Ball Bearings',
         invoicedQty: 500,
         shortageQty: 10,
         damagedQty: 5,
-        samplesQty: 0,
         receivedQty: 485,
         varianceQty: -15,
         warehouseName: 'Main Warehouse - Cairo',
@@ -38,13 +37,12 @@ void main() {
       const WarehouseReceivedReportItem(
         importFileCode: 'IMP-102',
         poNumber: 'PO-MAIN-102',
-        containerInfo: '1 × 20ft GP (TRK-456)',
+        truckPlateNumber: 'TRK-456',
         itemCode: 'SKU-002',
         itemName: 'Electronic Flow Sensor',
         invoicedQty: 200,
         shortageQty: 0,
         damagedQty: 0,
-        samplesQty: 0,
         receivedQty: 200,
         varianceQty: 0,
         warehouseName: 'Alexandria Hub',
@@ -145,6 +143,7 @@ void main() {
           truckPlateNumber: 'TRK-1234',
           grnItems: [
             GrnItemModel(
+              poNumber: 'PO-MAIN-50',
               itemCode: 'ITM-99',
               itemName: 'Centrifugal Pump',
               invoicedQty: 100,
@@ -158,7 +157,7 @@ void main() {
         ),
       ];
 
-      final items = WarehouseReceivedReportItem.fromReceivingRecords(records);
+      final items = WarehouseReceivedReportItem.fromReceivingRecords(records, fileCodeById: const {50: 'IMP-50'});
       expect(items.length, 1);
       expect(items.first.importFileCode, 'IMP-50');
       expect(items.first.poNumber, 'PO-MAIN-50');
