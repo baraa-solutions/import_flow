@@ -9,7 +9,7 @@ Every mutating service follows one order (06-07 plan CL-12 / CL-13):
 import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, TypeVar
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar
 
 from fastapi import HTTPException, status
 from sqlalchemy import or_

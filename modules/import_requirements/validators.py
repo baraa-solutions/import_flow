@@ -1,5 +1,7 @@
 from typing import Any, Dict, Optional
 
+from sqlalchemy.orm import Session
+
 from fastapi import HTTPException, status
 
 from modules.common.errors import CodedHTTPException

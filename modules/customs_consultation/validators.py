@@ -2,7 +2,7 @@
 Customs Consultation & Broker Price Lists Business Validators (BP-009)
 """
 
-from typing import Iterable, Optional, Type
+from typing import Any, Iterable, Optional, Type
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
