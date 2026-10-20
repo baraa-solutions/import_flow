@@ -340,7 +340,7 @@ class _PreForm4NafezaWorkflowDialogState
                       child: CustomTextField(
                         controller: _tariffCodingDateController,
                         label: isAr ? 'تاريخ التكويد الضريبي (YYYY-MM-DD)' : 'Tariff Coding Date',
-                        prefixIcon: const Icon(Icons.calendar_today, size: 16),
+                        icon: Icons.calendar_today,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -349,7 +349,7 @@ class _PreForm4NafezaWorkflowDialogState
                       child: CustomTextField(
                         controller: _tariffCodingNotesController,
                         label: isAr ? 'ملاحظات التكويد (اختياري)' : 'Coding Notes (Optional)',
-                        prefixIcon: const Icon(Icons.note_alt_outlined, size: 16),
+                        icon: Icons.note_alt_outlined,
                       ),
                     ),
                   ],
@@ -363,7 +363,7 @@ class _PreForm4NafezaWorkflowDialogState
                         : (isAr ? 'اعتماد التكويد الضريبي' : 'Record Tax Coding'),
                     icon: Icons.check,
                     variant: _isTariffCodingCompleted
-                        ? AppButtonVariant.outline
+                        ? AppButtonVariant.secondary
                         : AppButtonVariant.primary,
                     size: AppButtonSize.small,
                     isLoading: _isSubmittingTariff,
@@ -425,7 +425,7 @@ class _PreForm4NafezaWorkflowDialogState
                       child: CustomTextField(
                         controller: _bankLinkDateController,
                         label: isAr ? 'تاريخ قبول الربط (YYYY-MM-DD)' : 'Acceptance Date',
-                        prefixIcon: const Icon(Icons.event_available, size: 16),
+                        icon: Icons.event_available,
                         enabled: _isTariffCodingCompleted,
                       ),
                     ),
@@ -435,7 +435,7 @@ class _PreForm4NafezaWorkflowDialogState
                       child: CustomTextField(
                         controller: _bankNameController,
                         label: isAr ? 'اسم البنك المعتمد' : 'Bank Name',
-                        prefixIcon: const Icon(Icons.account_balance_outlined, size: 16),
+                        icon: Icons.account_balance_outlined,
                         enabled: _isTariffCodingCompleted,
                       ),
                     ),
@@ -445,7 +445,7 @@ class _PreForm4NafezaWorkflowDialogState
                       child: CustomTextField(
                         controller: _bankLinkNotesController,
                         label: isAr ? 'ملاحظات الربط (اختياري)' : 'Link Notes (Optional)',
-                        prefixIcon: const Icon(Icons.notes, size: 16),
+                        icon: Icons.notes,
                         enabled: _isTariffCodingCompleted,
                       ),
                     ),
@@ -460,7 +460,7 @@ class _PreForm4NafezaWorkflowDialogState
                         : (isAr ? 'اعتماد وقبول ربط البنك' : 'Accept Bank Linkage'),
                     icon: Icons.check_circle_outline,
                     variant: _isBankLinkCompleted
-                        ? AppButtonVariant.outline
+                        ? AppButtonVariant.secondary
                         : AppButtonVariant.success,
                     size: AppButtonSize.small,
                     isLoading: _isSubmittingBankLink,
@@ -520,7 +520,7 @@ class _PreForm4NafezaWorkflowDialogState
                       child: CustomTextField(
                         controller: _paymentRequestDateController,
                         label: isAr ? 'تاريخ طلب السداد (YYYY-MM-DD)' : 'Request Date',
-                        prefixIcon: const Icon(Icons.calendar_month, size: 16),
+                        icon: Icons.calendar_month,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -529,7 +529,7 @@ class _PreForm4NafezaWorkflowDialogState
                       child: CustomTextField(
                         controller: _claimNumberController,
                         label: isAr ? 'رقم مطالبة نافذة' : 'Nafeza Claim Number',
-                        prefixIcon: const Icon(Icons.tag, size: 16),
+                        icon: Icons.tag,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -538,7 +538,7 @@ class _PreForm4NafezaWorkflowDialogState
                       child: CustomTextField(
                         controller: _estimatedAmountController,
                         label: isAr ? 'الرسوم التقديرية (EGP)' : 'Estimated Duty (EGP)',
-                        prefixIcon: const Icon(Icons.payments_outlined, size: 16),
+                        icon: Icons.payments_outlined,
                       ),
                     ),
                   ],
@@ -547,7 +547,7 @@ class _PreForm4NafezaWorkflowDialogState
                 CustomTextField(
                   controller: _paymentRequestNotesController,
                   label: isAr ? 'ملاحظات طلب السداد والمطالبة' : 'Payment Request Notes',
-                  prefixIcon: const Icon(Icons.note_alt_outlined, size: 16),
+                  icon: Icons.note_alt_outlined,
                 ),
                 const SizedBox(height: 12),
                 Align(

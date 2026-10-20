@@ -394,7 +394,7 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
                 AppButton(
                   label: l.isArabic ? 'إجراءات نافذة والربط البنكي' : 'Nafeza & Bank Link',
                   icon: Icons.account_balance,
-                  variant: AppButtonVariant.outline,
+                  variant: AppButtonVariant.secondary,
                   size: AppButtonSize.small,
                   onPressed: () async {
                     final res = await PreForm4NafezaWorkflowDialog.show(
