@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy import MetaData, create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -6,6 +7,8 @@ import os
 from pathlib import Path
 
 from utils.db_safety import app_base_dir
+
+logger = logging.getLogger(__name__)
 
 # Frozen build: the executable's folder (never sys._MEIPASS); dev: the repo root.
 BASE_DIR = app_base_dir()
@@ -43,6 +46,8 @@ if IS_SQLITE:
             # WAL mode allows concurrent readers while writing
             cursor.execute("PRAGMA journal_mode = WAL;")
             cursor.execute("PRAGMA synchronous = NORMAL;")
+            # Foreign key constraints enforcement for relational integrity
+            cursor.execute("PRAGMA foreign_keys = ON;")
             # Prevent "database is locked" errors by waiting up to 30s for locks to clear
             cursor.execute("PRAGMA busy_timeout = 30000;")
             # Expand page cache from default 2MB to 64MB (-64000 KiB)
@@ -51,8 +56,8 @@ if IS_SQLITE:
             cursor.execute("PRAGMA mmap_size = 268435456;")
             # Keep temp tables and sorting structures in RAM
             cursor.execute("PRAGMA temp_store = MEMORY;")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.exception("Failed to execute SQLite PRAGMA initialization: %s", exc)
         finally:
             cursor.close()
 else:

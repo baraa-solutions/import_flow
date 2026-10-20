@@ -802,6 +802,7 @@ class LogisticsInvoicesService:
         invoice.remaining_amount_egp -= settle_amt
         if invoice.remaining_amount_egp <= 0.01:
             invoice.payment_status = "FULLY_PAID"
+            invoice.remaining_amount_egp = 0.0
         else:
             invoice.payment_status = "PARTIALLY_PAID"
 
@@ -857,6 +858,7 @@ class LogisticsInvoicesService:
                 invoice.remaining_amount_egp -= k.knocked_amount_egp
                 if invoice.remaining_amount_egp <= 0.01:
                     invoice.payment_status = "FULLY_PAID"
+                    invoice.remaining_amount_egp = 0.0
                 else:
                     invoice.payment_status = "PARTIALLY_PAID"
 

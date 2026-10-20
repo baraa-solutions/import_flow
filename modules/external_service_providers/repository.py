@@ -1,13 +1,59 @@
-from typing import List, Optional
-from sqlalchemy import exists, func
+from typing import Any, Dict, List, Optional
+from fastapi import Response
+from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session
+
+from modules.common.pagination import PageParams, like_term, paginate
 from .model import ExternalServiceProvider
 from .schemas import PartnerCreate, PartnerUpdate
+
+PARTNER_SORT_MAP = {
+    "provider_id": ExternalServiceProvider.provider_id,
+    "partner_code": ExternalServiceProvider.partner_code,
+    "partner_name": ExternalServiceProvider.partner_name,
+    "partner_type": ExternalServiceProvider.partner_type,
+    "tax_id": ExternalServiceProvider.tax_id,
+    "commercial_register": ExternalServiceProvider.commercial_register,
+    "created_at": ExternalServiceProvider.created_at,
+    "updated_at": ExternalServiceProvider.updated_at,
+}
 
 
 class ExternalServiceProviderRepository:
     def __init__(self, db: Session):
         self.db = db
+
+    def get_paginated(
+        self,
+        params: PageParams,
+        response: Optional[Response] = None,
+        partner_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        query = self.db.query(ExternalServiceProvider)
+        if not params.include_inactive:
+            query = query.filter(ExternalServiceProvider.is_active.is_(True))
+        if partner_type and partner_type.strip().lower() != 'all':
+            query = query.filter(func.lower(ExternalServiceProvider.partner_type).contains(partner_type.strip().lower()))
+
+        term = like_term(params.q)
+        if term:
+            query = query.filter(
+                or_(
+                    ExternalServiceProvider.partner_name.ilike(term, escape="\\"),
+                    ExternalServiceProvider.partner_code.ilike(term, escape="\\"),
+                    ExternalServiceProvider.tax_id.ilike(term, escape="\\"),
+                    ExternalServiceProvider.commercial_register.ilike(term, escape="\\"),
+                    ExternalServiceProvider.contact_person.ilike(term, escape="\\"),
+                )
+            )
+        return paginate(
+            query,
+            params,
+            sort_map=PARTNER_SORT_MAP,
+            default_sort=[ExternalServiceProvider.partner_name.asc()],
+            pk=ExternalServiceProvider.provider_id,
+            response=response,
+        )
 
     def get_all(self, partner_type: Optional[str] = None, include_inactive: bool = False) -> List[ExternalServiceProvider]:
         query = self.db.query(ExternalServiceProvider)
@@ -101,6 +147,7 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="CREATE",
+            performed_by="SYSTEM",
             new_data={"partner_name": db_obj.partner_name, "partner_type": db_obj.partner_type}
         )
 
@@ -126,6 +173,7 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="UPDATE",
+            performed_by="SYSTEM",
             old_data=old_data,
             new_data=update_data,
         )
@@ -145,6 +193,7 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="DELETE",
+            performed_by="SYSTEM",
         )
 
         return True
@@ -162,6 +211,7 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="RESTORE",
+            performed_by="SYSTEM",
         )
 
         return True

@@ -144,12 +144,6 @@
       "note"
     ]
   },
-  "CCQ_RFQ_AWARDED": {
-    "params": [],
-    "parts": [
-      "note"
-    ]
-  },
   "CCQ_RFQ_CANCELLED": {
     "params": [
       "rfq_code"
@@ -4316,5 +4310,22 @@
     "4": "4. Digital & Banking",
     "5": "5. Port Operations & Clearance",
     "6": "6. Inbound & Final Closure"
+  },
+  "SYSPARAM_INVALID_VALUE": {
+    "params": [
+      "param_key",
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SYSPARAM_UNKNOWN": {
+    "params": [
+      "param_key"
+    ],
+    "parts": [
+      "note"
+    ]
   }
 }

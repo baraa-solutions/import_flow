@@ -39,6 +39,15 @@ class AppTheme {
   /// Tab count at or above which vertical sidebar is preferred automatically.
   static const int tabCountSidebarThreshold = 4;
 
+  // ── Sorour Official Brand Palette Tokens (Extracted from Brand Logo) ──────
+  static const Color sorourNavy = Color(0xFF0F386A);      // Primary Dark Navy (Logotype & Official Reports)
+  static const Color sorourDeepBlue = Color(0xFF074E8C);  // Deep Ocean Blue (Vessels & Maritime Accents)
+  static const Color sorourCobalt = Color(0xFF0B68A6);    // Sorour Primary Brand Blue (Interface & Actions)
+  static const Color sorourSky = Color(0xFF077DBE);       // Vibrant Sky Blue (Air Freight & Highlights)
+  static const Color sorourIceBlue = Color(0xFF88B6D2);   // Ice Accent / Borders / Muted Accents
+  static const Color sorourWatermarkTint = Color(0xFF3A5A80); // Neutral Monochrome Watermark Overlay
+  static const Color sorourSurfaceTint = Color(0xFFF0F5FA);// Brand Subtle Surface Tint
+
   // ── Flat Color Palette ────────────────────────────────────────────────────
   static const Color charcoal = Color(0xFF2C3E50);
   static const Color cobalt = Color(0xFF3498DB);

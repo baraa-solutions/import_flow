@@ -686,3 +686,74 @@ def test_logistics_invoices_api_endpoints(db_session):
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_open_invoices_excludes_fully_paid(db_session):
+    """
+    Verifies that get_open_invoices_by_partner returns unpaid/partially paid invoices,
+    and immediately excludes invoices once they are fully knocked off / paid.
+    """
+    service = LogisticsInvoicesService(db_session)
+
+    # 1. Create two invoices for partner 1
+    i1 = service.create_invoice(
+        LogisticsInvoiceCreate(
+            shipment_id=1,
+            partner_id=1,
+            partner_type="freight",
+            partner_name="MSC",
+            invoice_number="INV-OPEN-001",
+            currency="USD",
+            exchange_rate=48.5,
+            total_amount_fx=1000.0,
+            total_amount_egp=48500.0,
+            net_payable_egp=48500.0,
+        )
+    )
+    i2 = service.create_invoice(
+        LogisticsInvoiceCreate(
+            shipment_id=1,
+            partner_id=1,
+            partner_type="freight",
+            partner_name="MSC",
+            invoice_number="INV-OPEN-002",
+            currency="EGP",
+            exchange_rate=1.0,
+            total_amount_fx=20000.0,
+            total_amount_egp=20000.0,
+            net_payable_egp=20000.0,
+        )
+    )
+
+    # 2. Both newly created DRAFT invoices must be returned in open invoices
+    open_invs = service.repo.get_open_invoices_by_partner(1)
+    open_ids = [inv.invoice_id for inv in open_invs]
+    assert i1.invoice_id in open_ids
+    assert i2.invoice_id in open_ids
+
+    # 3. Pay i1 fully (48,500 EGP) and i2 partially (5,000 EGP)
+    voucher_payload = LogisticsPaymentVoucherCreate(
+        shipment_id=1,
+        partner_id=1,
+        partner_name="MSC",
+        amount=53500.0,
+        currency="EGP",
+        exchange_rate=1.0,
+        amount_egp=53500.0,
+        payment_method="BANK_TRANSFER",
+        knockoffs=[
+            InvoiceKnockoffItem(invoice_id=i1.invoice_id, knocked_amount_egp=48500.0),
+            InvoiceKnockoffItem(invoice_id=i2.invoice_id, knocked_amount_egp=5000.0),
+        ],
+    )
+    service.create_payment_voucher(voucher_payload, user_name="Accountant")
+
+    # 4. Check open invoices again: i1 must NOT appear anymore, i2 must appear with remaining 15,000 EGP
+    open_invs_after = service.repo.get_open_invoices_by_partner(1)
+    open_ids_after = [inv.invoice_id for inv in open_invs_after]
+    assert i1.invoice_id not in open_ids_after
+    assert i2.invoice_id in open_ids_after
+
+    i2_refreshed = next(inv for inv in open_invs_after if inv.invoice_id == i2.invoice_id)
+    assert i2_refreshed.payment_status == "PARTIALLY_PAID"
+    assert i2_refreshed.remaining_amount_egp == 15000.0

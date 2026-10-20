@@ -1,5 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/services/master_data_export_service.dart';
 import 'package:frontend/features/import_companies/models/import_company_model.dart';
 import 'package:frontend/features/import_companies/widgets/import_company_details_dialog.dart';
@@ -7,6 +11,39 @@ import 'package:frontend/features/suppliers/models/supplier_model.dart';
 import 'package:frontend/features/suppliers/widgets/supplier_details_dialog.dart';
 import 'package:frontend/features/external_service_providers/models/partner_model.dart';
 import 'package:frontend/features/external_service_providers/widgets/partner_details_dialog.dart';
+import 'package:frontend/features/logistics_invoices/models/logistics_invoice_models.dart';
+import 'package:frontend/features/logistics_invoices/providers/logistics_invoices_provider.dart';
+import 'package:frontend/features/logistics_invoices/repositories/logistics_invoices_repository.dart';
+import 'package:frontend/features/logistics_invoices/widgets/invoice_form_dialog.dart';
+
+class _FakeLogisticsInvoicesRepository extends LogisticsInvoicesRepository {
+  _FakeLogisticsInvoicesRepository() : super(Dio());
+
+  @override
+  Future<PrefillLinesModel> getPrefillLines(int shipmentId, String partnerType) async {
+    return PrefillLinesModel(
+      shipmentId: shipmentId,
+      partnerType: partnerType,
+      currency: 'USD',
+      exchangeRate: 48.5,
+      lines: const [],
+    );
+  }
+
+  @override
+  Future<PartnerBalanceCardModel> getPartnerBalanceCard(int partnerId) async {
+    return PartnerBalanceCardModel(
+      partnerId: partnerId,
+      partnerName: 'National Bank of Egypt (NBE)',
+      partnerType: 'bank',
+      totalInvoicedEgp: 0.0,
+      totalPaidEgp: 0.0,
+      balanceDueEgp: 0.0,
+      openInvoicesCount: 0,
+      aging: AgingBucketModel(),
+    );
+  }
+}
 
 void main() {
   group('MasterDataExportService WhatsApp & Email String Generators', () {
@@ -230,6 +267,87 @@ void main() {
       expect(find.text('مشاركة واتساب 💬'), findsOneWidget);
       expect(find.text('مشاركة بريد إلكتروني ✉️'), findsOneWidget);
       expect(find.text('كشف حساب 📑'), findsOneWidget);
+    });
+
+    testWidgets('InvoiceFormDialog initializes cleanly with initialPartnerId & initialPartnerName without LateInitializationError', (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            logisticsInvoicesRepositoryProvider.overrideWithValue(_FakeLogisticsInvoicesRepository()),
+            partnerBalanceCardProvider.overrideWith((ref, id) async => PartnerBalanceCardModel(
+              partnerId: id,
+              partnerName: 'National Bank of Egypt (NBE)',
+              partnerType: 'bank',
+              totalInvoicedEgp: 0.0,
+              totalPaidEgp: 0.0,
+              balanceDueEgp: 0.0,
+              openInvoicesCount: 0,
+              aging: AgingBucketModel(),
+            )),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: InvoiceFormDialog(
+                defaultPartnerType: 'freight',
+                initialPartnerId: 5,
+                initialPartnerName: 'National Bank of Egypt (NBE)',
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('National Bank of Egypt (NBE)'), findsWidgets);
+      expect(find.byType(InvoiceFormDialog), findsOneWidget);
+    });
+
+    testWidgets('SupplierDetailsDialog does not contain bilingual composite header or (أوروبا) in Arabic mode', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: Scaffold(
+              body: SupplierDetailsDialog(supplier: testSupplier),
+            ),
+          ),
+        ),
+      );
+
+      // Must find clean Arabic header
+      expect(find.text('شهادات العلامة التجارية والجودة'), findsOneWidget);
+      // Must NOT find bilingual parenthesis strings
+      expect(find.text('شهادات العلامة التجارية والجودة (Trademark Certificates)'), findsNothing);
+      expect(find.text('EUIPO (أوروبا)'), findsNothing);
+      expect(find.text('مكتب الملكية الفكرية الأوروبي (EUIPO)'), findsOneWidget);
+    });
+
+    testWidgets('ImportCompanyDetailsDialog respects English mode without Arabic text in email labels', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppLocalizationsProvider(
+            locale: const Locale('en'),
+            child: Scaffold(
+              body: ImportCompanyDetailsDialog(company: testCompany),
+            ),
+          ),
+        ),
+      );
+
+      // Must find clean English labels
+      expect(find.text('Primary Email'), findsOneWidget);
+      expect(find.text('Secondary Email'), findsOneWidget);
+      expect(find.text('البريد الأساسي'), findsNothing);
+      expect(find.text('البريد الثانوي'), findsNothing);
+      expect(find.text('EUIPO'), findsOneWidget);
+      expect(find.text('EUIPO (أوروبا)'), findsNothing);
     });
   });
 }

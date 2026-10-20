@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
@@ -107,6 +108,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
+    final isArabic = context.l10n.isArabic;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF101419) : AppTheme.cloudWhite,
@@ -114,7 +116,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
         child: Column(
           children: [
             // Top App Bar / Header
-            _buildHeader(context, isDark),
+            _buildHeader(context, isDark, isArabic),
 
             // Tab Bar
             Container(
@@ -125,11 +127,11 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: AppTheme.cobalt,
                 indicatorWeight: 3,
-                tabs: const [
-                  Tab(icon: Icon(Icons.receipt_long), text: 'Service Invoices (فواتير الخدمات)'),
-                  Tab(icon: Icon(Icons.payment), text: 'Payment Vouchers & Knock-off (سندات الصرف والإقفال)'),
-                  Tab(icon: Icon(Icons.account_balance_wallet), text: 'Clearance Advances (عهد المخلصين)'),
-                  Tab(icon: Icon(Icons.shield), text: 'Marine Insurance Policies (بوالص التأمين البحري)'),
+                tabs: [
+                  Tab(icon: const Icon(Icons.receipt_long), text: isArabic ? 'فواتير الخدمات' : 'Service Invoices'),
+                  Tab(icon: const Icon(Icons.payment), text: isArabic ? 'سندات الصرف والإقفال' : 'Payment Vouchers & Knock-off'),
+                  Tab(icon: const Icon(Icons.account_balance_wallet), text: isArabic ? 'عهد ودفعات التخليص' : 'Clearance Advances'),
+                  Tab(icon: const Icon(Icons.shield), text: isArabic ? 'بوالص التأمين البحري' : 'Marine Insurance Policies'),
                 ],
               ),
             ),
@@ -139,10 +141,10 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildInvoicesTab(context, isDark),
-                  _buildPaymentsTab(context, isDark),
-                  _buildAdvancesTab(context, isDark),
-                  _buildInsuranceTab(context, isDark),
+                  _buildInvoicesTab(context, isDark, isArabic),
+                  _buildPaymentsTab(context, isDark, isArabic),
+                  _buildAdvancesTab(context, isDark, isArabic),
+                  _buildInsuranceTab(context, isDark, isArabic),
                 ],
               ),
             ),
@@ -152,7 +154,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isDark) {
+  Widget _buildHeader(BuildContext context, bool isDark, bool isArabic) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
@@ -163,16 +165,18 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
         children: [
           const Icon(Icons.inventory_2_outlined, color: AppTheme.cobalt, size: 24),
           const SizedBox(width: 10),
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Logistics Service Invoices & Payments Hub',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                isArabic ? 'مركز فواتير ومدفوعات الخدمات اللوجستية' : 'Logistics Service Invoices & Payments Hub',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               Text(
-                'Freight · Customs Broker · Inspection Agency · Marine Insurance · CBE Rates',
-                style: TextStyle(color: Colors.white70, fontSize: 11),
+                isArabic
+                    ? 'نولون الشحن · التخليص الجمركي · الفحص والمعاينة · التأمين البحري · أسعار الصرف'
+                    : 'Freight · Customs Broker · Inspection Agency · Marine Insurance · CBE Rates',
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
               ),
             ],
           ),
@@ -225,7 +229,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
 
   // ── Tab 1: Service Invoices ────────────────────────────────────────────────
 
-  Widget _buildInvoicesTab(BuildContext context, bool isDark) {
+  Widget _buildInvoicesTab(BuildContext context, bool isDark, bool isArabic) {
     final invoicesAsync = ref.watch(logisticsInvoicesListProvider);
     final partnerType = ref.watch(invoicePartnerTypeFilterProvider);
     final statusFilter = ref.watch(invoiceStatusFilterProvider);
@@ -242,12 +246,12 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
               DropdownButton<String>(
                 value: partnerType,
                 isDense: true,
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('All Partners (الكل)')),
-                  DropdownMenuItem(value: 'freight', child: Text('Freight Forwarders (شحن)')),
-                  DropdownMenuItem(value: 'clearance', child: Text('Customs Brokers (تخليص)')),
-                  DropdownMenuItem(value: 'inspection', child: Text('Inspection Agencies (فحص)')),
-                  DropdownMenuItem(value: 'insurance', child: Text('Marine Insurance (تأمين)')),
+                items: [
+                  DropdownMenuItem(value: 'all', child: Text(isArabic ? 'كل الشركاء' : 'All Partners')),
+                  DropdownMenuItem(value: 'freight', child: Text(isArabic ? 'شركات الشحن' : 'Freight Forwarders')),
+                  DropdownMenuItem(value: 'clearance', child: Text(isArabic ? 'مخلصون جمركيون' : 'Customs Brokers')),
+                  DropdownMenuItem(value: 'inspection', child: Text(isArabic ? 'جهات الفحص' : 'Inspection Agencies')),
+                  DropdownMenuItem(value: 'insurance', child: Text(isArabic ? 'التأمين البحري' : 'Marine Insurance')),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -260,13 +264,13 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
               DropdownButton<String>(
                 value: statusFilter,
                 isDense: true,
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('All Statuses (كل الحالات)')),
-                  DropdownMenuItem(value: 'draft', child: Text('Draft (مسودة)')),
-                  DropdownMenuItem(value: 'submitted', child: Text('Submitted (مرفوعة)')),
-                  DropdownMenuItem(value: 'approved', child: Text('Approved (معتمدة)')),
-                  DropdownMenuItem(value: 'partially_paid', child: Text('Partially Paid (سداد جزئي)')),
-                  DropdownMenuItem(value: 'fully_paid', child: Text('Fully Paid (مسددة بالكامل)')),
+                items: [
+                  DropdownMenuItem(value: 'all', child: Text(isArabic ? 'كل الحالات' : 'All Statuses')),
+                  DropdownMenuItem(value: 'draft', child: Text(isArabic ? 'مسودة' : 'Draft')),
+                  DropdownMenuItem(value: 'submitted', child: Text(isArabic ? 'مرفوعة' : 'Submitted')),
+                  DropdownMenuItem(value: 'approved', child: Text(isArabic ? 'معتمدة' : 'Approved')),
+                  DropdownMenuItem(value: 'partially_paid', child: Text(isArabic ? 'سداد جزئي' : 'Partially Paid')),
+                  DropdownMenuItem(value: 'fully_paid', child: Text(isArabic ? 'مسددة بالكامل' : 'Fully Paid')),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -277,12 +281,12 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
               const Spacer(),
               // New Invoice Menu
               PopupMenuButton<String>(
-                tooltip: 'Create New Invoice',
+                tooltip: isArabic ? 'تسجيل فاتورة جديدة' : 'Create New Invoice',
                 itemBuilder: (ctx) => [
-                  const PopupMenuItem(value: 'freight', child: Text('🚢 New Freight Forwarder Invoice')),
-                  const PopupMenuItem(value: 'clearance', child: Text('📋 New Customs Broker Invoice')),
-                  const PopupMenuItem(value: 'inspection', child: Text('🔍 New Inspection Agency Invoice')),
-                  const PopupMenuItem(value: 'insurance', child: Text('🛡️ New Marine Insurance Invoice')),
+                  PopupMenuItem(value: 'freight', child: Text(isArabic ? '🚢 فاتورة شركة شحن جديدة' : '🚢 New Freight Forwarder Invoice')),
+                  PopupMenuItem(value: 'clearance', child: Text(isArabic ? '📋 فاتورة مخلص جمركي جديدة' : '📋 New Customs Broker Invoice')),
+                  PopupMenuItem(value: 'inspection', child: Text(isArabic ? '🔍 فاتورة جهة فحص جديدة' : '🔍 New Inspection Agency Invoice')),
+                  PopupMenuItem(value: 'insurance', child: Text(isArabic ? '🛡️ فاتورة تأمين بحري جديدة' : '🛡️ New Marine Insurance Invoice')),
                 ],
                 onSelected: (val) => _openNewInvoiceDialog(val),
                 child: Container(
@@ -291,12 +295,12 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
                     color: AppTheme.cobalt,
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add, size: 16, color: Colors.white),
-                      SizedBox(width: 6),
-                      Text('+ New Service Invoice', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5)),
+                      const Icon(Icons.add, size: 16, color: Colors.white),
+                      const SizedBox(width: 6),
+                      Text(isArabic ? '+ فاتورة خدمة جديدة' : '+ New Service Invoice', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5)),
                     ],
                   ),
                 ),
@@ -319,7 +323,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
                     children: [
                       Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey.shade400),
                       const SizedBox(height: 12),
-                      const Text('No logistics invoices found.', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                      Text(isArabic ? 'لا توجد فواتير خدمات مسجلة.' : 'No logistics invoices found.', style: const TextStyle(fontSize: 14, color: Colors.grey)),
                     ],
                   ),
                 );
@@ -549,7 +553,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
 
   // ── Tab 2: Payments & Knock-offs ───────────────────────────────────────────
 
-  Widget _buildPaymentsTab(BuildContext context, bool isDark) {
+  Widget _buildPaymentsTab(BuildContext context, bool isDark, bool isArabic) {
     final vouchersAsync = ref.watch(paymentVouchersListProvider);
 
     return Column(
@@ -559,10 +563,13 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
           color: isDark ? const Color(0xFF161E28) : Colors.white,
           child: Row(
             children: [
-              const Text('Logistics Payment Vouchers & Invoice Knock-offs', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(
+                isArabic ? 'سندات صرف وإقفال فواتير الخدمات اللوجستية' : 'Logistics Payment Vouchers & Invoice Knock-offs',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
               const Spacer(),
               AppButton(
-                label: '+ Create Payment Voucher',
+                label: isArabic ? '+ إنشاء سند صرف' : '+ Create Payment Voucher',
                 variant: AppButtonVariant.primary,
                 size: AppButtonSize.small,
                 icon: Icons.add,
@@ -578,7 +585,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
             error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
             data: (vouchers) {
               if (vouchers.isEmpty) {
-                return const Center(child: Text('No payment vouchers recorded yet.', style: TextStyle(color: Colors.grey)));
+                return Center(child: Text(isArabic ? 'لا توجد سندات صرف مسجلة حتى الآن.' : 'No payment vouchers recorded yet.', style: const TextStyle(color: Colors.grey)));
               }
 
               return ListView.separated(
@@ -604,7 +611,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
                             children: [
                               Text('${v.voucherCode} · ${v.partnerName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                               Text(
-                                'Method: ${v.paymentMethod} · Ref: ${v.bankReference ?? "N/A"} · Date: ${v.paymentDate.toIso8601String().split("T").first}',
+                                '${isArabic ? "الطريقة" : "Method"}: ${v.paymentMethod} · ${isArabic ? "المرجع" : "Ref"}: ${v.bankReference ?? "—"} · ${isArabic ? "التاريخ" : "Date"}: ${v.paymentDate.toIso8601String().split("T").first}',
                                 style: const TextStyle(fontSize: 11, color: Colors.grey),
                               ),
                             ],
@@ -613,8 +620,8 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('${v.amountEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            Text('Knocked Off: ${v.knockoffs.length} Invoices', style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
+                            Text('${v.amountEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text('${isArabic ? "المقفل" : "Knocked Off"}: ${v.knockoffs.length} ${isArabic ? "فواتير" : "Invoices"}', style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ],
@@ -631,7 +638,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
 
   // ── Tab 3: Clearance Advances ──────────────────────────────────────────────
 
-  Widget _buildAdvancesTab(BuildContext context, bool isDark) {
+  Widget _buildAdvancesTab(BuildContext context, bool isDark, bool isArabic) {
     final advancesAsync = ref.watch(clearanceAdvancesListProvider);
 
     return Column(
@@ -641,10 +648,13 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
           color: isDark ? const Color(0xFF161E28) : Colors.white,
           child: Row(
             children: [
-              const Text('Broker Advance Payments & Custody (عهد ودفعات التخليص)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(
+                isArabic ? 'عهد ودفعات المخلصين الجمركيين' : 'Broker Advance Payments & Custody',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
               const Spacer(),
               AppButton(
-                label: '+ Record Broker Advance',
+                label: isArabic ? '+ تسجيل عهدة مخلص' : '+ Record Broker Advance',
                 variant: AppButtonVariant.primary,
                 size: AppButtonSize.small,
                 icon: Icons.add,
@@ -660,7 +670,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
             error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
             data: (advances) {
               if (advances.isEmpty) {
-                return const Center(child: Text('No advance payments recorded yet.', style: TextStyle(color: Colors.grey)));
+                return Center(child: Text(isArabic ? 'لا توجد عهد أو دفعات مخلصين مسجلة حتى الآن.' : 'No advance payments recorded yet.', style: const TextStyle(color: Colors.grey)));
               }
 
               return ListView.separated(
@@ -686,7 +696,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
                             children: [
                               Text('${adv.advanceCode} · ${adv.clearancePartnerName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                               Text(
-                                'Shipment: ${adv.shipmentId} · B/L: ${adv.blNumber ?? "N/A"} · Date: ${adv.paymentDate.toIso8601String().split("T").first}',
+                                '${isArabic ? "الشحنة" : "Shipment"}: ${adv.shipmentId} · ${isArabic ? "بوليصة" : "B/L"}: ${adv.blNumber ?? "—"} · ${isArabic ? "تاريخ" : "Date"}: ${adv.paymentDate.toIso8601String().split("T").first}',
                                 style: const TextStyle(fontSize: 11, color: Colors.grey),
                               ),
                             ],
@@ -695,9 +705,9 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('${adv.amountEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text('${adv.amountEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                             Text(
-                              'Settled: ${adv.settledAmountEgp.toStringAsFixed(2)} | Rem: ${adv.remainingAmountEgp.toStringAsFixed(2)}',
+                              '${isArabic ? "المسوى" : "Settled"}: ${adv.settledAmountEgp.toStringAsFixed(2)} | ${isArabic ? "المتبقي" : "Rem"}: ${adv.remainingAmountEgp.toStringAsFixed(2)}',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -720,7 +730,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
 
   // ── Tab 4: Marine Insurance Policies ───────────────────────────────────────
 
-  Widget _buildInsuranceTab(BuildContext context, bool isDark) {
+  Widget _buildInsuranceTab(BuildContext context, bool isDark, bool isArabic) {
     final policiesAsync = ref.watch(insurancePoliciesListProvider);
 
     return Column(
@@ -730,10 +740,13 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
           color: isDark ? const Color(0xFF161E28) : Colors.white,
           child: Row(
             children: [
-              const Text('Marine Insurance Policies (بوالص التأمين البحري)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(
+                isArabic ? 'بوالص التأمين البحري على الشحنات' : 'Marine Insurance Policies',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
               const Spacer(),
               AppButton(
-                label: '+ Issue Marine Policy',
+                label: isArabic ? '+ إصدار وثيقة تأمين' : '+ Issue Marine Policy',
                 variant: AppButtonVariant.primary,
                 size: AppButtonSize.small,
                 icon: Icons.add,
@@ -749,7 +762,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
             error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
             data: (policies) {
               if (policies.isEmpty) {
-                return const Center(child: Text('No marine insurance policies issued yet.', style: TextStyle(color: Colors.grey)));
+                return Center(child: Text(isArabic ? 'لا توجد بوالص تأمين بحري مسجلة حتى الآن.' : 'No marine insurance policies issued yet.', style: const TextStyle(color: Colors.grey)));
               }
 
               return ListView.separated(

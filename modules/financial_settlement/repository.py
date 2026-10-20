@@ -31,7 +31,15 @@ def add_with_new_code(db: Session, record: LandedCostSettlementRecord) -> Landed
             err_msg = str(exc).lower()
             if "uq_fs_records_active_file" in err_msg or "financial_settlement_records.import_file_id" in err_msg:
                 from modules.financial_settlement.validators import duplicate_active_error
-                raise duplicate_active_error(record.import_file_id)
+                existing = (
+                    db.query(LandedCostSettlementRecord.settlement_code)
+                    .filter(
+                        LandedCostSettlementRecord.import_file_id == record.import_file_id,
+                        LandedCostSettlementRecord.is_active == True,
+                    )
+                    .first()
+                )
+                raise duplicate_active_error(record.import_file_id, existing[0] if existing else None)
             if attempt == _CODE_ATTEMPTS - 1:
                 raise
     return record

@@ -1,5 +1,7 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
+from fastapi import Response
 from sqlalchemy.orm import Session
+from modules.common.pagination import PageParams
 from .repository import NotificationRepository
 from .schemas import NotificationCreate, NotificationResponse, NotificationSummary
 from .expiry_checker import ExpiryCheckerService
@@ -18,6 +20,24 @@ class NotificationService:
         limit: int = 100,
     ) -> List[NotificationResponse]:
         return self.repo.get_all(unread_only=unread_only, target_role=target_role, severity=severity, limit=limit)
+
+    def get_paginated(
+        self,
+        params: PageParams,
+        response: Optional[Response] = None,
+        unread_only: bool = False,
+        target_role: Optional[str] = None,
+        severity: Optional[str] = None,
+        category: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return self.repo.get_paginated(
+            params,
+            response=response,
+            unread_only=unread_only,
+            target_role=target_role,
+            severity=severity,
+            category=category,
+        )
 
     def create_notification(self, schema: NotificationCreate) -> NotificationResponse:
         return self.repo.create(schema)

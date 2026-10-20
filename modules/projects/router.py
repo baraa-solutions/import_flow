@@ -35,11 +35,14 @@ def get_all_projects(
 # Excel Template & Bulk Import & Export (Defined before /{project_id})
 # ==================================================
 
-@router.get("/export-excel")
-def export_projects_excel(db: Session = Depends(get_db)):
+@router.get("/export-csv")
+def export_projects_csv(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     service = ProjectService(db)
     projects = service.get_all(include_inactive=True)
-    headers = ['ID', 'Project Code', 'Project Name', 'Client Name', 'Manager Name', 'Budget', 'Currency', 'Status']
+    headers = MasterDataExportImportHelper.get_localized_headers("projects", lang=lang)
     rows = []
     for p in projects:
         rows.append([
@@ -50,18 +53,48 @@ def export_projects_excel(db: Session = Depends(get_db)):
             p.manager_name or '',
             p.budget or 0.0,
             p.currency or 'USD',
-            'Active' if p.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(p.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_excel("Projects & Cost Centers", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("projects", lang=lang)
+    content = MasterDataExportImportHelper.export_to_csv(title, headers, rows, lang=lang)
+    filename = MasterDataExportImportHelper.standard_export_filename("Projects_CostCenters", "csv")
+    return MasterDataExportImportHelper.as_csv_response(filename, content)
+
+
+@router.get("/export-excel")
+def export_projects_excel(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
+    service = ProjectService(db)
+    projects = service.get_all(include_inactive=True)
+    headers = MasterDataExportImportHelper.get_localized_headers("projects", lang=lang)
+    rows = []
+    for p in projects:
+        rows.append([
+            p.project_id,
+            p.project_code,
+            p.project_name,
+            p.client_name or '',
+            p.manager_name or '',
+            p.budget or 0.0,
+            p.currency or 'USD',
+            MasterDataExportImportHelper.format_status(p.is_active, lang=lang),
+        ])
+    title = MasterDataExportImportHelper.get_localized_title("projects", lang=lang)
+    content = MasterDataExportImportHelper.export_to_excel(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Projects_CostCenters", "xlsx")
     return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @router.get("/export-pdf")
-def export_projects_pdf(db: Session = Depends(get_db)):
+def export_projects_pdf(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     service = ProjectService(db)
     projects = service.get_all(include_inactive=True)
-    headers = ['ID', 'Project Code', 'Project Name', 'Client', 'Manager', 'Budget', 'Status']
+    headers = MasterDataExportImportHelper.get_localized_headers("projects", lang=lang, is_pdf=True)
     rows = []
     for p in projects:
         rows.append([
@@ -71,9 +104,10 @@ def export_projects_pdf(db: Session = Depends(get_db)):
             p.client_name or '',
             p.manager_name or '',
             f"{p.budget or 0.0:,.2f} {p.currency or 'USD'}",
-            'Active' if p.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(p.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_pdf("Projects & Cost Centers (MD-007)", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("projects", lang=lang)
+    content = MasterDataExportImportHelper.export_to_pdf(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Projects_CostCenters", "pdf")
     return MasterDataExportImportHelper.as_pdf_response(filename, content)
 

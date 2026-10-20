@@ -1388,7 +1388,6 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "CCQ_RFQ_CANCELLED": {"note": "RFQ {rfq_code} is cancelled and cannot be awarded."},
     "CCQ_QUOTE_EXPIRED": {"note": "The quotation expired on {validity_date}."},
     "CCQ_AWARDED_QUOTE_DELETE": {"note": "The awarded quotation cannot be deleted."},
-    "CCQ_RFQ_AWARDED": {"note": "This quotation request is already awarded: its quotations and status can no longer change."},
     "CCQ_PRICE_LIST_DATE_RANGE": {"note": "The validity start {effective_from} is after its end {effective_to}."},
     "SS_FX_RATE_MISSING": {
         "note": "No commercial exchange rate found for currency {currency} on date {on_date}.",
@@ -1555,6 +1554,13 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "IF_STATUS_TRANSITION_INVALID": {
         "note": "Cannot transition import file status from {from} to {to}.",
+    },
+    # ── System parameters (BEX-T17) ───────────────────────────────────────────
+    "SYSPARAM_UNKNOWN": {
+        "note": "System parameter '{param_key}' is unknown or does not exist.",
+    },
+    "SYSPARAM_INVALID_VALUE": {
+        "note": "Invalid value for system parameter '{param_key}': {reason}",
     },
 }
 

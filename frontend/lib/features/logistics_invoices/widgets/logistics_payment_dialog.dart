@@ -81,7 +81,10 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
     _knockoffAllocations.clear();
     double remainingToAllocate = _totalVoucherEgp;
 
-    for (final inv in _openInvoices) {
+    final openList = _openInvoices
+        .where((inv) => inv.remainingAmountEgp > 0.01 && inv.paymentStatus != 'FULLY_PAID')
+        .toList();
+    for (final inv in openList) {
       if (remainingToAllocate <= 0) break;
       final canPay = inv.remainingAmountEgp;
       final allocated = remainingToAllocate >= canPay ? canPay : remainingToAllocate;
@@ -96,10 +99,14 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
   double get _unallocatedEgp => _totalVoucherEgp - _totalAllocatedEgp;
 
   Future<void> _submitVoucher() async {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     if (!_formKey.currentState!.validate()) return;
     if (_voucherAmount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Payment amount must be greater than zero!'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(isArabic ? 'يجب أن يكون مبلغ الدفعة أكبر من الصفر!' : 'Payment amount must be greater than zero!'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -137,7 +144,12 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment voucher & knock-offs processed successfully!'), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text(isArabic
+                ? 'تم تسجيل سند الدفع وإقفال الفواتير بنجاح!'
+                : 'Payment voucher & knock-offs processed successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
@@ -154,6 +166,10 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final openUnpaidInvoices = _openInvoices
+        .where((inv) => inv.remainingAmountEgp > 0.01 && inv.paymentStatus != 'FULLY_PAID')
+        .toList();
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -171,7 +187,9 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                   const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 24),
                   const SizedBox(width: 10),
                   Text(
-                    'Logistics Payment Voucher & Knock-off (سند دفع وإقفال فواتير)',
+                    isArabic
+                        ? 'سند دفع وإقفال فواتير الخدمات اللوجستية'
+                        : 'Logistics Payment Voucher & Knock-off',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -190,7 +208,11 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                     flex: 1,
                     child: TextFormField(
                       controller: _partnerIdCtrl,
-                      decoration: const InputDecoration(labelText: 'Partner ID *', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'معرف الشريك *' : 'Partner ID *',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
                       keyboardType: TextInputType.number,
                       onChanged: (_) => _loadOpenInvoices(),
                     ),
@@ -200,8 +222,12 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                     flex: 2,
                     child: TextFormField(
                       controller: _partnerNameCtrl,
-                      decoration: const InputDecoration(labelText: 'Partner Name *', isDense: true, border: OutlineInputBorder()),
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'اسم الشريك *' : 'Partner Name *',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                      validator: (v) => v == null || v.isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -209,14 +235,18 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                     flex: 2,
                     child: TextFormField(
                       controller: _amountCtrl,
-                      decoration: const InputDecoration(labelText: 'Payment Amount *', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'مبلغ الدفعة *' : 'Payment Amount *',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) {
                         setState(() {
                           _autoAllocateFifo();
                         });
                       },
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                      validator: (v) => v == null || v.isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -224,7 +254,11 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                     flex: 1,
                     child: DropdownButtonFormField<String>(
                       initialValue: _currency,
-                      decoration: const InputDecoration(labelText: 'Currency', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'العملة' : 'Currency',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
                       items: const [
                         DropdownMenuItem(value: 'EGP', child: Text('EGP')),
                         DropdownMenuItem(value: 'USD', child: Text('USD')),
@@ -243,11 +277,15 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                     flex: 2,
                     child: DropdownButtonFormField<String>(
                       initialValue: _paymentMethod,
-                      decoration: const InputDecoration(labelText: 'Payment Method', isDense: true, border: OutlineInputBorder()),
-                      items: const [
-                        DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Bank Transfer (تحويل بنكي)')),
-                        DropdownMenuItem(value: 'CHEQUE', child: Text('Bank Cheque (شيك بنكي)')),
-                        DropdownMenuItem(value: 'CASH', child: Text('Cash (نقداً)')),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'طريقة الدفع' : 'Payment Method',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: [
+                        DropdownMenuItem(value: 'BANK_TRANSFER', child: Text(isArabic ? 'تحويل بنكي' : 'Bank Transfer')),
+                        DropdownMenuItem(value: 'CHEQUE', child: Text(isArabic ? 'شيك بنكي' : 'Bank Cheque')),
+                        DropdownMenuItem(value: 'CASH', child: Text(isArabic ? 'نقداً' : 'Cash')),
                       ],
                       onChanged: (v) => setState(() => _paymentMethod = v ?? 'BANK_TRANSFER'),
                     ),
@@ -257,7 +295,11 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                     flex: 2,
                     child: TextFormField(
                       controller: _bankRefCtrl,
-                      decoration: const InputDecoration(labelText: 'Bank Reference / Cheque #', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'رقم التحويل / الشيك البنكي' : 'Bank Reference / Cheque #',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -265,7 +307,11 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                     flex: 1,
                     child: TextFormField(
                       initialValue: _exchangeRate.toString(),
-                      decoration: const InputDecoration(labelText: 'CBE Rate', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'سعر صرف البنك المركزي' : 'CBE Rate',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (v) {
                         final r = double.tryParse(v);
@@ -291,12 +337,12 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Voucher (EGP): ${_totalVoucherEgp.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    Text('Knocked Off: ${_totalAllocatedEgp.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.emerald)),
-                    Text('Unallocated: ${_unallocatedEgp.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _unallocatedEgp > 0 ? AppTheme.orange : Colors.grey)),
+                    Text('${isArabic ? "قيمة السند (ج.م):" : "Voucher (EGP):"} ${_totalVoucherEgp.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text('${isArabic ? "المسدد (ج.م):" : "Knocked Off:"} ${_totalAllocatedEgp.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.emerald)),
+                    Text('${isArabic ? "غير الموزع (ج.م):" : "Unallocated:"} ${_unallocatedEgp.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: _unallocatedEgp > 0 ? AppTheme.orange : Colors.grey)),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.auto_fix_high, size: 14),
-                      label: const Text('FIFO Auto-Knock'),
+                      label: Text(isArabic ? 'توزيع تلقائي (FIFO)' : 'FIFO Auto-Knock'),
                       style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                       onPressed: () => setState(() => _autoAllocateFifo()),
                     ),
@@ -305,15 +351,22 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
               ),
               const SizedBox(height: 12),
               // Open Invoices Table
-              const Text('Select Open Invoices to Knock Off (إقفال الفواتير المفتوحة):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(
+                isArabic
+                    ? 'قائمة الفواتير المفتوحة غير المسددة للإقفال:'
+                    : 'Select Open Invoices to Knock Off:',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
               const SizedBox(height: 6),
               Expanded(
                 child: _isLoadingInvoices
                     ? const Center(child: CircularProgressIndicator())
-                    : _openInvoices.isEmpty
+                    : openUnpaidInvoices.isEmpty
                         ? Center(
                             child: Text(
-                              'No open invoices found for this partner.',
+                              isArabic
+                                  ? 'لا توجد فواتير مفتوحة غير مسددة لهذا الشريك.'
+                                  : 'No open invoices found for this partner.',
                               style: TextStyle(color: Colors.grey.shade600),
                             ),
                           )
@@ -323,61 +376,115 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: ListView.separated(
-                              itemCount: _openInvoices.length,
+                              itemCount: openUnpaidInvoices.length,
                               separatorBuilder: (_, __) => const Divider(height: 1),
                               itemBuilder: (ctx, i) {
-                                final inv = _openInvoices[i];
+                                final inv = openUnpaidInvoices[i];
                                 final currentKnock = _knockoffAllocations[inv.invoiceId] ?? 0.0;
                                 final isFullyKnocked = currentKnock >= inv.remainingAmountEgp;
 
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isFullyKnocked
+                                        ? (isDark ? AppTheme.emerald.withValues(alpha: 0.1) : Colors.green.shade50.withValues(alpha: 0.5))
+                                        : Colors.transparent,
+                                  ),
                                   child: Row(
                                     children: [
                                       Icon(
                                         isFullyKnocked ? Icons.check_circle : Icons.radio_button_unchecked,
-                                        size: 16,
+                                        size: 18,
                                         color: isFullyKnocked ? AppTheme.emerald : Colors.grey,
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(
-                                        flex: 2,
+                                        flex: 3,
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(
-                                              '${inv.invoiceCode} — #${inv.invoiceNumber}',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  '${isArabic ? "فاتورة" : "Inv"} #${inv.invoiceNumber}',
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.cobalt.withValues(alpha: 0.12),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    inv.invoiceCode,
+                                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                  decoration: BoxDecoration(
+                                                    color: (inv.paymentStatus == 'PARTIALLY_PAID' ? AppTheme.orange : Colors.grey).withValues(alpha: 0.15),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    inv.paymentStatus == 'PARTIALLY_PAID'
+                                                        ? (isArabic ? 'مسددة جزئياً' : 'Partially Paid')
+                                                        : (isArabic ? 'غير مسددة' : 'Unpaid'),
+                                                    style: TextStyle(
+                                                      fontSize: 9.5,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: inv.paymentStatus == 'PARTIALLY_PAID' ? AppTheme.orange : Colors.grey.shade700,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
+                                            const SizedBox(height: 3),
                                             Text(
-                                              'B/L: ${inv.blNumber ?? "N/A"} | Date: ${inv.invoiceDate.toIso8601String().split("T").first}',
+                                              '${isArabic ? "بوليصة" : "B/L"}: ${inv.blNumber ?? "—"} | ${isArabic ? "تاريخ" : "Date"}: ${inv.invoiceDate.toIso8601String().split("T").first}',
                                               style: const TextStyle(fontSize: 10.5, color: Colors.grey),
                                             ),
                                           ],
                                         ),
                                       ),
                                       Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          'Remaining: ${inv.remainingAmountEgp.toStringAsFixed(2)} EGP (${inv.totalAmountFx.toStringAsFixed(2)} ${inv.currency})',
-                                          style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+                                        flex: 3,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${isArabic ? "إجمالي القيمة" : "Total"}: ${inv.totalAmountFx.toStringAsFixed(2)} ${inv.currency}',
+                                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${isArabic ? "المتبقي للسداد" : "Remaining"}: ${inv.remainingAmountEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: isFullyKnocked ? AppTheme.emerald : Colors.red.shade700,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                       SizedBox(
                                         width: 140,
                                         child: TextFormField(
                                           key: ValueKey('knock_${inv.invoiceId}_$currentKnock'),
-                                          initialValue: currentKnock.toStringAsFixed(2),
-                                          decoration: const InputDecoration(
-                                            labelText: 'Knock (EGP)',
+                                          initialValue: currentKnock > 0 ? currentKnock.toStringAsFixed(2) : '',
+                                          decoration: InputDecoration(
+                                            labelText: isArabic ? 'سداد (ج.م)' : 'Knock (EGP)',
                                             isDense: true,
-                                            border: OutlineInputBorder(),
+                                            border: const OutlineInputBorder(),
                                           ),
                                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                           onChanged: (v) {
                                             final val = double.tryParse(v) ?? 0.0;
                                             setState(() {
-                                              _knockoffAllocations[inv.invoiceId] = val;
+                                              _knockoffAllocations[inv.invoiceId] = val.clamp(0.0, inv.remainingAmountEgp);
                                             });
                                           },
                                         ),
@@ -393,10 +500,13 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+                  ),
                   const SizedBox(width: 10),
                   AppButton(
-                    label: 'Process Payment Voucher',
+                    label: isArabic ? 'تنفيذ سند الدفع' : 'Process Payment Voucher',
                     variant: AppButtonVariant.primary,
                     icon: Icons.check,
                     isLoading: _isLoading,

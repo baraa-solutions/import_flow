@@ -121,6 +121,7 @@ class TestDemurrageDetentionEngine:
             container_type="40ft High Cube",
             containers_count=1,
             demurrage_free_days=14,
+            port_storage_free_days=14,
             discharge_date=discharge,
             calculation_date=date.today(),
             exchange_rate=50.0,  # DD-02: no default FX rate any more
@@ -129,6 +130,47 @@ class TestDemurrageDetentionEngine:
         assert sim.demurrage_days_overdue == 0
         assert sim.status_badge == "WARNING"
         assert "تحذير: متبقي 2 أيام" in sim.countdown_summary_ar
+
+    def test_simulation_storage_incurred_while_demurrage_safe_trap_avoided(self):
+        """التحقق من كشف فخ الـ 21 يوماً: سريان أرضيات الميناء بالجنيه رغم سريان سماح الخط الملاحي"""
+        discharge = date.today() - timedelta(days=10)
+        sim = simulate_demurrage_and_detention(DemurrageSimulationRequest(
+            carrier_name="MSC",
+            container_type="40ft High Cube",
+            containers_count=1,
+            demurrage_free_days=21,  # الاتفاقية الممنوحة من الخط الملاحي
+            port_storage_free_days=7,  # فترة سماح أرضيات ساحات الميناء
+            discharge_date=discharge,
+            calculation_date=date.today(),
+            exchange_rate=50.0,
+        ))
+        assert sim.demurrage_days_consumed == 10
+        assert sim.demurrage_days_overdue == 0  # متبقي 11 يوم سماح للخط
+        assert sim.storage_days_consumed == 10
+        assert sim.storage_days_overdue == 3  # 3 أيام تأخير أرضيات ميناء!
+        assert sim.storage_fee_egp == 750.0  # 3 * 250 EGP
+        assert sim.status_badge == "STORAGE_INCURRED"
+        assert "سريان أرضيات ساحات الميناء" in sim.countdown_summary_ar
+        assert "بدون غرامات خط" in sim.countdown_summary_ar
+
+    def test_simulation_storage_warning_48h(self):
+        """تحذير اقتراب انتهاء سماح ساحات الميناء خلال 24-48 ساعة"""
+        discharge = date.today() - timedelta(days=6)
+        sim = simulate_demurrage_and_detention(DemurrageSimulationRequest(
+            carrier_name="CMA CGM",
+            container_type="40ft High Cube",
+            containers_count=1,
+            demurrage_free_days=21,
+            port_storage_free_days=7,
+            discharge_date=discharge,
+            calculation_date=date.today(),
+            exchange_rate=50.0,
+        ))
+        assert sim.demurrage_days_consumed == 6
+        assert sim.storage_days_consumed == 6
+        assert sim.storage_days_overdue == 0
+        assert sim.status_badge == "STORAGE_WARNING_48H"
+        assert "تحذير حرج: متبقي 1 أيام فقط على بدء أرضيات ساحات الميناء" in sim.countdown_summary_ar
 
     def test_simulation_demurrage_and_detention_incurred(self):
         discharge = date(2026, 8, 1)

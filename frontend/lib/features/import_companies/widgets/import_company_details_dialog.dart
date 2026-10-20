@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/export/widgets/export_language_dialog.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/master_data_export_service.dart';
@@ -30,6 +31,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final isArabic = l10n.isArabic;
     final isActive = company.isActive;
 
     return Dialog(
@@ -229,11 +231,11 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildSimpleInfoRow(context, Icons.email_outlined, 'البريد الأساسي', company.primaryEmail ?? company.email ?? '-'),
+                                child: _buildSimpleInfoRow(context, Icons.email_outlined, isArabic ? 'البريد الأساسي' : 'Primary Email', company.primaryEmail ?? company.email ?? '-'),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: _buildSimpleInfoRow(context, Icons.mark_email_read_outlined, 'البريد الثانوي', company.secondaryEmail ?? '-'),
+                                child: _buildSimpleInfoRow(context, Icons.mark_email_read_outlined, isArabic ? 'البريد الثانوي' : 'Secondary Email', company.secondaryEmail ?? '-'),
                               ),
                             ],
                           ),
@@ -278,7 +280,11 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                                   context,
                                   Icons.verified_outlined,
                                   'WIPO Madrid Monitor',
-                                  company.hasWipo ? (company.wipoNumber != null && company.wipoNumber!.isNotEmpty ? 'مسجل (#${company.wipoNumber})' : 'نعم (مسجل)') : 'غير مسجل',
+                                  company.hasWipo
+                                      ? (company.wipoNumber != null && company.wipoNumber!.isNotEmpty
+                                          ? (isArabic ? 'مسجل (#${company.wipoNumber})' : 'Registered (#${company.wipoNumber})')
+                                          : (isArabic ? 'نعم (مسجل)' : 'Yes (Registered)'))
+                                      : (isArabic ? 'غير مسجل' : 'Not Registered'),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -286,8 +292,12 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                                 child: _buildSimpleInfoRow(
                                   context,
                                   Icons.verified_outlined,
-                                  'EUIPO (أوروبا)',
-                                  company.hasEuipo ? (company.euipoNumber != null && company.euipoNumber!.isNotEmpty ? 'مسجل (#${company.euipoNumber})' : 'نعم (مسجل)') : 'غير مسجل',
+                                  isArabic ? 'مكتب الملكية الفكرية الأوروبي (EUIPO)' : 'EUIPO',
+                                  company.hasEuipo
+                                      ? (company.euipoNumber != null && company.euipoNumber!.isNotEmpty
+                                          ? (isArabic ? 'مسجل (#${company.euipoNumber})' : 'Registered (#${company.euipoNumber})')
+                                          : (isArabic ? 'نعم (مسجل)' : 'Yes (Registered)'))
+                                      : (isArabic ? 'غير مسجل' : 'Not Registered'),
                                 ),
                               ),
                             ],
@@ -300,7 +310,11 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                                   context,
                                   Icons.public,
                                   'Global Brand Database',
-                                  company.hasGlobalBrand ? (company.globalBrandNumber != null && company.globalBrandNumber!.isNotEmpty ? 'مسجل (#${company.globalBrandNumber})' : 'نعم (مسجل)') : 'غير مسجل',
+                                  company.hasGlobalBrand
+                                      ? (company.globalBrandNumber != null && company.globalBrandNumber!.isNotEmpty
+                                          ? (isArabic ? 'مسجل (#${company.globalBrandNumber})' : 'Registered (#${company.globalBrandNumber})')
+                                          : (isArabic ? 'نعم (مسجل)' : 'Yes (Registered)'))
+                                      : (isArabic ? 'غير مسجل' : 'Not Registered'),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -308,8 +322,12 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                                 child: _buildSimpleInfoRow(
                                   context,
                                   Icons.workspace_premium_outlined,
-                                  'ISO 9001 Certificate',
-                                  company.hasIso9001 ? (company.iso9001Number != null && company.iso9001Number!.isNotEmpty ? 'معتمد (#${company.iso9001Number})' : 'نعم (معتمد)') : 'غير معتمد',
+                                  isArabic ? 'شهادة آيزو 9001' : 'ISO 9001 Certificate',
+                                  company.hasIso9001
+                                      ? (company.iso9001Number != null && company.iso9001Number!.isNotEmpty
+                                          ? (isArabic ? 'معتمد (#${company.iso9001Number})' : 'Certified (#${company.iso9001Number})')
+                                          : (isArabic ? 'نعم (معتمد)' : 'Yes (Certified)'))
+                                      : (isArabic ? 'غير معتمد' : 'Not Certified'),
                                 ),
                               ),
                             ],
@@ -403,7 +421,9 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         icon: const Icon(Icons.print_rounded, size: 16),
                         label: Text(l10n.printSavePdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
-                          await MasterDataExportService.printOrSaveImporterPdf(company);
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          await MasterDataExportService.printOrSaveImporterPdf(company, lang: lang);
                         },
                       ),
 
@@ -417,7 +437,10 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         icon: const Icon(Icons.table_view_rounded, size: 16),
                         label: Text(l10n.downloadExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
-                          final path = await MasterDataExportService.exportImporterToExcel(context, company);
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          if (!context.mounted) return;
+                          final path = await MasterDataExportService.exportImporterToExcel(context, company, lang: lang);
                           if (context.mounted && path != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -429,7 +452,32 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         },
                       ),
 
-                      // 4. WhatsApp Share
+                      // 4. Export CSV
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1565C0),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.description_rounded, size: 16),
+                        label: Text(l10n.tableExportCsv, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          if (!context.mounted) return;
+                          final path = await MasterDataExportService.exportImporterToCsv(context, company, lang: lang);
+                          if (context.mounted && path != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.excelSavedSuccess(path)),
+                                backgroundColor: AppTheme.emerald,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+
+                      // 5. WhatsApp Share
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF25D366),

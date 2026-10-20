@@ -85,11 +85,11 @@ def _create_settle_user(db) -> User:
 def test_be45_t02_recalculate_before_push_and_dual_clock(db, monkeypatch):
     """
     Tracking: discharge 2026-09-01, 1 container 40HC, no policy (default tiers 40/70/120,
-    14 free days, storage 5 free days at 250 EGP), rate 50.0.
+    5 free days demurrage, storage 7 free days at 250 EGP), rate 50.0.
     Created while today = 2026-09-01, so stored totals are 0.
     Push with today = 2026-09-21:
-    - consumed 20, overdue 6, demurrage 6 x 40 = 240.00 USD; storage (20-5) x 250 = 3750.00 EGP.
-    - Carrier row amount_fx 240.00 and amount_egp 12000.00. Storage row 3750.00.
+    - consumed 20, overdue 15, demurrage (7x40 + 7x70 + 1x120) = 890.00 USD; storage (20-7) x 250 = 3250.00 EGP.
+    - Carrier row amount_fx 890.00 and amount_egp 44500.00. Storage row 3250.00.
     - is_provisional: True
     - Stored tracking totals in DB match fresh recalculation.
     - Dual clock status reflects live calculation.
@@ -110,7 +110,6 @@ def test_be45_t02_recalculate_before_push_and_dual_clock(db, monkeypatch):
             ContainerItemInput(
                 container_no="MSCU9876543",
                 container_type="40HC",
-                free_days=14,
             )
         ],
     )
@@ -128,8 +127,8 @@ def test_be45_t02_recalculate_before_push_and_dual_clock(db, monkeypatch):
 
     # Test Dual Clock live recalculation: should show live numbers without DB mutation
     dual_clock = dd.get_dual_clock_status_service(db, tracking.tracking_id)
-    assert dual_clock.carrier_clock.accrued_demurrage_fx == 240.0
-    assert dual_clock.port_storage_clock.accrued_storage_egp == 3750.0
+    assert dual_clock.carrier_clock.accrued_demurrage_fx == 890.0
+    assert dual_clock.port_storage_clock.accrued_storage_egp == 3250.0
     assert dual_clock.carrier_clock.days_consumed == 20
     assert dual_clock.carrier_clock.days_remaining == 0
     assert dual_clock.carrier_clock.status == "OVERDUE_DEMURRAGE"
@@ -153,10 +152,10 @@ def test_be45_t02_recalculate_before_push_and_dual_clock(db, monkeypatch):
 
     # Assert tracking totals in DB were refreshed by recalculation
     db.refresh(tracking)
-    assert tracking.total_demurrage_fx == 240.00
+    assert tracking.total_demurrage_fx == 890.00
     assert tracking.total_detention_fx == 0.00
-    assert tracking.total_storage_egp == 3750.00
-    assert tracking.total_cost_egp == round((240.00 * 50.0) + 3750.00, 2)  # 15750.00
+    assert tracking.total_storage_egp == 3250.00
+    assert tracking.total_cost_egp == round((890.00 * 50.0) + 3250.00, 2)  # 47750.00
     assert tracking.is_pushed_to_settlement is True
 
     # Assert settlement expense invoices written
@@ -167,15 +166,15 @@ def test_be45_t02_recalculate_before_push_and_dual_clock(db, monkeypatch):
 
     # Carrier charges
     carrier_row = next(i for i in invoices if i["currency"] == "USD")
-    assert carrier_row["amount_fx"] == 240.00
+    assert carrier_row["amount_fx"] == 890.00
     assert carrier_row["exchange_rate"] == 50.0
-    assert carrier_row["amount_egp"] == 12000.00
+    assert carrier_row["amount_egp"] == 44500.00
 
     # Port storage
     storage_row = next(i for i in invoices if i["currency"] == "EGP")
-    assert storage_row["amount_fx"] == 3750.00
+    assert storage_row["amount_fx"] == 3250.00
     assert storage_row["exchange_rate"] == 1.0
-    assert storage_row["amount_egp"] == 3750.00
+    assert storage_row["amount_egp"] == 3250.00
 
 
 def test_be45_t02_is_provisional_false_when_containers_returned(db, monkeypatch):

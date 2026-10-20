@@ -116,59 +116,27 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
                   context: context,
                   includeTsv: true,
                 ),
-                onMoreActionSelected: (val) {
-                  switch (val) {
-                    case 'export_excel':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'incoterms',
-                        actionEndpoint: 'export-excel',
-                        defaultFileName: 'Incoterms_Master.xlsx',
-                        dialogTitle: 'تصدير الشروط التجارية Excel',
-                      );
-                      break;
-                    case 'export_pdf':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'incoterms',
-                        actionEndpoint: 'export-pdf',
-                        defaultFileName: 'Incoterms_Report.pdf',
-                        dialogTitle: 'تصدير الشروط التجارية PDF',
-                      );
-                      break;
-                    case 'copy_tsv':
-                      if (_tabController.index == 0) {
-                        _IncotermsTab.copyIncotermsTsv(context, incotermsAsync.value ?? []);
-                      } else if (_tabController.index == 1) {
-                        _CostItemsTab.copyCostItemsTsv(context, costItemsAsync.value ?? []);
-                      }
-                      break;
-                    case 'download_template':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'incoterms',
-                        actionEndpoint: 'excel-template',
-                        defaultFileName: 'Incoterms_Template.xlsx',
-                        dialogTitle: 'تنزيل نموذج الشروط التجارية',
-                      );
-                      break;
-                    case 'import_excel':
-                      MasterDataActionHelper.importExcel(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'incoterms',
-                        onImportSuccess: () {
-                          ref.read(incotermsProvider.notifier).fetchIncoterms();
-                          ref.read(costItemsProvider.notifier).fetchCostItems();
-                          ref.read(responsibilityMatrixProvider.notifier).fetchAll();
-                        },
-                      );
-                      break;
-                  }
-                },
+                onMoreActionSelected: (val) => MasterDataActionHelper.handleStandardAction(
+                  context: context,
+                  ref: ref,
+                  actionValue: val,
+                  moduleEndpoint: 'incoterms',
+                  entityNameAr: 'شروط الشحن الدولية',
+                  entityNameEn: 'Incoterms Rules',
+                  entityFilePrefix: 'Incoterms_Rules',
+                  onImportSuccess: () {
+                    ref.read(incotermsProvider.notifier).fetchIncoterms();
+                    ref.read(costItemsProvider.notifier).fetchCostItems();
+                    ref.read(responsibilityMatrixProvider.notifier).fetchAll();
+                  },
+                  onCopyTsv: () {
+                    if (_tabController.index == 0) {
+                      _IncotermsTab.copyIncotermsTsv(context, incotermsAsync.value ?? []);
+                    } else if (_tabController.index == 1) {
+                      _CostItemsTab.copyCostItemsTsv(context, costItemsAsync.value ?? []);
+                    }
+                  },
+                ),
                 searchController: _searchController,
                 searchHint: l10n.searchIncotermsHint,
                 onSearchChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),

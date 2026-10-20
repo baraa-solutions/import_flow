@@ -178,6 +178,7 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final isEdit = widget.initialPolicy != null;
 
     return Dialog(
@@ -196,7 +197,9 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
                   const Icon(Icons.shield_outlined, color: AppTheme.cobalt, size: 24),
                   const SizedBox(width: 10),
                   Text(
-                    isEdit ? 'Marine Policy: ${widget.initialPolicy!.policyCode}' : 'Issue Marine Insurance Policy (بوليصة التأمين البحري)',
+                    isEdit
+                        ? (isArabic ? 'وثيقة التأمين البحري: ${widget.initialPolicy!.policyCode}' : 'Marine Policy: ${widget.initialPolicy!.policyCode}')
+                        : (isArabic ? 'إصدار وثيقة تأمين بحري جديدة' : 'Issue Marine Insurance Policy'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -329,22 +332,22 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _metricText('Base Premium (FX)', '${_premiumAmountFx.toStringAsFixed(2)} $_currency'),
-                        _metricText('Base Premium (EGP)', '${_premiumAmountEgp.toStringAsFixed(2)} EGP'),
-                        _metricText('Stamp Duty (0.1%)', '${_stampDutyEgp.toStringAsFixed(2)} EGP'),
-                        _metricText('FRA Fee (12%)', '${_supervisoryFeeEgp.toStringAsFixed(2)} EGP'),
+                        _metricText(isArabic ? 'قسط الأساس (أجنبي)' : 'Base Premium (FX)', '${_premiumAmountFx.toStringAsFixed(2)} $_currency'),
+                        _metricText(isArabic ? 'قسط الأساس (ج.م)' : 'Base Premium (EGP)', '${_premiumAmountEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}'),
+                        _metricText(isArabic ? 'دمغة نسبية (0.1%)' : 'Stamp Duty (0.1%)', '${_stampDutyEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}'),
+                        _metricText(isArabic ? 'رسوم الرقابة (12%)' : 'FRA Fee (12%)', '${_supervisoryFeeEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}'),
                       ],
                     ),
                     const Divider(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Net Payable Premium (إجمالي قسط التأمين والرسوم):',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        Text(
+                          isArabic ? 'إجمالي قسط التأمين والرسوم المستحقة:' : 'Net Payable Premium:',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                         Text(
-                          '${_netPremiumEgp.toStringAsFixed(2)} EGP',
+                          '${_netPremiumEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
                           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                         ),
                       ],
@@ -355,7 +358,11 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _beneficiaryCtrl,
-                decoration: const InputDecoration(labelText: 'Beneficiary (المستفيد)', isDense: true, border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'اسم المستفيد' : 'Beneficiary',
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 16),
               Row(
@@ -363,7 +370,7 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
                 children: [
                   if (isEdit && !widget.initialPolicy!.invoiceGenerated) ...[
                     AppButton(
-                      label: 'Generate Service Invoice',
+                      label: isArabic ? 'توليد فاتورة خدمة' : 'Generate Service Invoice',
                       variant: AppButtonVariant.warning,
                       icon: Icons.receipt_long,
                       isLoading: _isGeneratingInvoice,
@@ -371,10 +378,15 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
                     ),
                     const SizedBox(width: 8),
                   ],
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+                  ),
                   const SizedBox(width: 8),
                   AppButton(
-                    label: isEdit ? 'Update Policy' : 'Issue Policy',
+                    label: isEdit
+                        ? (isArabic ? 'تحديث الوثيقة' : 'Update Policy')
+                        : (isArabic ? 'إصدار الوثيقة' : 'Issue Policy'),
                     variant: AppButtonVariant.primary,
                     icon: Icons.check,
                     isLoading: _isLoading,

@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
+import '../../../core/export/widgets/export_language_dialog.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
@@ -312,56 +313,24 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                   context: context,
                   includeTsv: partnerList.isNotEmpty,
                 ),
-                onMoreActionSelected: (val) {
-                  switch (val) {
-                    case 'export_excel':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'external-service-providers',
-                        actionEndpoint: 'export-excel',
-                        defaultFileName: 'Partners_Banks_Report.xlsx',
-                        dialogTitle: 'تصدير الشركاء والبنوك إكسيل',
-                      );
-                      break;
-                    case 'export_pdf':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'external-service-providers',
-                        actionEndpoint: 'export-pdf',
-                        defaultFileName: 'Partners_Banks_Report.pdf',
-                        dialogTitle: 'تصدير الشركاء والبنوك PDF',
-                      );
-                      break;
-                    case 'copy_tsv':
-                      if (partnerList.isNotEmpty) {
-                        _copyPartnersTsv(context, partnerList);
-                      }
-                      break;
-                    case 'download_template':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'external-service-providers',
-                        actionEndpoint: 'excel-template',
-                        defaultFileName: 'Partners_Banks_Template.xlsx',
-                        dialogTitle: 'تنزيل نموذج الشركاء والبنوك',
-                      );
-                      break;
-                    case 'import_excel':
-                      MasterDataActionHelper.importExcel(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'external-service-providers',
-                        onImportSuccess: () {
-                          ref.read(partnersProvider.notifier).fetchPartners();
-                          ref.read(allPartnersProvider.notifier).fetchPartners();
-                        },
-                      );
-                      break;
-                  }
-                },
+                onMoreActionSelected: (val) => MasterDataActionHelper.handleStandardAction(
+                  context: context,
+                  ref: ref,
+                  actionValue: val,
+                  moduleEndpoint: 'external-service-providers',
+                  entityNameAr: 'الشركاء ومقدمي الخدمات والبنوك',
+                  entityNameEn: 'Partners & Service Providers',
+                  entityFilePrefix: 'External_Service_Providers_Banks',
+                  onImportSuccess: () {
+                    ref.read(partnersProvider.notifier).fetchPartners();
+                    ref.read(allPartnersProvider.notifier).fetchPartners();
+                  },
+                  onCopyTsv: () {
+                    if (partnerList.isNotEmpty) {
+                      _copyPartnersTsv(context, partnerList);
+                    }
+                  },
+                ),
                 searchController: _searchController,
                 searchHint: l10n.searchPartnersHint,
                 onSearchChanged: (v) {
@@ -439,9 +408,21 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       minWidth: density.buttonHeight,
                       minHeight: density.buttonHeight,
                     ),
-                    onPressed: () {
-                      ref.read(partnersProvider.notifier).fetchPartners();
-                      ref.read(allPartnersProvider.notifier).fetchPartners();
+                    onPressed: () async {
+                      await ref.read(partnersProvider.notifier).fetchPartners();
+                      await ref.read(allPartnersProvider.notifier).fetchPartners();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              Directionality.of(context) == TextDirection.rtl
+                                  ? 'تم تحديث قائمة الشركاء والبنوك بنجاح'
+                                  : 'Partners & banks refreshed successfully',
+                            ),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
                     },
                   ),
                   if (partnerList.isNotEmpty)
@@ -488,7 +469,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
                   return LayoutBuilder(
                     builder: (context, constraints) {
-                      final tableWidth = constraints.maxWidth < 1350 ? 1350.0 : constraints.maxWidth;
+                      final tableWidth = constraints.maxWidth < 1200 ? 1200.0 : constraints.maxWidth;
 
                       return Container(
                         width: double.infinity,
@@ -515,8 +496,8 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                 child: Table(
                                   defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                                   columnWidths: const {
-                                    0: FixedColumnWidth(480),
-                                    1: FixedColumnWidth(160),
+                                    0: FixedColumnWidth(235),
+                                    1: FixedColumnWidth(140),
                                     2: FlexColumnWidth(3.0),
                                     3: FlexColumnWidth(2.6),
                                     4: FlexColumnWidth(2.2),
@@ -649,7 +630,12 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                     onEdit: () => _showPartnerDialog(context, partner),
                                                   ),
                                                   onEdit: () => _showPartnerDialog(context, partner),
-                                                  onPrint: () => MasterDataExportService.printOrSavePartnerPdf(partner),
+                                                  onPrint: () async {
+                                                    final lang = await ExportLanguageDialog.show(context);
+                                                    if (lang != null) {
+                                                      await MasterDataExportService.printOrSavePartnerPdf(partner, lang: lang);
+                                                    }
+                                                  },
                                                   onDelete: () async {
                                                     final confirm = await AppConfirmDialog.showToggleActive(
                                                       context,

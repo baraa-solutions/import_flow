@@ -1,8 +1,9 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Response, status
 from sqlalchemy.orm import Session
 
+from modules.common.pagination import PageParams
 from modules.transport_locations.model import TransportLocation
 from modules.transport_locations.repository import TransportLocationRepository
 from modules.transport_locations.schemas import TransportLocationCreate, TransportLocationUpdate
@@ -32,6 +33,20 @@ class TransportLocationService:
             search=search,
             skip=skip,
             limit=limit,
+        )
+
+    def get_paginated(
+        self,
+        params: PageParams,
+        response: Optional[Response] = None,
+        location_type: Optional[str] = None,
+        country: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return self.repo.get_paginated(
+            params,
+            response=response,
+            location_type=location_type,
+            country=country,
         )
 
     def get_by_id(self, location_id: int) -> TransportLocation:

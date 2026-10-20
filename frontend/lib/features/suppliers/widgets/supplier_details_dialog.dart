@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/export/widgets/export_language_dialog.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/master_data_export_service.dart';
@@ -30,6 +31,7 @@ class SupplierDetailsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final isArabic = l10n.isArabic;
     final isActive = supplier.isActive;
 
     return Dialog(
@@ -392,7 +394,7 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                     const SizedBox(height: 18),
 
                     // Section 4: Trademark Certificates & ISO 9001
-                    _buildSectionHeader(Icons.verified_user_outlined, 'شهادات العلامة التجارية والجودة (Trademark Certificates)'),
+                    _buildSectionHeader(Icons.verified_user_outlined, isArabic ? 'شهادات العلامة التجارية والجودة' : 'Trademark & Quality Certificates'),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -409,15 +411,23 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                                 child: _buildSimpleInfoField(
                                   icon: Icons.verified_outlined,
                                   label: 'WIPO Madrid Monitor',
-                                  value: supplier.hasWipo ? (supplier.wipoNumber != null && supplier.wipoNumber!.isNotEmpty ? 'مسجل (#${supplier.wipoNumber})' : 'نعم (مسجل)') : 'غير مسجل',
+                                  value: supplier.hasWipo
+                                      ? (supplier.wipoNumber != null && supplier.wipoNumber!.isNotEmpty
+                                          ? (isArabic ? 'مسجل (#${supplier.wipoNumber})' : 'Registered (#${supplier.wipoNumber})')
+                                          : (isArabic ? 'نعم (مسجل)' : 'Yes (Registered)'))
+                                      : (isArabic ? 'غير مسجل' : 'Not Registered'),
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildSimpleInfoField(
                                   icon: Icons.verified_outlined,
-                                  label: 'EUIPO (أوروبا)',
-                                  value: supplier.hasEuipo ? (supplier.euipoNumber != null && supplier.euipoNumber!.isNotEmpty ? 'مسجل (#${supplier.euipoNumber})' : 'غير مسجل') : 'غير مسجل',
+                                  label: isArabic ? 'مكتب الملكية الفكرية الأوروبي (EUIPO)' : 'EUIPO',
+                                  value: supplier.hasEuipo
+                                      ? (supplier.euipoNumber != null && supplier.euipoNumber!.isNotEmpty
+                                          ? (isArabic ? 'مسجل (#${supplier.euipoNumber})' : 'Registered (#${supplier.euipoNumber})')
+                                          : (isArabic ? 'نعم (مسجل)' : 'Yes (Registered)'))
+                                      : (isArabic ? 'غير مسجل' : 'Not Registered'),
                                 ),
                               ),
                             ],
@@ -429,15 +439,23 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                                 child: _buildSimpleInfoField(
                                   icon: Icons.public,
                                   label: 'Global Brand Database',
-                                  value: supplier.hasGlobalBrand ? (supplier.globalBrandNumber != null && supplier.globalBrandNumber!.isNotEmpty ? 'مسجل (#${supplier.globalBrandNumber})' : 'غير مسجل') : 'غير مسجل',
+                                  value: supplier.hasGlobalBrand
+                                      ? (supplier.globalBrandNumber != null && supplier.globalBrandNumber!.isNotEmpty
+                                          ? (isArabic ? 'مسجل (#${supplier.globalBrandNumber})' : 'Registered (#${supplier.globalBrandNumber})')
+                                          : (isArabic ? 'نعم (مسجل)' : 'Yes (Registered)'))
+                                      : (isArabic ? 'غير مسجل' : 'Not Registered'),
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildSimpleInfoField(
                                   icon: Icons.workspace_premium_outlined,
-                                  label: 'ISO 9001 Certificate',
-                                  value: supplier.hasIso9001 ? (supplier.iso9001Number != null && supplier.iso9001Number!.isNotEmpty ? 'معتمد (#${supplier.iso9001Number})' : 'نعم (معتمد)') : 'غير معتمد',
+                                  label: isArabic ? 'شهادة آيزو 9001' : 'ISO 9001 Certificate',
+                                  value: supplier.hasIso9001
+                                      ? (supplier.iso9001Number != null && supplier.iso9001Number!.isNotEmpty
+                                          ? (isArabic ? 'معتمد (#${supplier.iso9001Number})' : 'Certified (#${supplier.iso9001Number})')
+                                          : (isArabic ? 'نعم (معتمد)' : 'Yes (Certified)'))
+                                      : (isArabic ? 'غير معتمد' : 'Not Certified'),
                                 ),
                               ),
                             ],
@@ -497,7 +515,9 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                         icon: const Icon(Icons.print_rounded, size: 16),
                         label: Text(l10n.printSavePdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
-                          await MasterDataExportService.printOrSaveSupplierPdf(supplier);
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          await MasterDataExportService.printOrSaveSupplierPdf(supplier, lang: lang);
                         },
                       ),
 
@@ -511,7 +531,35 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                         icon: const Icon(Icons.table_view_rounded, size: 16),
                         label: Text(l10n.downloadExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
-                          final path = await MasterDataExportService.exportSupplierToExcel(context, supplier);
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          if (!context.mounted) return;
+                          final path = await MasterDataExportService.exportSupplierToExcel(context, supplier, lang: lang);
+                          if (context.mounted && path != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.excelSavedSuccess(path)),
+                                backgroundColor: AppTheme.emerald,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+
+                      // 3. Export CSV
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1565C0),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.description_rounded, size: 16),
+                        label: Text(l10n.tableExportCsv, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          if (!context.mounted) return;
+                          final path = await MasterDataExportService.exportSupplierToCsv(context, supplier, lang: lang);
                           if (context.mounted && path != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(

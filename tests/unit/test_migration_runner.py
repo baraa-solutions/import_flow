@@ -29,8 +29,7 @@ PREVIOUS_HEAD = "d3e4f5a6b7c8"
 
 
 
-# Current Alembic head (users.must_change_password). BASELINE_REVISION is the stamp baseline before it.
-HEAD_REVISION = "d0e1f2a3b4c5"
+HEAD_REVISION = "f4b5c6d7e8f9"
 
 
 class _SpyMasterData:
@@ -398,8 +397,10 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     # -> c9d0e1f2a3b4 (users.token_version BEX-T08)
     # -> f1a2b3c4d5e6 (financial settlement active file unique index ACC2-T01)
     # -> f2a3b4c5d6e7 (financial settlement soft delete fields ACC2-T02)
-    # -> head d0e1f2a3b4c5 (payment paid EGP ACC2-T07)
-    assert script.get_revision(HEAD_REVISION).down_revision == "f2a3b4c5d6e7"
+    # -> d0e1f2a3b4c5 (payment paid EGP ACC2-T07)
+    # -> head f4b5c6d7e8f9 (shipment stage activity uniqueness)
+    assert script.get_revision(HEAD_REVISION).down_revision == "d0e1f2a3b4c5"
+    assert script.get_revision("d0e1f2a3b4c5").down_revision == "f2a3b4c5d6e7"
     assert script.get_revision("f2a3b4c5d6e7").down_revision == "f1a2b3c4d5e6"
     assert script.get_revision("f1a2b3c4d5e6").down_revision == "c9d0e1f2a3b4"
     assert script.get_revision("c9d0e1f2a3b4").down_revision == "b8c9d0e1f2a3"

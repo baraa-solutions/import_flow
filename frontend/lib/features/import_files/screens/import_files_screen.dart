@@ -1428,7 +1428,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                           final ambientDirection = Directionality.of(context);
                           final density = ref.watch(displayDensityProvider);
                           // Column widths for 1:1 pixel-perfect alignment between sticky header and scrolling body
-                          const double colActionsWidth = 300.0;
+                          const double colActionsWidth = 215.0;
                           const double colFileIdWidth = 160.0;
                           const double colCompanyWidth = 180.0;
                           const double colPoWidth = 180.0;

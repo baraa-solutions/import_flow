@@ -355,8 +355,47 @@ class _DualClockRadarDialogState extends ConsumerState<DualClockRadarDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Storage Overdue while Carrier Safe Alert (21-Day Trap Avoidance)
+          if (portClock.isOverdue && !carrierClock.isOverdue)
+            Container(
+              margin: const EdgeInsetsDirectional.only(bottom: 16),
+              padding: const EdgeInsetsDirectional.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.severityBackgroundOf(context, AppSeverity.danger),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                border: Border.all(color: AppTheme.severityForegroundOf(context, AppSeverity.danger), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.report_problem_rounded,
+                      color: AppTheme.severityForegroundOf(context, AppSeverity.danger), size: 30),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'تنبيه فخ الـ 21 يوماً: سريان أرضيات ساحات الميناء!',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.severityForegroundOf(context, AppSeverity.danger),
+                            fontSize: 13.5,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'سماح الخط الملاحي ما زال سارياً (متبقي ${carrierClock.daysRemaining} يوم بدون غرامات خط)، لكن فترة سماح الميناء الـ 7 أيام انتهت وتتراكم أرضيات بالجنيه المصري (${portClock.accruedStorageEgp.toStringAsFixed(2)} ج.م). سارع بالإفراج والسحب!',
+                          style: TextStyle(color: AppTheme.textPrimaryOf(context), fontSize: 12.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // 72-Hour Warning Alert
-          if (warning72h)
+          if (warning72h && !portClock.isOverdue)
             Container(
               margin: const EdgeInsetsDirectional.only(bottom: 16),
               padding: const EdgeInsetsDirectional.all(14),

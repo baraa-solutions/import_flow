@@ -1,8 +1,23 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
+from fastapi import Response
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
+from modules.common.pagination import PageParams, like_term, paginate
 from .model import SystemNotification
 from .schemas import NotificationCreate
+
+
+NOTIFICATION_SORT_MAP = {
+    "notification_id": SystemNotification.notification_id,
+    "title": SystemNotification.title,
+    "severity": SystemNotification.severity,
+    "category": SystemNotification.category,
+    "target_role": SystemNotification.target_role,
+    "is_read": SystemNotification.is_read,
+    "created_at": SystemNotification.created_at,
+    "updated_at": SystemNotification.updated_at,
+}
 
 
 class NotificationRepository:
@@ -25,6 +40,45 @@ class NotificationRepository:
             query = query.filter(SystemNotification.severity == severity)
         
         return query.order_by(SystemNotification.created_at.desc()).limit(limit).all()
+
+    def get_paginated(
+        self,
+        params: PageParams,
+        response: Optional[Response] = None,
+        unread_only: bool = False,
+        target_role: Optional[str] = None,
+        severity: Optional[str] = None,
+        category: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        query = self.db.query(SystemNotification)
+        if unread_only:
+            query = query.filter(SystemNotification.is_read == False)
+        if target_role and target_role != "ALL":
+            query = query.filter(SystemNotification.target_role.in_(["ALL", target_role]))
+        if severity:
+            query = query.filter(SystemNotification.severity == severity)
+        if category:
+            query = query.filter(SystemNotification.category == category)
+
+        term = like_term(params.q)
+        if term:
+            query = query.filter(
+                or_(
+                    SystemNotification.title.ilike(term, escape="\\"),
+                    SystemNotification.message.ilike(term, escape="\\"),
+                    SystemNotification.category.ilike(term, escape="\\"),
+                    SystemNotification.severity.ilike(term, escape="\\"),
+                )
+            )
+
+        return paginate(
+            query,
+            params,
+            sort_map=NOTIFICATION_SORT_MAP,
+            default_sort=[SystemNotification.notification_id.desc()],
+            pk=SystemNotification.notification_id,
+            response=response,
+        )
 
     def get_by_id(self, notification_id: int) -> Optional[SystemNotification]:
         return self.db.query(SystemNotification).filter(SystemNotification.notification_id == notification_id).first()

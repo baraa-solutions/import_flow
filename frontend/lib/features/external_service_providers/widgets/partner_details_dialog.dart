@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/export/widgets/export_language_dialog.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
@@ -262,10 +263,13 @@ class PartnerDetailsDialog extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          Row(
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
                             children: [
-                              if (partner.swiftCode != null && partner.swiftCode!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.swiftCode != null && partner.swiftCode!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.partnerSwiftCodeDetailLabel,
@@ -274,10 +278,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.cobalt,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.scacCode != null && partner.scacCode!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.scacCode != null && partner.scacCode!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.partnerScacCodeDetailLabel,
@@ -286,10 +289,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.cobalt,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.fiataId != null && partner.fiataId!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.fiataId != null && partner.fiataId!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.fiataLicenseLabel,
@@ -298,10 +300,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: isDark ? AppTheme.cobalt : AppTheme.charcoal,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.shippingModes != null && partner.shippingModes!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.shippingModes != null && partner.shippingModes!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.shippingModesLabel,
@@ -310,10 +311,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.cobalt,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.supportedCurrencies != null && partner.supportedCurrencies!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.supportedCurrencies != null && partner.supportedCurrencies!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.supportedCurrenciesLabel,
@@ -322,10 +322,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.emerald,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.inspectionAccreditationNumber != null && partner.inspectionAccreditationNumber!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.inspectionAccreditationNumber != null && partner.inspectionAccreditationNumber!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.inspectionAccreditationNumLabel,
@@ -334,10 +333,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.cobalt,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.inspectionScope != null && partner.inspectionScope!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.inspectionScope != null && partner.inspectionScope!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.inspectionScopeLabel,
@@ -346,10 +344,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.emerald,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.clearanceLicenseDetailLabel,
@@ -358,10 +355,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.orange,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.authorizedPorts != null && partner.authorizedPorts!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.authorizedPorts != null && partner.authorizedPorts!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.authorizedPortsLabel,
@@ -370,10 +366,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.orange,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.transportLicenseNumber != null && partner.transportLicenseNumber!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.transportLicenseNumber != null && partner.transportLicenseNumber!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.transportLicenseNumLabel,
@@ -382,10 +377,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.emerald,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.fleetTypes != null && partner.fleetTypes!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.fleetTypes != null && partner.fleetTypes!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.fleetTypesLabel,
@@ -394,10 +388,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.emerald,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.coverageAreas != null && partner.coverageAreas!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.coverageAreas != null && partner.coverageAreas!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.coverageAreasLabel,
@@ -406,10 +399,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.emerald,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.insuranceLicenseNumber != null && partner.insuranceLicenseNumber!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.insuranceLicenseNumber != null && partner.insuranceLicenseNumber!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.insuranceLicenseNumLabel,
@@ -418,10 +410,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.cobalt,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (partner.insuranceCoverageTypes != null && partner.insuranceCoverageTypes!.isNotEmpty) ...[
-                                Expanded(
+                              if (partner.insuranceCoverageTypes != null && partner.insuranceCoverageTypes!.isNotEmpty)
+                                SizedBox(
+                                  width: 220,
                                   child: _buildCopyableInfoField(
                                     context: context,
                                     label: l10n.insuranceCoverageTypesLabel,
@@ -430,8 +421,6 @@ class PartnerDetailsDialog extends StatelessWidget {
                                     highlightColor: AppTheme.cobalt,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                              ],
                             ],
                           ),
                           const Divider(height: 16),
@@ -674,7 +663,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                         icon: const Icon(Icons.print_rounded, size: 16),
                         label: Text(l10n.printSavePdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
-                          await MasterDataExportService.printOrSavePartnerPdf(partner);
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          await MasterDataExportService.printOrSavePartnerPdf(partner, lang: lang);
                         },
                       ),
 
@@ -688,7 +679,35 @@ class PartnerDetailsDialog extends StatelessWidget {
                         icon: const Icon(Icons.table_view_rounded, size: 16),
                         label: Text(l10n.downloadExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
-                          final path = await MasterDataExportService.exportPartnerToExcel(context, partner);
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          if (!context.mounted) return;
+                          final path = await MasterDataExportService.exportPartnerToExcel(context, partner, lang: lang);
+                          if (context.mounted && path != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.excelSavedSuccess(path)),
+                                backgroundColor: AppTheme.emerald,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+
+                      // 3. Export CSV
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1565C0),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.description_rounded, size: 16),
+                        label: Text(l10n.tableExportCsv, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          final lang = await ExportLanguageDialog.show(context);
+                          if (lang == null) return;
+                          if (!context.mounted) return;
+                          final path = await MasterDataExportService.exportPartnerToCsv(context, partner, lang: lang);
                           if (context.mounted && path != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
