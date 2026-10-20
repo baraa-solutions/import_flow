@@ -1,10 +1,22 @@
-from typing import List, Optional
-
+from typing import Any, Dict, List, Optional
+from fastapi import Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from modules.common.pagination import PageParams, like_term, paginate
 from modules.transport_locations.model import TransportLocation
 from modules.transport_locations.schemas import TransportLocationCreate, TransportLocationUpdate
+
+TRANSPORT_LOCATION_SORT_MAP = {
+    "location_id": TransportLocation.location_id,
+    "location_name": TransportLocation.location_name,
+    "un_locode": TransportLocation.un_locode,
+    "location_type": TransportLocation.location_type,
+    "country": TransportLocation.country,
+    "city": TransportLocation.city,
+    "created_at": TransportLocation.created_at,
+    "updated_at": TransportLocation.updated_at,
+}
 
 
 class TransportLocationRepository:
@@ -59,6 +71,44 @@ class TransportLocationRepository:
         if limit is not None:
             query = query.limit(limit)
         return query.all()
+
+    def get_paginated(
+        self,
+        params: PageParams,
+        response: Optional[Response] = None,
+        location_type: Optional[str] = None,
+        country: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        query = self.db.query(TransportLocation)
+
+        if not params.include_inactive:
+            query = query.filter(TransportLocation.is_active.is_(True))
+
+        if location_type:
+            query = query.filter(TransportLocation.location_type == location_type)
+
+        if country:
+            query = query.filter(TransportLocation.country.ilike(f"%{country}%"))
+
+        term = like_term(params.q)
+        if term:
+            query = query.filter(
+                or_(
+                    TransportLocation.un_locode.ilike(term, escape="\\"),
+                    TransportLocation.location_name.ilike(term, escape="\\"),
+                    TransportLocation.city.ilike(term, escape="\\"),
+                    TransportLocation.country.ilike(term, escape="\\"),
+                )
+            )
+
+        return paginate(
+            query,
+            params,
+            sort_map=TRANSPORT_LOCATION_SORT_MAP,
+            default_sort=[TransportLocation.location_name.asc()],
+            pk=TransportLocation.location_id,
+            response=response,
+        )
 
     def create(self, data: TransportLocationCreate) -> TransportLocation:
         location = TransportLocation(

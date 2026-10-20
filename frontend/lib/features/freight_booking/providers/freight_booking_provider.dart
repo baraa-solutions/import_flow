@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/freight_booking_model.dart';
+import '../models/shipment_eta_tracking_log_model.dart';
 import '../../../core/network/api_client.dart';
 
 
@@ -222,4 +223,44 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
       rethrow;
     }
   }
+
+  Future<List<ShipmentEtaTrackingLogModel>> fetchEtaTrackingLogs(int bookingId) async {
+    try {
+      final response = await _dio.get('${ApiConstants.baseUrl}/freight-booking/bookings/$bookingId/eta-tracking-logs');
+      return (response.data as List).map((j) => ShipmentEtaTrackingLogModel.fromJson(j)).toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ShipmentEtaTrackingLogModel> createEtaTrackingLog(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post('${ApiConstants.baseUrl}/freight-booking/eta-tracking-logs', data: payload);
+      final log = ShipmentEtaTrackingLogModel.fromJson(response.data);
+      _invalidateRelatedProviders();
+      await fetchBookings();
+      return log;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ShipmentEtaTrackingLogModel> confirmAta(int bookingId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post('${ApiConstants.baseUrl}/freight-booking/bookings/$bookingId/confirm-ata', data: payload);
+      final log = ShipmentEtaTrackingLogModel.fromJson(response.data);
+      _invalidateRelatedProviders();
+      await fetchBookings();
+      return log;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
+
+final etaTrackingLogsProvider = FutureProvider.family<List<ShipmentEtaTrackingLogModel>, int>((ref, bookingId) async {
+  final dio = ref.watch(dioProvider);
+  final response = await dio.get('${ApiConstants.baseUrl}/freight-booking/bookings/$bookingId/eta-tracking-logs');
+  return (response.data as List).map((j) => ShipmentEtaTrackingLogModel.fromJson(j)).toList();
+});
+

@@ -1,8 +1,58 @@
-from sqlalchemy import exists, func
+from typing import Any, Dict, List, Optional
+from fastapi import Response
+from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session
 
+from modules.common.pagination import PageParams, like_term, paginate
 from .model import Supplier
 from .schemas import SupplierCreate, SupplierUpdate
+
+SUPPLIER_SORT_MAP = {
+    "supplier_id": Supplier.supplier_id,
+    "supplier_code": Supplier.supplier_code,
+    "company_name": Supplier.company_name,
+    "supplier_type": Supplier.supplier_type,
+    "foreign_exporter_country": Supplier.foreign_exporter_country,
+    "foreign_exporter_id": Supplier.foreign_exporter_id,
+    "created_at": Supplier.created_at,
+    "updated_at": Supplier.updated_at,
+}
+
+
+def get_paginated_suppliers(
+    db: Session,
+    params: PageParams,
+    response: Optional[Response] = None,
+    supplier_type: Optional[str] = None,
+    country: Optional[str] = None,
+) -> Dict[str, Any]:
+    query = db.query(Supplier)
+    if not params.include_inactive:
+        query = query.filter(Supplier.is_active.is_(True))
+    if supplier_type:
+        query = query.filter(Supplier.supplier_type == supplier_type)
+    if country:
+        query = query.filter(Supplier.foreign_exporter_country.ilike(f"%{country}%"))
+
+    term = like_term(params.q)
+    if term:
+        query = query.filter(
+            or_(
+                Supplier.company_name.ilike(term, escape="\\"),
+                Supplier.supplier_code.ilike(term, escape="\\"),
+                Supplier.foreign_exporter_id.ilike(term, escape="\\"),
+                Supplier.foreign_exporter_country.ilike(term, escape="\\"),
+            )
+        )
+    return paginate(
+        query,
+        params,
+        sort_map=SUPPLIER_SORT_MAP,
+        default_sort=[Supplier.company_name.asc()],
+        pk=Supplier.supplier_id,
+        response=response,
+    )
+
 
 
 # ==================================================

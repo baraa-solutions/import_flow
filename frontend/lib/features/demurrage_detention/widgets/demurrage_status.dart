@@ -26,6 +26,7 @@ class DemurrageStatusStyle {
       case 'SAFE':
         return AppSeverity.success;
       case 'WARNING':
+      case 'STORAGE_WARNING_48H':
         return AppSeverity.warning;
       default:
         return AppSeverity.danger;

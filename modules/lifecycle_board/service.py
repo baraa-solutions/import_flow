@@ -514,6 +514,13 @@ def advance_lifecycle_step_service(
                 created_by=source_module or "Lifecycle Operations Board",
             )
 
+        # 10. Centralized 25-Stage Timeline Snapshot Auto-Sync (TASK-BE-09)
+        try:
+            from modules.lifecycle_board.sync_engine import LifecycleAutoSyncEngine
+            LifecycleAutoSyncEngine.sync_file_timeline(db, import_file_id=file_rec.import_file_id, commit=False)
+        except Exception as exc:
+            logger.warning("LifecycleAutoSyncEngine snapshot sync failed: %s", exc)
+
     if commit:
         db.commit()
         if file_rec:
@@ -2111,4 +2118,64 @@ def get_live_logistics_tracking_service(db: Session) -> LiveLogisticsSummaryResp
         incomplete_documents_count=incomplete_documents_count,
         items=items,
     )
+
+
+# ─── 25-Stage Master Operational Timeline Services (TASK-BE-09) ───────────────
+
+def sync_timeline_snapshots_service(db: Session, import_file_id: int) -> Dict[str, Any]:
+    """TASK-BE-09: Force recalculates and persists the 25-stage operational timeline snapshots."""
+    from modules.lifecycle_board.sync_engine import LifecycleAutoSyncEngine
+    return LifecycleAutoSyncEngine.sync_file_timeline(db, import_file_id=import_file_id, commit=True)
+
+
+def get_timeline_snapshots_service(db: Session, import_file_id: int) -> Dict[str, Any]:
+    """TASK-BE-09: Retrieves existing timeline snapshots for an import file, auto-synchronizing if absent."""
+    from modules.import_files.model import ImportFile
+    from modules.lifecycle_board.model import ShipmentTimelineSnapshot
+    from modules.lifecycle_board.sync_engine import LifecycleAutoSyncEngine, ORDERED_STAGES
+
+    imp = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not imp:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ملف الشحنة الاستيرادية غير موجود أو محذوف.")
+
+    snapshots = db.query(ShipmentTimelineSnapshot).filter(
+        ShipmentTimelineSnapshot.import_file_id == import_file_id
+    ).all()
+
+    # If snapshots not yet generated for this file, run the sync engine
+    if len(snapshots) < len(ORDERED_STAGES):
+        return LifecycleAutoSyncEngine.sync_file_timeline(db, import_file_id=import_file_id, commit=True)
+
+    # Sort snapshots by ORDERED_STAGES order
+    stage_idx_map = {code: i for i, code in enumerate(ORDERED_STAGES)}
+    sorted_snapshots = sorted(snapshots, key=lambda s: stage_idx_map.get(s.stage_code, 999))
+
+    completed_count = sum(1 for s in sorted_snapshots if s.status == "COMPLETED")
+    in_progress_count = sum(1 for s in sorted_snapshots if s.status == "IN_PROGRESS")
+    delayed_count = sum(1 for s in sorted_snapshots if s.status == "DELAYED")
+    pending_count = sum(1 for s in sorted_snapshots if s.status == "PENDING")
+    bottlenecks_count = sum(1 for s in sorted_snapshots if s.is_bottleneck)
+
+    progress_pct = round((completed_count / len(ORDERED_STAGES)) * 100.0, 1)
+    if imp.progress_percent and imp.progress_percent > progress_pct:
+        progress_pct = float(imp.progress_percent)
+
+    critical_bottlenecks = [s for s in sorted_snapshots if s.is_bottleneck and (s.variance_days or 0) > 0]
+    critical_bottlenecks.sort(key=lambda s: s.variance_days or 0, reverse=True)
+    top_bottleneck_stage = critical_bottlenecks[0].stage_code if critical_bottlenecks else None
+
+    return {
+        "import_file_id": import_file_id,
+        "import_file_code": imp.import_file_code,
+        "total_stages": len(ORDERED_STAGES),
+        "completed_count": completed_count,
+        "in_progress_count": in_progress_count,
+        "pending_count": pending_count,
+        "delayed_count": delayed_count,
+        "bottlenecks_count": bottlenecks_count,
+        "overall_progress_percent": progress_pct,
+        "critical_bottleneck_stage": top_bottleneck_stage,
+        "snapshots": sorted_snapshots,
+    }
+
 

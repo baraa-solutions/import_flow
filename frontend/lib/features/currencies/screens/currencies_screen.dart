@@ -243,41 +243,17 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                     case 'sync_customs':
                       _syncOfficialCustomsExchangeRates(context);
                       break;
-                    case 'export_excel':
-                      final currencies = currenciesAsync.valueOrNull ?? [];
-                      if (currencies.isNotEmpty) {
-                        MasterDataExportService.exportCurrenciesToExcel(context, currencies);
-                      }
-                      break;
-                    case 'export_pdf':
-                      MasterDataActionHelper.downloadFile(
+                    default:
+                      MasterDataActionHelper.handleStandardAction(
                         context: context,
                         ref: ref,
+                        actionValue: val,
                         moduleEndpoint: 'currencies',
-                        actionEndpoint: 'export-pdf',
-                        defaultFileName: 'Currencies_Report.pdf',
-                        dialogTitle: 'تصدير العملات PDF',
-                      );
-                      break;
-                    case 'copy_tsv':
-                      _copyCurrenciesTsv(context);
-                      break;
-                    case 'download_template':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'currencies',
-                        actionEndpoint: 'excel-template',
-                        defaultFileName: 'Currencies_Template.xlsx',
-                        dialogTitle: 'تنزيل نموذج العملات',
-                      );
-                      break;
-                    case 'import_excel':
-                      MasterDataActionHelper.importExcel(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'currencies',
+                        entityNameAr: 'العملات وأسعار الصرف',
+                        entityNameEn: 'Currencies & Exchange Rates',
+                        entityFilePrefix: 'Currencies_Exchange_Rates',
                         onImportSuccess: () => ref.read(currenciesProvider.notifier).fetchCurrencies(),
+                        onCopyTsv: () => _copyCurrenciesTsv(context),
                       );
                       break;
                   }

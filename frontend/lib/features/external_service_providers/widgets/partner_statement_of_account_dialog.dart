@@ -49,7 +49,27 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
   }
 
   List<List<dynamic>> _buildRows(dynamic soa, AppLocalizations l10n) {
-    return (soa.ledgerEntries as List<PartnerLedgerEntryModel>).map((e) {
+    final entries = soa.ledgerEntries as List<PartnerLedgerEntryModel>;
+    if (entries.isEmpty) {
+      return [
+        [
+          soa.asOfDate ?? DateTime.now().toString().split(' ')[0],
+          '—',
+          '—',
+          '—',
+          '—',
+          '—',
+          '—',
+          l10n.noLedgerEntriesFound,
+          partner.supportedCurrencies ?? 'EGP',
+          '0.00',
+          '0.00',
+          '0.00',
+          l10n.statusActive,
+        ]
+      ];
+    }
+    return entries.map((e) {
       final isInvoice = e.entryType.contains('Invoice');
       return [
         e.entryDate,
@@ -146,14 +166,22 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
 
   Future<void> _recordInvoice(BuildContext context, WidgetRef ref) async {
     final partnerType = partner.partnerType.toLowerCase();
-    final defaultType = partnerType.contains('customs') || partnerType.contains('تخليص')
-        ? 'customs'
-        : (partnerType.contains('freight') || partnerType.contains('نولون') ? 'freight' : 'transport');
+    final defaultType = partnerType.contains('customs') || partnerType.contains('تخليص') || partnerType.contains('broker')
+        ? 'clearance'
+        : (partnerType.contains('freight') || partnerType.contains('shipping') || partnerType.contains('carrier') || partnerType.contains('نولون') || partnerType.contains('شحن')
+            ? 'freight'
+            : (partnerType.contains('inspection') || partnerType.contains('فحص')
+                ? 'inspection'
+                : (partnerType.contains('insurance') || partnerType.contains('تأمين')
+                    ? 'insurance'
+                    : 'transport')));
 
     await showDialog(
       context: context,
       builder: (ctx) => InvoiceFormDialog(
         defaultPartnerType: defaultType,
+        initialPartnerId: partner.providerId,
+        initialPartnerName: partner.partnerName,
       ),
     );
 
@@ -289,8 +317,14 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                       tooltip: l10n.partnerSoaPrintBtn,
                       onPressed: () {
                         final soa = soaAsync.asData?.value;
-                        if (soa != null && soa.ledgerEntries.isNotEmpty) {
+                        if (soa != null) {
                           _printSoa(context, soa);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(soaAsync.isLoading ? l10n.calculatingSoaMsg : l10n.noSoaDataAvailable),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -299,8 +333,14 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                       tooltip: l10n.partnerSoaExportPdfBtn,
                       onPressed: () {
                         final soa = soaAsync.asData?.value;
-                        if (soa != null && soa.ledgerEntries.isNotEmpty) {
+                        if (soa != null) {
                           _exportPdf(context, soa);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(soaAsync.isLoading ? l10n.calculatingSoaMsg : l10n.noSoaDataAvailable),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -309,8 +349,14 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                       tooltip: l10n.partnerSoaExportExcelBtn,
                       onPressed: () {
                         final soa = soaAsync.asData?.value;
-                        if (soa != null && soa.ledgerEntries.isNotEmpty) {
+                        if (soa != null) {
                           _exportExcel(context, soa);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(soaAsync.isLoading ? l10n.calculatingSoaMsg : l10n.noSoaDataAvailable),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -319,8 +365,14 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                       tooltip: l10n.soaExportTsvBtn,
                       onPressed: () {
                         final soa = soaAsync.asData?.value;
-                        if (soa != null && soa.ledgerEntries.isNotEmpty) {
+                        if (soa != null) {
                           _copySoaTsv(context, soa);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(soaAsync.isLoading ? l10n.calculatingSoaMsg : l10n.noSoaDataAvailable),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -329,6 +381,19 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                       tooltip: l10n.refresh,
                       onPressed: () {
                         ref.invalidate(partnerStatementOfAccountProvider(partner.providerId ?? 0));
+                        final _ = ref.refresh(partnerStatementOfAccountProvider(partner.providerId ?? 0));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                Directionality.of(context) == TextDirection.rtl
+                                    ? 'تم تحديث كشف الحساب بنجاح'
+                                    : 'Statement of account refreshed successfully',
+                              ),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
                       },
                     ),
                     const SizedBox(width: 4),

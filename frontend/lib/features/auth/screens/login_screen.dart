@@ -200,13 +200,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
 
                           // System Logo & Branding
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withValues(alpha: 0.12),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.local_shipping_rounded, size: 48, color: AppTheme.cobalt),
+                          Image.asset(
+                            isDark
+                                ? 'assets/brand/sorour_logo_dark.png'
+                                : 'assets/brand/sorour_logo_full.png',
+                            height: 76,
+                            fit: BoxFit.contain,
                           ),
                           const SizedBox(height: 16),
                           Text(

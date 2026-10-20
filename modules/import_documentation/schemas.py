@@ -145,6 +145,8 @@ class AcidRegistrationResponse(AcidRegistrationBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -321,6 +323,8 @@ class BankingDocumentResponse(BankingDocumentBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     swift_coverage: Optional[SwiftCoverageSummary] = None
     can_submit_form4: bool = False
@@ -369,6 +373,8 @@ class ShipmentDocumentResponse(ShipmentDocumentBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -400,6 +406,8 @@ class CustomsDeclarationResponse(CustomsDeclarationBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -704,6 +712,8 @@ class DraftBLReviewResponse(DraftBLReviewBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -779,6 +789,8 @@ class CertificateOfOriginReviewResponse(CertificateOfOriginReviewBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -860,6 +872,8 @@ class InspectionCertificateReviewResponse(InspectionCertificateReviewBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1103,6 +1117,8 @@ class InvoiceBLMatchSessionResponse(InvoiceBLMatchSessionBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
     currency_mismatch: Optional[bool] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -1169,6 +1185,8 @@ class POReconciliationSessionResponse(POReconciliationSessionBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

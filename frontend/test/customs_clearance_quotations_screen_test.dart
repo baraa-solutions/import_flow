@@ -20,7 +20,7 @@ class _RfqNotifier extends CustomsClearanceQuotationsNotifier {
   final List<CustomsClearanceRFQModel> rfqs;
 
   @override
-  Future<void> fetchRFQs({String? status, String? portName, int? importFileId}) async {
+  Future<void> fetchRFQs({String? status, String? portName, int? importFileId, int? skip, int? limit}) async {
     state = AsyncValue.data(rfqs);
   }
 }

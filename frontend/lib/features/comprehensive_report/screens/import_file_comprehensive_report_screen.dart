@@ -83,8 +83,16 @@ class _ImportFileComprehensiveReportScreenState
   }
 
   void _onFileSelected(int? val, List<ImportFileModel> files) {
-    if (val == null || files.isEmpty) return;
-    final file = files.firstWhere((f) => f.importFileId == val, orElse: () => files.first);
+    if (val == null || files.isEmpty) {
+      setState(() {
+        _selectedFileId = null;
+        _selectedFile = null;
+      });
+      return;
+    }
+    final matches = files.where((f) => f.importFileId == val);
+    if (matches.isEmpty) return;
+    final file = matches.first;
     setState(() {
       _selectedFileId = val;
       _selectedFile = file;
@@ -156,30 +164,30 @@ class _ImportFileComprehensiveReportScreenState
     final checklistState = ref.watch(smartChecklistProvider);
     final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
 
-    // Auto-select shipment if not already selected or if targetId is specified
+    // Auto-select shipment ONLY if explicit targetId is specified from navigation
     importFilesState.whenData((files) {
-      if (files.isNotEmpty) {
-        if (targetId != null && _selectedFileId != targetId) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _onFileSelected(targetId, files);
-          });
-        } else if (_selectedFileId == null) {
-          final defaultFile = files.firstWhere(
-            (f) => f.importFileCode == 'IMP-2026-0004',
-            orElse: () => files.first,
-          );
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _onFileSelected(defaultFile.importFileId, files);
-          });
-        }
+      if (files.isNotEmpty && targetId != null && _selectedFileId != targetId) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _onFileSelected(targetId, files);
+        });
       }
     });
 
     final dossierAsync = _selectedFileId != null ? ref.watch(comprehensiveDossierProvider(_selectedFileId!)) : null;
     final dossier = dossierAsync?.valueOrNull;
 
-    final clr = (clearanceState.valueOrNull != null && clearanceState.valueOrNull!.isNotEmpty) ? clearanceState.valueOrNull!.first : null;
-    final wh = (warehouseState.valueOrNull != null && warehouseState.valueOrNull!.isNotEmpty) ? warehouseState.valueOrNull!.first : null;
+    final clr = (clearanceState.valueOrNull != null && clearanceState.valueOrNull!.isNotEmpty && _selectedFileId != null)
+        ? clearanceState.valueOrNull!.cast<CustomsClearanceModel?>().firstWhere(
+            (c) => c?.importFileId == _selectedFileId,
+            orElse: () => null,
+          )
+        : null;
+    final wh = (warehouseState.valueOrNull != null && warehouseState.valueOrNull!.isNotEmpty && _selectedFileId != null)
+        ? warehouseState.valueOrNull!.cast<WarehouseReceivingModel?>().firstWhere(
+            (w) => w?.importFileId == _selectedFileId,
+            orElse: () => null,
+          )
+        : null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
@@ -561,17 +569,92 @@ class _ImportFileComprehensiveReportScreenState
 
   Widget _buildEmptyState(BuildContext context) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.summarize_outlined, size: 80, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          Text(
-            l.compReportEmptyStatePrompt,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+      child: SingleChildScrollView(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 580),
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.charcoal.withOpacity(0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.manage_search, size: 40, color: AppTheme.cobalt),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                l.compReportEmptyStatePrompt,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.charcoal,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isAr
+                    ? 'يرجى اختيار رقم الشحنة أو كود الملف من القائمة المنسدلة أعلاه لبدء استعراض التقرير الشامل والمستندات.'
+                    : 'Please select an import file from the dropdown above to load the comprehensive operational dossier.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  _buildEmptyStateBadge(Icons.inventory_2_outlined, isAr ? 'أوامر الشراء والتوريد' : 'Purchase Orders'),
+                  _buildEmptyStateBadge(Icons.directions_boat_outlined, isAr ? 'الحاويات والتتبع' : 'Containers & ETA'),
+                  _buildEmptyStateBadge(Icons.gavel_outlined, isAr ? 'الإفراج الجمركي والمطابقة' : 'Customs Clearance'),
+                  _buildEmptyStateBadge(Icons.receipt_long_outlined, isAr ? 'التكلفة والمصروفات' : 'Landed Cost'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyStateBadge(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.charcoal.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppTheme.cobalt),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.charcoal, fontWeight: FontWeight.w500)),
         ],
       ),
     );

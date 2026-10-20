@@ -1,10 +1,11 @@
 from typing import List, Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, Response, Header
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.users.model import User
 from modules.auth.router import get_current_user, require_admin
+from modules.auth.permissions import is_admin_user
 
 from modules.system_observability.schemas import (
     SystemMetricsResponse,
@@ -66,7 +67,7 @@ def run_deep_health_check(
 
 @router.get("/observability/recent-traffic", response_model=List[RecentRequestItem])
 def get_recent_traffic(
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=500),
     current_user: User = Depends(get_current_user),
 ):
     """Returns recent requests with their correlation ID, status code, and latency."""
@@ -104,6 +105,11 @@ def evaluate_system_alerts(
     current_user: User = Depends(get_current_user),
 ):
     """Evaluates all 8 health and domain conditions and dispatches alerts via Toast & Email."""
+    if force and not is_admin_user(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Admin role required to force evaluate alerts."
+        )
     results = alert_dispatcher.evaluate_all(db, force=force)
     return {
         "status": "success",

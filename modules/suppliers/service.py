@@ -1,6 +1,9 @@
+from typing import Any, Dict, List, Optional
+from fastapi import Response
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from modules.common.pagination import PageParams
 from modules.common.sequence_generator import next_global_code
 
 from .model import Supplier
@@ -9,6 +12,7 @@ from .repository import (
     create_supplier,
     get_active_suppliers,
     get_all_suppliers_admin,
+    get_paginated_suppliers,
     get_supplier_by_id,
     get_supplier_by_exporter_id,
     count_suppliers,
@@ -60,6 +64,7 @@ def create_supplier_service(db: Session, supplier_data: SupplierCreate) -> Suppl
         entity_id=supplier.supplier_id,
         entity_code=supplier.supplier_code,
         action="CREATE",
+        performed_by="SYSTEM",
         new_data={"company_name": supplier.company_name, "foreign_exporter_id": supplier.foreign_exporter_id, "foreign_exporter_country_code": supplier.foreign_exporter_country_code}
     )
     
@@ -81,6 +86,26 @@ def get_all_suppliers_service(db: Session) -> list[Supplier]:
 
 def get_all_suppliers_admin_service(db: Session) -> list[Supplier]:
     return get_all_suppliers_admin(db)
+
+
+# ==================================================
+# Get Paginated Suppliers Service
+# ==================================================
+
+def get_paginated_suppliers_service(
+    db: Session,
+    params: PageParams,
+    response: Optional[Response] = None,
+    supplier_type: Optional[str] = None,
+    country: Optional[str] = None,
+) -> Dict[str, Any]:
+    return get_paginated_suppliers(
+        db,
+        params,
+        response=response,
+        supplier_type=supplier_type,
+        country=country,
+    )
 
 
 # ==================================================
@@ -118,6 +143,7 @@ def update_supplier_service(
         entity_id=updated.supplier_id,
         entity_code=updated.supplier_code,
         action="UPDATE",
+        performed_by="SYSTEM",
         old_data=old_data,
         new_data=update_data,
     )
@@ -141,6 +167,7 @@ def delete_supplier_service(db: Session, supplier_id: int) -> Supplier | None:
         entity_id=deleted.supplier_id,
         entity_code=deleted.supplier_code,
         action="DELETE",
+        performed_by="SYSTEM",
     )
     return deleted
 
@@ -159,6 +186,7 @@ def restore_supplier_service(db: Session, supplier_id: int) -> Supplier | None:
         entity_id=restored.supplier_id,
         entity_code=restored.supplier_code,
         action="RESTORE",
+        performed_by="SYSTEM",
     )
     return restored
 

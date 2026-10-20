@@ -159,9 +159,9 @@ def test_register_free_days_agreement_workflow(db_session):
     assert resp.import_file_id == 1
     assert resp.agreed_demurrage_free_days == 21
     assert resp.agreed_detention_free_days == 14
-    assert resp.additional_free_days_gained == 7  # 21 - 14
-    # 2 containers * 7 days * $70/day = 980.0
-    assert resp.estimated_cost_avoidance_usd == 980.0
+    assert resp.additional_free_days_gained == 16  # 21 - 5 (Standard carrier baseline is 5 days)
+    # 2 containers * 16 days * $70/day = 2240.0
+    assert resp.estimated_cost_avoidance_usd == 2240.0
     assert resp.radar_status == "Safe"
 
     # 2. Check ImportFile synchronization
@@ -214,7 +214,7 @@ def test_recalculate_active_demurrage_tracking_on_agreement(db_session):
     )
     resp = register_free_days_agreement_service(db_session, req)
 
-    assert resp.additional_free_days_gained == 14  # 28 - 14
+    assert resp.additional_free_days_gained == 23  # 28 - 5
 
     # Fetch agreement details
     fetched = get_free_days_agreement_service(db_session, 1)
@@ -249,8 +249,8 @@ def test_free_days_agreement_api_endpoints(db_session):
     data = res.json()
     assert data["import_file_id"] == 1
     assert data["agreed_demurrage_free_days"] == 21
-    assert data["additional_free_days_gained"] == 7
-    assert data["estimated_cost_avoidance_usd"] == 980.0
+    assert data["additional_free_days_gained"] == 16
+    assert data["estimated_cost_avoidance_usd"] == 2240.0
 
     # 2. GET agreement
     get_res = client.get("/api/v1/demurrage-detention/free-days-agreement/1")

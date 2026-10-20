@@ -521,8 +521,8 @@ def test_dd_put_after_bk02_keeps_agreed_free_days(db, with_booking):
         import_file_id=1, agreed_demurrage_free_days=20, agreed_detention_free_days=10), user="op")
     db.refresh(t)
     after_bk02 = (t.total_demurrage_fx, t.total_detention_fx, t.total_storage_egp, t.total_cost_egp)
-    # 24 days in port - 20 free = 4 x 40; return 16 days after gate-out - 10 free = 6 x 35; storage 24 - 5 = 19 x 250
-    assert after_bk02 == (160.0, 210.0, 4750.0, round(370.0 * 50 + 4750.0, 2))
+    # 24 days in port - 20 free = 4 x 40; return 16 days after gate-out - 10 free = 6 x 35; storage 24 - 7 = 17 x 250 = 4250
+    assert after_bk02 == (160.0, 210.0, 4250.0, round(370.0 * 50 + 4250.0, 2))
     for put in (DemurrageTrackingUpdate(notes="x"), DemurrageTrackingUpdate(exchange_rate=50.0)):
         updated = dd.recalculate_and_update_tracking_service(db, t.tracking_id, put)
         assert (updated.total_demurrage_fx, updated.total_detention_fx, updated.total_storage_egp, updated.total_cost_egp) == after_bk02
@@ -538,12 +538,12 @@ def test_dd_no_policy_parameter_path_equals_head_numbers(db):
                                   discharge_date=date(2026, 8, 1), gate_out_date=date(2026, 8, 21),
                                   empty_return_date=date(2026, 8, 25), exchange_rate=50.0,
                                   containers=[ContainerItemInput(container_no="MSCU0000005", container_type="40HC")])
-    # HEAD constants: 20 days - 14 free = 6 days x 40; storage 20 - 5 = 15 x 250; EGP = 240 x 50 + 3750
-    head = (240.0, 0.0, 3750.0, 15750.0)
+    # HEAD constants: 20 days - 5 free = 15 days (7x40 + 7x70 + 1x120 = 890); storage 20 - 7 = 13 x 250 = 3250; EGP = 890 x 50 + 3250 = 47750
+    head = (890.0, 0.0, 3250.0, 47750.0)
     t1 = dd.create_demurrage_tracking_service(db, req)
     assert (t1.total_demurrage_fx, t1.total_detention_fx, t1.total_storage_egp, t1.total_cost_egp) == head
     for key, value in (("DD_DEFAULT_DEMURRAGE_TIERS", '[{"from_day":1,"to_day":7,"rate_per_day":40.0},{"from_day":8,"to_day":14,"rate_per_day":70.0},{"from_day":15,"to_day":null,"rate_per_day":120.0}]'),
-                       ("DD_DEFAULT_FREE_DAYS_DEMURRAGE", "14"), ("DD_DEFAULT_STORAGE_FREE_DAYS", "5"),
+                       ("DD_DEFAULT_FREE_DAYS_DEMURRAGE", "5"), ("DD_DEFAULT_STORAGE_FREE_DAYS", "7"),
                        ("DD_DEFAULT_STORAGE_RATE_EGP", "250")):
         db.add(SystemParameter(param_key=key, param_value=value))
     db.commit()

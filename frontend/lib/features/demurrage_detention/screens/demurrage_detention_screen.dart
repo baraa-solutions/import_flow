@@ -45,9 +45,9 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
   String? _simTerminal = 'Alexandria Container Terminal (ACCHCO)';
   String _simContainerType = '40ft High Cube';
   int _simContainersCount = 1;
-  // null = not set by the user: omitted so the backend's configured defaults apply.
-  int? _simDemFreeDays;
-  int? _simDetFreeDays;
+  int? _simDemFreeDays = 21;
+  int? _simDetFreeDays = 7;
+  int? _simStorageFreeDays = 7;
   // No default FX: the user must enter the rate (no hard-coded 50).
   double? _simExchangeRate;
   DateTime _simDischargeDate = DateTime.now().subtract(const Duration(days: 16));
@@ -101,6 +101,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
       if (_simTerminal != null && _simTerminal!.isNotEmpty) 'terminal_name': _simTerminal,
       if (_simDemFreeDays != null) 'demurrage_free_days': _simDemFreeDays,
       if (_simDetFreeDays != null) 'detention_free_days': _simDetFreeDays,
+      if (_simStorageFreeDays != null) 'port_storage_free_days': _simStorageFreeDays,
       'discharge_date': _formatDate(_simDischargeDate),
       if (_simGateOutDate != null) 'gate_out_date': _formatDate(_simGateOutDate!),
       if (_simEmptyReturnDate != null) 'empty_return_date': _formatDate(_simEmptyReturnDate!),
@@ -709,11 +710,70 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             ),
             const SizedBox(height: 16),
             _subHeader(l10n.grantedFreeDaysHeader),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  avatar: const Icon(Icons.verified_outlined, size: 14, color: AppTheme.cobalt),
+                  label: const Text('عرض 21 يوم خط (خط 21 / ميناء 7)', style: TextStyle(fontSize: 11.5)),
+                  backgroundColor: _simDemFreeDays == 21 && _simStorageFreeDays == 7
+                      ? AppTheme.cobalt.withValues(alpha: 0.18)
+                      : null,
+                  onPressed: () {
+                    setState(() {
+                      _simDemFreeDays = 21;
+                      _simDetFreeDays = 7;
+                      _simStorageFreeDays = 7;
+                    });
+                    _runQuickSimulation();
+                  },
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.history_toggle_off_rounded, size: 14, color: AppTheme.charcoal),
+                  label: const Text('تعريفة الخط الافتراضية (خط 5 / ميناء 7)', style: TextStyle(fontSize: 11.5)),
+                  backgroundColor: _simDemFreeDays == 5 && _simStorageFreeDays == 7
+                      ? AppTheme.charcoal.withValues(alpha: 0.18)
+                      : null,
+                  onPressed: () {
+                    setState(() {
+                      _simDemFreeDays = 5;
+                      _simDetFreeDays = 7;
+                      _simStorageFreeDays = 7;
+                    });
+                    _runQuickSimulation();
+                  },
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsetsDirectional.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.cobalt.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'سماح الـ 21 يوماً يسري على غرامات تأخير الحاوية للخط فقط، وتخضع أرضيات الميناء لـ 7 أيام مجاناً.',
+                      style: TextStyle(fontSize: 11.5, color: AppTheme.textPrimaryOf(context)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
+                    key: ValueKey('dem_$_simDemFreeDays'),
                     initialValue: _simDemFreeDays?.toString() ?? '',
                     decoration: _copyDecoration(l10n, l10n.portDemurrageFreeDaysLabel, () => _simDemFreeDays?.toString() ?? ''),
                     keyboardType: TextInputType.number,
@@ -723,14 +783,28 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                     },
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: TextFormField(
+                    key: ValueKey('det_$_simDetFreeDays'),
                     initialValue: _simDetFreeDays?.toString() ?? '',
                     decoration: _copyDecoration(l10n, l10n.emptyReturnFreeDaysLabel, () => _simDetFreeDays?.toString() ?? ''),
                     keyboardType: TextInputType.number,
                     onChanged: (v) {
                       _simDetFreeDays = int.tryParse(v);
+                      _runQuickSimulation();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    key: ValueKey('stor_$_simStorageFreeDays'),
+                    initialValue: _simStorageFreeDays?.toString() ?? '',
+                    decoration: _copyDecoration(l10n, l10n.fdaPortStorage, () => _simStorageFreeDays?.toString() ?? ''),
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) {
+                      _simStorageFreeDays = int.tryParse(v);
                       _runQuickSimulation();
                     },
                   ),

@@ -20,6 +20,7 @@ class FbkRowActions {
     required this.onDeparture,
     required this.onReviewDraftBl,
     this.onCancelBooking,
+    this.onEtaTracking,
   });
 
   final VoidCallback onView;
@@ -32,6 +33,7 @@ class FbkRowActions {
   final VoidCallback onDeparture;
   final VoidCallback onReviewDraftBl;
   final VoidCallback? onCancelBooking;
+  final VoidCallback? onEtaTracking;
 }
 
 /// One booking of the registry: code / status chips, route, the key facts
@@ -334,6 +336,14 @@ class FbkRegistryRow extends StatelessWidget {
           _icon(Key('cancelBookingRowBtn_${b.bookingCode}'), Icons.cancel_outlined, l.fbkCancelBookingTitle,
               actions.onCancelBooking!,
               color: AppTheme.crimson),
+        if (actions.onEtaTracking != null)
+          _icon(
+            Key('etaTrackingRowBtn_${b.bookingCode}'),
+            Icons.explore_outlined,
+            l.isArabic ? 'متابعة مسار الرحلة وتأكيد الوصول (ATA)' : 'Transit Tracking & ATA',
+            actions.onEtaTracking!,
+            color: b.isAtaConfirmed ? AppTheme.emerald : AppTheme.cobalt,
+          ),
       ],
     );
   }

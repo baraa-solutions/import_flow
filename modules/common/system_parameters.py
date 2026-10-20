@@ -61,9 +61,9 @@ DEFAULT_PARAMETERS: Dict[str, Tuple[str, str]] = {
         '{"from_day":15,"to_day":null,"rate_per_day":110.0}]',
         "Default detention tiers (USD per container per day, JSON list) when no carrier policy matches",
     ),
-    "DD_DEFAULT_FREE_DAYS_DEMURRAGE": ("14", "Default demurrage free days when no carrier policy matches"),
+    "DD_DEFAULT_FREE_DAYS_DEMURRAGE": ("5", "Default demurrage free days when no carrier policy matches (Standard shipping line default tariff)"),
     "DD_DEFAULT_FREE_DAYS_DETENTION": ("7", "Default detention free days when no carrier policy matches"),
-    "DD_DEFAULT_STORAGE_FREE_DAYS": ("5", "Default port storage free days when no carrier policy matches"),
+    "DD_DEFAULT_STORAGE_FREE_DAYS": ("7", "Default port storage free days when no carrier policy matches (Egyptian port terminal standard free time)"),
     "DD_DEFAULT_STORAGE_RATE_EGP": (
         "250",
         "Default port storage rate (EGP per container per day) when no carrier policy matches",
@@ -72,7 +72,8 @@ DEFAULT_PARAMETERS: Dict[str, Tuple[str, str]] = {
         "USD",
         "Default currency for demurrage and detention tariffs when no carrier policy matches",
     ),
-    "DD_STANDARD_FREE_DAYS": ("14", "Standard free days used for the BK-02 cost-avoidance comparison"),
+    "DD_STANDARD_FREE_DAYS": ("5", "Standard free days used for the BK-02 cost-avoidance comparison (carrier standard baseline before negotiation)"),
+    "DD_DEFAULT_NEGOTIATED_FREE_DAYS": ("21", "Commercial standard negotiated demurrage free days with shipping lines"),
     "DD_AVOIDANCE_RATE_USD": ("70", "USD per day per container used for the BK-02 estimated cost avoidance"),
     # ── Financial settlement PL-08 estimate constants (09 shared needs) ──
     "settlement.deemed_freight_pct": ("2", "Deemed freight as a percentage of FOB when no freight quote exists (PL-08)"),

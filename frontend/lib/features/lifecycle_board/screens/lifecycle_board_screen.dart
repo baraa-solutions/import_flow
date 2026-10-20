@@ -22,6 +22,7 @@ import '../providers/lifecycle_board_provider.dart';
 import '../providers/live_polling_provider.dart';
 import '../services/lifecycle_board_export_service.dart';
 import '../widgets/step_action_dialog.dart';
+import '../widgets/shipment_timeline_dossier_dialog.dart';
 
 import 'package:frontend/core/widgets/ltr_text.dart';
 class LifecycleBoardScreen extends ConsumerStatefulWidget {
@@ -1202,6 +1203,17 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                     );
                                   },
                                 ),
+                                IconButton(
+                                  icon: const Icon(Icons.timeline_rounded, size: 16, color: AppTheme.cobalt),
+                                  tooltip: isAr ? 'سجل المسار الزمني (25 مرحلة)' : 'Master Timeline Dossier (25 Stages)',
+                                  onPressed: () {
+                                    ShipmentTimelineDossierDialog.show(
+                                      context,
+                                      importFileId: item.importFileId,
+                                      importFileCode: item.importFileCode,
+                                    );
+                                  },
+                                ),
                               ],
                             ),
                           ),
@@ -1801,28 +1813,50 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             ),
                           ),
                           DataCell(
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: stepColor,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (ctx) => StepActionDialog(
-                                    shipment: s,
-                                    allPhases: phases,
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.timeline_rounded, size: 16, color: AppTheme.cobalt),
+                                  tooltip: isAr ? 'سجل المسار الزمني (25 مرحلة)' : 'Master Timeline Dossier (25 Stages)',
+                                  onPressed: () {
+                                    final matchedFile = allImportFiles
+                                        .where((f) => f.importFileCode == s.importFileCode)
+                                        .firstOrNull;
+                                    if (matchedFile != null) {
+                                      ShipmentTimelineDossierDialog.show(
+                                        context,
+                                        importFileId: matchedFile.importFileId,
+                                        importFileCode: s.importFileCode,
+                                      );
+                                    }
+                                  },
+                                ),
+                                const SizedBox(width: 4),
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: stepColor,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                                    visualDensity: VisualDensity.compact,
                                   ),
-                                );
-                              },
-                              icon: const Icon(Icons.play_circle_outline, size: 13, color: Colors.white),
-                              label: Text(
-                                l10n.executeAndAdvanceStepBtn,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
-                              ),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (ctx) => StepActionDialog(
+                                        shipment: s,
+                                        allPhases: phases,
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.play_circle_outline, size: 13, color: Colors.white),
+                                  label: Text(
+                                    l10n.executeAndAdvanceStepBtn,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],

@@ -19,15 +19,13 @@ class CargoInsuranceRepository:
         self.db.flush()
         return certificate
 
-    def get_by_id(self, certificate_id: int) -> Optional[CargoInsuranceCertificate]:
-        return (
-            self.db.query(CargoInsuranceCertificate)
-            .filter(
-                CargoInsuranceCertificate.certificate_id == certificate_id,
-                CargoInsuranceCertificate.is_active == True,
-            )
-            .first()
+    def get_by_id(self, certificate_id: int, include_inactive: bool = False) -> Optional[CargoInsuranceCertificate]:
+        query = self.db.query(CargoInsuranceCertificate).filter(
+            CargoInsuranceCertificate.certificate_id == certificate_id
         )
+        if not include_inactive:
+            query = query.filter(CargoInsuranceCertificate.is_active == True)
+        return query.first()
 
     def get_by_code(self, certificate_code: str) -> Optional[CargoInsuranceCertificate]:
         return (

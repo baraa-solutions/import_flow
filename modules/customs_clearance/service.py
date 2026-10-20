@@ -9,7 +9,7 @@ Every mutating service follows one order (06-07 plan CL-12 / CL-13):
 import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, TypeVar
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar
 
 from fastapi import HTTPException, status
 from sqlalchemy import or_
@@ -24,10 +24,12 @@ from modules.common.validators import ensure_file_open, not_null_columns
 from modules.import_files.model import ImportFile
 
 from . import repository as repo
-from .model import ClearanceExpenseInvoice, CustomsClearanceRecord
+from .model import ClearanceExpenseInvoice, ClearanceFollowupLog, CustomsClearanceRecord
 from .schemas import (
     ClearanceExpenseInvoiceCreate,
     ClearanceExpenseInvoiceResponse,
+    ClearanceFollowupLogCreate,
+    ClearanceFollowupLogResponse,
     ClearanceInvoicesSummaryResponse,
     CompleteReleaseSubmit,
     CustomsBrokerAuthorizationSubmit,
@@ -38,9 +40,12 @@ from .schemas import (
     CustomsFinalReleaseSubmit,
     CustomsInspectionSamplingSubmit,
     DeliveryOrderPaymentSubmit,
+    DutyPaymentRequestSubmit,
     DutyPaymentSubmit,
     FinalDutyAssessmentSubmit,
     LabTestResultSubmit,
+    NafezaBankLinkSubmit,
+    TariffCodingSubmit,
     UnderBondReleaseSubmit,
 )
 from .validators import (
@@ -389,6 +394,10 @@ def create_customs_clearance_service(
             clearance_code=repo.generate_customs_clearance_code(db),
             import_file_id=schema.import_file_id,
             declaration_46_no=schema.declaration_46_no,
+            declaration_46_date=schema.declaration_46_date,
+            tariff_coding_date=schema.tariff_coding_date,
+            bank_link_accepted_date=schema.bank_link_accepted_date,
+            duty_payment_requested_date=schema.duty_payment_requested_date,
             customs_office_name=schema.customs_office_name,
             channel_type=schema.channel_type,
             cif_base_amount=schema.cif_base_amount,
@@ -453,8 +462,18 @@ def list_customs_clearances_service(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[CustomsClearanceRecord]:
-    return repo.get_customs_clearance_list(db, include_inactive, import_file_id, status, search)
+    skip: Optional[int] = None,
+    limit: Optional[int] = None,
+) -> Tuple[List[CustomsClearanceRecord], int]:
+    return repo.get_customs_clearance_list(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
 
 
 def _normalize_clearance_update(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -764,6 +783,146 @@ def record_delivery_order_payment_service(
             completed_step_code="STEP_12", target_step_codes=["STEP_13"], notes_msg=do_msg, assigned_user="Customs Broker",
             next_action_msg=msg("NA_CS_REGISTER_DECLARATION_46"), min_progress_percent=83.0,
         ),
+    )
+    db.refresh(record)
+    return record
+
+
+# ── TASK-BE-10: Tax Coding & Bank Linkage on Nafeza before Form 4 ─────────────
+
+def record_tariff_coding_service(
+    db: Session,
+    payload: TariffCodingSubmit,
+    user: str = SYSTEM_USER,
+) -> CustomsClearanceRecord:
+    """TASK-BE-10: Records item tax coding sheet completion (tariff_coding_date) on customs clearance record,
+    and synchronizes with BankingDocumentSession if present."""
+    imp_file = _require_import_file(db, payload.import_file_id)
+    coding_dt = payload.tariff_coding_date or _now()
+
+    def write():
+        record = _find_or_new_record(db, imp_file, user)
+        record.tariff_coding_date = coding_dt
+        if payload.notes:
+            record.notes = (record.notes or "") + f" | Tax coding: {payload.notes}"
+        _touch(record, user)
+
+        # Cross-module sync with BankingDocumentSession if present
+        try:
+            from modules.import_documentation.model import BankingDocumentSession
+            bdoc = db.query(BankingDocumentSession).filter(
+                BankingDocumentSession.import_file_id == payload.import_file_id,
+                BankingDocumentSession.is_active == True,
+            ).first()
+            if bdoc:
+                bdoc.tax_coding_sheet_status = "Uploaded & Coded"
+                bdoc.tax_coding_uploaded_date = coding_dt.date() if isinstance(coding_dt, datetime) else coding_dt
+                if payload.accountant_name:
+                    bdoc.tax_coding_accountant_name = payload.accountant_name
+                if payload.items_count_total:
+                    bdoc.items_count_total = payload.items_count_total
+                if payload.items_count_coded:
+                    bdoc.items_count_coded = payload.items_count_coded
+                if payload.tax_coding_sheet_url:
+                    bdoc.tax_coding_sheet_file_url = payload.tax_coding_sheet_url
+                _touch(bdoc, user)
+        except Exception as e:
+            logger.warning("Optional sync with BankingDocumentSession skipped: %s", e)
+
+        return record, _file_label(imp_file)
+
+    record, file_label = _commit_write(db, write)
+    _follow_up(
+        db, "Tax coding audit log", _audit, db, record.customs_clearance_id,
+        record.clearance_code, "UPDATE", user,
+        new_data={"tariff_coding_date": coding_dt.isoformat(), "notes": payload.notes},
+    )
+    db.refresh(record)
+    return record
+
+
+def record_bank_link_accepted_service(
+    db: Session,
+    payload: NafezaBankLinkSubmit,
+    user: str = SYSTEM_USER,
+) -> CustomsClearanceRecord:
+    """TASK-BE-10: Confirms acceptance of Nafeza bank linkage (bank_link_accepted_date).
+    Enforces that tax coding (tariff_coding_date) has been recorded first."""
+    imp_file = _require_import_file(db, payload.import_file_id)
+    record = repo.get_active_clearance_for_file(db, payload.import_file_id)
+    if not record or not record.tariff_coding_date:
+        raise coded_error(
+            status.HTTP_400_BAD_REQUEST,
+            "CC_BANK_LINK_REQUIRES_TARIFF_CODING",
+            "لا يمكن قبول الربط البنكي على نافذة قبل إتمام التكويد الضريبي للأصناف (tariff_coding_date).",
+            import_file_id=payload.import_file_id,
+        )
+
+    link_dt = payload.bank_link_accepted_date or _now()
+
+    def write():
+        record.bank_link_accepted_date = link_dt
+        if payload.notes:
+            record.notes = (record.notes or "") + f" | Nafeza bank link: {payload.notes}"
+        _touch(record, user)
+
+        # Cross-module sync with BankingDocumentSession if present
+        try:
+            from modules.import_documentation.model import BankingDocumentSession
+            bdoc = db.query(BankingDocumentSession).filter(
+                BankingDocumentSession.import_file_id == payload.import_file_id,
+                BankingDocumentSession.is_active == True,
+            ).first()
+            if bdoc:
+                bdoc.nafeza_bank_link_status = "Linked & Verified"
+                bdoc.nafeza_bank_link_date = link_dt.date() if isinstance(link_dt, datetime) else link_dt
+                if payload.linked_bank_id:
+                    bdoc.nafeza_linked_bank_id = payload.linked_bank_id
+                _touch(bdoc, user)
+        except Exception as e:
+            logger.warning("Optional sync with BankingDocumentSession skipped: %s", e)
+
+        return record, _file_label(imp_file)
+
+    record, file_label = _commit_write(db, write)
+    _follow_up(
+        db, "Bank link accepted audit log", _audit, db, record.customs_clearance_id,
+        record.clearance_code, "UPDATE", user,
+        new_data={"bank_link_accepted_date": link_dt.isoformat(), "notes": payload.notes},
+    )
+    db.refresh(record)
+    return record
+
+
+def record_duty_payment_request_service(
+    db: Session,
+    payload: DutyPaymentRequestSubmit,
+    user: str = SYSTEM_USER,
+) -> CustomsClearanceRecord:
+    """TASK-BE-10: Records duty payment request timestamp and updates payment status."""
+    imp_file = _require_import_file(db, payload.import_file_id)
+    record = _find_or_new_record(db, imp_file, user)
+
+    req_dt = payload.duty_payment_requested_date or _now()
+
+    def write():
+        record.duty_payment_requested_date = req_dt
+        if payload.nafeza_claim_number:
+            record.nafeza_claim_number = payload.nafeza_claim_number
+        if payload.total_duty_payable is not None:
+            record.total_duty_payable = payload.total_duty_payable
+        if record.payment_status in ("Unpaid", None):
+            record.payment_status = "Payment Requested"
+        if payload.notes:
+            record.notes = (record.notes or "") + f" | Payment requested: {payload.notes}"
+        _touch(record, user)
+        return record, _file_label(imp_file)
+
+    record, file_label = _commit_write(db, write)
+    _follow_up(
+        db, "Duty payment request audit log", _audit, db, record.customs_clearance_id,
+        record.clearance_code, "UPDATE", user,
+        new_data={"duty_payment_requested_date": req_dt.isoformat(), "payment_status": record.payment_status},
     )
     db.refresh(record)
     return record
@@ -1620,3 +1779,82 @@ def delete_clearance_invoice_service(
     db.commit()
     _follow_up(db, "CL-05 settlement snapshot", _sync_settlement_snapshot, db, import_file_id, actor=current_user)
     return True
+
+
+def create_clearance_followup_log_service(
+    db: Session,
+    payload: ClearanceFollowupLogCreate,
+    user: Optional[str] = None,
+) -> ClearanceFollowupLog:
+    """Create a customs clearance followup log and auto-sync the timeline."""
+    clearance = db.query(CustomsClearanceRecord).filter(
+        CustomsClearanceRecord.customs_clearance_id == payload.customs_clearance_id,
+        CustomsClearanceRecord.is_active == True,
+    ).first()
+    if not clearance:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"قيد التخليص الجمركي {payload.customs_clearance_id} غير موجود أو محذوف.",
+        )
+
+    log = ClearanceFollowupLog(
+        customs_clearance_id=payload.customs_clearance_id,
+        import_file_id=payload.import_file_id,
+        followup_seq=payload.followup_seq,
+        followup_date=payload.followup_date,
+        authority_type=payload.authority_type,
+        official_contact=payload.official_contact,
+        status_summary=payload.status_summary,
+        action_required=payload.action_required,
+        next_visit_date=payload.next_visit_date,
+        is_completed=payload.is_completed,
+        created_at=datetime.now(timezone.utc),
+        created_by=user,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+
+    # Sync timeline
+    from modules.lifecycle_board.sync_engine import LifecycleAutoSyncEngine
+    LifecycleAutoSyncEngine.sync_file_timeline(db, payload.import_file_id)
+
+    return log
+
+
+def get_clearance_followup_logs_service(
+    db: Session,
+    customs_clearance_id: Optional[int] = None,
+    import_file_id: Optional[int] = None,
+) -> List[ClearanceFollowupLog]:
+    """Retrieve clearance followup logs filtered by clearance record or import file."""
+    query = db.query(ClearanceFollowupLog)
+    if customs_clearance_id is not None:
+        query = query.filter(ClearanceFollowupLog.customs_clearance_id == customs_clearance_id)
+    if import_file_id is not None:
+        query = query.filter(ClearanceFollowupLog.import_file_id == import_file_id)
+    return query.order_by(ClearanceFollowupLog.followup_seq.asc(), ClearanceFollowupLog.followup_date.asc()).all()
+
+
+def complete_clearance_followup_service(
+    db: Session,
+    log_id: int,
+    user: Optional[str] = None,
+) -> ClearanceFollowupLog:
+    """Mark a clearance followup log as completed and auto-sync timeline."""
+    log = db.query(ClearanceFollowupLog).filter(ClearanceFollowupLog.log_id == log_id).first()
+    if not log:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"سجل متابعة التخليص {log_id} غير موجود.",
+        )
+
+    log.is_completed = True
+    db.commit()
+    db.refresh(log)
+
+    from modules.lifecycle_board.sync_engine import LifecycleAutoSyncEngine
+    LifecycleAutoSyncEngine.sync_file_timeline(db, log.import_file_id)
+
+    return log
+

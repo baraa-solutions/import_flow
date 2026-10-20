@@ -25,6 +25,7 @@ class ClearanceCardActions {
     required this.onPayDuty,
     required this.onRelease,
     required this.onExpenses,
+    this.onFollowups,
   });
 
   final VoidCallback? onView;
@@ -40,6 +41,7 @@ class ClearanceCardActions {
   final VoidCallback onPayDuty;
   final VoidCallback onRelease;
   final VoidCallback onExpenses;
+  final VoidCallback? onFollowups;
 }
 
 /// One customs-clearance record: identity + status chips on top, shipment /
@@ -270,6 +272,14 @@ class ClearanceCard extends ConsumerWidget {
         _icon(Key('clearanceExpensesBtn_${record.clearanceCode}'),
             Icons.receipt_long_outlined, AppTheme.charcoal, l.ccExpensesTooltip,
             actions.onExpenses),
+        if (actions.onFollowups != null)
+          _icon(
+            Key('followupsBtn_${record.clearanceCode}'),
+            Icons.checklist_rtl_rounded,
+            AppTheme.emerald,
+            l.isArabic ? 'سجل المتابعات الميدانية (5 لجان فحص وتثمين)' : 'Field Clearance Follow-ups',
+            actions.onFollowups,
+          ),
       ],
     );
 

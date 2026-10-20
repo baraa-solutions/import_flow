@@ -130,3 +130,17 @@ def delete_certificate(
 ):
     CargoInsuranceService(db).delete_certificate(certificate_id, current_user=current_user.username)
     return None
+
+
+@router.patch(
+    "/certificates/{certificate_id}/restore",
+    response_model=CargoInsuranceCertificateResponse,
+    summary="Restore soft-deleted Cargo Insurance Certificate",
+)
+def restore_certificate(
+    certificate_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargo_insurance.manage")),
+):
+    return CargoInsuranceService(db).restore_certificate(certificate_id, current_user=current_user.username)
+

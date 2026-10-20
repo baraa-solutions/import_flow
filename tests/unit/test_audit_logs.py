@@ -24,6 +24,7 @@ class TestAuditLogs(unittest.TestCase):
             entity_id=10,
             entity_code="TEST-001",
             action="CREATE",
+            performed_by="Tester",
             new_data={"name": "Test Item"}
         )
         self.assertIsNotNone(log.log_id)

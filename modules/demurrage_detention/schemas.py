@@ -265,9 +265,9 @@ class DemurrageSimulationRequest(BaseModel):
     carrier_name: str = "MSC"
     container_type: str = "40ft High Cube"
     containers_count: int = Field(1, ge=1, le=100)
-    demurrage_free_days: int = Field(14, ge=0)
+    demurrage_free_days: int = Field(5, ge=0)
     detention_free_days: int = Field(7, ge=0)
-    port_storage_free_days: int = Field(5, ge=0)
+    port_storage_free_days: int = Field(7, ge=0)
     port_storage_daily_rate_egp: float = Field(250.0, ge=0.0)
     demurrage_tiers: Optional[List[TierRateItem]] = None
     detention_tiers: Optional[List[TierRateItem]] = None
@@ -401,7 +401,7 @@ class FreeDaysAgreementResponse(BaseModel):
     carrier_name: Optional[str] = None
     booking_code: Optional[str] = None
     booking_confirmation_no: Optional[str] = None
-    standard_policy_demurrage_days: int = 14
+    standard_policy_demurrage_days: int = 5
     agreed_demurrage_free_days: int
     agreed_detention_free_days: int
     port_storage_free_days: int

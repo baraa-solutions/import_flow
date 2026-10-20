@@ -34,6 +34,7 @@ import '../widgets/freight_booking_toolbar.dart';
 import '../widgets/freight_booking_ui.dart';
 import '../widgets/freight_booking_view_dialog.dart';
 import '../widgets/search_and_clone_freight_booking_dialog.dart';
+import '../widgets/vessel_eta_tracking_dialog.dart';
 
 class FreightBookingScreen extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -475,6 +476,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
               onDeparture: () => _showDepartureConfirmationDialog(bkg),
               onReviewDraftBl: () => _showDraftBlReviewDialog(bkg),
               onCancelBooking: () => _confirmCancel(bkg),
+              onEtaTracking: () => VesselEtaTrackingDialog.show(context, bkg),
             ),
           );
         },

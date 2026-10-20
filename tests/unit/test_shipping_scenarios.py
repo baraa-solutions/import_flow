@@ -26,6 +26,7 @@ def db():
     session = TestingSession()
     # Scenario provider ids must reference active providers (SS-03).
     from modules.external_service_providers.model import ExternalServiceProvider
+    from modules.currencies.model import Currency
     session.add_all([
         ExternalServiceProvider(provider_id=1, partner_code="FF-001", partner_name="Forwarder One", partner_type="Freight Forwarder"),
         ExternalServiceProvider(provider_id=2, partner_code="FF-002", partner_name="Forwarder Two", partner_type="Freight Forwarder"),
@@ -34,6 +35,7 @@ def db():
     session.add_all([
         Currency(currency_id=1, currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_base_currency=True, decimal_places=2, is_active=True),
         Currency(currency_id=2, currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_base_currency=False, decimal_places=2, is_active=True),
+        Currency(currency_id=3, currency_code="EUR", currency_name="Euro", currency_symbol="€", is_base_currency=False, decimal_places=2, is_active=True),
         ExchangeRate(rate_id=1, currency_id=2, commercial_rate=50.0, customs_rate=50.0, effective_date=date(2020, 1, 1), is_active=True),
     ])
     session.commit()
@@ -162,7 +164,7 @@ class TestShippingScenariosBackend:
             ShippingScenarioService.create_session_service(db, payload)
 
         assert exc_info.value.status_code == 400
-        assert "cannot be before Cargo Ready Date" in exc_info.value.detail
+        assert "لا يمكن أن يكون قبل تاريخ جاهزية البضاعة" in exc_info.value.detail or "cannot be before Cargo Ready Date" in exc_info.value.detail
 
     def test_invalid_eta_before_sailing_date_raises_error(self, db: Session):
         crd = date.today()
@@ -183,7 +185,7 @@ class TestShippingScenariosBackend:
             ShippingScenarioService.create_session_service(db, payload)
 
         assert exc_info.value.status_code == 400
-        assert "Estimated Arrival Date (ETA) must be after Sailing Date" in exc_info.value.detail
+        assert "يجب أن يكون بعد تاريخ الإبحار" in exc_info.value.detail or "Estimated Arrival Date (ETA) must be after Sailing Date" in exc_info.value.detail
 
     def test_duplicate_carrier_option_raises_error(self, db: Session):
         crd = date.today()
@@ -214,7 +216,7 @@ class TestShippingScenariosBackend:
             ShippingScenarioService.create_session_service(db, payload)
 
         assert exc_info.value.status_code == 400
-        assert "Duplicate shipping option found" in exc_info.value.detail
+        assert "تم العثور على خيار شحن مكرر" in exc_info.value.detail or "Duplicate shipping option found" in exc_info.value.detail
 
         # Allowed if provider_id is different (different freight forwarder offering same shipping line option)
         item3 = ShippingScenarioItemCreate(
@@ -398,8 +400,10 @@ class TestShippingScenariosBackend:
                     free_time_days=21,
                     container_40ft_applicable=True,
                     container_40ft_price=3200.0,
+                    container_40ft_currency="USD",
                     container_40ft_qty=1,
                     total_quotation_amount=3200.0,
+                    quotation_currency="USD",
                 )
             ],
         )
@@ -424,9 +428,11 @@ class TestShippingScenariosBackend:
             is_recommended=True,
             is_selected=True,
             total_quotation_amount=4500.0,
+            quotation_currency="USD",
             free_time_days=21,
             container_40ft_applicable=True,
             container_40ft_price=4500.0,
+            container_40ft_currency="USD",
             container_40ft_qty=1,
         )
         payload = ShippingEvaluationCreate(

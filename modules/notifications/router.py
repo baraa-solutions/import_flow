@@ -3,13 +3,14 @@ import json
 import time
 import threading
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, Query, Response, WebSocket, WebSocketDisconnect, status
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.auth.permissions import authenticate_ws_token
-from modules.auth.router import get_current_user
+from modules.auth.router import get_current_user, require_admin
+from modules.common.pagination import Page, PageParams
 from .schemas import NotificationCreate, NotificationResponse, NotificationSummary
 from .service import NotificationService
 from .websocket_manager import parse_auth_frame, websocket_manager
@@ -34,6 +35,27 @@ router = APIRouter(
 ws_router = APIRouter(prefix="/api/v1/notifications", tags=["System Notifications & Real-Time Expiry Engine"])
 
 
+@router.get("/paginated", response_model=Page[NotificationResponse])
+def get_notifications_paginated(
+    response: Response,
+    params: PageParams = Depends(),
+    unread_only: bool = Query(False, description="Filter unread notifications only"),
+    target_role: Optional[str] = Query(None, description="Role filter (ADMIN, MANAGER, OPERATOR)"),
+    severity: Optional[str] = Query(None, description="Severity filter (INFO, WARNING, CRITICAL)"),
+    category: Optional[str] = Query(None, description="Category filter"),
+    db: Session = Depends(get_db),
+):
+    service = NotificationService(db)
+    return service.get_paginated(
+        params=params,
+        response=response,
+        unread_only=unread_only,
+        target_role=target_role,
+        severity=severity,
+        category=category,
+    )
+
+
 @router.get("", response_model=List[NotificationResponse])
 def get_notifications(
     unread_only: bool = Query(False, description="Filter unread notifications only"),
@@ -55,7 +77,7 @@ def get_notification_summary(
     return service.get_summary(target_role=target_role)
 
 
-@router.post("", response_model=NotificationResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=NotificationResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 async def create_notification(
     payload: NotificationCreate,
     db: Session = Depends(get_db),
@@ -100,7 +122,7 @@ def mark_all_notifications_as_read(
     return {"message": "All notifications marked as read", "count": count}
 
 
-@router.post("/trigger-expiry-check", response_model=List[NotificationResponse])
+@router.post("/trigger-expiry-check", response_model=List[NotificationResponse], dependencies=[Depends(require_admin)])
 async def trigger_expiry_check(
     force: bool = Query(False, description="Force expiry check bypassing debounce cooldown"),
     db: Session = Depends(get_db),

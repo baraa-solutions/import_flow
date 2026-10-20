@@ -1152,6 +1152,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     # ── Purchase orders: packing list validation report (PackingListValidationReport.messages) ──
     # ── Purchase orders: coded 409 errors (CodedHTTPException detail.code) ──
+    "PO_NOT_EDITABLE": {
+        "note": "Purchase order cannot be edited or allocated in status '{status}'.",
+    },
+    "PO_HAS_ALLOCATIONS": {
+        "note": "Purchase order cannot be deleted because it has recorded shipment allocations.",
+    },
     "PO_ITEMS_ALLOCATED": {
         "note": "Purchase order lines {item_ids} have recorded shipments and cannot be removed; send their item_id to edit them.",
     },
@@ -1401,6 +1407,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "CC_SETTLEMENT_LOCKED": {
         "note": "Clearance invoices cannot be modified after the landed-cost settlement is approved ({settlement_code}).",
     },
+    "CC_BANK_LINK_REQUIRES_TARIFF_CODING": {
+        "note": "Nafeza bank linkage cannot be accepted before completing item tariff coding (tariff_coding_date).",
+    },
     "CCQ_RFQ_STATUS_INVALID": {
         "note": "RFQ status '{status}' is not allowed; awarding is done through the award action only.",
     },
@@ -1410,7 +1419,6 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "CCQ_RFQ_CANCELLED": {"note": "RFQ {rfq_code} is cancelled and cannot be awarded."},
     "CCQ_QUOTE_EXPIRED": {"note": "The quotation expired on {validity_date}."},
     "CCQ_AWARDED_QUOTE_DELETE": {"note": "The awarded quotation cannot be deleted."},
-    "CCQ_RFQ_AWARDED": {"note": "This quotation request is already awarded: its quotations and status can no longer change."},
     "CCQ_PRICE_LIST_DATE_RANGE": {"note": "The validity start {effective_from} is after its end {effective_to}."},
     "SS_FX_RATE_MISSING": {
         "note": "No commercial exchange rate found for currency {currency} on date {on_date}.",
@@ -1577,6 +1585,13 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "IF_STATUS_TRANSITION_INVALID": {
         "note": "Cannot transition import file status from {from} to {to}.",
+    },
+    # ── System parameters (BEX-T17) ───────────────────────────────────────────
+    "SYSPARAM_UNKNOWN": {
+        "note": "System parameter '{param_key}' is unknown or does not exist.",
+    },
+    "SYSPARAM_INVALID_VALUE": {
+        "note": "Invalid value for system parameter '{param_key}': {reason}",
     },
 }
 

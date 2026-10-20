@@ -1,10 +1,14 @@
+from typing import Any, Dict, List, Optional
+from fastapi import Response
 from sqlalchemy.orm import Session
 
+from modules.common.pagination import PageParams
 from .model import ImportCompany
 from .repository import (
     create_company,
     get_companies,
     get_all_companies_admin,
+    get_paginated_companies,
     get_company_by_id as repo_get_company_by_id,
     update_company_data,
     delete_company as repo_delete_company,
@@ -49,6 +53,7 @@ def create_import_company(
         entity_id=result.company_id,
         entity_code=result.importer_id,
         action="CREATE",
+        performed_by="SYSTEM",
         new_data={
             "importer_name": result.importer_name,
             "importer_id": result.importer_id,
@@ -81,6 +86,29 @@ def get_all_companies_admin_service(db: Session) -> list[ImportCompany]:
     for company in companies:
         add_days_to_renew(company)
     return companies
+
+
+# ==================================================
+# Get Paginated Companies Service
+# ==================================================
+
+def get_paginated_companies_service(
+    db: Session,
+    params: PageParams,
+    response: Optional[Response] = None,
+    country: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Retrieves paginated import companies with renewal day metrics."""
+    result = get_paginated_companies(
+        db,
+        params,
+        response=response,
+        country=country,
+    )
+    for company in result["items"]:
+        add_days_to_renew(company)
+    return result
+
 
 
 # ==================================================
@@ -136,6 +164,7 @@ def update_import_company(
         entity_id=updated_company.company_id,
         entity_code=updated_company.importer_id,
         action="UPDATE",
+        performed_by="SYSTEM",
         old_data=audit_old,
         new_data=audit_new,
     )
@@ -162,6 +191,7 @@ def delete_import_company(db: Session, company_id: int) -> ImportCompany | None:
         entity_id=deleted_company.company_id,
         entity_code=deleted_company.importer_id,
         action="DELETE",
+        performed_by="SYSTEM",
     )
     return add_days_to_renew(deleted_company)
 
@@ -182,5 +212,6 @@ def restore_import_company(db: Session, company_id: int) -> ImportCompany | None
         entity_id=restored_company.company_id,
         entity_code=restored_company.importer_id,
         action="RESTORE",
+        performed_by="SYSTEM",
     )
     return add_days_to_renew(restored_company)

@@ -568,7 +568,7 @@ class POPackingReconciliationSession(Base):
     shipper_name: Mapped[str] = mapped_column(String(200), nullable=True)
 
     total_invoice_amount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    currency: Mapped[str] = mapped_column(String(10), default="EUR", nullable=False)
+    currency: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
 
     total_packages: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     total_net_weight_kg: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)

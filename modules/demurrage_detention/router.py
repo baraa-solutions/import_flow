@@ -53,6 +53,8 @@ from .service import (
     get_free_days_agreement_service,
     get_containers_radar_overview_service,
     record_empty_container_return_service,
+    delete_demurrage_tracking_service,
+    restore_demurrage_tracking_service,
     create_terminal_service,
     get_terminals_service,
     get_terminal_by_id_service,
@@ -156,6 +158,17 @@ def get_tracking_by_id_endpoint(tracking_id: int, db: Session = Depends(get_db),
 @router.put("/trackings/{tracking_id}", response_model=DemurrageTrackingResponse, summary="تحديث وإعادة حساب جلسة تتبع حاويات")
 def update_tracking_endpoint(tracking_id: int, req: DemurrageTrackingUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
     return recalculate_and_update_tracking_service(db, tracking_id, req, user=current_user.username, actor=current_user)
+
+
+@router.delete("/trackings/{tracking_id}", response_model=DemurrageTrackingResponse, summary="حذف جلسة تتبع حاويات (Soft Delete)")
+def delete_tracking_endpoint(tracking_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
+    return delete_demurrage_tracking_service(db, tracking_id, user=current_user.username)
+
+
+@router.patch("/trackings/{tracking_id}/restore", response_model=DemurrageTrackingResponse, summary="استعادة جلسة تتبع حاويات محذوفة")
+def restore_tracking_endpoint(tracking_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission("demurrage_detention.manage"))):
+    return restore_demurrage_tracking_service(db, tracking_id, user=current_user.username)
+
 
 
 @router.post("/trackings/push-to-settlement", summary="ترحيل الغرامات تلقائياً إلى فواتير التسوية المالية Landed Cost")

@@ -480,10 +480,9 @@ class TestWarehouseInspectionDiscrepancyTR04:
         )
         assert res.status_code == 400
         detail = res.json()["detail"]
-        # BE810-T05 (merged first) rejects a discrepancy verdict on clean quantities with WR_VERDICT_INCONSISTENT
-        # before the T19 expected-verdict check runs.
-        assert detail["code"] == "WR_VERDICT_INCONSISTENT"
+        assert detail["code"] == "WR_VERDICT_INCONSISTENT_EXPECTED"
         assert detail["verdict"] == "DAMAGE_CLAIM_PENDING"
+        assert detail["expected_verdict"] == "ACCEPTED_FULL"
 
     def test_be810_t19_report_discrepancy_rejects_none_type(self, db_session, client):
         """BE810-T19: Report discrepancy with type 'None' is rejected with 400 WR_DISCREPANCY_TYPE_INVALID."""
@@ -558,3 +557,85 @@ class TestWarehouseInspectionDiscrepancyTR04:
         assert res.status_code == 400
         detail = res.json()["detail"]
         assert detail["code"] == "WR_DATE_IN_FUTURE"
+
+    def test_be810_t19_report_discrepancy_rejects_none_case_variations(self, db_session, client):
+        """BE810-T19: Report discrepancy rejects 'none', '  None  ', and whitespace with 400 WR_DISCREPANCY_TYPE_INVALID."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0110", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0110",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot I",
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        for variant in ["none", "  None  ", ""]:
+            res = client.post(
+                f"/api/v1/warehouse-receiving/{rec.receiving_id}/report-discrepancy",
+                json={"discrepancy_type": variant, "discrepancy_notes": "test note"},
+            )
+            assert res.status_code == 400
+            assert res.json()["detail"]["code"] == "WR_DISCREPANCY_TYPE_INVALID"
+
+    def test_be810_t19_discrepancy_quantities_with_clean_verdict_raises_expected_code(self, db_session, client):
+        """BE810-T19: Discrepancy quantities + ACCEPTED_FULL verdict -> 400 WR_VERDICT_INCONSISTENT_EXPECTED with expected_verdict ACCEPTED_WITH_DISCREPANCY."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0111", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0111",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot J",
+            grn_items=[{"item_code": "J", "item_name": "J", "invoiced_qty": 10, "accepted_qty": 8, "shortage_qty": 2, "damaged_qty": 0}],
+            total_invoiced_qty=10,
+            total_accepted_qty=8,
+            total_shortage_qty=2,
+            total_damaged_qty=0,
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol",
+            json={"inspection_verdict": "ACCEPTED_FULL"},
+        )
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert detail["code"] == "WR_VERDICT_INCONSISTENT_EXPECTED"
+        assert detail["verdict"] == "ACCEPTED_FULL"
+        assert detail["expected_verdict"] == "ACCEPTED_WITH_DISCREPANCY"
+
+    def test_be810_t19_quarantine_with_clean_verdict_raises_expected_code(self, db_session, client):
+        """BE810-T19: Quarantine assigned + ACCEPTED_FULL verdict -> 400 WR_VERDICT_INCONSISTENT_EXPECTED with expected_verdict REJECTED_QUARANTINED."""
+        imp_file = ImportFile(import_file_code="IMP-2026-0112", company_name="Tech Global", supplier_name="Lenovo EMEA", is_active=True)
+        db_session.add(imp_file)
+        db_session.commit()
+
+        rec = WarehouseReceivingRecord(
+            grn_code="GRN-2026-0112",
+            import_file_id=imp_file.import_file_id,
+            warehouse_name="Depot K",
+            grn_items=[{"item_code": "K", "item_name": "K", "invoiced_qty": 10, "accepted_qty": 10, "shortage_qty": 0, "damaged_qty": 0}],
+            status="Goods Received",
+            is_active=True,
+        )
+        db_session.add(rec)
+        db_session.commit()
+
+        res = client.post(
+            f"/api/v1/warehouse-receiving/{rec.receiving_id}/inspection-protocol",
+            json={"quarantine_zone_assigned": True, "inspection_verdict": "ACCEPTED_FULL"},
+        )
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert detail["code"] == "WR_VERDICT_INCONSISTENT_EXPECTED"
+        assert detail["verdict"] == "ACCEPTED_FULL"
+        assert detail["expected_verdict"] == "REJECTED_QUARANTINED"

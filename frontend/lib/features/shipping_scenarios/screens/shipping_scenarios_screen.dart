@@ -2789,7 +2789,7 @@ Best regards,
                                           Text(item.customsBrokerName ?? '-', style: const TextStyle(fontWeight: FontWeight.w600)),
                                           if (item.clearanceFeePrice > 0 || item.inlandTransportFeePrice > 0)
                                             Text(
-                                              l.clearanceCostSummary(((item.clearanceFeeApplicable ? item.clearanceFeePrice : 0) + (item.inspectionFeeApplicable ? item.inspectionFeePrice : 0) + (item.inlandTransportFeeApplicable ? item.inlandTransportFeePrice : 0) + (item.portExpensesApplicable ? item.portExpensesPrice : 0)).toStringAsFixed(0), item.clearanceFeeCurrency),
+                                              l.clearanceCostSummary(((item.clearanceFeeApplicable ? item.clearanceFeePrice : 0) + (item.inspectionFeeApplicable ? item.inspectionFeePrice : 0) + (item.inlandTransportFeeApplicable ? item.inlandTransportFeePrice : 0) + (item.portExpensesApplicable ? item.portExpensesPrice : 0)).toStringAsFixed(0), item.clearanceFeeCurrency ?? ''),
                                               style: const TextStyle(fontSize: 10, color: AppTheme.wcagEmerald, fontWeight: FontWeight.bold),
                                             ),
                                         ],
@@ -2913,7 +2913,7 @@ Best regards,
     required String title,
     required bool applicable,
     required double price,
-    required String currency,
+    required String? currency,
     double qty = 1.0,
     required ValueChanged<bool> onApplicableChanged,
     required ValueChanged<double> onPriceChanged,
@@ -2943,7 +2943,8 @@ Best regards,
         );
 
         final currencyField = SearchableDropdownField<String>(
-          value: currenciesList.any((c) => c.currencyCode == currency) ? currency : (currenciesList.isNotEmpty ? currenciesList.first.currencyCode : 'USD'),
+          // No invented currency: an unknown or missing code stays unselected until the user picks one.
+          value: currenciesList.any((c) => c.currencyCode == currency) ? currency : null,
           labelText: l.currency,
           items: currenciesList.map((c) => SearchableDropdownItem(
                 value: c.currencyCode,
@@ -3010,8 +3011,8 @@ Best regards,
           ),
           child: Text(
             applicable 
-                ? '${(price * qty).toStringAsFixed(0)} $currency'
-                : '0.0 $currency',
+                ? '${(price * qty).toStringAsFixed(0)} ${currency ?? ''}'.trim()
+                : '0.0 ${currency ?? ''}'.trim(),
             style: TextStyle(
               fontWeight: FontWeight.bold, 
               fontSize: 11, 

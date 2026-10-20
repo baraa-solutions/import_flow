@@ -342,3 +342,21 @@ class CargoInsuranceService:
         cert.updated_by = current_user
         cert.updated_at = datetime.now(timezone.utc)
         self.db.commit()
+
+    def restore_certificate(self, certificate_id: int, current_user: str = "system") -> CargoInsuranceCertificate:
+        cert = self.repo.get_by_id(certificate_id, include_inactive=True)
+        if not cert:
+            raise not_found(CERTIFICATE_LABEL_AR, certificate_id)
+        if cert.is_active:
+            return cert
+        if cert.import_file_id and cert.status != "CANCELLED":
+            existing = self.repo.get_active_for_file(cert.import_file_id)
+            if existing and existing.certificate_id != cert.certificate_id:
+                validate_no_active_certificate_for_file(existing)
+        cert.is_active = True
+        cert.updated_by = current_user
+        cert.updated_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(cert)
+        return cert
+

@@ -100,38 +100,42 @@ def get_rfq_by_code(db: Session, rfq_code: str) -> Optional[CustomsClearanceRFQ]
     return db.execute(stmt).unique().scalar_one_or_none()
 
 
-def create_rfq(db: Session, rfq_data: dict, rfq_code: str) -> CustomsClearanceRFQ:
+def create_rfq(db: Session, rfq_data: dict, rfq_code: str, user: str = "System") -> CustomsClearanceRFQ:
     quotations_data = rfq_data.pop("quotations", []) or []
-    rfq = CustomsClearanceRFQ(**rfq_data, rfq_code=rfq_code)
+    rfq = CustomsClearanceRFQ(**rfq_data, rfq_code=rfq_code, created_by=user, updated_by=user)
     db.add(rfq)
     db.flush()
 
     for q in quotations_data:
         q_dict = q if isinstance(q, dict) else q.model_dump()
-        rfq.quotations.append(CustomsClearanceQuotationItem(**q_dict))
+        q_item = CustomsClearanceQuotationItem(**q_dict, created_by=user, updated_by=user)
+        rfq.quotations.append(q_item)
     db.flush()
     return rfq
 
 
-def update_rfq(db: Session, rfq_id: int, update_data: dict) -> Optional[CustomsClearanceRFQ]:
+def update_rfq(db: Session, rfq_id: int, update_data: dict, user: str = "System") -> Optional[CustomsClearanceRFQ]:
     rfq = get_rfq_by_id(db, rfq_id)
     if not rfq:
         return None
     for k, v in update_data.items():
         if v is not None and hasattr(rfq, k):
             setattr(rfq, k, v)
+    rfq.updated_by = user
     db.flush()
     return rfq
 
 
-def delete_rfq(db: Session, rfq_id: int, soft: bool = True) -> bool:
+def delete_rfq(db: Session, rfq_id: int, soft: bool = True, user: str = "System") -> bool:
     rfq = get_rfq_by_id(db, rfq_id)
     if not rfq:
         return False
     if soft:
         rfq.is_active = False
+        rfq.updated_by = user
         for q in rfq.quotations:
             q.is_active = False
+            q.updated_by = user
     else:
         db.delete(rfq)
     db.flush()
@@ -145,26 +149,29 @@ def get_quotation_by_id(db: Session, quotation_id: int, active_only: bool = Fals
     return db.execute(stmt).scalar_one_or_none()
 
 
-def add_quotation_to_rfq(db: Session, rfq: CustomsClearanceRFQ, quotation_data: dict) -> CustomsClearanceQuotationItem:
-    quotation = CustomsClearanceQuotationItem(**quotation_data)
+def add_quotation_to_rfq(db: Session, rfq: CustomsClearanceRFQ, quotation_data: dict, user: str = "System") -> CustomsClearanceQuotationItem:
+    quotation = CustomsClearanceQuotationItem(**quotation_data, created_by=user, updated_by=user)
     rfq.quotations.append(quotation)
+    rfq.updated_by = user
     db.flush()
     return quotation
 
 
-def update_quotation(db: Session, quotation_id: int, update_data: dict) -> Optional[CustomsClearanceQuotationItem]:
+def update_quotation(db: Session, quotation_id: int, update_data: dict, user: str = "System") -> Optional[CustomsClearanceQuotationItem]:
     quotation = get_quotation_by_id(db, quotation_id)
     if not quotation:
         return None
     for k, v in update_data.items():
         if v is not None and hasattr(quotation, k):
             setattr(quotation, k, v)
+    quotation.updated_by = user
     db.flush()
     return quotation
 
 
-def soft_delete_quotation(db: Session, quotation: CustomsClearanceQuotationItem) -> None:
+def soft_delete_quotation(db: Session, quotation: CustomsClearanceQuotationItem, user: str = "System") -> None:
     quotation.is_active = False
+    quotation.updated_by = user
     db.flush()
 
 
@@ -197,28 +204,31 @@ def get_price_item_by_id(db: Session, price_item_id: int) -> Optional[ClearanceS
     return db.execute(stmt).scalar_one_or_none()
 
 
-def create_price_item(db: Session, price_data: dict) -> ClearanceServicePriceListItem:
-    item = ClearanceServicePriceListItem(**price_data)
+def create_price_item(db: Session, price_data: dict, user: str = "System") -> ClearanceServicePriceListItem:
+    item = ClearanceServicePriceListItem(**price_data, created_by=user, updated_by=user)
     db.add(item)
     db.flush()
     return item
 
 
-def update_price_item(db: Session, price_item_id: int, update_data: dict) -> Optional[ClearanceServicePriceListItem]:
+def update_price_item(db: Session, price_item_id: int, update_data: dict, user: str = "System") -> Optional[ClearanceServicePriceListItem]:
     item = get_price_item_by_id(db, price_item_id)
     if not item:
         return None
     for k, v in update_data.items():
         if v is not None and hasattr(item, k):
             setattr(item, k, v)
+    item.updated_by = user
     db.flush()
     return item
 
 
-def delete_price_item(db: Session, price_item_id: int) -> bool:
+def delete_price_item(db: Session, price_item_id: int, user: str = "System") -> bool:
     item = get_price_item_by_id(db, price_item_id)
     if not item:
         return False
     item.is_active = False
+    item.updated_by = user
     db.flush()
     return True
+

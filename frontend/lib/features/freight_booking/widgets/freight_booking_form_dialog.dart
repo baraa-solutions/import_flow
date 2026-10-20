@@ -431,74 +431,74 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
       // Map all 17 quote breakdown parameters
       _container40ftApp = item.container40ftApplicable;
       _container40ftPrice = item.container40ftPrice;
-      _container40ftCur = item.container40ftCurrency;
+      _container40ftCur = item.container40ftCurrency ?? _container40ftCur;
       _container40ftQty = item.container40ftQty > 0 ? item.container40ftQty : 1;
 
       _container20ftApp = item.container20ftApplicable;
       _container20ftPrice = item.container20ftPrice;
-      _container20ftCur = item.container20ftCurrency;
+      _container20ftCur = item.container20ftCurrency ?? _container20ftCur;
       _container20ftQty = item.container20ftQty;
 
       _lclCbmApp = item.lclCbmApplicable;
       _lclCbmPrice = item.lclCbmPrice;
-      _lclCbmCur = item.lclCbmCurrency;
+      _lclCbmCur = item.lclCbmCurrency ?? _lclCbmCur;
       _lclCbmQty = item.lclCbmQty;
 
       _expressCourierApp = item.expressCourierApplicable;
       _expressCourierPrice = item.expressCourierPrice;
-      _expressCourierCur = item.expressCourierCurrency;
+      _expressCourierCur = item.expressCourierCurrency ?? _expressCourierCur;
 
       _eurAtrApp = item.eurAtrApplicable;
       _eurAtrPrice = item.eurAtrPrice;
-      _eurAtrCur = item.eurAtrCurrency;
+      _eurAtrCur = item.eurAtrCurrency ?? _eurAtrCur;
 
       _solasVgmApp = item.solasVgmApplicable;
       _solasVgmPrice = item.solasVgmPrice;
-      _solasVgmCur = item.solasVgmCurrency;
+      _solasVgmCur = item.solasVgmCurrency ?? _solasVgmCur;
 
       _vgmNotifApp = item.vgmNotificationApplicable;
       _vgmNotifPrice = item.vgmNotificationPrice;
-      _vgmNotifCur = item.vgmNotificationCurrency;
+      _vgmNotifCur = item.vgmNotificationCurrency ?? _vgmNotifCur;
 
       _telexReleaseApp = item.telexReleaseApplicable;
       _telexReleasePrice = item.telexReleasePrice;
-      _telexReleaseCur = item.telexReleaseCurrency;
+      _telexReleaseCur = item.telexReleaseCurrency ?? _telexReleaseCur;
 
       _insuranceApp = item.insuranceApplicable;
       _insurancePrice = item.insurancePrice;
-      _insuranceCur = item.insuranceCurrency;
+      _insuranceCur = item.insuranceCurrency ?? _insuranceCur;
 
       _cancellationApp = item.bookingCancellationApplicable;
       _cancellationPrice = item.bookingCancellationPrice;
-      _cancellationCur = item.bookingCancellationCurrency;
+      _cancellationCur = item.bookingCancellationCurrency ?? _cancellationCur;
 
       _ics2App = item.ics2FilingFeeApplicable;
       _ics2Price = item.ics2FilingFeePrice;
-      _ics2Cur = item.ics2FilingFeeCurrency;
+      _ics2Cur = item.ics2FilingFeeCurrency ?? _ics2Cur;
 
       _otherFeesApp = item.othersFeeApplicable;
       _otherFeesPrice = item.othersFeePrice;
-      _otherFeesCur = item.othersFeeCurrency;
+      _otherFeesCur = item.othersFeeCurrency ?? _otherFeesCur;
 
       _docFeesApp = item.documentFeesApplicable;
       _docFeesPrice = item.documentFeesPrice;
-      _docFeesCur = item.documentFeesCurrency;
+      _docFeesCur = item.documentFeesCurrency ?? _docFeesCur;
 
       _waiverApp = item.waiverLetterFeeApplicable;
       _waiverPrice = item.waiverLetterFeePrice;
-      _waiverCur = item.waiverLetterFeeCurrency;
+      _waiverCur = item.waiverLetterFeeCurrency ?? _waiverCur;
 
       _dthcApp = item.dthcApplicable;
       _dthcPrice = item.dthcPrice;
-      _dthcCur = item.dthcCurrency;
+      _dthcCur = item.dthcCurrency ?? _dthcCur;
 
       _storagePerWeekApp = item.storagePerWeekApplicable;
       _storagePerWeekPrice = item.storagePerWeekPrice;
-      _storagePerWeekCur = item.storagePerWeekCurrency;
+      _storagePerWeekCur = item.storagePerWeekCurrency ?? _storagePerWeekCur;
 
       _extraDayStorageApp = item.extraDayStorageApplicable;
       _extraDayStoragePrice = item.extraDayStoragePrice;
-      _extraDayStorageCur = item.extraDayStorageCurrency;
+      _extraDayStorageCur = item.extraDayStorageCurrency ?? _extraDayStorageCur;
 
       // Equipment follows the quotation (type + quantity only: container and
       // seal numbers and VGM weights are real data entered later, never invented).

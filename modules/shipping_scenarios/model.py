@@ -99,95 +99,95 @@ class ShippingScenarioItem(Base):
 
     # BP-008 Freight Quotations integration fields
     free_time_days = Column(Integer, default=14, nullable=False)
-    quotation_currency = Column(String(10), default="USD", nullable=False)
+    quotation_currency = Column(String(10), nullable=True, default=None)
     total_quotation_amount = Column(Float, default=0.0, nullable=False)
 
     container_40ft_applicable = Column(Boolean, default=False, nullable=False)
     container_40ft_price = Column(Float, default=0.0, nullable=False)
-    container_40ft_currency = Column(String(10), default="USD", nullable=False)
+    container_40ft_currency = Column(String(10), nullable=True, default=None)
     container_40ft_qty = Column(Integer, default=0, nullable=False)
 
     container_20ft_applicable = Column(Boolean, default=False, nullable=False)
     container_20ft_price = Column(Float, default=0.0, nullable=False)
-    container_20ft_currency = Column(String(10), default="USD", nullable=False)
+    container_20ft_currency = Column(String(10), nullable=True, default=None)
     container_20ft_qty = Column(Integer, default=0, nullable=False)
 
     lcl_cbm_applicable = Column(Boolean, default=False, nullable=False)
     lcl_cbm_price = Column(Float, default=0.0, nullable=False)
-    lcl_cbm_currency = Column(String(10), default="USD", nullable=False)
+    lcl_cbm_currency = Column(String(10), nullable=True, default=None)
     lcl_cbm_qty = Column(Float, default=0.0, nullable=False)
 
     express_courier_applicable = Column(Boolean, default=False, nullable=False)
     express_courier_price = Column(Float, default=0.0, nullable=False)
-    express_courier_currency = Column(String(10), default="USD", nullable=False)
+    express_courier_currency = Column(String(10), nullable=True, default=None)
 
     eur_atr_applicable = Column(Boolean, default=False, nullable=False)
     eur_atr_price = Column(Float, default=0.0, nullable=False)
-    eur_atr_currency = Column(String(10), default="USD", nullable=False)
+    eur_atr_currency = Column(String(10), nullable=True, default=None)
 
     solas_vgm_applicable = Column(Boolean, default=False, nullable=False)
     solas_vgm_price = Column(Float, default=0.0, nullable=False)
-    solas_vgm_currency = Column(String(10), default="USD", nullable=False)
+    solas_vgm_currency = Column(String(10), nullable=True, default=None)
 
     vgm_notification_applicable = Column(Boolean, default=False, nullable=False)
     vgm_notification_price = Column(Float, default=0.0, nullable=False)
-    vgm_notification_currency = Column(String(10), default="USD", nullable=False)
+    vgm_notification_currency = Column(String(10), nullable=True, default=None)
 
     telex_release_applicable = Column(Boolean, default=False, nullable=False)
     telex_release_price = Column(Float, default=0.0, nullable=False)
-    telex_release_currency = Column(String(10), default="USD", nullable=False)
+    telex_release_currency = Column(String(10), nullable=True, default=None)
 
     insurance_applicable = Column(Boolean, default=False, nullable=False)
     insurance_price = Column(Float, default=0.0, nullable=False)
-    insurance_currency = Column(String(10), default="USD", nullable=False)
+    insurance_currency = Column(String(10), nullable=True, default=None)
 
     booking_cancellation_applicable = Column(Boolean, default=False, nullable=False)
     booking_cancellation_price = Column(Float, default=0.0, nullable=False)
-    booking_cancellation_currency = Column(String(10), default="USD", nullable=False)
+    booking_cancellation_currency = Column(String(10), nullable=True, default=None)
 
     ics2_filing_fee_applicable = Column(Boolean, default=False, nullable=False)
     ics2_filing_fee_price = Column(Float, default=0.0, nullable=False)
-    ics2_filing_fee_currency = Column(String(10), default="USD", nullable=False)
+    ics2_filing_fee_currency = Column(String(10), nullable=True, default=None)
 
     others_fee_applicable = Column(Boolean, default=False, nullable=False)
     others_fee_price = Column(Float, default=0.0, nullable=False)
-    others_fee_currency = Column(String(10), default="USD", nullable=False)
+    others_fee_currency = Column(String(10), nullable=True, default=None)
 
     document_fees_applicable = Column(Boolean, default=False, nullable=False)
     document_fees_price = Column(Float, default=0.0, nullable=False)
-    document_fees_currency = Column(String(10), default="USD", nullable=False)
+    document_fees_currency = Column(String(10), nullable=True, default=None)
 
     waiver_letter_fee_applicable = Column(Boolean, default=False, nullable=False)
     waiver_letter_fee_price = Column(Float, default=0.0, nullable=False)
-    waiver_letter_fee_currency = Column(String(10), default="USD", nullable=False)
+    waiver_letter_fee_currency = Column(String(10), nullable=True, default=None)
 
     dthc_applicable = Column(Boolean, default=False, nullable=False)
     dthc_price = Column(Float, default=0.0, nullable=False)
-    dthc_currency = Column(String(10), default="USD", nullable=False)
+    dthc_currency = Column(String(10), nullable=True, default=None)
 
     storage_per_week_applicable = Column(Boolean, default=False, nullable=False)
     storage_per_week_price = Column(Float, default=0.0, nullable=False)
-    storage_per_week_currency = Column(String(10), default="USD", nullable=False)
+    storage_per_week_currency = Column(String(10), nullable=True, default=None)
 
     extra_day_storage_applicable = Column(Boolean, default=False, nullable=False)
     extra_day_storage_price = Column(Float, default=0.0, nullable=False)
-    extra_day_storage_currency = Column(String(10), default="USD", nullable=False)
+    extra_day_storage_currency = Column(String(10), nullable=True, default=None)
 
     # Customs clearance quotation integration fields
     clearance_fee_applicable = Column(Boolean, default=False, nullable=False)
     clearance_fee_price = Column(Float, default=0.0, nullable=False)
-    clearance_fee_currency = Column(String(10), default="EGP", nullable=False)
+    clearance_fee_currency = Column(String(10), nullable=True, default=None)
 
     inspection_fee_applicable = Column(Boolean, default=False, nullable=False)
     inspection_fee_price = Column(Float, default=0.0, nullable=False)
-    inspection_fee_currency = Column(String(10), default="EGP", nullable=False)
+    inspection_fee_currency = Column(String(10), nullable=True, default=None)
 
     inland_transport_fee_applicable = Column(Boolean, default=False, nullable=False)
     inland_transport_fee_price = Column(Float, default=0.0, nullable=False)
-    inland_transport_fee_currency = Column(String(10), default="EGP", nullable=False)
+    inland_transport_fee_currency = Column(String(10), nullable=True, default=None)
 
     port_expenses_applicable = Column(Boolean, default=False, nullable=False)
     port_expenses_price = Column(Float, default=0.0, nullable=False)
-    port_expenses_currency = Column(String(10), default="EGP", nullable=False)
+    port_expenses_currency = Column(String(10), nullable=True, default=None)
 
     session = relationship("ShippingEvaluationSession", back_populates="items")

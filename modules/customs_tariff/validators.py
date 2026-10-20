@@ -92,7 +92,4 @@ def validate_effective_date_range(
     None effective_to means open-ended (still active) — always valid.
     """
     if effective_to and effective_to <= effective_from:
-        raise ValueError(
-            "effective_to must be after effective_from. "
-            "تاريخ انتهاء السريان يجب أن يكون بعد تاريخ البداية."
-        )
+        raise ValueError("تاريخ انتهاء السريان يجب أن يكون بعد تاريخ البداية.")

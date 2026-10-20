@@ -2,7 +2,8 @@
 SQLAlchemy Model for Shipment Stage Activity & Lifecycle Board
 """
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, JSON
+from datetime import datetime, timezone
+from sqlalchemy import Column, Integer, String, Text, Boolean, JSON, Index, DateTime, ForeignKey
 from database.database import Base
 
 
@@ -21,6 +22,10 @@ class ShipmentStageActivity(Base):
     msg_code = Column(String(80), nullable=True)  # system message code for notes (English render in notes)
     msg_params = Column(JSON, nullable=True)
     completion_type = Column(String(30), nullable=True) # real, auto, skipped, bypassed
+
+    __table_args__ = (
+        Index("uq_shipment_stage_activity_file_step", "import_file_code", "step_code", unique=True),
+    )
 
 
 class StepConfig(Base):
@@ -81,4 +86,38 @@ class PendingReferenceRecord(Base):
     registered_by = Column(String(100), nullable=True)
     registered_at = Column(String(50), nullable=False)
     status = Column(String(50), nullable=False, default="Pending Documentation") # Pending Documentation, Fulfilled, Cancelled
+
+
+class ShipmentTimelineSnapshot(Base):
+    """
+    Central 25-stage operational timeline snapshot.
+    Tracks planned vs actual dates, variance, SLA compliance, bottleneck flags,
+    and sub-event audit linkages across the full shipment lifecycle.
+    """
+    __tablename__ = "shipment_timeline_snapshots"
+
+    snapshot_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=False, index=True)
+    stage_code = Column(String(50), nullable=False, index=True)  # STAGE_01 to STAGE_25
+    stage_name_ar = Column(String(200), nullable=False)
+    stage_name_en = Column(String(200), nullable=False)
+    phase_number = Column(Integer, nullable=False, default=1)
+
+    status = Column(String(50), nullable=False, default="PENDING")  # PENDING, IN_PROGRESS, COMPLETED, DELAYED, SKIPPED
+    planned_date = Column(DateTime, nullable=True)
+    actual_date = Column(DateTime, nullable=True)
+    variance_days = Column(Integer, nullable=True, default=0)
+    sla_days = Column(Integer, nullable=False, default=1)
+
+    is_bottleneck = Column(Boolean, default=False, nullable=False)
+    delay_reason = Column(Text, nullable=True)
+    event_details_json = Column(JSON, nullable=True)
+
+    completed_by = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    __table_args__ = (
+        Index("uq_timeline_file_stage", "import_file_id", "stage_code", unique=True),
+    )
 

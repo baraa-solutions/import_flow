@@ -332,6 +332,7 @@ class ShippingScenarioService:
     ) -> ShippingEvaluationResponse:
         ShippingScenarioValidator.validate_evaluation_create(payload)
         ShippingScenarioValidator.validate_foreign_keys(db, payload, payload.items)
+        ShippingScenarioValidator.validate_scenario_currencies(db, payload.items)
         if payload.import_file_id:
             ShippingScenarioService._check_one_per_file(db, payload.import_file_id)
         on_date = date.today()
@@ -385,6 +386,7 @@ class ShippingScenarioService:
             if removed_ids:
                 booked = ShippingScenarioRepository.booked_item_ids(db, removed_ids)
                 ShippingScenarioValidator.validate_removed_not_booked(booked)
+            ShippingScenarioValidator.validate_scenario_currencies(db, payload.items)
 
             for item in payload.items:
                 tot, _ = scenario_item_totals(db, item, on_date)

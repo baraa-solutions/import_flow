@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -60,7 +60,12 @@ LEGACY_EXPORTER_DEFAULTS = frozenset({"Finance & Logistics Controller"})
 # Shared helpers
 # ==============================================================================
 
-def _get_active_file(db: Session, import_file_id: int) -> ImportFile:
+def _get_active_file(db: Session, import_file_id: Optional[int]) -> ImportFile:
+    if not import_file_id or import_file_id <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="معرف ملف الشحنة الاستيرادية (import_file_id) مطلوب ولا يمكن أن يكون فارغاً أو صفراً.",
+        )
     imp = db.query(ImportFile).filter(
         ImportFile.import_file_id == import_file_id,
         ImportFile.is_active == True,

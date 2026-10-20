@@ -93,10 +93,10 @@ class PartnerBalanceCard extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _agingItem('≤ 30 Days', data.aging.current30Days, AppTheme.emerald),
-                _agingItem('31 - 60 Days', data.aging.days31To60, Colors.amber.shade700),
-                _agingItem('61 - 90 Days', data.aging.days61To90, AppTheme.orange),
-                _agingItem('> 90 Days', data.aging.days90Plus, AppTheme.crimson),
+                Flexible(child: _agingItem('≤ 30 Days', data.aging.current30Days, AppTheme.emerald)),
+                Flexible(child: _agingItem('31 - 60 Days', data.aging.days31To60, Colors.amber.shade700)),
+                Flexible(child: _agingItem('61 - 90 Days', data.aging.days61To90, AppTheme.orange)),
+                Flexible(child: _agingItem('> 90 Days', data.aging.days90Plus, AppTheme.crimson)),
               ],
             ),
           ),
@@ -136,13 +136,16 @@ class PartnerBalanceCard extends ConsumerWidget {
 
   Widget _agingItem(String label, double amount, Color color) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
-        Text('$label: ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-        Text(
-          '${amount.toStringAsFixed(2)} EGP',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+        Flexible(
+          child: Text(
+            '$label: ${amount.toStringAsFixed(2)} EGP',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ],
     );

@@ -31,8 +31,7 @@ class MockFreightQuotationsNotifier extends FreightQuotationsNotifier {
     String? shippingMethod,
     int? poId,
     int? projectId,
-    String? status,
-  }) async {
+    String? status, int? skip, int? limit}) async {
     state = const AsyncValue.data([]);
   }
 }

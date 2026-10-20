@@ -146,6 +146,8 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
     final orderedUsd = _num(_balanceData, ['total_ordered_amount_fob', 'total_ordered_fob_usd']);
     final shippedUsd = _num(_balanceData, ['total_shipped_amount_fob', 'total_shipped_fob_usd']);
     final remainingUsd = _num(_balanceData, ['total_remaining_amount_fob', 'total_remaining_fob_usd']);
+    final currency = (_balanceData?['currency_code'] as String?)?.trim();
+    final currencyPrefix = (currency != null && currency.isNotEmpty) ? '$currency ' : '';
 
     // Value-weighted percentage computed by the backend: shown as is, never recomputed here.
     final fulfillment = _num(_balanceData, ['overall_fulfillment_percent', 'fulfillment_percentage']);
@@ -248,7 +250,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                 child: _buildSummaryCard(
                   title: l.poBalanceTotalOrderedQty,
                   qtyText: '${orderedQty.toStringAsFixed(0)} ${l.poBalanceUnit}',
-                  usdText: l.poBalanceValue('\$${orderedUsd.toStringAsFixed(2)}'),
+                  usdText: l.poBalanceValue('$currencyPrefix${orderedUsd.toStringAsFixed(2)}'),
                   color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
                   icon: Icons.inventory_2_outlined,
                   isDark: isDark,
@@ -259,7 +261,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                 child: _buildSummaryCard(
                   title: l.poBalanceActuallyShippedQty,
                   qtyText: '${shippedQty.toStringAsFixed(0)} ${l.poBalanceUnit}',
-                  usdText: l.poBalanceValue('\$${shippedUsd.toStringAsFixed(2)}'),
+                  usdText: l.poBalanceValue('$currencyPrefix${shippedUsd.toStringAsFixed(2)}'),
                   color: AppTheme.emerald,
                   icon: Icons.local_shipping_outlined,
                   isDark: isDark,
@@ -270,7 +272,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                 child: _buildSummaryCard(
                   title: l.poBalanceRemainingQty,
                   qtyText: '${remainingQty.toStringAsFixed(0)} ${l.poBalanceUnit}',
-                  usdText: l.poBalanceValue('\$${remainingUsd.toStringAsFixed(2)}'),
+                  usdText: l.poBalanceValue('$currencyPrefix${remainingUsd.toStringAsFixed(2)}'),
                   color: remainingQty > 0 ? AppTheme.orange : AppTheme.emerald,
                   icon: Icons.hourglass_bottom_outlined,
                   isDark: isDark,

@@ -20,7 +20,7 @@ Widget buildBrokerCostRow({
 }) {
   final l = context.l10n;
   final isAr = Localizations.localeOf(context).languageCode == 'ar';
-  final isForeign = item.currency.toUpperCase() != 'EGP';
+  final isForeign = (item.currency ?? '').toUpperCase() != 'EGP';
   final isNegotiable = item.priceType == 'negotiable' ||
       (item.unitPrice == 0.0 && item.minPrice == null && item.maxPrice == null);
   final isRange = item.priceType == 'range';
@@ -28,7 +28,7 @@ Widget buildBrokerCostRow({
   // Compute converted EGP if applicable
   double? convertedEgpTotal;
   if (isForeign && referenceUsdExchangeRate != null && referenceUsdExchangeRate > 0) {
-    if (item.currency.toUpperCase() == 'USD') {
+    if ((item.currency ?? '').toUpperCase() == 'USD') {
       convertedEgpTotal = item.unitPrice * item.qty * referenceUsdExchangeRate;
     }
   }
@@ -116,7 +116,7 @@ Widget buildBrokerCostRow({
                           const Icon(Icons.monetization_on_outlined, size: 10, color: AppTheme.wcagOrange),
                           const SizedBox(width: 2),
                           Text(
-                            item.currency,
+                            item.currency ?? '-',
                             style: const TextStyle(color: AppTheme.wcagOrange, fontSize: 9, fontWeight: FontWeight.bold),
                           ),
                         ],

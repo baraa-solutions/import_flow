@@ -150,15 +150,13 @@ def estimate_multi_item_customs_duty(
     return estimate_multi_item_customs_duty_service(db, request)
 
 
-@customs_tariff_router.get("/export-excel", summary="Export all customs tariffs to Excel (XLSX)", dependencies=[can_view])
-def export_tariffs_excel(db: Session = Depends(get_db)):
+@customs_tariff_router.get("/export-csv", summary="Export all customs tariffs to CSV", dependencies=[can_view])
+def export_tariffs_csv(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     tariffs, _ = get_all_tariffs_service(db, include_inactive=True, limit=None)
-    headers = [
-        'HS Code', 'Description', 'Category', 'Duty %', 'VAT %',
-        'Schedule Tax %', 'Development Fee %', 'Service Fee %',
-        'ACID Req', 'COO Req', 'Inspection Req', 'Regulatory Authorities',
-        'Effective From', 'Effective To', 'Status'
-    ]
+    headers = MasterDataExportImportHelper.get_localized_headers("customs_tariff", lang=lang)
     rows = []
     for t in tariffs:
         rows.append([
@@ -170,23 +168,59 @@ def export_tariffs_excel(db: Session = Depends(get_db)):
             t.schedule_tax_rate,
             t.development_fee_rate,
             t.customs_service_fee_rate,
-            'Yes' if t.requires_acid else 'No',
-            'Yes' if t.requires_coo else 'No',
-            'Yes' if t.requires_inspection else 'No',
+            MasterDataExportImportHelper.format_bool(t.requires_acid, lang=lang),
+            MasterDataExportImportHelper.format_bool(t.requires_coo, lang=lang),
+            MasterDataExportImportHelper.format_bool(t.requires_inspection, lang=lang),
             t.regulatory_authority or '',
             t.effective_from,
             t.effective_to or '',
-            'Active' if t.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(t.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_excel("Customs Tariff Schedule", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("customs_tariff", lang=lang)
+    content = MasterDataExportImportHelper.export_to_csv(title, headers, rows, lang=lang)
+    filename = MasterDataExportImportHelper.standard_export_filename("Customs_Tariff_Schedule", "csv")
+    return MasterDataExportImportHelper.as_csv_response(filename, content)
+
+
+@customs_tariff_router.get("/export-excel", summary="Export all customs tariffs to Excel (XLSX)", dependencies=[can_view])
+def export_tariffs_excel(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
+    tariffs, _ = get_all_tariffs_service(db, include_inactive=True, limit=None)
+    headers = MasterDataExportImportHelper.get_localized_headers("customs_tariff", lang=lang)
+    rows = []
+    for t in tariffs:
+        rows.append([
+            t.hs_code,
+            t.hs_description,
+            t.customs_category or '',
+            t.customs_duty_rate,
+            t.vat_rate,
+            t.schedule_tax_rate,
+            t.development_fee_rate,
+            t.customs_service_fee_rate,
+            MasterDataExportImportHelper.format_bool(t.requires_acid, lang=lang),
+            MasterDataExportImportHelper.format_bool(t.requires_coo, lang=lang),
+            MasterDataExportImportHelper.format_bool(t.requires_inspection, lang=lang),
+            t.regulatory_authority or '',
+            t.effective_from,
+            t.effective_to or '',
+            MasterDataExportImportHelper.format_status(t.is_active, lang=lang),
+        ])
+    title = MasterDataExportImportHelper.get_localized_title("customs_tariff", lang=lang)
+    content = MasterDataExportImportHelper.export_to_excel(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Customs_Tariff_Schedule", "xlsx")
     return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @customs_tariff_router.get("/export-pdf", summary="Export all customs tariffs to PDF", dependencies=[can_view])
-def export_tariffs_pdf(db: Session = Depends(get_db)):
+def export_tariffs_pdf(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     tariffs, _ = get_all_tariffs_service(db, include_inactive=True, limit=None)
-    headers = ['HS Code', 'Description', 'Category', 'Duty %', 'VAT %', 'ACID', 'Status']
+    headers = MasterDataExportImportHelper.get_localized_headers("customs_tariff", lang=lang, is_pdf=True)
     rows = []
     for t in tariffs:
         rows.append([
@@ -195,10 +229,11 @@ def export_tariffs_pdf(db: Session = Depends(get_db)):
             t.customs_category or '',
             f"{t.customs_duty_rate}%",
             f"{t.vat_rate}%",
-            'Yes' if t.requires_acid else 'No',
-            'Active' if t.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_bool(t.requires_acid, lang=lang),
+            MasterDataExportImportHelper.format_status(t.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_pdf("Egyptian Customs Tariff Schedule (MD-008)", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("customs_tariff", lang=lang)
+    content = MasterDataExportImportHelper.export_to_pdf(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Customs_Tariff_Schedule", "pdf")
     return MasterDataExportImportHelper.as_pdf_response(filename, content)
 
@@ -227,9 +262,7 @@ def export_customs_tariff_template():
     """
     csv_content = (
         "hs_code,hs_description,customs_category,customs_duty_rate,vat_rate,schedule_tax_rate,development_fee_rate,import_fee_rate,regulatory_authority,requires_coo,requires_inspection,requires_acid,notes\n"
-        "1001.99.00,Wheat and meslin (Other than durum wheat),Agriculture & Food,0.0,0.0,0.0,0.0,0.0,GOEIC & NFSA,true,true,true,Essential Strategic Commodity\n"
-        "8471.30.00,Portable laptops & notebooks,Electronics,5.0,14.0,0.0,5.0,0.0,NTRA,true,true,true,NTRA Approval Required\n"
-        "8703.23.00,Passenger cars 1600cc to 2000cc,Automotive,135.0,14.0,15.0,5.5,0.0,GOEIC,true,true,true,Schedule Tax 15%\n"
+        "0000.00.00,Sample Template Item (Replace with real data),General,,,,,GOEIC,true,true,true,Example Row Only\n"
     )
     return Response(
         content=csv_content,

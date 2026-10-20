@@ -133,7 +133,8 @@ class LogisticsInvoicesRepository:
             .filter(
                 LogisticsServiceInvoice.partner_id == partner_id,
                 LogisticsServiceInvoice.payment_status.in_(["UNPAID", "PARTIALLY_PAID"]),
-                LogisticsServiceInvoice.status == "APPROVED",
+                LogisticsServiceInvoice.status != "CANCELLED",
+                LogisticsServiceInvoice.remaining_amount_egp > 0.01,
                 LogisticsServiceInvoice.is_active == True,
             )
             .order_by(LogisticsServiceInvoice.invoice_date.asc())

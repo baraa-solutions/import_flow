@@ -2,6 +2,7 @@
 Pydantic Schemas for Shipment Stage Activity & Lifecycle Board
 """
 
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -282,4 +283,42 @@ class ShipmentTimelineResponse(BaseModel):
     sequence_integrity: str # "Clean", "Sequence Gaps Detected", "Incomplete Real Data"
     sequence_warnings: List[Dict[str, Any]] = Field(default_factory=list)
     steps: List[StageActivityTimelineItem]
+
+
+# ─── 25-Stage Central Operational Timeline Snapshots (TASK-BE-09) ───
+
+class ShipmentTimelineSnapshotResponse(BaseModel):
+    snapshot_id: int
+    import_file_id: int
+    stage_code: str
+    stage_name_ar: str
+    stage_name_en: str
+    phase_number: int
+    status: str
+    planned_date: Optional[datetime] = None
+    actual_date: Optional[datetime] = None
+    variance_days: Optional[int] = 0
+    sla_days: int = 1
+    is_bottleneck: bool = False
+    delay_reason: Optional[str] = None
+    event_details_json: Optional[Dict[str, Any]] = None
+    completed_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ShipmentTimelineSummaryResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    total_stages: int = 25
+    completed_count: int
+    in_progress_count: int
+    pending_count: int
+    delayed_count: int
+    bottlenecks_count: int
+    overall_progress_percent: float
+    critical_bottleneck_stage: Optional[str] = None
+    snapshots: List[ShipmentTimelineSnapshotResponse]
+
 

@@ -22,6 +22,7 @@ from modules.freight_quotations.validators import (
     validate_import_file_exists,
     validate_po_exists,
     validate_project_exists,
+    validate_quotation_currencies,
 )
 from modules.common.validators import get_or_404, not_null_columns
 from modules.import_files.repository import codes_by_ids
@@ -82,7 +83,9 @@ class FreightQuotationService:
         return res
 
     @staticmethod
-    def create_rfq(db: Session, rfq_in: FreightRFQRequestCreate) -> FreightRFQRequestResponse:
+    def create_rfq(
+        db: Session, rfq_in: FreightRFQRequestCreate, user: Optional[str] = None
+    ) -> FreightRFQRequestResponse:
         if rfq_in.import_file_id:
             validate_import_file_exists(db, rfq_in.import_file_id)
         if rfq_in.po_id:
@@ -93,11 +96,15 @@ class FreightQuotationService:
         for q in rfq_in.quotations:
             validate_carrier_exists(db, q.provider_id)
             validate_quotation_dates(rfq_in.crd_date, q.sailing_date, q.estimated_arrival_date)
+        if rfq_in.quotations:
+            validate_quotation_currencies(db, rfq_in.quotations)
 
         for attempt in range(1, 4):
             code = FreightQuotationRepository.generate_rfq_code(db)
             try:
-                db_rfq = FreightQuotationRepository.create(db, rfq_in, code=code)  # flush only
+                db_rfq = FreightQuotationRepository.create(
+                    db, rfq_in, code=code, user=user
+                )  # flush only
                 db.commit()
                 db.refresh(db_rfq)
                 return FreightQuotationService._compute_rfq_metrics(db, db_rfq)
@@ -150,7 +157,10 @@ class FreightQuotationService:
 
     @staticmethod
     def update_rfq(
-        db: Session, rfq_id: int, update_in: FreightRFQRequestUpdate
+        db: Session,
+        rfq_id: int,
+        update_in: FreightRFQRequestUpdate,
+        user: Optional[str] = None,
     ) -> FreightRFQRequestResponse:
         db_rfq = get_or_404(db, FreightRFQRequest, rfq_id, "طلب عروض الأسعار")
 
@@ -194,14 +204,20 @@ class FreightQuotationService:
                     )
                 validate_carrier_exists(db, q.provider_id)
                 validate_quotation_dates(crd, q.sailing_date, q.estimated_arrival_date)
+            validate_quotation_currencies(db, update_in.quotations)
 
-        updated_rfq = FreightQuotationRepository.update(db, db_rfq, update_in)
+        updated_rfq = FreightQuotationRepository.update(db, db_rfq, update_in, user=user)
         db.commit()
         db.refresh(updated_rfq)
         return FreightQuotationService._compute_rfq_metrics(db, updated_rfq)
 
     @staticmethod
-    def award_quotation(db: Session, rfq_id: int, quotation_id: int) -> FreightRFQRequestResponse:
+    def award_quotation(
+        db: Session,
+        rfq_id: int,
+        quotation_id: int,
+        user: Optional[str] = None,
+    ) -> FreightRFQRequestResponse:
         """
         Awards a specific carrier quotation, freezes choice, and updates RFQ status to 'Awarded'.
         Also bidirectionally synchronizes the awarded scenario with the linked ImportFile.
@@ -225,11 +241,13 @@ class FreightQuotationService:
         if not found_quote:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Quotation item with ID '{quotation_id}' not found in RFQ '{rfq_id}'.",
+                detail=f"عرض السعر رقم '{quotation_id}' غير موجود في طلب عروض الأسعار '{rfq_id}'.",
             )
 
         db_rfq.selected_quotation_id = quotation_id
         db_rfq.status = "Awarded"
+        if user is not None:
+            db_rfq.updated_by = user
         db_rfq.updated_at = datetime.now(timezone.utc)
 
         # Bidirectional sync with linked ImportFile
@@ -242,9 +260,13 @@ class FreightQuotationService:
                 imp.selected_scenario = f"{found_quote.provider_name} ({db_rfq.rfq_code})"
                 if found_quote.free_days_at_pod:
                     imp.target_free_days = found_quote.free_days_at_pod
-                if db_rfq.pol_name:
+                if hasattr(imp, "pol_id") and getattr(db_rfq, "pol_id", None):
+                    imp.pol_id = db_rfq.pol_id
+                elif db_rfq.pol_name:
                     imp.port_of_loading = db_rfq.pol_name
-                if db_rfq.pod_name:
+                if hasattr(imp, "pod_id") and getattr(db_rfq, "pod_id", None):
+                    imp.pod_id = db_rfq.pod_id
+                elif db_rfq.pod_name:
                     imp.port_of_discharge = db_rfq.pod_name
                 if db_rfq.crd_date:
                     imp.cargo_ready_date = db_rfq.crd_date
@@ -254,17 +276,26 @@ class FreightQuotationService:
         return FreightQuotationService._compute_rfq_metrics(db, db_rfq)
 
     @staticmethod
-    def soft_delete_rfq(db: Session, rfq_id: int) -> FreightRFQRequestResponse:
+    def soft_delete_rfq(
+        db: Session, rfq_id: int, user: Optional[str] = None
+    ) -> FreightRFQRequestResponse:
         db_rfq = get_or_404(db, FreightRFQRequest, rfq_id, "طلب عروض الأسعار")
-        deleted_rfq = FreightQuotationRepository.soft_delete(db, db_rfq)
+        deleted_rfq = FreightQuotationRepository.soft_delete(db, db_rfq, user=user)
+        if db_rfq.import_file_id:
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_rfq.import_file_id).first()
+            if imp and imp.selected_scenario and (db_rfq.rfq_code in imp.selected_scenario):
+                imp.selected_scenario = None
         db.commit()
         db.refresh(deleted_rfq)
         return FreightQuotationService._compute_rfq_metrics(db, deleted_rfq)
 
     @staticmethod
-    def restore_rfq(db: Session, rfq_id: int) -> FreightRFQRequestResponse:
+    def restore_rfq(
+        db: Session, rfq_id: int, user: Optional[str] = None
+    ) -> FreightRFQRequestResponse:
         db_rfq = get_or_404(db, FreightRFQRequest, rfq_id, "طلب عروض الأسعار")
-        restored_rfq = FreightQuotationRepository.restore(db, db_rfq)
+        restored_rfq = FreightQuotationRepository.restore(db, db_rfq, user=user)
         db.commit()
         db.refresh(restored_rfq)
         return FreightQuotationService._compute_rfq_metrics(db, restored_rfq)

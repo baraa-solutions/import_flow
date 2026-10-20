@@ -169,37 +169,19 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                         includeTsv: (tariffsAsync.valueOrNull ?? []).isNotEmpty,
                       ),
                       onMoreActionSelected: (val) {
-                        switch (val) {
-                          case 'export_excel':
-                            final list = tariffsAsync.valueOrNull ?? [];
-                            MasterDataExportService.exportTariffsToExcel(context, list);
-                            break;
-                          case 'export_pdf':
-                            MasterDataActionHelper.downloadFile(
-                              context: context,
-                              ref: ref,
-                              moduleEndpoint: 'customs-tariff',
-                              actionEndpoint: 'export-pdf',
-                              defaultFileName: 'Customs_Tariffs_Report.pdf',
-                              dialogTitle: 'تصدير التعريفة الجمركية PDF',
-                            );
-                            break;
-                          case 'copy_tsv':
-                            _copyTariffsTsv(context, tariffsAsync.valueOrNull ?? []);
-                            break;
-                          case 'download_template':
-                            MasterDataActionHelper.downloadFile(
-                              context: context,
-                              ref: ref,
-                              moduleEndpoint: 'customs-tariff',
-                              actionEndpoint: 'excel-template',
-                              defaultFileName: 'Customs_Tariff_Template.xlsx',
-                              dialogTitle: 'تنزيل نموذج التعريفة الجمركية',
-                            );
-                            break;
-                          case 'import_excel':
-                            _handleExcelImport(context, ref);
-                            break;
+                        if (val == 'import_excel') {
+                          _handleExcelImport(context, ref);
+                        } else {
+                          MasterDataActionHelper.handleStandardAction(
+                            context: context,
+                            ref: ref,
+                            actionValue: val,
+                            moduleEndpoint: 'customs-tariff',
+                            entityNameAr: 'التعريفة الجمركية',
+                            entityNameEn: 'Customs Tariff Schedule',
+                            entityFilePrefix: 'Customs_Tariff_Schedule',
+                            onCopyTsv: () => _copyTariffsTsv(context, tariffsAsync.valueOrNull ?? []),
+                          );
                         }
                       },
                       searchController: _searchController,

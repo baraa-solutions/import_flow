@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
@@ -74,10 +74,13 @@ def list_incoterms(include_inactive: bool = False, db: Session = Depends(get_db)
     return res
 
 
-@incoterms_router.get("/incoterms/export-excel", summary="Export all incoterms to Excel (XLSX)")
-def export_incoterms_excel(db: Session = Depends(get_db)):
+@incoterms_router.get("/incoterms/export-csv", summary="Export all incoterms to CSV")
+def export_incoterms_csv(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     incoterms = get_all_incoterms_service(db, include_inactive=True)
-    headers = ['Incoterm Code', 'Incoterm Name', 'Version', 'Description', 'Status']
+    headers = MasterDataExportImportHelper.get_localized_headers("incoterms", lang=lang)
     rows = []
     for inc in incoterms:
         rows.append([
@@ -85,17 +88,43 @@ def export_incoterms_excel(db: Session = Depends(get_db)):
             inc.incoterm_name,
             inc.version,
             inc.description or '',
-            'Active' if inc.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(inc.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_excel("Incoterms Rules", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("incoterms", lang=lang)
+    content = MasterDataExportImportHelper.export_to_csv(title, headers, rows, lang=lang)
+    filename = MasterDataExportImportHelper.standard_export_filename("Incoterms_Rules", "csv")
+    return MasterDataExportImportHelper.as_csv_response(filename, content)
+
+
+@incoterms_router.get("/incoterms/export-excel", summary="Export all incoterms to Excel (XLSX)")
+def export_incoterms_excel(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
+    incoterms = get_all_incoterms_service(db, include_inactive=True)
+    headers = MasterDataExportImportHelper.get_localized_headers("incoterms", lang=lang)
+    rows = []
+    for inc in incoterms:
+        rows.append([
+            inc.incoterm_code,
+            inc.incoterm_name,
+            inc.version,
+            inc.description or '',
+            MasterDataExportImportHelper.format_status(inc.is_active, lang=lang),
+        ])
+    title = MasterDataExportImportHelper.get_localized_title("incoterms", lang=lang)
+    content = MasterDataExportImportHelper.export_to_excel(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Incoterms_Rules", "xlsx")
     return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @incoterms_router.get("/incoterms/export-pdf", summary="Export all incoterms to PDF")
-def export_incoterms_pdf(db: Session = Depends(get_db)):
+def export_incoterms_pdf(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     incoterms = get_all_incoterms_service(db, include_inactive=True)
-    headers = ['Code', 'Rule Name', 'Version', 'Description', 'Status']
+    headers = MasterDataExportImportHelper.get_localized_headers("incoterms", lang=lang, is_pdf=True)
     rows = []
     for inc in incoterms:
         rows.append([
@@ -103,9 +132,10 @@ def export_incoterms_pdf(db: Session = Depends(get_db)):
             inc.incoterm_name,
             inc.version,
             inc.description or '',
-            'Active' if inc.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(inc.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_pdf("Official Incoterms Rules (MD-006)", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("incoterms", lang=lang)
+    content = MasterDataExportImportHelper.export_to_pdf(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Incoterms_Rules", "pdf")
     return MasterDataExportImportHelper.as_pdf_response(filename, content)
 

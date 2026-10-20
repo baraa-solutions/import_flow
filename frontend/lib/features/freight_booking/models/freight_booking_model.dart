@@ -183,6 +183,8 @@ class ShipmentBookingModel {
   final String? etd;
   final String? eta;
   final String? atd;
+  final String? ata;
+  final bool isAtaConfirmed;
   final int departureDelayDays;
   final int expectedWarehouseDays;
   final String? expectedWarehouseArrivalDate;
@@ -241,6 +243,8 @@ class ShipmentBookingModel {
     this.etd,
     this.eta,
     this.atd,
+    this.ata,
+    this.isAtaConfirmed = false,
     this.departureDelayDays = 0,
     this.expectedWarehouseDays = 7,
     this.expectedWarehouseArrivalDate,
@@ -301,6 +305,8 @@ class ShipmentBookingModel {
       etd: json['etd'],
       eta: json['eta'],
       atd: json['atd'],
+      ata: json['ata'],
+      isAtaConfirmed: json['is_ata_confirmed'] ?? false,
       departureDelayDays: json['departure_delay_days'] ?? 0,
       expectedWarehouseDays: json['expected_warehouse_days'] ?? 7,
       expectedWarehouseArrivalDate: json['expected_warehouse_arrival_date'],
@@ -356,6 +362,8 @@ class ShipmentBookingModel {
       'etd': etd,
       'eta': eta,
       'atd': atd,
+      'ata': ata,
+      'is_ata_confirmed': isAtaConfirmed,
       'departure_delay_days': departureDelayDays,
       'expected_warehouse_days': expectedWarehouseDays,
       'expected_warehouse_arrival_date': expectedWarehouseArrivalDate,

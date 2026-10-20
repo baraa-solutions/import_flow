@@ -57,13 +57,15 @@ class PurchaseOrdersState {
     this.showInactive = false,
   });
 
+  static const _unset = Object();
+
   PurchaseOrdersState copyWith({
     List<PurchaseOrderModel>? purchaseOrders,
     bool? isLoading,
     Object? error,
     String? searchQuery,
-    String? statusFilter,
-    int? projectFilter,
+    Object? statusFilter = _unset,
+    Object? projectFilter = _unset,
     bool? showInactive,
   }) {
     return PurchaseOrdersState(
@@ -71,8 +73,8 @@ class PurchaseOrdersState {
       isLoading: isLoading ?? this.isLoading,
       error: error,
       searchQuery: searchQuery ?? this.searchQuery,
-      statusFilter: statusFilter ?? this.statusFilter,
-      projectFilter: projectFilter ?? this.projectFilter,
+      statusFilter: identical(statusFilter, _unset) ? this.statusFilter : statusFilter as String?,
+      projectFilter: identical(projectFilter, _unset) ? this.projectFilter : projectFilter as int?,
       showInactive: showInactive ?? this.showInactive,
     );
   }

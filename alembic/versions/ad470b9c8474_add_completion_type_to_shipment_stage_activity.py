@@ -5,7 +5,7 @@ Tracks how each lifecycle step was transitioned:
 'skipped' (authorized skip), 'bypassed' (initialization bypass).
 
 Revision ID: ad470b9c8474
-Revises: d0e1f2a3b4c5
+Revises: a6b7c8d9e0f1
 Create Date: 2026-10-19
 """
 from typing import Sequence, Union
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "ad470b9c8474"
-down_revision: Union[str, Sequence[str], None] = "d0e1f2a3b4c5"
+down_revision: Union[str, Sequence[str], None] = "a6b7c8d9e0f1"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -8,6 +8,7 @@ import '../../../core/helpers/master_data_action_helper.dart';
 import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
 import '../widgets/import_company_details_dialog.dart';
+import '../../../core/export/widgets/export_language_dialog.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 
@@ -198,53 +199,21 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                   context: context,
                   includeTsv: companiesAsync.valueOrNull != null && companiesAsync.valueOrNull!.isNotEmpty,
                 ),
-                onMoreActionSelected: (val) {
-                  switch (val) {
-                    case 'export_excel':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'import-companies',
-                        actionEndpoint: 'export-excel',
-                        defaultFileName: 'Import_Companies_Report.xlsx',
-                        dialogTitle: 'تصدير الشركات المستوردة إكسيل',
-                      );
-                      break;
-                    case 'export_pdf':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'import-companies',
-                        actionEndpoint: 'export-pdf',
-                        defaultFileName: 'Import_Companies_Report.pdf',
-                        dialogTitle: 'تصدير الشركات المستوردة PDF',
-                      );
-                      break;
-                    case 'copy_tsv':
-                      if (companiesAsync.valueOrNull != null) {
-                        _copyCompaniesTsv(companiesAsync.valueOrNull!);
-                      }
-                      break;
-                    case 'download_template':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'import-companies',
-                        actionEndpoint: 'excel-template',
-                        defaultFileName: 'Import_Companies_Template.xlsx',
-                        dialogTitle: 'تنزيل نموذج الشركات المستوردة',
-                      );
-                      break;
-                    case 'import_excel':
-                      MasterDataActionHelper.importExcel(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'import-companies',
-                        onImportSuccess: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
-                      );
-                      break;
-                  }
-                },
+                onMoreActionSelected: (val) => MasterDataActionHelper.handleStandardAction(
+                  context: context,
+                  ref: ref,
+                  actionValue: val,
+                  moduleEndpoint: 'import-companies',
+                  entityNameAr: 'الشركات المستوردة',
+                  entityNameEn: 'Import Companies',
+                  entityFilePrefix: 'Egyptian_Import_Companies',
+                  onImportSuccess: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
+                  onCopyTsv: () {
+                    if (companiesAsync.valueOrNull != null) {
+                      _copyCompaniesTsv(companiesAsync.valueOrNull!);
+                    }
+                  },
+                ),
                 searchController: _searchController,
                 searchHint: l10n.searchImporterHint,
                 onSearchChanged: (val) {
@@ -420,7 +389,12 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                   onEdit: () => _showCompanyDialog(context, company),
                 ),
                 onEdit: () => _showCompanyDialog(context, company),
-                onPrint: () => MasterDataExportService.printOrSaveImporterPdf(company),
+                onPrint: () async {
+                  final lang = await ExportLanguageDialog.show(context);
+                  if (lang != null) {
+                    await MasterDataExportService.printOrSaveImporterPdf(company, lang: lang);
+                  }
+                },
                 onDelete: () async {
                   final confirm = await AppConfirmDialog.showToggleActive(
                     context,
@@ -653,6 +627,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) {
+        final isAr = Localizations.localeOf(dialogCtx).languageCode == 'ar';
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: SelectionArea(
@@ -1040,7 +1015,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                         CheckboxListTile(
                                           dense: true,
                                           contentPadding: EdgeInsets.zero,
-                                          title: const Text('Global Brand Database (قاعدة بيانات العلامات العالمية)'),
+                                          title: Text(isAr ? 'قاعدة بيانات العلامات العالمية' : 'Global Brand Database'),
                                           value: hasGlobalBrand,
                                           activeColor: AppTheme.cobalt,
                                           onChanged: (val) => setDialogState(() => hasGlobalBrand = val ?? false),
@@ -1050,7 +1025,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                             padding: const EdgeInsets.only(bottom: 8.0),
                                             child: CustomTextField(
                                               controller: globalBrandCtrl,
-                                              label: 'معرف العلامة في Global Brand DB',
+                                              label: isAr ? 'معرف العلامة في قاعدة بيانات العلامات العالمية' : 'Global Brand DB Identifier',
                                               icon: Icons.numbers,
                                               hint: 'e.g. GBD-987654',
                                             ),
@@ -1059,7 +1034,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                         CheckboxListTile(
                                           dense: true,
                                           contentPadding: EdgeInsets.zero,
-                                          title: const Text('ISO 9001 Certificate (شهادة نظام إدارة الجودة)'),
+                                          title: Text(isAr ? 'شهادة نظام إدارة الجودة (ISO 9001)' : 'ISO 9001 Certificate'),
                                           value: hasIso9001,
                                           activeColor: AppTheme.cobalt,
                                           onChanged: (val) => setDialogState(() => hasIso9001 = val ?? false),
@@ -1069,7 +1044,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                             padding: const EdgeInsets.only(bottom: 8.0),
                                             child: CustomTextField(
                                               controller: iso9001Ctrl,
-                                              label: 'رقم شهادة ISO 9001 Certificate No.',
+                                              label: isAr ? 'رقم شهادة ISO 9001' : 'ISO 9001 Certificate No.',
                                               icon: Icons.verified_user_outlined,
                                               hint: 'e.g. ISO-9001-2015-XYZ',
                                             ),

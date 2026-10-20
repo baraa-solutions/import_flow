@@ -64,6 +64,8 @@ class CustomsClearanceQuotationResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -134,10 +136,11 @@ class CustomsClearanceRFQResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
     quotations: List[CustomsClearanceQuotationResponse] = []
 
     @field_validator("quotations", mode="before")
-    @classmethod
     def filter_active_quotations(cls, v: Any) -> Any:
         if v is None:
             return []
@@ -196,3 +199,5 @@ class ClearancePriceListItemResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None

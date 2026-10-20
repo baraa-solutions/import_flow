@@ -496,6 +496,25 @@
     },
     "legacy": {}
   },
+  "PO_ALLOCATION_STATUS": {
+    "codes": {
+      "ARRIVED": "Arrived",
+      "CUSTOMS_CLEARED": "Customs Cleared",
+      "IN_TRANSIT": "In Transit",
+      "RECEIVED": "Received"
+    },
+    "legacy": {
+      "Arrived": "ARRIVED",
+      "Customs Cleared": "CUSTOMS_CLEARED",
+      "In Transit": "IN_TRANSIT",
+      "Received": "RECEIVED",
+      "Received at Warehouse": "RECEIVED",
+      "في الطريق": "IN_TRANSIT",
+      "مستلم في المستودع": "RECEIVED",
+      "مفرج جمركياً": "CUSTOMS_CLEARED",
+      "وصلت": "ARRIVED"
+    }
+  },
   "PO_STATUS": {
     "codes": {
       "APPROVED": "Approved",

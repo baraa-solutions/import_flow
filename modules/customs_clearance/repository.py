@@ -1,7 +1,7 @@
 """
 Customs clearance queries. Writes only add / flush: the service owns the single commit per request.
 """
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
@@ -54,7 +54,9 @@ def get_customs_clearance_list(
     import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
-) -> List[CustomsClearanceRecord]:
+    skip: Optional[int] = None,
+    limit: Optional[int] = None,
+) -> Tuple[List[CustomsClearanceRecord], int]:
     query = db.query(CustomsClearanceRecord)
     if not include_inactive:
         query = query.filter(CustomsClearanceRecord.is_active == True)  # noqa: E712
@@ -71,7 +73,13 @@ def get_customs_clearance_list(
             (CustomsClearanceRecord.delivery_order_number.ilike(pattern)) |
             (CustomsClearanceRecord.owner.ilike(pattern))
         )
-    return query.order_by(desc(CustomsClearanceRecord.customs_clearance_id)).all()
+    total = query.count()
+    query = query.order_by(desc(CustomsClearanceRecord.customs_clearance_id))
+    if skip is not None:
+        query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all(), total
 
 
 def add(db: Session, obj) -> None:

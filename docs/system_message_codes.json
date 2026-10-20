@@ -138,12 +138,6 @@
       "note"
     ]
   },
-  "CCQ_RFQ_AWARDED": {
-    "params": [],
-    "parts": [
-      "note"
-    ]
-  },
   "CCQ_RFQ_CANCELLED": {
     "params": [
       "rfq_code"
@@ -177,6 +171,12 @@
     ]
   },
   "CC_ASSESS_REQUIRES_DECLARATION_46": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "CC_BANK_LINK_REQUIRES_TARIFF_CODING": {
     "params": [],
     "parts": [
       "note"
@@ -3558,9 +3558,23 @@
       "note"
     ]
   },
+  "PO_HAS_ALLOCATIONS": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "PO_ITEMS_ALLOCATED": {
     "params": [
       "item_ids"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_NOT_EDITABLE": {
+    "params": [
+      "status"
     ],
     "parts": [
       "note"
@@ -4368,5 +4382,22 @@
     "4": "4. Digital & Banking",
     "5": "5. Port Operations & Clearance",
     "6": "6. Inbound & Final Closure"
+  },
+  "SYSPARAM_INVALID_VALUE": {
+    "params": [
+      "param_key",
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SYSPARAM_UNKNOWN": {
+    "params": [
+      "param_key"
+    ],
+    "parts": [
+      "note"
+    ]
   }
 }

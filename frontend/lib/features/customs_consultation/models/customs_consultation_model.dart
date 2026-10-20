@@ -7,7 +7,7 @@ class ClearanceExpenseTypeModel {
   final String? nameEn;
   final String category;
   final String defaultUnit;
-  final String defaultCurrency;
+  final String? defaultCurrency;
   final int displayOrder;
   final bool isActive;
 
@@ -18,7 +18,7 @@ class ClearanceExpenseTypeModel {
     this.nameEn,
     required this.category,
     required this.defaultUnit,
-    this.defaultCurrency = 'EGP',
+    this.defaultCurrency,
     this.displayOrder = 0,
     this.isActive = true,
   });
@@ -31,7 +31,7 @@ class ClearanceExpenseTypeModel {
       nameEn: json['name_en'],
       category: json['category'] ?? 'CLEARANCE_FEES',
       defaultUnit: json['default_unit'] ?? 'PER_INVOICE',
-      defaultCurrency: json['default_currency'] ?? 'EGP',
+      defaultCurrency: json['default_currency'],
       displayOrder: json['display_order'] ?? 0,
       isActive: json['is_active'] ?? true,
     );
@@ -45,7 +45,7 @@ class ClearanceExpenseTypeModel {
       if (nameEn != null) 'name_en': nameEn,
       'category': category,
       'default_unit': defaultUnit,
-      'default_currency': defaultCurrency,
+      if (defaultCurrency != null) 'default_currency': defaultCurrency,
       'display_order': displayOrder,
       'is_active': isActive,
     };
@@ -60,7 +60,7 @@ class BrokerPriceListItemModel {
   final String category;
   final String unitType;
   final double standardPrice;
-  final String currency;
+  final String? currency;
   final double? minPrice;
   final double? maxPrice;
   final String? notes;
@@ -79,7 +79,7 @@ class BrokerPriceListItemModel {
     required this.category,
     required this.unitType,
     required this.standardPrice,
-    this.currency = 'EGP',
+    this.currency,
     this.minPrice,
     this.maxPrice,
     this.notes,
@@ -113,10 +113,10 @@ class BrokerPriceListItemModel {
       expenseName: json['expense_name'] ?? '',
       category: json['category'] ?? '',
       unitType: json['unit_type'] ?? 'Per Invoice',
-      standardPrice: stdPrice,
-      currency: json['currency'] ?? 'EGP',
-      minPrice: minP,
-      maxPrice: maxP,
+      standardPrice: (json['standard_price'] as num?)?.toDouble() ?? 0.0,
+      currency: json['currency'],
+      minPrice: (json['min_price'] as num?)?.toDouble(),
+      maxPrice: (json['max_price'] as num?)?.toDouble(),
       notes: json['notes'],
       isActive: json['is_active'] ?? true,
       code: json['code']?.toString(),
@@ -136,7 +136,7 @@ class BrokerPriceListItemModel {
       'category': category,
       'unit_type': unitType,
       'standard_price': standardPrice,
-      'currency': currency,
+      if (currency != null) 'currency': currency,
       if (minPrice != null) 'min_price': minPrice,
       if (maxPrice != null) 'max_price': maxPrice,
       if (notes != null) 'notes': notes,
@@ -273,7 +273,7 @@ class CustomsBrokerQuoteItemModel {
   final String category;
   final String unitType;
   final double unitPrice;
-  final String currency;
+  final String? currency;
   final double qty;
   final bool isApplicable;
   final double totalAmount;
@@ -294,7 +294,7 @@ class CustomsBrokerQuoteItemModel {
     required this.category,
     this.unitType = 'Per Invoice',
     this.unitPrice = 0.0,
-    this.currency = 'EGP',
+    this.currency,
     this.qty = 1.0,
     this.isApplicable = true,
     this.totalAmount = 0.0,
@@ -330,8 +330,8 @@ class CustomsBrokerQuoteItemModel {
       expenseName: json['expense_name'] ?? '',
       category: json['category'] ?? '',
       unitType: json['unit_type'] ?? 'Per Invoice',
-      unitPrice: uPrice,
-      currency: json['currency'] ?? 'EGP',
+      unitPrice: (json['unit_price'] as num?)?.toDouble() ?? 0.0,
+      currency: json['currency'],
       qty: (json['qty'] as num?)?.toDouble() ?? 1.0,
       isApplicable: json['is_applicable'] ?? true,
       totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
@@ -355,7 +355,7 @@ class CustomsBrokerQuoteItemModel {
       'category': category,
       'unit_type': unitType,
       'unit_price': unitPrice,
-      'currency': currency,
+      if (currency != null) 'currency': currency,
       'qty': qty,
       'is_applicable': isApplicable,
       'total_amount': totalAmount,

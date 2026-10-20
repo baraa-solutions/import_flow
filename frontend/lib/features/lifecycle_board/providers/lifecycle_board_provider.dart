@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/lifecycle_board_model.dart';
+import '../models/timeline_snapshot_model.dart';
 import '../../../core/network/api_client.dart';
 
 /// Extracts the human-readable `detail` message from a FastAPI error response.
@@ -40,6 +41,18 @@ final liveLogisticsTrackingProvider =
     cancelToken: cancelToken,
   );
   return LiveLogisticsSummaryModel.fromJson(response.data);
+});
+
+final timelineSnapshotsProvider =
+    FutureProvider.family.autoDispose<TimelineSummaryModel, int>((ref, importFileId) async {
+  final dio = ref.watch(dioProvider);
+  final cancelToken = CancelToken();
+  ref.onDispose(() => cancelToken.cancel('timelineSnapshotsProvider disposed'));
+  final response = await dio.get(
+    '${ApiConstants.baseUrl}/lifecycle-board/files/$importFileId/timeline-snapshots',
+    cancelToken: cancelToken,
+  );
+  return TimelineSummaryModel.fromJson(response.data);
 });
 
 class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
@@ -128,6 +141,25 @@ class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
       );
       _lastErrorMessage = null;
       state = const AsyncValue.data(null);
+      ref.invalidate(lifecycleBoardSummaryProvider);
+      return true;
+    } catch (e, st) {
+      _lastErrorMessage = _extractErrorDetail(e);
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  /// Triggers full 25-stage operational timeline synchronization (TASK-BE-09).
+  Future<bool> syncFileTimeline(int importFileId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _dio.post(
+        '${ApiConstants.baseUrl}/lifecycle-board/files/$importFileId/sync-timeline',
+      );
+      _lastErrorMessage = null;
+      state = const AsyncValue.data(null);
+      ref.invalidate(timelineSnapshotsProvider(importFileId));
       ref.invalidate(lifecycleBoardSummaryProvider);
       return true;
     } catch (e, st) {

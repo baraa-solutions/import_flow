@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -58,13 +59,14 @@ def get_clearance_rfqs(
     )
 
 
-@router.post("/rfqs", response_model=CustomsClearanceRFQResponse, status_code=status.HTTP_201_CREATED, dependencies=[can_manage])
+@router.post("/rfqs", response_model=CustomsClearanceRFQResponse, status_code=status.HTTP_201_CREATED)
 def create_clearance_rfq(
     data: CustomsClearanceRFQCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     """Create a new Customs Clearance RFQ with optional initial quotation items."""
-    return svc.create_rfq_service(db, data)
+    return svc.create_rfq_service(db, data, user=current_user.username)
 
 
 @router.get("/rfqs/{rfq_id}", response_model=CustomsClearanceRFQResponse, dependencies=[can_view])
@@ -76,66 +78,73 @@ def get_clearance_rfq_by_id(
     return svc.get_rfq_by_id_service(db, rfq_id)
 
 
-@router.put("/rfqs/{rfq_id}", response_model=CustomsClearanceRFQResponse, dependencies=[can_manage])
+@router.put("/rfqs/{rfq_id}", response_model=CustomsClearanceRFQResponse)
 def update_clearance_rfq(
     rfq_id: int,
     data: CustomsClearanceRFQUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     """Update Customs Clearance RFQ details."""
-    return svc.update_rfq_service(db, rfq_id, data)
+    return svc.update_rfq_service(db, rfq_id, data, user=current_user.username)
 
 
-@router.delete("/rfqs/{rfq_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[can_manage])
+@router.delete("/rfqs/{rfq_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_clearance_rfq(
     rfq_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     """Soft delete Customs Clearance RFQ and associated quotation items."""
-    svc.delete_rfq_service(db, rfq_id)
+    svc.delete_rfq_service(db, rfq_id, user=current_user.username)
     return None
 
 
 # ─── Quotation Items Endpoints ────────────────────────────────────────────────
 
-@router.post("/rfqs/{rfq_id}/quotations", response_model=CustomsClearanceQuotationResponse, status_code=status.HTTP_201_CREATED, dependencies=[can_manage])
+@router.post("/rfqs/{rfq_id}/quotations", response_model=CustomsClearanceQuotationResponse, status_code=status.HTTP_201_CREATED)
 def add_quotation_to_rfq(
     rfq_id: int,
     data: CustomsClearanceQuotationCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     """Add an individual customs broker quotation to an existing clearance RFQ."""
-    return svc.add_quotation_service(db, rfq_id, data)
+    return svc.add_quotation_service(db, rfq_id, data, user=current_user.username)
 
 
-@router.put("/quotations/{quotation_id}", response_model=CustomsClearanceQuotationResponse, dependencies=[can_manage])
+@router.put("/quotations/{quotation_id}", response_model=CustomsClearanceQuotationResponse)
 def update_clearance_quotation(
     quotation_id: int,
     data: CustomsClearanceQuotationUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     """Update an individual customs broker quotation cost elements."""
-    return svc.update_quotation_service(db, quotation_id, data)
+    return svc.update_quotation_service(db, quotation_id, data, user=current_user.username)
 
 
-@router.delete("/quotations/{quotation_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[can_manage])
+@router.delete("/quotations/{quotation_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_clearance_quotation(
     quotation_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     """Delete an individual clearance quotation item."""
-    svc.delete_quotation_service(db, quotation_id)
+    svc.delete_quotation_service(db, quotation_id, user=current_user.username)
     return None
 
 
-@router.post("/rfqs/{rfq_id}/award", response_model=CustomsClearanceRFQResponse, dependencies=[can_manage])
+@router.post("/rfqs/{rfq_id}/award", response_model=CustomsClearanceRFQResponse)
 def award_clearance_quotation(
     rfq_id: int,
     data: AwardClearanceQuotationRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     """Award a specific customs broker quotation for this shipment clearance."""
-    return svc.award_quotation_service(db, rfq_id, data.quotation_id, data.notes)
+    return svc.award_quotation_service(db, rfq_id, data.quotation_id, data.notes, user=current_user.username)
+
 
 
 # ─── Price List Endpoints ─────────────────────────────────────────────────────
@@ -158,30 +167,34 @@ def get_clearance_price_list(
     )
 
 
-@router.post("/price-list", response_model=ClearancePriceListItemResponse, status_code=status.HTTP_201_CREATED, dependencies=[can_manage])
+@router.post("/price-list", response_model=ClearancePriceListItemResponse, status_code=status.HTTP_201_CREATED)
 def create_clearance_price_item(
     data: ClearancePriceListItemCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     """Add a new standard rate item to the Clearance Price List master data."""
-    return svc.create_price_item_service(db, data)
+    return svc.create_price_item_service(db, data, user=current_user.username)
 
 
-@router.put("/price-list/{item_id}", response_model=ClearancePriceListItemResponse, dependencies=[can_manage])
+@router.put("/price-list/{item_id}", response_model=ClearancePriceListItemResponse)
 def update_clearance_price_item(
     item_id: int,
     data: ClearancePriceListItemUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     """Update a clearance price list item."""
-    return svc.update_price_item_service(db, item_id, data)
+    return svc.update_price_item_service(db, item_id, data, user=current_user.username)
 
 
-@router.delete("/price-list/{item_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[can_manage])
+@router.delete("/price-list/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_clearance_price_item(
     item_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
 ):
     """Soft delete a clearance price list item."""
-    svc.delete_price_item_service(db, item_id)
+    svc.delete_price_item_service(db, item_id, user=current_user.username)
     return None
+

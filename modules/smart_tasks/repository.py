@@ -9,6 +9,8 @@ from sqlalchemy import or_, and_, func
 from sqlalchemy.exc import IntegrityError
 
 from modules.common.sequence_generator import next_yearly_code, savepoint
+from modules.common.pagination import PageParams, like_term, paginate
+from fastapi import Response
 from modules.smart_tasks.model import SmartTask
 from modules.smart_tasks.schemas import SmartTaskCreate, SmartTaskUpdate
 
@@ -133,6 +135,73 @@ def get_all_tasks(
         return query.order_by(p_order, SmartTask.task_id.desc()).all()
 
     return query.order_by(SmartTask.task_id.desc()).all()
+
+
+SMART_TASKS_SORT_MAP = {
+    "task_id": SmartTask.task_id,
+    "task_code": SmartTask.task_code,
+    "title": SmartTask.title,
+    "task_type": SmartTask.task_type,
+    "priority": SmartTask.priority,
+    "status": SmartTask.status,
+    "due_date": SmartTask.due_date,
+    "created_at": SmartTask.created_at,
+    "updated_at": SmartTask.updated_at,
+    "import_file_id": SmartTask.import_file_id,
+    "assigned_user": SmartTask.assigned_user,
+    "assigned_to": SmartTask.assigned_user,
+}
+
+
+def get_paginated_tasks(
+    db: Session,
+    params: PageParams,
+    response: Optional[Response] = None,
+    task_type: Optional[str] = None,
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    assigned_to: Optional[str] = None,
+) -> Dict[str, Any]:
+    query = db.query(SmartTask)
+
+    if not params.include_inactive:
+        query = query.filter(SmartTask.is_active == True)
+
+    if task_type and task_type != "All":
+        query = query.filter(SmartTask.task_type == task_type)
+
+    if status and status != "All":
+        query = query.filter(SmartTask.status == status)
+
+    if priority and priority != "All":
+        query = query.filter(SmartTask.priority == priority)
+
+    if import_file_id:
+        query = query.filter(SmartTask.import_file_id == import_file_id)
+
+    if assigned_to:
+        query = query.filter(SmartTask.assigned_user == assigned_to)
+
+    term = like_term(params.q)
+    if term:
+        query = query.filter(
+            or_(
+                SmartTask.task_code.ilike(term, escape="\\"),
+                SmartTask.title.ilike(term, escape="\\"),
+                SmartTask.description.ilike(term, escape="\\"),
+                SmartTask.import_file_code.ilike(term, escape="\\"),
+            )
+        )
+
+    return paginate(
+        query,
+        params,
+        sort_map=SMART_TASKS_SORT_MAP,
+        default_sort=[SmartTask.task_id.desc()],
+        pk=SmartTask.task_id,
+        response=response,
+    )
 
 
 def update_task(db: Session, task_id: int, update_data: dict, updated_by: str = "System") -> Optional[SmartTask]:

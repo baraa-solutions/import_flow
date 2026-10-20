@@ -5,12 +5,12 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
-import '../../audit_logs/widgets/row_history_dialog.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../incoterms/providers/incoterms_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/project_model.dart';
 import '../providers/projects_provider.dart';
+import '../widgets/project_details_dialog.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
@@ -299,53 +299,21 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   context: context,
                   includeTsv: projectsAsync.valueOrNull != null && projectsAsync.valueOrNull!.isNotEmpty,
                 ),
-                onMoreActionSelected: (val) {
-                  switch (val) {
-                    case 'export_excel':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'projects',
-                        actionEndpoint: 'export-excel',
-                        defaultFileName: 'Projects_CostCenters_Report.xlsx',
-                        dialogTitle: 'تصدير المشاريع ومراكز التكلفة إكسيل',
-                      );
-                      break;
-                    case 'export_pdf':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'projects',
-                        actionEndpoint: 'export-pdf',
-                        defaultFileName: 'Projects_CostCenters_Report.pdf',
-                        dialogTitle: 'تصدير المشاريع ومراكز التكلفة PDF',
-                      );
-                      break;
-                    case 'copy_tsv':
-                      if (projectsAsync.valueOrNull != null) {
-                        _copyProjectsTsv(projectsAsync.valueOrNull!);
-                      }
-                      break;
-                    case 'download_template':
-                      MasterDataActionHelper.downloadFile(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'projects',
-                        actionEndpoint: 'excel-template',
-                        defaultFileName: 'Projects_CostCenters_Template.xlsx',
-                        dialogTitle: 'تنزيل نموذج المشاريع ومراكز التكلفة',
-                      );
-                      break;
-                    case 'import_excel':
-                      MasterDataActionHelper.importExcel(
-                        context: context,
-                        ref: ref,
-                        moduleEndpoint: 'projects',
-                        onImportSuccess: () => ref.read(projectsProvider.notifier).fetchProjects(),
-                      );
-                      break;
-                  }
-                },
+                onMoreActionSelected: (val) => MasterDataActionHelper.handleStandardAction(
+                  context: context,
+                  ref: ref,
+                  actionValue: val,
+                  moduleEndpoint: 'projects',
+                  entityNameAr: 'المشاريع ومراكز التكلفة',
+                  entityNameEn: 'Projects & Cost Centers',
+                  entityFilePrefix: 'Projects_CostCenters',
+                  onImportSuccess: () => ref.read(projectsProvider.notifier).fetchProjects(),
+                  onCopyTsv: () {
+                    if (projectsAsync.valueOrNull != null) {
+                      _copyProjectsTsv(projectsAsync.valueOrNull!);
+                    }
+                  },
+                ),
                 searchController: _searchController,
                 searchHint: l10n.projectsSearchHint,
                 onSearchChanged: (val) {
@@ -526,16 +494,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                         value: p.projectCode,
                                         rowSummary: rowSummary,
                                         child: RowActionsPill(
-                                          onView: () {
-                                            if (p.projectId != null) {
-                                              RowHistoryDialog.show(
-                                                context,
-                                                entityType: 'Project',
-                                                entityId: p.projectId!,
-                                                entityTitle: p.projectName,
-                                              );
-                                            }
-                                          },
+                                          onView: () => ProjectDetailsDialog.show(
+                                            context,
+                                            p,
+                                            onEdit: () => _showProjectDialog(context, project: p),
+                                          ),
                                           onEdit: () => _showProjectDialog(context, project: p),
                                           onPrint: () {
                                             final summary = _buildProjectSummary(context, p);
@@ -913,10 +876,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(project == null ? l10n.createProjectDialogTitle : l10n.editProjectDialogTitle(project.projectCode)),
-          content: SelectionArea(
-            child: SizedBox(
-              width: 650,
-              child: Form(
+          content: SizedBox(
+            width: 650,
+            child: Form(
                 key: formKey,
                 child: SingleChildScrollView(
                   child: Column(
@@ -1217,7 +1179,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               ),
             ),
           ),
-        ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
@@ -1272,7 +1233,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                             );
                             final ok = await ref.read(projectsProvider.notifier).createProject(newModel);
-                            if (ok && context.mounted) Navigator.pop(dialogCtx);
+                            if (ok && dialogCtx.mounted) Navigator.pop(dialogCtx);
                           } else {
                             final updateData = {
                               'project_name': nameCtrl.text.trim(),
@@ -1295,10 +1256,12 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                             final ok = await ref
                                 .read(projectsProvider.notifier)
                                 .updateProject(project.projectId!, updateData);
-                            if (ok && context.mounted) Navigator.pop(dialogCtx);
+                            if (ok && dialogCtx.mounted) Navigator.pop(dialogCtx);
                           }
                         } finally {
-                          setDialogState(() => isSubmitting = false);
+                          if (dialogCtx.mounted) {
+                            setDialogState(() => isSubmitting = false);
+                          }
                         }
                       }
                     },

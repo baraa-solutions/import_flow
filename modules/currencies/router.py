@@ -64,36 +64,66 @@ def get_all_currencies(
     return service.get_all_currencies(include_inactive=include_inactive, search=search)
 
 
-@router.get("/export-excel", summary="Export all currencies and exchange rates to Excel (XLSX)")
-def export_currencies_excel(db: Session = Depends(get_db)):
+@router.get("/export-csv", summary="Export all currencies and exchange rates to CSV")
+def export_currencies_csv(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     service = CurrencyService(db)
     currencies = service.get_all_currencies(include_inactive=True)
-    headers = [
-        'Currency Code', 'Currency Name', 'Symbol', 'Base Currency',
-        'Decimals', 'Commercial Rate (EGP)', 'Customs Rate (EGP)', 'Status'
-    ]
+    headers = MasterDataExportImportHelper.get_localized_headers("currencies", lang=lang)
     rows = []
     for c in currencies:
         rows.append([
             c.currency_code,
             c.currency_name,
             c.currency_symbol or '',
-            'Yes' if c.is_base_currency else 'No',
+            MasterDataExportImportHelper.format_bool(c.is_base_currency, lang=lang),
             c.decimal_places,
             c.latest_commercial_rate if c.latest_commercial_rate is not None else '-',
             c.latest_customs_rate if c.latest_customs_rate is not None else '-',
-            'Active' if c.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(c.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_excel("Currencies & Exchange Rates", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("currencies", lang=lang)
+    content = MasterDataExportImportHelper.export_to_csv(title, headers, rows, lang=lang)
+    filename = MasterDataExportImportHelper.standard_export_filename("Currencies_Exchange_Rates", "csv")
+    return MasterDataExportImportHelper.as_csv_response(filename, content)
+
+
+@router.get("/export-excel", summary="Export all currencies and exchange rates to Excel (XLSX)")
+def export_currencies_excel(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
+    service = CurrencyService(db)
+    currencies = service.get_all_currencies(include_inactive=True)
+    headers = MasterDataExportImportHelper.get_localized_headers("currencies", lang=lang)
+    rows = []
+    for c in currencies:
+        rows.append([
+            c.currency_code,
+            c.currency_name,
+            c.currency_symbol or '',
+            MasterDataExportImportHelper.format_bool(c.is_base_currency, lang=lang),
+            c.decimal_places,
+            c.latest_commercial_rate if c.latest_commercial_rate is not None else '-',
+            c.latest_customs_rate if c.latest_customs_rate is not None else '-',
+            MasterDataExportImportHelper.format_status(c.is_active, lang=lang),
+        ])
+    title = MasterDataExportImportHelper.get_localized_title("currencies", lang=lang)
+    content = MasterDataExportImportHelper.export_to_excel(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Currencies_Exchange_Rates", "xlsx")
     return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @router.get("/export-pdf", summary="Export all currencies and exchange rates to PDF")
-def export_currencies_pdf(db: Session = Depends(get_db)):
+def export_currencies_pdf(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     service = CurrencyService(db)
     currencies = service.get_all_currencies(include_inactive=True)
-    headers = ['Code', 'Name', 'Symbol', 'Base', 'Commercial Rate', 'Customs Rate', 'Status']
+    headers = MasterDataExportImportHelper.get_localized_headers("currencies", lang=lang, is_pdf=True)
     rows = []
     for c in currencies:
         comm = f"{c.latest_commercial_rate:.4f}" if c.latest_commercial_rate is not None else "-"
@@ -102,12 +132,13 @@ def export_currencies_pdf(db: Session = Depends(get_db)):
             c.currency_code,
             c.currency_name,
             c.currency_symbol or '',
-            'Yes' if c.is_base_currency else 'No',
+            MasterDataExportImportHelper.format_bool(c.is_base_currency, lang=lang),
             comm,
             cust,
-            'Active' if c.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(c.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_pdf("Currencies & Exchange Rates (MD-004)", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("currencies", lang=lang)
+    content = MasterDataExportImportHelper.export_to_pdf(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Currencies_Exchange_Rates", "pdf")
     return MasterDataExportImportHelper.as_pdf_response(filename, content)
 

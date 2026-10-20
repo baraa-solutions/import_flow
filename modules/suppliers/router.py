@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
+from modules.common.pagination import Page, PageParams
 from .schemas import SupplierCreate, SupplierUpdate, SupplierResponse, SupplierScorecardResponse
 from .service import (
     create_supplier_service,
     get_all_suppliers_service,
     get_all_suppliers_admin_service,
+    get_paginated_suppliers_service,
     get_supplier_by_id_service,
     update_supplier_service,
     delete_supplier_service,
@@ -46,6 +49,30 @@ def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
 
 
 # ==================================================
+# Get Paginated Suppliers Endpoint
+# ==================================================
+
+@supplier_router.get(
+    "/paginated",
+    response_model=Page[SupplierResponse]
+)
+def get_paginated_suppliers_endpoint(
+    response: Response,
+    params: PageParams = Depends(),
+    supplier_type: Optional[str] = Query(None, description="Filter by supplier type"),
+    country: Optional[str] = Query(None, description="Filter by foreign exporter country"),
+    db: Session = Depends(get_db),
+):
+    return get_paginated_suppliers_service(
+        db,
+        params=params,
+        response=response,
+        supplier_type=supplier_type,
+        country=country,
+    )
+
+
+# ==================================================
 # Get All Suppliers (Active or All) Endpoint
 # ==================================================
 
@@ -57,6 +84,7 @@ def get_suppliers(include_inactive: bool = False, db: Session = Depends(get_db))
     if include_inactive:
         return get_all_suppliers_admin_service(db)
     return get_all_suppliers_service(db)
+
 
 
 # ==================================================
@@ -146,15 +174,13 @@ async def import_excel_suppliers(file: UploadFile = File(...), db: Session = Dep
     return {"message": f"Successfully imported {imported_count} foreign suppliers.", "errors": errors}
 
 
-@supplier_router.get("/export-excel")
-def export_suppliers_excel(db: Session = Depends(get_db)):
+@supplier_router.get("/export-csv")
+def export_suppliers_csv(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     suppliers = get_all_suppliers_admin_service(db)
-    headers = [
-        'Code', 'Company Name', 'Type', 'Reg Type', 'Exporter ID (Nafeza)', 'CargoX ID', 'Country',
-        'Country Code', 'Address', 'Phone', 'Mobile', 'Fax', 'Email', 'Secondary Email',
-        'Website', 'Bank Name', 'SWIFT Code', 'Account Number', 'IBAN',
-        'ISO', 'Decree 43', 'White List', 'Brands', 'Notes', 'Status'
-    ]
+    headers = MasterDataExportImportHelper.get_localized_headers("suppliers", lang=lang)
     rows = []
     for s in suppliers:
         rows.append([
@@ -177,28 +203,77 @@ def export_suppliers_excel(db: Session = Depends(get_db)):
             getattr(s, 'swift_code', '') or '',
             getattr(s, 'account_number', '') or '',
             getattr(s, 'iban', '') or '',
-            'Yes' if getattr(s, 'has_iso', False) else 'No',
-            'Yes' if getattr(s, 'registered_decree_43', False) else 'No',
-            'Yes' if getattr(s, 'white_list_registered', False) else 'No',
+            MasterDataExportImportHelper.format_bool(getattr(s, 'has_iso', False), lang=lang),
+            MasterDataExportImportHelper.format_bool(getattr(s, 'registered_decree_43', False), lang=lang),
+            MasterDataExportImportHelper.format_bool(getattr(s, 'white_list_registered', False), lang=lang),
             getattr(s, 'brands', '') or '',
             getattr(s, 'notes', '') or '',
-            'Active' if s.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(s.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_excel("Foreign Suppliers", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("suppliers", lang=lang)
+    content = MasterDataExportImportHelper.export_to_csv(title, headers, rows, lang=lang)
+    filename = MasterDataExportImportHelper.standard_export_filename("Foreign_Suppliers", "csv")
+    return MasterDataExportImportHelper.as_csv_response(filename, content)
+
+
+@supplier_router.get("/export-excel")
+def export_suppliers_excel(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
+    suppliers = get_all_suppliers_admin_service(db)
+    headers = MasterDataExportImportHelper.get_localized_headers("suppliers", lang=lang)
+    rows = []
+    for s in suppliers:
+        rows.append([
+            s.supplier_code,
+            s.company_name,
+            s.supplier_type,
+            s.registration_type,
+            s.foreign_exporter_id,
+            getattr(s, 'cargox_platform_id', '') or '',
+            s.foreign_exporter_country,
+            s.foreign_exporter_country_code,
+            s.address,
+            s.phone or '',
+            getattr(s, 'mobile', '') or '',
+            getattr(s, 'fax', '') or '',
+            s.email or '',
+            getattr(s, 'secondary_email', '') or '',
+            s.website or '',
+            getattr(s, 'bank_name', '') or '',
+            getattr(s, 'swift_code', '') or '',
+            getattr(s, 'account_number', '') or '',
+            getattr(s, 'iban', '') or '',
+            MasterDataExportImportHelper.format_bool(getattr(s, 'has_iso', False), lang=lang),
+            MasterDataExportImportHelper.format_bool(getattr(s, 'registered_decree_43', False), lang=lang),
+            MasterDataExportImportHelper.format_bool(getattr(s, 'white_list_registered', False), lang=lang),
+            getattr(s, 'brands', '') or '',
+            getattr(s, 'notes', '') or '',
+            MasterDataExportImportHelper.format_status(s.is_active, lang=lang),
+        ])
+    title = MasterDataExportImportHelper.get_localized_title("suppliers", lang=lang)
+    content = MasterDataExportImportHelper.export_to_excel(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Foreign_Suppliers", "xlsx")
     return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @supplier_router.get("/export-pdf")
-def export_suppliers_pdf(db: Session = Depends(get_db)):
+def export_suppliers_pdf(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+):
     suppliers = get_all_suppliers_admin_service(db)
-    headers = ['Code', 'Company Name', 'Type', 'Exporter ID', 'CargoX ID', 'Country', 'Phone', 'Email', 'Bank/SWIFT', 'Compliance', 'Status']
+    headers = MasterDataExportImportHelper.get_localized_headers("suppliers", lang=lang, is_pdf=True)
     rows = []
     for s in suppliers:
         flags = []
-        if getattr(s, 'has_iso', False): flags.append("ISO")
-        if getattr(s, 'registered_decree_43', False): flags.append("D43")
-        if getattr(s, 'white_list_registered', False): flags.append("WL")
+        if getattr(s, 'has_iso', False):
+            flags.append("آيزو" if lang == "ar" else "ISO")
+        if getattr(s, 'registered_decree_43', False):
+            flags.append("قرار 43" if lang == "ar" else "D43")
+        if getattr(s, 'white_list_registered', False):
+            flags.append("بيضاء" if lang == "ar" else "WL")
         flag_str = ", ".join(flags) if flags else "-"
 
         bank_swift = f"{getattr(s, 'bank_name', '') or '-'}/{getattr(s, 'swift_code', '') or '-'}"
@@ -214,9 +289,10 @@ def export_suppliers_pdf(db: Session = Depends(get_db)):
             s.email or '',
             bank_swift,
             flag_str,
-            'Active' if s.is_active else 'Inactive',
+            MasterDataExportImportHelper.format_status(s.is_active, lang=lang),
         ])
-    content = MasterDataExportImportHelper.export_to_pdf("Foreign Exporters & Suppliers (MD-002)", headers, rows)
+    title = MasterDataExportImportHelper.get_localized_title("suppliers", lang=lang)
+    content = MasterDataExportImportHelper.export_to_pdf(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Foreign_Suppliers", "pdf")
     return MasterDataExportImportHelper.as_pdf_response(filename, content)
 

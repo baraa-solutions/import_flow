@@ -241,70 +241,47 @@ def get_operational_dashboard(
     )
 
 
-@router.get("/export-excel", summary="Export all import files to Excel (XLSX)")
-def export_import_files_excel(
+@router.get("/export-csv", summary="Export all import files to CSV")
+def export_import_files_csv(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("import_files.view")),
+    current_user: User = Depends(require_permission("reports.export")),
 ):
     files = service.get_all_import_files_service(db, include_inactive=True)
-    headers = [
-        'File Code', 'Custom File No', 'Company Name', 'Supplier Name',
-        'PO Number', 'PI Number', 'Shipment Mode', 'Incoterm', 'Priority',
-        'Current Stage', 'Progress %', 'Next Action', 'Owner', 'Status',
-        'Estimated Cost', 'Currency', 'POL', 'POD', 'ACID Number', 'Form 4', 'Form 46'
-    ]
-    rows = []
-    for f in files:
-        rows.append([
-            f.import_file_code,
-            f.custom_file_number or '',
-            f.company_name,
-            f.supplier_name,
-            f.po_number or '',
-            f.pi_number or '',
-            f.shipment_mode,
-            f.incoterm_code,
-            f.priority,
-            f.current_stage,
-            f"{f.progress_percent:.0f}%",
-            f.next_action or '',
-            f.owner or '',
-            f.status,
-            f.estimated_cost,
-            f.estimated_cost_currency,
-            f.port_of_loading or '',
-            f.port_of_discharge or '',
-            f.acid_number or '',
-            f.form4_no or '',
-            f.form46_no or '',
-        ])
-    content = MasterDataExportImportHelper.export_to_excel("Import Files Master Tracking", headers, rows)
+    headers = MasterDataExportImportHelper.get_localized_headers("import_files", lang=lang)
+    rows = service.build_export_rows(files, format="excel", lang=lang)
+    title = MasterDataExportImportHelper.get_localized_title("import_files", lang=lang)
+    content = MasterDataExportImportHelper.export_to_csv(title, headers, rows, lang=lang)
+    filename = MasterDataExportImportHelper.standard_export_filename("Import_Files_Master", "csv")
+    return MasterDataExportImportHelper.as_csv_response(filename, content)
+
+
+@router.get("/export-excel", summary="Export all import files to Excel (XLSX)")
+def export_import_files_excel(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("reports.export")),
+):
+    files = service.get_all_import_files_service(db, include_inactive=True)
+    headers = MasterDataExportImportHelper.get_localized_headers("import_files", lang=lang)
+    rows = service.build_export_rows(files, format="excel", lang=lang)
+    title = MasterDataExportImportHelper.get_localized_title("import_files", lang=lang)
+    content = MasterDataExportImportHelper.export_to_excel(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Import_Files_Master", "xlsx")
     return MasterDataExportImportHelper.as_excel_response(filename, content)
 
 
 @router.get("/export-pdf", summary="Export all import files to PDF")
 def export_import_files_pdf(
+    lang: str = Query("ar", pattern="^(ar|en)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("import_files.view")),
+    current_user: User = Depends(require_permission("reports.export")),
 ):
     files = service.get_all_import_files_service(db, include_inactive=True)
-    headers = ['File / Code', 'Company', 'Supplier', 'PO/PI', 'Mode/Inco', 'Stage', 'Progress', 'Status']
-    rows = []
-    for f in files:
-        file_ref = f.custom_file_number or f.import_file_code
-        po_pi = f"{f.po_number or '-'}\n{f.pi_number or '-'}"
-        rows.append([
-            file_ref,
-            f.company_name,
-            f.supplier_name,
-            po_pi,
-            f"{f.shipment_mode} ({f.incoterm_code})",
-            f.current_stage,
-            f"{f.progress_percent:.0f}%",
-            f.status,
-        ])
-    content = MasterDataExportImportHelper.export_to_pdf("Import Files & Shipment Tracking", headers, rows)
+    headers = MasterDataExportImportHelper.get_localized_headers("import_files", lang=lang, is_pdf=True)
+    rows = service.build_export_rows(files, format="pdf", lang=lang)
+    title = MasterDataExportImportHelper.get_localized_title("import_files", lang=lang)
+    content = MasterDataExportImportHelper.export_to_pdf(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Import_Files_Master", "pdf")
     return MasterDataExportImportHelper.as_pdf_response(filename, content)
 

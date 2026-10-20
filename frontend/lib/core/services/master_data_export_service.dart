@@ -4,6 +4,10 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'file_save_helper.dart';
 
+import '../export/export_language.dart';
+import '../export/export_language_resolver.dart';
+import '../export/export_translations.dart';
+
 import '../../features/import_companies/models/import_company_model.dart';
 import '../../features/suppliers/models/supplier_model.dart';
 import '../../features/external_service_providers/models/partner_model.dart';
@@ -49,44 +53,60 @@ class MasterDataExportService {
   // 1. EGYPTIAN IMPORT COMPANIES (الشركات المستوردة)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  static Future<void> printOrSaveImporterPdf(ImportCompanyModel company) async {
+  static Future<void> printOrSaveImporterPdf(
+    ImportCompanyModel company, {
+    ExportLanguage lang = ExportLanguage.ar,
+  }) async {
+    final resolver = ExportLanguageResolver(lang: lang);
     final pdf = pw.Document();
-    final arabicFont = await PdfGoogleFonts.cairoRegular();
-    final arabicBold = await PdfGoogleFonts.cairoBold();
+    final theme = await resolver.getPdfTheme();
 
-    final vatStatus = company.daysUntilVatExpiry > 0 ? 'سارية (${company.daysUntilVatExpiry} يوم)' : 'منتهية الصلاحية';
-    final regStatus = company.daysUntilRegExpiry > 0 ? 'سارٍ (${company.daysUntilRegExpiry} يوم)' : 'منتهي الصلاحية';
-    final impStatus = company.daysUntilImporterIdExpiry > 0 ? 'سارية (${company.daysUntilImporterIdExpiry} يوم)' : 'منتهية الصلاحية';
+    final vatStatus = company.daysUntilVatExpiry > 0
+        ? ExportTranslations.validityWithDays(company.daysUntilVatExpiry, lang: lang, feminine: true)
+        : ExportTranslations.expiredStatus(lang: lang, feminine: true);
+
+    final regStatus = company.daysUntilRegExpiry > 0
+        ? ExportTranslations.validityWithDays(company.daysUntilRegExpiry, lang: lang, feminine: false)
+        : ExportTranslations.expiredStatus(lang: lang, feminine: false);
+
+    final impStatus = company.daysUntilImporterIdExpiry > 0
+        ? ExportTranslations.validityWithDays(company.daysUntilImporterIdExpiry, lang: lang, feminine: true)
+        : ExportTranslations.expiredStatus(lang: lang, feminine: true);
+
+    final activeStatusLabel = company.isActive
+        ? resolver.tr('active_record')
+        : resolver.tr('inactive_record');
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
+        theme: theme,
         build: (pw.Context context) {
           return pw.Directionality(
-            textDirection: pw.TextDirection.rtl,
+            textDirection: resolver.pdfTextDirection,
             child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              crossAxisAlignment: resolver.pdfCrossAlignStart,
               children: [
                 // Header Banner
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        crossAxisAlignment: resolver.pdfCrossAlignStart,
                         children: [
                           pw.Text(
-                            'Sorour Logistics ERP — بطاقة بيانات الشركة المستوردة',
+                            resolver.tr('importer_card_title'),
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
+                          pw.SizedBox(height: 2),
                           pw.Text(
-                            'وثيقة رسمية ببيانات التسجيل والقيد التجاري والضريبي',
+                            resolver.tr('importer_card_subtitle'),
                             style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
                           ),
                         ],
@@ -98,7 +118,7 @@ class MasterDataExportService {
                           borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                         ),
                         child: pw.Text(
-                          company.isActive ? 'سجل نشط (Active)' : 'غير مفعّل (Inactive)',
+                          activeStatusLabel,
                           style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
                         ),
                       ),
@@ -115,25 +135,45 @@ class MasterDataExportService {
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    crossAxisAlignment: resolver.pdfCrossAlignStart,
                     children: [
                       pw.Text(
                         company.importerName,
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#2C3E50')),
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#0F386A')),
                       ),
                       pw.SizedBox(height: 8),
                       pw.Row(
                         children: [
-                          pw.Expanded(child: pw.Text('الدولة: ${company.country.isNotEmpty ? company.country : "جمهورية مصر العربية"}', style: const pw.TextStyle(fontSize: 10))),
-                          pw.Expanded(child: pw.Text('العنوان: ${company.address}', style: const pw.TextStyle(fontSize: 10))),
+                          pw.Expanded(
+                            child: pw.Text(
+                              '${resolver.tr('country')}: ${company.country.isNotEmpty ? company.country : resolver.tr('default_egypt')}',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
+                          ),
+                          pw.Expanded(
+                            child: pw.Text(
+                              '${resolver.tr('address')}: ${resolver.bidiIsolate(company.address)}',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
+                          ),
                         ],
                       ),
                       if (company.phone != null || company.email != null) ...[
                         pw.SizedBox(height: 4),
                         pw.Row(
                           children: [
-                            pw.Expanded(child: pw.Text('الهاتف: ${company.phone ?? "-"}', style: const pw.TextStyle(fontSize: 10))),
-                            pw.Expanded(child: pw.Text('البريد الإلكتروني: ${company.email ?? "-"}', style: const pw.TextStyle(fontSize: 10))),
+                            pw.Expanded(
+                              child: pw.Text(
+                                '${resolver.tr('phone')}: ${resolver.bidiIsolate(company.phone)}',
+                                style: const pw.TextStyle(fontSize: 10),
+                              ),
+                            ),
+                            pw.Expanded(
+                              child: pw.Text(
+                                '${resolver.tr('email')}: ${resolver.bidiIsolate(company.email)}',
+                                style: const pw.TextStyle(fontSize: 10),
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -143,7 +183,10 @@ class MasterDataExportService {
                 pw.SizedBox(height: 14),
 
                 // Registration & Expiry Table
-                pw.Text('بيانات القيد والتراخيص الرسمية والرقابية:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50'))),
+                pw.Text(
+                  resolver.tr('reg_section_title'),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#0F386A')),
+                ),
                 pw.SizedBox(height: 6),
                 pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.grey300),
@@ -151,34 +194,124 @@ class MasterDataExportService {
                     pw.TableRow(
                       decoration: pw.BoxDecoration(color: PdfColor.fromHex('#3498DB')),
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('البيان / المستند الرقابي', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('رقم القيد / التسجيل', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('تاريخ الانتهاء', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('حالة السريان', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.tr('col_document'),
+                            style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.tr('col_reg_number'),
+                            style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.tr('col_expiry_date'),
+                            style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.tr('col_validity_status'),
+                            style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
                       ],
                     ),
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('البطاقة الاستيرادية (Importer Card)', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.importerId, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(_formatDate(company.importerIdExpiry), style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(impStatus, style: pw.TextStyle(fontSize: 9, color: company.daysUntilImporterIdExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'), fontWeight: pw.FontWeight.bold))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.tr('doc_importer_card'), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.bidiIsolate(company.importerId),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.formatDate(company.importerIdExpiry), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            impStatus,
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              color: company.daysUntilImporterIdExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'),
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('البطاقة الضريبية (VAT / Tax ID)', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.vatId, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(_formatDate(company.vatIdExpiry), style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(vatStatus, style: pw.TextStyle(fontSize: 9, color: company.daysUntilVatExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'), fontWeight: pw.FontWeight.bold))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.tr('doc_vat_card'), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.bidiIsolate(company.vatId),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.formatDate(company.vatIdExpiry), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            vatStatus,
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              color: company.daysUntilVatExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'),
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('السجل التجاري (Commercial Register)', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(company.registrationNumber, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(_formatDate(company.registrationExpiry), style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(regStatus, style: pw.TextStyle(fontSize: 9, color: company.daysUntilRegExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'), fontWeight: pw.FontWeight.bold))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.tr('doc_commercial_register'), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            resolver.bidiIsolate(company.registrationNumber),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(resolver.formatDate(company.registrationExpiry), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                            regStatus,
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              color: company.daysUntilRegExpiry > 0 ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'),
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -192,7 +325,10 @@ class MasterDataExportService {
                       color: PdfColors.grey100,
                       borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
                     ),
-                    child: pw.Text('ملاحظات الشركة: ${company.notes}', style: const pw.TextStyle(fontSize: 9)),
+                    child: pw.Text(
+                      '${resolver.tr('company_notes')} ${company.notes}',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
                   ),
                 ],
 
@@ -202,8 +338,14 @@ class MasterDataExportService {
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('تاريخ الطباعة: ${DateTime.now().toString().substring(0, 19)}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                    pw.Text('Sorour Logistics ERP Enterprise System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                    pw.Text(
+                      '${resolver.tr('print_date')} ${resolver.formatDate(DateTime.now())}',
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                    ),
+                    pw.Text(
+                      resolver.tr('erp_title'),
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                    ),
                   ],
                 ),
               ],
@@ -213,64 +355,127 @@ class MasterDataExportService {
       ),
     );
 
+    final printDocName = resolver.buildFileName(
+      prefixKey: 'importer_file_name_prefix',
+      identifier: company.importerId,
+      extension: 'pdf',
+    );
+
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: FileSaveHelper.sanitizeFileName(
-        company.importerName.trim().isNotEmpty
-            ? company.importerName.trim()
-            : company.importerId,
-      ),
+      name: printDocName,
     );
   }
 
-  static Future<String?> exportImporterToExcel(BuildContext context, ImportCompanyModel company) async {
+  static Future<String?> exportImporterToExcel(
+    BuildContext context,
+    ImportCompanyModel company, {
+    ExportLanguage lang = ExportLanguage.ar,
+  }) async {
+    final resolver = ExportLanguageResolver(lang: lang);
     final buffer = StringBuffer();
-    buffer.write('\uFEFF'); // UTF-8 BOM
+    buffer.write('\uFEFF'); // UTF-8 BOM for Microsoft Excel
 
-    buffer.writeln('Sorour Logistics ERP — بطاقة بيانات الشركة المستوردة');
-    buffer.writeln('اسم الشركة المستوردة,"${company.importerName.replaceAll('"', '""')}"');
-    buffer.writeln('حالة السجل,${company.isActive ? "نشط" : "غير نشط"}');
-    buffer.writeln('الدولة,${company.country}');
-    buffer.writeln('العنوان,"${company.address.replaceAll('"', '""')}"');
-    buffer.writeln('الهاتف,${company.phone ?? "-"}');
-    buffer.writeln('المحمول,${company.mobileNumber ?? "-"}');
-    buffer.writeln('الفاكس,${company.faxNumber ?? "-"}');
-    buffer.writeln('البريد الإلكتروني,${company.primaryEmail ?? company.email ?? "-"}');
-    buffer.writeln('البريد الثانوي,${company.secondaryEmail ?? "-"}');
-    buffer.writeln('الموقع الإلكتروني,${company.website ?? "-"}');
-    buffer.writeln('توكن نافذة,${(company.nafezaToken != null && company.nafezaToken!.isNotEmpty) ? "****" : "-"}');
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('importer_card_title')));
+    buffer.writeln('${resolver.tr('importer_name')},${ExportLanguageResolver.cleanExcelCell(company.importerName)}');
+    buffer.writeln('${resolver.tr('active_status_label')},${company.isActive ? resolver.tr('active_short') : resolver.tr('inactive_short')}');
+    buffer.writeln('${resolver.tr('country')},${ExportLanguageResolver.cleanExcelCell(company.country.isNotEmpty ? company.country : resolver.tr('default_egypt'))}');
+    buffer.writeln('${resolver.tr('address')},${ExportLanguageResolver.cleanExcelCell(company.address)}');
+    buffer.writeln('${resolver.tr('phone')},${ExportLanguageResolver.cleanExcelCell(company.phone ?? "-")}');
+    buffer.writeln('${resolver.tr('mobile')},${ExportLanguageResolver.cleanExcelCell(company.mobileNumber ?? "-")}');
+    buffer.writeln('${resolver.tr('fax')},${ExportLanguageResolver.cleanExcelCell(company.faxNumber ?? "-")}');
+    buffer.writeln('${resolver.tr('email')},${ExportLanguageResolver.cleanExcelCell(company.primaryEmail ?? company.email ?? "-")}');
+    buffer.writeln('${resolver.tr('secondary_email')},${ExportLanguageResolver.cleanExcelCell(company.secondaryEmail ?? "-")}');
+    buffer.writeln('${resolver.tr('website')},${ExportLanguageResolver.cleanExcelCell(company.website ?? "-")}');
+    buffer.writeln('${resolver.tr('nafeza_token')},${(company.nafezaToken != null && company.nafezaToken!.isNotEmpty) ? resolver.tr('token_configured') : resolver.tr('token_not_configured')}');
     buffer.writeln('');
 
-    buffer.writeln('--- بيانات القيد والتسجيلات الرسمية ---');
-    buffer.writeln('المستند,رقم القيد,تاريخ الانتهاء,الأيام المتبقية,الحالة');
-    buffer.writeln('البطاقة الاستيرادية,${company.importerId},${_formatDate(company.importerIdExpiry)},${company.daysUntilImporterIdExpiry},${company.daysUntilImporterIdExpiry > 0 ? "سارية" : "منتهية"}');
-    buffer.writeln('البطاقة الضريبية,${company.vatId},${_formatDate(company.vatIdExpiry)},${company.daysUntilVatExpiry},${company.daysUntilVatExpiry > 0 ? "سارية" : "منتهية"}');
-    buffer.writeln('السجل التجاري,${company.registrationNumber},${_formatDate(company.registrationExpiry)},${company.daysUntilRegExpiry},${company.daysUntilRegExpiry > 0 ? "سارٍ" : "منتهٍ"}');
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('reg_excel_section_title')));
+    buffer.writeln('${resolver.tr('col_document_short')},${resolver.tr('col_reg_number')},${resolver.tr('col_expiry_date')},${resolver.tr('col_days_remaining')},${resolver.tr('col_status_short')}');
+    buffer.writeln('${resolver.tr('doc_importer_card')},${ExportLanguageResolver.cleanExcelCell(company.importerId)},${resolver.formatDate(company.importerIdExpiry)},${company.daysUntilImporterIdExpiry},${ExportTranslations.shortValidity(company.daysUntilImporterIdExpiry > 0, lang: lang, feminine: true)}');
+    buffer.writeln('${resolver.tr('doc_vat_card')},${ExportLanguageResolver.cleanExcelCell(company.vatId)},${resolver.formatDate(company.vatIdExpiry)},${company.daysUntilVatExpiry},${ExportTranslations.shortValidity(company.daysUntilVatExpiry > 0, lang: lang, feminine: true)}');
+    buffer.writeln('${resolver.tr('doc_commercial_register')},${ExportLanguageResolver.cleanExcelCell(company.registrationNumber)},${resolver.formatDate(company.registrationExpiry)},${company.daysUntilRegExpiry},${ExportTranslations.shortValidity(company.daysUntilRegExpiry > 0, lang: lang, feminine: false)}');
     buffer.writeln('');
 
-    buffer.writeln('--- شهادات العلامات التجارية والجودة ---');
-    buffer.writeln('WIPO Madrid Monitor,${company.hasWipo ? (company.wipoNumber ?? "مسجل") : "غير مسجل"}');
-    buffer.writeln('EUIPO,${company.hasEuipo ? (company.euipoNumber ?? "مسجل") : "غير مسجل"}');
-    buffer.writeln('Global Brand Database,${company.hasGlobalBrand ? (company.globalBrandNumber ?? "مسجل") : "غير مسجل"}');
-    buffer.writeln('ISO 9001 Certificate,${company.hasIso9001 ? (company.iso9001Number ?? "معتمد") : "غير معتمد"}');
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('cert_excel_section_title')));
+    buffer.writeln('${resolver.tr('cert_wipo')},${ExportTranslations.formatRegisteredStatus(hasRegistration: company.hasWipo, registrationNumber: company.wipoNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_euipo')},${ExportTranslations.formatRegisteredStatus(hasRegistration: company.hasEuipo, registrationNumber: company.euipoNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_global_brand')},${ExportTranslations.formatRegisteredStatus(hasRegistration: company.hasGlobalBrand, registrationNumber: company.globalBrandNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_iso9001')},${ExportTranslations.formatCertifiedStatus(hasCertificate: company.hasIso9001, certificateNumber: company.iso9001Number, lang: lang)}');
 
     if (company.notes != null && company.notes!.isNotEmpty) {
       buffer.writeln('');
-      buffer.writeln('الملاحظات,"${company.notes!.replaceAll('"', '""')}"');
+      buffer.writeln('${resolver.tr('notes')},${ExportLanguageResolver.cleanExcelCell(company.notes)}');
     }
 
-    final safeName = FileSaveHelper.sanitizeFileName(
-      company.importerName.trim().isNotEmpty
-          ? company.importerName.trim()
-          : company.importerId,
+    final filename = resolver.buildFileName(
+      prefixKey: 'importer_file_name_prefix',
+      identifier: company.importerId,
+      extension: 'xlsx',
     );
-    final filename = '${safeName}_${_formatDate(DateTime.now())}.csv';
+
     return FileSaveHelper.saveText(
       context: context,
       textContent: buffer.toString(),
       defaultFileName: filename,
-      dialogTitle: 'حفظ بيانات الشركة المستوردة بصيغة Excel / CSV',
-      allowedExtensions: ['csv', 'xlsx'],
+      dialogTitle: resolver.tr('save_excel_file_dialog_title'),
+      allowedExtensions: ['xlsx', 'csv'],
+    );
+  }
+
+  static Future<String?> exportImporterToCsv(
+    BuildContext context,
+    ImportCompanyModel company, {
+    ExportLanguage lang = ExportLanguage.ar,
+  }) async {
+    final resolver = ExportLanguageResolver(lang: lang);
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF'); // UTF-8 BOM for Microsoft Excel
+
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('importer_card_title')));
+    buffer.writeln('${resolver.tr('importer_name')},${ExportLanguageResolver.cleanExcelCell(company.importerName)}');
+    buffer.writeln('${resolver.tr('active_status_label')},${company.isActive ? resolver.tr('active_short') : resolver.tr('inactive_short')}');
+    buffer.writeln('${resolver.tr('country')},${ExportLanguageResolver.cleanExcelCell(company.country.isNotEmpty ? company.country : resolver.tr('default_egypt'))}');
+    buffer.writeln('${resolver.tr('address')},${ExportLanguageResolver.cleanExcelCell(company.address)}');
+    buffer.writeln('${resolver.tr('phone')},${ExportLanguageResolver.cleanExcelCell(company.phone ?? "-")}');
+    buffer.writeln('${resolver.tr('mobile')},${ExportLanguageResolver.cleanExcelCell(company.mobileNumber ?? "-")}');
+    buffer.writeln('${resolver.tr('fax')},${ExportLanguageResolver.cleanExcelCell(company.faxNumber ?? "-")}');
+    buffer.writeln('${resolver.tr('email')},${ExportLanguageResolver.cleanExcelCell(company.primaryEmail ?? company.email ?? "-")}');
+    buffer.writeln('${resolver.tr('secondary_email')},${ExportLanguageResolver.cleanExcelCell(company.secondaryEmail ?? "-")}');
+    buffer.writeln('${resolver.tr('website')},${ExportLanguageResolver.cleanExcelCell(company.website ?? "-")}');
+    buffer.writeln('${resolver.tr('nafeza_token')},${(company.nafezaToken != null && company.nafezaToken!.isNotEmpty) ? resolver.tr('token_configured') : resolver.tr('token_not_configured')}');
+    buffer.writeln('');
+
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('reg_excel_section_title')));
+    buffer.writeln('${resolver.tr('col_document_short')},${resolver.tr('col_reg_number')},${resolver.tr('col_expiry_date')},${resolver.tr('col_days_remaining')},${resolver.tr('col_status_short')}');
+    buffer.writeln('${resolver.tr('doc_importer_card')},${ExportLanguageResolver.cleanExcelCell(company.importerId)},${resolver.formatDate(company.importerIdExpiry)},${company.daysUntilImporterIdExpiry},${ExportTranslations.shortValidity(company.daysUntilImporterIdExpiry > 0, lang: lang, feminine: true)}');
+    buffer.writeln('${resolver.tr('doc_vat_card')},${ExportLanguageResolver.cleanExcelCell(company.vatId)},${resolver.formatDate(company.vatIdExpiry)},${company.daysUntilVatExpiry},${ExportTranslations.shortValidity(company.daysUntilVatExpiry > 0, lang: lang, feminine: true)}');
+    buffer.writeln('${resolver.tr('doc_commercial_register')},${ExportLanguageResolver.cleanExcelCell(company.registrationNumber)},${resolver.formatDate(company.registrationExpiry)},${company.daysUntilRegExpiry},${ExportTranslations.shortValidity(company.daysUntilRegExpiry > 0, lang: lang, feminine: false)}');
+    buffer.writeln('');
+
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('cert_excel_section_title')));
+    buffer.writeln('${resolver.tr('cert_wipo')},${ExportTranslations.formatRegisteredStatus(hasRegistration: company.hasWipo, registrationNumber: company.wipoNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_euipo')},${ExportTranslations.formatRegisteredStatus(hasRegistration: company.hasEuipo, registrationNumber: company.euipoNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_global_brand')},${ExportTranslations.formatRegisteredStatus(hasRegistration: company.hasGlobalBrand, registrationNumber: company.globalBrandNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_iso9001')},${ExportTranslations.formatCertifiedStatus(hasCertificate: company.hasIso9001, certificateNumber: company.iso9001Number, lang: lang)}');
+
+    if (company.notes != null && company.notes!.isNotEmpty) {
+      buffer.writeln('');
+      buffer.writeln('${resolver.tr('notes')},${ExportLanguageResolver.cleanExcelCell(company.notes)}');
+    }
+
+    final filename = resolver.buildFileName(
+      prefixKey: 'importer_file_name_prefix',
+      identifier: company.importerId,
+      extension: 'csv',
+    );
+
+    return FileSaveHelper.saveText(
+      context: context,
+      textContent: buffer.toString(),
+      defaultFileName: filename,
+      dialogTitle: resolver.tr('save_csv_dialog_title'),
+      allowedExtensions: ['csv'],
     );
   }
 
@@ -378,40 +583,60 @@ Sorour Logistics ERP
   // 2. FOREIGN SUPPLIERS (الموردون الأجانب)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  static Future<void> printOrSaveSupplierPdf(SupplierModel supplier) async {
+  static Future<void> printOrSaveSupplierPdf(
+    SupplierModel supplier, {
+    ExportLanguage lang = ExportLanguage.ar,
+  }) async {
+    final resolver = ExportLanguageResolver(lang: lang);
     final pdf = pw.Document();
-    final arabicFont = await PdfGoogleFonts.cairoRegular();
-    final arabicBold = await PdfGoogleFonts.cairoBold();
+    final theme = await resolver.getPdfTheme();
+
+    final activeStatusLabel = supplier.isActive
+        ? resolver.tr('active_record')
+        : resolver.tr('inactive_record');
+
+    final decreeStatus = supplier.registeredDecree43
+        ? resolver.tr('decree_43_registered')
+        : resolver.tr('decree_43_not_registered');
+
+    final whiteListStatus = supplier.whiteListRegistered
+        ? resolver.tr('white_list_registered')
+        : resolver.tr('white_list_standard');
+
+    final isoStatus = supplier.hasIso
+        ? resolver.tr('has_iso')
+        : resolver.tr('no_iso');
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
+        theme: theme,
         build: (pw.Context context) {
           return pw.Directionality(
-            textDirection: pw.TextDirection.rtl,
+            textDirection: resolver.pdfTextDirection,
             child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              crossAxisAlignment: resolver.pdfCrossAlignStart,
               children: [
-                // Header
+                // Header Banner
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        crossAxisAlignment: resolver.pdfCrossAlignStart,
                         children: [
                           pw.Text(
-                            'Sorour Logistics ERP — بطاقة تعريف المورد الأجنبي',
+                            resolver.tr('supplier_card_title'),
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
+                          pw.SizedBox(height: 2),
                           pw.Text(
-                            'Foreign Exporter Profile & Nafeza/CargoX Registration',
+                            resolver.tr('supplier_card_subtitle'),
                             style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
                           ),
                         ],
@@ -419,12 +644,12 @@ Sorour Logistics ERP
                       pw.Container(
                         padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: pw.BoxDecoration(
-                          color: PdfColor.fromHex('#3498DB'),
+                          color: supplier.isActive ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'),
                           borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                         ),
                         child: pw.Text(
-                          supplier.supplierCode,
-                          style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10),
+                          activeStatusLabel,
+                          style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
                         ),
                       ),
                     ],
@@ -432,33 +657,61 @@ Sorour Logistics ERP
                 ),
                 pw.SizedBox(height: 14),
 
-                // Main Info
+                // Main Details Card
                 pw.Container(
-                  padding: const pw.EdgeInsets.all(10),
+                  padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
                     border: pw.Border.all(color: PdfColors.grey300),
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    crossAxisAlignment: resolver.pdfCrossAlignStart,
                     children: [
-                      pw.Text(supplier.companyName, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13)),
-                      pw.SizedBox(height: 6),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text(
+                            resolver.bidiIsolate(supplier.companyName),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#0F386A')),
+                          ),
+                          pw.Text(
+                            '${resolver.tr('supplier_code')}: ${resolver.bidiIsolate(supplier.supplierCode)}',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#7F8C8D')),
+                          ),
+                        ],
+                      ),
+                      pw.SizedBox(height: 8),
                       pw.Row(
                         children: [
-                          pw.Expanded(child: pw.Text('دولة المصدر: ${supplier.foreignExporterCountry} (${supplier.foreignExporterCountryCode.toUpperCase()})', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Expanded(child: pw.Text('نوع المورد: ${supplier.supplierType} (${supplier.registrationType})', style: const pw.TextStyle(fontSize: 9))),
+                          pw.Expanded(
+                            child: pw.Text(
+                              '${resolver.tr('supplier_country')}: ${resolver.bidiIsolate(supplier.foreignExporterCountry)} (${supplier.foreignExporterCountryCode.toUpperCase()})',
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                          ),
+                          pw.Expanded(
+                            child: pw.Text(
+                              '${resolver.tr('supplier_type')}: ${resolver.bidiIsolate(supplier.supplierType)}',
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                          ),
                         ],
                       ),
                       pw.SizedBox(height: 4),
-                      pw.Text('العنوان: ${supplier.address}', style: const pw.TextStyle(fontSize: 9)),
+                      pw.Text(
+                        '${resolver.tr('address')}: ${resolver.bidiIsolate(supplier.address)}',
+                        style: const pw.TextStyle(fontSize: 9),
+                      ),
                     ],
                   ),
                 ),
                 pw.SizedBox(height: 12),
 
-                // Platforms & Registrations
-                pw.Text('بيانات التسجيل في منصات نافذة وكارجو إكس (Nafeza & CargoX):', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50'))),
+                // Platforms & Registrations Table
+                pw.Text(
+                  resolver.tr('platforms_section_title'),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#0F386A')),
+                ),
                 pw.SizedBox(height: 6),
                 pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.grey300),
@@ -466,26 +719,50 @@ Sorour Logistics ERP
                     pw.TableRow(
                       decoration: pw.BoxDecoration(color: PdfColor.fromHex('#E67E22')),
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('المنصة / المعرّف الرقابي', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('القيمة / الكود المسجل', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(resolver.tr('col_platform'), style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(resolver.tr('col_value'), style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        ),
                       ],
                     ),
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('معرّف المصدر الأجنبي (Foreign Exporter ID)', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(supplier.foreignExporterId, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(resolver.tr('foreign_exporter_id'), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(resolver.bidiIsolate(supplier.foreignExporterId), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        ),
                       ],
                     ),
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('معرّف منصة كارجو إكس (CargoX Platform ID)', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(supplier.cargoxPlatformId ?? "غير مسجل", style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(resolver.tr('cargox_id'), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(resolver.bidiIsolate(supplier.cargoxPlatformId ?? '-'), style: const pw.TextStyle(fontSize: 9)),
+                        ),
                       ],
                     ),
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('التسجيل بالقرار 43 / القائمة البيضاء', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${supplier.registeredDecree43 ? "مسجل بقرار 43" : "غير مسجل"} | ${supplier.whiteListRegistered ? "قائمة بيضاء" : "عادي"} | ${supplier.hasIso ? "حاصل على ISO" : "بدون ISO"}', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(resolver.tr('compliance_and_trademarks_excel'), style: const pw.TextStyle(fontSize: 9)),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text('$decreeStatus | $whiteListStatus | $isoStatus', style: const pw.TextStyle(fontSize: 9)),
+                        ),
                       ],
                     ),
                   ],
@@ -493,7 +770,10 @@ Sorour Logistics ERP
                 pw.SizedBox(height: 12),
 
                 // Bank Details
-                pw.Text('بيانات التحويل البنكي والسويفت (Beneficiary Bank & SWIFT):', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50'))),
+                pw.Text(
+                  resolver.tr('bank_section_title'),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#0F386A')),
+                ),
                 pw.SizedBox(height: 6),
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
@@ -503,19 +783,27 @@ Sorour Logistics ERP
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    crossAxisAlignment: resolver.pdfCrossAlignStart,
                     children: [
                       pw.Row(
                         children: [
-                          pw.Expanded(child: pw.Text('اسم البنك: ${supplier.bankName ?? "-"}', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Expanded(child: pw.Text('كود السويفت: ${supplier.swiftCode ?? "-"}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#2980B9')))),
+                          pw.Expanded(
+                            child: pw.Text('${resolver.tr('bank_name')}: ${resolver.bidiIsolate(supplier.bankName ?? "-")}', style: const pw.TextStyle(fontSize: 9)),
+                          ),
+                          pw.Expanded(
+                            child: pw.Text('${resolver.tr('swift_code')}: ${resolver.bidiIsolate(supplier.swiftCode ?? "-")}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#2980B9'))),
+                          ),
                         ],
                       ),
                       pw.SizedBox(height: 4),
                       pw.Row(
                         children: [
-                          pw.Expanded(child: pw.Text('رقم الحساب: ${supplier.accountNumber ?? "-"}', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Expanded(child: pw.Text('IBAN: ${supplier.iban ?? "-"}', style: const pw.TextStyle(fontSize: 9))),
+                          pw.Expanded(
+                            child: pw.Text('${resolver.tr('account_number')}: ${resolver.bidiIsolate(supplier.accountNumber ?? "-")}', style: const pw.TextStyle(fontSize: 9)),
+                          ),
+                          pw.Expanded(
+                            child: pw.Text('${resolver.tr('iban')}: ${resolver.bidiIsolate(supplier.iban ?? "-")}', style: const pw.TextStyle(fontSize: 9)),
+                          ),
                         ],
                       ),
                     ],
@@ -526,22 +814,29 @@ Sorour Logistics ERP
                 // Contact & Brands
                 pw.Row(
                   children: [
-                    pw.Expanded(child: pw.Text('الهاتف: ${supplier.phone ?? "-"}', style: const pw.TextStyle(fontSize: 9))),
-                    pw.Expanded(child: pw.Text('البريد الإلكتروني: ${supplier.email ?? "-"}', style: const pw.TextStyle(fontSize: 9))),
+                    pw.Expanded(child: pw.Text('${resolver.tr('phone')}: ${resolver.bidiIsolate(supplier.phone ?? "-")}', style: const pw.TextStyle(fontSize: 9))),
+                    pw.Expanded(child: pw.Text('${resolver.tr('email')}: ${resolver.bidiIsolate(supplier.email ?? "-")}', style: const pw.TextStyle(fontSize: 9))),
                   ],
                 ),
                 if (supplier.brands != null && supplier.brands!.isNotEmpty) ...[
                   pw.SizedBox(height: 4),
-                  pw.Text('العلامات التجارية والمنتجات: ${supplier.brands}', style: const pw.TextStyle(fontSize: 9)),
+                  pw.Text('${resolver.tr('brands')}: ${resolver.bidiIsolate(supplier.brands)}', style: const pw.TextStyle(fontSize: 9)),
                 ],
 
                 pw.Spacer(),
 
+                // Sign-off
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('تاريخ الطباعة: ${DateTime.now().toString().substring(0, 19)}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                    pw.Text('Sorour Logistics ERP Enterprise System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                    pw.Text(
+                      '${resolver.tr('print_date')} ${resolver.formatDate(DateTime.now())}',
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                    ),
+                    pw.Text(
+                      resolver.tr('erp_title'),
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                    ),
                   ],
                 ),
               ],
@@ -551,73 +846,111 @@ Sorour Logistics ERP
       ),
     );
 
+    final printDocName = resolver.buildFileName(
+      prefixKey: 'supplier_file_name_prefix',
+      identifier: supplier.supplierCode,
+      extension: 'pdf',
+    );
+
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: FileSaveHelper.sanitizeFileName(
-        supplier.companyName.trim().isNotEmpty
-            ? supplier.companyName.trim()
-            : supplier.supplierCode,
-      ),
+      name: printDocName,
     );
   }
 
-  static Future<String?> exportSupplierToExcel(BuildContext context, SupplierModel supplier) async {
+  static String _buildSupplierCsvContent(
+    SupplierModel supplier,
+    ExportLanguageResolver resolver,
+    ExportLanguage lang,
+  ) {
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
 
-    buffer.writeln('Sorour Logistics ERP — بطاقة تعريف وبيانات المورد الأجنبي');
-    buffer.writeln('كود المورد,${supplier.supplierCode}');
-    buffer.writeln('اسم المورد الأجنبي,"${supplier.companyName.replaceAll('"', '""')}"');
-    buffer.writeln('دولة المصدر,${supplier.foreignExporterCountry}');
-    buffer.writeln('كود الدولة,${supplier.foreignExporterCountryCode}');
-    buffer.writeln('نوع المورد,${supplier.supplierType}');
-    buffer.writeln('نوع التسجيل,${supplier.registrationType}');
-    buffer.writeln('معرّف المصدر (Foreign Exporter ID),${supplier.foreignExporterId}');
-    buffer.writeln('معرّف منصة CargoX,${supplier.cargoxPlatformId ?? "-"}');
-    buffer.writeln('حالة السجل,${supplier.isActive ? "نشط" : "غير نشط"}');
-    buffer.writeln('العنوان,"${supplier.address.replaceAll('"', '""')}"');
-    buffer.writeln('الهاتف,${supplier.phone ?? "-"}');
-    buffer.writeln('الموبايل,${supplier.mobile ?? "-"}');
-    buffer.writeln('الفاكس,${supplier.fax ?? "-"}');
-    buffer.writeln('البريد الإلكتروني,${supplier.email ?? "-"}');
-    buffer.writeln('البريد الإلكتروني الإضافي,${supplier.secondaryEmail ?? "-"}');
-    buffer.writeln('الموقع الإلكتروني,${supplier.website ?? "-"}');
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('supplier_card_title')));
+    buffer.writeln('${resolver.tr('supplier_code')},${ExportLanguageResolver.cleanExcelCell(supplier.supplierCode)}');
+    buffer.writeln('${resolver.tr('supplier_company_name')},${ExportLanguageResolver.cleanExcelCell(supplier.companyName)}');
+    buffer.writeln('${resolver.tr('supplier_country')},${ExportLanguageResolver.cleanExcelCell(supplier.foreignExporterCountry)}');
+    buffer.writeln('${resolver.tr('country_code')},${ExportLanguageResolver.cleanExcelCell(supplier.foreignExporterCountryCode)}');
+    buffer.writeln('${resolver.tr('supplier_type')},${ExportLanguageResolver.cleanExcelCell(supplier.supplierType)}');
+    buffer.writeln('${resolver.tr('registration_type')},${ExportLanguageResolver.cleanExcelCell(supplier.registrationType)}');
+    buffer.writeln('${resolver.tr('foreign_exporter_id')},${ExportLanguageResolver.cleanExcelCell(supplier.foreignExporterId)}');
+    buffer.writeln('${resolver.tr('cargox_id')},${ExportLanguageResolver.cleanExcelCell(supplier.cargoxPlatformId ?? "-")}');
+    buffer.writeln('${resolver.tr('active_status_label')},${supplier.isActive ? resolver.tr('active_short') : resolver.tr('inactive_short')}');
+    buffer.writeln('${resolver.tr('address')},${ExportLanguageResolver.cleanExcelCell(supplier.address)}');
+    buffer.writeln('${resolver.tr('phone')},${ExportLanguageResolver.cleanExcelCell(supplier.phone ?? "-")}');
+    buffer.writeln('${resolver.tr('mobile')},${ExportLanguageResolver.cleanExcelCell(supplier.mobile ?? "-")}');
+    buffer.writeln('${resolver.tr('fax')},${ExportLanguageResolver.cleanExcelCell(supplier.fax ?? "-")}');
+    buffer.writeln('${resolver.tr('email')},${ExportLanguageResolver.cleanExcelCell(supplier.email ?? "-")}');
+    buffer.writeln('${resolver.tr('secondary_email')},${ExportLanguageResolver.cleanExcelCell(supplier.secondaryEmail ?? "-")}');
+    buffer.writeln('${resolver.tr('website')},${ExportLanguageResolver.cleanExcelCell(supplier.website ?? "-")}');
     buffer.writeln('');
 
-    buffer.writeln('--- بيانات التحويل البنكي والسويفت ---');
-    buffer.writeln('اسم البنك,"${(supplier.bankName ?? "-").replaceAll('"', '""')}"');
-    buffer.writeln('كود السويفت (SWIFT),${supplier.swiftCode ?? "-"}');
-    buffer.writeln('رقم الحساب,${supplier.accountNumber ?? "-"}');
-    buffer.writeln('IBAN,${supplier.iban ?? "-"}');
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('bank_excel_section_title')));
+    buffer.writeln('${resolver.tr('bank_name')},${ExportLanguageResolver.cleanExcelCell(supplier.bankName ?? "-")}');
+    buffer.writeln('${resolver.tr('swift_code')},${ExportLanguageResolver.cleanExcelCell(supplier.swiftCode ?? "-")}');
+    buffer.writeln('${resolver.tr('account_number')},${ExportLanguageResolver.cleanExcelCell(supplier.accountNumber ?? "-")}');
+    buffer.writeln('${resolver.tr('iban')},${ExportLanguageResolver.cleanExcelCell(supplier.iban ?? "-")}');
     buffer.writeln('');
 
-    buffer.writeln('--- الامتثال والعلامات التجارية ---');
-    buffer.writeln('شهادة ISO,${supplier.hasIso ? "نعم" : "لا"}');
-    buffer.writeln('مسجل بقرار 43,${supplier.registeredDecree43 ? "نعم" : "لا"}');
-    buffer.writeln('قائمة بيضاء,${supplier.whiteListRegistered ? "نعم" : "لا"}');
-    buffer.writeln('العلامات والبراندات,"${(supplier.brands ?? "-").replaceAll('"', '""')}"');
-    buffer.writeln('WIPO Madrid Monitor,${supplier.hasWipo ? (supplier.wipoNumber ?? "مسجل") : "غير مسجل"}');
-    buffer.writeln('EUIPO,${supplier.hasEuipo ? (supplier.euipoNumber ?? "مسجل") : "غير مسجل"}');
-    buffer.writeln('Global Brand Database,${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? "مسجل") : "غير مسجل"}');
-    buffer.writeln('ISO 9001 Certificate,${supplier.hasIso9001 ? (supplier.iso9001Number ?? "معتمد") : "غير معتمد"}');
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('compliance_and_trademarks_excel')));
+    buffer.writeln('${resolver.tr('iso_status')},${supplier.hasIso ? resolver.tr('yes') : resolver.tr('no')}');
+    buffer.writeln('${resolver.tr('decree_43')},${supplier.registeredDecree43 ? resolver.tr('yes') : resolver.tr('no')}');
+    buffer.writeln('${resolver.tr('white_list')},${supplier.whiteListRegistered ? resolver.tr('yes') : resolver.tr('no')}');
+    buffer.writeln('${resolver.tr('brands')},${ExportLanguageResolver.cleanExcelCell(supplier.brands ?? "-")}');
+    buffer.writeln('${resolver.tr('cert_wipo')},${ExportTranslations.formatRegisteredStatus(hasRegistration: supplier.hasWipo, registrationNumber: supplier.wipoNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_euipo')},${ExportTranslations.formatRegisteredStatus(hasRegistration: supplier.hasEuipo, registrationNumber: supplier.euipoNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_global_brand')},${ExportTranslations.formatRegisteredStatus(hasRegistration: supplier.hasGlobalBrand, registrationNumber: supplier.globalBrandNumber, lang: lang)}');
+    buffer.writeln('${resolver.tr('cert_iso9001')},${ExportTranslations.formatCertifiedStatus(hasCertificate: supplier.hasIso9001, certificateNumber: supplier.iso9001Number, lang: lang)}');
 
     if (supplier.notes != null && supplier.notes!.isNotEmpty) {
       buffer.writeln('');
-      buffer.writeln('الملاحظات,"${supplier.notes!.replaceAll('"', '""')}"');
+      buffer.writeln('${resolver.tr('notes')},${ExportLanguageResolver.cleanExcelCell(supplier.notes)}');
     }
 
-    final safeName = FileSaveHelper.sanitizeFileName(
-      supplier.companyName.trim().isNotEmpty
-          ? supplier.companyName.trim()
-          : supplier.supplierCode,
+    return buffer.toString();
+  }
+
+  static Future<String?> exportSupplierToExcel(
+    BuildContext context,
+    SupplierModel supplier, {
+    ExportLanguage lang = ExportLanguage.ar,
+  }) async {
+    final resolver = ExportLanguageResolver(lang: lang);
+    final text = _buildSupplierCsvContent(supplier, resolver, lang);
+    final filename = resolver.buildFileName(
+      prefixKey: 'supplier_file_name_prefix',
+      identifier: supplier.supplierCode,
+      extension: 'xlsx',
     );
-    final filename = '${safeName}_${_formatDate(DateTime.now())}.csv';
+
     return FileSaveHelper.saveText(
       context: context,
-      textContent: buffer.toString(),
+      textContent: text,
       defaultFileName: filename,
-      dialogTitle: 'حفظ بيانات المورد الأجنبي بصيغة Excel / CSV',
-      allowedExtensions: ['csv', 'xlsx'],
+      dialogTitle: resolver.tr('save_excel_file_dialog_title'),
+      allowedExtensions: ['xlsx', 'csv'],
+    );
+  }
+
+  static Future<String?> exportSupplierToCsv(
+    BuildContext context,
+    SupplierModel supplier, {
+    ExportLanguage lang = ExportLanguage.ar,
+  }) async {
+    final resolver = ExportLanguageResolver(lang: lang);
+    final text = _buildSupplierCsvContent(supplier, resolver, lang);
+    final filename = resolver.buildFileName(
+      prefixKey: 'supplier_file_name_prefix',
+      identifier: supplier.supplierCode,
+      extension: 'csv',
+    );
+
+    return FileSaveHelper.saveText(
+      context: context,
+      textContent: text,
+      defaultFileName: filename,
+      dialogTitle: resolver.tr('save_csv_dialog_title'),
+      allowedExtensions: ['csv'],
     );
   }
 
@@ -745,40 +1078,107 @@ Sorour Logistics ERP
   // 3. PARTNERS & SERVICE PROVIDERS & BANKS (الشركاء والبنوك ومقدمو الخدمات)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  static Future<void> printOrSavePartnerPdf(PartnerModel partner) async {
+  static String _buildPartnerCsvContent(
+    PartnerModel partner,
+    ExportLanguageResolver resolver,
+    ExportLanguage lang,
+  ) {
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF');
+
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('partner_card_title')));
+    buffer.writeln('${resolver.tr('partner_code')},${ExportLanguageResolver.cleanExcelCell(partner.partnerCode)}');
+    buffer.writeln('${resolver.tr('partner_name')},${ExportLanguageResolver.cleanExcelCell(partner.partnerName)}');
+    buffer.writeln('${resolver.tr('partner_type')},${ExportLanguageResolver.cleanExcelCell(partner.partnerType)}');
+    buffer.writeln('${resolver.tr('country')},${ExportLanguageResolver.cleanExcelCell(partner.country)}');
+    buffer.writeln('${resolver.tr('active_status_label')},${partner.isActive ? resolver.tr('active_short') : resolver.tr('inactive_short')}');
+    buffer.writeln('${resolver.tr('rating')},${partner.rating} / 5.0');
+    buffer.writeln('');
+
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('licenses_excel_section_title')));
+    buffer.writeln('${resolver.tr('swift_code')},${ExportLanguageResolver.cleanExcelCell(partner.swiftCode ?? "-")}');
+    buffer.writeln('${resolver.tr('scac_code')},${ExportLanguageResolver.cleanExcelCell(partner.scacCode ?? "-")}');
+    buffer.writeln('${resolver.tr('clearance_license')},${ExportLanguageResolver.cleanExcelCell(partner.clearanceLicenseNumber ?? "-")}');
+    buffer.writeln('${resolver.tr('authorized_ports')},${ExportLanguageResolver.cleanExcelCell(partner.authorizedPorts ?? "-")}');
+    buffer.writeln('${resolver.tr('default_free_days')},${partner.defaultFreeDays ?? "-"}');
+    buffer.writeln('${resolver.tr('fiata_id')},${ExportLanguageResolver.cleanExcelCell(partner.fiataId ?? "-")}');
+    buffer.writeln('${resolver.tr('shipping_modes')},${ExportLanguageResolver.cleanExcelCell(partner.shippingModes ?? "-")}');
+    buffer.writeln('${resolver.tr('supported_currencies')},${ExportLanguageResolver.cleanExcelCell(partner.supportedCurrencies ?? "-")}');
+    buffer.writeln('${resolver.tr('transport_license')},${ExportLanguageResolver.cleanExcelCell(partner.transportLicenseNumber ?? "-")}');
+    buffer.writeln('${resolver.tr('fleet_types')},${ExportLanguageResolver.cleanExcelCell(partner.fleetTypes ?? "-")}');
+    buffer.writeln('${resolver.tr('coverage_areas')},${ExportLanguageResolver.cleanExcelCell(partner.coverageAreas ?? "-")}');
+    buffer.writeln('${resolver.tr('insurance_license')},${ExportLanguageResolver.cleanExcelCell(partner.insuranceLicenseNumber ?? "-")}');
+    buffer.writeln('${resolver.tr('insurance_coverages')},${ExportLanguageResolver.cleanExcelCell(partner.insuranceCoverageTypes ?? "-")}');
+    buffer.writeln('${resolver.tr('inspection_accreditation')},${ExportLanguageResolver.cleanExcelCell(partner.inspectionAccreditationNumber ?? "-")}');
+    buffer.writeln('${resolver.tr('inspection_scope')},${ExportLanguageResolver.cleanExcelCell(partner.inspectionScope ?? "-")}');
+    buffer.writeln('${resolver.tr('commercial_register_num')},${ExportLanguageResolver.cleanExcelCell(partner.commercialRegister ?? "-")}');
+    buffer.writeln('${resolver.tr('tax_id_num')},${ExportLanguageResolver.cleanExcelCell(partner.taxId ?? "-")}');
+    buffer.writeln('');
+
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('payment_terms_section')));
+    buffer.writeln('${resolver.tr('payment_type')},${ExportLanguageResolver.cleanExcelCell(partner.paymentType)}');
+    buffer.writeln('${resolver.tr('credit_limit')},${partner.creditLimit} ${resolver.tr('currency_egp')}');
+    buffer.writeln('${resolver.tr('bank_code')},${ExportLanguageResolver.cleanExcelCell(partner.bankCode ?? "-")}');
+    buffer.writeln('${resolver.tr('branch_name')},${ExportLanguageResolver.cleanExcelCell(partner.branchName ?? "-")}');
+    buffer.writeln('');
+
+    buffer.writeln(ExportLanguageResolver.cleanExcelCell(resolver.tr('contact_excel_section')));
+    buffer.writeln('${resolver.tr('contact_person')},${ExportLanguageResolver.cleanExcelCell(partner.contactPerson ?? "-")}');
+    buffer.writeln('${resolver.tr('phone')},${ExportLanguageResolver.cleanExcelCell(partner.phone ?? partner.mobile ?? "-")}');
+    buffer.writeln('${resolver.tr('email')},${ExportLanguageResolver.cleanExcelCell(partner.email ?? "-")}');
+    buffer.writeln('${resolver.tr('website')},${ExportLanguageResolver.cleanExcelCell(partner.website ?? "-")}');
+    buffer.writeln('${resolver.tr('address')},${ExportLanguageResolver.cleanExcelCell(partner.address ?? "-")}');
+
+    if (partner.notes != null && partner.notes!.isNotEmpty) {
+      buffer.writeln('');
+      buffer.writeln('${resolver.tr('notes')},${ExportLanguageResolver.cleanExcelCell(partner.notes)}');
+    }
+
+    return buffer.toString();
+  }
+
+  static Future<void> printOrSavePartnerPdf(
+    PartnerModel partner, {
+    ExportLanguage lang = ExportLanguage.ar,
+  }) async {
+    final resolver = ExportLanguageResolver(lang: lang);
     final pdf = pw.Document();
-    final arabicFont = await PdfGoogleFonts.cairoRegular();
-    final arabicBold = await PdfGoogleFonts.cairoBold();
+    final theme = await resolver.getPdfTheme();
+
+    final activeStatusLabel = partner.isActive
+        ? resolver.tr('active_record')
+        : resolver.tr('inactive_record');
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
+        theme: theme,
         build: (pw.Context context) {
           return pw.Directionality(
-            textDirection: pw.TextDirection.rtl,
+            textDirection: resolver.pdfTextDirection,
             child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              crossAxisAlignment: resolver.pdfCrossAlignStart,
               children: [
-                // Header
+                // Header Banner
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        crossAxisAlignment: resolver.pdfCrossAlignStart,
                         children: [
                           pw.Text(
-                            'Sorour Logistics ERP — بطاقة الشريك ومقدم الخدمات اللوجستية',
+                            resolver.tr('partner_card_title'),
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
+                          pw.SizedBox(height: 2),
                           pw.Text(
-                            'وثيقة رسمية ببيانات الشريك ومقدم الخدمات اللوجستية',
+                            resolver.tr('partner_card_subtitle'),
                             style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
                           ),
                         ],
@@ -786,12 +1186,12 @@ Sorour Logistics ERP
                       pw.Container(
                         padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: pw.BoxDecoration(
-                          color: PdfColor.fromHex('#27AE60'),
+                          color: partner.isActive ? PdfColor.fromHex('#27AE60') : PdfColor.fromHex('#C0392B'),
                           borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                         ),
                         child: pw.Text(
-                          partner.partnerCode,
-                          style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10),
+                          activeStatusLabel,
+                          style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
                         ),
                       ),
                     ],
@@ -807,25 +1207,44 @@ Sorour Logistics ERP
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    crossAxisAlignment: resolver.pdfCrossAlignStart,
                     children: [
-                      pw.Text(partner.partnerName, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13)),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text(
+                            resolver.bidiIsolate(partner.partnerName),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#0F386A')),
+                          ),
+                          pw.Text(
+                            '${resolver.tr('partner_code')}: ${resolver.bidiIsolate(partner.partnerCode)}',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#7F8C8D')),
+                          ),
+                        ],
+                      ),
                       pw.SizedBox(height: 6),
                       pw.Row(
                         children: [
-                          pw.Expanded(child: pw.Text('التصنيف والخدمات: ${partner.partnerType}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2980B9'), fontSize: 9))),
-                          pw.Expanded(child: pw.Text('الدولة: ${partner.country}', style: const pw.TextStyle(fontSize: 9))),
+                          pw.Expanded(
+                            child: pw.Text('${resolver.tr('partner_type')}: ${resolver.bidiIsolate(partner.partnerType)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2980B9'), fontSize: 9)),
+                          ),
+                          pw.Expanded(
+                            child: pw.Text('${resolver.tr('country')}: ${resolver.bidiIsolate(partner.country)}', style: const pw.TextStyle(fontSize: 9)),
+                          ),
                         ],
                       ),
                       pw.SizedBox(height: 4),
-                      pw.Text('العنوان: ${partner.address ?? "-"}', style: const pw.TextStyle(fontSize: 9)),
+                      pw.Text('${resolver.tr('address')}: ${resolver.bidiIsolate(partner.address ?? "-")}', style: const pw.TextStyle(fontSize: 9)),
                     ],
                   ),
                 ),
                 pw.SizedBox(height: 12),
 
                 // Professional Identifiers
-                pw.Text('الرخص والأكواد والبيانات المهنية:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50'))),
+                pw.Text(
+                  resolver.tr('licenses_section_title'),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#0F386A')),
+                ),
                 pw.SizedBox(height: 6),
                 pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.grey300),
@@ -833,41 +1252,41 @@ Sorour Logistics ERP
                     pw.TableRow(
                       decoration: pw.BoxDecoration(color: PdfColor.fromHex('#3498DB')),
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('البيان الرقابي / المهني', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('القيمة / الكود', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(resolver.tr('col_platform'), style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(resolver.tr('col_value'), style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
                       ],
                     ),
                     if (partner.swiftCode != null && partner.swiftCode!.isNotEmpty)
                       pw.TableRow(
                         children: [
-                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('كود السويفت البنكي', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(partner.swiftCode!, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(resolver.tr('swift_code'), style: const pw.TextStyle(fontSize: 9))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(resolver.bidiIsolate(partner.swiftCode!), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
                         ],
                       ),
                     if (partner.scacCode != null && partner.scacCode!.isNotEmpty)
                       pw.TableRow(
                         children: [
-                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('كود الناقل الملاحي', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(partner.scacCode!, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(resolver.tr('scac_code'), style: const pw.TextStyle(fontSize: 9))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(resolver.bidiIsolate(partner.scacCode!), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
                         ],
                       ),
                     if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty)
                       pw.TableRow(
                         children: [
-                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('رقم رخصة التخليص الجمركي', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(partner.clearanceLicenseNumber!, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(resolver.tr('clearance_license'), style: const pw.TextStyle(fontSize: 9))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(resolver.bidiIsolate(partner.clearanceLicenseNumber!), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
                         ],
                       ),
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('السجل التجاري والبطاقة الضريبية', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('س.ت: ${partner.commercialRegister ?? "-"} | ضريبي: ${partner.taxId ?? "-"}', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${resolver.tr('commercial_register_num')} / ${resolver.tr('tax_id_num')}', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${resolver.bidiIsolate(partner.commercialRegister ?? "-")} | ${resolver.bidiIsolate(partner.taxId ?? "-")}', style: const pw.TextStyle(fontSize: 9))),
                       ],
                     ),
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('شروط السداد والحد الائتماني', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('نوع السداد: ${partner.paymentType} | الحد: ${partner.creditLimit} ج.م', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text(resolver.tr('payment_terms_title'), style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${resolver.bidiIsolate(partner.paymentType)} | ${partner.creditLimit} ${resolver.tr('currency_egp')}', style: const pw.TextStyle(fontSize: 9))),
                       ],
                     ),
                   ],
@@ -882,21 +1301,21 @@ Sorour Logistics ERP
                     borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    crossAxisAlignment: resolver.pdfCrossAlignStart,
                     children: [
-                      pw.Text('بيانات التواصل ومسؤول الحساب:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                      pw.Text(resolver.tr('contact_section_title'), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
                       pw.SizedBox(height: 4),
                       pw.Row(
                         children: [
-                          pw.Expanded(child: pw.Text('المسؤول: ${partner.contactPerson ?? "-"}', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Expanded(child: pw.Text('الهاتف: ${partner.phone ?? partner.mobile ?? "-"}', style: const pw.TextStyle(fontSize: 9))),
+                          pw.Expanded(child: pw.Text('${resolver.tr('contact_person')}: ${resolver.bidiIsolate(partner.contactPerson ?? "-")}', style: const pw.TextStyle(fontSize: 9))),
+                          pw.Expanded(child: pw.Text('${resolver.tr('phone')}: ${resolver.bidiIsolate(partner.phone ?? partner.mobile ?? "-")}', style: const pw.TextStyle(fontSize: 9))),
                         ],
                       ),
                       pw.SizedBox(height: 2),
                       pw.Row(
                         children: [
-                          pw.Expanded(child: pw.Text('البريد الإلكتروني: ${partner.email ?? "-"}', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Expanded(child: pw.Text('الموقع الإلكتروني: ${partner.website ?? "-"}', style: const pw.TextStyle(fontSize: 9))),
+                          pw.Expanded(child: pw.Text('${resolver.tr('email')}: ${resolver.bidiIsolate(partner.email ?? "-")}', style: const pw.TextStyle(fontSize: 9))),
+                          pw.Expanded(child: pw.Text('${resolver.tr('website')}: ${resolver.bidiIsolate(partner.website ?? "-")}', style: const pw.TextStyle(fontSize: 9))),
                         ],
                       ),
                     ],
@@ -905,11 +1324,18 @@ Sorour Logistics ERP
 
                 pw.Spacer(),
 
+                // Sign-off
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('تاريخ الطباعة: ${DateTime.now().toString().substring(0, 19)}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                    pw.Text('Sorour Logistics ERP Enterprise System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                    pw.Text(
+                      '${resolver.tr('print_date')} ${resolver.formatDate(DateTime.now())}',
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                    ),
+                    pw.Text(
+                      resolver.tr('erp_title'),
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                    ),
                   ],
                 ),
               ],
@@ -919,84 +1345,59 @@ Sorour Logistics ERP
       ),
     );
 
+    final printDocName = resolver.buildFileName(
+      prefixKey: 'partner_file_name_prefix',
+      identifier: partner.partnerCode,
+      extension: 'pdf',
+    );
+
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
-      name: FileSaveHelper.sanitizeFileName(
-        partner.partnerName.trim().isNotEmpty
-            ? partner.partnerName.trim()
-            : partner.partnerCode,
-      ),
+      name: printDocName,
     );
   }
 
-  static Future<String?> exportPartnerToExcel(BuildContext context, PartnerModel partner) async {
-    final buffer = StringBuffer();
-    buffer.write('\uFEFF');
-
-    buffer.writeln('Sorour Logistics ERP — بطاقة بيانات الشريك ومقدم الخدمات');
-    buffer.writeln('كود الشريك,${partner.partnerCode}');
-    buffer.writeln('اسم الشريك / البنك,"${partner.partnerName.replaceAll('"', '""')}"');
-    buffer.writeln('تصنيف الخدمات,"${partner.partnerType.replaceAll('"', '""')}"');
-    buffer.writeln('الدولة,${partner.country}');
-    buffer.writeln('حالة السجل,${partner.isActive ? "نشط" : "غير نشط"}');
-    buffer.writeln('التقييم العام,${partner.rating} / 5.0');
-    buffer.writeln('');
-
-    buffer.writeln('--- الأكواد والتراخيص والبيانات الرقابية ---');
-    buffer.writeln('كود السويفت (SWIFT),${partner.swiftCode ?? "-"}');
-    buffer.writeln('كود الناقل الملاحي (SCAC),${partner.scacCode ?? "-"}');
-    buffer.writeln('رقم رخصة التخليص,${partner.clearanceLicenseNumber ?? "-"}');
-    buffer.writeln('الموانئ المرخصة,"${(partner.authorizedPorts ?? "-").replaceAll('"', '""')}"');
-    buffer.writeln('أيام السماح الافتراضية (Default Free Days),${partner.defaultFreeDays ?? "-"}');
-    buffer.writeln('معرّف FIATA,${partner.fiataId ?? "-"}');
-    buffer.writeln('أنماط الشحن,"${(partner.shippingModes ?? "-").replaceAll('"', '""')}"');
-    buffer.writeln('العملات المدعومة,"${(partner.supportedCurrencies ?? "-").replaceAll('"', '""')}"');
-    buffer.writeln('رقم رخصة النقل الداخلي,${partner.transportLicenseNumber ?? "-"}');
-    buffer.writeln('أنواع أسطول النقل,"${(partner.fleetTypes ?? "-").replaceAll('"', '""')}"');
-    buffer.writeln('مناطق التغطية الجغرافية,"${(partner.coverageAreas ?? "-").replaceAll('"', '""')}"');
-    buffer.writeln('رقم رخصة التأمين,${partner.insuranceLicenseNumber ?? "-"}');
-    buffer.writeln('تغطيات التأمين,"${(partner.insuranceCoverageTypes ?? "-").replaceAll('"', '""')}"');
-    buffer.writeln('رقم اعتماد الفحص,${partner.inspectionAccreditationNumber ?? "-"}');
-    buffer.writeln('نطاق الفحص,"${(partner.inspectionScope ?? "-").replaceAll('"', '""')}"');
-    buffer.writeln('السجل التجاري,${partner.commercialRegister ?? "-"}');
-    buffer.writeln('البطاقة الضريبية,${partner.taxId ?? "-"}');
-    buffer.writeln('');
-
-    buffer.writeln('--- شروط السداد والائتمان والحسابات ---');
-    buffer.writeln('نوع السداد,${partner.paymentType}');
-    buffer.writeln('الحد الائتماني,${partner.creditLimit}');
-    buffer.writeln('كود البنك,${partner.bankCode ?? "-"}');
-    buffer.writeln('اسم الفرع,${partner.branchName ?? "-"}');
-    buffer.writeln('');
-
-    buffer.writeln('--- بيانات التواصل والعنوان ---');
-    buffer.writeln('مسؤول الاتصال,${partner.contactPerson ?? "-"}');
-    buffer.writeln('الهاتف,${partner.phone ?? "-"}');
-    buffer.writeln('الموبايل,${partner.mobile ?? "-"}');
-    buffer.writeln('الفاكس,${partner.fax ?? "-"}');
-    buffer.writeln('البريد الإلكتروني,${partner.email ?? "-"}');
-    buffer.writeln('البريد الإلكتروني الإضافي,${partner.secondaryEmail ?? "-"}');
-    buffer.writeln('الموقع الإلكتروني,${partner.website ?? "-"}');
-    buffer.writeln('رابط التتبع,${partner.trackingUrl ?? "-"}');
-    buffer.writeln('العنوان,"${(partner.address ?? "-").replaceAll('"', '""')}"');
-
-    if (partner.notes != null && partner.notes!.isNotEmpty) {
-      buffer.writeln('');
-      buffer.writeln('الملاحظات,"${partner.notes!.replaceAll('"', '""')}"');
-    }
-
-    final safeName = FileSaveHelper.sanitizeFileName(
-      partner.partnerName.trim().isNotEmpty
-          ? partner.partnerName.trim()
-          : partner.partnerCode,
+  static Future<String?> exportPartnerToExcel(
+    BuildContext context,
+    PartnerModel partner, {
+    ExportLanguage lang = ExportLanguage.ar,
+  }) async {
+    final resolver = ExportLanguageResolver(lang: lang);
+    final text = _buildPartnerCsvContent(partner, resolver, lang);
+    final filename = resolver.buildFileName(
+      prefixKey: 'partner_file_name_prefix',
+      identifier: partner.partnerCode,
+      extension: 'xlsx',
     );
-    final filename = '${safeName}_${_formatDate(DateTime.now())}.csv';
+
     return FileSaveHelper.saveText(
       context: context,
-      textContent: buffer.toString(),
+      textContent: text,
       defaultFileName: filename,
-      dialogTitle: 'حفظ بيانات الشريك بصيغة Excel / CSV',
-      allowedExtensions: ['csv', 'xlsx'],
+      dialogTitle: resolver.tr('save_excel_file_dialog_title'),
+      allowedExtensions: ['xlsx', 'csv'],
+    );
+  }
+
+  static Future<String?> exportPartnerToCsv(
+    BuildContext context,
+    PartnerModel partner, {
+    ExportLanguage lang = ExportLanguage.ar,
+  }) async {
+    final resolver = ExportLanguageResolver(lang: lang);
+    final text = _buildPartnerCsvContent(partner, resolver, lang);
+    final filename = resolver.buildFileName(
+      prefixKey: 'partner_file_name_prefix',
+      identifier: partner.partnerCode,
+      extension: 'csv',
+    );
+
+    return FileSaveHelper.saveText(
+      context: context,
+      textContent: text,
+      defaultFileName: filename,
+      dialogTitle: resolver.tr('save_csv_dialog_title'),
+      allowedExtensions: ['csv'],
     );
   }
 
@@ -1134,7 +1535,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -1184,7 +1585,7 @@ Sorour Logistics ERP
                         children: [
                           pw.Text(
                             incoterm.incotermName,
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#2C3E50')),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#0F386A')),
                           ),
                           pw.Container(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -1217,7 +1618,7 @@ Sorour Logistics ERP
                 // Responsibilities Table
                 pw.Text(
                   'مصفوفة توزيع بنود التكلفة والمسؤوليات التعاقدية:',
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50')),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#0F386A')),
                 ),
                 pw.SizedBox(height: 6),
                 if (termResponsibilities.isEmpty)
@@ -1438,7 +1839,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -1499,7 +1900,7 @@ Sorour Logistics ERP
                               ),
                               child: pw.Text(
                                 tariff.categoryLabelArabic ?? tariff.customsCategory!,
-                                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50')),
+                                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F386A')),
                               ),
                             ),
                         ],
@@ -1536,7 +1937,7 @@ Sorour Logistics ERP
                     ]
                   ],
                   headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.white),
-                  headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                  headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#0F386A')),
                   cellAlignment: pw.Alignment.center,
                   cellStyle: const pw.TextStyle(fontSize: 10),
                   cellPadding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
@@ -1733,7 +2134,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -1783,7 +2184,7 @@ Sorour Logistics ERP
                         children: [
                           pw.Text(
                             location.locationName,
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: PdfColor.fromHex('#2C3E50')),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: PdfColor.fromHex('#0F386A')),
                           ),
                           pw.Container(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1937,7 +2338,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -1987,7 +2388,7 @@ Sorour Logistics ERP
                         children: [
                           pw.Text(
                             currency.currencyName,
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: PdfColor.fromHex('#2C3E50')),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: PdfColor.fromHex('#0F386A')),
                           ),
                           pw.Container(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -2043,7 +2444,7 @@ Sorour Logistics ERP
                     children: [
                       pw.Text(
                         'أسعار الصرف الحالية المعتمدة:',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2C3E50')),
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#0F386A')),
                       ),
                       pw.SizedBox(height: 8),
                       pw.Row(
@@ -2104,7 +2505,7 @@ Sorour Logistics ERP
                 if (currency.exchangeRates != null && currency.exchangeRates!.isNotEmpty) ...[
                   pw.Text(
                     'السجل التاريخي لأسعار الصرف السابقة:',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2C3E50')),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#0F386A')),
                   ),
                   pw.SizedBox(height: 6),
                   pw.TableHelper.fromTextArray(
@@ -2120,7 +2521,7 @@ Sorour Logistics ERP
                       ];
                     }).toList(),
                     headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.white),
-                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#0F386A')),
                     cellAlignment: pw.Alignment.centerLeft,
                     cellStyle: const pw.TextStyle(fontSize: 8),
                     cellPadding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -2240,7 +2641,7 @@ Sorour Logistics ERP
       case 'RESTORE':
         return PdfColor.fromHex('#E67E22');
       default:
-        return PdfColor.fromHex('#2C3E50');
+        return PdfColor.fromHex('#0F386A');
     }
   }
 
@@ -2263,7 +2664,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(14),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
                   ),
                   child: pw.Row(
@@ -2463,7 +2864,7 @@ Sorour Logistics ERP
                   pw.Container(
                     padding: const pw.EdgeInsets.all(12),
                     decoration: pw.BoxDecoration(
-                      color: PdfColor.fromHex('#2C3E50'),
+                      color: PdfColor.fromHex('#0F386A'),
                       borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                     ),
                     child: pw.Row(
@@ -2498,7 +2899,7 @@ Sorour Logistics ERP
                       ];
                     }).toList(),
                     headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.white),
-                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#0F386A')),
                     cellAlignment: pw.Alignment.centerLeft,
                     cellStyle: const pw.TextStyle(fontSize: 8),
                     cellPadding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
@@ -2643,7 +3044,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -2713,7 +3114,7 @@ Sorour Logistics ERP
                         ],
                       ),
                       pw.SizedBox(height: 8),
-                      pw.Text('عنوان المهمة: ${task.title}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#2C3E50'))),
+                      pw.Text('عنوان المهمة: ${task.title}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#0F386A'))),
                       if (task.description != null && task.description!.isNotEmpty) ...[
                         pw.SizedBox(height: 6),
                         pw.Text('الوصف والمتطلبات: ${task.description}', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey800)),
@@ -2844,7 +3245,7 @@ Sorour Logistics ERP
                   pw.Container(
                     padding: const pw.EdgeInsets.all(12),
                     decoration: pw.BoxDecoration(
-                      color: PdfColor.fromHex('#2C3E50'),
+                      color: PdfColor.fromHex('#0F386A'),
                       borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                     ),
                     child: pw.Row(
@@ -2881,7 +3282,7 @@ Sorour Logistics ERP
                       ];
                     }).toList(),
                     headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.white),
-                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                    headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#0F386A')),
                     cellAlignment: pw.Alignment.centerLeft,
                     cellStyle: const pw.TextStyle(fontSize: 8),
                     cellPadding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
@@ -3347,7 +3748,7 @@ Sorour Logistics ERP
                   },
                   children: [
                     pw.TableRow(
-                      decoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                      decoration: pw.BoxDecoration(color: PdfColor.fromHex('#0F386A')),
                       children: headers.map((h) => pw.Padding(
                         padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 5),
                         child: pw.Text(
@@ -3369,7 +3770,7 @@ Sorour Logistics ERP
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-                            child: pw.Text(log.updateCode, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50')), textAlign: isAr ? pw.TextAlign.right : pw.TextAlign.left),
+                            child: pw.Text(log.updateCode, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F386A')), textAlign: isAr ? pw.TextAlign.right : pw.TextAlign.left),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
@@ -3456,7 +3857,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -3670,7 +4071,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -3800,7 +4201,7 @@ Sorour Logistics ERP
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -3965,7 +4366,7 @@ Sorour Logistics ERP
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('${isAr ? "المقيّم المسؤول" : "Assessed By"}: ${req.assessedBy}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50'))),
+                    pw.Text('${isAr ? "المقيّم المسؤول" : "Assessed By"}: ${req.assessedBy}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F386A'))),
                     pw.Text('${isAr ? "تاريخ التقييم" : "Date"}: ${req.createdAt.toString().split(".")[0]}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
                     pw.Text(isAr ? 'سرور للخدمات اللوجستية — نظام الالتزام الاستيرادي' : 'Sorour Logistics ERP System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
                   ],
@@ -4113,7 +4514,7 @@ _Generated via Sorour Logistics ERP_
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -4247,7 +4648,7 @@ _Generated via Sorour Logistics ERP_
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('#2C3E50'),
+                    color: PdfColor.fromHex('#0F386A'),
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Row(
@@ -4451,7 +4852,7 @@ _Generated via Sorour Logistics ERP_
                   children: [
                     pw.Text(
                       isAr ? 'قسم اللوجستيات وحسابات الشحن — اعتماد المحاسب المسؤول' : 'Logistics & Freight Accounting — Verified by Operations',
-                      style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50')),
+                      style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0F386A')),
                     ),
                     pw.Text(
                       '${isAr ? "تاريخ الإصدار" : "Issued"}: ${DateTime.now().toString().split(".")[0]}',

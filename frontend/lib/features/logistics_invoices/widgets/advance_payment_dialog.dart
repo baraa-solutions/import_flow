@@ -100,6 +100,7 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -117,7 +118,7 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
                   const Icon(Icons.payments_outlined, color: AppTheme.cobalt, size: 24),
                   const SizedBox(width: 10),
                   Text(
-                    'Record Clearance Advance Payment (عهدة المخلص)',
+                    isArabic ? 'تسجيل دفعة / عهدة مخلص جمركي' : 'Record Clearance Advance Payment',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -134,16 +135,24 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
                   Expanded(
                     child: TextFormField(
                       controller: _shipmentIdCtrl,
-                      decoration: const InputDecoration(labelText: 'Shipment ID *', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'رقم الشحنة *' : 'Shipment ID *',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
                       keyboardType: TextInputType.number,
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                      validator: (v) => v == null || v.isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextFormField(
                       controller: _blNumberCtrl,
-                      decoration: const InputDecoration(labelText: 'B/L Number', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'رقم البوليصة' : 'B/L Number',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
                     ),
                   ),
                 ],
@@ -155,7 +164,11 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
                     flex: 1,
                     child: TextFormField(
                       controller: _partnerIdCtrl,
-                      decoration: const InputDecoration(labelText: 'Partner ID *', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'معرف المخلص *' : 'Partner ID *',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
                       keyboardType: TextInputType.number,
                     ),
                   ),
@@ -164,8 +177,12 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
                     flex: 2,
                     child: TextFormField(
                       controller: _partnerNameCtrl,
-                      decoration: const InputDecoration(labelText: 'Broker / Partner Name *', isDense: true, border: OutlineInputBorder()),
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'اسم المخلص الجمركي *' : 'Broker / Partner Name *',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                      validator: (v) => v == null || v.isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
                     ),
                   ),
                 ],
@@ -177,10 +194,14 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
                     flex: 2,
                     child: TextFormField(
                       controller: _amountCtrl,
-                      decoration: const InputDecoration(labelText: 'Advance Amount *', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'مبلغ العهدة *' : 'Advance Amount *',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() {}),
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                      validator: (v) => v == null || v.isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -188,7 +209,11 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
                     flex: 1,
                     child: DropdownButtonFormField<String>(
                       initialValue: _currency,
-                      decoration: const InputDecoration(labelText: 'Currency', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(
+                        labelText: isArabic ? 'العملة' : 'Currency',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
                       items: const [
                         DropdownMenuItem(value: 'EGP', child: Text('EGP')),
                         DropdownMenuItem(value: 'USD', child: Text('USD')),
@@ -209,9 +234,12 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total Advance (EGP):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                     Text(
-                      '${_amountEgp.toStringAsFixed(2)} EGP',
+                      isArabic ? 'إجمالي العهدة (ج.م):' : 'Total Advance (EGP):',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '${_amountEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                     ),
                   ],
@@ -220,17 +248,24 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _notesCtrl,
-                decoration: const InputDecoration(labelText: 'Notes / Custody Purpose', isDense: true, border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'ملاحظات / الغرض من العهدة' : 'Notes / Custody Purpose',
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                ),
                 maxLines: 2,
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+                  ),
                   const SizedBox(width: 10),
                   AppButton(
-                    label: 'Disburse Advance',
+                    label: isArabic ? 'صرف العهدة' : 'Disburse Advance',
                     variant: AppButtonVariant.primary,
                     icon: Icons.check,
                     isLoading: _isLoading,

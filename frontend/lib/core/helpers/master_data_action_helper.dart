@@ -3,16 +3,19 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/api_constants.dart';
+import '../export/export_language.dart';
+import '../export/widgets/export_language_dialog.dart';
 import '../localization/app_localizations.dart';
 import '../network/dio_client.dart';
 import '../services/file_save_helper.dart';
 import '../theme/app_theme.dart';
 
-/// Central helper for Master Data operations (Excel/PDF Export, Template Download, Excel Import)
+/// Central helper for Master Data operations (CSV/Excel/PDF Export, Template Download, Excel Import)
 /// designed to be seamlessly integrated with [ActionToolbar] across all Type B screens.
 class MasterDataActionHelper {
-  /// Downloads a file (Excel report, PDF report, or Excel template) from the backend
+  /// Downloads a file (CSV report, Excel report, PDF report, or Excel template) from the backend
   /// and prompts the user to choose the save location via [FileSaveHelper.saveBytes].
+  /// Automatically prompts [ExportLanguageDialog] for export actions unless bypassed.
   static Future<void> downloadFile({
     required BuildContext context,
     required WidgetRef ref,
@@ -20,9 +23,23 @@ class MasterDataActionHelper {
     required String actionEndpoint,
     required String defaultFileName,
     required String dialogTitle,
+    ExportLanguage? lang,
   }) async {
+    final isExport = actionEndpoint.contains('export');
+    ExportLanguage? selectedLang = lang;
+    if (isExport && selectedLang == null) {
+      selectedLang = await ExportLanguageDialog.show(context);
+      if (selectedLang == null) {
+        // User cancelled or dismissed language selection dialog
+        return;
+      }
+    }
+
     final cleanEndpoint = moduleEndpoint.startsWith('/') ? moduleEndpoint.substring(1) : moduleEndpoint;
-    final url = '${ApiConstants.baseUrl}/$cleanEndpoint/$actionEndpoint';
+    String url = '${ApiConstants.baseUrl}/$cleanEndpoint/$actionEndpoint';
+    if (selectedLang != null) {
+      url = '$url?lang=${selectedLang.code}';
+    }
 
     try {
       final dio = ref.read(dioProvider);
@@ -57,12 +74,14 @@ class MasterDataActionHelper {
           }
         }
 
+        final isPdf = resolvedFileName.endsWith('.pdf');
+        final isCsv = resolvedFileName.endsWith('.csv');
         await FileSaveHelper.saveBytes(
           context: context,
           bytes: response.data as List<int>,
           defaultFileName: resolvedFileName,
           dialogTitle: dialogTitle,
-          allowedExtensions: resolvedFileName.endsWith('.pdf') ? ['pdf'] : ['xlsx', 'csv', 'xls'],
+          allowedExtensions: isPdf ? ['pdf'] : (isCsv ? ['csv'] : ['xlsx', 'csv', 'xls']),
         );
       }
     } catch (e) {
@@ -209,6 +228,16 @@ class MasterDataActionHelper {
 
     return [
       PopupMenuItem(
+        value: 'export_csv',
+        child: Row(
+          children: [
+            const Icon(Icons.description_outlined, color: AppTheme.cobalt, size: 16),
+            const SizedBox(width: 8),
+            Text(isArabic ? 'تصدير ملف (CSV)' : 'Export CSV', style: const TextStyle(fontSize: 12.5)),
+          ],
+        ),
+      ),
+      PopupMenuItem(
         value: 'export_excel',
         child: Row(
           children: [
@@ -262,5 +291,78 @@ class MasterDataActionHelper {
         ),
       ),
     ];
+  }
+
+  /// Dispatches standard More Actions ('export_csv', 'export_excel', 'export_pdf', 'copy_tsv', 'download_template', 'import_excel')
+  /// with unified language dialog prompting and error handling.
+  static Future<void> handleStandardAction({
+    required BuildContext context,
+    required WidgetRef ref,
+    required String actionValue,
+    required String moduleEndpoint,
+    required String entityNameAr,
+    required String entityNameEn,
+    required String entityFilePrefix,
+    VoidCallback? onImportSuccess,
+    VoidCallback? onCopyTsv,
+  }) async {
+    final isArabic = Directionality.of(context) == TextDirection.rtl;
+    final entityName = isArabic ? entityNameAr : entityNameEn;
+    switch (actionValue) {
+      case 'export_csv':
+        await downloadFile(
+          context: context,
+          ref: ref,
+          moduleEndpoint: moduleEndpoint,
+          actionEndpoint: 'export-csv',
+          defaultFileName: '${entityFilePrefix}_Report.csv',
+          dialogTitle: isArabic ? 'تصدير $entityName CSV' : 'Export $entityName CSV',
+        );
+        break;
+      case 'export_excel':
+        await downloadFile(
+          context: context,
+          ref: ref,
+          moduleEndpoint: moduleEndpoint,
+          actionEndpoint: 'export-excel',
+          defaultFileName: '${entityFilePrefix}_Report.xlsx',
+          dialogTitle: isArabic ? 'تصدير $entityName إكسيل' : 'Export $entityName Excel',
+        );
+        break;
+      case 'export_pdf':
+        await downloadFile(
+          context: context,
+          ref: ref,
+          moduleEndpoint: moduleEndpoint,
+          actionEndpoint: 'export-pdf',
+          defaultFileName: '${entityFilePrefix}_Report.pdf',
+          dialogTitle: isArabic ? 'تصدير $entityName PDF' : 'Export $entityName PDF',
+        );
+        break;
+      case 'copy_tsv':
+        onCopyTsv?.call();
+        break;
+      case 'download_template':
+        final isTariff = moduleEndpoint.contains('customs-tariff');
+        await downloadFile(
+          context: context,
+          ref: ref,
+          moduleEndpoint: moduleEndpoint,
+          actionEndpoint: isTariff ? 'export-template' : 'excel-template',
+          defaultFileName: '${entityFilePrefix}_Template.xlsx',
+          dialogTitle: isArabic ? 'تنزيل نموذج $entityName' : 'Download $entityName Template',
+        );
+        break;
+      case 'import_excel':
+        if (onImportSuccess != null) {
+          await importExcel(
+            context: context,
+            ref: ref,
+            moduleEndpoint: moduleEndpoint,
+            onImportSuccess: onImportSuccess,
+          );
+        }
+        break;
+    }
   }
 }

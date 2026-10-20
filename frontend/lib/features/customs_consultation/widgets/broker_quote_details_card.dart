@@ -94,15 +94,15 @@ class BrokerQuoteDetailsCard extends ConsumerWidget {
 
     // Currency totals (M2-2 Multi-Currency)
     final egpTotal = brokerQuoteItems
-        .where((i) => i.isApplicable && i.currency.toUpperCase() == 'EGP')
+        .where((i) => i.isApplicable && (i.currency ?? '').toUpperCase() == 'EGP')
         .fold(0.0, (sum, itm) => sum + itm.totalAmount);
 
     final usdTotal = brokerQuoteItems
-        .where((i) => i.isApplicable && i.currency.toUpperCase() == 'USD')
+        .where((i) => i.isApplicable && (i.currency ?? '').toUpperCase() == 'USD')
         .fold(0.0, (sum, itm) => sum + itm.totalAmount);
 
     final otherCurrenciesTotal = brokerQuoteItems
-        .where((i) => i.isApplicable && i.currency.toUpperCase() != 'EGP' && i.currency.toUpperCase() != 'USD')
+        .where((i) => i.isApplicable && (i.currency ?? '').toUpperCase() != 'EGP' && (i.currency ?? '').toUpperCase() != 'USD')
         .fold(0.0, (sum, itm) => sum + itm.totalAmount);
 
     final hasUsdRate = referenceUsdExchangeRate != null && referenceUsdExchangeRate! > 0;
