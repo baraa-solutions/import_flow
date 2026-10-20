@@ -30,14 +30,12 @@ def db():
     session.add_all([
         ExternalServiceProvider(provider_id=1, partner_code="FF-001", partner_name="Forwarder One", partner_type="Freight Forwarder"),
         ExternalServiceProvider(provider_id=2, partner_code="FF-002", partner_name="Forwarder Two", partner_type="Freight Forwarder"),
-        Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True),
-        Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True),
-        Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="E£", is_active=True),
     ])
     from modules.currencies.model import Currency, ExchangeRate
     session.add_all([
         Currency(currency_id=1, currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="EGP", is_base_currency=True, decimal_places=2, is_active=True),
         Currency(currency_id=2, currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_base_currency=False, decimal_places=2, is_active=True),
+        Currency(currency_id=3, currency_code="EUR", currency_name="Euro", currency_symbol="€", is_base_currency=False, decimal_places=2, is_active=True),
         ExchangeRate(rate_id=1, currency_id=2, commercial_rate=50.0, customs_rate=50.0, effective_date=date(2020, 1, 1), is_active=True),
     ])
     session.commit()
@@ -402,6 +400,7 @@ class TestShippingScenariosBackend:
                     free_time_days=21,
                     container_40ft_applicable=True,
                     container_40ft_price=3200.0,
+                    container_40ft_currency="USD",
                     container_40ft_qty=1,
                     total_quotation_amount=3200.0,
                     quotation_currency="USD",

@@ -29,6 +29,14 @@ def db_session():
     Session = sessionmaker(bind=engine)
     session = Session()
 
+    # ACC2-T07: a paid request records its realised EGP at the commercial rate of the receipt date.
+    from modules.currencies.model import Currency, ExchangeRate
+    usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    session.add(usd)
+    session.flush()
+    session.add(ExchangeRate(currency_id=usd.currency_id, commercial_rate=50.0, customs_rate=50.0,
+                             effective_date=date(2026, 1, 1), is_active=True))
+
     pay = PaymentRequestSession(
         payment_id=10,
         payment_code="PAY-2026-010",
