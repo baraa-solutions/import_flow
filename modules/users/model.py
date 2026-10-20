@@ -86,6 +86,7 @@ class User(Base):
     # True for the seeded default admin: every authenticated route except the auth/me ones answers
     # 403 PASSWORD_CHANGE_REQUIRED until POST /api/v1/auth/me/change-password clears it.
     must_change_password = Column(Boolean, default=False, server_default=text("0"), nullable=False)
+    token_version = Column(Integer, default=0, server_default=text("0"), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 

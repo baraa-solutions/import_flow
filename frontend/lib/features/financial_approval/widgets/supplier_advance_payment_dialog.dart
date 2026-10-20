@@ -112,7 +112,7 @@ class _SupplierAdvancePaymentDialogState
   @override
   void initState() {
     super.initState();
-    _currency = widget.currency.isNotEmpty ? widget.currency : 'USD';
+    _currency = widget.currency;
     _selectedSupplierId = widget.supplierId;
     _primaryPoId = widget.poId;
     _basePoAmount = widget.totalAmountForeign ?? 0.0;
@@ -192,15 +192,9 @@ class _SupplierAdvancePaymentDialogState
       double poTotal = 0.0;
       if (prefill != null && prefill.totalInvoiceAmount > 0) {
         poTotal = prefill.totalInvoiceAmount;
-      } else if (linkedPOs.isNotEmpty) {
-        for (final p in linkedPOs) {
-          poTotal += p.totalAmountFob > 0
-              ? p.totalAmountFob
-              : p.items
-                  .fold(0.0, (sum, it) => sum + (it.quantity * it.unitPrice));
-        }
       } else if (widget.totalAmountForeign != null &&
-          widget.totalAmountForeign! > 0) {
+          widget.totalAmountForeign! > 0 &&
+          widget.currency.isNotEmpty) {
         poTotal = widget.totalAmountForeign!;
       }
 

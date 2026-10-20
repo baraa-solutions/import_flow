@@ -12,12 +12,12 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 
 | # | Task id | Scope | Sev | Title | Depends on | Migration | API change | Safe for Antigravity | Report link | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1 | BEW0-01 | currencies, customs_tariff | BLOCKER | Shared FX resolver, no fabricated rates (merges BEX-T07 + BE67-T03) | none | no | yes: 409 `CURRENCY_RATE_MISSING`, 404 `CURRENCY_NOT_FOUND`, 422 `CT_CUSTOMS_RATE_MISSING` | review required | [README §6](README.md), [be-cross](be-cross-review.md), [be-06-07](be-06-07-review.md) | todo |
+| 1 | BEW0-01 | currencies, customs_tariff | BLOCKER | Shared FX resolver, no fabricated rates (merges BEX-T07 + BE67-T03) | none | no | yes: 409 `CURRENCY_RATE_MISSING`, 404 `CURRENCY_NOT_FOUND`, 422 `CT_CUSTOMS_RATE_MISSING` | review required | [README §6](README.md), [be-cross](be-cross-review.md), [be-06-07](be-06-07-review.md) | done (PR #18) |
 | 2 | BEW0-06 | financial_settlement, customs_clearance | BLOCKER | Settlement external-write gate: lock + engine totals (merges BE67-T05 + BE09-T04) | none | no | yes: 409 `CC_SETTLEMENT_LOCKED` | review required | [README §6](README.md), [be-06-07](be-06-07-review.md), [be-09](be-09-review.md) | todo |
 | 3 | BEW0-03 | common | BLOCKER | Closed-file guard `ensure_file_open` + code `IMPORT_FILE_CLOSED` | none | no | yes: new code | yes | [README §6](README.md), [be-08-10](be-08-10-review.md) | done |
-| 4 | BEW0-02 | common | MAJOR | Currency master validation helper `require_currency_code` | none | no | no (helper only) | yes | [README §6](README.md) | todo |
-| 5 | BEW0-04 | common, import_files | MAJOR | List paging helper + `/paginated` contract, harden `/import-files/paginated` (was BEX-T13) | none | no | additive: `sort`, `q`, bounds, `X-Total-Count` | yes | [README §11](README.md), [be-cross](be-cross-review.md) | todo |
-| 6 | BEW0-05 | ~25 tables (models) | MAJOR | One Alembic revision: audit + soft-delete columns for all modules | none | **yes** | additive (nullable fields) | review required | [README §6](README.md) | todo |
+| 4 | BEW0-02 | common | MAJOR | Currency master validation helper `require_currency_code` | none | no | no (helper only) | yes | [README §6](README.md) | done (PR #13) |
+| 5 | BEW0-04 | common, import_files | MAJOR | List paging helper + `/paginated` contract, harden `/import-files/paginated` (was BEX-T13) | none | no | additive: `sort`, `q`, bounds, `X-Total-Count` | yes | [README §11](README.md), [be-cross](be-cross-review.md) | done (PR #15) |
+| 6 | BEW0-05 | ~25 tables (models) | MAJOR | One Alembic revision: audit + soft-delete columns for all modules | none | **yes** | additive (nullable fields) | review required | [README §6](README.md) | done (PR #19) |
 
 ## Wave 1: BLOCKER + CRITICAL
 
@@ -43,10 +43,10 @@ migration was moved into the shared migration task. Status: `todo` / `in progres
 | 24 | BE03-T03 | smart_document_upload | BLOCKER | Smart-upload invoice apply is idempotent, does not overwrite the estimate | none | no | yes: `SDU_INVOICE_NUMBER_REQUIRED` | review required | [be-03](be-03-review.md) | done (PR #57) |
 | 25 | BE03-T01 | import_documentation (+FE tab) | BLOCKER | PO final adjustment applies each PO line once | none | no | yes: packing semantics, 400 duplicate line, `total_final_amount_by_currency` | review required | [be-03](be-03-review.md) | done (PR #58) |
 | 26 | BE67-T06 | customs_clearance | BLOCKER | "Assessed" means CL-02 really ran; no negative money on create / PUT | none | no | yes: claim fields ignored, 409 `CC_DUTY_NOT_ASSESSED` | review required | [be-06-07](be-06-07-review.md) | done |
-| 27 | BEX-T10 | projects, import_files | BLOCKER | Money aggregates in one currency (project commitments, master report) | BEW0-01 | no | yes: nullable USD totals, `missing_rate_currencies`, `estimated_cost_by_currency` | review required | [be-cross](be-cross-review.md) | todo |
+| 27 | BEX-T10 | projects, import_files | BLOCKER | Money aggregates in one currency (project commitments, master report) | BEW0-01 | no | yes: nullable USD totals, `missing_rate_currencies`, `estimated_cost_by_currency` | review required | [be-cross](be-cross-review.md) | done (PR #62) |
 | 28 | BE67-T01 | customs_tariff | BLOCKER | Permissions on all customs_tariff routes + route order | none | no | yes: 403; fee-codes / template reachable | review required | [be-06-07](be-06-07-review.md) | todo |
 | 29 | BEX-T01 | lifecycle_board | BLOCKER | Board permissions, acting user, file and status guards | none | no | yes: 403, `LC_*` codes | review required | [be-cross](be-cross-review.md) | done (PR #64) |
-| 30 | BEX-T08 | auth, users | BLOCKER | Revocation loaded at startup, token version, login limiter, small auth fixes | none | **yes** (`users.token_version`) | yes: token `tv`, refresh revokes old token | review required | [be-cross](be-cross-review.md) | todo |
+| 30 | BEX-T08 | auth, users | BLOCKER | Revocation loaded at startup, token version, login limiter, small auth fixes | none | **yes** (`users.token_version`) | yes: token `tv`, refresh revokes old token | review required | [be-cross](be-cross-review.md) | done |
 | 31 | BEX-T04 | auth seed, currencies, incoterms | BLOCKER | Master data permissions (A) + `master_data.edit` grant | Q1 | no | yes: 403; responsibility soft delete | review required | [be-cross](be-cross-review.md) | todo |
 | 32 | BEX-T05 | projects, transport_locations, expense_catalog | BLOCKER | Master data permissions (B) | BEX-T04 | no | yes: 403 | review required | [be-cross](be-cross-review.md) | todo |
 | 33 | BEX-T06 | suppliers, import_companies, external_service_providers | BLOCKER | Master data permissions (C) + actor on create / update | BEX-T04 | no | yes: 403 | review required | [be-cross](be-cross-review.md) | todo |

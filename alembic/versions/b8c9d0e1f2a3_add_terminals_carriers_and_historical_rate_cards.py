@@ -30,9 +30,10 @@ def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
     tables = set(inspector.get_table_names())
+    should_seed = "terminals" not in tables
 
     # 1. terminals
-    if "terminals" not in tables:
+    if should_seed:
         op.create_table(
             "terminals",
             sa.Column("terminal_id", sa.Integer(), autoincrement=True, nullable=False),
@@ -146,7 +147,8 @@ def upgrade() -> None:
                 batch_op.add_column(sa.Column("ancillary_fees", sa.JSON(), server_default="[]", nullable=False))
 
     # 6. Seed Baseline Data for Terminals, Carriers, and Rates
-    _seed_initial_data()
+    if should_seed:
+        _seed_initial_data()
 
 
 def _seed_initial_data() -> None:

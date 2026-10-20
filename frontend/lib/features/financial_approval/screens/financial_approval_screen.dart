@@ -108,7 +108,25 @@ class _FinancialApprovalScreenState
       TextEditingController();
   final TextEditingController _bgtExchangeRateController =
       TextEditingController();
+  final TextEditingController _bgtFreightRateController =
+      TextEditingController();
   final TextEditingController _bgtNotesController = TextEditingController();
+
+  PaymentRequestModel? get _openSameTypeRequest {
+    if (_paySelectedImportFileId == null) return null;
+    final payments = ref.read(paymentRequestsProvider).valueOrNull ?? [];
+    final targetType = FinancialUi.normalizePaymentType(_paymentType);
+    return payments.where((p) {
+      if (p.importFileId != _paySelectedImportFileId) return false;
+      if (!p.isActive) return false;
+      if (p.paymentId == _editingPaymentId) return false;
+      if (FinancialUi.normalizePaymentType(p.paymentType) != targetType) {
+        return false;
+      }
+      const openStatuses = {'Draft', 'Pending Approval', 'Approved'};
+      return openStatuses.contains(p.status);
+    }).firstOrNull;
+  }
 
   String _bgtInvoiceCurrency = 'USD';
   String _bgtFreightCurrency = 'USD';
@@ -200,6 +218,14 @@ class _FinancialApprovalScreenState
     return null;
   }
 
+  String? _validateFreightExchangeRate(String? v) {
+    final frt = double.tryParse(_freightForeignController.text.trim()) ?? 0;
+    if (frt <= 0) return null;
+    final r = double.tryParse((v ?? '').trim());
+    if (r == null || r <= 0) return context.l10n.faExchangeRateInvalid;
+    return null;
+  }
+
   void _warnFxMissing(String currency) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -276,6 +302,7 @@ class _FinancialApprovalScreenState
     _customsEgpController.dispose();
     _clearanceEgpController.dispose();
     _bgtExchangeRateController.dispose();
+    _bgtFreightRateController.dispose();
     _bgtNotesController.dispose();
     super.dispose();
   }
@@ -290,58 +317,6 @@ class _FinancialApprovalScreenState
       return;
     }
 
-    // Check for existing Payment Request duplicate
-    final existingList = ref.read(paymentRequestsProvider).valueOrNull ?? [];
-    final existing = existingList
-        .where((p) =>
-            p.importFileId == fileId &&
-            p.isActive &&
-            p.paymentId != _editingPaymentId)
-        .firstOrNull;
-    if (existing != null) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded, color: AppTheme.orange),
-                const SizedBox(width: 8),
-                Text(context.l10n.duplicatePaymentRequestTitle),
-              ],
-            ),
-            content: Text(
-              context.l10n.duplicatePaymentRequestMessage(
-                  existing.paymentCode, existing.title),
-            ),
-            actions: [
-              AppButton(
-                label: context.l10n.cancelSelection,
-                variant: AppButtonVariant.secondary,
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  setState(() {
-                    _paySelectedImportFileId = null;
-                    _payPrefillData = null;
-                  });
-                },
-              ),
-              AppButton(
-                label: context.l10n.viewAndEditPaymentRequest,
-                variant: AppButtonVariant.primary,
-                icon: Icons.visibility,
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _showPaymentDetailsDialog(existing);
-                },
-              ),
-            ],
-          ),
-        );
-      }
-      return;
-    }
-
     setState(() {
       _paySelectedImportFileId = fileId;
       _isLoadingPayPrefill = true;
@@ -352,52 +327,20 @@ class _FinancialApprovalScreenState
       final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
       final impFile =
           importFiles.where((f) => f.importFileId == fileId).firstOrNull;
-      final poList = ref.read(purchaseOrdersProvider).purchaseOrders;
-      final linkedPOs = poList
-          .where((po) =>
-              po.importFileId == fileId ||
-              (impFile?.poIds?.contains(po.poId) ?? false))
-          .toList();
-      final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
 
-      // Calculate total invoices from linked POs or invoicesData or estimatedCost
+      // Use server prefill only (FE02-T07)
       double calculatedInvoiceAmount = 0.0;
-      String calculatedCurrency = 'USD';
+      String calculatedCurrency = _currencyCode;
 
       if (prefill != null && prefill.totalInvoiceAmount > 0) {
         calculatedInvoiceAmount = prefill.totalInvoiceAmount;
-        calculatedCurrency = prefill.invoiceCurrency.isNotEmpty
-            ? prefill.invoiceCurrency
-            : 'USD';
-      } else if (linkedPOs.isNotEmpty) {
-        for (final po in linkedPOs) {
-          final amt = po.totalAmountFob > 0
-              ? po.totalAmountFob
-              : po.items.fold(0.0, (s, it) => s + (it.quantity * it.unitPrice));
-          calculatedInvoiceAmount += amt;
-          final curr = currencies
-              .where((c) => c.currencyId == po.currencyId)
-              .firstOrNull;
-          if (curr != null) {
-            calculatedCurrency = curr.currencyCode;
-          }
-        }
-      } else if (impFile != null && impFile.invoicesData.isNotEmpty) {
-        for (final inv in impFile.invoicesData) {
-          calculatedInvoiceAmount += inv.amount;
-          if (inv.currency.isNotEmpty) calculatedCurrency = inv.currency;
-        }
-      } else if (impFile != null && impFile.estimatedCost > 0) {
-        calculatedInvoiceAmount = impFile.estimatedCost;
-        if (impFile.estimatedCostCurrency.isNotEmpty) {
-          calculatedCurrency = impFile.estimatedCostCurrency;
+        if (prefill.invoiceCurrency.isNotEmpty) {
+          calculatedCurrency = prefill.invoiceCurrency;
         }
       }
 
       final suppliersList = ref.read(suppliersProvider).valueOrNull ?? [];
-      final targetSupId = impFile?.supplierId ??
-          prefill?.supplierId ??
-          (linkedPOs.isNotEmpty ? linkedPOs.first.supplierId : null);
+      final targetSupId = impFile?.supplierId ?? prefill?.supplierId;
       final supObj = suppliersList
           .where((s) =>
               (targetSupId != null && s.supplierId == targetSupId) ||
@@ -556,44 +499,15 @@ class _FinancialApprovalScreenState
       final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
       final impFile =
           importFiles.where((f) => f.importFileId == fileId).firstOrNull;
-      final poList = ref.read(purchaseOrdersProvider).purchaseOrders;
-      final linkedPOs = poList
-          .where((po) =>
-              po.importFileId == fileId ||
-              (impFile?.poIds?.contains(po.poId) ?? false))
-          .toList();
-      final currencies = ref.read(currenciesProvider).valueOrNull ?? [];
 
+      // Use server prefill only (FE02-T07)
       double calculatedInvoiceAmount = 0.0;
-      String calculatedCurrency = 'USD';
+      String calculatedCurrency = _bgtInvoiceCurrency;
 
       if (prefill != null && prefill.totalInvoiceAmount > 0) {
         calculatedInvoiceAmount = prefill.totalInvoiceAmount;
-        calculatedCurrency = prefill.invoiceCurrency.isNotEmpty
-            ? prefill.invoiceCurrency
-            : 'USD';
-      } else if (linkedPOs.isNotEmpty) {
-        for (final po in linkedPOs) {
-          final amt = po.totalAmountFob > 0
-              ? po.totalAmountFob
-              : po.items.fold(0.0, (s, it) => s + (it.quantity * it.unitPrice));
-          calculatedInvoiceAmount += amt;
-          final curr = currencies
-              .where((c) => c.currencyId == po.currencyId)
-              .firstOrNull;
-          if (curr != null) {
-            calculatedCurrency = curr.currencyCode;
-          }
-        }
-      } else if (impFile != null && impFile.invoicesData.isNotEmpty) {
-        for (final inv in impFile.invoicesData) {
-          calculatedInvoiceAmount += inv.amount;
-          if (inv.currency.isNotEmpty) calculatedCurrency = inv.currency;
-        }
-      } else if (impFile != null && impFile.estimatedCost > 0) {
-        calculatedInvoiceAmount = impFile.estimatedCost;
-        if (impFile.estimatedCostCurrency.isNotEmpty) {
-          calculatedCurrency = impFile.estimatedCostCurrency;
+        if (prefill.invoiceCurrency.isNotEmpty) {
+          calculatedCurrency = prefill.invoiceCurrency;
         }
       }
 
@@ -604,18 +518,22 @@ class _FinancialApprovalScreenState
             : (prefill != null && prefill.exchangeRate > 0
                 ? prefill.exchangeRate
                 : null);
-        if (effRate == null) _warnFxMissing(calculatedCurrency);
+        if (effRate == null && calculatedCurrency.isNotEmpty) {
+          _warnFxMissing(calculatedCurrency);
+        }
 
         final freightCost = prefill?.estimatedFreightCost ?? 0.0;
         final freightCurr =
             (prefill != null && prefill.freightCurrency.isNotEmpty)
                 ? prefill.freightCurrency
-                : 'USD';
-        final freightRate = _getExchangeRateForCurrency(freightCurr);
-        final freightEgp = freightCost *
-            ((freightRate != null && freightRate > 0)
-                ? freightRate
-                : (effRate ?? 0.0));
+                : _bgtFreightCurrency;
+        final freightRate = freightCurr == calculatedCurrency
+            ? effRate
+            : _getExchangeRateForCurrency(freightCurr);
+        if (freightRate == null && freightCurr.isNotEmpty && freightCost > 0) {
+          _warnFxMissing(freightCurr);
+        }
+        final freightEgp = freightCost * (freightRate ?? 0.0);
 
         final customsDutiesEgp = prefill?.estimatedCustomsDutiesEgp ?? 0.0;
         final clearanceFeesEgp = prefill?.estimatedClearanceFeesEgp ?? 0.0;
@@ -632,17 +550,28 @@ class _FinancialApprovalScreenState
 
           _invoiceForeignController.text = calculatedInvoiceAmount > 0
               ? calculatedInvoiceAmount.toStringAsFixed(2)
-              : '0.00';
+              : '';
           _bgtInvoiceCurrency = calculatedCurrency;
           _invoiceEgpController.text =
-              (calculatedInvoiceAmount * (effRate ?? 0.0)).toStringAsFixed(2);
+              (calculatedInvoiceAmount > 0 && effRate != null)
+                  ? (calculatedInvoiceAmount * effRate).toStringAsFixed(2)
+                  : '';
 
-          _freightForeignController.text = freightCost.toStringAsFixed(2);
+          _freightForeignController.text = freightCost > 0
+              ? freightCost.toStringAsFixed(2)
+              : '';
           _bgtFreightCurrency = freightCurr;
-          _freightEgpController.text = freightEgp.toStringAsFixed(2);
+          _bgtFreightRateController.text = _rateText(freightRate);
+          _freightEgpController.text = (freightCost > 0 && freightRate != null)
+              ? freightEgp.toStringAsFixed(2)
+              : '';
 
-          _customsEgpController.text = customsDutiesEgp.toStringAsFixed(2);
-          _clearanceEgpController.text = clearanceFeesEgp.toStringAsFixed(2);
+          _customsEgpController.text = customsDutiesEgp > 0
+              ? customsDutiesEgp.toStringAsFixed(2)
+              : '';
+          _clearanceEgpController.text = clearanceFeesEgp > 0
+              ? clearanceFeesEgp.toStringAsFixed(2)
+              : '';
           _bgtExchangeRateController.text = _rateText(effRate);
         });
       }
@@ -820,6 +749,15 @@ class _FinancialApprovalScreenState
       _invoiceEgpController.text = b.invoiceAmountEgp.toStringAsFixed(2);
       _freightForeignController.text = b.freightCostForeign.toStringAsFixed(2);
       _bgtFreightCurrency = b.freightCurrency;
+      if (b.freightCurrency == b.invoiceCurrency) {
+        _bgtFreightRateController.text = _rateText(b.exchangeRate);
+      } else {
+        final frtRate = _getExchangeRateForCurrency(b.freightCurrency);
+        _bgtFreightRateController.text = _rateText(frtRate ??
+            (b.freightCostForeign > 0 && b.freightCostEgp > 0
+                ? (b.freightCostEgp / b.freightCostForeign)
+                : null));
+      }
       _freightEgpController.text = b.freightCostEgp.toStringAsFixed(2);
       _customsEgpController.text = b.customsDutiesEgp.toStringAsFixed(2);
       _clearanceEgpController.text = b.clearanceInlandEgp.toStringAsFixed(2);
@@ -1225,7 +1163,7 @@ class _FinancialApprovalScreenState
             entityType: l.clonePaymentRequestDialogTitle,
             sourceCode: p.paymentCode,
             sourceTitle: p.title,
-            suggestedNewCode: '${p.paymentCode}-CLONE',
+            suggestedNewCode: l.autoGeneratedCode,
             copiedFieldsSummary: {
               l.beneficiarySupplierLabel: p.beneficiaryName ?? p.supplierName,
               l.requestedAmountLabel:
@@ -1249,47 +1187,18 @@ class _FinancialApprovalScreenState
               String? notes,
             }) async {
               try {
-                final payload = {
+                final payload = <String, dynamic>{
                   'new_title': newTitle,
                   'unlink_import_file': !copyLineItems,
-                  'remarks':
-                      notes ?? 'Cloned via Smart Financial Review Dialog',
+                  if (notes != null && notes.trim().isNotEmpty)
+                    'remarks': notes.trim(),
                 };
-                PaymentRequestModel? cloned;
-                try {
-                  cloned = await ref
-                      .read(paymentRequestsProvider.notifier)
-                      .clonePaymentRequest(p.paymentId, payload);
-                } catch (_) {
-                  // Fallback to client-side clone in Tab 0
-                }
+                final cloned = await ref
+                    .read(paymentRequestsProvider.notifier)
+                    .clonePaymentRequest(p.paymentId, payload);
 
-                if (mounted) {
-                  setState(() {
-                    _visitedTabs.add(0);
-                    _tabController.animateTo(0);
-                    _editingPaymentId = null; // Invariant: Forced to Draft!
-                    _editingPaymentCode = null;
-                    _editingPaymentVersion = null;
-                    _paySelectedImportFileId =
-                        copyLineItems ? p.importFileId : null;
-                    _payTitleController.text = newTitle;
-                    _selectedSupplierId = p.supplierId;
-                    _supplierNameController.text =
-                        p.beneficiaryName ?? p.supplierName;
-                    _paymentType =
-                        FinancialUi.normalizePaymentType(p.paymentType);
-                    _amountController.text =
-                        p.requestedAmount.toStringAsFixed(2);
-                    _currencyCode = p.currencyCode;
-                    _exchangeRateController.text = _rateText(p.exchangeRate);
-                    _bankNameController.text = p.bankName ?? '';
-                    _swiftCodeController.text = p.swiftCode ?? '';
-                    _ibanController.text = p.ibanAccountNo ?? '';
-                    _payNotesController.text = p.notes ?? '';
-                    _requestDate = DateTime.now();
-                    _dueDate = DateTime.now().add(const Duration(days: 12));
-                  });
+                if (mounted && cloned != null) {
+                  _loadPaymentRequestForEdit(cloned);
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -1300,8 +1209,7 @@ class _FinancialApprovalScreenState
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              l.clonePaymentRequestSuccess(
-                                  cloned?.paymentCode ?? p.paymentCode),
+                              l.clonePaymentRequestSuccess(cloned.paymentCode),
                               style:
                                   const TextStyle(fontWeight: FontWeight.bold),
                             ),
@@ -1325,71 +1233,6 @@ class _FinancialApprovalScreenState
             },
           ),
         ),
-      ),
-    );
-  }
-
-  void _cloneLinkedPoItem(LinkedPOItemModel po) {
-    if (_payPrefillData == null) return;
-    final l = context.l10n;
-
-    final clonedItem = LinkedPOItemModel(
-      poId: 0,
-      poNumber: '${po.poNumber}${TableRowCloneHelper.copyCodeSuffix}',
-      poReference: TableRowCloneHelper.withCodeSuffix(po.poReference),
-      piNumber: po.piNumber,
-      projectId: po.projectId,
-      projectName: po.projectName,
-      paymentTerms: po.paymentTerms,
-      currency: po.currency,
-      totalAmount: po.totalAmount,
-      status: 'Draft',
-    );
-
-    setState(() {
-      final currentList =
-          List<LinkedPOItemModel>.from(_payPrefillData!.linkedPos);
-      final idx = currentList.indexOf(po);
-      if (idx >= 0) {
-        currentList.insert(idx + 1, clonedItem);
-      } else {
-        currentList.add(clonedItem);
-      }
-      _payPrefillData = BudgetPrefillModel(
-        importFileId: _payPrefillData!.importFileId,
-        importFileCode: _payPrefillData!.importFileCode,
-        importFileTitle: _payPrefillData!.importFileTitle,
-        incoterm: _payPrefillData!.incoterm,
-        supplierId: _payPrefillData!.supplierId,
-        supplierName: _payPrefillData!.supplierName,
-        beneficiaryName: _payPrefillData!.beneficiaryName,
-        bankName: _payPrefillData!.bankName,
-        swiftCode: _payPrefillData!.swiftCode,
-        accountNumber: _payPrefillData!.accountNumber,
-        iban: _payPrefillData!.iban,
-        paymentTermsSummary: _payPrefillData!.paymentTermsSummary,
-        linkedPos: currentList,
-        totalInvoiceAmount:
-            _payPrefillData!.totalInvoiceAmount + po.totalAmount,
-        invoiceCurrency: _payPrefillData!.invoiceCurrency,
-        totalInvoiceAmountEgp: _payPrefillData!.totalInvoiceAmountEgp +
-            (po.totalAmount * _payPrefillData!.exchangeRate),
-        estimatedFreightCost: _payPrefillData!.estimatedFreightCost,
-        freightCurrency: _payPrefillData!.freightCurrency,
-        estimatedFreightCostEgp: _payPrefillData!.estimatedFreightCostEgp,
-        estimatedCustomsDutiesEgp: _payPrefillData!.estimatedCustomsDutiesEgp,
-        estimatedClearanceFeesEgp: _payPrefillData!.estimatedClearanceFeesEgp,
-        estimatedGrandTotalEgp: _payPrefillData!.estimatedGrandTotalEgp +
-            (po.totalAmount * _payPrefillData!.exchangeRate),
-        exchangeRate: _payPrefillData!.exchangeRate,
-      );
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l.poAllocationClonedSuccess),
-        backgroundColor: AppTheme.emerald,
-        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -1424,7 +1267,7 @@ class _FinancialApprovalScreenState
             entityType: l.cloneBudgetDialogTitle,
             sourceCode: b.budgetCode,
             sourceTitle: b.title,
-            suggestedNewCode: '${b.budgetCode}-CLONE',
+            suggestedNewCode: l.autoGeneratedCode,
             copiedFieldsSummary: {
               l.estimatedInvoiceValue:
                   '${b.invoiceAmountForeign.toStringAsFixed(2)} ${b.invoiceCurrency}',
@@ -1452,45 +1295,18 @@ class _FinancialApprovalScreenState
               String? notes,
             }) async {
               try {
-                final payload = {
+                final payload = <String, dynamic>{
                   'new_title': newTitle,
                   'unlink_import_file': !copyLineItems,
-                  'remarks': notes ?? 'Cloned via Smart Budget Review Dialog',
+                  if (notes != null && notes.trim().isNotEmpty)
+                    'remarks': notes.trim(),
                 };
-                ImportBudgetModel? cloned;
-                try {
-                  cloned = await ref
-                      .read(importBudgetsProvider.notifier)
-                      .cloneImportBudget(b.budgetId, payload);
-                } catch (_) {
-                  // Fallback to client-side clone in Tab 1
-                }
+                final cloned = await ref
+                    .read(importBudgetsProvider.notifier)
+                    .cloneImportBudget(b.budgetId, payload);
 
-                if (mounted) {
-                  setState(() {
-                    _visitedTabs.add(1);
-                    _tabController.animateTo(1);
-                    _editingBudgetId = null; // Invariant: Forced to Draft!
-                    _bgtSelectedImportFileId =
-                        copyLineItems ? b.importFileId : null;
-                    _bgtTitleController.text = newTitle;
-                    _invoiceForeignController.text =
-                        b.invoiceAmountForeign.toStringAsFixed(2);
-                    _invoiceEgpController.text =
-                        b.invoiceAmountEgp.toStringAsFixed(2);
-                    _freightForeignController.text =
-                        b.freightCostForeign.toStringAsFixed(2);
-                    _freightEgpController.text =
-                        b.freightCostEgp.toStringAsFixed(2);
-                    _customsEgpController.text =
-                        b.customsDutiesEgp.toStringAsFixed(2);
-                    _clearanceEgpController.text =
-                        b.clearanceInlandEgp.toStringAsFixed(2);
-                    _bgtExchangeRateController.text = _rateText(b.exchangeRate);
-                    _bgtInvoiceCurrency = b.invoiceCurrency;
-                    _bgtFreightCurrency = b.freightCurrency;
-                    _bgtNotesController.text = notes ?? b.notes ?? '';
-                  });
+                if (mounted && cloned != null) {
+                  _loadBudgetForEdit(cloned);
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -1501,8 +1317,7 @@ class _FinancialApprovalScreenState
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              l.cloneBudgetSuccess(
-                                  cloned?.budgetCode ?? b.budgetCode),
+                              l.cloneBudgetSuccess(cloned.budgetCode),
                               style:
                                   const TextStyle(fontWeight: FontWeight.bold),
                             ),
@@ -1597,15 +1412,6 @@ class _FinancialApprovalScreenState
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        icon: const Icon(Icons.copy_rounded,
-                            size: 16, color: AppTheme.cobalt),
-                        tooltip: l.clonePoAllocationTooltip,
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
-                        onPressed: () => _cloneLinkedPoItem(po),
-                      ),
                     ],
                   ),
                 ],
@@ -1687,6 +1493,98 @@ class _FinancialApprovalScreenState
             _currencyCode = val;
             final rate = _getExchangeRateForCurrency(val);
             _exchangeRateController.text = _rateText(rate);
+            if (rate == null) _warnFxMissing(val);
+          });
+        }
+      },
+    );
+  }
+
+  Widget _buildBgtInvoiceCurrencyDropdown(AppLocalizations l) {
+    return SearchableDropdownField<String>(
+      value: _bgtInvoiceCurrency,
+      labelText: '${l.invoiceCurrencyLabel} *',
+      searchHintText: l.search,
+      items: () {
+        final curList = ref.watch(currenciesProvider).valueOrNull ?? [];
+        final list = curList.isNotEmpty
+            ? curList
+                .map((c) => SearchableDropdownItem<String>(
+                      value: c.currencyCode,
+                      label: '${c.currencyCode} - ${c.currencyName}',
+                    ))
+                .toList()
+            : [
+                const SearchableDropdownItem(value: 'USD', label: 'USD'),
+                const SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                const SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                const SearchableDropdownItem(value: 'GBP', label: 'GBP'),
+                const SearchableDropdownItem(value: 'CNY', label: 'CNY'),
+                const SearchableDropdownItem(value: 'SAR', label: 'SAR'),
+                const SearchableDropdownItem(value: 'AED', label: 'AED'),
+              ];
+        if (!list.any((i) => i.value == _bgtInvoiceCurrency)) {
+          list.add(SearchableDropdownItem(
+              value: _bgtInvoiceCurrency, label: _bgtInvoiceCurrency));
+        }
+        return list;
+      }(),
+      onChanged: (val) {
+        if (val != null) {
+          setState(() {
+            _bgtInvoiceCurrency = val;
+            final rate = _getExchangeRateForCurrency(val);
+            _bgtExchangeRateController.text = _rateText(rate);
+            if (rate != null) {
+              final inv = double.tryParse(_invoiceForeignController.text) ?? 0;
+              _invoiceEgpController.text = (inv * rate).toStringAsFixed(2);
+            }
+            if (rate == null) _warnFxMissing(val);
+          });
+        }
+      },
+    );
+  }
+
+  Widget _buildBgtFreightCurrencyDropdown(AppLocalizations l) {
+    return SearchableDropdownField<String>(
+      value: _bgtFreightCurrency,
+      labelText: '${l.freightCurrencyLabel} *',
+      searchHintText: l.search,
+      items: () {
+        final curList = ref.watch(currenciesProvider).valueOrNull ?? [];
+        final list = curList.isNotEmpty
+            ? curList
+                .map((c) => SearchableDropdownItem<String>(
+                      value: c.currencyCode,
+                      label: '${c.currencyCode} - ${c.currencyName}',
+                    ))
+                .toList()
+            : [
+                const SearchableDropdownItem(value: 'USD', label: 'USD'),
+                const SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                const SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                const SearchableDropdownItem(value: 'GBP', label: 'GBP'),
+                const SearchableDropdownItem(value: 'CNY', label: 'CNY'),
+                const SearchableDropdownItem(value: 'SAR', label: 'SAR'),
+                const SearchableDropdownItem(value: 'AED', label: 'AED'),
+              ];
+        if (!list.any((i) => i.value == _bgtFreightCurrency)) {
+          list.add(SearchableDropdownItem(
+              value: _bgtFreightCurrency, label: _bgtFreightCurrency));
+        }
+        return list;
+      }(),
+      onChanged: (val) {
+        if (val != null) {
+          setState(() {
+            _bgtFreightCurrency = val;
+            final rate = _getExchangeRateForCurrency(val);
+            _bgtFreightRateController.text = _rateText(rate);
+            if (rate != null) {
+              final frt = double.tryParse(_freightForeignController.text) ?? 0;
+              _freightEgpController.text = (frt * rate).toStringAsFixed(2);
+            }
             if (rate == null) _warnFxMissing(val);
           });
         }
@@ -2192,20 +2090,29 @@ class _FinancialApprovalScreenState
     }
   }
 
-  Future<void> _saveImportBudget() async {
-    if (!_budgetFormKey.currentState!.validate()) return;
+  Future<ImportBudgetModel?> _persistBudget() async {
+    if (!_budgetFormKey.currentState!.validate()) return null;
 
     final rateInput = double.tryParse(_bgtExchangeRateController.text.trim());
     if (rateInput == null || rateInput <= 0) {
       _warnFxMissing(_bgtInvoiceCurrency);
-      return;
+      return null;
     }
+    final frtForeign =
+        double.tryParse(_freightForeignController.text.trim()) ?? 0.0;
+    if (frtForeign > 0) {
+      final frtRateInput =
+          double.tryParse(_bgtFreightRateController.text.trim());
+      if (frtRateInput == null || frtRateInput <= 0) {
+        _warnFxMissing(_bgtFreightCurrency);
+        return null;
+      }
+    }
+
     setState(() => _isSavingBudget = true);
     final invForeign =
         double.tryParse(_invoiceForeignController.text.trim()) ?? 0.0;
     final invEgp = double.tryParse(_invoiceEgpController.text.trim()) ?? 0.0;
-    final frtForeign =
-        double.tryParse(_freightForeignController.text.trim()) ?? 0.0;
     final frtEgp = double.tryParse(_freightEgpController.text.trim()) ?? 0.0;
     final custEgp = double.tryParse(_customsEgpController.text.trim()) ?? 0.0;
     final clrEgp = double.tryParse(_clearanceEgpController.text.trim()) ?? 0.0;
@@ -2240,13 +2147,7 @@ class _FinancialApprovalScreenState
             _editingBudgetId = null;
             _editingBudgetVersion = null;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content:
-                    Text(context.l10n.budgetUpdatedSuccess(updated.budgetCode)),
-                backgroundColor: AppTheme.emerald),
-          );
-          _showBudgetDetailsDialog(updated);
+          return updated;
         }
       } else {
         final created = await ref
@@ -2254,13 +2155,7 @@ class _FinancialApprovalScreenState
             .createImportBudget(payload);
         if (mounted && created != null) {
           setState(() => _lastSavedBudget = created);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content:
-                    Text(context.l10n.budgetCreatedSuccess(created.budgetCode)),
-                backgroundColor: AppTheme.emerald),
-          );
-          _showBudgetDetailsDialog(created);
+          return created;
         }
       }
     } catch (e) {
@@ -2292,7 +2187,7 @@ class _FinancialApprovalScreenState
             await ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
           }
         }
-        return;
+        return null;
       }
       if (mounted && _isCodedError(e)) {
         _showApiError(e);
@@ -2306,6 +2201,50 @@ class _FinancialApprovalScreenState
           },
         );
       }
+      return null;
+    } finally {
+      if (mounted) setState(() => _isSavingBudget = false);
+    }
+    return null;
+  }
+
+  Future<void> _saveImportBudget() async {
+    final isUpdate = _editingBudgetId != null;
+    final bgt = await _persistBudget();
+    if (bgt != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isUpdate
+              ? context.l10n.budgetUpdatedSuccess(bgt.budgetCode)
+              : context.l10n.budgetCreatedSuccess(bgt.budgetCode)),
+          backgroundColor: AppTheme.emerald,
+        ),
+      );
+      _showBudgetDetailsDialog(bgt);
+    }
+  }
+
+  Future<void> _saveAndApproveBudget() async {
+    final saved = await _persistBudget();
+    if (saved == null || !mounted) return;
+    try {
+      setState(() => _isSavingBudget = true);
+      final approved = await ref
+          .read(importBudgetsProvider.notifier)
+          .approveImportBudget(saved.budgetId);
+      if (mounted && approved != null) {
+        setState(() => _lastSavedBudget = approved);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text(context.l10n.budgetApprovedSuccess(approved.budgetCode)),
+            backgroundColor: AppTheme.emerald,
+          ),
+        );
+        _showBudgetDetailsDialog(approved);
+      }
+    } catch (e) {
+      if (mounted) _showApiError(e);
     } finally {
       if (mounted) setState(() => _isSavingBudget = false);
     }
@@ -2928,7 +2867,8 @@ class _FinancialApprovalScreenState
                     },
                   ),
                 if (bgt.budgetStatus == 'Pending Review' ||
-                    bgt.budgetStatus == 'Draft') ...[
+                    bgt.budgetStatus == 'Draft' ||
+                    bgt.budgetStatus == 'Needs Revalidation') ...[
                   AsyncActionButton(
                     label: context.l10n.approveAndCertifyBudget,
                     variant: AppButtonVariant.success,
@@ -3698,6 +3638,57 @@ class _FinancialApprovalScreenState
                                       ),
                                     const SizedBox(height: 12),
 
+                                    if (_openSameTypeRequest != null) ...[
+                                      Container(
+                                        margin:
+                                            const EdgeInsets.only(bottom: 12),
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: isDark
+                                              ? AppTheme.darkCardBackground
+                                              : AppTheme.orangeLight,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border: Border.all(
+                                              color: AppTheme.wcagOrange,
+                                              width: 1.5),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                                Icons.warning_amber_rounded,
+                                                color: AppTheme.wcagOrange,
+                                                size: 20),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                l.faOpenPaymentSameType(
+                                                    _openSameTypeRequest!
+                                                        .paymentCode),
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isDark
+                                                      ? AppTheme.darkTextPrimary
+                                                      : AppTheme.charcoal,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            AppButton(
+                                              label: l.viewDetails,
+                                              variant:
+                                                  AppButtonVariant.secondary,
+                                              size: AppButtonSize.small,
+                                              onPressed: () =>
+                                                  _showPaymentDetailsDialog(
+                                                      _openSameTypeRequest!),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+
                                     if (_payPrefillData != null &&
                                         _payPrefillData!.totalInvoiceAmount >
                                             0) ...[
@@ -3980,7 +3971,6 @@ class _FinancialApprovalScreenState
                                             3: FlexColumnWidth(1.2),
                                             4: FlexColumnWidth(1.4),
                                             5: FlexColumnWidth(1.2),
-                                            6: FlexColumnWidth(0.8),
                                           },
                                           children: [
                                             TableRow(
@@ -4046,18 +4036,6 @@ class _FinancialApprovalScreenState
                                                     padding:
                                                         const EdgeInsets.all(8),
                                                     child: Text(l.statusCol,
-                                                        style: const TextStyle(
-                                                            color:
-                                                                AppTheme.white,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 12))),
-                                                Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    child: Text(l.actionsCol,
-                                                        textAlign:
-                                                            TextAlign.center,
                                                         style: const TextStyle(
                                                             color:
                                                                 AppTheme.white,
@@ -4178,22 +4156,6 @@ class _FinancialApprovalScreenState
                                                               fontSize: 11,
                                                               color: AppTheme
                                                                   .cobalt))),
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(4),
-                                                    child: IconButton(
-                                                      icon: const Icon(
-                                                          Icons.copy_rounded,
-                                                          size: 16,
-                                                          color:
-                                                              AppTheme.cobalt),
-                                                      tooltip: l
-                                                          .clonePoAllocationTooltip,
-                                                      onPressed: () =>
-                                                          _cloneLinkedPoItem(
-                                                              po),
-                                                    ),
-                                                  ),
                                                 ],
                                               );
                                             }),
@@ -4531,12 +4493,14 @@ class _FinancialApprovalScreenState
 
                                     // Cost & Currency Inputs
                                     if (isMobile) ...[
+                                      _buildBgtInvoiceCurrencyDropdown(l),
+                                      const SizedBox(height: 12),
                                       TextFormField(
                                         controller: _invoiceForeignController,
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
                                           labelText:
-                                              '${l.estimatedInvoiceValue} ($_bgtInvoiceCurrency)',
+                                              '\ (\)',
                                           border: const OutlineInputBorder(),
                                           fillColor: isDark
                                               ? AppTheme.darkElevatedSurface
@@ -4556,36 +4520,12 @@ class _FinancialApprovalScreenState
                                       ),
                                       const SizedBox(height: 12),
                                       TextFormField(
-                                        controller: _freightForeignController,
-                                        keyboardType: TextInputType.number,
-                                        decoration: InputDecoration(
-                                          labelText:
-                                              '${l.estimatedFreightCost} ($_bgtFreightCurrency)',
-                                          border: const OutlineInputBorder(),
-                                          fillColor: isDark
-                                              ? AppTheme.darkElevatedSurface
-                                              : AppTheme.white,
-                                          filled: isDark,
-                                        ),
-                                        onChanged: (v) {
-                                          final f = double.tryParse(v) ?? 0;
-                                          final r = double.tryParse(
-                                                  _bgtExchangeRateController
-                                                      .text) ??
-                                              0;
-                                          _freightEgpController.text =
-                                              (f * r).toStringAsFixed(2);
-                                          setState(() {});
-                                        },
-                                      ),
-                                      const SizedBox(height: 12),
-                                      TextFormField(
                                         controller: _bgtExchangeRateController,
                                         keyboardType: TextInputType.number,
                                         validator: _validateExchangeRate,
                                         decoration: InputDecoration(
                                           labelText:
-                                              '${l.exchangeRateLabel} (EGP)',
+                                              '\ (EGP)',
                                           border: const OutlineInputBorder(),
                                           fillColor: isDark
                                               ? AppTheme.darkElevatedSurface
@@ -4598,12 +4538,57 @@ class _FinancialApprovalScreenState
                                                   _invoiceForeignController
                                                       .text) ??
                                               0;
+                                          _invoiceEgpController.text =
+                                              (inv * r).toStringAsFixed(2);
+                                          setState(() {});
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      _buildBgtFreightCurrencyDropdown(l),
+                                      const SizedBox(height: 12),
+                                      TextFormField(
+                                        controller: _freightForeignController,
+                                        keyboardType: TextInputType.number,
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '\ (\)',
+                                          border: const OutlineInputBorder(),
+                                          fillColor: isDark
+                                              ? AppTheme.darkElevatedSurface
+                                              : AppTheme.white,
+                                          filled: isDark,
+                                        ),
+                                        onChanged: (v) {
+                                          final f = double.tryParse(v) ?? 0;
+                                          final r = double.tryParse(
+                                                  _bgtFreightRateController
+                                                      .text) ??
+                                              0;
+                                          _freightEgpController.text =
+                                              (f * r).toStringAsFixed(2);
+                                          setState(() {});
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextFormField(
+                                        controller: _bgtFreightRateController,
+                                        keyboardType: TextInputType.number,
+                                        validator: _validateFreightExchangeRate,
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '\ (EGP)',
+                                          border: const OutlineInputBorder(),
+                                          fillColor: isDark
+                                              ? AppTheme.darkElevatedSurface
+                                              : AppTheme.white,
+                                          filled: isDark,
+                                        ),
+                                        onChanged: (v) {
+                                          final r = double.tryParse(v) ?? 0;
                                           final frt = double.tryParse(
                                                   _freightForeignController
                                                       .text) ??
                                               0;
-                                          _invoiceEgpController.text =
-                                              (inv * r).toStringAsFixed(2);
                                           _freightEgpController.text =
                                               (frt * r).toStringAsFixed(2);
                                           setState(() {});
@@ -4615,7 +4600,7 @@ class _FinancialApprovalScreenState
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
                                           labelText:
-                                              '${l.customsAndVatEstimate} (EGP)',
+                                              '\ (EGP)',
                                           border: const OutlineInputBorder(),
                                           fillColor: isDark
                                               ? AppTheme.darkElevatedSurface
@@ -4630,7 +4615,7 @@ class _FinancialApprovalScreenState
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
                                           labelText:
-                                              '${l.clearanceAndTransportEstimate} (EGP)',
+                                              '\ (EGP)',
                                           border: const OutlineInputBorder(),
                                           fillColor: isDark
                                               ? AppTheme.darkElevatedSurface
@@ -4640,10 +4625,18 @@ class _FinancialApprovalScreenState
                                         onChanged: (_) => setState(() {}),
                                       ),
                                     ] else ...[
-                                      // Row A: Foreign Values & Exchange Rate
+                                      // Row A: Invoice Currency, Value & Exchange Rate
                                       Row(
                                         children: [
                                           Expanded(
+                                            flex: 2,
+                                            child:
+                                                _buildBgtInvoiceCurrencyDropdown(
+                                                    l),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            flex: 3,
                                             child: TextFormField(
                                               controller:
                                                   _invoiceForeignController,
@@ -4651,7 +4644,7 @@ class _FinancialApprovalScreenState
                                                   TextInputType.number,
                                               decoration: InputDecoration(
                                                 labelText:
-                                                    '${l.estimatedInvoiceValue} ($_bgtInvoiceCurrency)',
+                                                    '\ (\)',
                                                 border:
                                                     const OutlineInputBorder(),
                                                 fillColor: isDark
@@ -4675,37 +4668,7 @@ class _FinancialApprovalScreenState
                                           ),
                                           const SizedBox(width: 12),
                                           Expanded(
-                                            child: TextFormField(
-                                              controller:
-                                                  _freightForeignController,
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              decoration: InputDecoration(
-                                                labelText:
-                                                    '${l.estimatedFreightCost} ($_bgtFreightCurrency)',
-                                                border:
-                                                    const OutlineInputBorder(),
-                                                fillColor: isDark
-                                                    ? AppTheme
-                                                        .darkElevatedSurface
-                                                    : AppTheme.white,
-                                                filled: isDark,
-                                              ),
-                                              onChanged: (v) {
-                                                final f =
-                                                    double.tryParse(v) ?? 0;
-                                                final r = double.tryParse(
-                                                        _bgtExchangeRateController
-                                                            .text) ??
-                                                    0;
-                                                _freightEgpController.text =
-                                                    (f * r).toStringAsFixed(2);
-                                                setState(() {});
-                                              },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
+                                            flex: 2,
                                             child: TextFormField(
                                               controller:
                                                   _bgtExchangeRateController,
@@ -4714,7 +4677,7 @@ class _FinancialApprovalScreenState
                                               validator: _validateExchangeRate,
                                               decoration: InputDecoration(
                                                 labelText:
-                                                    '${l.exchangeRateLabel} (EGP)',
+                                                    '\ (EGP)',
                                                 border:
                                                     const OutlineInputBorder(),
                                                 fillColor: isDark
@@ -4730,13 +4693,85 @@ class _FinancialApprovalScreenState
                                                         _invoiceForeignController
                                                             .text) ??
                                                     0;
+                                                _invoiceEgpController.text =
+                                                    (inv * r)
+                                                        .toStringAsFixed(2);
+                                                setState(() {});
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      // Row B: Freight Currency, Cost & Freight Rate
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 2,
+                                            child:
+                                                _buildBgtFreightCurrencyDropdown(
+                                                    l),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            flex: 3,
+                                            child: TextFormField(
+                                              controller:
+                                                  _freightForeignController,
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    '\ (\)',
+                                                border:
+                                                    const OutlineInputBorder(),
+                                                fillColor: isDark
+                                                    ? AppTheme
+                                                        .darkElevatedSurface
+                                                    : AppTheme.white,
+                                                filled: isDark,
+                                              ),
+                                              onChanged: (v) {
+                                                final f =
+                                                    double.tryParse(v) ?? 0;
+                                                final r = double.tryParse(
+                                                        _bgtFreightRateController
+                                                            .text) ??
+                                                    0;
+                                                _freightEgpController.text =
+                                                    (f * r).toStringAsFixed(2);
+                                                setState(() {});
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            flex: 2,
+                                            child: TextFormField(
+                                              controller:
+                                                  _bgtFreightRateController,
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              validator:
+                                                  _validateFreightExchangeRate,
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    '\ (EGP)',
+                                                border:
+                                                    const OutlineInputBorder(),
+                                                fillColor: isDark
+                                                    ? AppTheme
+                                                        .darkElevatedSurface
+                                                    : AppTheme.white,
+                                                filled: isDark,
+                                              ),
+                                              onChanged: (v) {
+                                                final r =
+                                                    double.tryParse(v) ?? 0;
                                                 final frt = double.tryParse(
                                                         _freightForeignController
                                                             .text) ??
                                                     0;
-                                                _invoiceEgpController.text =
-                                                    (inv * r)
-                                                        .toStringAsFixed(2);
                                                 _freightEgpController.text =
                                                     (frt * r)
                                                         .toStringAsFixed(2);
@@ -4879,14 +4914,14 @@ class _FinancialApprovalScreenState
                                             // 4. Final Approval
                                             FinancialUi.fit(AppButton(
                                               label: _editingBudgetId != null
-                                                  ? l.saveBudgetChanges
+                                                  ? l.saveAndApproveBudget
                                                   : l.approveAndCertifyBudget,
                                               variant: AppButtonVariant.success,
                                               icon: Icons.verified,
                                               isLoading: _isSavingBudget,
                                               onPressed: _isSavingBudget
                                                   ? null
-                                                  : _saveImportBudget,
+                                                  : _saveAndApproveBudget,
                                             )),
                                           ],
                                         ),
@@ -5649,37 +5684,43 @@ class _FinancialApprovalScreenState
 
   Widget _buildConsolidatedBudgetSummary(
       {ImportBudgetModel? bgt, BudgetPrefillModel? prefill}) {
-    final invForeign = bgt != null && bgt.invoiceAmountForeign > 0
-        ? bgt.invoiceAmountForeign
-        : (double.tryParse(_invoiceForeignController.text) ??
-            (prefill?.totalInvoiceAmount ?? 0));
-    final invCurr = bgt != null ? bgt.invoiceCurrency : _bgtInvoiceCurrency;
-    final invEgp = bgt != null && bgt.invoiceAmountEgp > 0
-        ? bgt.invoiceAmountEgp
-        : (double.tryParse(_invoiceEgpController.text) ??
-            (prefill?.totalInvoiceAmountEgp ?? 0));
+    final double invForeign;
+    final String invCurr;
+    final double invEgp;
+    final double frtForeign;
+    final String frtCurr;
+    final double frtEgp;
+    final double custEgp;
+    final double clrEgp;
+    final double grandTotalEgp;
 
-    final frtForeign = bgt != null && bgt.freightCostForeign > 0
-        ? bgt.freightCostForeign
-        : (double.tryParse(_freightForeignController.text) ??
-            (prefill?.estimatedFreightCost ?? 0));
-    final frtCurr = bgt != null ? bgt.freightCurrency : _bgtFreightCurrency;
-    final frtEgp = bgt != null && bgt.freightCostEgp > 0
-        ? bgt.freightCostEgp
-        : (double.tryParse(_freightEgpController.text) ??
-            (prefill?.estimatedFreightCostEgp ?? 0));
-
-    final custEgp = bgt != null && bgt.customsDutiesEgp > 0
-        ? bgt.customsDutiesEgp
-        : (double.tryParse(_customsEgpController.text) ??
-            (prefill?.estimatedCustomsDutiesEgp ?? 0));
-
-    final clrEgp = bgt != null && bgt.clearanceInlandEgp > 0
-        ? bgt.clearanceInlandEgp
-        : (double.tryParse(_clearanceEgpController.text) ??
-            (prefill?.estimatedClearanceFeesEgp ?? 0));
-
-    final grandTotalEgp = invEgp + frtEgp + custEgp + clrEgp;
+    if (bgt != null) {
+      invForeign = bgt.invoiceAmountForeign;
+      invCurr = bgt.invoiceCurrency;
+      invEgp = bgt.invoiceAmountEgp;
+      frtForeign = bgt.freightCostForeign;
+      frtCurr = bgt.freightCurrency;
+      frtEgp = bgt.freightCostEgp;
+      custEgp = bgt.customsDutiesEgp;
+      clrEgp = bgt.clearanceInlandEgp;
+      grandTotalEgp = bgt.totalBudgetEgp;
+    } else {
+      invForeign = double.tryParse(_invoiceForeignController.text) ??
+          (prefill?.totalInvoiceAmount ?? 0);
+      invCurr = _bgtInvoiceCurrency;
+      invEgp = double.tryParse(_invoiceEgpController.text) ??
+          (prefill?.totalInvoiceAmountEgp ?? 0);
+      frtForeign = double.tryParse(_freightForeignController.text) ??
+          (prefill?.estimatedFreightCost ?? 0);
+      frtCurr = _bgtFreightCurrency;
+      frtEgp = double.tryParse(_freightEgpController.text) ??
+          (prefill?.estimatedFreightCostEgp ?? 0);
+      custEgp = double.tryParse(_customsEgpController.text) ??
+          (prefill?.estimatedCustomsDutiesEgp ?? 0);
+      clrEgp = double.tryParse(_clearanceEgpController.text) ??
+          (prefill?.estimatedClearanceFeesEgp ?? 0);
+      grandTotalEgp = invEgp + frtEgp + custEgp + clrEgp;
+    }
 
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -5757,7 +5798,7 @@ class _FinancialApprovalScreenState
                                   fontSize: 11))),
                       Padding(
                           padding: const EdgeInsets.all(6),
-                          child: Text(l.requestedAmountLabel,
+                          child: Text(l.amountInCurrencyCol,
                               style: const TextStyle(
                                   color: AppTheme.white,
                                   fontWeight: FontWeight.bold,
