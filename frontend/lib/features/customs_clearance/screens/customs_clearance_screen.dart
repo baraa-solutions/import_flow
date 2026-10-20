@@ -21,6 +21,7 @@ import '../providers/customs_clearance_provider.dart';
 import '../widgets/clearance_card.dart';
 import '../widgets/clearance_details_dialog.dart';
 import '../widgets/clearance_expenses_dialog.dart';
+import '../widgets/clearance_followup_dialog.dart';
 import '../widgets/clearance_screen_dialogs.dart';
 import '../widgets/customs_broker_authorization_dialog.dart';
 import '../widgets/customs_declaration_46_dialog.dart';
@@ -407,6 +408,16 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
     }
   }
 
+  void _showFollowupDialog(CustomsClearanceModel record) {
+    final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final matchingFile = allFiles.where((f) => f.importFileId == record.importFileId).firstOrNull;
+    ClearanceFollowupDialog.show(
+      context,
+      clearanceRecord: record,
+      importFile: matchingFile,
+    );
+  }
+
   /// Resolves the shipment a header stage button works on, or tells the user
   /// that no shipment file is registered.
   Future<void> _openStage(void Function(ImportFileModel file) open) async {
@@ -533,6 +544,26 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         icon: Icons.receipt_long_rounded,
         label: l.ccStageInvoices,
         open: (f) => ClearanceExpensesDialog.show(context, f),
+      ),
+      _stageButton(
+        keyName: 'customsFollowupsScreenBtn',
+        icon: Icons.checklist_rtl_rounded,
+        label: l.isArabic ? 'المتابعة الميدانية' : 'Field Follow-ups',
+        open: (f) {
+          final records = ref.read(customsClearanceProvider).valueOrNull ?? [];
+          final record = records.where((r) => r.importFileId == f.importFileId).firstOrNull;
+          if (record == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              AppTheme.snackBar(
+                context,
+                l.isArabic ? 'يجب تسجيل قيد تخليص جمركي للشحنة أولاً' : 'Clearance record required first',
+                severity: AppSeverity.warning,
+              ),
+            );
+            return;
+          }
+          ClearanceFollowupDialog.show(context, clearanceRecord: record, importFile: f);
+        },
       ),
       IconButton(
         icon: Icon(Icons.refresh, color: AppTheme.cloudWhite.withValues(alpha: 0.85), size: 20),
@@ -812,6 +843,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
               onPayDuty: () => _showDutyPaymentDialog(record),
               onRelease: () => _showFinalReleaseDialog(record),
               onExpenses: () => _showClearanceExpensesDialog(record),
+              onFollowups: () => _showFollowupDialog(record),
             ),
           );
         },

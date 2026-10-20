@@ -1056,6 +1056,53 @@ def get_demurrage_tracking_by_id_service(db: Session, tracking_id: int) -> Demur
     return tracking
 
 
+def delete_demurrage_tracking_service(db: Session, tracking_id: int, user: str = "System") -> DemurrageTracking:
+    tracking = repository.get_tracking_by_id(db, tracking_id)
+    if not tracking:
+        raise not_found("جلسة تتبع الحاويات", tracking_id)
+    if tracking.is_pushed_to_settlement:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="لا يمكن حذف جلسة تتبع الحاويات بعد ترحيلها للتسوية المالية.",
+        )
+    repository.delete_tracking(db, tracking, user=user)
+    db.commit()
+    db.refresh(tracking)
+    return tracking
+
+
+def restore_demurrage_tracking_service(db: Session, tracking_id: int, user: str = "System") -> DemurrageTracking:
+    tracking = repository.get_tracking_by_id(db, tracking_id, include_inactive=True)
+    if not tracking:
+        raise not_found("جلسة تتبع الحاويات", tracking_id)
+    if tracking.is_active:
+        return tracking
+
+    if tracking.import_file_id:
+        existing_file = repository.get_active_tracking_for_file(db, tracking.import_file_id)
+        if existing_file and existing_file.tracking_id != tracking.tracking_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"يوجد بالفعل جلسة تتبع حاويات نشطة لهذا الملف ({existing_file.tracking_code}).",
+            )
+
+    if tracking.bill_of_lading_no:
+        existing_bl = repository.get_active_tracking_for_bl(db, tracking.bill_of_lading_no)
+        if existing_bl and existing_bl.tracking_id != tracking.tracking_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"يوجد بالفعل جلسة تتبع حاويات نشطة لبوليصة الشحن رقم {tracking.bill_of_lading_no} ({existing_bl.tracking_code}).",
+            )
+
+    tracking.is_active = True
+    tracking.updated_by = user
+    tracking.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(tracking)
+    return tracking
+
+
+
 def _require_settlement_permission(db: Session, actor: Any) -> None:
     if actor is not None:
         from modules.auth.permissions import has_user_permission

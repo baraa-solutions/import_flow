@@ -1,16 +1,19 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.auth.permissions import require_permission
+from modules.common.pagination import PageParams
 from modules.users.model import User
 from modules.purchase_orders.schemas import (
     ClonePurchaseOrderRequest,
     PackingListValidationReport,
+    PaginatedPurchaseOrdersResponse,
     PurchaseOrderCreate,
+    PurchaseOrderListItem,
     PurchaseOrderResponse,
     PurchaseOrderUpdate,
     POShipmentAllocationCreate,
@@ -26,26 +29,60 @@ router = APIRouter(
 )
 
 
+@router.get("/paginated", response_model=PaginatedPurchaseOrdersResponse)
+def list_purchase_orders_paginated(
+    response: Response,
+    params: PageParams = Depends(),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    supplier_id: Optional[int] = Query(None),
+    company_id: Optional[int] = Query(None),
+    project_id: Optional[int] = Query(None),
+    currency_id: Optional[int] = Query(None),
+    search: Optional[str] = Query(None, description="Legacy alias for q"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("purchase_orders.view")),
+):
+    service = PurchaseOrderService(db)
+    return service.get_paginated(
+        params=params,
+        response=response,
+        status_filter=status_filter,
+        supplier_id=supplier_id,
+        company_id=company_id,
+        project_id=project_id,
+        currency_id=currency_id,
+        search=search,
+    )
+
+
 @router.get("", response_model=List[PurchaseOrderResponse])
 def get_purchase_orders(
+    response: Response,
     include_inactive: bool = Query(False),
     status_filter: Optional[str] = Query(None, alias="status"),
     project_id: Optional[int] = Query(None),
     company_id: Optional[int] = Query(None),
     supplier_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("purchase_orders.view")),
 ):
     service = PurchaseOrderService(db)
-    return service.get_all(
+    items, total = service.get_all(
         include_inactive=include_inactive,
         status_filter=status_filter,
         project_id=project_id,
         company_id=company_id,
         supplier_id=supplier_id,
         search=search,
+        skip=skip,
+        limit=limit,
+        return_total=True,
     )
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get("/{po_id}", response_model=PurchaseOrderResponse)

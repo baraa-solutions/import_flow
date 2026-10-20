@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/customs_clearance_model.dart';
 import '../models/clearance_expense_invoice_model.dart';
+import '../models/clearance_followup_log_model.dart';
 import '../../../core/network/api_client.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
@@ -328,4 +329,113 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
     );
     return CustomsClearanceModel.fromJson(response.data);
   }
+
+  /// Records item tax coding on Nafeza platform (TASK-BE-10).
+  Future<CustomsClearanceModel?> recordTariffCoding({
+    required int customsClearanceId,
+    required String tariffCodingDate,
+    String? notes,
+  }) async {
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/customs-clearance/tariff-coding',
+      data: {
+        'customs_clearance_id': customsClearanceId,
+        'tariff_coding_date': tariffCodingDate,
+        'notes': notes,
+      },
+    );
+    final updated = CustomsClearanceModel.fromJson(response.data);
+    _invalidateRelated();
+    await refresh();
+    return updated;
+  }
+
+  /// Records bank linkage acceptance on Nafeza (TASK-BE-10).
+  Future<CustomsClearanceModel?> recordBankLinkAccepted({
+    required int customsClearanceId,
+    required String bankLinkAcceptedDate,
+    String? bankName,
+    String? notes,
+  }) async {
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/customs-clearance/bank-link-accepted',
+      data: {
+        'customs_clearance_id': customsClearanceId,
+        'bank_link_accepted_date': bankLinkAcceptedDate,
+        'bank_name': bankName,
+        'notes': notes,
+      },
+    );
+    final updated = CustomsClearanceModel.fromJson(response.data);
+    _invalidateRelated();
+    await refresh();
+    return updated;
+  }
+
+  /// Submits duty payment request / Form 4 with Nafeza claim number (TASK-BE-10).
+  Future<CustomsClearanceModel?> requestDutyPayment({
+    required int customsClearanceId,
+    required String dutyPaymentRequestedDate,
+    String? nafezaClaimNumber,
+    double? estimatedDutyAmount,
+    String? notes,
+  }) async {
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/customs-clearance/request-duty-payment',
+      data: {
+        'customs_clearance_id': customsClearanceId,
+        'duty_payment_requested_date': dutyPaymentRequestedDate,
+        'nafeza_claim_number': nafezaClaimNumber,
+        'estimated_duty_amount': estimatedDutyAmount,
+        'notes': notes,
+      },
+    );
+    final updated = CustomsClearanceModel.fromJson(response.data);
+    _invalidateRelated();
+    await refresh();
+    return updated;
+  }
+
+  /// Fetches the sequential field follow-up logs for a customs clearance record (TASK-BE-12).
+  Future<List<ClearanceFollowupLogModel>> fetchFollowupLogs(int customsClearanceId) async {
+    final response = await _dio.get(
+      '${ApiConstants.baseUrl}/customs-clearance/$customsClearanceId/followup-logs',
+    );
+    return (response.data as List).map((j) => ClearanceFollowupLogModel.fromJson(j)).toList();
+  }
+
+  /// Creates a new field customs clearance follow-up log (TASK-BE-12).
+  Future<ClearanceFollowupLogModel> createFollowupLog(Map<String, dynamic> payload) async {
+    final response = await _dio.post(
+      '${ApiConstants.baseUrl}/customs-clearance/followup-logs',
+      data: payload,
+    );
+    final log = ClearanceFollowupLogModel.fromJson(response.data);
+    _invalidateRelated();
+    await refresh();
+    return log;
+  }
+
+  /// Marks a customs clearance follow-up log as completed (TASK-BE-12).
+  Future<ClearanceFollowupLogModel> completeFollowupLog(int logId) async {
+    final response = await _dio.patch(
+      '${ApiConstants.baseUrl}/customs-clearance/followup-logs/$logId/complete',
+    );
+    final log = ClearanceFollowupLogModel.fromJson(response.data);
+    _invalidateRelated();
+    await refresh();
+    return log;
+  }
 }
+
+/// Provider for loading clearance follow-up logs for a specific record.
+final clearanceFollowupLogsProvider =
+    FutureProvider.family<List<ClearanceFollowupLogModel>, int>((ref, customsClearanceId) async {
+  final dio = ref.watch(dioProvider);
+  final response = await dio.get(
+    '${ApiConstants.baseUrl}/customs-clearance/$customsClearanceId/followup-logs',
+  );
+  return (response.data as List).map((j) => ClearanceFollowupLogModel.fromJson(j)).toList();
+});
+
+

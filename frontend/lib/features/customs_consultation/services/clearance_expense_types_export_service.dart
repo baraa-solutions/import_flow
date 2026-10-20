@@ -78,7 +78,7 @@ class ClearanceExpenseTypesExportService {
         exp.defaultCurrency,
         statusStr,
       ];
-      buffer.writeln(row.map((r) => '"${r.replaceAll('"', '""')}"').join(','));
+      buffer.writeln(row.map((r) => '"${(r ?? '').replaceAll('"', '""')}"').join(','));
     }
 
     return buffer.toString();
@@ -352,7 +352,7 @@ class ClearanceExpenseTypesExportService {
                       _buildPdfTableCell(exp.nameEn ?? '-'),
                       _buildPdfTableCell(exp.category),
                       _buildPdfTableCell(exp.defaultUnit),
-                      _buildPdfTableCell(exp.defaultCurrency),
+                      _buildPdfTableCell(exp.defaultCurrency ?? '-'),
                       _buildPdfTableCell(statusStr),
                     ],
                   );

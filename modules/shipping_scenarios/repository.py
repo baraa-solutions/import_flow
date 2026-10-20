@@ -200,6 +200,11 @@ class ShippingScenarioRepository:
     def soft_delete(db: Session, session_obj: ShippingEvaluationSession) -> None:
         session_obj.is_active = False
         session_obj.updated_at = datetime.now(timezone.utc)
+        if session_obj.import_file_id:
+            from modules.import_files.model import ImportFile
+            imp = db.get(ImportFile, session_obj.import_file_id)
+            if imp:
+                imp.selected_scenario = None
         db.flush()
 
     @staticmethod

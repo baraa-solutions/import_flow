@@ -182,6 +182,12 @@
       "note"
     ]
   },
+  "CC_BANK_LINK_REQUIRES_TARIFF_CODING": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "CC_BROKER_AUTHORIZED": {
     "params": [
       "broker_name",
@@ -3500,9 +3506,23 @@
       "note"
     ]
   },
+  "PO_HAS_ALLOCATIONS": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "PO_ITEMS_ALLOCATED": {
     "params": [
       "item_ids"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PO_NOT_EDITABLE": {
+    "params": [
+      "status"
     ],
     "parts": [
       "note"

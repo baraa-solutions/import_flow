@@ -19,7 +19,6 @@ import '../../../core/services/table_export_service.dart';
 import '../../../core/services/container_load_plan_export_service.dart';
 
 import 'package:dio/dio.dart';
-import 'package:file_picker/file_picker.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/services/file_save_helper.dart';
@@ -35,6 +34,7 @@ import '../../../core/localization/locale_provider.dart';
 import '../models/purchase_order_model.dart';
 import '../providers/purchase_orders_provider.dart';
 import '../models/po_system_message.dart';
+import '../services/po_export_helper.dart';
 import '../widgets/po_table_cells.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/domain_enum_labels.dart';
@@ -240,89 +240,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
     );
   }
 
-  Future<void> _downloadPOFile(String actionEndpoint, String defaultFileName, String dialogTitle) async {
-    final url = '${ApiConstants.purchaseOrders}/$actionEndpoint';
-    try {
-      final dio = ref.read(dioProvider);
-      final response = await dio.get(
-        url,
-        options: Options(responseType: ResponseType.bytes),
-      );
-      if (response.data != null && response.data is List<int>) {
-        if (!mounted) return;
-        await FileSaveHelper.saveBytes(
-          context: context,
-          bytes: response.data as List<int>,
-          defaultFileName: defaultFileName,
-          dialogTitle: dialogTitle,
-          allowedExtensions: defaultFileName.endsWith('.pdf') ? ['pdf'] : ['xlsx', 'csv'],
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      AppTheme.snackBar(
-        context,
-        '${context.l10n.errorPrefix}: ${ApiErrorText.of(context.l10n, e)}',
-        severity: AppSeverity.danger,
-      );
-    }
-  }
-
-  Future<void> _handleImportExcel() async {
-    try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['xlsx', 'xls'],
-        withData: true,
-      );
-      if (result == null || result.files.isEmpty) return;
-      final file = result.files.first;
-      if (file.bytes == null) return;
-      final dio = ref.read(dioProvider);
-      final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(file.bytes!, filename: file.name),
-      });
-      final res = await dio.post(
-        '${ApiConstants.purchaseOrders}/import-excel',
-        data: formData,
-      );
-      if (!mounted) return;
-      ref.read(purchaseOrdersProvider.notifier).refreshAfterMutation();
-      AppTheme.snackBar(
-        context,
-        res.data?['message'] ?? (context.l10n.poImportedSuccessfully),
-        severity: AppSeverity.success,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      AppTheme.snackBar(
-        context,
-        '${context.l10n.errorPrefix}: ${ApiErrorText.of(context.l10n, e)}',
-        severity: AppSeverity.danger,
-      );
-    }
-  }
-
   void _copyPOTableTsv(List<PurchaseOrderModel> orders) {
     final l = context.l10n;
-    final List<String> headers = [
-      l.poReferenceCol,
-      l.foreignSupplier,
-      l.projectsAndCostCenters,
-      l.totalFobMetric,
-      l.totalCargoCbmMetric,
-      l.totalGrossWeightMetric,
-      l.statusCol,
-    ];
-    final rows = orders.map((po) => [
-      po.poNumber,
-      po.supplierName,
-      po.projectName ?? '-',
-      po.totalAmountFob.toStringAsFixed(2),
-      '${po.totalCbm.toStringAsFixed(2)} m³',
-      '${po.totalGrossWeightKg.toStringAsFixed(1)} kg',
-      _getStatusLabel(po.status, l),
-    ]).toList();
+    final headers = buildPoExportHeaders(l);
+    final rows = buildPoExportRows(orders, l);
 
     TableCopyHelper.copyTable(
       context,
@@ -389,44 +310,36 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
             ],
           ),
         ),
-        const PopupMenuDivider(height: 1),
-        PopupMenuItem(
-          value: 'download_template',
-          child: Row(
-            children: [
-              const Icon(Icons.file_download_outlined, color: AppTheme.charcoal, size: 16),
-              const SizedBox(width: 8),
-              Text(context.l10n.poDownloadTemplate, style: const TextStyle(fontSize: 12.5)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'import_excel',
-          child: Row(
-            children: [
-              const Icon(Icons.upload_file, color: AppTheme.charcoal, size: 16),
-              const SizedBox(width: 8),
-              Text(context.l10n.poImportExcel, style: const TextStyle(fontSize: 12.5)),
-            ],
-          ),
-        ),
       ],
       onMoreActionSelected: (val) {
+        final headers = buildPoExportHeaders(l);
+        final rows = buildPoExportRows(state.purchaseOrders, l);
+        final selectedProject = state.projectFilter == null
+            ? null
+            : projectsList.where((p) => p.projectId == state.projectFilter).firstOrNull;
+        final projectCodeOrAll = selectedProject?.projectCode ?? l.allProjects;
+
         switch (val) {
           case 'export_excel':
-            _downloadPOFile('export-excel', 'Purchase_Orders.xlsx', context.l10n.poExportPurchaseOrdersExcel);
+            TableExportService.exportTableToExcel(
+              context: context,
+              headers: headers,
+              rows: rows,
+              stageName: l.purchaseOrdersTitle,
+              importFileNameOrCode: projectCodeOrAll,
+            );
             break;
           case 'export_pdf':
-            _downloadPOFile('export-pdf', 'Purchase_Orders.pdf', context.l10n.poExportPurchaseOrdersPDF);
+            TableExportService.exportTableToPdf(
+              context: context,
+              headers: headers,
+              rows: rows,
+              stageName: l.purchaseOrdersTitle,
+              importFileNameOrCode: projectCodeOrAll,
+            );
             break;
           case 'copy_tsv':
             _copyPOTableTsv(state.purchaseOrders);
-            break;
-          case 'download_template':
-            _downloadPOFile('template', 'Purchase_Orders_Template.xlsx', context.l10n.poDownloadPurchaseOrdersTemplate);
-            break;
-          case 'import_excel':
-            _handleImportExcel();
             break;
         }
       },

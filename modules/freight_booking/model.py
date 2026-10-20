@@ -40,9 +40,14 @@ class ShipmentBooking(Base):
     # Schedule & Dates
     booking_request_date = Column(DateTime, nullable=True, default=lambda: datetime.now(timezone.utc))
     booking_confirmation_date = Column(DateTime, nullable=True)
+    agent_data_received_date = Column(DateTime, nullable=True)
+    agent_data_sent_to_supplier_date = Column(DateTime, nullable=True)
+    factory_loading_date = Column(DateTime, nullable=True)
     etd = Column(DateTime, nullable=True)  # Estimated Time of Departure
     eta = Column(DateTime, nullable=True)  # Estimated Time of Arrival
     atd = Column(DateTime, nullable=True)  # Actual Time of Departure
+    ata = Column(DateTime, nullable=True)  # Actual Time of Arrival
+    is_ata_confirmed = Column(Boolean, default=False, nullable=False)
     shipped_on_board_date = Column(Date, nullable=True)  # Shipped On Board Date (BE45-T11)
     departure_delay_days = Column(Integer, nullable=True, default=0)
     expected_warehouse_days = Column(Integer, nullable=True, default=7)
@@ -85,3 +90,31 @@ class ShipmentBooking(Base):
 
     # Relationships
     import_file = relationship("ImportFile", backref="bookings")
+
+
+class ShipmentEtaTrackingLog(Base):
+    """
+    Log of periodic ETA tracking updates for vessels in transit (every 3 days)
+    and final port arrival (ATA) confirmation.
+    """
+    __tablename__ = "shipment_eta_tracking_logs"
+
+    log_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    booking_id = Column(Integer, ForeignKey("shipment_bookings.booking_id"), nullable=False, index=True)
+    import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=False, index=True)
+
+    tracking_date = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    vessel_location = Column(String(200), nullable=True)
+    current_eta = Column(DateTime, nullable=False)
+    delay_days = Column(Integer, nullable=False, default=0)
+    remarks = Column(Text, nullable=True)
+
+    is_ata_confirmed = Column(Boolean, default=False, nullable=False)
+    confirmed_ata = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_by = Column(String(100), nullable=True)
+
+    # Relationships
+    booking = relationship("ShipmentBooking", backref="eta_tracking_logs")
+    import_file = relationship("ImportFile", backref="eta_tracking_logs")

@@ -29,7 +29,7 @@ PREVIOUS_HEAD = "d3e4f5a6b7c8"
 
 
 
-HEAD_REVISION = "f4b5c6d7e8f9"
+HEAD_REVISION = "a6b7c8d9e0f1"
 
 
 class _SpyMasterData:
@@ -393,13 +393,9 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     # -> e2f3a4b5c6d7 (legacy budget column backfill)
     # -> f3a4b5c6d7e8 (partial shipments linkage DEV-OPS-04)
     # -> 73cee71ca978 (shipment_containers table DEV-OPS-01)
-    # -> b8c9d0e1f2a3 (terminals, carriers and historical rate cards)
-    # -> c9d0e1f2a3b4 (users.token_version BEX-T08)
-    # -> f1a2b3c4d5e6 (financial settlement active file unique index ACC2-T01)
-    # -> f2a3b4c5d6e7 (financial settlement soft delete fields ACC2-T02)
-    # -> d0e1f2a3b4c5 (payment paid EGP ACC2-T07)
-    # -> head f4b5c6d7e8f9 (shipment stage activity uniqueness)
-    assert script.get_revision(HEAD_REVISION).down_revision == "d0e1f2a3b4c5"
+    assert script.get_revision(HEAD_REVISION).down_revision == "a5b6c7d8e9f0"
+    assert script.get_revision("a5b6c7d8e9f0").down_revision == "f4b5c6d7e8f9"
+    assert script.get_revision("f4b5c6d7e8f9").down_revision == "d0e1f2a3b4c5"
     assert script.get_revision("d0e1f2a3b4c5").down_revision == "f2a3b4c5d6e7"
     assert script.get_revision("f2a3b4c5d6e7").down_revision == "f1a2b3c4d5e6"
     assert script.get_revision("f1a2b3c4d5e6").down_revision == "c9d0e1f2a3b4"

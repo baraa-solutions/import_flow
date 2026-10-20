@@ -23,6 +23,7 @@ from modules.lifecycle_board.schemas import (
     StepConfigAuditLogResponse,
     RegisterPendingReferenceRequest,
     RegisterPendingReferenceResponse,
+    ShipmentTimelineSummaryResponse,
 )
 import modules.lifecycle_board.service as service
 
@@ -216,5 +217,34 @@ def set_multi_active_stages(
     current_user: User = Depends(get_current_user),
 ):
     return service.set_multi_active_stages_service(db, payload, actor=current_user)
+
+
+# ─── 25-Stage Central Operational Timeline Endpoints (TASK-BE-09) ─────────────
+
+@router.get(
+    "/files/{import_file_id}/timeline-snapshots",
+    response_model=ShipmentTimelineSummaryResponse,
+    summary="استرجاع لقطات المخطط الزمني التشغيلي للمراحل الـ 25 (TASK-BE-09)",
+    dependencies=[Depends(require_permission("lifecycle_board.view"))],
+)
+def get_file_timeline_snapshots(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+):
+    return service.get_timeline_snapshots_service(db, import_file_id=import_file_id)
+
+
+@router.post(
+    "/files/{import_file_id}/sync-timeline",
+    response_model=ShipmentTimelineSummaryResponse,
+    summary="إعادة المزامنة والحساب الفوري للمخطط الزمني التشغيلي (TASK-BE-09)",
+    dependencies=[Depends(require_permission("lifecycle_board.advance"))],
+)
+def sync_file_timeline_snapshots(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+):
+    return service.sync_timeline_snapshots_service(db, import_file_id=import_file_id)
+
 
 

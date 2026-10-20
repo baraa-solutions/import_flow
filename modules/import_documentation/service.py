@@ -283,6 +283,8 @@ def enrich_acid_response(db: Session, item: AcidRegistrationSession, import_file
         is_active=item.is_active,
         created_at=item.created_at,
         updated_at=item.updated_at,
+        created_by=item.created_by,
+        updated_by=item.updated_by,
     )
 
 
@@ -680,6 +682,8 @@ def create_acid_session_service(
             for k, v in update_data.items():
                 if hasattr(existing, k) and v is not None:
                     setattr(existing, k, v)
+            if user is not None:
+                existing.updated_by = user
             if hasattr(existing, "set_updated_info"):
                 existing.set_updated_info()
             _apply_acid_derived_fields(existing)
@@ -691,7 +695,7 @@ def create_acid_session_service(
             _handle_acid_verification_workflow(db, existing, previous_status=prev_status, previous_ref=prev_ref)
             return enrich_acid_response(db, existing)
 
-    db_item = repo.create_acid_session(db, schema, commit=False)
+    db_item = repo.create_acid_session(db, schema, commit=False, user=user)
 
     # DOC-15: no expiry sent -> issue (or request) date + ACID_DEFAULT_VALIDITY_DAYS, the same default the tracker
     # uses. The column is NOT NULL, so "leave it null" needs a schema change (deferred); never "today" any more.
@@ -763,7 +767,7 @@ def update_acid_session_service(
         else:
             payload_data["requested_date"] = date.today()
 
-    updated = repo.update_acid_session(db, db_item, payload_data, commit=False)
+    updated = repo.update_acid_session(db, db_item, payload_data, commit=False, user=user)
 
     _apply_acid_derived_fields(updated)
     db.commit()
@@ -1252,7 +1256,7 @@ def create_banking_document_service(
                 schema.bank_id = swift_cov.executing_bank_id
                 schema.bank_name = swift_cov.executing_bank_name
 
-    item = repo.create_banking_document(db, schema)
+    item = repo.create_banking_document(db, schema, user=user)
 
     # Dispatch initial SmartTask for Broker to pull Tax Coding Sheet
     if item.import_file_id and item.tax_coding_sheet_status == "NOT_STARTED":
@@ -1314,7 +1318,7 @@ def update_banking_document_service(
 
     prev_status = item.status
     prev_ref = item.doc_reference_number
-    updated = repo.update_banking_document(db, item, schema)
+    updated = repo.update_banking_document(db, item, schema, user=user)
 
     # Sync and trigger workflow
     _handle_banking_document_verification_workflow(db, updated, previous_status=prev_status, previous_ref=prev_ref)
@@ -1346,6 +1350,8 @@ def receive_banking_document_service(
         item.notes = f"{item.notes}\n{notes}" if item.notes else notes
 
     item.updated_at = datetime.now(timezone.utc)
+    if user is not None:
+        item.updated_by = user
     db.commit()
     db.refresh(item)
 
@@ -1403,6 +1409,8 @@ def record_tax_coding_sheet_pull_service(
         item.notes = f"{item.notes}\n[Tax coding sheet] Broker pull: {schema.notes}" if item.notes else f"[Tax coding sheet] Broker pull: {schema.notes}"
 
     item.updated_at = datetime.now(timezone.utc)
+    if user is not None:
+        item.updated_by = user
     db.commit()
     db.refresh(item)
 
@@ -1473,6 +1481,8 @@ def record_tax_coding_sheet_upload_service(
         item.notes = f"{item.notes}\n[Tax coding sheet] Accountant upload: {schema.notes}" if item.notes else f"[Tax coding sheet] Accountant upload: {schema.notes}"
 
     item.updated_at = datetime.now(timezone.utc)
+    if user is not None:
+        item.updated_by = user
     db.commit()
     db.refresh(item)
 
@@ -1546,6 +1556,8 @@ def record_items_verification_service(
         item.notes = f"{item.notes}\n[Items pull] Broker confirmation: {schema.notes}" if item.notes else f"[Items pull] Broker confirmation: {schema.notes}"
 
     item.updated_at = datetime.now(timezone.utc)
+    if user is not None:
+        item.updated_by = user
     db.commit()
     db.refresh(item)
 
@@ -1621,6 +1633,8 @@ def record_nafeza_bank_link_service(
         item.notes = f"{item.notes}\n[SWIFT bank mismatch override]: {schema.override_reason}"
 
     item.updated_at = datetime.now(timezone.utc)
+    if user is not None:
+        item.updated_by = user
     db.commit()
     db.refresh(item)
 
@@ -1681,7 +1695,7 @@ def create_shipment_document_service(
     if schema.import_file_id is not None:
         _active_import_file(db, schema.import_file_id)
     _require_active_po(db, schema.po_id)
-    item = repo.create_shipment_document(db, schema)
+    item = repo.create_shipment_document(db, schema, user=user)
     return enrich_shipment_doc_response(db, item)
 
 
@@ -1729,7 +1743,7 @@ def update_cargox_and_bl_endorsement_service(
         schema.endorsement_number = endorsement_number
         schema.status = "Endorsed"
 
-    item = repo.update_shipment_document(db, doc_id, schema)
+    item = repo.update_shipment_document(db, doc_id, schema, user=user)
     return enrich_shipment_doc_response(db, item)
 
 
@@ -1752,7 +1766,7 @@ def create_customs_declaration_service(
                     )
 
     _require_active_po(db, schema.po_id)
-    item = repo.create_customs_declaration(db, schema)
+    item = repo.create_customs_declaration(db, schema, user=user)
 
     amounts_entered = any(
         v is not None
@@ -1782,6 +1796,8 @@ def create_customs_declaration_service(
         is_active=item.is_active,
         created_at=item.created_at,
         updated_at=item.updated_at,
+        created_by=item.created_by,
+        updated_by=item.updated_by,
     )
 
 
@@ -3008,10 +3024,10 @@ def create_draft_bl_review_service(
     if is_draft:
         if existing_draft and existing_draft.is_draft:
             update_schema = _drop_stale_blocking_codes(DraftBLReviewUpdate(**schema.model_dump(exclude_unset=True)))
-            saved_session = repo.update_draft_bl_review(db, existing_draft.bl_review_id, update_schema)
+            saved_session = repo.update_draft_bl_review(db, existing_draft.bl_review_id, update_schema, user=actor)
             is_update = True
         else:
-            saved_session = repo.create_draft_bl_review(db, schema)
+            saved_session = repo.create_draft_bl_review(db, schema, user=actor)
     else:
         existing_certified = repo.get_draft_bl_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=False)
         if existing_certified:
@@ -3022,7 +3038,7 @@ def create_draft_bl_review_service(
                     f"يرجى استعراض المراجعة الحالية أو إنشاء إصدار جديد (Version) بدلاً من إنشاء جلسة مكررة."
                 ),
             )
-        saved_session = repo.create_draft_bl_review(db, schema)
+        saved_session = repo.create_draft_bl_review(db, schema, user=actor)
 
     _audit_draft_bl(db, saved_session, "UPDATE" if is_update else "CREATE", schema.model_dump(mode="json", exclude_unset=True), actor)
     # No approval side effects here any more: a saved review waits for dual approval (DOC-04 a, Q4).
@@ -3100,7 +3116,7 @@ def update_draft_bl_review_service(
     clean.reviewed_by = actor
     clean.reviewed_at = datetime.now(timezone.utc)
 
-    updated = repo.update_draft_bl_review(db, review_id, _drop_stale_blocking_codes(clean))
+    updated = repo.update_draft_bl_review(db, review_id, _drop_stale_blocking_codes(clean), user=actor)
     _audit_draft_bl(db, updated, "UPDATE", schema.model_dump(mode="json", exclude_unset=True), actor)
     return updated
 
@@ -3140,7 +3156,9 @@ def update_draft_bl_checklist_service(
     review.has_blocking_mismatch = _checklist_has_blocking(updated_checklist)
     review.revision_report_data = revision_report
     review.open_discrepancies_count = open_count
-    review.reviewed_by = _actor(user, reviewer_name)
+    actor = _actor(user, reviewer_name)
+    review.reviewed_by = actor
+    review.updated_by = actor
     review.reviewed_at = datetime.now(timezone.utc)
 
     # Re-generate correction letter
@@ -3179,6 +3197,7 @@ def process_dual_approval_service(
         )
 
     approver = _actor(user, request.approved_by)
+    review.updated_by = approver
     now = datetime.now(timezone.utc)
     approving = request.action == "Approved"
 
@@ -3325,9 +3344,12 @@ def create_new_draft_version_service(
         status=status_val,
         reviewed_by=_actor(user),
         reviewed_at=datetime.now(timezone.utc),
+        created_by=_actor(user),
+        updated_by=_actor(user),
     )
     if parent.status not in DRAFT_BL_TERMINAL_STATUSES:
         parent.is_active = False
+        parent.updated_by = _actor(user)
     db.add(new_session)
     db.commit()
     db.refresh(new_session)
@@ -3349,6 +3371,7 @@ def approve_draft_bl_service(
             detail=f"لا يمكن اعتماد درافت البوليصة لوجود بنود غير مطابقة أو أخطاء حرجة (Blocking Discrepancies)."
         )
     approver = _actor(user, approved_by)
+    review.updated_by = approver
     importer_done = review.importer_approval_status == "Approved"
     broker_done = review.broker_approval_status == "Approved"
     if importer_done == broker_done:
@@ -3680,9 +3703,9 @@ def create_coo_review_service(
     existing = repo.get_coo_review_by_file_id(db, schema.import_file_id, include_inactive=False, include_drafts=True)
     if existing:
         update_schema = CertificateOfOriginReviewUpdate(**schema.model_dump(exclude_unset=True))
-        saved_session = repo.update_coo_review(db, existing.coo_review_id, update_schema)
+        saved_session = repo.update_coo_review(db, existing.coo_review_id, update_schema, user=actor)
     else:
-        saved_session = repo.create_coo_review(db, schema)
+        saved_session = repo.create_coo_review(db, schema, user=actor)
 
     # If certified (not draft), sync to Customs Document Approvals and Central Lifecycle (follow-ups, DOC-11)
     if not is_draft:
@@ -3710,10 +3733,12 @@ def update_coo_review_service(
             )
         if "notes" in fields:
             review.notes = schema.notes
+            review.updated_by = _actor(user)
             db.commit()
             db.refresh(review)
         elif "override_reason" in fields:
             review.override_reason = schema.override_reason
+            review.updated_by = _actor(user)
             db.commit()
             db.refresh(review)
         return review
@@ -3760,7 +3785,7 @@ def update_coo_review_service(
         clean.reviewed_by = _actor(user)
         clean.reviewed_at = datetime.now(timezone.utc)
     becomes_certified = bool(review.is_draft) and not is_draft
-    saved = repo.update_coo_review(db, review_id, clean)
+    saved = repo.update_coo_review(db, review_id, clean, user=_actor(user))
     if becomes_certified:
         _coo_certified_follow_ups(db, saved.import_file_id, saved.certificate_type, saved.certificate_number, clean.reviewed_by)
         db.refresh(saved)
@@ -3949,9 +3974,9 @@ def create_inspection_review_service(
     existing = repo.get_inspection_review_by_file_id(db, schema.import_file_id, include_inactive=False)
     if existing:
         update_schema = InspectionCertificateReviewUpdate(**schema.model_dump(exclude_unset=True))
-        saved = repo.update_inspection_review(db, existing.inspection_review_id, update_schema)
+        saved = repo.update_inspection_review(db, existing.inspection_review_id, update_schema, user=actor)
     else:
-        saved = repo.create_inspection_review(db, schema)
+        saved = repo.create_inspection_review(db, schema, user=actor)
 
     # Advance Central Lifecycle (STEP_08_COC -> STEP_09)
     if saved.status in _INSPECTION_APPROVED_STATUSES:
@@ -3998,7 +4023,7 @@ def update_inspection_review_service(
     clean.status = _inspection_status(comp["has_discrepancies"], comp["has_critical_mismatch"], _merged("override_reason"))
     clean.reviewed_by = _actor(user)
     clean.reviewed_at = datetime.now(timezone.utc)
-    saved = repo.update_inspection_review(db, review_id, clean)
+    saved = repo.update_inspection_review(db, review_id, clean, user=_actor(user))
 
     # Advance Central Lifecycle (STEP_08_COC -> STEP_09)
     if saved.status in _INSPECTION_APPROVED_STATUSES:
@@ -5892,9 +5917,9 @@ def create_invoice_bl_match_session_service(
 
     if existing and (existing.is_draft or payload.is_draft):
         update_schema = InvoiceBLMatchSessionUpdate(**payload.model_dump())
-        session_res = repo.update_invoice_bl_match_session(db, existing.session_id, update_schema)
+        session_res = repo.update_invoice_bl_match_session(db, existing.session_id, update_schema, user=actor)
     else:
-        session_res = repo.create_invoice_bl_match_session(db, payload)
+        session_res = repo.create_invoice_bl_match_session(db, payload, user=actor)
 
     if certify and payload.invoice_data and payload.bl_data:
         _invoice_bl_sync_follow_ups(db, payload.import_file_id, payload.invoice_data, payload.bl_data, actor)
@@ -6208,6 +6233,8 @@ def enrich_po_reconciliation_session_response(
         "notes": session.notes,
         "certified_by": session.certified_by,
         "is_active": session.is_active,
+        "created_by": session.created_by,
+        "updated_by": session.updated_by,
         "created_at": session.created_at,
         "updated_at": session.updated_at,
     }
@@ -6305,11 +6332,12 @@ def create_po_reconciliation_session_service(
                 setattr(existing, field, value)
         existing.is_active = True
         existing.updated_at = datetime.now(timezone.utc)
+        existing.updated_by = actor
         db.commit()
         db.refresh(existing)
         session = existing
     else:
-        session = repo.create_po_reconciliation_session(db, schema)
+        session = repo.create_po_reconciliation_session(db, schema, user=actor)
 
     _audit_po_recon(db, session, "CREATE", actor, new_data=schema.model_dump(mode="json", exclude_unset=True))
     _po_recon_lifecycle(db, session, "DOC_PO_RECONCILIATION_DONE", actor)
@@ -6396,7 +6424,7 @@ def update_po_reconciliation_session_service(
     old_data = {k: getattr(session, k, None) for k in update_data.keys()}
     old_data = {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in old_data.items()}
 
-    updated = repo.update_po_reconciliation_session(db, session_id, schema)
+    updated = repo.update_po_reconciliation_session(db, session_id, schema, user=actor)
 
     _audit_po_recon(db, updated, "UPDATE", actor, new_data=update_data, old_data=old_data)
     _po_recon_lifecycle(db, updated, "DOC_PO_RECONCILIATION_UPDATED", actor)
@@ -6737,6 +6765,10 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
                 if sev == "CRITICAL": total_critical += 1
                 else: total_warning += 1
 
+    po_curr = po_reconciliation.currency.strip() if (po_reconciliation and po_reconciliation.currency) else None
+    file_curr = (imp_file.estimated_cost_currency.strip() if getattr(imp_file, 'estimated_cost_currency', None) else None)
+    archive_currency = po_curr or file_curr or None
+
     final_invoice = CentralArchiveDocumentSummary(
         document_type="FINAL_COMMERCIAL_INVOICE",
         title_ar="الفاتورة التجارية النهائية المعتمدة",
@@ -6749,7 +6781,7 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         details={
             "invoice_number": (po_reconciliation.final_invoice_number if po_reconciliation else None) or imp_file.pi_number,
             "total_amount": float(po_reconciliation.total_invoice_amount) if po_reconciliation else float(getattr(imp_file, 'estimated_cost', 0.0) or 0.0),
-            "currency": (po_reconciliation.currency if po_reconciliation else None) or (getattr(imp_file, 'estimated_cost_currency', None) or None),
+            "currency": archive_currency,
             "shipper_name": (po_reconciliation.shipper_name if po_reconciliation else None) or (supplier.company_name if supplier else imp_file.supplier_name),
             "reconciled_items_count": len(po_reconciliation.reconciled_invoice_items or []) if po_reconciliation else 0,
             "certified_by": po_reconciliation.certified_by if po_reconciliation else None,
@@ -7027,7 +7059,7 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         port_of_discharge=getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None),
         total_packages=int(po_reconciliation.total_packages) if po_reconciliation else (booking.packages_count if booking else 0),
         total_gross_weight_kg=float(po_reconciliation.total_gross_weight_kg) if po_reconciliation else (booking.gross_weight if booking else 0.0),
-        currency=po_reconciliation.currency if po_reconciliation else (getattr(imp_file, 'estimated_cost_currency', None) or None),
+        currency=archive_currency,
         fob_or_cif_amount=float(po_reconciliation.total_invoice_amount) if po_reconciliation else float(getattr(imp_file, 'estimated_cost', 0.0) or 0.0),
         readiness_status=readiness_status,
         readiness_score=round(final_score, 1),

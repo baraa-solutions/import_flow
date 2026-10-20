@@ -105,7 +105,7 @@ def _prepare_quote(db: Session, data: CustomsClearanceQuotationCreate) -> dict:
     return q_data
 
 
-def create_rfq_service(db: Session, data: CustomsClearanceRFQCreate) -> CustomsClearanceRFQ:
+def create_rfq_service(db: Session, data: CustomsClearanceRFQCreate, user: str = "System") -> CustomsClearanceRFQ:
     val.validate_rfq_create(data)
     val.validate_rfq_links(db, import_file_id=data.import_file_id, project_id=data.project_id, port_id=data.port_id)
     quotes = [_prepare_quote(db, q) for q in (data.quotations or [])]
@@ -114,7 +114,7 @@ def create_rfq_service(db: Session, data: CustomsClearanceRFQCreate) -> CustomsC
     for attempt in range(1, RFQ_CODE_ATTEMPTS + 1):
         rfq_code = generate_rfq_code(db)
         try:
-            rfq = repo.create_rfq(db, {**rfq_data, "quotations": [dict(q) for q in quotes]}, rfq_code)
+            rfq = repo.create_rfq(db, {**rfq_data, "quotations": [dict(q) for q in quotes]}, rfq_code, user=user)
             recalculate_rfq_metrics(db, rfq)
             db.commit()
         except IntegrityError:
@@ -158,7 +158,7 @@ def get_rfq_by_id_service(db: Session, rfq_id: int) -> CustomsClearanceRFQ:
     return rfq
 
 
-def update_rfq_service(db: Session, rfq_id: int, data: CustomsClearanceRFQUpdate) -> CustomsClearanceRFQ:
+def update_rfq_service(db: Session, rfq_id: int, data: CustomsClearanceRFQUpdate, user: str = "System") -> CustomsClearanceRFQ:
     rfq = _rfq_or_404(db, rfq_id)
     update_dict = data.model_dump(exclude_unset=True)
     val.validate_rfq_status_change(rfq.status, update_dict.get("status"))
@@ -168,14 +168,14 @@ def update_rfq_service(db: Session, rfq_id: int, data: CustomsClearanceRFQUpdate
         project_id=update_dict.get("project_id"),
         port_id=update_dict.get("port_id"),
     )
-    repo.update_rfq(db, rfq_id, update_dict)
+    repo.update_rfq(db, rfq_id, update_dict, user=user)
     recalculate_rfq_metrics(db, rfq)
     db.commit()
     db.refresh(rfq)
     return rfq
 
 
-def delete_rfq_service(db: Session, rfq_id: int) -> bool:
+def delete_rfq_service(db: Session, rfq_id: int, user: str = "System") -> bool:
     rfq = _rfq_or_404(db, rfq_id)
     if rfq.status == val.RFQ_STATUS_AWARDED:
         raise val.coded_error(
@@ -184,7 +184,7 @@ def delete_rfq_service(db: Session, rfq_id: int) -> bool:
             "لا يمكن حذف طلب عرض أسعار تمت ترسيته بالفعل.",
             rfq_code=rfq.rfq_code,
         )
-    success = repo.delete_rfq(db, rfq_id, soft=True)
+    success = repo.delete_rfq(db, rfq_id, soft=True, user=user)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="السجل غير موجود")
     db.commit()
@@ -192,11 +192,11 @@ def delete_rfq_service(db: Session, rfq_id: int) -> bool:
 
 
 def add_quotation_service(
-    db: Session, rfq_id: int, data: CustomsClearanceQuotationCreate
+    db: Session, rfq_id: int, data: CustomsClearanceQuotationCreate, user: str = "System"
 ) -> CustomsClearanceQuotationItem:
     rfq = _rfq_or_404(db, rfq_id)
     val.validate_rfq_open(rfq)
-    quotation = repo.add_quotation_to_rfq(db, rfq, _prepare_quote(db, data))
+    quotation = repo.add_quotation_to_rfq(db, rfq, _prepare_quote(db, data), user=user)
     recalculate_rfq_metrics(db, rfq)
     db.commit()
     db.refresh(quotation)
@@ -204,14 +204,14 @@ def add_quotation_service(
 
 
 def update_quotation_service(
-    db: Session, quotation_id: int, data: CustomsClearanceQuotationUpdate
+    db: Session, quotation_id: int, data: CustomsClearanceQuotationUpdate, user: str = "System"
 ) -> CustomsClearanceQuotationItem:
     quote = _quote_or_404(db, quotation_id)
     rfq = _rfq_or_404(db, quote.rfq_id)
     val.validate_rfq_open(rfq)
     q_data = _normalize_quote_fields(data.model_dump(exclude_unset=True))
     q_data.pop("total_cost", None)  # always server-computed
-    updated = repo.update_quotation(db, quotation_id, q_data)
+    updated = repo.update_quotation(db, quotation_id, q_data, user=user)
     updated.total_cost = quote_total(updated)
     recalculate_rfq_metrics(db, rfq)
     db.commit()
@@ -219,20 +219,20 @@ def update_quotation_service(
     return updated
 
 
-def delete_quotation_service(db: Session, quotation_id: int) -> bool:
+def delete_quotation_service(db: Session, quotation_id: int, user: str = "System") -> bool:
     """Soft delete (CCQ-02); the awarded quote cannot be deleted (409)."""
     quote = _quote_or_404(db, quotation_id)
     rfq = _rfq_or_404(db, quote.rfq_id)
     val.validate_rfq_open(rfq)
     val.validate_quote_deletable(quote)
-    repo.soft_delete_quotation(db, quote)
+    repo.soft_delete_quotation(db, quote, user=user)
     recalculate_rfq_metrics(db, rfq)
     db.commit()
     return True
 
 
 def award_quotation_service(
-    db: Session, rfq_id: int, quotation_id: int, notes: Optional[str] = None
+    db: Session, rfq_id: int, quotation_id: int, notes: Optional[str] = None, user: str = "System"
 ) -> CustomsClearanceRFQ:
     rfq = _rfq_or_404(db, rfq_id)
     target_quote = repo.get_quotation_by_id(db, quotation_id)
@@ -240,11 +240,14 @@ def award_quotation_service(
 
     for q in rfq.quotations:
         q.is_awarded = (q.quotation_id == quotation_id)
+        if q.is_awarded:
+            q.updated_by = user
     rfq.awarded_provider_id = target_quote.provider_id
     rfq.awarded_provider_name = target_quote.provider_name
     rfq.awarded_quotation_id = target_quote.quotation_id
     rfq.awarded_at = datetime.now(timezone.utc)
     rfq.status = val.RFQ_STATUS_AWARDED
+    rfq.updated_by = user
 
     db.commit()
     db.refresh(rfq)
@@ -281,20 +284,20 @@ def get_price_list_service(
 
 
 def create_price_item_service(
-    db: Session, data: ClearancePriceListItemCreate
+    db: Session, data: ClearancePriceListItemCreate, user: str = "System"
 ) -> ClearanceServicePriceListItem:
     val.validate_price_item_create(data)
     provider = val.validate_quotation_provider(db, data.provider_id)
     p_data = _normalize_quote_fields(data.model_dump())
     p_data["provider_name"] = provider.partner_name
-    item = repo.create_price_item(db, p_data)
+    item = repo.create_price_item(db, p_data, user=user)
     db.commit()
     db.refresh(item)
     return item
 
 
 def update_price_item_service(
-    db: Session, item_id: int, data: ClearancePriceListItemUpdate
+    db: Session, item_id: int, data: ClearancePriceListItemUpdate, user: str = "System"
 ) -> ClearanceServicePriceListItem:
     item = repo.get_price_item_by_id(db, item_id)
     if not item:
@@ -309,15 +312,16 @@ def update_price_item_service(
         changes.get("effective_from") or item.effective_from,
         changes.get("effective_to") or item.effective_to,
     )
-    updated = repo.update_price_item(db, item_id, _normalize_quote_fields(changes))
+    updated = repo.update_price_item(db, item_id, _normalize_quote_fields(changes), user=user)
     db.commit()
     db.refresh(updated)
     return updated
 
 
-def delete_price_item_service(db: Session, item_id: int) -> bool:
-    success = repo.delete_price_item(db, item_id)
+def delete_price_item_service(db: Session, item_id: int, user: str = "System") -> bool:
+    success = repo.delete_price_item(db, item_id, user=user)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="بند قائمة الأسعار غير موجود")
     db.commit()
     return True
+

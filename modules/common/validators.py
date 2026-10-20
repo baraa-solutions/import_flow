@@ -164,18 +164,24 @@ def require_currency_code(
     db: Session,
     code: Optional[str],
     label_ar: str = "العملة",
+    required: bool = False,
 ) -> Optional[str]:
     """Validate that code is an active currency code in the currencies master table.
 
-    Normalizes by stripping whitespace and uppercasing. If code is None or empty, returns None.
+    Normalizes by stripping whitespace and uppercasing. If code is None or empty:
+    - If required=True: raises HTTPException(400, f"كود {label_ar} مطلوب.")
+    - If required=False: returns None.
     Raises CodedHTTPException (400) with code CURRENCY_CODE_UNKNOWN if the currency is not
     found or is inactive.
     """
-    if code is None:
+    if code is None or not str(code).strip():
+        if required:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"كود {label_ar} مطلوب.",
+            )
         return None
     clean = str(code).strip().upper()
-    if not clean:
-        return None
 
     from modules.currencies.model import Currency
     currency = (
@@ -193,4 +199,25 @@ def require_currency_code(
             currency_code=clean,
         )
     return clean
+
+
+def validate_price_currency(
+    db: Session,
+    price: Optional[float],
+    currency_code: Optional[str],
+    label_ar: str = "العملة",
+) -> Optional[str]:
+    """Validate price/currency pair: if price > 0, currency is required; code must be active in master.
+    Returns normalized uppercase currency code, or None if no price and no currency."""
+    val = float(price or 0.0)
+    if val > 0:
+        if not currency_code or not str(currency_code).strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"كود {label_ar} مطلوب عند إدخال قيمة مالية.",
+            )
+        return require_currency_code(db, currency_code, label_ar=label_ar, required=True)
+    if currency_code and str(currency_code).strip():
+        return require_currency_code(db, currency_code, label_ar=label_ar, required=False)
+    return None
 

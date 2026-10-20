@@ -77,6 +77,18 @@ class ItemLandedCostSchema(BaseModel):
     unit_landed_cost_egp: float = 0.0
     markup_factor: float = 1.0
 
+VALID_INCOTERMS = {"EXW", "FCA", "CPT", "CIP", "DAP", "DPU", "DDP", "FAS", "FOB", "CFR", "CIF"}
+
+
+def _validate_incoterm_code(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return v
+    code = v.strip().upper()
+    if code not in VALID_INCOTERMS:
+        raise ValueError(f"شرط التسليم '{v}' غير صالح. يجب أن يكون أحد شروط التجارة الدولية (Incoterms 2020).")
+    return code
+
+
 class FinancialSettlementCreate(BaseModel):
     import_file_id: int
     incoterm_code: Optional[str] = "FOB"
@@ -85,15 +97,11 @@ class FinancialSettlementCreate(BaseModel):
     accountant_name: Optional[str] = Field(None, description="Ignored: the acting user is recorded")
     notes: Optional[str] = None
 
-    @field_validator("incoterm_code")
+    @field_validator("incoterm_code", mode="after")
     @classmethod
-    def validate_incoterm_code(cls, v: Optional[str]) -> str:
-        if v is None:
-            return "FOB"
-        code = v.strip().upper()
-        if code not in MASTER_INCOTERM_CODES:
-            raise ValueError(f"Unknown incoterm_code '{v}'. Must be one of: {', '.join(sorted(MASTER_INCOTERM_CODES))}")
-        return code
+    def validate_incoterm(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_incoterm_code(v)
+
 
 class FinancialSettlementUpdate(BaseModel):
     incoterm_code: Optional[str] = None
@@ -103,15 +111,11 @@ class FinancialSettlementUpdate(BaseModel):
     accountant_name: Optional[str] = Field(None, description="Ignored: the acting user is recorded")
     notes: Optional[str] = None
 
-    @field_validator("incoterm_code")
+    @field_validator("incoterm_code", mode="after")
     @classmethod
-    def validate_incoterm_code(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        code = v.strip().upper()
-        if code not in MASTER_INCOTERM_CODES:
-            raise ValueError(f"Unknown incoterm_code '{v}'. Must be one of: {', '.join(sorted(MASTER_INCOTERM_CODES))}")
-        return code
+    def validate_incoterm(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_incoterm_code(v)
+
 
 @read_model
 class FinancialSettlementResponse(LegacyRowTolerantModel):

@@ -18,7 +18,7 @@ class SmartTask(Base):
     import_file_id = Column(Integer, ForeignKey("import_files.import_file_id", ondelete="SET NULL"), nullable=True, index=True)
     import_file_code = Column(String(100), nullable=True)
     phase_name = Column(String(100), nullable=True)
-    assigned_user = Column(String(100), default="Kamal", nullable=False)
+    assigned_user = Column(String(100), default=None, nullable=True)
     priority = Column(String(50), default="Medium", nullable=False)  # Low, Medium, High, Critical
     reminder_type = Column(String(100), default="General Reminder", nullable=False)
     due_date = Column(String(50), nullable=True)

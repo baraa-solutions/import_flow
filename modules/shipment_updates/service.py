@@ -221,3 +221,26 @@ def soft_delete_update_log_service(db: Session, update_id: int, user_name: str =
     repo.soft_delete_update_log(db, update_id, deleted_by=user_name)
     db.commit()
     return True
+
+
+def restore_update_log_service(db: Session, update_id: int, user_name: str = "System") -> ShipmentUpdateLog:
+    record = repo.get_update_log_by_id(db, update_id, include_inactive=True)
+    if not record:
+        raise not_found(RECORD_LABEL_AR, update_id)
+    if record.is_active:
+        return record
+
+    record.is_active = True
+    record.updated_by = user_name
+    record.updated_at = datetime.now(timezone.utc)
+
+    if record.update_category == "Phase Cost Adjustment" and record.import_file_id:
+        import_file = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
+        if import_file and abs((import_file.estimated_cost or 0.0) - (record.previous_cost or 0.0)) < 1e-6:
+            import_file.estimated_cost = record.new_cost or 0.0
+            import_file.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(record)
+    return record
+

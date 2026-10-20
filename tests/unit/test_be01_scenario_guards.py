@@ -33,7 +33,8 @@ def db():
     Base.metadata.create_all(bind=engine)
     session = sessionmaker(autocommit=False, autoflush=False, bind=engine)()
 
-    # Seed base provider
+    # Seed base provider and currencies
+    from modules.currencies.model import Currency
     provider = ExternalServiceProvider(
         provider_id=1,
         partner_code="FF-001",
@@ -42,6 +43,11 @@ def db():
         is_active=True,
     )
     session.add(provider)
+    session.add_all([
+        Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True),
+        Currency(currency_code="EUR", currency_name="Euro", currency_symbol="€", is_active=True),
+        Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="E£", is_active=True),
+    ])
     session.commit()
 
     try:
@@ -61,6 +67,7 @@ def _make_item(crd: date, provider_id: int = 1, sailing_offset: int = 2, arrival
         "expected_line_delay_days": 0,
         "free_time_days": 14,
         "total_quotation_amount": 2000.0,
+        "quotation_currency": "USD",
     }
     data.update(kwargs)
     return ShippingScenarioItemCreate(**data)
@@ -253,7 +260,7 @@ class TestScenarioCloneGuardAndUpdateRevalidation:
             ShippingScenarioService.update_session_service(db, session_res.session_id, update_payload)
 
         assert exc.value.status_code == 400
-        assert "cannot be before Cargo Ready Date" in exc.value.detail
+        assert "لا يمكن أن يكون قبل تاريخ جاهزية البضاعة" in exc.value.detail or "cannot be before Cargo Ready Date" in exc.value.detail
 
     def test_update_changing_crd_valid_succeeds(self, db: Session):
         """Updating cargo_ready_date with a valid date earlier than sailing date succeeds."""
@@ -293,7 +300,7 @@ class TestScenarioCloneGuardAndUpdateRevalidation:
                 db, session_res.session_id, ShippingEvaluationUpdate(avg_form4_days=-1)
             )
         assert exc.value.status_code == 400
-        assert "Average Form 4 days cannot be negative." in exc.value.detail
+        assert "متوسط أيام نموذج 4 لا يمكن أن يكون سالباً" in exc.value.detail or "Average Form 4 days cannot be negative." in exc.value.detail
 
     def test_update_negative_avg_clearance_days_raises_400(self, db: Session):
         """Updating avg_clearance_days with a negative value raises HTTP 400."""
@@ -311,7 +318,7 @@ class TestScenarioCloneGuardAndUpdateRevalidation:
                 db, session_res.session_id, ShippingEvaluationUpdate(avg_clearance_days=-3)
             )
         assert exc.value.status_code == 400
-        assert "Average Customs Clearance days cannot be negative." in exc.value.detail
+        assert "متوسط أيام التخليص الجمركي لا يمكن أن يكون سالباً" in exc.value.detail or "Average Customs Clearance days cannot be negative." in exc.value.detail
 
     @pytest.mark.parametrize(
         "field,value",

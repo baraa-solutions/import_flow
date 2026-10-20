@@ -8,7 +8,7 @@ HTTP only (Phase 3a, DOC-01 / DOC-12 / DOC-14 / DOC-16 / DOC-17):
 - the acting user is always the authenticated user (``user=current_user.username``); client identity fields
   (``approved_by``, ``reviewer_name``, ``reviewed_by``, ``certified_by``) are ignored;
 - uploads are size / extension checked (``validators.validate_upload``) and read in the threadpool (plain ``def``);
-- free-text status fields are checked against today's values (``validators.validate_status``).
+- status fields are validated in the service layer (``validators.validate_status``).
 """
 
 from typing import Any, Dict, List, Optional, Tuple

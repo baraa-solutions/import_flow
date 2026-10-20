@@ -18,23 +18,23 @@ class CBMValidator:
         if not items or len(items) == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="At least one package item is required for CBM calculation.",
+                detail="يجب إدخال طرد واحد على الأقل لحساب الحجم المكعب (CBM).",
             )
         for idx, item in enumerate(items):
             if item.quantity <= 0:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Item #{idx+1}: Quantity must be greater than zero.",
+                    detail=f"البند رقم {idx+1}: يجب أن تكون الكمية أكبر من الصفر.",
                 )
             if item.length_cm <= 0 or item.width_cm <= 0 or item.height_cm <= 0:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Item #{idx+1}: Length, width, and height dimensions must be greater than zero cm.",
+                    detail=f"البند رقم {idx+1}: يجب أن تكون أبعاد الطول والعرض والارتفاع أكبر من الصفر سم.",
                 )
             if item.gross_weight_per_unit_kg < 0:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Item #{idx+1}: Gross weight cannot be negative.",
+                    detail=f"البند رقم {idx+1}: لا يمكن أن يكون الوزن القائم سالباً.",
                 )
 
     @staticmethod

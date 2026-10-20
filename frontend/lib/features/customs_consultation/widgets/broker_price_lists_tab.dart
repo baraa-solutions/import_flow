@@ -768,10 +768,10 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                         // 7. Default Currency
                                         DataCell(
                                           CopyableTableCell(
-                                            value: exp.defaultCurrency,
+                                            value: exp.defaultCurrency ?? '-',
                                             rowSummary: rowSummary,
                                             child: Text(
-                                              exp.defaultCurrency,
+                                              exp.defaultCurrency ?? '-',
                                               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                                             ),
                                           ),
@@ -804,7 +804,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
     final nameEnCtrl = TextEditingController(text: exp.nameEn ?? '');
     String category = DomainEnums.initialCode(DomainEnumType.brokerExpenseCategory, exp.category, exp.category);
     String defaultUnit = DomainEnums.initialCode(DomainEnumType.brokerUnit, exp.defaultUnit, exp.defaultUnit);
-    String currency = exp.defaultCurrency;
+    String? currency = exp.defaultCurrency;
     bool isSaving = false;
 
     showDialog(

@@ -94,7 +94,9 @@ def generate_acid_code(db: Session) -> str:
     return next_yearly_code(db, AcidRegistrationSession.acid_code, "ACID", pad=3)
 
 
-def create_acid_session(db: Session, schema: AcidRegistrationCreate, commit: bool = True) -> AcidRegistrationSession:
+def create_acid_session(
+    db: Session, schema: AcidRegistrationCreate, commit: bool = True, user: Optional[str] = None
+) -> AcidRegistrationSession:
     code = generate_acid_code(db)
     req_date = schema.requested_date or date.today()
     gen_date = schema.generated_date
@@ -157,6 +159,8 @@ def create_acid_session(db: Session, schema: AcidRegistrationCreate, commit: boo
         has_discrepancies=has_disc,
         verification_notes=schema.verification_notes,
         status=initial_status,
+        created_by=user,
+        updated_by=user,
         is_active=True,
     )
     db.add(db_item)
@@ -243,7 +247,11 @@ _SERVER_OWNED_ACID_FIELDS = frozenset({
 
 
 def update_acid_session(
-    db: Session, db_item: AcidRegistrationSession, schema: Union[AcidRegistrationUpdate, Dict[str, Any]], commit: bool = True
+    db: Session,
+    db_item: AcidRegistrationSession,
+    schema: Union[AcidRegistrationUpdate, Dict[str, Any]],
+    commit: bool = True,
+    user: Optional[str] = None,
 ) -> AcidRegistrationSession:
     """``db_item`` must be an active row loaded by the service (``get_acid_session_active``)."""
     data = schema.copy() if isinstance(schema, dict) else schema.model_dump(exclude_unset=True)
@@ -272,6 +280,8 @@ def update_acid_session(
     if db_item.requested_date is None:
         db_item.requested_date = date.today()
     db_item.updated_at = _now()
+    if user is not None:
+        db_item.updated_by = user
     return _save(db, db_item, commit)
 
 
@@ -284,7 +294,9 @@ def generate_bank_doc_code(db: Session) -> str:
     return next_yearly_code(db, BankingDocumentSession.bank_doc_code, "FORM4", pad=3)
 
 
-def create_banking_document(db: Session, schema: BankingDocumentCreate, commit: bool = True) -> BankingDocumentSession:
+def create_banking_document(
+    db: Session, schema: BankingDocumentCreate, commit: bool = True, user: Optional[str] = None
+) -> BankingDocumentSession:
     code = generate_bank_doc_code(db)
     req_date = schema.request_date or schema.issue_date or date.today()
     iss_date = schema.issue_date or req_date
@@ -333,6 +345,8 @@ def create_banking_document(db: Session, schema: BankingDocumentCreate, commit: 
         swift_executing_bank_name=schema.swift_executing_bank_name,
         swift_reference_no=schema.swift_reference_no,
         is_bank_matching_swift=schema.is_bank_matching_swift if schema.is_bank_matching_swift is not None else True,
+        created_by=user,
+        updated_by=user,
         is_active=True,
     )
     db.add(db_item)
@@ -347,7 +361,11 @@ get_banking_document_active = get_banking_document_by_id
 
 
 def update_banking_document(
-    db: Session, db_item: BankingDocumentSession, schema: BankingDocumentUpdate, commit: bool = True
+    db: Session,
+    db_item: BankingDocumentSession,
+    schema: BankingDocumentUpdate,
+    commit: bool = True,
+    user: Optional[str] = None,
 ) -> BankingDocumentSession:
     """Sent fields are applied as-is; an explicit ``null`` clears a nullable column and is ignored for a
     NOT NULL one (DOC-25)."""
@@ -364,6 +382,8 @@ def update_banking_document(
             db_item.status = "Received"
 
     db_item.updated_at = _now()
+    if user is not None:
+        db_item.updated_by = user
     return _save(db, db_item, commit)
 
 
@@ -398,7 +418,9 @@ def generate_shipment_doc_code(db: Session) -> str:
     return next_yearly_code(db, ShipmentDocumentItem.document_code, "DOC", pad=3)
 
 
-def create_shipment_document(db: Session, schema: ShipmentDocumentCreate, commit: bool = True) -> ShipmentDocumentItem:
+def create_shipment_document(
+    db: Session, schema: ShipmentDocumentCreate, commit: bool = True, user: Optional[str] = None
+) -> ShipmentDocumentItem:
     code = generate_shipment_doc_code(db)
     iss_date = schema.issue_date or date.today()
     rec_date = schema.received_date or date.today()
@@ -415,6 +437,8 @@ def create_shipment_document(db: Session, schema: ShipmentDocumentCreate, commit
         is_cargox_uploaded=False,
         is_bl_endorsed=False,
         notes=schema.notes,
+        created_by=user,
+        updated_by=user,
         is_active=True,
     )
     db.add(db_item)
@@ -448,13 +472,15 @@ def get_all_shipment_documents(
 
 
 def update_shipment_document(
-    db: Session, doc_id: int, schema: ShipmentDocumentUpdate, commit: bool = True
+    db: Session, doc_id: int, schema: ShipmentDocumentUpdate, commit: bool = True, user: Optional[str] = None
 ) -> ShipmentDocumentItem | None:
     item = get_shipment_document_active(db, doc_id)
     if not item:
         return None
     _apply(item, schema.model_dump(exclude_unset=True))
     item.updated_at = _now()
+    if user is not None:
+        item.updated_by = user
     return _save(db, item, commit)
 
 
@@ -464,7 +490,7 @@ def generate_customs_declaration_code(db: Session) -> str:
 
 
 def create_customs_declaration(
-    db: Session, schema: CustomsDeclarationCreate, commit: bool = True
+    db: Session, schema: CustomsDeclarationCreate, commit: bool = True, user: Optional[str] = None
 ) -> CustomsDeclarationDraft:
     db_item = CustomsDeclarationDraft(
         declaration_code=generate_customs_declaration_code(db),
@@ -477,6 +503,8 @@ def create_customs_declaration(
         total_customs_duties_egp=schema.total_customs_duties_egp if schema.total_customs_duties_egp is not None else 0.0,
         total_vat_egp=schema.total_vat_egp if schema.total_vat_egp is not None else 0.0,
         declaration_status="Draft Prepared",
+        created_by=user,
+        updated_by=user,
         is_active=True,
     )
     db.add(db_item)
@@ -586,13 +614,17 @@ def get_draft_bl_versions(db: Session, root_code: str, include_inactive: bool = 
     return query.order_by(DraftBLReviewSession.version_number, DraftBLReviewSession.bl_review_id).all()
 
 
-def create_draft_bl_review(db: Session, schema: DraftBLReviewCreate, commit: bool = True) -> DraftBLReviewSession:
+def create_draft_bl_review(
+    db: Session, schema: DraftBLReviewCreate, commit: bool = True, user: Optional[str] = None
+) -> DraftBLReviewSession:
     code = generate_bl_review_code(db)
     data = schema.model_dump(exclude_unset=True)
     data.pop("is_active", None)
     db_item = DraftBLReviewSession(
         bl_review_code=code,
         **data,
+        created_by=user,
+        updated_by=user,
         is_active=True,
     )
     db.add(db_item)
@@ -606,13 +638,15 @@ def add_draft_bl_review(db: Session, item: DraftBLReviewSession, commit: bool = 
 
 
 def update_draft_bl_review(
-    db: Session, review_id: int, schema: DraftBLReviewUpdate, commit: bool = True
+    db: Session, review_id: int, schema: DraftBLReviewUpdate, commit: bool = True, user: Optional[str] = None
 ) -> DraftBLReviewSession | None:
     item = get_draft_bl_review_active(db, review_id)
     if not item:
         return None
     _apply(item, schema.model_dump(exclude_unset=True))
     item.updated_at = _now()
+    if user is not None:
+        item.updated_by = user
     return _save(db, item, commit)
 
 
@@ -693,7 +727,7 @@ def get_coo_review_by_file_id(
 
 
 def create_coo_review(
-    db: Session, schema: CertificateOfOriginReviewCreate, commit: bool = True
+    db: Session, schema: CertificateOfOriginReviewCreate, commit: bool = True, user: Optional[str] = None
 ) -> CertificateOfOriginReviewSession:
     code = generate_coo_review_code(db)
     data = schema.model_dump(exclude_unset=True)
@@ -701,6 +735,8 @@ def create_coo_review(
     db_item = CertificateOfOriginReviewSession(
         coo_review_code=code,
         **data,
+        created_by=user,
+        updated_by=user,
         is_active=True,
     )
     db.add(db_item)
@@ -708,13 +744,15 @@ def create_coo_review(
 
 
 def update_coo_review(
-    db: Session, review_id: int, schema: CertificateOfOriginReviewUpdate, commit: bool = True
+    db: Session, review_id: int, schema: CertificateOfOriginReviewUpdate, commit: bool = True, user: Optional[str] = None
 ) -> CertificateOfOriginReviewSession | None:
     item = get_coo_review_active(db, review_id)
     if not item:
         return None
     _apply(item, schema.model_dump(exclude_unset=True))
     item.updated_at = _now()
+    if user is not None:
+        item.updated_by = user
     return _save(db, item, commit)
 
 
@@ -784,7 +822,7 @@ def get_inspection_review_by_file_id(db: Session, import_file_id: int, include_i
 
 
 def create_inspection_review(
-    db: Session, schema: InspectionCertificateReviewCreate, commit: bool = True
+    db: Session, schema: InspectionCertificateReviewCreate, commit: bool = True, user: Optional[str] = None
 ) -> InspectionCertificateReviewSession:
     code = generate_inspection_review_code(db)
     data = schema.model_dump(exclude_unset=True)
@@ -792,6 +830,8 @@ def create_inspection_review(
     db_item = InspectionCertificateReviewSession(
         inspection_review_code=code,
         **data,
+        created_by=user,
+        updated_by=user,
         is_active=True,
     )
     db.add(db_item)
@@ -799,13 +839,15 @@ def create_inspection_review(
 
 
 def update_inspection_review(
-    db: Session, review_id: int, schema: InspectionCertificateReviewUpdate, commit: bool = True
+    db: Session, review_id: int, schema: InspectionCertificateReviewUpdate, commit: bool = True, user: Optional[str] = None
 ) -> InspectionCertificateReviewSession | None:
     item = get_inspection_review_active(db, review_id)
     if not item:
         return None
     _apply(item, schema.model_dump(exclude_unset=True))
     item.updated_at = _now()
+    if user is not None:
+        item.updated_by = user
     return _save(db, item, commit)
 
 
@@ -898,7 +940,7 @@ def get_inactive_po_reconciliation_by_file(
 
 
 def create_po_reconciliation_session(
-    db: Session, schema: POReconciliationSessionCreate, commit: bool = True
+    db: Session, schema: POReconciliationSessionCreate, commit: bool = True, user: Optional[str] = None
 ) -> POPackingReconciliationSession:
     code = generate_po_reconciliation_session_code(db)
     data = schema.model_dump(exclude_unset=True)
@@ -906,6 +948,8 @@ def create_po_reconciliation_session(
     db_item = POPackingReconciliationSession(
         session_code=code,
         **data,
+        created_by=user,
+        updated_by=user,
         is_active=True,
     )
     db.add(db_item)
@@ -917,6 +961,7 @@ def reactivate_po_reconciliation_session(
     item: POPackingReconciliationSession,
     schema: POReconciliationSessionCreate,
     commit: bool = True,
+    user: Optional[str] = None,
 ) -> POPackingReconciliationSession:
     """DOC-09 / Q5: overwrite a soft-deleted session of the same file with the new data (every schema field,
     defaults included, as a fresh create would store) and reactivate it. The session code is kept."""
@@ -925,17 +970,25 @@ def reactivate_po_reconciliation_session(
     _apply(item, data)
     item.is_active = True
     item.updated_at = _now()
+    if user is not None:
+        item.updated_by = user
     return _save(db, item, commit)
 
 
 def update_po_reconciliation_session(
-    db: Session, session_id: int, schema: POReconciliationSessionUpdate, commit: bool = True
+    db: Session,
+    session_id: int,
+    schema: POReconciliationSessionUpdate,
+    commit: bool = True,
+    user: Optional[str] = None,
 ) -> POPackingReconciliationSession | None:
     item = get_po_reconciliation_session_active(db, session_id)
     if not item:
         return None
     _apply(item, schema.model_dump(exclude_unset=True))
     item.updated_at = _now()
+    if user is not None:
+        item.updated_by = user
     return _save(db, item, commit)
 
 
@@ -1007,7 +1060,7 @@ def list_invoice_bl_match_sessions(
 
 
 def create_invoice_bl_match_session(
-    db: Session, schema: InvoiceBLMatchSessionCreate, commit: bool = True
+    db: Session, schema: InvoiceBLMatchSessionCreate, commit: bool = True, user: Optional[str] = None
 ) -> InvoiceBLMatchSession:
     code = generate_invoice_bl_match_session_code(db)
     data = schema.model_dump(exclude_unset=True)
@@ -1015,6 +1068,8 @@ def create_invoice_bl_match_session(
     db_item = InvoiceBLMatchSession(
         session_code=code,
         **data,
+        created_by=user,
+        updated_by=user,
         is_active=True,
     )
     db.add(db_item)
@@ -1022,13 +1077,19 @@ def create_invoice_bl_match_session(
 
 
 def update_invoice_bl_match_session(
-    db: Session, session_id: int, schema: InvoiceBLMatchSessionUpdate, commit: bool = True
+    db: Session,
+    session_id: int,
+    schema: InvoiceBLMatchSessionUpdate,
+    commit: bool = True,
+    user: Optional[str] = None,
 ) -> InvoiceBLMatchSession | None:
     item = get_invoice_bl_match_session_active(db, session_id)
     if not item:
         return None
     _apply(item, schema.model_dump(exclude_unset=True))
     item.updated_at = _now()
+    if user is not None:
+        item.updated_by = user
     return _save(db, item, commit)
 
 

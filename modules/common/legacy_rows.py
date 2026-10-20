@@ -138,7 +138,16 @@ _READ_VARIANTS: Dict[type, type] = {}
 def _read_variant(model: type) -> type:
     """Constraint-free subclass of a nested model (the original keeps its rules for request bodies)."""
     if model not in _READ_VARIANTS:
-        variant = type(f"{model.__name__}Read", (model,), {"__module__": model.__module__})
+        def _from_base(cls, data):
+            if isinstance(data, model):
+                return data.model_dump()
+            return data
+
+        attrs = {
+            "__module__": model.__module__,
+            "_from_base": model_validator(mode="before")(_from_base),
+        }
+        variant = type(f"{model.__name__}Read", (model,), attrs)
         _READ_VARIANTS[model] = read_model(variant)
     return _READ_VARIANTS[model]
 

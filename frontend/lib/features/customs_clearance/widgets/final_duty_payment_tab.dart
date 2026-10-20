@@ -11,6 +11,7 @@ import '../models/customs_clearance_model.dart';
 import '../services/final_duty_payment_export_service.dart';
 import 'clearance_details_dialog.dart';
 import 'customs_ui.dart';
+import 'pre_form4_nafeza_workflow_dialog.dart';
 
 /// Screen 62: Customs Clearance - Final Duty Payment & Release SubTab.
 class FinalDutyPaymentTab extends ConsumerStatefulWidget {
@@ -389,7 +390,23 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
                     }
                   },
                 )
-              else
+              else ...[
+                AppButton(
+                  label: l.isArabic ? 'إجراءات نافذة والربط البنكي' : 'Nafeza & Bank Link',
+                  icon: Icons.account_balance,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.small,
+                  onPressed: () async {
+                    final res = await PreForm4NafezaWorkflowDialog.show(
+                      context,
+                      clearanceRecord: r,
+                    );
+                    if (res == true && widget.onRefresh != null) {
+                      widget.onRefresh!();
+                    }
+                  },
+                ),
+                const SizedBox(width: 6),
                 AppButton(
                   label: l.customsClearanceBtnPayReconcile,
                   icon: Icons.payment,
@@ -397,6 +414,7 @@ class _FinalDutyPaymentTabState extends ConsumerState<FinalDutyPaymentTab> {
                   size: AppButtonSize.small,
                   onPressed: canPay && widget.onPay != null ? () => widget.onPay!(r) : null,
                 ),
+              ],
               if (canRelease) ...[
                 const SizedBox(width: 6),
                 AppButton(

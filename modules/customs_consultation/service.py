@@ -50,6 +50,9 @@ from modules.customs_consultation.validators import (
     validate_broker_exists,
     validate_checklist_items,
     validate_expense_code_unique,
+    validate_expense_type_currency,
+    validate_price_list_currencies,
+    validate_quote_item_currencies,
     validate_references,
 )
 
@@ -105,6 +108,8 @@ class ClearanceExpenseTypeService:
         explicit_code = bool(schema.expense_code and schema.expense_code.strip())
         if explicit_code:
             validate_expense_code_unique(db, schema.expense_code)
+        if schema.default_currency:
+            schema.default_currency = validate_expense_type_currency(db, schema.default_currency)
         normalized = _normalize_expense_type(schema)
         for attempt in range(1, 4):
             code = schema.expense_code if explicit_code else ClearanceExpenseTypeRepository.generate_expense_code(db)
@@ -158,6 +163,8 @@ class ClearanceExpenseTypeService:
         reject_cleared_not_null_fields(ClearanceExpenseType, schema, "نوع المصروف")
         if schema.expense_code and schema.expense_code != obj.expense_code:
             validate_expense_code_unique(db, schema.expense_code, current_id=expense_id)
+        if schema.default_currency:
+            schema.default_currency = validate_expense_type_currency(db, schema.default_currency)
         updated = ClearanceExpenseTypeRepository.update(db, obj, _normalize_expense_type(schema), user=user)
         db.commit()
         db.refresh(updated)
@@ -191,6 +198,8 @@ class BrokerPriceListService:
             if itm.expense_type_id is not None
         ]
         validate_references(db, expense_type_ids=expense_type_ids)
+        if schema.items:
+            validate_price_list_currencies(db, schema.items)
         normalized = _normalize_price_list(schema)
         for attempt in range(1, 4):
             code = BrokerPriceListRepository.generate_price_list_code(db)
@@ -260,6 +269,7 @@ class BrokerPriceListService:
                 if itm.expense_type_id is not None
             ]
             validate_references(db, expense_type_ids=expense_type_ids)
+            validate_price_list_currencies(db, schema.items)
         updated = BrokerPriceListRepository.update(db, pl, _normalize_price_list(schema), user=user)
         db.commit()
         db.refresh(updated)
@@ -486,6 +496,8 @@ class CustomsConsultationService:
             broker_price_list_id=session_in.broker_price_list_id,
             expense_type_ids=expense_type_ids,
         )
+        if session_in.broker_quote_items:
+            validate_quote_item_currencies(db, session_in.broker_quote_items)
 
         if session_in.import_file_id:
             _check_one_per_file(db, session_in.import_file_id)
@@ -573,6 +585,8 @@ class CustomsConsultationService:
             broker_price_list_id=update_in.broker_price_list_id if "broker_price_list_id" in sent else None,
             expense_type_ids=expense_type_ids,
         )
+        if update_in.broker_quote_items is not None:
+            validate_quote_item_currencies(db, update_in.broker_quote_items)
 
         if update_in.import_file_id and update_in.import_file_id != db_session.import_file_id and db_session.is_active:
             _check_one_per_file(db, update_in.import_file_id, consultation_id)

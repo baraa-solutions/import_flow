@@ -17,7 +17,7 @@ class ImportRequirementAssessment(Base):
     hs_code = Column(String(20), nullable=True)
     commodity_description = Column(Text, nullable=True)
     country_of_origin = Column(String(100), nullable=True)
-    currency = Column(String(10), nullable=False, default="USD")
+    currency = Column(String(10), nullable=True, default=None)
     shipment_value = Column(Float, nullable=False, default=0.0)
     shipment_value_usd = Column(Float, nullable=False, default=0.0)
     

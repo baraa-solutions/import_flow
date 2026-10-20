@@ -1130,6 +1130,12 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     # ── Purchase orders: packing list validation report (PackingListValidationReport.messages) ──
     # ── Purchase orders: coded 409 errors (CodedHTTPException detail.code) ──
+    "PO_NOT_EDITABLE": {
+        "note": "Purchase order cannot be edited or allocated in status '{status}'.",
+    },
+    "PO_HAS_ALLOCATIONS": {
+        "note": "Purchase order cannot be deleted because it has recorded shipment allocations.",
+    },
     "PO_ITEMS_ALLOCATED": {
         "note": "Purchase order lines {item_ids} have recorded shipments and cannot be removed; send their item_id to edit them.",
     },
@@ -1378,6 +1384,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     },
     "CC_SETTLEMENT_LOCKED": {
         "note": "Clearance invoices cannot be modified after the landed-cost settlement is approved ({settlement_code}).",
+    },
+    "CC_BANK_LINK_REQUIRES_TARIFF_CODING": {
+        "note": "Nafeza bank linkage cannot be accepted before completing item tariff coding (tariff_coding_date).",
     },
     "CCQ_RFQ_STATUS_INVALID": {
         "note": "RFQ status '{status}' is not allowed; awarding is done through the award action only.",

@@ -118,11 +118,14 @@ class ComprehensiveReportExportService {
     }
 
     // Section: Financials
-    double totalInvoicesValue = file.invoicesData.fold(0.0, (s, i) => s + i.amount);
+    final double totalInvoicesValue = (dossier?.totalFobFc != null && dossier!.totalFobFc! > 0)
+        ? dossier.totalFobFc!
+        : file.invoicesData.fold(0.0, (s, i) => s + i.amount);
+    final String fobCurr = dossier?.fobCurrency ?? 'USD';
     sb.writeln('--- ${l.compReportSecFinancial} ---');
-    sb.writeln('${l.compReportTotalInvoicesVal}: ${totalInvoicesValue.toStringAsFixed(2)} USD');
-    sb.writeln('${l.compReportEstimatedCostVal}: ${file.estimatedCost.toStringAsFixed(2)} USD');
-    sb.writeln('${l.compReportEstimatedVariance}: ${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} USD');
+    sb.writeln('${l.compReportTotalInvoicesVal}: ${totalInvoicesValue.toStringAsFixed(2)} $fobCurr');
+    sb.writeln('${l.compReportEstimatedCostVal}: ${file.estimatedCost.toStringAsFixed(2)} $fobCurr');
+    sb.writeln('${l.compReportEstimatedVariance}: ${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} $fobCurr');
     sb.writeln();
 
     // Section: Actual Landed Cost & Settlement (CLO-01 & CLO-02)
@@ -420,7 +423,10 @@ class ComprehensiveReportExportService {
     final cairoRegular = await PdfGoogleFonts.cairoRegular();
     final cairoBold = await PdfGoogleFonts.cairoBold();
 
-    final totalInvoicesValue = file.invoicesData.fold(0.0, (s, i) => s + i.amount);
+    final totalInvoicesValue = (dossier?.totalFobFc != null && dossier!.totalFobFc! > 0)
+        ? dossier.totalFobFc!
+        : file.invoicesData.fold(0.0, (s, i) => s + i.amount);
+    final String fobCurr = dossier?.fobCurrency ?? 'USD';
     final totalCbm = file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
     final totalWeight = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
     final totalPkgs = file.packingListsData.fold(0, (s, p) => s + p.totalPackages);
@@ -568,7 +574,7 @@ class ComprehensiveReportExportService {
                 pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.grey300),
                   children: [
-                    _pdfTableRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} USD', l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} USD'),
+                    _pdfTableRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} $fobCurr', l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} $fobCurr'),
                     _pdfTableRow(l.compReportTotalPackages, '$totalPkgs pkgs (${PoPackingMatcher.formatWeight(totalWeight)} KG)', l.compReportTotalCbm, '${totalCbm.toStringAsFixed(2)} m³'),
                     if (dossier?.cargoPhysicalSummary != null)
                       _pdfTableRow('POs Count', '${dossier!.cargoPhysicalSummary!['pos_count'] ?? 0}', 'Invoices Count', '${dossier.cargoPhysicalSummary!['invoices_count'] ?? 0}'),
@@ -898,10 +904,13 @@ class ComprehensiveReportExportService {
 
     // Financial
     final sFin = l.compReportSecFinancial;
-    final totalInvoicesValue = file.invoicesData.fold(0.0, (s, i) => s + i.amount);
-    addRow(sFin, l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} USD');
-    addRow(sFin, l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} USD');
-    addRow(sFin, l.compReportEstimatedVariance, '${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} USD');
+    final totalInvoicesValue = (dossier?.totalFobFc != null && dossier!.totalFobFc! > 0)
+        ? dossier.totalFobFc!
+        : file.invoicesData.fold(0.0, (s, i) => s + i.amount);
+    final String fobCurr = dossier?.fobCurrency ?? 'USD';
+    addRow(sFin, l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} $fobCurr');
+    addRow(sFin, l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} $fobCurr');
+    addRow(sFin, l.compReportEstimatedVariance, '${(file.estimatedCost - totalInvoicesValue).toStringAsFixed(2)} $fobCurr');
 
     // Actual Landed Cost & Financial Settlement (CLO-01 & CLO-02)
     const sSettlement = 'التسوية وتكلفة الوصول الفعلية';

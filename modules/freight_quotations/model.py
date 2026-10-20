@@ -110,8 +110,7 @@ class FreightQuotationItem(Base):
     vessel_name: Mapped[str] = mapped_column(String(100), nullable=True)
     voyage_number: Mapped[str] = mapped_column(String(50), nullable=True)
 
-    # Financial Breakdown
-    currency_code: Mapped[str] = mapped_column(String(10), default="USD", nullable=False)
+    currency_code: Mapped[Optional[str]] = mapped_column(String(10), default=None, nullable=True)
     ocean_freight_cost: Mapped[float] = mapped_column(Float, default=0.0)
     local_charges_cost: Mapped[float] = mapped_column(Float, default=0.0)
     inland_cost: Mapped[float] = mapped_column(Float, default=0.0)

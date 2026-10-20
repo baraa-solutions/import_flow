@@ -59,6 +59,7 @@ class ClonePaymentRequestRequest(BaseModel):
     new_title: Optional[str] = None
     target_supplier_id: Optional[int] = None
     new_requested_amount: Optional[float] = Field(None, gt=0.0)
+    new_exchange_rate: Optional[float] = Field(None, gt=0.0)
     unlink_import_file: bool = False
     remarks: Optional[str] = None
 
