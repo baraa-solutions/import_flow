@@ -25,6 +25,26 @@ class _MockFreightBookingNotifier extends StateNotifier<AsyncValue<List<Shipment
   _MockFreightBookingNotifier(this.initial) : super(AsyncValue.data(initial));
 
   @override
+  int? get totalCount => initial.length;
+  @override
+  set totalCount(int? val) {}
+
+  @override
+  bool get hasMore => false;
+
+  @override
+  bool get isLoadingMore => false;
+
+  @override
+  Future<void> loadMore({
+    bool? includeInactive,
+    int? importFileId,
+    String? status,
+    String? search,
+    int limit = 200,
+  }) async {}
+
+  @override
   Future<void> fetchBookings({bool includeInactive = false, int? importFileId, String? status, String? search, int skip = 0, int limit = 200}) async {
     state = AsyncValue.data(initial);
   }

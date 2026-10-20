@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
     Date,
+    Index,
     Integer,
     Numeric,
     UniqueConstraint,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Float,
     JSON,
     Text,
+    text,
 )
 from sqlalchemy.orm import relationship
 from database.database import Base
@@ -26,6 +28,14 @@ class LandedCostSettlementRecord(Base):
     allocates costs by Value/Weight/Volume/Equal, and calculates unit landed cost and markup factor per item line.
     """
     __tablename__ = "financial_settlement_records"
+    __table_args__ = (
+        Index(
+            "uq_fs_records_active_file",
+            "import_file_id",
+            unique=True,
+            sqlite_where=text("is_active = 1"),
+        ),
+    )
 
     settlement_id = Column(Integer, primary_key=True, index=True)
     settlement_code = Column(String(50), unique=True, index=True, nullable=False) # e.g. LCS-2026-0001
@@ -64,6 +74,23 @@ class LandedCostSettlementRecord(Base):
 # inland transport invoices. Rates live in tax_rates (seeded by MasterDataSyncService.sync_tax_rates).
 WHT_CLEARANCE_SERVICES = "WHT_CLEARANCE_SERVICES"
 WHT_TRANSPORT_SERVICES = "WHT_TRANSPORT_SERVICES"
+
+# Code-first expense classification for customs broker categories (ACC2-T02 / F02, F03).
+# Prevents keyword matching on legacy Arabic labels (e.g. 'نولون' or 'شحن') from misclassifying port dues or stevedoring into Freight.
+CLEARANCE_CATEGORY_BUCKET = {
+    "BROKER_FEES": "Clearance & Port",
+    "PORT_DUES_WHARFAGE": "Clearance & Port",
+    "STEVEDORING_HANDLING": "Clearance & Port",
+    "INSPECTION_WEIGHING": "Clearance & Port",
+    "LABORATORY_TESTING": "Clearance & Port",
+    "STORAGE_DEMURRAGE": "Demurrage & Storage",
+    "OTHER_CLEARANCE": "Clearance & Port",
+}
+
+CLEARANCE_CATEGORY_ODOO = {
+    code: "Demurrage" if bucket == "Demurrage & Storage" else "Clearance"
+    for code, bucket in CLEARANCE_CATEGORY_BUCKET.items()
+}
 
 
 class TaxRate(Base):

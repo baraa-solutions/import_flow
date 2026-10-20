@@ -163,6 +163,7 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
   }
 
   Color _varianceColor(String status) {
+    if (status == 'NO_ESTIMATE') return AppTheme.textSecondary;
     if (status == 'UNFAVORABLE') return AppTheme.flatCrimson;
     if (status == 'MATCHED') return AppTheme.flatCobalt;
     return AppTheme.flatEmerald;
@@ -249,7 +250,7 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
             value: '${formatSettlementMoney(calc.totalFobEgp)} $egp',
             icon: Icons.inventory_2_outlined,
             color: AppTheme.flatCobalt,
-            tooltip: l10n.settlementClo02KpiFobSub(calc.currency, calc.fxRate.toStringAsFixed(2)),
+            tooltip: l10n.settlementClo02KpiFobSub(calc.currency ?? '', calc.fxRate.toStringAsFixed(2)),
           ),
           MetricCardData(
             title: l10n.settlementClo02KpiExpenses,
@@ -263,8 +264,10 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
             value: '${formatSettlementMoney(calc.actualTotalLandedCostEgp)} $egp',
             icon: Icons.account_balance_wallet_outlined,
             color: AppTheme.flatCharcoal,
-            tooltip: l10n.settlementClo02KpiLandedSub(
-                '${formatSettlementMoney(calc.estimatedTotalLandedCostEgp)} $egp'),
+            tooltip: calc.estimatedTotalLandedCostEgp != null
+                ? l10n.settlementClo02KpiLandedSub(
+                    '${formatSettlementMoney(calc.estimatedTotalLandedCostEgp!)} $egp')
+                : '-',
           ),
           MetricCardData(
             title: l10n.settlementClo02KpiMarkup,
@@ -275,16 +278,22 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
           ),
           MetricCardData(
             title: l10n.settlementClo02KpiVariance,
-            value: formatSettlementPercent(calc.landedVariancePct),
+            value: calc.landedVariancePct != null
+                ? formatSettlementPercent(calc.landedVariancePct!)
+                : '-',
             icon: calc.varianceStatus == 'FAVORABLE'
                 ? Icons.arrow_downward
                 : calc.varianceStatus == 'UNFAVORABLE'
                     ? Icons.arrow_upward
-                    : Icons.check,
+                    : calc.varianceStatus == 'NO_ESTIMATE'
+                        ? Icons.remove
+                        : Icons.check,
             color: varianceColor,
-            tooltip: l10n.settlementClo02KpiVarianceSub(
-                '${formatSettlementMoney(calc.landedVarianceEgp)} $egp',
-                calc.varianceStatusAr),
+            tooltip: calc.landedVarianceEgp != null
+                ? l10n.settlementClo02KpiVarianceSub(
+                    '${formatSettlementMoney(calc.landedVarianceEgp!)} $egp',
+                    calc.varianceStatusAr)
+                : calc.varianceStatusAr,
           ),
         ],
       ),
@@ -460,7 +469,10 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
         rows: calc.categoriesBreakdown.map((cat) {
           Color statusColor = AppTheme.flatEmerald;
           String statusText = l10n.settlementClo02StatusSaving;
-          if (cat.varianceStatus == 'UNFAVORABLE') {
+          if (cat.varianceStatus == 'NO_ESTIMATE') {
+            statusColor = AppTheme.textSecondary;
+            statusText = '-';
+          } else if (cat.varianceStatus == 'UNFAVORABLE') {
             statusColor = AppTheme.flatCrimson;
             statusText = l10n.settlementClo02StatusOver;
           } else if (cat.varianceStatus == 'MATCHED') {
@@ -480,17 +492,25 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
                   ],
                 ),
               ),
-              DataCell(SettlementMoneyText('${formatSettlementMoney(cat.estimatedAmountEgp)} $egp', style: const TextStyle(fontSize: 12))),
+              DataCell(SettlementMoneyText(
+                  cat.estimatedAmountEgp != null
+                      ? '${formatSettlementMoney(cat.estimatedAmountEgp!)} $egp'
+                      : '-',
+                  style: const TextStyle(fontSize: 12))),
               DataCell(SettlementMoneyText('${formatSettlementMoney(cat.actualAmountEgp)} $egp', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
               DataCell(
                 SettlementMoneyText(
-                  '${cat.varianceEgp >= 0 ? '+' : ''}${formatSettlementMoney(cat.varianceEgp)} $egp',
+                  cat.varianceEgp != null
+                      ? '${cat.varianceEgp! >= 0 ? '+' : ''}${formatSettlementMoney(cat.varianceEgp!)} $egp'
+                      : '-',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor),
                 ),
               ),
               DataCell(
                 SettlementMoneyText(
-                  formatSettlementPercent(cat.variancePct),
+                  cat.variancePct != null
+                      ? formatSettlementPercent(cat.variancePct!)
+                      : '-',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: statusColor),
                 ),
               ),
@@ -572,10 +592,16 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.flatCobalt),
                 ),
               ),
-              DataCell(SettlementMoneyText('${formatSettlementMoney(item.estimatedUnitLandedCostEgp)} $egp', style: const TextStyle(fontSize: 12))),
+              DataCell(SettlementMoneyText(
+                  item.estimatedUnitLandedCostEgp != null
+                      ? '${formatSettlementMoney(item.estimatedUnitLandedCostEgp!)} $egp'
+                      : '-',
+                  style: const TextStyle(fontSize: 12))),
               DataCell(
                 SettlementMoneyText(
-                  formatSettlementPercent(item.unitCostVariancePct),
+                  item.unitCostVariancePct != null
+                      ? formatSettlementPercent(item.unitCostVariancePct!)
+                      : '-',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: varColor),
                 ),
               ),

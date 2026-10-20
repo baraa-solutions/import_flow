@@ -49,6 +49,8 @@ def _code(exc_info):
 def _approved(db):
     imp = seed_shipment(db, cbm=(12.0, 4.0))
     seed_actual_sources(db, imp)
+    imp.financial_settlement_status = "INVOICES_SETTLED"
+    db.commit()
     res = fs.approve_actual_landed_cost_service(
         db, ApproveActualLandedCostRequest(import_file_id=imp.import_file_id, approved_by="spoofed"), actor="alice"
     )
@@ -235,7 +237,7 @@ def test_seller_paid_rows_are_not_credited(db):
 
 def test_unbalanced_journal_is_not_exported_and_fx_rows_name_their_currency(db):
     rows = [dict(ODOO_EXPENSES[0], currency="USD", amount_fx=1000.0, exchange_rate=50.0)]
-    rec = seed_odoo_settlement(db, rows)
+    rec = seed_odoo_settlement(db, rows, status="Approved")
     entry = generate_odoo_journal_entry_service(db, rec.settlement_id)
     # Odoo sign convention: a credit line carries a negative amount_currency (review 2 #8).
     assert entry.lines[2].currency == "USD" and entry.lines[2].amount_currency == -1000.0
@@ -517,7 +519,7 @@ def test_downward_recalculation_still_exports_a_balanced_journal(db):
     rows = ODOO_EXPENSES + [{"invoice_no": "RECALC-ADJ-freight_cost_egp", "category": "Freight",
                              "provider_name": "Upstream Sync", "currency": "EGP", "amount_fx": -7000.0,
                              "exchange_rate": 1.0, "amount_egp": -7000.0, "allocation_rule": "Volume-Based"}]
-    rec = seed_odoo_settlement(db, rows)
+    rec = seed_odoo_settlement(db, rows, status="Approved")
     entry = generate_odoo_journal_entry_service(db, rec.settlement_id)
     adj = next(l for l in entry.lines if "RECALC-ADJ" in l.label)
     assert (adj.debit, adj.credit) == (7000.0, 0.0)
@@ -796,10 +798,10 @@ def test_actual_items_use_the_po_rate_and_report_the_header_difference(db):
     seed_actual_sources(db, imp)
     res = fs.calculate_actual_landed_cost_service(db, imp.import_file_id)
     assert res.actual_total_fob_egp == 970000.0
-    assert [i.fob_total_egp for i in res.items_breakdown] == [15000.0 * 50.25, 5000.0 * 50.25]
-    assert res.reconciliation_difference_egp == round(
-        res.actual_total_landed_cost_egp - sum(i.actual_total_landed_cost_egp for i in res.items_breakdown), 2)
-    assert res.reconciliation_difference_egp == -35000.0  # 20,000 x (48.5 - 50.25), reported, not redistributed
+    # ACC2-T06: Single FOB basis aligns items to goods invoice basis
+    assert [i.fob_total_egp for i in res.items_breakdown] == [15000.0 * 48.5, 5000.0 * 48.5]
+    assert res.reconciliation_difference_egp == 0.0
+    assert res.fob_basis == "INVOICE"
 
 
 # ── BE09-T08 ─────────────────────────────────────────────────────────────────
@@ -821,6 +823,7 @@ def test_settlement_audit_rows_for_all_transitions(db):
                 "exchange_rate": 1.0,
                 "amount_egp": 12000.0,
                 "allocation_rule": "Volume-Based",
+                "note": "Auto-fetched freight quotation",
             },
         ],
         item_landed_costs=[
@@ -921,3 +924,369 @@ def test_approve_task_closure_behavior(db):
     assert open_subtask.status == "Completed"
     assert open_subtask.is_auto_closed is True
     assert "approved by finance_lead" in open_subtask.notes
+
+
+def test_be09_t04_customs_clearance_snapshot_respects_lock_and_engine(db):
+    """BE09-T04: Customs clearance snapshot respects settlement lock and landed-cost engine."""
+    from modules.customs_clearance.model import CustomsClearanceRecord
+    from modules.customs_clearance.schemas import ClearanceExpenseInvoiceCreate
+    from modules.customs_clearance.service import (
+        _sync_settlement_snapshot,
+        record_clearance_invoice_service,
+    )
+
+    imp = seed_shipment(db, cbm=(10.0, 10.0))
+    clr = CustomsClearanceRecord(
+        import_file_id=imp.import_file_id,
+        clearance_code=f"CLR-{imp.import_file_id}",
+        status="Final Duty Assessed",
+        is_active=True,
+    )
+    db.add(clr)
+    db.commit()
+
+    settlement = LandedCostSettlementRecord(
+        settlement_code=f"LCS-BE04-{imp.import_file_id}",
+        import_file_id=imp.import_file_id,
+        incoterm_code="FOB",
+        status="Calculated",
+        is_active=True,
+        total_fob_egp=500000.0,
+        total_expenses_egp=150000.0,
+        total_landed_cost_egp=650000.0,
+        expense_invoices=[
+            {"invoice_no": "FRT-1", "category": "Freight", "amount_egp": 50000.0, "currency": "EGP", "exchange_rate": 1.0, "amount_fx": 50000.0},
+            {"invoice_no": "DUTY-1", "category": "Customs Duty", "amount_egp": 100000.0, "currency": "EGP", "exchange_rate": 1.0, "amount_fx": 100000.0},
+        ],
+        item_landed_costs=[
+            {
+                "item_code": "ITEM-1",
+                "item_name": "Widget",
+                "qty": 1000.0,
+                "quantity": 1000.0,
+                "cbm": 10.0,
+                "weight_kg": 500.0,
+                "fob_total_egp": 500000.0,
+                "fob_unit_egp": 500.0,
+                "allocated_freight_egp": 50000.0,
+                "allocated_customs_egp": 100000.0,
+                "allocated_clearance_egp": 0.0,
+                "allocated_other_egp": 0.0,
+                "total_expenses_egp": 150000.0,
+                "total_landed_cost_egp": 650000.0,
+                "unit_landed_cost_egp": 650.0,
+            }
+        ],
+    )
+    db.add(settlement)
+    db.commit()
+
+    # Record CL-05 invoice amount_egp 5,000
+    inv = record_clearance_invoice_service(
+        db,
+        ClearanceExpenseInvoiceCreate(
+            import_file_id=imp.import_file_id,
+            customs_clearance_id=clr.customs_clearance_id,
+            invoice_number="INV-CL-05-1",
+            provider_name="Broker Co",
+            expense_category="PORT_DUES_WHARFAGE",
+            currency="EGP",
+            amount_egp=5000.0,
+        ),
+        current_user="tester",
+    )
+    db.refresh(settlement)
+    assert settlement.total_expenses_egp == 155000.0
+    assert settlement.total_landed_cost_egp == 655000.0
+
+    # Now approve settlement
+    settlement.status = "Approved"
+    db.commit()
+
+    # Direct snapshot sync on approved settlement is a no-op
+    expenses_before = list(settlement.expense_invoices)
+    total_expenses_before = settlement.total_expenses_egp
+    total_landed_before = settlement.total_landed_cost_egp
+
+    _sync_settlement_snapshot(db, imp.import_file_id, actor="tester")
+    db.refresh(settlement)
+    assert settlement.expense_invoices == expenses_before
+    assert settlement.total_expenses_egp == total_expenses_before
+    assert settlement.total_landed_cost_egp == total_landed_before
+
+
+def test_be09_t10_demurrage_push_and_create_share_initial_settlement_builder(db):
+    """BE09-T10: Demurrage push uses build_initial_settlement with PO items and Final Release duty rows."""
+    from modules.customs_clearance.model import CustomsClearanceRecord
+    from modules.demurrage_detention.model import DemurrageTracking
+    from modules.demurrage_detention.schemas import PushToSettlementRequest
+    from modules.demurrage_detention.service import push_demurrage_to_financial_settlement_service
+    from modules.incoterms.model import Incoterm
+    from modules.projects.model import Project
+    from modules.purchase_orders.model import PurchaseOrder, POLineItem
+    from modules.suppliers.model import Supplier
+
+    supplier = Supplier(
+        supplier_code=f"SUP-BE10-{datetime.now().strftime('%f')}",
+        company_name="BE10 Supplier",
+        supplier_type="Manufacturer",
+        registration_type="CargoX",
+        foreign_exporter_id="EXP-BE10",
+        foreign_exporter_country="Germany",
+        foreign_exporter_country_code="DE",
+        address="DE",
+        is_active=True,
+    )
+    inc = Incoterm(incoterm_code=f"FOB-{datetime.now().strftime('%f')[:4]}", incoterm_name="Free On Board", is_active=True)
+    db.add_all([supplier, inc])
+    db.flush()
+
+    project = Project(
+        project_code=f"PRJ-BE10-{datetime.now().strftime('%f')}",
+        project_name="BE10 Project",
+        project_owner="tester",
+        company_id=1,
+        supplier_id=supplier.supplier_id,
+        incoterm_id=inc.incoterm_id,
+        is_active=True,
+    )
+    db.add(project)
+    db.flush()
+
+    imp = ImportFile(
+        import_file_code=f"IMP-BE10-{datetime.now().strftime('%f')}",
+        company_id=1,
+        company_name="Test Co",
+        supplier_id=supplier.supplier_id,
+        supplier_name="Test Supplier",
+        incoterm_code="FOB",
+        is_active=True,
+    )
+    db.add(imp)
+    db.flush()
+
+    usd = db.query(Currency).filter(Currency.currency_code == "USD").first()
+    if not usd:
+        usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+        db.add(usd)
+        db.flush()
+
+    po = PurchaseOrder(
+        po_number=f"PO-BE10-{imp.import_file_id}",
+        import_file_id=imp.import_file_id,
+        project_id=project.project_id,
+        company_id=1,
+        supplier_id=supplier.supplier_id,
+        incoterm_id=inc.incoterm_id,
+        currency_id=usd.currency_id,
+        exchange_rate=50.0,
+        total_amount_fob=1000.0,
+        is_active=True,
+    )
+    db.add(po)
+    db.flush()
+
+    line = POLineItem(
+        po_id=po.po_id,
+        item_code="ITM-BE10-1",
+        description_ar="بند 1",
+        description_en="Item 1",
+        quantity=10,
+        unit_price=100.0,
+        total_price=1000.0,
+    )
+    db.add(line)
+
+    clr = CustomsClearanceRecord(
+        clearance_code=f"CLR-BE10-{imp.import_file_id}",
+        import_file_id=imp.import_file_id,
+        declaration_46_no="D46-BE10",
+        actual_duty_total=20000.0,
+        status="Final Release Granted",
+        is_active=True,
+    )
+    db.add(clr)
+
+    # Demurrage tracking with 3,000 EGP total
+    tracking = DemurrageTracking(
+        tracking_code=f"DND-BE10-{imp.import_file_id}",
+        import_file_id=imp.import_file_id,
+        carrier_name="MSC",
+        bill_of_lading_no="BL-BE10",
+        port_name="Alexandria Port",
+        discharge_date=date(2026, 8, 1),
+        containers=[{"container_no": "MSCU1234567", "container_type": "40HC"}],
+        currency="USD",
+        exchange_rate=50.0,
+        total_demurrage_fx=60.0,
+        total_detention_fx=0.0,
+        total_storage_egp=0.0,
+        total_cost_egp=3000.0,
+        is_active=True,
+    )
+    db.add(tracking)
+    db.commit()
+
+    class Actor:
+        user_id = 1
+        username = "lead"
+        role = "ADMIN"
+        is_active = True
+        is_superuser = True
+
+    with patch("modules.demurrage_detention.service._recalculate_containers", return_value=(tracking.containers, 60.0, 0.0, 0.0)):
+        push_res = push_demurrage_to_financial_settlement_service(
+            db,
+            PushToSettlementRequest(tracking_id=tracking.tracking_id),
+            user="lead",
+            actor=Actor(),
+        )
+
+    settlement = db.query(LandedCostSettlementRecord).filter(
+        LandedCostSettlementRecord.import_file_id == imp.import_file_id,
+        LandedCostSettlementRecord.is_active == True,
+    ).first()
+
+    assert settlement is not None
+    assert settlement.total_fob_egp == 50000.0
+    assert len(settlement.item_landed_costs) == 1
+    assert settlement.item_landed_costs[0]["fob_total_egp"] == 50000.0
+
+    duty_rows = [e for e in settlement.expense_invoices if "Customs" in e.get("category", "") or "Duty" in e.get("category", "")]
+    dem_rows = [e for e in settlement.expense_invoices if "Demurrage" in e.get("category", "") or "Storage" in e.get("category", "") or "Detention" in e.get("category", "")]
+    assert sum(e.get("amount_egp", 0.0) for e in duty_rows) == 20000.0
+    assert sum(e.get("amount_egp", 0.0) for e in dem_rows) == 3000.0
+    assert settlement.total_expenses_egp == 23000.0
+    assert settlement.total_landed_cost_egp == 73000.0
+
+
+# ── BE09-T14: Hygiene (soft-delete, incoterm, justification, dependencies) ──
+
+def test_be09_t14_soft_delete_audit_fields(db):
+    """BE09-T14: Soft delete sets deleted_at and deleted_by; restore clears them."""
+    imp = seed_shipment(db)
+    rec = fs.create_settlement_service(db, FinancialSettlementCreate(import_file_id=imp.import_file_id), actor="creator")
+
+    # Soft delete
+    fs.soft_delete_settlement_service(db, rec.settlement_id, actor="deleter_user")
+    db.refresh(rec)
+    assert rec.is_active is False
+    assert rec.deleted_by == "deleter_user"
+    assert rec.deleted_at is not None
+
+    # Restore
+    fs.restore_settlement_service(db, rec.settlement_id, actor="restorer_user")
+    db.refresh(rec)
+    assert rec.is_active is True
+    assert rec.deleted_by is None
+    assert rec.deleted_at is None
+
+
+def test_be09_t14_incoterm_validation():
+    """BE09-T14: incoterm_code validated against master list; unknown -> ValidationError (422)."""
+    # Valid uppercase/lowercase
+    req_valid = FinancialSettlementCreate(import_file_id=1, incoterm_code="cif")
+    assert req_valid.incoterm_code == "CIF"
+
+    # Unknown code raises ValidationError
+    with pytest.raises(ValidationError) as exc:
+        FinancialSettlementCreate(import_file_id=1, incoterm_code="XYZ")
+    assert "incoterm_code" in str(exc.value)
+
+    # Update schema also validates
+    with pytest.raises(ValidationError) as exc2:
+        FinancialSettlementUpdate(incoterm_code="INVALID")
+    assert "incoterm_code" in str(exc2.value)
+
+
+def test_be09_t14_hard_block_justification_whitespace(db):
+    """BE09-T14: Hard block check rejects whitespace-only justification ('   ') -> 400."""
+    from modules.recalculation.service import apply
+    from modules.users.model import User
+
+    imp = seed_shipment(db)
+    rec = fs.create_settlement_service(db, FinancialSettlementCreate(import_file_id=imp.import_file_id), actor="alice")
+
+    admin_user = User(
+        user_id=999,
+        username="admin_user",
+        email="admin@example.com",
+        full_name="Admin",
+        hashed_password="pw",
+        role="ADMIN",
+        is_active=True,
+    )
+
+    # Mock _evaluate_dependencies to simulate a hard block item
+    from modules.recalculation import service as recalc_svc
+    from modules.recalculation.schemas import RecalculationPreviewItem
+
+    hard_block_item = RecalculationPreviewItem(
+        dependency_id=1,
+        field_name="total_fob_egp",
+        label_ar="إجمالي فوب",
+        label_en="Total FOB",
+        old_value=100000.0,
+        new_value=200000.0,
+        variance_amount=100000.0,
+        variance_percentage=100.0,
+        threshold_percentage=10.0,
+        is_hard_block=True,
+        source_entity_type="purchase_order",
+        status="OK",
+    )
+
+    from modules.recalculation.schemas import RecalculationApplyRequest
+    req = RecalculationApplyRequest(
+        target_entity_type="financial_settlement",
+        target_entity_id=rec.settlement_id,
+        source_page="test",
+        justification="   ",  # whitespace only
+    )
+
+    with patch.object(recalc_svc, "_evaluate_dependencies", return_value=[hard_block_item]):
+        with pytest.raises(HTTPException) as exc:
+            apply(
+                db=db,
+                request=req,
+                current_user=admin_user,
+            )
+        assert exc.value.status_code == 400
+        assert "مبرر كتابي" in exc.value.detail
+
+
+def test_be09_t14_list_dependencies_permission_filter(db):
+    """BE09-T14: Unfiltered list_dependencies returns only target types viewable by the user."""
+    from modules.recalculation.service import list_dependencies
+    from modules.recalculation.seed_dependencies import run_seed
+    from modules.users.model import User
+    from modules.recalculation import service as recalc_svc
+
+    # Ensure dependencies are seeded in this test db
+    run_seed(db)
+
+    # Normal user with no permissions
+    limited_user = User(
+        user_id=888,
+        username="limited_user",
+        email="limited@example.com",
+        full_name="Limited",
+        hashed_password="pw",
+        role="USER",
+        is_active=True,
+    )
+
+    # Patch has_user_permission so user has only financial_settlement.view but NOT financial_approval.view
+    def fake_has_perm(d, u, perm):
+        if perm == "financial_settlement.view":
+            return True
+        return False
+
+    with patch.object(recalc_svc, "has_user_permission", side_effect=fake_has_perm):
+        deps = list_dependencies(db, limited_user)
+        target_types = {d.target_entity_type for d in deps}
+        assert "financial_settlement" in target_types
+        assert "import_budget" not in target_types
+
+
+

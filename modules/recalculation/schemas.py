@@ -52,7 +52,7 @@ class RecalculationApplyRequest(BaseModel):
     target_entity_type: str = Field(..., description="e.g. 'import_budget'")
     target_entity_id: int
     source_page: str = Field(..., description="Originating UI page name for audit")
-    justification: Optional[str] = Field(None, description="Required if has_hard_block=True")
+    justification: Optional[str] = Field(None, max_length=1000, description="Required if has_hard_block=True")
 
 
 # ─── Apply Result ────────────────────────────────────────────────────────────

@@ -27,7 +27,11 @@ def add_with_new_code(db: Session, record: LandedCostSettlementRecord) -> Landed
                 db.add(record)
                 db.flush()
             return record
-        except IntegrityError:
+        except IntegrityError as exc:
+            err_msg = str(exc).lower()
+            if "uq_fs_records_active_file" in err_msg or "financial_settlement_records.import_file_id" in err_msg:
+                from modules.financial_settlement.validators import duplicate_active_error
+                raise duplicate_active_error(record.import_file_id)
             if attempt == _CODE_ATTEMPTS - 1:
                 raise
     return record
@@ -43,7 +47,7 @@ def get_settlement_by_import_file_id(db: Session, import_file_id: int) -> Option
     return db.query(LandedCostSettlementRecord).filter(
         LandedCostSettlementRecord.import_file_id == import_file_id,
         LandedCostSettlementRecord.is_active == True
-    ).first()
+    ).order_by(desc(LandedCostSettlementRecord.settlement_id)).first()
 
 def list_settlements(
     db: Session,
@@ -127,15 +131,21 @@ def apply_settlement_update(db: Session, db_obj: LandedCostSettlementRecord, upd
 
 
 def soft_delete_settlement(db: Session, db_obj: LandedCostSettlementRecord, actor: str) -> None:
+    now = datetime.now(timezone.utc)
     db_obj.is_active = False
-    db_obj.updated_at = datetime.now(timezone.utc)
+    db_obj.deleted_at = now
+    db_obj.deleted_by = actor
+    db_obj.updated_at = now
     db_obj.updated_by = actor
     db.flush()
 
 
 def restore_settlement(db: Session, db_obj: LandedCostSettlementRecord, actor: str) -> None:
+    now = datetime.now(timezone.utc)
     db_obj.is_active = True
-    db_obj.updated_at = datetime.now(timezone.utc)
+    db_obj.deleted_at = None
+    db_obj.deleted_by = None
+    db_obj.updated_at = now
     db_obj.updated_by = actor
     db.flush()
 

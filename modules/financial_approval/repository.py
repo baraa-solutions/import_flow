@@ -95,7 +95,7 @@ def add_payment_request(
         advance_percentage=schema.advance_percentage,
         currency_code=schema.currency_code,
         exchange_rate=schema.exchange_rate,
-        requested_amount_egp=schema.requested_amount * schema.exchange_rate,
+        requested_amount_egp=round(schema.requested_amount * schema.exchange_rate, 2),
         due_date=schema.due_date,
         request_date=schema.request_date or date.today(),
         status=status,
@@ -252,7 +252,7 @@ def apply_payment_changes(
 ) -> PaymentRequestSession:
     for field, value in changes.items():
         setattr(db_item, field, value)
-    db_item.requested_amount_egp = db_item.requested_amount * db_item.exchange_rate
+    db_item.requested_amount_egp = round(db_item.requested_amount * db_item.exchange_rate, 2)
     db_item.version = current_version + 1
     db_item.updated_at = _now()
     if updated_by is not None:

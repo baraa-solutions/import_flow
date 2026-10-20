@@ -498,6 +498,8 @@ def test_frontend_ancestor_is_found_through_a_real_process_chain(tmp_path):
 
     fake_frontend = tmp_path / "frontend.exe"
     shutil.copy(sys.executable, fake_frontend)
+    for dll in Path(sys.executable).parent.glob("python*.dll"):
+        shutil.copy(dll, tmp_path / dll.name)
     code = ("import subprocess, sys; "
             f"r = subprocess.run([{sys.executable!r}, '-c', "
             "'import os, backend_runner as b; print(b.find_ancestor_pid(b.windows_process_table(), os.getpid()))'], "

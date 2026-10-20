@@ -210,7 +210,7 @@ class _FinancialApprovalScreenState
   }
 
   String _rateText(double? rate) =>
-      (rate != null && rate > 0) ? rate.toStringAsFixed(2) : '';
+      (rate != null && rate > 0) ? rate.toStringAsFixed(4) : '';
 
   String? _validateExchangeRate(String? v) {
     final r = double.tryParse((v ?? '').trim());

@@ -32,19 +32,13 @@ class FinancialExportService {
     final rate = budget.exchangeRate;
     final rateText = rate > 0 ? rate.toString() : '-';
 
-    final invEgp = budget.invoiceAmountEgp > 0
-        ? budget.invoiceAmountEgp
-        : (invForeign * rate);
-    final freightEgp = budget.freightCostEgp > 0
-        ? budget.freightCostEgp
-        : (freightForeign * rate);
-    final customsEgp = budget.customsDutiesEgp > 0
-        ? budget.customsDutiesEgp
-        : (prefill?.estimatedCustomsDutiesEgp ?? 0.0);
-    final clearanceEgp = budget.clearanceInlandEgp > 0
-        ? budget.clearanceInlandEgp
-        : (prefill?.estimatedClearanceFeesEgp ?? 0.0);
-    final grandTotalEgp = invEgp + freightEgp + customsEgp + clearanceEgp;
+    final invEgp = budget.invoiceAmountEgp;
+    final freightEgp = budget.freightCostEgp;
+    final customsEgp = budget.customsDutiesEgp;
+    final clearanceEgp = budget.clearanceInlandEgp;
+    final grandTotalEgp = budget.totalBudgetEgp > 0
+        ? budget.totalBudgetEgp
+        : (invEgp + freightEgp + customsEgp + clearanceEgp);
 
     pdf.addPage(
       pw.Page(
@@ -486,19 +480,13 @@ class FinancialExportService {
     final rate = budget.exchangeRate;
     final rateText = rate > 0 ? rate.toString() : '-';
 
-    final invEgp = budget.invoiceAmountEgp > 0
-        ? budget.invoiceAmountEgp
-        : (invForeign * rate);
-    final freightEgp = budget.freightCostEgp > 0
-        ? budget.freightCostEgp
-        : (freightForeign * rate);
-    final customsEgp = budget.customsDutiesEgp > 0
-        ? budget.customsDutiesEgp
-        : (prefill?.estimatedCustomsDutiesEgp ?? 0.0);
-    final clearanceEgp = budget.clearanceInlandEgp > 0
-        ? budget.clearanceInlandEgp
-        : (prefill?.estimatedClearanceFeesEgp ?? 0.0);
-    final grandTotalEgp = invEgp + freightEgp + customsEgp + clearanceEgp;
+    final invEgp = budget.invoiceAmountEgp;
+    final freightEgp = budget.freightCostEgp;
+    final customsEgp = budget.customsDutiesEgp;
+    final clearanceEgp = budget.clearanceInlandEgp;
+    final grandTotalEgp = budget.totalBudgetEgp > 0
+        ? budget.totalBudgetEgp
+        : (invEgp + freightEgp + customsEgp + clearanceEgp);
 
     final buffer = StringBuffer();
     // UTF-8 BOM for Excel Arabic compatibility
@@ -1016,17 +1004,13 @@ Sorour Logistics ERP
     final rate = bgt.exchangeRate;
     final rateText = rate > 0 ? rate.toString() : '-';
 
-    final invEgp =
-        bgt.invoiceAmountEgp > 0 ? bgt.invoiceAmountEgp : (invForeign * rate);
-    final freightEgp =
-        bgt.freightCostEgp > 0 ? bgt.freightCostEgp : (freightForeign * rate);
-    final customsEgp = bgt.customsDutiesEgp > 0
-        ? bgt.customsDutiesEgp
-        : (prefill?.estimatedCustomsDutiesEgp ?? 0.0);
-    final clearanceEgp = bgt.clearanceInlandEgp > 0
-        ? bgt.clearanceInlandEgp
-        : (prefill?.estimatedClearanceFeesEgp ?? 0.0);
-    final grandTotalEgp = invEgp + freightEgp + customsEgp + clearanceEgp;
+    final invEgp = bgt.invoiceAmountEgp;
+    final freightEgp = bgt.freightCostEgp;
+    final customsEgp = bgt.customsDutiesEgp;
+    final clearanceEgp = bgt.clearanceInlandEgp;
+    final grandTotalEgp = bgt.totalBudgetEgp > 0
+        ? bgt.totalBudgetEgp
+        : (invEgp + freightEgp + customsEgp + clearanceEgp);
 
     return '''
 *Sorour Logistics ERP — تقرير اعتماد الميزانية الاستيرادية الشاملة*
@@ -1073,17 +1057,13 @@ _تم الإنشاء عبر Sorour Logistics ERP_
     final rate = bgt.exchangeRate;
     final rateText = rate > 0 ? rate.toString() : '-';
 
-    final invEgp =
-        bgt.invoiceAmountEgp > 0 ? bgt.invoiceAmountEgp : (invForeign * rate);
-    final freightEgp =
-        bgt.freightCostEgp > 0 ? bgt.freightCostEgp : (freightForeign * rate);
-    final customsEgp = bgt.customsDutiesEgp > 0
-        ? bgt.customsDutiesEgp
-        : (prefill?.estimatedCustomsDutiesEgp ?? 0.0);
-    final clearanceEgp = bgt.clearanceInlandEgp > 0
-        ? bgt.clearanceInlandEgp
-        : (prefill?.estimatedClearanceFeesEgp ?? 0.0);
-    final grandTotalEgp = invEgp + freightEgp + customsEgp + clearanceEgp;
+    final invEgp = bgt.invoiceAmountEgp;
+    final freightEgp = bgt.freightCostEgp;
+    final customsEgp = bgt.customsDutiesEgp;
+    final clearanceEgp = bgt.clearanceInlandEgp;
+    final grandTotalEgp = bgt.totalBudgetEgp > 0
+        ? bgt.totalBudgetEgp
+        : (invEgp + freightEgp + customsEgp + clearanceEgp);
 
     return '''
 السادة الإدارة العليا والمالية / المحترمين،

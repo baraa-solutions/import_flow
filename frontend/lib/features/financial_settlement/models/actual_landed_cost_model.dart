@@ -8,6 +8,14 @@ double _numOf(Map<String, dynamic> json, List<String> keys, double fallback) {
   return fallback;
 }
 
+double? _optNumOf(Map<String, dynamic> json, List<String> keys) {
+  for (final k in keys) {
+    final v = json[k];
+    if (v is num) return v.toDouble();
+  }
+  return null;
+}
+
 String _strOf(Map<String, dynamic> json, List<String> keys, String fallback) {
   for (final k in keys) {
     final v = json[k];
@@ -17,9 +25,11 @@ String _strOf(Map<String, dynamic> json, List<String> keys, String fallback) {
 }
 
 /// Maps backend variance codes (SAVING / INCREASED / UNDER_BUDGET / OVER_BUDGET /
-/// ON_BUDGET) and legacy ones to FAVORABLE / UNFAVORABLE / MATCHED.
+/// ON_BUDGET / NO_ESTIMATE) and legacy ones to FAVORABLE / UNFAVORABLE / MATCHED / NO_ESTIMATE.
 String normalizeVarianceStatus(String? raw) {
   switch (raw) {
+    case 'NO_ESTIMATE':
+      return 'NO_ESTIMATE';
     case 'SAVING':
     case 'UNDER_BUDGET':
     case 'FAVORABLE':
@@ -73,10 +83,10 @@ String _statusFromVariance(double v) {
 class ActualLandedCostCategoryBreakdownModel {
   final String category;
   final String categoryAr;
-  final double estimatedAmountEgp;
+  final double? estimatedAmountEgp;
   final double actualAmountEgp;
-  final double varianceEgp;
-  final double variancePct;
+  final double? varianceEgp;
+  final double? variancePct;
   final String varianceStatus;
   final int invoicesCount;
   final String sourceNote;
@@ -84,10 +94,10 @@ class ActualLandedCostCategoryBreakdownModel {
   ActualLandedCostCategoryBreakdownModel({
     required this.category,
     required this.categoryAr,
-    required this.estimatedAmountEgp,
+    this.estimatedAmountEgp,
     required this.actualAmountEgp,
-    required this.varianceEgp,
-    required this.variancePct,
+    this.varianceEgp,
+    this.variancePct,
     required this.varianceStatus,
     required this.invoicesCount,
     required this.sourceNote,
@@ -97,13 +107,15 @@ class ActualLandedCostCategoryBreakdownModel {
     return ActualLandedCostCategoryBreakdownModel(
       category: json['category'] ?? '',
       categoryAr: json['category_ar'] ?? '',
-      estimatedAmountEgp: _numOf(json, ['estimated_egp', 'estimated_amount_egp'], 0.0),
+      estimatedAmountEgp: _optNumOf(json, ['estimated_egp', 'estimated_amount_egp']),
       actualAmountEgp: _numOf(json, ['actual_egp', 'actual_amount_egp'], 0.0),
-      varianceEgp: (json['variance_egp'] as num?)?.toDouble() ?? 0.0,
-      variancePct: (json['variance_pct'] as num?)?.toDouble() ?? 0.0,
+      varianceEgp: (json['variance_egp'] as num?)?.toDouble(),
+      variancePct: (json['variance_pct'] as num?)?.toDouble(),
       varianceStatus: json['variance_status'] != null
           ? normalizeVarianceStatus(json['variance_status']?.toString())
-          : _statusFromVariance((json['variance_egp'] as num?)?.toDouble() ?? 0.0),
+          : (json['variance_egp'] != null
+              ? _statusFromVariance((json['variance_egp'] as num).toDouble())
+              : 'NO_ESTIMATE'),
       invoicesCount: (json['invoices_count'] as num?)?.toInt() ?? 0,
       sourceNote: json['source_note'] ?? '',
     );
@@ -147,9 +159,9 @@ class ActualLandedCostItemLineModel {
   final double allocatedOtherExpensesEgp;
   final double totalActualLandedCostEgp;
   final double actualUnitLandedCostEgp;
-  final double estimatedUnitLandedCostEgp;
-  final double unitCostVarianceEgp;
-  final double unitCostVariancePct;
+  final double? estimatedUnitLandedCostEgp;
+  final double? unitCostVarianceEgp;
+  final double? unitCostVariancePct;
   final double markupFactor;
   final String varianceStatus;
 
@@ -176,9 +188,9 @@ class ActualLandedCostItemLineModel {
     required this.allocatedOtherExpensesEgp,
     required this.totalActualLandedCostEgp,
     required this.actualUnitLandedCostEgp,
-    required this.estimatedUnitLandedCostEgp,
-    required this.unitCostVarianceEgp,
-    required this.unitCostVariancePct,
+    this.estimatedUnitLandedCostEgp,
+    this.unitCostVarianceEgp,
+    this.unitCostVariancePct,
     required this.markupFactor,
     required this.varianceStatus,
   });
@@ -207,9 +219,9 @@ class ActualLandedCostItemLineModel {
       allocatedOtherExpensesEgp: _numOf(json, ['allocated_other_egp', 'allocated_other_expenses_egp'], 0.0),
       totalActualLandedCostEgp: (json['total_actual_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
       actualUnitLandedCostEgp: (json['actual_unit_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
-      estimatedUnitLandedCostEgp: (json['estimated_unit_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
-      unitCostVarianceEgp: (json['unit_cost_variance_egp'] as num?)?.toDouble() ?? 0.0,
-      unitCostVariancePct: (json['unit_cost_variance_pct'] as num?)?.toDouble() ?? 0.0,
+      estimatedUnitLandedCostEgp: (json['estimated_unit_landed_cost_egp'] as num?)?.toDouble(),
+      unitCostVarianceEgp: (json['unit_cost_variance_egp'] as num?)?.toDouble(),
+      unitCostVariancePct: (json['unit_cost_variance_pct'] as num?)?.toDouble(),
       markupFactor: _numOf(json, ['actual_markup_factor', 'markup_factor'], 1.0),
       varianceStatus: normalizeVarianceStatus(
           (json['item_variance_status'] ?? json['variance_status'])?.toString()),
@@ -253,16 +265,17 @@ class ActualLandedCostCalculationResponseModel {
   final int importFileId;
   final String importFileCode;
   final String financialSettlementStatus;
-  final String currency;
+  final String? currency;
   final double fxRate;
   final String allocationPreference;
+  final String fobBasis;
   final double totalFobEgp;
   final double totalActualExpensesEgp;
   final double actualTotalLandedCostEgp;
   final double actualMarkupFactor;
-  final double estimatedTotalLandedCostEgp;
-  final double landedVarianceEgp;
-  final double landedVariancePct;
+  final double? estimatedTotalLandedCostEgp;
+  final double? landedVarianceEgp;
+  final double? landedVariancePct;
   final String varianceStatus;
   final String varianceStatusAr;
   final List<ActualLandedCostCategoryBreakdownModel> categoriesBreakdown;
@@ -275,16 +288,17 @@ class ActualLandedCostCalculationResponseModel {
     required this.importFileId,
     required this.importFileCode,
     required this.financialSettlementStatus,
-    required this.currency,
+    this.currency,
     required this.fxRate,
     required this.allocationPreference,
+    this.fobBasis = 'INVOICE',
     required this.totalFobEgp,
     required this.totalActualExpensesEgp,
     required this.actualTotalLandedCostEgp,
     required this.actualMarkupFactor,
-    required this.estimatedTotalLandedCostEgp,
-    required this.landedVarianceEgp,
-    required this.landedVariancePct,
+    this.estimatedTotalLandedCostEgp,
+    this.landedVarianceEgp,
+    this.landedVariancePct,
     required this.varianceStatus,
     required this.varianceStatusAr,
     required this.categoriesBreakdown,
@@ -302,16 +316,17 @@ class ActualLandedCostCalculationResponseModel {
       importFileId: (json['import_file_id'] as num?)?.toInt() ?? 0,
       importFileCode: json['import_file_code'] ?? '',
       financialSettlementStatus: json['financial_settlement_status'] ?? '',
-      currency: json['currency'] ?? 'USD',
+      currency: json['currency']?.toString(),
       fxRate: _numOf(json, ['exchange_rate', 'fx_rate'], 0.0),
       allocationPreference: json['allocation_preference'] ?? 'Value-Based',
+      fobBasis: json['fob_basis'] as String? ?? 'INVOICE',
       totalFobEgp: _numOf(json, ['actual_total_fob_egp', 'total_fob_egp'], 0.0),
       totalActualExpensesEgp: _numOf(json, ['actual_total_expenses_egp', 'total_actual_expenses_egp'], 0.0),
       actualTotalLandedCostEgp: (json['actual_total_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
       actualMarkupFactor: (json['actual_markup_factor'] as num?)?.toDouble() ?? 1.0,
-      estimatedTotalLandedCostEgp: (json['estimated_total_landed_cost_egp'] as num?)?.toDouble() ?? 0.0,
-      landedVarianceEgp: (json['landed_variance_egp'] as num?)?.toDouble() ?? 0.0,
-      landedVariancePct: (json['landed_variance_pct'] as num?)?.toDouble() ?? 0.0,
+      estimatedTotalLandedCostEgp: (json['estimated_total_landed_cost_egp'] as num?)?.toDouble(),
+      landedVarianceEgp: (json['landed_variance_egp'] as num?)?.toDouble(),
+      landedVariancePct: (json['landed_variance_pct'] as num?)?.toDouble(),
       varianceStatus: normalizeVarianceStatus(json['variance_status']?.toString()),
       varianceStatusAr: json['variance_status_ar']?.toString() ?? '',
       reconciliationDifferenceEgp: (json['reconciliation_difference_egp'] as num?)?.toDouble() ?? 0.0,
@@ -361,8 +376,8 @@ class ApproveActualLandedCostResponseModel {
   final String financialSettlementStatus;
   final double actualLandedCostTotalEgp;
   final double actualLandedCostMarkupFactor;
-  final double landedVarianceEgp;
-  final double landedVariancePct;
+  final double? landedVarianceEgp;
+  final double? landedVariancePct;
   final String varianceStatus;
   final double progressPercent;
   final String currentStage;
@@ -380,8 +395,8 @@ class ApproveActualLandedCostResponseModel {
     required this.financialSettlementStatus,
     required this.actualLandedCostTotalEgp,
     required this.actualLandedCostMarkupFactor,
-    required this.landedVarianceEgp,
-    required this.landedVariancePct,
+    this.landedVarianceEgp,
+    this.landedVariancePct,
     required this.varianceStatus,
     required this.progressPercent,
     required this.currentStage,
@@ -401,8 +416,8 @@ class ApproveActualLandedCostResponseModel {
       financialSettlementStatus: json['financial_settlement_status'] ?? '',
       actualLandedCostTotalEgp: (json['actual_landed_cost_total_egp'] as num?)?.toDouble() ?? 0.0,
       actualLandedCostMarkupFactor: (json['actual_landed_cost_markup_factor'] as num?)?.toDouble() ?? 1.0,
-      landedVarianceEgp: (json['landed_variance_egp'] as num?)?.toDouble() ?? 0.0,
-      landedVariancePct: (json['landed_variance_pct'] as num?)?.toDouble() ?? 0.0,
+      landedVarianceEgp: (json['landed_variance_egp'] as num?)?.toDouble(),
+      landedVariancePct: (json['landed_variance_pct'] as num?)?.toDouble(),
       varianceStatus: json['variance_status'] ?? 'MATCHED',
       progressPercent: (json['progress_percent'] as num?)?.toDouble() ?? 0.0,
       currentStage: json['current_stage'] ?? '',

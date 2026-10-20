@@ -50,7 +50,7 @@ auth_router_module = importlib.import_module("modules.auth.router")
 currencies_router_module = importlib.import_module("modules.currencies.router")
 purchase_orders_router_module = importlib.import_module("modules.purchase_orders.router")
 
-HEAD_REVISION = "c9d0e1f2a3b4"  # current head (users.token_version BEX-T08)
+HEAD_REVISION = "d0e1f2a3b4c5"  # current head (payment_paid_egp ACC2-T07)
 DEFAULT_PASSWORD = "Admin@123"
 NEW_PASSWORD = "Sorour-Admin-2026"
 CHANGE_URL = "/api/v1/auth/me/change-password"

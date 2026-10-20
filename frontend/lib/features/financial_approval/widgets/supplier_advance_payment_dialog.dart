@@ -250,7 +250,7 @@ class _SupplierAdvancePaymentDialogState
           _swiftController.text = effSwift;
           _ibanController.text = effIban;
           _exchangeRateController.text = (effRate != null && effRate > 0)
-              ? effRate.toStringAsFixed(2)
+              ? effRate.toStringAsFixed(4)
               : '';
 
           _calculateAndApplyAmount(_selectedPercentage);

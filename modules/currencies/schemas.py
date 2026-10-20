@@ -35,7 +35,7 @@ class ExchangeRateBase(BaseModel):
 
 
 class ExchangeRateCreate(ExchangeRateBase):
-    pass
+    replace: bool = Field(False, description="Replace existing active rate for same currency and effective date")
 
 
 class ExchangeRateResponse(ExchangeRateBase):

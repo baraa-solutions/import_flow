@@ -129,6 +129,8 @@ def same_file(a: object, b: object) -> bool:
     empty/None or a path cannot be resolved: callers that must fail closed treat False as "different"."""
     if not a or not b:
         return False
+    if "\x00" in str(a) or "\x00" in str(b):
+        return False
     try:
         return os.path.normcase(str(Path(str(a)).resolve())) == os.path.normcase(str(Path(str(b)).resolve()))
     except (OSError, ValueError):
