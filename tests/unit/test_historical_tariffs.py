@@ -179,7 +179,7 @@ def test_unique_constraint_on_rates(db: Session):
     db.commit()
 
     r1 = CarrierDemurrageRate(
-        carrier_id=carrier.carrier_id,
+        currency="USD",carrier_id=carrier.carrier_id,
         container_type="40ft DRY",
         demurrage_tiers=[],
         detention_tiers=[],
@@ -190,7 +190,7 @@ def test_unique_constraint_on_rates(db: Session):
 
     # Adding another rate with same carrier, container_type, and effective_date must raise IntegrityError
     r2 = CarrierDemurrageRate(
-        carrier_id=carrier.carrier_id,
+        currency="USD",carrier_id=carrier.carrier_id,
         container_type="40ft DRY",
         demurrage_tiers=[],
         detention_tiers=[],
@@ -548,13 +548,13 @@ def test_get_rates_history_service_filtering(db: Session):
 
     # 3. Add storage rates
     create_terminal_storage_rate_service(db, t1.terminal_id, TerminalStorageRateCreate(
-        container_type="40ft DRY",
+        currency="USD",container_type="40ft DRY",
         free_days=7,
         storage_tiers=[TierRateItem(from_day=8, to_day=None, rate_per_day=35.0)],
         effective_date=date(2026, 1, 1),
     ))
     create_terminal_storage_rate_service(db, t2.terminal_id, TerminalStorageRateCreate(
-        container_type="20ft DRY",
+        currency="USD",container_type="20ft DRY",
         free_days=5,
         storage_tiers=[TierRateItem(from_day=6, to_day=None, rate_per_day=20.0)],
         effective_date=date(2026, 1, 1),
@@ -562,7 +562,7 @@ def test_get_rates_history_service_filtering(db: Session):
 
     # 4. Add demurrage rates
     create_carrier_demurrage_rate_service(db, c1.carrier_id, CarrierDemurrageRateCreate(
-        container_type="40ft DRY",
+        currency="USD",container_type="40ft DRY",
         demurrage_free_days_standard=14,
         detention_free_days_standard=7,
         demurrage_tiers=[TierRateItem(from_day=1, to_day=None, rate_per_day=50.0)],
@@ -570,7 +570,7 @@ def test_get_rates_history_service_filtering(db: Session):
         effective_date=date(2026, 1, 1),
     ))
     create_carrier_demurrage_rate_service(db, c2.carrier_id, CarrierDemurrageRateCreate(
-        container_type="20ft DRY",
+        currency="USD",container_type="20ft DRY",
         demurrage_free_days_standard=10,
         detention_free_days_standard=5,
         demurrage_tiers=[TierRateItem(from_day=1, to_day=None, rate_per_day=30.0)],
@@ -627,7 +627,7 @@ def test_calculate_demurrage_detention_service_auto_resolution(db: Session):
         carrier_name="Ocean Network Express",
     ))
     create_carrier_demurrage_rate_service(db, carrier.carrier_id, CarrierDemurrageRateCreate(
-        container_type="40ft High Cube",
+        currency="USD",container_type="40ft High Cube",
         demurrage_free_days_standard=10,
         detention_free_days_standard=5,
         demurrage_tiers=[TierRateItem(from_day=1, to_day=None, rate_per_day=40.0)],
@@ -635,7 +635,7 @@ def test_calculate_demurrage_detention_service_auto_resolution(db: Session):
         effective_date=date(2025, 1, 1),
     ))
     create_carrier_demurrage_rate_service(db, carrier.carrier_id, CarrierDemurrageRateCreate(
-        container_type="40ft High Cube",
+        currency="USD",container_type="40ft High Cube",
         demurrage_free_days_standard=14,
         detention_free_days_standard=7,
         demurrage_tiers=[TierRateItem(from_day=1, to_day=None, rate_per_day=50.0)],
@@ -650,13 +650,13 @@ def test_calculate_demurrage_detention_service_auto_resolution(db: Session):
         port_name="Alexandria Port",
     ))
     create_terminal_storage_rate_service(db, terminal.terminal_id, TerminalStorageRateCreate(
-        container_type="40ft High Cube",
+        currency="USD",container_type="40ft High Cube",
         free_days=5,
         storage_tiers=[TierRateItem(from_day=6, to_day=None, rate_per_day=30.0)],
         effective_date=date(2025, 1, 1),
     ))
     create_terminal_storage_rate_service(db, terminal.terminal_id, TerminalStorageRateCreate(
-        container_type="40ft High Cube",
+        currency="USD",container_type="40ft High Cube",
         free_days=7,
         storage_tiers=[TierRateItem(from_day=8, to_day=None, rate_per_day=40.0)],
         effective_date=date(2026, 1, 1),
