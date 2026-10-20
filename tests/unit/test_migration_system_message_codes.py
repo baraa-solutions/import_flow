@@ -23,7 +23,7 @@ from utils import db_safety
 PREVIOUS = "f7a1c3e5b9d2"
 
 
-HEAD = "b4c5d6e7f8a9"  # current head (LOG-TRACK vessel tracking tables)
+HEAD = "c7d8e9f0a1b2"  # current head (port storage & abandonment)
 
 NEW_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],
