@@ -167,9 +167,9 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                 // Header Banner
                 Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: AppTheme.surfaceAlt,
-                    border: const Border(bottom: BorderSide(color: AppTheme.textPrimary, width: 1.2)),
+                    border: Border(bottom: BorderSide(color: AppTheme.textPrimary, width: 1.2)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -315,7 +315,7 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                         },
                         children: [
                           TableRow(
-                            decoration: BoxDecoration(color: AppTheme.border),
+                            decoration: const BoxDecoration(color: AppTheme.border),
                             children: [
                               Padding(padding: const EdgeInsets.all(4), child: Text(l10n.colInvoiceAmountCurrency, style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold))),
                               Padding(padding: const EdgeInsets.all(4), child: Text(l10n.colInvoiceNo, style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold))),
@@ -406,7 +406,7 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                         },
                         children: [
                           TableRow(
-                            decoration: BoxDecoration(color: AppTheme.border),
+                            decoration: const BoxDecoration(color: AppTheme.border),
                             children: [
                               Padding(padding: const EdgeInsets.all(3), child: Text(l10n.colItemNo, style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold))),
                               Padding(padding: const EdgeInsets.all(3), child: Text(l10n.colQuantity, style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold))),

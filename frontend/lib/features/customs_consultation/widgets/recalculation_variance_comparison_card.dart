@@ -44,7 +44,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
       color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: statusColor.withOpacity(0.4), width: 1.5),
+        side: BorderSide(color: statusColor.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -57,7 +57,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.12),
+                    color: statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(statusIcon, color: statusColor, size: 24),
@@ -93,9 +93,9 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.12),
+                    color: statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: statusColor.withOpacity(0.5)),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -208,7 +208,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                 columnSpacing: 14,
                 headingRowColor: WidgetStateProperty.all(isDark
                     ? AppTheme.darkElevatedSurface
-                    : AppTheme.charcoal.withOpacity(0.06)),
+                    : AppTheme.charcoal.withValues(alpha: 0.06)),
                 headingTextStyle: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
@@ -244,7 +244,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.cobalt.withOpacity(0.12),
+                                  color: AppTheme.cobalt.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -376,7 +376,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: diffColor.withOpacity(0.12),
+                            color: diffColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -400,9 +400,9 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: AppTheme.emerald.withOpacity(isDark ? 0.15 : 0.08),
+                color: AppTheme.emerald.withValues(alpha: isDark ? 0.15 : 0.08),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -469,12 +469,12 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkElevatedSurface : color.withOpacity(0.05),
+        color: isDark ? AppTheme.darkElevatedSurface : color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isGrandTotal
               ? color
-              : (isDark ? AppTheme.darkBorder : color.withOpacity(0.2)),
+              : (isDark ? AppTheme.darkBorder : color.withValues(alpha: 0.2)),
           width: isGrandTotal ? 1.5 : 1.0,
         ),
       ),
@@ -560,7 +560,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: diffColor.withOpacity(0.1),
+              color: diffColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Wrap(

@@ -168,7 +168,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.12),
+                  color: AppTheme.cobalt.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.cobalt, size: 28),
@@ -313,7 +313,7 @@ class _POBalanceLedgerDialogState extends ConsumerState<POBalanceLedgerDialog> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
-                          color: isDone ? AppTheme.emerald.withOpacity(0.12) : AppTheme.orange.withOpacity(0.12),
+                          color: isDone ? AppTheme.emerald.withValues(alpha: 0.12) : AppTheme.orange.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(

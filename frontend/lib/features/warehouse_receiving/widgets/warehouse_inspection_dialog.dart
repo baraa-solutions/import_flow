@@ -239,7 +239,7 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.cobalt.withOpacity(0.12),
+              color: AppTheme.cobalt.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.verified_user_rounded, color: AppTheme.cobalt, size: 24),
@@ -483,9 +483,9 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.orange.withOpacity(0.06),
+        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.orange.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.orange.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.orange.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -66,7 +66,7 @@ class VerticalStageScaffold extends StatelessWidget {
               color: AppTheme.charcoal,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
+                  color: Colors.black.withValues(alpha: 0.12),
                   blurRadius: 6,
                   offset: const Offset(0, 3),
                 ),
@@ -83,9 +83,9 @@ class VerticalStageScaffold extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: headerColor.withOpacity(0.2),
+                        color: headerColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: headerColor.withOpacity(0.5)),
+                        border: Border.all(color: headerColor.withValues(alpha: 0.5)),
                       ),
                       child: Icon(headerIcon, color: headerColor, size: 20),
                     ),
@@ -113,9 +113,9 @@ class VerticalStageScaffold extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: headerColor.withOpacity(0.3),
+                                color: headerColor.withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: headerColor.withOpacity(0.6)),
+                                border: Border.all(color: headerColor.withValues(alpha: 0.6)),
                               ),
                               child: Text(
                                 badgeText,
@@ -317,7 +317,7 @@ class VerticalStageScaffold extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
+                        color: Colors.black.withValues(alpha: 0.02),
                         blurRadius: 4,
                         offset: const Offset(2, 0),
                       ),
@@ -370,12 +370,12 @@ class VerticalStageScaffold extends StatelessWidget {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: isSelected ? headerColor.withOpacity(0.5) : Colors.transparent,
+                                  color: isSelected ? headerColor.withValues(alpha: 0.5) : Colors.transparent,
                                   width: 1.2,
                                 ),
                               ),
                               child: Material(
-                                color: isSelected ? headerColor.withOpacity(0.12) : Colors.transparent,
+                                color: isSelected ? headerColor.withValues(alpha: 0.12) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(6),
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(6),

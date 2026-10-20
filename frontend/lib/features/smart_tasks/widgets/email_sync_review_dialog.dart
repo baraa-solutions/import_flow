@@ -199,7 +199,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.emerald.withOpacity(0.12),
+                      color: AppTheme.emerald.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.rule_folder_rounded, color: AppTheme.emerald, size: 28),
@@ -416,11 +416,11 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: itemState.isSelected
-            ? (isDark ? AppTheme.cobalt.withOpacity(0.08) : const Color(0xFFF8FAFF))
+            ? (isDark ? AppTheme.cobalt.withValues(alpha: 0.08) : const Color(0xFFF8FAFF))
             : (isDark ? AppTheme.darkInputBackground : Colors.white),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: itemState.isSelected ? AppTheme.cobalt.withOpacity(0.5) : borderColor,
+          color: itemState.isSelected ? AppTheme.cobalt.withValues(alpha: 0.5) : borderColor,
           width: itemState.isSelected ? 1.5 : 1,
         ),
       ),
@@ -443,7 +443,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.12),
+                  color: AppTheme.cobalt.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -454,7 +454,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.15),
+                  color: Colors.grey.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -465,9 +465,9 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppTheme.emerald.withOpacity(0.12),
+                  color: AppTheme.emerald.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+                  border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -485,7 +485,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.15),
+                    color: Colors.amber.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(

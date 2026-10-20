@@ -222,7 +222,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                             child: ChoiceChip(
                               label: Text(label, style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
                               selected: isSelected,
-                              selectedColor: AppTheme.cobalt.withOpacity(0.15),
+                              selectedColor: AppTheme.cobalt.withValues(alpha: 0.15),
                               onSelected: (_) => onCategoryChanged(cat),
                             ),
                           );
@@ -274,9 +274,9 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.08),
+                  color: AppTheme.cobalt.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

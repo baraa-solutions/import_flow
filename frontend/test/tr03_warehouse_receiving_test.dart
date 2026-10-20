@@ -125,12 +125,12 @@ void main() {
               ]),
             ),
           ],
-          child: AppLocalizationsProvider(
-            locale: const Locale('ar'),
-            child: const MaterialApp(
+          child: const AppLocalizationsProvider(
+            locale: Locale('ar'),
+            child: MaterialApp(
               locale: Locale('ar'),
               home: Scaffold(
-                body: const WarehouseReceivingScreen(),
+                body: WarehouseReceivingScreen(),
               ),
             ),
           ),

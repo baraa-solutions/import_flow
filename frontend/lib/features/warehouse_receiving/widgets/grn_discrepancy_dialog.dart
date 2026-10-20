@@ -139,8 +139,9 @@ class _GrnDiscrepancyReportDialogState
                           label: l.warehouseReceivingDiscrepancyTypeBrokenSeal),
                     ],
                     onChanged: (val) {
-                      if (val != null)
+                      if (val != null) {
                         setState(() => _selectedDiscrepancyType = val);
+                      }
                     },
                   ),
                   const SizedBox(height: 14),

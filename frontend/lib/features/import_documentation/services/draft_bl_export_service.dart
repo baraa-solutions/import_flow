@@ -407,9 +407,11 @@ class DraftBLExportService {
     );
 
     final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT-BL').toString();
+    final pdfBytes = await pdf.save();
+    if (context != null && !context.mounted) return;
     await FileSaveHelper.exportAndSaveFile(
       context: context,
-      bytes: await pdf.save(),
+      bytes: pdfBytes,
       stageName: 'Draft Bill of Lading',
       importFileNameOrCode: blNo.replaceAll(RegExp(r'[^0-9A-Za-z_-]'), '_'),
       extension: 'pdf',

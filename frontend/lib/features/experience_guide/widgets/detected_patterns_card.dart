@@ -45,7 +45,7 @@ class DetectedPatternsCard extends ConsumerWidget {
           decoration: BoxDecoration(
             color: const Color(0xFFF9FBFD),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.flatCobalt.withOpacity(0.3)),
+            border: Border.all(color: AppTheme.flatCobalt.withValues(alpha: 0.3)),
           ),
           child: ExpansionTile(
             initiallyExpanded: false,
@@ -64,7 +64,7 @@ class DetectedPatternsCard extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.flatCobalt.withOpacity(0.12),
+                    color: AppTheme.flatCobalt.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(

@@ -91,7 +91,7 @@ class _SearchAndClonePaymentDialogState
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.control_point_duplicate_rounded,
@@ -272,12 +272,12 @@ class _SearchAndClonePaymentDialogState
                                                       vertical: 2),
                                               decoration: BoxDecoration(
                                                 color: AppTheme.cobalt
-                                                    .withOpacity(0.12),
+                                                    .withValues(alpha: 0.12),
                                                 borderRadius:
                                                     BorderRadius.circular(4),
                                                 border: Border.all(
                                                     color: AppTheme.cobalt
-                                                        .withOpacity(0.3)),
+                                                        .withValues(alpha: 0.3)),
                                               ),
                                               child: LtrText(
                                                 p.paymentCode,
@@ -299,9 +299,9 @@ class _SearchAndClonePaymentDialogState
                                                     (p.status == 'Approved' ||
                                                             p.status == 'Paid')
                                                         ? AppTheme.emerald
-                                                            .withOpacity(0.12)
+                                                            .withValues(alpha: 0.12)
                                                         : AppTheme.orange
-                                                            .withOpacity(0.12),
+                                                            .withValues(alpha: 0.12),
                                                 borderRadius:
                                                     BorderRadius.circular(4),
                                               ),
@@ -429,7 +429,7 @@ class _SearchAndClonePaymentDialogState
                                       ],
                                     ),
                                   ),
-                                  Icon(
+                                  const Icon(
                                     Icons.chevron_right,
                                     color: AppTheme.cobalt,
                                     size: 20,

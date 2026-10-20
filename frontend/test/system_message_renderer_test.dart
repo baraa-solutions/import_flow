@@ -299,7 +299,7 @@ void main() {
       final exported = f.displayNextAction(ar, forExport: true);
       expect(exported, isNot(contains(SystemMessageRenderer.lri)));
       expect(exported, contains('(Booking: BK-9)'));
-      final cell = '${SystemMessageRenderer.lri}IMP-1${SystemMessageRenderer.pdi}';
+      const cell = '${SystemMessageRenderer.lri}IMP-1${SystemMessageRenderer.pdi}';
       expect(TableCopyHelper.cleanCell(cell), 'IMP-1');
       expect(TableExportService.buildCsvContent(['h'], [[cell]]), isNot(contains(SystemMessageRenderer.lri)));
       expect(TableExportService.buildTsvContent(['h'], [[cell]]), isNot(contains(SystemMessageRenderer.pdi)));

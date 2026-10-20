@@ -91,7 +91,7 @@ void main() {
         ProviderScope(
           child: localizedApp(
             locale: AppLocales.english,
-            home: Scaffold(
+            home: const Scaffold(
               body: SupplierAdvancePaymentDialog(
                 importFileId: 4,
                 importFileCode: 'IMP-2026-0004',

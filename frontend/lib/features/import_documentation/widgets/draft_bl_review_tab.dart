@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/helpers/file_picker_helper.dart';
 import '../../../core/localization/api_error_text.dart';
@@ -29,7 +28,7 @@ import 'idoc_ui.dart';
 
 class DraftBLReviewTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
-  DraftBLReviewTab({super.key, this.initialImportFileId});
+  const DraftBLReviewTab({super.key, this.initialImportFileId});
 
   @override
   ConsumerState<DraftBLReviewTab> createState() => _DraftBLReviewTabState();
@@ -1051,7 +1050,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
           color: AppTheme.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: Colors.transparent),
+            side: const BorderSide(color: Colors.transparent),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -1286,7 +1285,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               const SizedBox(height: 4),
                               Text(
                                 _safetyWarning ?? context.l10n.draftBlSafetyAlertSub,
-                                style: TextStyle(fontSize: 12, color: AppTheme.charcoal),
+                                style: const TextStyle(fontSize: 12, color: AppTheme.charcoal),
                               ),
                               const SizedBox(height: 8),
                               Wrap(
@@ -1394,7 +1393,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             color: AppTheme.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: Colors.transparent),
+              side: const BorderSide(color: Colors.transparent),
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -1509,7 +1508,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
           color: AppTheme.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: Colors.transparent),
+            side: const BorderSide(color: Colors.transparent),
           ),
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -2409,7 +2408,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       color: AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.transparent),
+        side: const BorderSide(color: Colors.transparent),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -2687,7 +2686,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
                       columns: [
                         DataColumn(label: Text(context.l10n.draftBlRegistryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(context.l10n.idocASessionType, style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(context.l10n.idocASessionType, style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(label: Text(context.l10n.draftBlRegistryColSessionId, style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(label: Text(context.l10n.draftBlRegistryColBlNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                         DataColumn(label: Text(context.l10n.draftBlRegistryColShippingLine, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -2990,8 +2989,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.delete_forever, color: AppTheme.crimson),
-            SizedBox(width: 8),
+            const Icon(Icons.delete_forever, color: AppTheme.crimson),
+            const SizedBox(width: 8),
             Text(context.l10n.idocAConfirmDraftSessionDeletion),
           ],
         ),
@@ -3090,17 +3089,17 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: 8),
-                Text(context.l10n.idocAReviewAndComparisonMatrix, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
+                Text(context.l10n.idocAReviewAndComparisonMatrix, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 8),
                 if (matrix.isEmpty)
-                  Center(child: Padding(padding: EdgeInsets.all(20), child: Text(context.l10n.idocANoSavedMatrixItems)))
+                  Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(context.l10n.idocANoSavedMatrixItems)))
                 else
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
-                      headingTextStyle: TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      headingTextStyle: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
                       columns: [
                         DataColumn(label: Text(context.l10n.idocAStandardField)),
                         DataColumn(label: Text(context.l10n.idocAValueRecordedInTheSystem)),

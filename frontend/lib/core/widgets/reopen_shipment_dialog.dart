@@ -94,7 +94,7 @@ class _ReopenShipmentDialogState extends ConsumerState<ReopenShipmentDialog> {
       title: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: AppTheme.emerald.withOpacity(0.08),
+          color: AppTheme.emerald.withValues(alpha: 0.08),
           borderRadius: const BorderRadiusDirectional.only(
             topStart: Radius.circular(12),
             topEnd: Radius.circular(12),

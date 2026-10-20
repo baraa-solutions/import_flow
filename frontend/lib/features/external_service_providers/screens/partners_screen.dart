@@ -632,9 +632,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                       height: 26,
                                                       margin: const EdgeInsetsDirectional.only(end: 4),
                                                       decoration: BoxDecoration(
-                                                        color: AppTheme.emerald.withOpacity(0.12),
+                                                        color: AppTheme.emerald.withValues(alpha: 0.12),
                                                         borderRadius: BorderRadius.circular(5),
-                                                        border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                                                        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
                                                       ),
                                                       child: const Center(
                                                         child: Icon(Icons.copy_all_rounded, size: 14, color: AppTheme.emerald),

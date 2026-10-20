@@ -44,7 +44,7 @@ class SkipStepDialogHelper {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: AppTheme.orange.withOpacity(0.12),
+                      color: AppTheme.orange.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.fast_forward_rounded, color: AppTheme.orange, size: 22),

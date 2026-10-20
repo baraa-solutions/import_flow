@@ -161,8 +161,8 @@ class _StreamlitBoardScreenState extends ConsumerState<StreamlitBoardScreen> {
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: _isServerRunning
-                            ? AppTheme.emerald.withOpacity(0.2)
-                            : AppTheme.orange.withOpacity(0.2),
+                            ? AppTheme.emerald.withValues(alpha: 0.2)
+                            : AppTheme.orange.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: _isServerRunning ? AppTheme.emerald : AppTheme.orange,
@@ -195,8 +195,8 @@ class _StreamlitBoardScreenState extends ConsumerState<StreamlitBoardScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: _isServerRunning
-                                      ? AppTheme.emerald.withOpacity(0.3)
-                                      : Colors.amber.withOpacity(0.3),
+                                      ? AppTheme.emerald.withValues(alpha: 0.3)
+                                      : Colors.amber.withValues(alpha: 0.3),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
                                     color: _isServerRunning ? AppTheme.emerald : Colors.amber,
@@ -216,7 +216,7 @@ class _StreamlitBoardScreenState extends ConsumerState<StreamlitBoardScreen> {
                           const SizedBox(height: 6),
                           Text(
                             _statusMessage,
-                            style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13),
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13),
                           ),
                         ],
                       ),
@@ -394,10 +394,10 @@ class _StreamlitBoardScreenState extends ConsumerState<StreamlitBoardScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),

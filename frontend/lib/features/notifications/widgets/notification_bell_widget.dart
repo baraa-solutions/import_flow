@@ -165,8 +165,8 @@ class NotificationBellWidget extends ConsumerWidget {
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: n.isRead
-                                  ? (isDark ? AppTheme.darkElevatedSurface.withOpacity(0.5) : Colors.transparent)
-                                  : (isDark ? sevColor.withOpacity(0.2) : sevColor.withOpacity(0.08)),
+                                  ? (isDark ? AppTheme.darkElevatedSurface.withValues(alpha: 0.5) : Colors.transparent)
+                                  : (isDark ? sevColor.withValues(alpha: 0.2) : sevColor.withValues(alpha: 0.08)),
                               borderRadius: BorderRadius.circular(8),
                               border: BorderDirectional(
                                 end: isAr ? BorderSide(color: sevColor, width: 3.5) : BorderSide.none,
@@ -222,7 +222,7 @@ class NotificationBellWidget extends ConsumerWidget {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: isDark ? Colors.white.withOpacity(0.06) : Colors.grey.shade100,
+                                          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100,
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Row(
@@ -249,11 +249,11 @@ class NotificationBellWidget extends ConsumerWidget {
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
                                       decoration: BoxDecoration(
                                         color: isDark
-                                            ? AppTheme.cobalt.withOpacity(0.28)
-                                            : AppTheme.cobalt.withOpacity(0.12),
+                                            ? AppTheme.cobalt.withValues(alpha: 0.28)
+                                            : AppTheme.cobalt.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(4),
                                         border: Border.all(
-                                          color: isDark ? AppTheme.cobalt.withOpacity(0.6) : AppTheme.cobalt.withOpacity(0.35),
+                                          color: isDark ? AppTheme.cobalt.withValues(alpha: 0.6) : AppTheme.cobalt.withValues(alpha: 0.35),
                                           width: 0.8,
                                         ),
                                       ),

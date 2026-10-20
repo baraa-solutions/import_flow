@@ -706,7 +706,7 @@ class _ShipmentLifecycleNavigatorState
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           decoration: BoxDecoration(
             color: isSelectedInContext
-                ? stepColor.withOpacity(0.08)
+                ? stepColor.withValues(alpha: 0.08)
                 : Colors.white,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
@@ -716,7 +716,7 @@ class _ShipmentLifecycleNavigatorState
             boxShadow: isSelectedInContext
                 ? [
                     BoxShadow(
-                      color: stepColor.withOpacity(0.12),
+                      color: stepColor.withValues(alpha: 0.12),
                       blurRadius: 4,
                       offset: const Offset(0, 1),
                     ),
@@ -1043,7 +1043,7 @@ class _ShipmentLifecycleNavigatorState
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: effectiveColor.withOpacity(0.4)),
+          border: Border.all(color: effectiveColor.withValues(alpha: 0.4)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

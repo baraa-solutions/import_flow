@@ -85,7 +85,7 @@ class _ShipmentInquiryFilterPanelState
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -124,14 +124,14 @@ class _ShipmentInquiryFilterPanelState
                       hintText: l.inqAllSuppliers,
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.08),
+                        fillColor: Colors.white.withValues(alpha: 0.08),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                         ),
                         labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -172,14 +172,14 @@ class _ShipmentInquiryFilterPanelState
                       hintText: l.inqAllImporters,
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.08),
+                        fillColor: Colors.white.withValues(alpha: 0.08),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                         ),
                         labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -207,10 +207,10 @@ class _ShipmentInquiryFilterPanelState
                   decoration: InputDecoration(
                     labelText: l.inqHsCodeOrProduct,
                     hintText: l.inqHsCodeHint,
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11),
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
                     labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
                     filled: true,
-                    fillColor: Colors.white.withOpacity(0.08),
+                    fillColor: Colors.white.withValues(alpha: 0.08),
                     prefixIcon: const Icon(Icons.manage_search_outlined, color: Colors.white60, size: 18),
                     suffixIcon: _hsCodeController.text.isNotEmpty
                         ? Row(
@@ -233,11 +233,11 @@ class _ShipmentInquiryFilterPanelState
                         : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
@@ -271,7 +271,7 @@ class _ShipmentInquiryFilterPanelState
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.18),
+                  backgroundColor: Colors.white.withValues(alpha: 0.18),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -320,7 +320,7 @@ class _ShipmentInquiryFilterPanelState
                     labelText: l.inqIncoterm,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
+                      fillColor: Colors.white.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -345,7 +345,7 @@ class _ShipmentInquiryFilterPanelState
                     decoration: InputDecoration(
                       labelText: l.inqPortOfLoading,
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
+                      fillColor: Colors.white.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -362,17 +362,17 @@ class _ShipmentInquiryFilterPanelState
                     value: filters.portOfDischarge,
                     items: [
                       SearchableDropdownItem(value: null, label: l.inqPortOfDischarge),
-                      SearchableDropdownItem(value: 'Alexandria', label: 'Alexandria'),
-                      SearchableDropdownItem(value: 'El Dekheila', label: 'El Dekheila'),
-                      SearchableDropdownItem(value: 'Port Said', label: 'Port Said'),
-                      SearchableDropdownItem(value: 'Damietta', label: 'Damietta'),
-                      SearchableDropdownItem(value: 'Sokhna', label: 'Sokhna'),
-                      SearchableDropdownItem(value: 'Cairo Airport', label: 'Cairo Airport'),
+                      const SearchableDropdownItem(value: 'Alexandria', label: 'Alexandria'),
+                      const SearchableDropdownItem(value: 'El Dekheila', label: 'El Dekheila'),
+                      const SearchableDropdownItem(value: 'Port Said', label: 'Port Said'),
+                      const SearchableDropdownItem(value: 'Damietta', label: 'Damietta'),
+                      const SearchableDropdownItem(value: 'Sokhna', label: 'Sokhna'),
+                      const SearchableDropdownItem(value: 'Cairo Airport', label: 'Cairo Airport'),
                     ],
                     labelText: l.inqPortOfDischarge,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
+                      fillColor: Colors.white.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -404,7 +404,7 @@ class _ShipmentInquiryFilterPanelState
                     labelText: l.inqShippingMode,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
+                      fillColor: Colors.white.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -427,18 +427,18 @@ class _ShipmentInquiryFilterPanelState
                     value: filters.carrier,
                     items: [
                       SearchableDropdownItem(value: null, label: l.inqCarrier),
-                      SearchableDropdownItem(value: 'MSC', label: 'MSC Line'),
-                      SearchableDropdownItem(value: 'Maersk', label: 'Maersk Line'),
-                      SearchableDropdownItem(value: 'CMA CGM', label: 'CMA CGM'),
-                      SearchableDropdownItem(value: 'Hapag-Lloyd', label: 'Hapag-Lloyd'),
-                      SearchableDropdownItem(value: 'COSCO', label: 'COSCO Shipping'),
-                      SearchableDropdownItem(value: 'ONE', label: 'Ocean Network Express'),
-                      SearchableDropdownItem(value: 'Evergreen', label: 'Evergreen Line'),
+                      const SearchableDropdownItem(value: 'MSC', label: 'MSC Line'),
+                      const SearchableDropdownItem(value: 'Maersk', label: 'Maersk Line'),
+                      const SearchableDropdownItem(value: 'CMA CGM', label: 'CMA CGM'),
+                      const SearchableDropdownItem(value: 'Hapag-Lloyd', label: 'Hapag-Lloyd'),
+                      const SearchableDropdownItem(value: 'COSCO', label: 'COSCO Shipping'),
+                      const SearchableDropdownItem(value: 'ONE', label: 'Ocean Network Express'),
+                      const SearchableDropdownItem(value: 'Evergreen', label: 'Evergreen Line'),
                     ],
                     labelText: l.inqCarrier,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
+                      fillColor: Colors.white.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -461,7 +461,7 @@ class _ShipmentInquiryFilterPanelState
                   label: Text(l.inqResetBtn),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white70,
-                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
                   onPressed: _handleReset,
@@ -515,7 +515,7 @@ class _ShipmentInquiryFilterPanelState
                       label: Text(label, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : Colors.white70)),
                       selected: isSelected,
                       selectedColor: AppTheme.cobalt,
-                      backgroundColor: Colors.white.withOpacity(0.08),
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
                       checkmarkColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       onSelected: (selected) {
@@ -544,7 +544,7 @@ class _ShipmentInquiryFilterPanelState
                     style: const TextStyle(fontSize: 11, color: Colors.white70),
                   ),
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
                   onPressed: () async {

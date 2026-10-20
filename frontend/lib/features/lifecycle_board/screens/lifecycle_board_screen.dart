@@ -152,11 +152,11 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: seconds <= 10
-                            ? AppTheme.orange.withOpacity(0.3)
+                            ? AppTheme.orange.withValues(alpha: 0.3)
                             : Colors.white12,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: seconds <= 10 ? AppTheme.orange.withOpacity(0.5) : Colors.white24,
+                          color: seconds <= 10 ? AppTheme.orange.withValues(alpha: 0.5) : Colors.white24,
                         ),
                       ),
                       child: Row(
@@ -322,9 +322,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.1),
+                                color: AppTheme.cobalt.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                               ),
                               child: Text(
                                 l10n.totalActiveShipmentsCount(boardData.totalActiveFiles, boardData.allShipments.length),
@@ -390,7 +390,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                        color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -702,7 +702,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                        color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -731,16 +731,16 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
       width: 170,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: isAlert ? color.withOpacity(0.08) : Colors.grey.shade50,
+        color: isAlert ? color.withValues(alpha: 0.08) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: isAlert ? color.withOpacity(0.4) : Colors.grey.shade200),
+        border: Border.all(color: isAlert ? color.withValues(alpha: 0.4) : Colors.grey.shade200),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(icon, size: 18, color: color),
@@ -778,7 +778,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
       selectedColor: color,
       backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
       checkmarkColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: isSelected ? color : (isDark ? AppTheme.darkBorder : color.withOpacity(0.3)))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: isSelected ? color : (isDark ? AppTheme.darkBorder : color.withValues(alpha: 0.3)))),
       visualDensity: VisualDensity.compact,
       onSelected: (_) => setState(() => _selectedRiskFilter = value),
     );
@@ -803,7 +803,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     headingRowHeight: 38,
                     dataRowMinHeight: 48,
                     dataRowMaxHeight: 56,
-                    headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04)),
+                    headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal.withValues(alpha: 0.04)),
                     columnSpacing: 16,
                     horizontalMargin: 12,
                     columns: [
@@ -969,9 +969,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withOpacity(0.12),
+                                        color: AppTheme.cobalt.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
@@ -989,9 +989,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF8E44AD).withOpacity(0.12),
+                                        color: const Color(0xFF8E44AD).withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: const Color(0xFF8E44AD).withOpacity(0.3)),
+                                        border: Border.all(color: const Color(0xFF8E44AD).withValues(alpha: 0.3)),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
@@ -1033,9 +1033,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: riskColor.withOpacity(0.12),
+                                          color: riskColor.withValues(alpha: 0.12),
                                           borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(color: riskColor.withOpacity(0.4)),
+                                          border: Border.all(color: riskColor.withValues(alpha: 0.4)),
                                         ),
                                         child: Text(
                                           item.accumulatedDemurrageFx > 0
@@ -1084,9 +1084,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: sampleColor.withOpacity(0.12),
+                                      color: sampleColor.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: sampleColor.withOpacity(0.3)),
+                                      border: Border.all(color: sampleColor.withValues(alpha: 0.3)),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -1232,12 +1232,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
         color: isDark ? AppTheme.darkCardBackground : Colors.white,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: isPhaseSelected ? headerColor : headerColor.withOpacity(0.35),
+          color: isPhaseSelected ? headerColor : headerColor.withValues(alpha: 0.35),
           width: isPhaseSelected ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
             blurRadius: 3,
             offset: const Offset(0, 1),
           ),
@@ -1278,7 +1278,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.25),
+                      color: Colors.white.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -1312,7 +1312,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
                     decoration: BoxDecoration(
                       color: isStepSelected
-                          ? headerColor.withOpacity(0.18)
+                          ? headerColor.withValues(alpha: 0.18)
                           : count > 0
                               ? (isDark ? AppTheme.darkSurface : Colors.grey.shade50)
                               : Colors.transparent,
@@ -1351,7 +1351,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
-                            color: count > 0 ? headerColor.withOpacity(0.2) : (isDark ? AppTheme.darkSurface : Colors.grey.shade200),
+                            color: count > 0 ? headerColor.withValues(alpha: 0.2) : (isDark ? AppTheme.darkSurface : Colors.grey.shade200),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -1575,7 +1575,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     headingRowHeight: 34,
                     dataRowMinHeight: 44,
                     dataRowMaxHeight: 52,
-                    headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04)),
+                    headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal.withValues(alpha: 0.04)),
                     columnSpacing: 14,
                     horizontalMargin: 10,
                     columns: [
@@ -1689,7 +1689,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: isOnHold ? AppTheme.crimson.withOpacity(0.12) : stepColor.withOpacity(0.12),
+                                  color: isOnHold ? AppTheme.crimson.withValues(alpha: 0.12) : stepColor.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(4),
                                   border: Border.all(color: isOnHold ? AppTheme.crimson : stepColor, width: 1),
                                 ),

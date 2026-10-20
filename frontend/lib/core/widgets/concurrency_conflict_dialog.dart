@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import 'copyable_data_helper.dart';
 
@@ -45,7 +44,7 @@ class ConcurrencyConflictDialog extends StatelessWidget {
     return showDialog<ConcurrencyResolution>(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.65),
+      barrierColor: Colors.black.withValues(alpha: 0.65),
       builder: (ctx) => ConcurrencyConflictDialog(
         entityName: entityName,
         recordId: recordId,
@@ -109,12 +108,12 @@ class ConcurrencyConflictDialog extends StatelessWidget {
             color: isDark ? const Color(0xFF1E293B) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppTheme.crimson.withOpacity(0.4),
+              color: AppTheme.crimson.withValues(alpha: 0.4),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.7 : 0.3),
+                color: Colors.black.withValues(alpha: isDark ? 0.7 : 0.3),
                 blurRadius: 32,
                 offset: const Offset(0, 16),
               ),
@@ -128,11 +127,11 @@ class ConcurrencyConflictDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsetsDirectional.fromSTEB(22, 18, 22, 16),
                 decoration: BoxDecoration(
-                  color: AppTheme.crimson.withOpacity(0.08),
+                  color: AppTheme.crimson.withValues(alpha: 0.08),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
                   border: Border(
                     bottom: BorderSide(
-                      color: AppTheme.crimson.withOpacity(0.2),
+                      color: AppTheme.crimson.withValues(alpha: 0.2),
                       width: 1,
                     ),
                   ),
@@ -142,7 +141,7 @@ class ConcurrencyConflictDialog extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.crimson.withOpacity(0.18),
+                        color: AppTheme.crimson.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -171,7 +170,7 @@ class ConcurrencyConflictDialog extends StatelessWidget {
                                 : 'Automatic overwrite prevented to safeguard financial and logistics data integrity.',
                             style: TextStyle(
                               fontSize: 12.5,
-                              color: isDark ? const Color(0xFFCBD5E1) : AppTheme.charcoal.withOpacity(0.8),
+                              color: isDark ? const Color(0xFFCBD5E1) : AppTheme.charcoal.withValues(alpha: 0.8),
                             ),
                           ),
                         ],

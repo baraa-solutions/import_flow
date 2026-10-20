@@ -2,7 +2,6 @@ import 'package:frontend/core/utils/container_requirement_engine.dart';
 import 'package:frontend/core/widgets/container_load_plan_painter.dart';
 import 'package:frontend/core/services/container_load_plan_export_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/services/display_name_resolver.dart';
 import 'package:frontend/core/theme/app_theme.dart';
@@ -206,7 +205,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppTheme.white.withOpacity(0.12),
+                          color: AppTheme.white.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.white, size: 20),
@@ -223,7 +222,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                             ),
                             Text(
                               l.poReportPreviewSubtitle,
-                              style: TextStyle(color: AppTheme.white.withOpacity(0.8), fontSize: 11),
+                              style: TextStyle(color: AppTheme.white.withValues(alpha: 0.8), fontSize: 11),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
@@ -371,7 +370,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                       bottomEnd: Radius.circular(16),
                     ),
                     boxShadow: [
-                      BoxShadow(color: AppTheme.black.withOpacity(isDark ? 0.2 : 0.05), blurRadius: 4, offset: const Offset(0, -2)),
+                      BoxShadow(color: AppTheme.black.withValues(alpha: isDark ? 0.2 : 0.05), blurRadius: 4, offset: const Offset(0, -2)),
                     ],
                   ),
                   child: Wrap(
@@ -448,7 +447,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
         boxShadow: [
-          BoxShadow(color: AppTheme.black.withOpacity(isDark ? 0.2 : 0.02), blurRadius: 4, offset: const Offset(0, 2)),
+          BoxShadow(color: AppTheme.black.withValues(alpha: isDark ? 0.2 : 0.02), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -580,9 +579,9 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCardBackground : AppTheme.cobalt.withOpacity(0.06),
+        color: isDark ? AppTheme.darkCardBackground : AppTheme.cobalt.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cobalt.withOpacity(0.25)),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cobalt.withValues(alpha: 0.25)),
       ),
       child: Wrap(
         spacing: 14,
@@ -607,7 +606,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
       children: [
         Container(
           padding: const EdgeInsets.all(5),
-          decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
           child: Icon(icon, color: color, size: 14),
         ),
         const SizedBox(width: 6),
@@ -698,7 +697,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                   );
                 }),
                 TableRow(
-                  decoration: BoxDecoration(color: isDark ? AppTheme.cobaltMedium : AppTheme.cobaltLight.withOpacity(0.5)),
+                  decoration: BoxDecoration(color: isDark ? AppTheme.cobaltMedium : AppTheme.cobaltLight.withValues(alpha: 0.5)),
                   children: [
                     const _DataCell(''),
                     _DataCell(l.poReportGrandTotal, isBold: true, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
@@ -800,7 +799,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                   );
                 }),
                 TableRow(
-                  decoration: BoxDecoration(color: isDark ? AppTheme.cobaltMedium : AppTheme.cobaltLight.withOpacity(0.5)),
+                  decoration: BoxDecoration(color: isDark ? AppTheme.cobaltMedium : AppTheme.cobaltLight.withValues(alpha: 0.5)),
                   children: [
                     const _DataCell(''),
                     _DataCell(l.poReportTotalPacking, isBold: true, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
@@ -960,7 +959,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                   );
                 }),
                 TableRow(
-                  decoration: BoxDecoration(color: isDark ? AppTheme.cobaltMedium : AppTheme.cobaltLight.withOpacity(0.5)),
+                  decoration: BoxDecoration(color: isDark ? AppTheme.cobaltMedium : AppTheme.cobaltLight.withValues(alpha: 0.5)),
                   children: [
                     const _DataCell(''),
                     _DataCell(l.poReportTotalPallets, isBold: true, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
@@ -1305,9 +1304,9 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: AppTheme.charcoal.withOpacity(0.04),
+                        color: AppTheme.charcoal.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.charcoal.withOpacity(0.12)),
+                        border: Border.all(color: AppTheme.charcoal.withValues(alpha: 0.12)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1401,7 +1400,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
-                                          color: AppTheme.cobalt.withOpacity(0.1),
+                                          color: AppTheme.cobalt.withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(

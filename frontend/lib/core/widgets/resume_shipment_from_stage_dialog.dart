@@ -108,12 +108,12 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
       title: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: AppTheme.emerald.withOpacity(0.1),
+          color: AppTheme.emerald.withValues(alpha: 0.1),
           borderRadius: const BorderRadiusDirectional.only(
             topStart: Radius.circular(14),
             topEnd: Radius.circular(14),
           ),
-          border: Border(bottom: BorderSide(color: AppTheme.emerald.withOpacity(0.4))),
+          border: Border(bottom: BorderSide(color: AppTheme.emerald.withValues(alpha: 0.4))),
         ),
         child: Row(
           children: [

@@ -1821,7 +1821,7 @@ CargoX Platform ID: ${session.cargoxId ?? ''}''';
                     if (!_comparisonResult!.allMatched) ...[
                       Text(
                         context.l10n.discrepancyOverrideJustificationLabel,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                           color: AppTheme.crimson,
@@ -3252,7 +3252,7 @@ CargoX Platform ID: 00000000-0000-0000-0000-000000000000''';
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  decoration: BoxDecoration(color: AppTheme.surfaceAlt, border: Border(top: BorderSide(color: AppTheme.border))),
+                  decoration: const BoxDecoration(color: AppTheme.surfaceAlt, border: Border(top: BorderSide(color: AppTheme.border))),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [

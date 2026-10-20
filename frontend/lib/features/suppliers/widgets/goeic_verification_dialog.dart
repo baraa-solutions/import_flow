@@ -107,7 +107,7 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.emerald.withOpacity(0.12),
+                      color: AppTheme.emerald.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.verified_user_outlined, color: AppTheme.emerald, size: 28),
@@ -272,7 +272,7 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: verdictColor.withOpacity(0.06),
+        color: verdictColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: verdictColor, width: 1.5),
       ),
@@ -311,7 +311,7 @@ class _GOEICVerificationDialogState extends ConsumerState<GOEICVerificationDialo
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: verdictColor.withOpacity(0.4)),
+                border: Border.all(color: verdictColor.withValues(alpha: 0.4)),
               ),
               child: Text(warning, style: TextStyle(color: verdictColor, fontSize: 13, height: 1.4)),
             ),

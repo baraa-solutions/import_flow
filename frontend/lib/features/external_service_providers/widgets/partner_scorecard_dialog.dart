@@ -159,7 +159,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: tierColor.withOpacity(0.12),
+                  color: tierColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(Icons.workspace_premium_outlined, color: tierColor, size: 30),
@@ -194,9 +194,9 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: tierColor.withOpacity(isDark ? 0.15 : 0.06),
+              color: tierColor.withValues(alpha: isDark ? 0.15 : 0.06),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: tierColor.withOpacity(isDark ? 0.6 : 0.4), width: 1.5),
+              border: Border.all(color: tierColor.withValues(alpha: isDark ? 0.6 : 0.4), width: 1.5),
             ),
             child: Row(
               children: [
@@ -338,7 +338,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                            child: Text('$weight%', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                            child: Text('$weight%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),

@@ -459,12 +459,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.charcoal.withOpacity(0.92),
+                                    color: AppTheme.charcoal.withValues(alpha: 0.92),
                                     borderRadius: BorderRadius.circular(30),
-                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.6), width: 1.0),
+                                    border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.6), width: 1.0),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.35),
+                                        color: Colors.black.withValues(alpha: 0.35),
                                         blurRadius: 12,
                                         offset: const Offset(0, 4),
                                       ),
@@ -492,7 +492,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.15),
+                                            color: Colors.white.withValues(alpha: 0.15),
                                             borderRadius: BorderRadius.circular(12),
                                           ),
                                           child: Row(
@@ -680,7 +680,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Tooltip(
             message: '${user.fullName} (${user.role})',
             child: CircleAvatar(
-              backgroundColor: _getRoleColor(user.role).withOpacity(0.2),
+              backgroundColor: _getRoleColor(user.role).withValues(alpha: 0.2),
               radius: 12,
               child: Icon(Icons.person, color: _getRoleColor(user.role), size: 14),
             ),
@@ -702,7 +702,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
           padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.3) : Colors.transparent,
+            color: isSelected ? color.withValues(alpha: 0.3) : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
             border: isSelected ? Border.all(color: color, width: 1.5) : null,
           ),
@@ -825,7 +825,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Container(
             height: 28,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(5),
             ),
             child: TextField(
@@ -835,9 +835,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               decoration: InputDecoration(
                 hintText: l.quickSearch,
                 hintStyle: TextStyle(
-                    color: Colors.white.withOpacity(0.4), fontSize: 11),
+                    color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
                 prefixIcon: Icon(Icons.search,
-                    color: Colors.white.withOpacity(0.5), size: 14),
+                    color: Colors.white.withValues(alpha: 0.5), size: 14),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear,
@@ -1070,11 +1070,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (user != null)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: _getRoleColor(user.role).withOpacity(0.2),
+                  backgroundColor: _getRoleColor(user.role).withValues(alpha: 0.2),
                   radius: 13,
                   child: Icon(Icons.person, color: _getRoleColor(user.role), size: 14),
                 ),
@@ -1136,7 +1136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            color: Colors.black.withOpacity(0.28),
+            color: Colors.black.withValues(alpha: 0.28),
             child: Consumer(
               builder: (context, r, _) {
                 final versionAsync = r.watch(systemVersionInfoProvider);
@@ -1168,9 +1168,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                       decoration: BoxDecoration(
-                        color: AppTheme.emerald.withOpacity(0.18),
+                        color: AppTheme.emerald.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 0.8),
+                        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.4), width: 0.8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1250,8 +1250,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             leading: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Color.fromRGBO(
-                    color.red, color.green, color.blue, 0.2),
+                color: color.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Icon(icon, color: color, size: 14),

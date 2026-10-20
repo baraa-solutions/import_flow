@@ -50,7 +50,7 @@ void main() {
     testWidgets('toRowSummary generates valid single-line summary with localizations', (tester) async {
       await tester.pumpWidget(_buildTestWidget(locale: const Locale('ar')));
       final BuildContext context = tester.element(find.byType(Scaffold));
-      final l = AppLocalizations.of(context)!;
+      final l = AppLocalizations.of(context);
 
       final summaryAr = UsersManagementExportService.toRowSummary(sampleUsers[0], l);
       expect(summaryAr, contains(sampleUsers[0].fullName));
@@ -64,7 +64,7 @@ void main() {
     testWidgets('exportUsersToTsv includes UTF-8 BOM, tab separators, and all rows', (tester) async {
       await tester.pumpWidget(_buildTestWidget(locale: const Locale('ar')));
       final BuildContext context = tester.element(find.byType(Scaffold));
-      final l = AppLocalizations.of(context)!;
+      final l = AppLocalizations.of(context);
 
       final tsv = UsersManagementExportService.exportUsersToTsv(sampleUsers, l);
 
@@ -98,7 +98,7 @@ void main() {
     testWidgets('exportUsersToCsv includes UTF-8 BOM, commas, and escapes', (tester) async {
       await tester.pumpWidget(_buildTestWidget(locale: const Locale('en')));
       final BuildContext context = tester.element(find.byType(Scaffold));
-      final l = AppLocalizations.of(context)!;
+      final l = AppLocalizations.of(context);
 
       final csv = UsersManagementExportService.exportUsersToCsv(sampleUsers, l);
 
@@ -116,7 +116,7 @@ void main() {
     testWidgets('buildUsersDossier outputs structured dossier with KPIs and records', (tester) async {
       await tester.pumpWidget(_buildTestWidget(locale: const Locale('ar')));
       final BuildContext context = tester.element(find.byType(Scaffold));
-      final l = AppLocalizations.of(context)!;
+      final l = AppLocalizations.of(context);
 
       final dossier = UsersManagementExportService.buildUsersDossier(sampleUsers, l);
 

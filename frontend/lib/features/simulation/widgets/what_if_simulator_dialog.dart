@@ -387,7 +387,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                         Expanded(
                           flex: 1,
                           child: DropdownButtonFormField<String>(
-                            value: _selectedCurrency,
+                            initialValue: _selectedCurrency,
                             decoration: InputDecoration(
                               labelText: l10n.currency,
                               border: const OutlineInputBorder(),
@@ -467,7 +467,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                     Text(l10n.whatIfShippingRouteRisk, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: _shippingRoute,
+                      initialValue: _shippingRoute,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
@@ -507,7 +507,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                         const SizedBox(width: 8),
                         Expanded(
                           child: DropdownButtonFormField<int>(
-                            value: _containerCount,
+                            initialValue: _containerCount,
                             decoration: InputDecoration(
                               labelText: l10n.whatIfContainersCount,
                               border: const OutlineInputBorder(),
@@ -592,7 +592,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.query_stats, size: 56, color: AppTheme.cobalt.withOpacity(0.6)),
+              Icon(Icons.query_stats, size: 56, color: AppTheme.cobalt.withValues(alpha: 0.6)),
               const SizedBox(height: 16),
               Text(
                 l10n.whatIfPlaceholderTitle,
@@ -640,7 +640,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: riskColor.withOpacity(0.12),
+                  color: riskColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: riskColor),
                 ),
@@ -1081,7 +1081,7 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: color.withOpacity(0.3)),
+          side: BorderSide(color: color.withValues(alpha: 0.3)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),

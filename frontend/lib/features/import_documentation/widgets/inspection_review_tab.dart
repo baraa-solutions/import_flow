@@ -920,7 +920,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     Flexible(
                       child: Text(
                         _pickedFileName!,
-                        style: TextStyle(fontSize: 12, color: AppTheme.textStrong),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textStrong),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1190,12 +1190,12 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.gavel, color: AppTheme.warningForeground, size: 20),
+                        const Icon(Icons.gavel, color: AppTheme.warningForeground, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             l10n.inspOverrideReasonBoxTitle,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.warningForeground),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.warningForeground),
                           ),
                         ),
                       ],
@@ -1203,7 +1203,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     const SizedBox(height: 8),
                     Text(
                       l10n.inspOverrideReasonBoxDesc,
-                      style: TextStyle(fontSize: 11.5, color: AppTheme.charcoal),
+                      style: const TextStyle(fontSize: 11.5, color: AppTheme.charcoal),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(

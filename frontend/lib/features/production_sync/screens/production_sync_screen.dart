@@ -530,7 +530,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,7 +579,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.emerald.withOpacity(0.12),
+                  color: AppTheme.emerald.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.verified_user_rounded, color: AppTheme.emerald, size: 28),
@@ -732,7 +732,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: tagColor.withOpacity(0.12),
+                                      color: tagColor.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
@@ -920,7 +920,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(icon, color: color, size: 22),

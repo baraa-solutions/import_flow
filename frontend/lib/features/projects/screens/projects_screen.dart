@@ -445,7 +445,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -565,7 +565,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.cobalt.withOpacity(0.1),
+                                            color: AppTheme.cobalt.withValues(alpha: 0.1),
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: CopyableText(
@@ -814,7 +814,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -973,7 +973,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                           return FilterChip(
                             label: Text(c.importerName),
                             selected: isSelected,
-                            selectedColor: AppTheme.cobalt.withOpacity(0.2),
+                            selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
                             checkmarkColor: AppTheme.cobalt,
                             labelStyle: TextStyle(
                               color: isSelected ? AppTheme.cobalt : AppTheme.charcoal,
@@ -1107,7 +1107,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                           return FilterChip(
                             label: Text(_getCategoryLabel(context, cat)),
                             selected: isSelected,
-                            selectedColor: AppTheme.cobalt.withOpacity(0.2),
+                            selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
                             checkmarkColor: AppTheme.cobalt,
                             labelStyle: TextStyle(
                               color: isSelected ? AppTheme.cobalt : AppTheme.charcoal,

@@ -492,7 +492,7 @@ Other (21days+USD200/ctnr)
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: selectedPreset,
+                  initialValue: selectedPreset,
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: isArabic ? 'نوع البيان أو المصروف المطلوب إضافته' : 'Expense / Field Type',
@@ -643,7 +643,7 @@ Other (21days+USD200/ctnr)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
-                  color: AppTheme.emerald.withOpacity(0.08),
+                  color: AppTheme.emerald.withValues(alpha: 0.08),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 ),
                 child: Row(
@@ -668,7 +668,7 @@ Other (21days+USD200/ctnr)
                             isArabic
                                 ? 'عروض أسعار الشحن والنولون · معدل الثقة: $confidencePercent%'
                                 : 'Freight Quotations · Confidence: $confidencePercent%',
-                            style: TextStyle(fontSize: 12, color: AppTheme.charcoal.withOpacity(0.65)),
+                            style: TextStyle(fontSize: 12, color: AppTheme.charcoal.withValues(alpha: 0.65)),
                           ),
                         ],
                       ),
@@ -686,7 +686,7 @@ Other (21days+USD200/ctnr)
                             child: LinearProgressIndicator(
                               value: _confidenceScore,
                               color: AppTheme.emerald,
-                              backgroundColor: AppTheme.emerald.withOpacity(0.2),
+                              backgroundColor: AppTheme.emerald.withValues(alpha: 0.2),
                               minHeight: 6,
                             ),
                           ),
@@ -745,9 +745,9 @@ Other (21days+USD200/ctnr)
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppTheme.crimson.withOpacity(0.08),
+                            color: AppTheme.crimson.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.crimson.withOpacity(0.3)),
+                            border: Border.all(color: AppTheme.crimson.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
@@ -844,7 +844,7 @@ Other (21days+USD200/ctnr)
                                   isArabic
                                       ? '💡 تم استخراج هذه البنود وتثبيتها أدناه (★) مع إمكانية تعديلها أو حذفها، وسيتم تضمينها تلقائياً في ملاحظات وتكاليف الشحنة.'
                                       : '💡 These items have been extracted below (★) with edit/delete support, and will be included in shipment notes and costs.',
-                                  style: TextStyle(fontSize: 11.5, color: Colors.amber.shade900.withOpacity(0.85)),
+                                  style: TextStyle(fontSize: 11.5, color: Colors.amber.shade900.withValues(alpha: 0.85)),
                                 ),
                               ],
                             ),
@@ -944,9 +944,9 @@ Other (21days+USD200/ctnr)
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.charcoal.withOpacity(0.04),
+        color: AppTheme.charcoal.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.charcoal.withOpacity(0.12)),
+        border: Border.all(color: AppTheme.charcoal.withValues(alpha: 0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1092,7 +1092,7 @@ Other (21days+USD200/ctnr)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: AppTheme.emerald.withOpacity(0.12),
+                color: AppTheme.emerald.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -1113,7 +1113,7 @@ Other (21days+USD200/ctnr)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: AppTheme.crimson.withOpacity(0.12),
+                color: AppTheme.crimson.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -1478,7 +1478,7 @@ Other (21days+USD200/ctnr)
         border: Border.all(color: Colors.grey.shade300, width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),

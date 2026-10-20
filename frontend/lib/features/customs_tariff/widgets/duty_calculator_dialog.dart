@@ -501,7 +501,7 @@ import '../../currencies/providers/currencies_provider.dart';
                             helperStyle: const TextStyle(fontSize: 9),
                             isDense: true,
                             filled: true,
-                            fillColor: AppTheme.cobalt.withOpacity(0.08),
+                            fillColor: AppTheme.cobalt.withValues(alpha: 0.08),
                             suffixIcon: const Icon(Icons.calculate_outlined,
                                 size: 16, color: AppTheme.cobalt),
                           ),
@@ -556,13 +556,13 @@ import '../../currencies/providers/currencies_provider.dart';
                       color: (insuranceType == 'deemed'
                               ? AppTheme.orange
                               : AppTheme.cobalt)
-                          .withOpacity(0.05),
+                          .withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: (insuranceType == 'deemed'
                                 ? AppTheme.orange
                                 : AppTheme.cobalt)
-                            .withOpacity(0.25),
+                            .withValues(alpha: 0.25),
                       ),
                     ),
                     child: Column(
@@ -590,7 +590,7 @@ import '../../currencies/providers/currencies_provider.dart';
                               label: Text(isArabic ? 'فعلي ✔' : 'Actual ✔',
                                   style: const TextStyle(fontSize: 11)),
                               selected: insuranceType == 'actual',
-                              selectedColor: AppTheme.cobalt.withOpacity(0.2),
+                              selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
                               onSelected: (_) {
                                 setCalcState(() {
                                   insuranceType = 'actual';
@@ -605,7 +605,7 @@ import '../../currencies/providers/currencies_provider.dart';
                               label: Text(isArabic ? 'حكمي 2.5% ⚡' : 'Deemed 2.5% ⚡',
                                   style: const TextStyle(fontSize: 11)),
                               selected: insuranceType == 'deemed',
-                              selectedColor: AppTheme.orange.withOpacity(0.2),
+                              selectedColor: AppTheme.orange.withValues(alpha: 0.2),
                               onSelected: (_) {
                                 setCalcState(() {
                                   insuranceType = 'deemed';
@@ -650,7 +650,7 @@ import '../../currencies/providers/currencies_provider.dart';
                                     isDense: true,
                                     filled: true,
                                     fillColor:
-                                        AppTheme.orange.withOpacity(0.08),
+                                        AppTheme.orange.withValues(alpha: 0.08),
                                     suffixIcon: const Icon(
                                         Icons.calculate_outlined,
                                         size: 16,
@@ -669,7 +669,7 @@ import '../../currencies/providers/currencies_provider.dart';
                                         : 'Actual Insurance (EGP) — set to 0',
                                     isDense: true,
                                     filled: true,
-                                    fillColor: Colors.grey.withOpacity(0.08),
+                                    fillColor: Colors.grey.withValues(alpha: 0.08),
                                     helperText: isArabic
                                         ? 'صفر لتجنب الاحتساب المزدوج'
                                         : 'Zero to prevent double counting',
@@ -694,13 +694,13 @@ import '../../currencies/providers/currencies_provider.dart';
                       color: (freightType == 'deemed'
                               ? AppTheme.orange
                               : AppTheme.cobalt)
-                          .withOpacity(0.05),
+                          .withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: (freightType == 'deemed'
                                 ? AppTheme.orange
                                 : AppTheme.cobalt)
-                            .withOpacity(0.25),
+                            .withValues(alpha: 0.25),
                       ),
                     ),
                     child: Column(
@@ -728,7 +728,7 @@ import '../../currencies/providers/currencies_provider.dart';
                               label: Text(isArabic ? 'فعلي ✔' : 'Actual ✔',
                                   style: const TextStyle(fontSize: 11)),
                               selected: freightType == 'actual',
-                              selectedColor: AppTheme.cobalt.withOpacity(0.2),
+                              selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
                               onSelected: (_) {
                                 setCalcState(() {
                                   freightType = 'actual';
@@ -743,7 +743,7 @@ import '../../currencies/providers/currencies_provider.dart';
                               label: Text(isArabic ? 'حكمي 2.0% ⚡' : 'Deemed 2.0% ⚡',
                                   style: const TextStyle(fontSize: 11)),
                               selected: freightType == 'deemed',
-                              selectedColor: AppTheme.orange.withOpacity(0.2),
+                              selectedColor: AppTheme.orange.withValues(alpha: 0.2),
                               onSelected: (_) {
                                 setCalcState(() {
                                   freightType = 'deemed';
@@ -859,7 +859,7 @@ import '../../currencies/providers/currencies_provider.dart';
                                     isDense: true,
                                     filled: true,
                                     fillColor:
-                                        AppTheme.cobalt.withOpacity(0.08),
+                                        AppTheme.cobalt.withValues(alpha: 0.08),
                                     suffixIcon: const Icon(
                                         Icons.calculate_outlined,
                                         size: 16,
@@ -879,7 +879,7 @@ import '../../currencies/providers/currencies_provider.dart';
                                     isDense: true,
                                     filled: true,
                                     fillColor:
-                                        AppTheme.orange.withOpacity(0.08),
+                                        AppTheme.orange.withValues(alpha: 0.08),
                                     suffixIcon: const Icon(
                                         Icons.calculate_outlined,
                                         size: 16,
@@ -898,7 +898,7 @@ import '../../currencies/providers/currencies_provider.dart';
                                         : 'Actual Freight (EGP) — set to 0',
                                     isDense: true,
                                     filled: true,
-                                    fillColor: Colors.grey.withOpacity(0.08),
+                                    fillColor: Colors.grey.withValues(alpha: 0.08),
                                     helperText: isArabic
                                         ? 'صفر لتجنب الاحتساب المزدوج'
                                         : 'Zero to prevent double counting',
@@ -989,9 +989,9 @@ import '../../currencies/providers/currencies_provider.dart';
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.04),
+                        color: Colors.grey.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1166,7 +1166,7 @@ import '../../currencies/providers/currencies_provider.dart';
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.12),
+                                color: Colors.amber.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
                                 border:
                                     Border.all(color: Colors.amber.shade700),
@@ -1220,13 +1220,13 @@ import '../../currencies/providers/currencies_provider.dart';
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: (m['is_exemption_conditions_met'] == true)
-                                  ? AppTheme.emerald.withOpacity(isDark ? 0.2 : 0.08)
-                                  : (isDark ? AppTheme.darkSurface : Colors.grey.withOpacity(0.04)),
+                                  ? AppTheme.emerald.withValues(alpha: isDark ? 0.2 : 0.08)
+                                  : (isDark ? AppTheme.darkSurface : Colors.grey.withValues(alpha: 0.04)),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
                                 color: (m['is_exemption_conditions_met'] == true)
                                     ? AppTheme.emerald
-                                    : (isDark ? AppTheme.darkBorder : Colors.grey.withOpacity(0.25)),
+                                    : (isDark ? AppTheme.darkBorder : Colors.grey.withValues(alpha: 0.25)),
                               ),
                             ),
                             child: Row(
@@ -1291,9 +1291,9 @@ import '../../currencies/providers/currencies_provider.dart';
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.emerald.withOpacity(0.15),
+                                      color: AppTheme.emerald.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: AppTheme.emerald.withOpacity(0.5)),
+                                      border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.5)),
                                     ),
                                     child: Text(
                                       isArabic ? 'معفى (0% جمرك)' : 'Exempt (0% Duty)',
@@ -1502,7 +1502,7 @@ import '../../currencies/providers/currencies_provider.dart';
                         dataRowMinHeight: 32,
                         dataRowMaxHeight: 32,
                         headingRowColor: WidgetStateProperty.all(
-                            AppTheme.charcoal.withOpacity(0.05)),
+                            AppTheme.charcoal.withValues(alpha: 0.05)),
                         columns: [
                           DataColumn(label: Text(isArabic ? 'سطر' : 'Line')),
                           const DataColumn(label: Text('HS Code')),
@@ -1536,11 +1536,11 @@ import '../../currencies/providers/currencies_provider.dart';
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 4, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.emerald.withOpacity(0.15),
+                                      color: AppTheme.emerald.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(4),
                                       border: Border.all(
                                           color: AppTheme.emerald
-                                              .withOpacity(0.5)),
+                                              .withValues(alpha: 0.5)),
                                     ),
                                     child: Text(
                                       isArabic
@@ -1586,10 +1586,10 @@ import '../../currencies/providers/currencies_provider.dart';
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                              color: AppTheme.cobalt.withOpacity(0.4)),
+                              color: AppTheme.cobalt.withValues(alpha: 0.4)),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
+                              color: Colors.black.withValues(alpha: 0.04),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -1603,7 +1603,7 @@ import '../../currencies/providers/currencies_provider.dart';
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.12),
+                                color: AppTheme.cobalt.withValues(alpha: 0.12),
                                 borderRadius: const BorderRadius.vertical(
                                     top: Radius.circular(9)),
                               ),
@@ -1677,7 +1677,7 @@ import '../../currencies/providers/currencies_provider.dart';
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 12, vertical: 6),
                                             color: Colors.blueGrey.shade100
-                                                .withOpacity(0.4),
+                                                .withValues(alpha: 0.4),
                                             child: Row(
                                               mainAxisAlignment:
                                                   MainAxisAlignment

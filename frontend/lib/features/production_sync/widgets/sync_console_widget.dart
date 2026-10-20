@@ -72,7 +72,7 @@ class _SyncConsoleWidgetState extends State<SyncConsoleWidget> {
         border: Border.all(color: const Color(0xFF334155)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),

@@ -18,9 +18,9 @@ Widget buildBrokerCostRow({
     margin: const EdgeInsets.symmetric(vertical: 4),
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(
-      color: item.isApplicable ? AppTheme.emerald.withOpacity(0.04) : AppTheme.charcoalSurface,
+      color: item.isApplicable ? AppTheme.emerald.withValues(alpha: 0.04) : AppTheme.charcoalSurface,
       borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: item.isApplicable ? AppTheme.emerald.withOpacity(0.3) : AppTheme.cloudWhite),
+      border: Border.all(color: item.isApplicable ? AppTheme.emerald.withValues(alpha: 0.3) : AppTheme.cloudWhite),
     ),
     child: Row(
       children: [
@@ -129,7 +129,7 @@ Widget buildBrokerCostRow({
           children: [
             Switch(
               value: item.isApplicable,
-              activeColor: AppTheme.emerald,
+              activeThumbColor: AppTheme.emerald,
               onChanged: (v) => onUpdate(index, item.copyWith(isApplicable: v)),
             ),
             Text(
@@ -149,7 +149,7 @@ Widget buildBrokerCostRow({
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             decoration: BoxDecoration(
-              color: item.isApplicable ? AppTheme.emerald.withOpacity(0.12) : AppTheme.cloudWhite,
+              color: item.isApplicable ? AppTheme.emerald.withValues(alpha: 0.12) : AppTheme.cloudWhite,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(

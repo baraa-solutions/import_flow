@@ -173,7 +173,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF27AE60).withOpacity(0.12),
+                          color: const Color(0xFF27AE60).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.hub_outlined, color: Color(0xFF27AE60), size: 28),
@@ -335,7 +335,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF27AE60).withOpacity(0.12),
+                                    color: const Color(0xFF27AE60).withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -492,7 +492,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.08) : Colors.white,
+          color: isSelected ? color.withValues(alpha: 0.08) : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected ? color : Colors.grey.shade300,
@@ -581,7 +581,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3498DB).withOpacity(0.12),
+                          color: const Color(0xFF3498DB).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -859,7 +859,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Row(
@@ -867,7 +867,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF27AE60).withOpacity(0.12),
+              color: const Color(0xFF27AE60).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.table_chart, color: Color(0xFF27AE60), size: 30),
@@ -904,7 +904,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFBDC3C7).withOpacity(0.5)),
+            border: Border.all(color: const Color(0xFFBDC3C7).withValues(alpha: 0.5)),
           ),
           child: Row(
             children: [
@@ -1047,9 +1047,9 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
         boxShadow: [
-          BoxShadow(color: color.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3)),
+          BoxShadow(color: color.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
@@ -1060,7 +1060,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: color, size: 24),
@@ -1252,9 +1252,9 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF27AE60).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFF27AE60).withValues(alpha: 0.3)),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3)),
+                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 3)),
               ],
             ),
             child: Column(
@@ -1268,7 +1268,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF27AE60).withOpacity(0.12),
+                            color: const Color(0xFF27AE60).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(Icons.gavel, color: Color(0xFF27AE60), size: 22),
@@ -1293,7 +1293,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF27AE60).withOpacity(0.15),
+                        color: const Color(0xFF27AE60).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -1437,7 +1437,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                       icon: const Icon(Icons.delete_outline, color: Color(0xFFC0392B), size: 20),
                       tooltip: 'حذف المسار الجمركي',
                       style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFFC0392B).withOpacity(0.08),
+                        backgroundColor: const Color(0xFFC0392B).withValues(alpha: 0.08),
                         padding: const EdgeInsets.all(8),
                       ),
                     ),
@@ -1522,7 +1522,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF27AE60).withOpacity(0.12),
+                            color: const Color(0xFF27AE60).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(Icons.receipt_long, color: Color(0xFF27AE60), size: 24),
@@ -1705,14 +1705,14 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                       ChoiceChip(
                         label: Text(context.l10n.standardInvoiceTabTitle),
                         selected: isInvoiceMode,
-                        selectedColor: const Color(0xFF27AE60).withOpacity(0.2),
+                        selectedColor: const Color(0xFF27AE60).withValues(alpha: 0.2),
                         onSelected: (val) => setModalState(() => isInvoiceMode = true),
                       ),
                       const SizedBox(width: 10),
                       ChoiceChip(
                         label: Text(context.l10n.standardInvoicePackingListTitle),
                         selected: !isInvoiceMode,
-                        selectedColor: const Color(0xFF3498DB).withOpacity(0.2),
+                        selectedColor: const Color(0xFF3498DB).withValues(alpha: 0.2),
                         onSelected: (val) => setModalState(() => isInvoiceMode = false),
                       ),
                     ],
@@ -1769,7 +1769,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                     Text(context.l10n.customsTrackCustomsStatus, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: selectedStatus,
+                      initialValue: selectedStatus,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1896,9 +1896,9 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -1957,7 +1957,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               ),
               Chip(
                 label: Text('${p.totalAmount.toStringAsFixed(2)} ${p.currencyCode}'),
-                backgroundColor: const Color(0xFF27AE60).withOpacity(0.15),
+                backgroundColor: const Color(0xFF27AE60).withValues(alpha: 0.15),
                 labelStyle: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF27AE60)),
               ),
             ],
@@ -2381,7 +2381,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.15) : Colors.transparent,
+          color: isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
           border: Border.all(color: isSelected ? color : Colors.grey.shade300, width: isSelected ? 2 : 1),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -2556,7 +2556,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withOpacity(0.08),
+                                        color: AppTheme.cobalt.withValues(alpha: 0.08),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: LtrText(
@@ -2633,9 +2633,9 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Text(
         label,

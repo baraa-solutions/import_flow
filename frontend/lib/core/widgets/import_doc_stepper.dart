@@ -63,7 +63,7 @@ class _ImportDocStepButton extends StatelessWidget {
     final Color bgColor = isActive
         ? AppTheme.cobalt
         : isCompleted
-            ? AppTheme.emerald.withOpacity(0.12)
+            ? AppTheme.emerald.withValues(alpha: 0.12)
             : Colors.grey.shade100;
 
     final Color contentColor = isActive
@@ -87,12 +87,12 @@ class _ImportDocStepButton extends StatelessWidget {
             color: bgColor,
             borderRadius: BorderRadius.circular(20),
             border: isCompleted && !isActive
-                ? Border.all(color: AppTheme.emerald.withOpacity(0.4))
+                ? Border.all(color: AppTheme.emerald.withValues(alpha: 0.4))
                 : null,
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: AppTheme.cobalt.withOpacity(0.25),
+                      color: AppTheme.cobalt.withValues(alpha: 0.25),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                     )

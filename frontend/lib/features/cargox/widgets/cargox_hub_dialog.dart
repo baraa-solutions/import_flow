@@ -42,7 +42,7 @@ class CargoXHubDialog extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.25),
+              color: Colors.black.withValues(alpha: 0.25),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -66,7 +66,7 @@ class CargoXHubDialog extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.2),
+                        color: AppTheme.cobalt.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
@@ -96,9 +96,9 @@ class CargoXHubDialog extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.cobalt.withOpacity(0.25),
+                                  color: AppTheme.cobalt.withValues(alpha: 0.25),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.5)),
+                                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.5)),
                                 ),
                                 child: Text(
                                   file.primaryNameWithCode,
@@ -113,9 +113,9 @@ class CargoXHubDialog extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.amber.withOpacity(0.2),
+                                    color: Colors.amber.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,

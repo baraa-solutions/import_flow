@@ -7,7 +7,6 @@ import 'package:file_picker/file_picker.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
-import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/widgets/widgets.dart';
 
 import '../../external_service_providers/models/partner_model.dart';
@@ -691,7 +690,7 @@ Best regards,
         border: Border.all(color: AppTheme.charcoal),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.black.withOpacity(0.04),
+            color: AppTheme.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -996,7 +995,7 @@ Best regards,
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(color: AppTheme.cloudWhite),
                                   boxShadow: [
-                                    BoxShadow(color: AppTheme.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                                    BoxShadow(color: AppTheme.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2)),
                                   ],
                                 ),
                                 child: Column(
@@ -1168,7 +1167,7 @@ Best regards,
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.2),
+                  color: AppTheme.cobalt.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -1679,7 +1678,7 @@ Best regards,
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobaltLight.withOpacity(0.6),
+                                color: AppTheme.cobaltLight.withValues(alpha: 0.6),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: AppTheme.cobaltBorder),
                               ),
@@ -1753,7 +1752,7 @@ Best regards,
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: (_isStackable ? AppTheme.emerald : AppTheme.wcagOrange).withOpacity(0.15),
+                                          color: (_isStackable ? AppTheme.emerald : AppTheme.wcagOrange).withValues(alpha: 0.15),
                                           borderRadius: BorderRadius.circular(6),
                                           border: Border.all(color: _isStackable ? AppTheme.emerald : AppTheme.wcagOrange),
                                         ),
@@ -2297,7 +2296,7 @@ Best regards,
                                                 return Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                                   decoration: BoxDecoration(
-                                                    color: AppTheme.wcagOrange.withOpacity(0.15),
+                                                    color: AppTheme.wcagOrange.withValues(alpha: 0.15),
                                                     borderRadius: BorderRadius.circular(4),
                                                     border: Border.all(color: AppTheme.wcagOrange, width: 0.8),
                                                   ),
@@ -2641,9 +2640,9 @@ Best regards,
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withOpacity(0.08),
+                                        color: AppTheme.cobalt.withValues(alpha: 0.08),
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                       ),
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2668,7 +2667,7 @@ Best regards,
                                                     Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                       decoration: BoxDecoration(
-                                                        color: AppTheme.wcagOrange.withOpacity(0.15),
+                                                        color: AppTheme.wcagOrange.withValues(alpha: 0.15),
                                                         borderRadius: BorderRadius.circular(4),
                                                         border: Border.all(color: AppTheme.wcagOrange, width: 0.8),
                                                       ),
@@ -2761,7 +2760,7 @@ Best regards,
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                     decoration: BoxDecoration(
-                                                      color: AppTheme.wcagOrange.withOpacity(0.15),
+                                                      color: AppTheme.wcagOrange.withValues(alpha: 0.15),
                                                       borderRadius: BorderRadius.circular(4),
                                                       border: Border.all(color: AppTheme.wcagOrange, width: 0.8),
                                                     ),
@@ -2841,7 +2840,7 @@ Best regards,
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                 border: Border(top: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
-                boxShadow: [BoxShadow(color: isDark ? Colors.black26 : AppTheme.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))],
+                boxShadow: [BoxShadow(color: isDark ? Colors.black26 : AppTheme.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, -2))],
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -2982,7 +2981,7 @@ Best regards,
           children: [
             Switch(
               value: applicable,
-              activeColor: AppTheme.cobalt,
+              activeThumbColor: AppTheme.cobalt,
               onChanged: onApplicableChanged,
             ),
             Text(
@@ -3106,8 +3105,8 @@ Best regards,
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
-        boxShadow: [BoxShadow(color: isDark ? Colors.black26 : AppTheme.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: [BoxShadow(color: isDark ? Colors.black26 : AppTheme.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3551,7 +3550,7 @@ Best regards,
                     },
                     children: [
                       TableRow(
-                        decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                        decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
                         children: [
                           Padding(padding: const EdgeInsets.all(8), child: Text(l.carrierLineCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                           Padding(padding: const EdgeInsets.all(8), child: Text(l.sailingDateCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
@@ -3564,7 +3563,7 @@ Best regards,
                       ),
                       ...sess.items.map((item) {
                         return TableRow(
-                          decoration: BoxDecoration(color: item.isRecommended ? AppTheme.emeraldLight.withOpacity(0.5) : null),
+                          decoration: BoxDecoration(color: item.isRecommended ? AppTheme.emeraldLight.withValues(alpha: 0.5) : null),
                           children: [
                             Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.providerName, style: TextStyle(fontWeight: item.isRecommended ? FontWeight.bold : FontWeight.normal, fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(8), child: CopyableText(item.sailingDate, style: const TextStyle(fontSize: 11))),
@@ -3656,7 +3655,7 @@ Best regards,
                   border: TableBorder.all(color: AppTheme.cloudWhite),
                   children: [
                     TableRow(
-                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                      decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
                       children: [
                         Padding(padding: const EdgeInsets.all(8), child: Text(l.statusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
                         Padding(padding: const EdgeInsets.all(8), child: Text('📦 ${l.stackableOption}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
@@ -3872,7 +3871,7 @@ Best regards,
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: AppTheme.cobalt),
                     ),
@@ -3957,7 +3956,7 @@ Best regards,
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppTheme.charcoal.withOpacity(0.04),
+                        color: AppTheme.charcoal.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: AppTheme.cloudWhite),
                       ),
@@ -3997,7 +3996,7 @@ Best regards,
                       },
                       children: [
                         TableRow(
-                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                          decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
                           children: [
                             Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(6.0), child: Text(l.itemsAndPackagesCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
@@ -4176,9 +4175,9 @@ Best regards,
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -4282,7 +4281,7 @@ class _SearchAndCloneStudyDialogState extends State<SearchAndCloneStudyDialog> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.12),
+                    color: AppTheme.cobalt.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt, size: 24),
@@ -4365,7 +4364,7 @@ class _SearchAndCloneStudyDialogState extends State<SearchAndCloneStudyDialog> {
                         return ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           leading: CircleAvatar(
-                            backgroundColor: AppTheme.cobalt.withOpacity(0.15),
+                            backgroundColor: AppTheme.cobalt.withValues(alpha: 0.15),
                             child: const Icon(Icons.alt_route, color: AppTheme.cobalt, size: 20),
                           ),
                           title: Row(

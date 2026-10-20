@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
@@ -297,9 +296,9 @@ class _EstimatedLandedCostDialogState
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppTheme.orange.withOpacity(0.08),
+                color: AppTheme.orange.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(SettlementTokens.radius),
-                border: Border.all(color: AppTheme.orange.withOpacity(0.4)),
+                border: Border.all(color: AppTheme.orange.withValues(alpha: 0.4)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,8 +364,8 @@ class _EstimatedLandedCostDialogState
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.cobalt.withOpacity(0.08),
-        border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+        color: AppTheme.cobalt.withValues(alpha: 0.08),
+        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(SettlementTokens.radius),
       ),
       child: Row(

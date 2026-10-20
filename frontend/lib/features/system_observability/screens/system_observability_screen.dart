@@ -149,7 +149,7 @@ class _SystemObservabilityScreenState
                 border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
+                    color: Colors.black.withValues(alpha: 0.02),
                     blurRadius: 3,
                     offset: const Offset(0, 2),
                   ),
@@ -160,7 +160,7 @@ class _SystemObservabilityScreenState
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Icon(Icons.monitor_heart_outlined,
@@ -209,7 +209,7 @@ class _SystemObservabilityScreenState
                       Switch(
                         value: isAutoRefresh,
                         onChanged: _toggleAutoRefresh,
-                        activeColor: AppTheme.cobalt,
+                        activeThumbColor: AppTheme.cobalt,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ],
@@ -306,19 +306,19 @@ class _SystemObservabilityScreenState
 
     switch (status.toUpperCase()) {
       case 'HEALTHY':
-        bg = AppTheme.emerald.withOpacity(0.15);
+        bg = AppTheme.emerald.withValues(alpha: 0.15);
         fg = AppTheme.emerald;
         label = isArabic ? '🟢 مستقر وطبيعي' : '🟢 Healthy';
         break;
       case 'DEGRADED':
-        bg = AppTheme.orange.withOpacity(0.15);
+        bg = AppTheme.orange.withValues(alpha: 0.15);
         fg = AppTheme.orange;
         label = isArabic ? '🟡 استجابة متدهورة' : '🟡 Degraded';
         break;
       case 'CRITICAL':
       case 'OFFLINE':
       default:
-        bg = AppTheme.crimson.withOpacity(0.15);
+        bg = AppTheme.crimson.withValues(alpha: 0.15);
         fg = AppTheme.crimson;
         label = isArabic ? '🔴 تحذير حرج' : '🔴 Critical';
         break;
@@ -329,7 +329,7 @@ class _SystemObservabilityScreenState
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: fg.withOpacity(0.4)),
+        border: Border.all(color: fg.withValues(alpha: 0.4)),
       ),
       child: Text(
         label,
@@ -620,7 +620,7 @@ class _SystemObservabilityScreenState
                           color: (radar.lastBackupStatus == 'HEALTHY'
                                   ? AppTheme.emerald
                                   : AppTheme.crimson)
-                              .withOpacity(0.12),
+                              .withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -659,7 +659,7 @@ class _SystemObservabilityScreenState
                           color: (radar.lastBackupStatus == 'HEALTHY'
                                   ? AppTheme.emerald
                                   : AppTheme.crimson)
-                              .withOpacity(0.15),
+                              .withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
@@ -723,8 +723,8 @@ class _SystemObservabilityScreenState
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: isExpired
-                                ? AppTheme.crimson.withOpacity(0.15)
-                                : AppTheme.orange.withOpacity(0.15),
+                                ? AppTheme.crimson.withValues(alpha: 0.15)
+                                : AppTheme.orange.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -794,7 +794,7 @@ class _SystemObservabilityScreenState
                 color: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: AppTheme.orange.withOpacity(0.4)),
+                  side: BorderSide(color: AppTheme.orange.withValues(alpha: 0.4)),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
@@ -976,7 +976,7 @@ class _SystemObservabilityScreenState
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.troubleshoot_rounded, color: AppTheme.cobalt, size: 24),
@@ -1261,7 +1261,7 @@ class _SystemObservabilityScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: color.withOpacity(0.4)),
+        side: BorderSide(color: color.withValues(alpha: 0.4)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -1298,9 +1298,9 @@ class _SystemObservabilityScreenState
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1356,7 +1356,7 @@ class _SystemObservabilityScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: bg.withOpacity(0.15),
+        color: bg.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -1381,7 +1381,7 @@ class _SystemObservabilityScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(

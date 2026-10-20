@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_provider.dart';
@@ -212,7 +211,7 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.flatCobalt.withOpacity(0.12),
+                      color: AppTheme.flatCobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.auto_awesome, color: AppTheme.flatCobalt, size: 20),
@@ -287,13 +286,13 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: card.matchedGuideEntries.any((e) => e.severity == 'critical')
-                  ? AppTheme.flatCrimson.withOpacity(0.08)
-                  : AppTheme.flatOrange.withOpacity(0.08),
+                  ? AppTheme.flatCrimson.withValues(alpha: 0.08)
+                  : AppTheme.flatOrange.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: card.matchedGuideEntries.any((e) => e.severity == 'critical')
-                    ? AppTheme.flatCrimson.withOpacity(0.4)
-                    : AppTheme.flatOrange.withOpacity(0.4),
+                    ? AppTheme.flatCrimson.withValues(alpha: 0.4)
+                    : AppTheme.flatOrange.withValues(alpha: 0.4),
               ),
             ),
             child: Column(
@@ -331,11 +330,11 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                       child: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: isDark ? AppTheme.darkElevatedSurface : Colors.white.withOpacity(0.9),
+                          color: isDark ? AppTheme.darkElevatedSurface : Colors.white.withValues(alpha: 0.9),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
                             color: e.severity == 'critical'
-                                ? AppTheme.flatCrimson.withOpacity(0.25)
+                                ? AppTheme.flatCrimson.withValues(alpha: 0.25)
                                 : Colors.grey.shade300,
                           ),
                         ),
@@ -347,7 +346,7 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: (e.severity == 'critical' ? AppTheme.flatCrimson : AppTheme.flatOrange).withOpacity(0.15),
+                                    color: (e.severity == 'critical' ? AppTheme.flatCrimson : AppTheme.flatOrange).withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -537,7 +536,7 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.flatEmerald.withOpacity(0.12),
+                    color: AppTheme.flatEmerald.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -562,8 +561,8 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: card.isDocsComplete
-                        ? AppTheme.flatEmerald.withOpacity(0.12)
-                        : AppTheme.flatCrimson.withOpacity(0.12),
+                        ? AppTheme.flatEmerald.withValues(alpha: 0.12)
+                        : AppTheme.flatCrimson.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
@@ -733,7 +732,7 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                 ? Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppTheme.flatCobalt.withOpacity(0.12),
+                      color: AppTheme.flatCobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(

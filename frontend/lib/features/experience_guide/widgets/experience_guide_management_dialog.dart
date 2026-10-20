@@ -105,7 +105,7 @@ class _ExperienceGuideManagementDialogState
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppTheme.flatCobalt.withOpacity(0.12),
+                          color: AppTheme.flatCobalt.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(Icons.menu_book_outlined, color: AppTheme.flatCobalt, size: 24),
@@ -180,7 +180,7 @@ class _ExperienceGuideManagementDialogState
                   SizedBox(
                     width: 200,
                     child: DropdownButtonFormField<String?>(
-                      value: _selectedScopeType,
+                      initialValue: _selectedScopeType,
                       decoration: InputDecoration(
                         labelText: 'تصفية حسب نوع النطاق',
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -244,14 +244,14 @@ class _ExperienceGuideManagementDialogState
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isCritical
-                                  ? AppTheme.flatCrimson.withOpacity(0.3)
+                                  ? AppTheme.flatCrimson.withValues(alpha: 0.3)
                                   : (isWarning
-                                      ? AppTheme.flatOrange.withOpacity(0.3)
+                                      ? AppTheme.flatOrange.withValues(alpha: 0.3)
                                       : Colors.grey.shade300),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.02),
+                                color: Colors.black.withValues(alpha: 0.02),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               )

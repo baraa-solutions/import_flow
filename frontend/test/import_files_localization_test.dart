@@ -11,7 +11,6 @@ import 'package:frontend/features/import_files/providers/import_files_provider.d
 import 'package:frontend/features/import_files/screens/import_files_screen.dart';
 import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 import 'package:frontend/features/shipping_scenarios/providers/shipping_scenarios_provider.dart';
-import 'package:frontend/core/widgets/copyable_data_helper.dart';
 
 import 'package:frontend/features/import_companies/models/import_company_model.dart';
 import 'package:frontend/features/import_companies/providers/import_companies_provider.dart';

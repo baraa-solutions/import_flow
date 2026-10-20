@@ -59,7 +59,7 @@ class GroupingSelector<T> extends StatelessWidget {
           final isSelected = opt.value == value;
           final selectedBorderColor = activeColor;
           final unselectedBorderColor = isDark ? AppTheme.darkBorder : Colors.grey.shade300;
-          final selectedBgColor = activeColor.withOpacity(isDark ? 0.22 : 0.08);
+          final selectedBgColor = activeColor.withValues(alpha: isDark ? 0.22 : 0.08);
           final unselectedBgColor = isDark ? AppTheme.darkCardBackground : Colors.white;
 
           return Padding(

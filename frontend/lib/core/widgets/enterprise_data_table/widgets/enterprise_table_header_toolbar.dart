@@ -114,9 +114,9 @@ class _EnterpriseTableHeaderToolbarState extends State<EnterpriseTableHeaderTool
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withOpacity(0.1),
+                              color: AppTheme.cobalt.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                             ),
                             child: Text(
                               hasSearchFilter
@@ -135,9 +135,9 @@ class _EnterpriseTableHeaderToolbarState extends State<EnterpriseTableHeaderTool
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: AppTheme.emerald.withOpacity(0.12),
+                                color: AppTheme.emerald.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                                border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,

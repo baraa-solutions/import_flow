@@ -69,10 +69,10 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.cobalt.withOpacity(0.35)),
+          border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.35)),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.black.withOpacity(0.04),
+              color: AppTheme.black.withValues(alpha: 0.04),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -85,9 +85,9 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: AppTheme.cobalt.withOpacity(isDark ? 0.18 : 0.08),
+                color: AppTheme.cobalt.withValues(alpha: isDark ? 0.18 : 0.08),
                 borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(9), topEnd: Radius.circular(9)),
-                border: Border(bottom: BorderSide(color: AppTheme.cobalt.withOpacity(0.2))),
+                border: Border(bottom: BorderSide(color: AppTheme.cobalt.withValues(alpha: 0.2))),
               ),
               child: Wrap(
                 spacing: 8,
@@ -236,7 +236,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.4),
+                            color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withValues(alpha: 0.4),
                             borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(5), topEnd: Radius.circular(5)),
                           ),
                           child: Row(
@@ -297,8 +297,8 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: item.calculationType == 'flat'
-                                        ? (isDark ? AppTheme.cobalt.withOpacity(0.2) : AppTheme.cobaltLight)
-                                        : (isDark ? AppTheme.emerald.withOpacity(0.2) : AppTheme.emeraldLight),
+                                        ? (isDark ? AppTheme.cobalt.withValues(alpha: 0.2) : AppTheme.cobaltLight)
+                                        : (isDark ? AppTheme.emerald.withValues(alpha: 0.2) : AppTheme.emeraldLight),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(

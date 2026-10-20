@@ -489,11 +489,11 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                       Expanded(
                         child: Text(
                           tariffAlert,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Icon(Icons.copy_rounded, size: 15, color: AppTheme.charcoal),
+                      const Icon(Icons.copy_rounded, size: 15, color: AppTheme.charcoal),
                     ],
                   ),
                 ),

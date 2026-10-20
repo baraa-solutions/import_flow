@@ -24,8 +24,8 @@ class PoHeaderCell extends StatelessWidget {
 /// Row tint for a line whose invoice and packing-list values do not match.
 BoxDecoration poMismatchRowDecoration(bool isDark) => BoxDecoration(
       color: isDark
-          ? AppTheme.crimson.withOpacity(0.3)
-          : AppTheme.crimsonLight.withOpacity(0.35),
+          ? AppTheme.crimson.withValues(alpha: 0.3)
+          : AppTheme.crimsonLight.withValues(alpha: 0.35),
     );
 
 /// Alternating row background for the read-only report tables.

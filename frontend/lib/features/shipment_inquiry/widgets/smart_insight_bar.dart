@@ -28,7 +28,7 @@ class SmartInsightBar extends ConsumerWidget {
         border: Border.all(color: Colors.grey.shade300),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -43,7 +43,7 @@ class SmartInsightBar extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.12),
+                  color: AppTheme.cobalt.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Icon(Icons.auto_graph_rounded, color: AppTheme.cobalt, size: 18),
@@ -132,9 +132,9 @@ class SmartInsightBar extends ConsumerWidget {
       constraints: const BoxConstraints(minWidth: 165),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -143,7 +143,7 @@ class SmartInsightBar extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.14),
+              color: color.withValues(alpha: 0.14),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 18),

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/constants/api_constants.dart';
-import 'package:frontend/core/constants/cargo_constants.dart';
 import 'package:frontend/core/localization/api_error_text.dart';
 import 'package:frontend/core/utils/container_requirement_engine.dart';
 import 'package:frontend/core/localization/app_locales.dart';

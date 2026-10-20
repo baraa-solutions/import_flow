@@ -597,7 +597,7 @@ class ShimmerTablePlaceholder extends StatelessWidget {
           height: 42,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04),
+            color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withValues(alpha: 0.04),
             borderRadius: const BorderRadiusDirectional.only(
               topStart: Radius.circular(8),
               topEnd: Radius.circular(8),

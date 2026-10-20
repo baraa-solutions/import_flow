@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
 import 'package:frontend/features/cargo_shipping/models/cargo_container_defaults.dart';
-import 'package:frontend/features/cargo_shipping/models/cargo_shipping_model.dart';
 import 'package:frontend/features/cargo_shipping/providers/cargo_shipping_provider.dart';
 import 'package:frontend/features/cargo_shipping/screens/cargo_shipping_screen.dart';
 import 'package:frontend/features/freight_booking/models/freight_booking_model.dart';

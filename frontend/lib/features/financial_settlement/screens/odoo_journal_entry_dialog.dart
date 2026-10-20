@@ -333,7 +333,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
 
                 return DataRow(
                   color: WidgetStateProperty.all(
-                    isDebit ? AppTheme.emerald.withOpacity(0.04) : Colors.transparent,
+                    isDebit ? AppTheme.emerald.withValues(alpha: 0.04) : Colors.transparent,
                   ),
                   cells: [
                     DataCell(
@@ -343,7 +343,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: isDebit ? AppTheme.emerald.withOpacity(0.1) : SettlementTokens.tableHeadFill,
+                            color: isDebit ? AppTheme.emerald.withValues(alpha: 0.1) : SettlementTokens.tableHeadFill,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: LtrText(l.accountCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
@@ -522,7 +522,7 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(

@@ -68,7 +68,7 @@ class _EnterpriseTableShimmerSkeletonState
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04),
+                  color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withValues(alpha: 0.04),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                   border: Border(
                     bottom: BorderSide(

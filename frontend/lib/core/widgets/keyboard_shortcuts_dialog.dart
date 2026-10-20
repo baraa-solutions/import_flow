@@ -23,7 +23,7 @@ class KeyboardShortcutsDialog extends StatelessWidget {
     return showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(0.55),
+      barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (ctx) => const KeyboardShortcutsDialog(),
     );
   }
@@ -107,7 +107,7 @@ class KeyboardShortcutsDialog extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.6 : 0.25),
+              color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.25),
               blurRadius: 28,
               offset: const Offset(0, 14),
             ),
@@ -132,7 +132,7 @@ class KeyboardShortcutsDialog extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -372,7 +372,7 @@ class KeyboardShortcutsDialog extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
             offset: const Offset(0, 1.5),
             blurRadius: 1,
           ),

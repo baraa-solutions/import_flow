@@ -148,7 +148,7 @@ class _RouteIntelligenceDialogState extends ConsumerState<RouteIntelligenceDialo
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.12),
+                  color: AppTheme.cobalt.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 28),
@@ -203,7 +203,7 @@ ${l10n.routeIntelligenceDialogTitle}
               decoration: BoxDecoration(
                 color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.cobalt.withOpacity(0.5)),
+                border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.5)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,7 +231,7 @@ ${l10n.routeIntelligenceDialogTitle}
                                     height: 22,
                                     margin: const EdgeInsetsDirectional.only(end: 8, top: 1),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.cobalt.withOpacity(0.15),
+                                      color: AppTheme.cobalt.withValues(alpha: 0.15),
                                       shape: BoxShape.circle,
                                     ),
                                     alignment: Alignment.center,
@@ -416,7 +416,7 @@ ${l10n.routeIntelligenceDialogTitle}
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: color.withOpacity(0.12),
+            backgroundColor: color.withValues(alpha: 0.12),
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 10),

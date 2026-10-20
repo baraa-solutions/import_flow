@@ -374,11 +374,11 @@ class _SavedBudgetsRegistryTabState
             decoration: BoxDecoration(
               color: isApproved
                   ? (isDark
-                      ? AppTheme.wcagEmerald.withOpacity(0.35)
-                      : AppTheme.emeraldLight.withOpacity(0.5))
+                      ? AppTheme.wcagEmerald.withValues(alpha: 0.35)
+                      : AppTheme.emeraldLight.withValues(alpha: 0.5))
                   : (isDark
-                      ? AppTheme.wcagOrange.withOpacity(0.35)
-                      : AppTheme.orangeLight.withOpacity(0.5)),
+                      ? AppTheme.wcagOrange.withValues(alpha: 0.35)
+                      : AppTheme.orangeLight.withValues(alpha: 0.5)),
               borderRadius: const BorderRadiusDirectional.only(
                   topStart: Radius.circular(9), topEnd: Radius.circular(9)),
             ),
@@ -410,7 +410,7 @@ class _SavedBudgetsRegistryTabState
                             showIcon: false),
                         const SizedBox(width: 4),
                         Icon(Icons.copy,
-                            color: AppTheme.white.withOpacity(0.7), size: 11),
+                            color: AppTheme.white.withValues(alpha: 0.7), size: 11),
                       ],
                     ),
                   ),
@@ -422,10 +422,10 @@ class _SavedBudgetsRegistryTabState
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.12),
+                          color: AppTheme.cobalt.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(
-                              color: AppTheme.cobalt.withOpacity(0.3)),
+                              color: AppTheme.cobalt.withValues(alpha: 0.3)),
                         ),
                         child: CopyableText(
                           budget.importFileCode ?? 'IMP-${budget.importFileId}',
@@ -601,13 +601,13 @@ class _SavedBudgetsRegistryTabState
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: isDark
-                        ? AppTheme.emerald.withOpacity(0.15)
-                        : AppTheme.emerald.withOpacity(0.1),
+                        ? AppTheme.emerald.withValues(alpha: 0.15)
+                        : AppTheme.emerald.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isDark
-                          ? AppTheme.emerald.withOpacity(0.6)
-                          : AppTheme.emerald.withOpacity(0.4),
+                          ? AppTheme.emerald.withValues(alpha: 0.6)
+                          : AppTheme.emerald.withValues(alpha: 0.4),
                       width: 1.2,
                     ),
                   ),
@@ -841,10 +841,10 @@ class _SavedBudgetsRegistryTabState
         decoration: BoxDecoration(
           color: isDark ? AppTheme.darkElevatedSurface : AppTheme.white,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(isDark ? 0.4 : 0.3)),
+          border: Border.all(color: color.withValues(alpha: isDark ? 0.4 : 0.3)),
           boxShadow: [
             BoxShadow(
-                color: AppTheme.black.withOpacity(isDark ? 0.2 : 0.02),
+                color: AppTheme.black.withValues(alpha: isDark ? 0.2 : 0.02),
                 blurRadius: 4,
                 offset: const Offset(0, 2)),
           ],
@@ -1197,7 +1197,7 @@ class _SavedBudgetsRegistryTabState
                         TableRow(
                           decoration: BoxDecoration(
                               color: isDark
-                                  ? AppTheme.emerald.withOpacity(0.25)
+                                  ? AppTheme.emerald.withValues(alpha: 0.25)
                                   : AppTheme.emeraldLight),
                           children: [
                             Padding(

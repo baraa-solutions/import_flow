@@ -152,7 +152,7 @@ class MultiTabWorkspaceBar extends ConsumerWidget {
                           size: density.isUltraCompact ? 12 : 13.5,
                           color: isActive
                               ? AppTheme.cobalt
-                              : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withOpacity(0.7)),
+                              : (isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withValues(alpha: 0.7)),
                         ),
                         const SizedBox(width: 5),
                         Flexible(

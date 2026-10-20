@@ -9,8 +9,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Screen 50: Landed Cost Comparison Localization Tests', () {
-    final ar = AppLocalizationsAr();
-    final en = AppLocalizationsEn();
+    const ar = AppLocalizationsAr();
+    const en = AppLocalizationsEn();
 
     test('All Screen 50 getters should return non-empty strings in Arabic and English', () {
       final gettersAr = [

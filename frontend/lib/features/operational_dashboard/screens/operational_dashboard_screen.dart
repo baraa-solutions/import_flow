@@ -198,7 +198,6 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       ),
       body: SelectionArea(
         child: CustomScrollView(
-          cacheExtent: 600,
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
@@ -469,7 +468,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   style: OutlinedButton.styleFrom(
                     visualDensity: density.visualDensity,
                     foregroundColor: AppTheme.cobalt,
-                    side: BorderSide(color: AppTheme.cobalt.withOpacity(0.4)),
+                    side: BorderSide(color: AppTheme.cobalt.withValues(alpha: 0.4)),
                   ),
                   icon: Icon(Icons.table_view_outlined, size: density.buttonIconSize, color: AppTheme.cobalt),
                   label: Text(l.operationalExportTsvBtn, style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(density.buttonFontSize), fontWeight: FontWeight.bold)),
@@ -487,7 +486,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   style: OutlinedButton.styleFrom(
                     visualDensity: density.visualDensity,
                     foregroundColor: AppTheme.emerald,
-                    side: BorderSide(color: AppTheme.emerald.withOpacity(0.4)),
+                    side: BorderSide(color: AppTheme.emerald.withValues(alpha: 0.4)),
                   ),
                   icon: Icon(Icons.file_present_outlined, size: density.buttonIconSize, color: AppTheme.emerald),
                   label: Text(l.operationalExportExcelBtn, style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(density.buttonFontSize), fontWeight: FontWeight.bold)),
@@ -505,7 +504,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   style: OutlinedButton.styleFrom(
                     visualDensity: density.visualDensity,
                     foregroundColor: AppTheme.crimson,
-                    side: BorderSide(color: AppTheme.crimson.withOpacity(0.4)),
+                    side: BorderSide(color: AppTheme.crimson.withValues(alpha: 0.4)),
                   ),
                   icon: Icon(Icons.print_outlined, size: density.buttonIconSize, color: AppTheme.crimson),
                   label: Text(l.operationalExportPdfBtn, style: TextStyle(fontSize: DisplayDensityMode.clampFontSize(density.buttonFontSize), fontWeight: FontWeight.bold)),
@@ -637,7 +636,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     if (s.customFileNumber != null && s.customFileNumber!.trim().isNotEmpty && s.customFileNumber!.trim() != s.importFileCode)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: AppTheme.wcagCobalt.withOpacity(isDark ? 0.25 : 0.1), borderRadius: BorderRadius.circular(6)),
+                        decoration: BoxDecoration(color: AppTheme.wcagCobalt.withValues(alpha: isDark ? 0.25 : 0.1), borderRadius: BorderRadius.circular(6)),
                         child: CopyableText(s.importFileCode, textDirection: TextDirection.ltr, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? Colors.lightBlueAccent : AppTheme.wcagCobalt)),
                       ),
                     CopyableText(s.companyName, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : Colors.grey.shade800)),
@@ -755,7 +754,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   final currentStepWidget = Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.wcagCobalt.withOpacity(0.25) : AppTheme.wcagCobalt.withOpacity(0.12),
+                      color: isDark ? AppTheme.wcagCobalt.withValues(alpha: 0.25) : AppTheme.wcagCobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: isDark ? Colors.lightBlueAccent : AppTheme.wcagCobalt, width: 1.2),
                     ),
@@ -777,7 +776,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     decoration: BoxDecoration(
                       color: isDark ? const Color(0xFF2E2419) : Colors.amber.shade50,
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade700.withOpacity(0.5)),
+                      border: Border.all(color: isDark ? Colors.amber.shade700 : Colors.amber.shade700.withValues(alpha: 0.5)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -846,9 +845,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.crimson.withOpacity(0.08),
+                  color: AppTheme.crimson.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.crimson.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.crimson.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
@@ -1107,9 +1106,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           margin: const EdgeInsets.only(top: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isDark ? AppTheme.wcagCobalt.withOpacity(0.15) : AppTheme.cobalt.withOpacity(0.06),
+            color: isDark ? AppTheme.wcagCobalt.withValues(alpha: 0.15) : AppTheme.cobalt.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isDark ? AppTheme.wcagCobalt.withOpacity(0.4) : AppTheme.cobalt.withOpacity(0.25)),
+            border: Border.all(color: isDark ? AppTheme.wcagCobalt.withValues(alpha: 0.4) : AppTheme.cobalt.withValues(alpha: 0.25)),
           ),
           child: isCompact
               ? Column(
@@ -1136,7 +1135,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: isDark ? Colors.amber.shade900.withOpacity(0.35) : Colors.amber.shade100,
+                                  color: isDark ? Colors.amber.shade900.withValues(alpha: 0.35) : Colors.amber.shade100,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: CopyableText(
@@ -1179,7 +1178,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: isDark ? Colors.amber.shade900.withOpacity(0.35) : Colors.amber.shade100,
+                                  color: isDark ? Colors.amber.shade900.withValues(alpha: 0.35) : Colors.amber.shade100,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: CopyableText(
@@ -1282,7 +1281,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.red.shade900.withOpacity(0.4) : Colors.red.shade100,
+                        color: isDark ? Colors.red.shade900.withValues(alpha: 0.4) : Colors.red.shade100,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(_getPriorityLabel(t.priority, l), style: TextStyle(color: isDark ? Colors.red.shade200 : Colors.red, fontSize: 11.0, fontWeight: FontWeight.bold)),
@@ -1660,7 +1659,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
-            hoverColor: color.withOpacity(0.04),
+            hoverColor: color.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(10),
             child: Padding(
               padding: EdgeInsets.all(cardPad),
@@ -1685,7 +1684,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       const SizedBox(width: 8),
                       Container(
                         padding: EdgeInsets.all(density.isUltraCompact ? 4 : 6),
-                        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
                         child: Icon(icon, color: color, size: density.metricIconSize),
                       ),
                     ],
@@ -1739,7 +1738,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     return Card(
       elevation: 2,
       color: isDark ? const Color(0xFF2E2419) : Colors.amber.shade50,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: isDark ? Colors.amber.shade700.withOpacity(0.5) : Colors.amber.shade300)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: isDark ? Colors.amber.shade700.withValues(alpha: 0.5) : Colors.amber.shade300)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: LayoutBuilder(
@@ -1934,13 +1933,13 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     Color bg = isDark ? AppTheme.darkSurface : Colors.grey.shade200;
     Color fg = isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800;
     if (priority == 'High') {
-      bg = isDark ? Colors.orange.shade900.withOpacity(0.35) : Colors.orange.shade100;
+      bg = isDark ? Colors.orange.shade900.withValues(alpha: 0.35) : Colors.orange.shade100;
       fg = isDark ? Colors.orange.shade300 : Colors.orange.shade900;
     } else if (priority == 'Critical') {
-      bg = isDark ? Colors.red.shade900.withOpacity(0.35) : Colors.red.shade100;
+      bg = isDark ? Colors.red.shade900.withValues(alpha: 0.35) : Colors.red.shade100;
       fg = isDark ? Colors.red.shade300 : Colors.red.shade900;
     } else if (priority == 'Medium') {
-      bg = isDark ? Colors.blue.shade900.withOpacity(0.35) : Colors.blue.shade100;
+      bg = isDark ? Colors.blue.shade900.withValues(alpha: 0.35) : Colors.blue.shade100;
       fg = isDark ? Colors.lightBlueAccent : Colors.blue.shade900;
     }
 
@@ -2089,7 +2088,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF2E2419) : Colors.amber.shade50,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: isDark ? Colors.amber.shade700.withOpacity(0.5) : Colors.amber.shade300),
+                border: Border.all(color: isDark ? Colors.amber.shade700.withValues(alpha: 0.5) : Colors.amber.shade300),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2237,9 +2236,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(isDark ? 0.18 : 0.08),
+          color: color.withValues(alpha: isDark ? 0.18 : 0.08),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(isDark ? 0.5 : 0.3)),
+          border: Border.all(color: color.withValues(alpha: isDark ? 0.5 : 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -2254,7 +2253,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               ),
             ),
             const SizedBox(width: 4),
-            DirectionalIcon(Icons.arrow_forward_ios, size: 10, color: color.withOpacity(0.6)),
+            DirectionalIcon(Icons.arrow_forward_ios, size: 10, color: color.withValues(alpha: 0.6)),
           ],
         ),
       ),
@@ -2290,9 +2289,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: AppTheme.wcagCobalt.withOpacity(0.2),
+                          color: AppTheme.wcagCobalt.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.wcagCobalt.withOpacity(0.4)),
+                          border: Border.all(color: AppTheme.wcagCobalt.withValues(alpha: 0.4)),
                         ),
                         child: const Icon(Icons.dashboard_customize_outlined, color: AppTheme.wcagCobalt, size: 24),
                       ),
@@ -2347,9 +2346,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.wcagCobalt.withOpacity(0.2),
+                    color: AppTheme.wcagCobalt.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.wcagCobalt.withOpacity(0.4)),
+                    border: Border.all(color: AppTheme.wcagCobalt.withValues(alpha: 0.4)),
                   ),
                   child: const Icon(Icons.dashboard_customize_outlined, color: AppTheme.wcagCobalt, size: 28),
                 ),
@@ -2434,7 +2433,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.wcagCobalt.withOpacity(0.12),
+                        color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.view_kanban_outlined, color: AppTheme.wcagCobalt, size: 22),
@@ -2559,7 +2558,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               width: cardWidth,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isPhaseSelected ? phaseColor.withOpacity(isDark ? 0.18 : 0.08) : (isDark ? AppTheme.darkCardBackground : Colors.white),
+                color: isPhaseSelected ? phaseColor.withValues(alpha: isDark ? 0.18 : 0.08) : (isDark ? AppTheme.darkCardBackground : Colors.white),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: isPhaseSelected ? phaseColor : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
@@ -2567,7 +2566,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.15 : 0.02),
+                    color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -2615,7 +2614,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: phaseColor.withOpacity(0.15),
+                              color: phaseColor.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -2655,12 +2654,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                           decoration: BoxDecoration(
                             color: isStepSelected
                                 ? phaseColor
-                                : (count > 0 ? phaseColor.withOpacity(isDark ? 0.22 : 0.12) : (isDark ? AppTheme.darkSurface : Colors.grey.shade100)),
+                                : (count > 0 ? phaseColor.withValues(alpha: isDark ? 0.22 : 0.12) : (isDark ? AppTheme.darkSurface : Colors.grey.shade100)),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
                               color: isStepSelected
                                   ? phaseColor
-                                  : (count > 0 ? phaseColor.withOpacity(isDark ? 0.6 : 0.4) : (isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
+                                  : (count > 0 ? phaseColor.withValues(alpha: isDark ? 0.6 : 0.4) : (isDark ? AppTheme.darkBorder : Colors.grey.shade300)),
                             ),
                           ),
                           child: Row(
@@ -2684,7 +2683,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(
                                   color: isStepSelected
-                                      ? Colors.white.withOpacity(0.35)
+                                      ? Colors.white.withValues(alpha: 0.35)
                                       : (count > 0 ? phaseColor : Colors.grey.shade400),
                                   borderRadius: BorderRadius.circular(8),
                                 ),

@@ -92,7 +92,7 @@ class _SwiftExtractionReviewWidgetState
           SnackBar(
             content: Text(context.l10n.faSwiftFieldUpdated),
             backgroundColor: AppTheme.emerald,
-            duration: Duration(seconds: 1),
+            duration: const Duration(seconds: 1),
           ),
         );
       }
@@ -129,7 +129,7 @@ class _SwiftExtractionReviewWidgetState
           SnackBar(
             content: Text(context.l10n.faSwiftFieldReExtracted),
             backgroundColor: AppTheme.cobalt,
-            duration: Duration(seconds: 1),
+            duration: const Duration(seconds: 1),
           ),
         );
       }
@@ -223,7 +223,7 @@ class _SwiftExtractionReviewWidgetState
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.black.withOpacity(0.08),
+            color: AppTheme.black.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -299,7 +299,7 @@ class _SwiftExtractionReviewWidgetState
                   children: [
                     Text(
                       context.l10n.faSwiftReviewTitle,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppTheme.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -310,7 +310,7 @@ class _SwiftExtractionReviewWidgetState
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppTheme.white.withOpacity(0.2),
+                        color: AppTheme.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -331,7 +331,7 @@ class _SwiftExtractionReviewWidgetState
                       ? context.l10n.faSwiftReviewApprovedBanner
                       : context.l10n.faSwiftHumanReviewRequired,
                   style: TextStyle(
-                    color: AppTheme.white.withOpacity(0.9),
+                    color: AppTheme.white.withValues(alpha: 0.9),
                     fontSize: 11,
                   ),
                 ),
@@ -342,8 +342,8 @@ class _SwiftExtractionReviewWidgetState
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: isConfirmed
-                  ? AppTheme.wcagEmerald.withOpacity(0.4)
-                  : AppTheme.wcagOrange.withOpacity(0.4),
+                  ? AppTheme.wcagEmerald.withValues(alpha: 0.4)
+                  : AppTheme.wcagOrange.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isConfirmed ? AppTheme.emeraldBorder : AppTheme.orange,
@@ -397,11 +397,11 @@ class _SwiftExtractionReviewWidgetState
         ),
         const Spacer(),
         if (_batch.sourceFilename != null) ...[
-          Icon(Icons.attachment, size: 14, color: AppTheme.textSecondary),
+          const Icon(Icons.attachment, size: 14, color: AppTheme.textSecondary),
           const SizedBox(width: 4),
           Text(
             _batch.sourceFilename!,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
               color: AppTheme.textStrong,
@@ -464,7 +464,7 @@ class _SwiftExtractionReviewWidgetState
                 const SizedBox(width: 8),
                 Text(
                   context.l10n.faSwiftRawSource,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppTheme.white,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -476,7 +476,7 @@ class _SwiftExtractionReviewWidgetState
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppTheme.orange.withOpacity(0.3),
+                      color: AppTheme.orange.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: AppTheme.orange, width: 0.8),
                     ),
@@ -564,39 +564,39 @@ class _SwiftExtractionReviewWidgetState
           // Table Column Headers
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppTheme.charcoalSurface,
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(7)),
+                  BorderRadius.vertical(top: Radius.circular(7)),
             ),
             child: Row(
               children: [
                 Expanded(
                     flex: 4,
                     child: Text(context.l10n.faSwiftColField,
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 11))),
                 Expanded(
                     flex: 5,
                     child: Text(context.l10n.faSwiftColValue,
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 11))),
                 SizedBox(
                     width: 80,
                     child: Text(context.l10n.faSwiftColConfidence,
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 11),
                         textAlign: TextAlign.center)),
                 SizedBox(
                     width: 70,
                     child: Text(context.l10n.status,
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 11),
                         textAlign: TextAlign.center)),
                 SizedBox(
                     width: 45,
                     child: Text(context.l10n.faSwiftColAction,
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 11),
                         textAlign: TextAlign.center)),
               ],
@@ -622,10 +622,10 @@ class _SwiftExtractionReviewWidgetState
                   },
                   child: Container(
                     color: isSelected
-                        ? AppTheme.orangeLight.withOpacity(0.7)
+                        ? AppTheme.orangeLight.withValues(alpha: 0.7)
                         : (index.isEven
                             ? AppTheme.white
-                            : AppTheme.charcoalSurface.withOpacity(0.5)),
+                            : AppTheme.charcoalSurface.withValues(alpha: 0.5)),
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     child: Row(
@@ -647,7 +647,7 @@ class _SwiftExtractionReviewWidgetState
                                           start: 4),
                                       decoration: BoxDecoration(
                                         color:
-                                            AppTheme.cobalt.withOpacity(0.12),
+                                            AppTheme.cobalt.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(3),
                                       ),
                                       child: Text(
@@ -709,7 +709,7 @@ class _SwiftExtractionReviewWidgetState
                                       ),
                                       child: Text(
                                         context.l10n.faSwiftManuallyEdited,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.bold,
                                           color: AppTheme.wcagOrange,
@@ -899,7 +899,7 @@ class _SwiftExtractionReviewWidgetState
               color: AppTheme.crimsonLight,
               borderRadius: BorderRadius.circular(4)),
           child: Text(context.l10n.faSwiftStatusEmpty,
-              style: TextStyle(
+              style: const TextStyle(
                   fontSize: 9.5,
                   color: AppTheme.crimson,
                   fontWeight: FontWeight.bold)),
@@ -912,7 +912,7 @@ class _SwiftExtractionReviewWidgetState
             color: AppTheme.emeraldLight,
             borderRadius: BorderRadius.circular(4)),
         child: Text(context.l10n.faSwiftStatusTrusted,
-            style: TextStyle(
+            style: const TextStyle(
                 fontSize: 9.5,
                 color: AppTheme.emerald,
                 fontWeight: FontWeight.bold)),
@@ -924,7 +924,7 @@ class _SwiftExtractionReviewWidgetState
             color: AppTheme.orangeLight,
             borderRadius: BorderRadius.circular(4)),
         child: Text(context.l10n.faSwiftStatusReviewed,
-            style: TextStyle(
+            style: const TextStyle(
                 fontSize: 9.5,
                 color: AppTheme.orange,
                 fontWeight: FontWeight.bold)),
@@ -935,7 +935,7 @@ class _SwiftExtractionReviewWidgetState
         decoration: BoxDecoration(
             color: AppTheme.cloudWhite, borderRadius: BorderRadius.circular(4)),
         child: Text(context.l10n.faSwiftOptional,
-            style: TextStyle(
+            style: const TextStyle(
                 fontSize: 9.5,
                 color: AppTheme.textMuted,
                 fontWeight: FontWeight.w600)),
@@ -982,7 +982,7 @@ class _SwiftExtractionReviewWidgetState
                   const SizedBox(height: 4),
                   Text(
                     _batch.missingMandatoryFields.join(' • '),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.crimson,

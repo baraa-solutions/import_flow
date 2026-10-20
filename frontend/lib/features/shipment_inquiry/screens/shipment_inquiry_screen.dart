@@ -209,7 +209,7 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.travel_explore_rounded, color: AppTheme.cobalt, size: 24),
@@ -280,7 +280,7 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                           border: Border.all(color: Colors.grey.shade300),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
+                              color: Colors.black.withValues(alpha: 0.02),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -305,7 +305,7 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.cobalt.withOpacity(0.1),
+                                    color: AppTheme.cobalt.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
@@ -565,7 +565,7 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                               decoration: BoxDecoration(
-                                                color: Colors.blueGrey.withOpacity(0.08),
+                                                color: Colors.blueGrey.withValues(alpha: 0.08),
                                                 borderRadius: BorderRadius.circular(4),
                                               ),
                                               child: Text(
@@ -638,9 +638,9 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                               decoration: BoxDecoration(
-                                                color: _getIncotermColor(row.incoterm).withOpacity(0.12),
+                                                color: _getIncotermColor(row.incoterm).withValues(alpha: 0.12),
                                                 borderRadius: BorderRadius.circular(4),
-                                                border: Border.all(color: _getIncotermColor(row.incoterm).withOpacity(0.4)),
+                                                border: Border.all(color: _getIncotermColor(row.incoterm).withValues(alpha: 0.4)),
                                               ),
                                               child: Text(
                                                 row.incoterm,
@@ -694,9 +694,9 @@ class _ShipmentInquiryScreenState extends ConsumerState<ShipmentInquiryScreen> {
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                               decoration: BoxDecoration(
-                                                color: _getStatusColor(row.status).withOpacity(0.12),
+                                                color: _getStatusColor(row.status).withValues(alpha: 0.12),
                                                 borderRadius: BorderRadius.circular(4),
-                                                border: Border.all(color: _getStatusColor(row.status).withOpacity(0.35)),
+                                                border: Border.all(color: _getStatusColor(row.status).withValues(alpha: 0.35)),
                                               ),
                                               child: Text(
                                                 row.status,

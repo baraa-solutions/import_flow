@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
-import 'package:frontend/core/widgets/searchable_dropdown_field.dart';
 import 'package:frontend/features/customs_clearance/models/customs_clearance_model.dart';
 import 'package:frontend/features/customs_clearance/providers/customs_clearance_provider.dart';
 import 'package:frontend/features/customs_clearance/screens/customs_clearance_screen.dart';

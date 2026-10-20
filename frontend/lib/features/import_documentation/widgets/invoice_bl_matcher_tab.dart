@@ -587,7 +587,6 @@ Total Items: 31 Total: 20,030.000 kgs.
 
   Widget _buildHeaderControlBar(List<dynamic> importFiles) {
     final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1100,7 +1099,6 @@ Total Items: 31 Total: 20,030.000 kgs.
     final l = context.l10n;
     final isArabic = _isArabic(context);
     final matrix = ((_matchResult?['comparison_matrix']) as List<dynamic>?) ?? [];
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
@@ -1603,7 +1601,6 @@ Total Items: 31 Total: 20,030.000 kgs.
 
   Widget _buildSyncActionFooter() {
     final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2195,14 +2192,13 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Widget _buildSessionsTable(List<InvoiceBLMatchSessionModel> sessions) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppTheme.borderOf(context)),
         boxShadow: [
-          BoxShadow(color: AppTheme.black.withValues(alpha: 0.04), blurRadius: 6, offset: Offset(0, 2)),
+          BoxShadow(color: AppTheme.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
         ],
       ),
       child: ClipRRect(
@@ -2211,7 +2207,7 @@ Total Items: 31 Total: 20,030.000 kgs.
           scrollDirection: Axis.horizontal,
           child: DataTable(
             headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
-            headingTextStyle: TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
+            headingTextStyle: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
             dataRowMinHeight: 52,
             dataRowMaxHeight: 64,
             horizontalMargin: 16,
@@ -2414,10 +2410,10 @@ Total Items: 31 Total: 20,030.000 kgs.
                     context.l10n.idocASessionDetailsTitle(session.sessionCode),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     context.l10n.idocAImportFileCreated((session.importFileCode ?? "IMP-${session.importFileId}"), session.createdAt),
-                    style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                   ),
                 ],
               ),
@@ -2441,12 +2437,12 @@ Total Items: 31 Total: 20,030.000 kgs.
                   unselectedLabelColor: AppTheme.textMutedOf(context),
                   indicatorColor: AppTheme.cobalt,
                   tabs: [
-                    Tab(icon: Icon(Icons.compare_arrows, size: 16), text: context.l10n.idocAMatchingAndVerificationMatrix),
-                    Tab(icon: Icon(Icons.data_object, size: 16), text: context.l10n.idocAExtractedDataInvoiceBL),
-                    Tab(icon: Icon(Icons.notes, size: 16), text: ctx.l10n.idocASessionNotesTab),
+                    Tab(icon: const Icon(Icons.compare_arrows, size: 16), text: context.l10n.idocAMatchingAndVerificationMatrix),
+                    Tab(icon: const Icon(Icons.data_object, size: 16), text: context.l10n.idocAExtractedDataInvoiceBL),
+                    Tab(icon: const Icon(Icons.notes, size: 16), text: ctx.l10n.idocASessionNotesTab),
                   ],
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Expanded(
                   child: TabBarView(
                     children: [
@@ -2466,7 +2462,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                                     scrollDirection: Axis.horizontal,
                                     child: DataTable(
                                       headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
-                                      headingTextStyle: TextStyle(
+                                      headingTextStyle: const TextStyle(
                                           color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
                                       columns: [
                                         DataColumn(label: Text(context.l10n.idocAStandardItem)),
@@ -2572,10 +2568,10 @@ Total Items: 31 Total: 20,030.000 kgs.
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.receipt_long, size: 16, color: AppTheme.cobalt),
-                                        SizedBox(width: 6),
+                                        const Icon(Icons.receipt_long, size: 16, color: AppTheme.cobalt),
+                                        const SizedBox(width: 6),
                                         Text(context.l10n.idocACommercialInvoiceExtracts,
-                                            style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                       ],
                                     ),
                                     const Divider(),
@@ -2601,10 +2597,10 @@ Total Items: 31 Total: 20,030.000 kgs.
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.directions_boat, size: 16, color: AppTheme.emerald),
-                                        SizedBox(width: 6),
+                                        const Icon(Icons.directions_boat, size: 16, color: AppTheme.emerald),
+                                        const SizedBox(width: 6),
                                         Text(context.l10n.idocABillOfLadingExtracts,
-                                            style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                                       ],
                                     ),
                                     const Divider(),
@@ -2636,7 +2632,7 @@ Total Items: 31 Total: 20,030.000 kgs.
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(context.l10n.idocASessionNotes, style: TextStyle(fontWeight: FontWeight.bold)),
+                                    Text(context.l10n.idocASessionNotes, style: const TextStyle(fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 4),
                                     Text(session.sessionNotes!),
                                   ],

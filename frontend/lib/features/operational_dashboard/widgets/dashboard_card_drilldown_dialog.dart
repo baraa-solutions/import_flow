@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
@@ -545,7 +544,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                color: widget.themeColor.withOpacity(isDark ? 0.15 : 0.06),
+                color: widget.themeColor.withValues(alpha: isDark ? 0.15 : 0.06),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                 border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200)),
               ),
@@ -554,7 +553,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: widget.themeColor.withOpacity(isDark ? 0.25 : 0.15),
+                      color: widget.themeColor.withValues(alpha: isDark ? 0.25 : 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(widget.icon, color: widget.themeColor, size: 22),
@@ -597,7 +596,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: isDark ? Colors.white : widget.themeColor,
-                        side: BorderSide(color: widget.themeColor.withOpacity(isDark ? 0.7 : 0.5)),
+                        side: BorderSide(color: widget.themeColor.withValues(alpha: isDark ? 0.7 : 0.5)),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       icon: const Icon(Icons.copy_all_rounded, size: 16),
@@ -725,7 +724,7 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: widget.themeColor.withOpacity(isDark ? 0.18 : 0.08),
+                color: widget.themeColor.withValues(alpha: isDark ? 0.18 : 0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.task_alt_rounded, size: 48, color: widget.themeColor),
@@ -806,9 +805,9 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(isDark ? 0.22 : 0.12),
+                    color: statusColor.withValues(alpha: isDark ? 0.22 : 0.12),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: statusColor.withOpacity(isDark ? 0.6 : 0.4)),
+                    border: Border.all(color: statusColor.withValues(alpha: isDark ? 0.6 : 0.4)),
                   ),
                   child: Text(
                     item.status,
@@ -835,9 +834,9 @@ class _DashboardCardDrillDownDialogState extends State<DashboardCardDrillDownDia
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(isDark ? 0.22 : 0.08),
+                  color: AppTheme.cobalt.withValues(alpha: isDark ? 0.22 : 0.08),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: isDark ? AppTheme.cobalt.withOpacity(0.4) : Colors.transparent),
+                  border: Border.all(color: isDark ? AppTheme.cobalt.withValues(alpha: 0.4) : Colors.transparent),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

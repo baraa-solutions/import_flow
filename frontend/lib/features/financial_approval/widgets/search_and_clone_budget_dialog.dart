@@ -87,7 +87,7 @@ class _SearchAndCloneBudgetDialogState
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.copy_all,
@@ -277,12 +277,12 @@ class _SearchAndCloneBudgetDialogState
                                                       vertical: 2),
                                               decoration: BoxDecoration(
                                                 color: AppTheme.cobalt
-                                                    .withOpacity(0.12),
+                                                    .withValues(alpha: 0.12),
                                                 borderRadius:
                                                     BorderRadius.circular(4),
                                                 border: Border.all(
                                                     color: AppTheme.cobalt
-                                                        .withOpacity(0.3)),
+                                                        .withValues(alpha: 0.3)),
                                               ),
                                               child: Text(
                                                 b.budgetCode,
@@ -300,12 +300,12 @@ class _SearchAndCloneBudgetDialogState
                                                       vertical: 2),
                                               decoration: BoxDecoration(
                                                 color: statusColor
-                                                    .withOpacity(0.12),
+                                                    .withValues(alpha: 0.12),
                                                 borderRadius:
                                                     BorderRadius.circular(4),
                                                 border: Border.all(
                                                     color: statusColor
-                                                        .withOpacity(0.3)),
+                                                        .withValues(alpha: 0.3)),
                                               ),
                                               child: Text(
                                                 b.budgetStatus,
@@ -324,7 +324,7 @@ class _SearchAndCloneBudgetDialogState
                                                         vertical: 2),
                                                 decoration: BoxDecoration(
                                                   color: AppTheme.charcoal
-                                                      .withOpacity(0.12),
+                                                      .withValues(alpha: 0.12),
                                                   borderRadius:
                                                       BorderRadius.circular(4),
                                                 ),
@@ -422,7 +422,7 @@ class _SearchAndCloneBudgetDialogState
                                             ),
                                           ),
                                           const SizedBox(width: 4),
-                                          Icon(
+                                          const Icon(
                                             Icons.chevron_right,
                                             size: 16,
                                             color: AppTheme.cobalt,

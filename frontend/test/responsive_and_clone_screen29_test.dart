@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
-import 'package:frontend/core/widgets/clone_entity_review_dialog.dart';
 import 'package:frontend/features/financial_settlement/models/financial_settlement_model.dart';
 import 'package:frontend/features/financial_settlement/providers/financial_settlement_provider.dart';
 import 'package:frontend/features/financial_settlement/screens/financial_settlement_screen.dart';

@@ -254,15 +254,15 @@ class _RowHistoryDialogState extends ConsumerState<RowHistoryDialog> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isLatest ? actionColor.withOpacity(0.05) : Colors.white,
+        color: isLatest ? actionColor.withValues(alpha: 0.05) : Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isLatest ? actionColor.withOpacity(0.3) : Colors.grey.shade200,
+          color: isLatest ? actionColor.withValues(alpha: 0.3) : Colors.grey.shade200,
           width: isLatest ? 1.5 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -274,7 +274,7 @@ class _RowHistoryDialogState extends ConsumerState<RowHistoryDialog> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: actionColor.withOpacity(0.12),
+              color: actionColor.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(actionIcon, color: actionColor, size: 20),
@@ -290,7 +290,7 @@ class _RowHistoryDialogState extends ConsumerState<RowHistoryDialog> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: actionColor.withOpacity(0.15),
+                        color: actionColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(

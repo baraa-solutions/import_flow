@@ -208,7 +208,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.2),
+                        color: AppTheme.cobalt.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.cobalt, size: 24),
@@ -382,9 +382,9 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               margin: const EdgeInsets.only(bottom: 10),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.08),
+                                color: AppTheme.cobalt.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                                border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.25)),
                               ),
                               child: Row(
                                 children: [
@@ -419,9 +419,9 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                               margin: const EdgeInsets.only(bottom: 10),
                               decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.12),
+                                color: Colors.amber.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.amber.shade700.withOpacity(0.4)),
+                                border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.4)),
                               ),
                               child: Row(
                                 children: [
@@ -475,7 +475,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                     color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
-                                      color: isPositive ? AppTheme.orange.withOpacity(0.4) : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                                      color: isPositive ? AppTheme.orange.withValues(alpha: 0.4) : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                                     ),
                                   ),
                                   child: Column(
@@ -608,8 +608,8 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                       decoration: BoxDecoration(
                                                         color: isInvoice
-                                                            ? AppTheme.orange.withOpacity(0.15)
-                                                            : AppTheme.emerald.withOpacity(0.15),
+                                                            ? AppTheme.orange.withValues(alpha: 0.15)
+                                                            : AppTheme.emerald.withValues(alpha: 0.15),
                                                         borderRadius: BorderRadius.circular(4),
                                                       ),
                                                       child: Text(

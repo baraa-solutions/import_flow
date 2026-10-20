@@ -1298,7 +1298,7 @@ void showPriceListFormDialog(
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppTheme.charcoal.withOpacity(0.03),
+                          color: AppTheme.charcoal.withValues(alpha: 0.03),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: AppTheme.cloudWhite),
                         ),

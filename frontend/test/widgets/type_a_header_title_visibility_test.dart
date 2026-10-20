@@ -5,7 +5,6 @@ import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/widgets/vertical_stage_scaffold.dart';
 import 'package:frontend/core/widgets/dedicated_stage_scaffold.dart';
 import 'package:frontend/core/widgets/page_header.dart';
-import 'package:frontend/core/theme/app_theme.dart';
 
 import 'package:dio/dio.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
@@ -260,15 +259,15 @@ void main() {
       const pageTitle = 'Comprehensive Freight Shipping Scenarios & Multi-Carrier Comparative Evaluation';
       await tester.binding.setSurfaceSize(const Size(1100, 768));
 
-      final testWidget = Scaffold(
-        appBar: const PageHeader(
+      const testWidget = Scaffold(
+        appBar: PageHeader(
           title: pageTitle,
           icon: Icons.local_shipping_outlined,
           actions: [
             Icon(Icons.refresh),
           ],
         ),
-        body: const Center(child: Text('Body')),
+        body: Center(child: Text('Body')),
       );
 
       await tester.pumpWidget(buildTestApp(child: testWidget, size: const Size(1100, 768)));

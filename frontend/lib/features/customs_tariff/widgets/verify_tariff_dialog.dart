@@ -58,10 +58,10 @@ import '../providers/customs_tariff_provider.dart';
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.08),
+                          color: AppTheme.cobalt.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(8),
                           border:
-                              Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                              Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

@@ -412,7 +412,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
           avatar: Icon(_showInactive ? Icons.visibility_off : Icons.visibility, size: 16),
           label: Text(_showInactive ? l.hideArchivedChip : l.showArchivedChip),
           selected: _showInactive,
-          selectedColor: isDark ? AppTheme.crimson.withOpacity(0.5) : AppTheme.crimsonBorder,
+          selectedColor: isDark ? AppTheme.crimson.withValues(alpha: 0.5) : AppTheme.crimsonBorder,
           onSelected: (val) {
             setState(() => _showInactive = val);
             ref.read(customsConsultationsProvider.notifier).fetchConsultations(includeInactive: val);
@@ -422,7 +422,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
         final countBadgeWidget = Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: AppTheme.cobalt.withOpacity(0.1),
+            color: AppTheme.cobalt.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
@@ -482,7 +482,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.03),
+                  color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.03),
                   border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
                 ),
                 child: LayoutBuilder(
@@ -711,9 +711,9 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                 decoration: BoxDecoration(
-                                                  color: AppTheme.cobalt.withOpacity(0.08),
+                                                  color: AppTheme.cobalt.withValues(alpha: 0.08),
                                                   borderRadius: BorderRadius.circular(6),
-                                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                                                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.25)),
                                                 ),
                                                 child: Text(
                                                   session.consultationCode,
@@ -746,9 +746,9 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                   Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                                     decoration: BoxDecoration(
-                                                      color: AppTheme.cobalt.withOpacity(0.08),
+                                                      color: AppTheme.cobalt.withValues(alpha: 0.08),
                                                       borderRadius: BorderRadius.circular(4),
-                                                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                      border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                                     ),
                                                     child: Text(
                                                       rawFileCode,
@@ -823,7 +823,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                               decoration: BoxDecoration(
-                                                color: AppTheme.crimson.withOpacity(0.08),
+                                                color: AppTheme.crimson.withValues(alpha: 0.08),
                                                 borderRadius: BorderRadius.circular(20),
                                               ),
                                               child: Text(
@@ -860,7 +860,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                         Container(
                                                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                                           decoration: BoxDecoration(
-                                                            color: AppTheme.crimson.withOpacity(0.12),
+                                                            color: AppTheme.crimson.withValues(alpha: 0.12),
                                                             borderRadius: BorderRadius.circular(4),
                                                           ),
                                                           child: Text(
@@ -966,9 +966,9 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.12),
+                          color: AppTheme.cobalt.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                          border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.25)),
                         ),
                         child: Text(
                           session.consultationCode,
@@ -1035,7 +1035,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppTheme.crimson.withOpacity(0.1),
+                            color: AppTheme.crimson.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -1061,7 +1061,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                               decoration: BoxDecoration(
-                                color: AppTheme.crimson.withOpacity(0.12),
+                                color: AppTheme.crimson.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(

@@ -270,7 +270,7 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.12),
+                    color: AppTheme.cobalt.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.mark_email_read_outlined, color: AppTheme.cobalt, size: 28),
@@ -450,9 +450,9 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppTheme.crimson.withOpacity(0.1),
+                              color: AppTheme.crimson.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppTheme.crimson.withOpacity(0.3)),
+                              border: Border.all(color: AppTheme.crimson.withValues(alpha: 0.3)),
                             ),
                             child: Row(
                               children: [
@@ -494,7 +494,7 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.emerald.withOpacity(0.15),
+                                            color: AppTheme.emerald.withValues(alpha: 0.15),
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Text(
@@ -613,7 +613,7 @@ KINDLY ARRANGE PAYMENT OF DELIVERY ORDER CHARGES PRIOR TO DISCHARGE.''';
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                               decoration: BoxDecoration(
                                                 color: status.toString().contains('Matched') || status.toString().contains('Task')
-                                                    ? AppTheme.emerald.withOpacity(0.15)
+                                                    ? AppTheme.emerald.withValues(alpha: 0.15)
                                                     : (isDark ? AppTheme.darkBorder : Colors.grey.shade200),
                                                 borderRadius: BorderRadius.circular(6),
                                               ),

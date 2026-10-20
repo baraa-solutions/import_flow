@@ -934,9 +934,9 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.cobalt.withOpacity(0.04),
+                                      color: AppTheme.cobalt.withValues(alpha: 0.04),
                                       borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                                      border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2)),
                                     ),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -947,7 +947,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                             const SizedBox(width: 6),
                                             Text(
                                               l10n.importCompaniesNafezaTokenSection,
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
                                             ),
                                           ],
                                         ),
@@ -981,7 +981,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(14),
                                     decoration: BoxDecoration(
-                                      color: Colors.amber.shade50.withOpacity(0.4),
+                                      color: Colors.amber.shade50.withValues(alpha: 0.4),
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(color: Colors.amber.shade300),
                                     ),

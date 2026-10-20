@@ -53,7 +53,7 @@ class AiAssistantTopBarButton extends ConsumerWidget {
               boxShadow: [
                 BoxShadow(
                   color: (isOpen ? AppTheme.charcoal : const Color(0xFFE64A19))
-                      .withOpacity(0.38),
+                      .withValues(alpha: 0.38),
                   blurRadius: 4,
                   offset: const Offset(0, 1.5),
                 ),
@@ -75,7 +75,7 @@ class AiAssistantTopBarButton extends ConsumerWidget {
                       padding: const EdgeInsets.all(2.0),
                       child: CircularProgressIndicator(
                         strokeWidth: 1.8,
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                       ),
                     ),
                   ),

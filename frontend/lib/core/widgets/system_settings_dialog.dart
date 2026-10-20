@@ -107,7 +107,7 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.15),
+                        color: AppTheme.cobalt.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.tune_rounded, color: AppTheme.cobalt, size: 24),
@@ -323,9 +323,9 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.cobalt.withOpacity(0.08),
+              color: AppTheme.cobalt.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
@@ -478,7 +478,7 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white24, width: 1.5),
           boxShadow: [
-            BoxShadow(color: color.withOpacity(0.3), blurRadius: 4, spreadRadius: 1),
+            BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 4, spreadRadius: 1),
           ],
         ),
       ),
@@ -748,7 +748,7 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
   }) {
     const selectedBorder = AppTheme.cobalt;
     final selectedBg = isDark
-        ? AppTheme.cobalt.withOpacity(0.18)
+        ? AppTheme.cobalt.withValues(alpha: 0.18)
         : const Color(0xFFEFF6FF);
 
     return InkWell(
@@ -809,7 +809,7 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.cobalt.withOpacity(0.2)
+                              ? AppTheme.cobalt.withValues(alpha: 0.2)
                               : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
                           borderRadius: BorderRadius.circular(4),
                         ),

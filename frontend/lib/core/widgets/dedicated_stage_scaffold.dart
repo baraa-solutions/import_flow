@@ -57,7 +57,7 @@ class DedicatedStageScaffold extends ConsumerWidget {
               color: AppTheme.charcoal,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
+                  color: Colors.black.withValues(alpha: 0.12),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -75,9 +75,9 @@ class DedicatedStageScaffold extends ConsumerWidget {
                     Container(
                       padding: EdgeInsets.all(density.isUltraCompact ? 4 : (density.isCompact ? 5.5 : 7)),
                       decoration: BoxDecoration(
-                        color: headerColor.withOpacity(0.2),
+                        color: headerColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: headerColor.withOpacity(0.5)),
+                        border: Border.all(color: headerColor.withValues(alpha: 0.5)),
                       ),
                       child: Icon(headerIcon, color: headerColor, size: density.headerIconSize * 0.9),
                     ),
@@ -108,9 +108,9 @@ class DedicatedStageScaffold extends ConsumerWidget {
                                   vertical: density.isUltraCompact ? 1 : 1.5,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: headerColor.withOpacity(0.3),
+                                  color: headerColor.withValues(alpha: 0.3),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: headerColor.withOpacity(0.6)),
+                                  border: Border.all(color: headerColor.withValues(alpha: 0.6)),
                                 ),
                                 child: Text(
                                   badgeText,
@@ -215,9 +215,9 @@ class DedicatedStageScaffold extends ConsumerWidget {
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.cobalt.withOpacity(0.15),
+                                      color: AppTheme.cobalt.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(5),
-                                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+                                      border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.4)),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,

@@ -494,9 +494,9 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<WarehouseReceivin
                   margin: const EdgeInsetsDirectional.only(end: 8),
                   padding: const EdgeInsetsDirectional.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.08),
+                    color: AppTheme.cobalt.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+                    border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.4)),
                   ),
                   child: Text(
                     l10n.warehouseReceivingPoLabel(line.poNumber),

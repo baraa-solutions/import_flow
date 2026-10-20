@@ -111,7 +111,7 @@ class _CriticalAlertsPanelSheet extends StatelessWidget {
         return Container(
           decoration: BoxDecoration(
             color: AppTheme.surfaceOf(context),
-            borderRadius: BorderRadiusDirectional.only(
+            borderRadius: const BorderRadiusDirectional.only(
               topStart: Radius.circular(16),
               topEnd: Radius.circular(16),
             ),

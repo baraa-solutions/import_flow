@@ -92,7 +92,7 @@ class _StepConfigManagementScreenState
           border: Border.all(color: Colors.red.shade200, width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 20,
               offset: const Offset(0, 4),
             ),
@@ -193,7 +193,7 @@ class _StepConfigManagementScreenState
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppTheme.flatCobalt.withOpacity(0.1),
+              color: AppTheme.flatCobalt.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
@@ -472,7 +472,7 @@ class _StepConfigManagementScreenState
             border: Border.all(color: const Color(0xFFE2E8F0)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -663,9 +663,9 @@ class _StepConfigManagementScreenState
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: cfg.policyColor.withOpacity(0.12),
+                color: cfg.policyColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: cfg.policyColor.withOpacity(0.3)),
+                border: Border.all(color: cfg.policyColor.withValues(alpha: 0.3)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -882,7 +882,7 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.flatCobalt.withOpacity(0.1),
+                color: AppTheme.flatCobalt.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.settings_suggest_rounded,
@@ -924,7 +924,7 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     isExpanded: true,
-                    value: _skipPolicy,
+                    initialValue: _skipPolicy,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
@@ -976,7 +976,7 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
                             fontSize: 11, color: Color(0xFF64748B)),
                       ),
                       value: _supportsPendingReference,
-                      activeColor: AppTheme.flatCobalt,
+                      activeThumbColor: AppTheme.flatCobalt,
                       onChanged: (val) =>
                           setState(() => _supportsPendingReference = val),
                     )),

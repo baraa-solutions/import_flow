@@ -350,7 +350,7 @@ class SystemDateWeekBadge extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 3,
               offset: const Offset(0, 1),
             ),
@@ -396,10 +396,10 @@ class SystemDateWeekBadge extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5.5, vertical: 1.5),
               decoration: BoxDecoration(
-                color: AppTheme.cobalt.withOpacity(0.18),
+                color: AppTheme.cobalt.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: AppTheme.cobalt.withOpacity(0.4),
+                  color: AppTheme.cobalt.withValues(alpha: 0.4),
                   width: 0.8,
                 ),
               ),
@@ -470,7 +470,7 @@ class WorldClockChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: isPrimary
               ? (isBusinessHours
-                  ? (isDark ? AppTheme.cobalt.withOpacity(0.22) : const Color(0xFFEBF5FB))
+                  ? (isDark ? AppTheme.cobalt.withValues(alpha: 0.22) : const Color(0xFFEBF5FB))
                   : (isDark ? const Color(0xFF2A1C23) : const Color(0xFFFDEDEE)))
               : (isDark
                   ? (isBusinessHours ? const Color(0xFF142B24) : const Color(0xFF2B161B))
@@ -479,14 +479,14 @@ class WorldClockChip extends StatelessWidget {
           border: Border.all(
             color: isPrimary
                 ? (isDark
-                    ? AppTheme.cobalt.withOpacity(0.8)
-                    : (isBusinessHours ? AppTheme.cobalt : AppTheme.crimson.withOpacity(0.6)))
-                : statusColor.withOpacity(isDark ? 0.45 : 0.6),
+                    ? AppTheme.cobalt.withValues(alpha: 0.8)
+                    : (isBusinessHours ? AppTheme.cobalt : AppTheme.crimson.withValues(alpha: 0.6)))
+                : statusColor.withValues(alpha: isDark ? 0.45 : 0.6),
             width: isPrimary ? 1.0 : 0.8,
           ),
           boxShadow: [
             BoxShadow(
-              color: statusColor.withOpacity(isDark ? 0.12 : 0.08),
+              color: statusColor.withValues(alpha: isDark ? 0.12 : 0.08),
               blurRadius: 3,
               offset: const Offset(0, 1),
             ),
@@ -531,7 +531,7 @@ class WorldClockChip extends StatelessWidget {
                 color: statusColor,
                 boxShadow: [
                   BoxShadow(
-                    color: statusColor.withOpacity(0.75),
+                    color: statusColor.withValues(alpha: 0.75),
                     blurRadius: 3.5,
                     spreadRadius: 0.5,
                   ),
@@ -841,9 +841,9 @@ class _WorldClockDropdownButtonState extends State<WorldClockDropdownButton> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: AppTheme.emerald.withOpacity(0.15),
+                          color: AppTheme.emerald.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 0.8),
+                          border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.4), width: 0.8),
                         ),
                         child: const Text(
                           '24H LIVE',
@@ -902,7 +902,7 @@ class _WorldClockDropdownButtonState extends State<WorldClockDropdownButton> {
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   decoration: BoxDecoration(
                     color: isPinned
-                        ? (effectiveIsDark ? AppTheme.cobalt.withOpacity(0.12) : const Color(0xFFEFF6FF))
+                        ? (effectiveIsDark ? AppTheme.cobalt.withValues(alpha: 0.12) : const Color(0xFFEFF6FF))
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
                   ),
@@ -940,10 +940,10 @@ class _WorldClockDropdownButtonState extends State<WorldClockDropdownButton> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                         decoration: BoxDecoration(
-                          color: (cIsBusiness ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.15),
+                          color: (cIsBusiness ? AppTheme.emerald : AppTheme.crimson).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(
-                            color: (cIsBusiness ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.4),
+                            color: (cIsBusiness ? AppTheme.emerald : AppTheme.crimson).withValues(alpha: 0.4),
                             width: 0.6,
                           ),
                         ),
@@ -1010,7 +1010,7 @@ class _WorldClockDropdownButtonState extends State<WorldClockDropdownButton> {
                   color: statusColor,
                   boxShadow: [
                     BoxShadow(
-                      color: statusColor.withOpacity(0.5),
+                      color: statusColor.withValues(alpha: 0.5),
                       blurRadius: 2,
                     ),
                   ],
@@ -1160,7 +1160,7 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
                       color: AppTheme.emerald,
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.emerald.withOpacity(0.6),
+                          color: AppTheme.emerald.withValues(alpha: 0.6),
                           blurRadius: 4,
                           spreadRadius: 1,
                         ),
@@ -1283,7 +1283,7 @@ class _SystemWorldClocksHeaderState extends State<SystemWorldClocksHeader> {
                         color: AppTheme.emerald,
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.emerald.withOpacity(0.6),
+                            color: AppTheme.emerald.withValues(alpha: 0.6),
                             blurRadius: 4,
                             spreadRadius: 1,
                           ),

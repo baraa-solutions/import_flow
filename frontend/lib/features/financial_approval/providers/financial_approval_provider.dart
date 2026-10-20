@@ -78,8 +78,9 @@ class PaymentRequestsNotifier
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
       if (poId != null) queryParams['po_id'] = poId;
       if (supplierId != null) queryParams['supplier_id'] = supplierId;
-      if (status != null && status.isNotEmpty && status != 'All')
+      if (status != null && status.isNotEmpty && status != 'All') {
         queryParams['status'] = status;
+      }
 
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/financial-approval/payment-requests',

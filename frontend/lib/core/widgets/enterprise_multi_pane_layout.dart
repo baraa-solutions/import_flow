@@ -343,7 +343,7 @@ class _EnterpriseMultiPaneLayoutState extends State<EnterpriseMultiPaneLayout> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isDark ? AppTheme.darkSurface : AppTheme.cobalt.withOpacity(0.08),
+                color: isDark ? AppTheme.darkSurface : AppTheme.cobalt.withValues(alpha: 0.08),
               ),
               child: Icon(
                 Icons.view_sidebar_outlined,

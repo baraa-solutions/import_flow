@@ -203,7 +203,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withOpacity(0.12),
+                              color: AppTheme.cobalt.withValues(alpha: 0.12),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(Icons.local_shipping_rounded, size: 48, color: AppTheme.cobalt),
@@ -236,10 +236,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               margin: const EdgeInsets.only(bottom: 16),
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                               decoration: BoxDecoration(
-                                color: AppTheme.crimson.withOpacity(0.09),
+                                color: AppTheme.crimson.withValues(alpha: 0.09),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: AppTheme.crimson.withOpacity(0.45),
+                                  color: AppTheme.crimson.withValues(alpha: 0.45),
                                   width: 1.2,
                                 ),
                               ),
@@ -284,7 +284,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               enabledBorder: _hasAuthError
                                   ? OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
-                                      borderSide: BorderSide(color: AppTheme.crimson.withOpacity(0.8), width: 1.5),
+                                      borderSide: BorderSide(color: AppTheme.crimson.withValues(alpha: 0.8), width: 1.5),
                                     )
                                   : null,
                               focusedBorder: _hasAuthError
@@ -319,7 +319,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               enabledBorder: _hasAuthError
                                   ? OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
-                                      borderSide: BorderSide(color: AppTheme.crimson.withOpacity(0.8), width: 1.5),
+                                      borderSide: BorderSide(color: AppTheme.crimson.withValues(alpha: 0.8), width: 1.5),
                                     )
                                   : null,
                               focusedBorder: _hasAuthError
@@ -446,9 +446,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.28)),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -494,7 +494,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Tooltip(
                 message: l.loginDemoCredentialsTooltip,
-                child: Icon(Icons.copy_rounded, size: 13, color: color.withOpacity(0.85)),
+                child: Icon(Icons.copy_rounded, size: 13, color: color.withValues(alpha: 0.85)),
               ),
             ),
           ),

@@ -1590,8 +1590,8 @@ class _OriginalDocumentsCollectionTabState
                         maxLines: 2,
                         decoration: InputDecoration(
                           labelText: context.l10n.idocAReceiptAndVisualInspectionNotes,
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.notes, size: 18),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.notes, size: 18),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -2162,34 +2162,34 @@ class _OriginalDocumentsCollectionTabState
                   controller: _courierSearchController,
                   decoration: InputDecoration(
                     hintText: context.l10n.idocASearchByWaybillCourierOrShipment,
-                    prefixIcon: Icon(Icons.search, size: 18),
+                    prefixIcon: const Icon(Icons.search, size: 18),
                     suffixIcon: _courierSearchController.text.trim().isNotEmpty
                         ? IconButton(
-                            icon: Icon(Icons.clear, size: 15),
+                            icon: const Icon(Icons.clear, size: 15),
                             onPressed: () {
                               setState(() => _courierSearchController.clear());
                             },
                           )
                         : null,
                     isDense: true,
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               DropdownButton<String>(
                 value: _courierStatusFilter,
                 items: [
-                  DropdownMenuItem(value: 'All', child: Text(l.filterStatusAll, style: TextStyle(fontSize: 12))),
-                  DropdownMenuItem(value: 'IN_TRANSIT', child: Text(l.filterStatusInTransit, style: TextStyle(fontSize: 12))),
-                  DropdownMenuItem(value: 'DELIVERED', child: Text(l.filterStatusDelivered, style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'All', child: Text(l.filterStatusAll, style: const TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'IN_TRANSIT', child: Text(l.filterStatusInTransit, style: const TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'DELIVERED', child: Text(l.filterStatusDelivered, style: const TextStyle(fontSize: 12))),
                 ],
                 onChanged: (val) {
                   if (val != null) setState(() => _courierStatusFilter = val);
                 },
               ),
-              SizedBox(width: 16),
+              const SizedBox(width: 16),
               IdocUi.fit(AppButton(
                 label: l.refreshDataTooltip,
                 icon: Icons.refresh,
@@ -2199,7 +2199,7 @@ class _OriginalDocumentsCollectionTabState
             ],
           ),
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         allCouriersAsync.when(
           data: (couriersList) {
             final query = _courierSearchController.text.trim().toLowerCase();
@@ -2221,9 +2221,9 @@ class _OriginalDocumentsCollectionTabState
 
             if (filtered.isEmpty) {
               return Container(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 alignment: Alignment.center,
-                child: Text(context.l10n.idocANoCourierPackagesMatchTheSearch, style: TextStyle(color: AppTheme.textMuted)),
+                child: Text(context.l10n.idocANoCourierPackagesMatchTheSearch, style: const TextStyle(color: AppTheme.textMuted)),
               );
             }
 
@@ -2231,7 +2231,7 @@ class _OriginalDocumentsCollectionTabState
               scrollDirection: Axis.horizontal,
               child: DataTable(
                 headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAlt),
-                headingTextStyle: TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                headingTextStyle: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
                 columns: [
                   DataColumn(label: Text(context.l10n.idocAOperations)),
                   DataColumn(label: Text(context.l10n.idocAShippingCompany)),
@@ -2431,11 +2431,11 @@ class _OriginalDocumentsCollectionTabState
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.check_circle, size: 12, color: AppTheme.emerald),
-                                    SizedBox(width: 4),
+                                    const Icon(Icons.check_circle, size: 12, color: AppTheme.emerald),
+                                    const SizedBox(width: 4),
                                     Text(
                                       context.l10n.idocAReceived,
-                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                     ),
                                   ],
                                 ),
@@ -2449,11 +2449,11 @@ class _OriginalDocumentsCollectionTabState
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.local_shipping, size: 12, color: AppTheme.orange),
-                                    SizedBox(width: 4),
+                                    const Icon(Icons.local_shipping, size: 12, color: AppTheme.orange),
+                                    const SizedBox(width: 4),
                                     Text(
                                       context.l10n.idocAInTransitAlt,
-                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange),
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange),
                                     ),
                                   ],
                                 ),

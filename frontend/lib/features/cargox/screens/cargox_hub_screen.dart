@@ -331,7 +331,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.2),
+                  color: AppTheme.cobalt.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -456,12 +456,12 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppTheme.cobalt.withOpacity(0.12), Colors.blue.shade50],
+                  colors: [AppTheme.cobalt.withValues(alpha: 0.12), Colors.blue.shade50],
                   begin: AlignmentDirectional.centerEnd,
                   end: AlignmentDirectional.centerStart,
                 ),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -1084,9 +1084,9 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
+            color: color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withOpacity(0.3)),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -1102,7 +1102,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                   ],
                 ),
               ),
-              Icon(Icons.copy, size: 14, color: color.withOpacity(0.5)),
+              Icon(Icons.copy, size: 14, color: color.withValues(alpha: 0.5)),
             ],
           ),
         ),
@@ -1343,7 +1343,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg.withOpacity(0.12), borderRadius: BorderRadius.circular(6), border: Border.all(color: bg.withOpacity(0.3))),
+      decoration: BoxDecoration(color: bg.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6), border: Border.all(color: bg.withValues(alpha: 0.3))),
       child: Text(label, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
     );
   }

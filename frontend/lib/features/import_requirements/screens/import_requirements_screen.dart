@@ -839,7 +839,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.12),
+                  color: AppTheme.cobalt.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTheme.cobalt),
                 ),
@@ -898,7 +898,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppTheme.cloudWhite),
-        boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -915,7 +915,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getStatusColor(_sailingStatus).withOpacity(0.12),
+                  color: _getStatusColor(_sailingStatus).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: _getStatusColor(_sailingStatus)),
                 ),
@@ -981,9 +981,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.06),
+          color: color.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -1027,7 +1027,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppTheme.cloudWhite),
-        boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1042,7 +1042,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.1),
+                    color: AppTheme.cobalt.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: AppTheme.cobalt),
                   ),
@@ -1133,7 +1133,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppTheme.cloudWhite),
-        boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1150,7 +1150,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.emerald.withOpacity(0.12),
+                  color: AppTheme.emerald.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: AppTheme.emerald),
                 ),
@@ -1237,7 +1237,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                               width: isSelected ? 2.0 : 1.0,
                             ),
                             boxShadow: isSelected
-                                ? [BoxShadow(color: AppTheme.cobalt.withOpacity(0.12), blurRadius: 6, offset: const Offset(0, 2))]
+                                ? [BoxShadow(color: AppTheme.cobalt.withValues(alpha: 0.12), blurRadius: 6, offset: const Offset(0, 2))]
                                 : null,
                           ),
                           child: Row(
@@ -1269,7 +1269,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
                                           color: isFullyCompliant
-                                              ? AppTheme.emerald.withOpacity(0.12)
+                                              ? AppTheme.emerald.withValues(alpha: 0.12)
                                               : (isDecree43Warning ? AppTheme.crimsonLight : AppTheme.charcoalSurface),
                                           borderRadius: BorderRadius.circular(4),
                                           border: Border.all(
@@ -1431,7 +1431,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppTheme.cloudWhite),
-        boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1953,7 +1953,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppTheme.cloudWhite),
-        boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: AppTheme.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Row(
         children: [
@@ -2239,7 +2239,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     return Material(type: MaterialType.transparency, child: ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: CircleAvatar(
-        backgroundColor: req.isActive ? AppTheme.cobalt.withOpacity(0.12) : AppTheme.cloudWhite,
+        backgroundColor: req.isActive ? AppTheme.cobalt.withValues(alpha: 0.12) : AppTheme.cloudWhite,
         child: Icon(
           req.isActive ? Icons.verified : Icons.delete_outline,
           color: req.isActive ? AppTheme.cobalt : AppTheme.textMuted,
@@ -2261,7 +2261,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppTheme.cobalt.withOpacity(0.1),
+                color: AppTheme.cobalt.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -2282,7 +2282,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.emerald.withOpacity(0.1),
+                  color: AppTheme.emerald.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
@@ -2299,7 +2299,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           if (!req.isActive)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(color: AppTheme.crimson.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.crimson)),
+              decoration: BoxDecoration(color: AppTheme.crimson.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.crimson)),
               child: Text(l10n.deletedOnlyOption, style: const TextStyle(color: AppTheme.crimson, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
         ],
@@ -2400,9 +2400,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
     );
@@ -2415,9 +2415,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.4)),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

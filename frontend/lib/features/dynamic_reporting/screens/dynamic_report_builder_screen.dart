@@ -822,7 +822,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withOpacity(0.1),
+                                        color: AppTheme.cobalt.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
@@ -855,7 +855,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                                         return FilterChip(
                                           selected: col.isVisible,
                                           label: Text(_getColumnLabel(context, col.id), style: const TextStyle(fontSize: 12)),
-                                          selectedColor: AppTheme.cobalt.withOpacity(0.2),
+                                          selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
                                           checkmarkColor: AppTheme.cobalt,
                                           onSelected: (val) {
                                             setSheetState(() => col.isVisible = val);
@@ -915,9 +915,9 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.12),
+                color: Colors.white.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
@@ -969,7 +969,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                               ],
                             ),
                             selected: _templateMode == ReportTemplateMode.eco,
-                            selectedColor: AppTheme.cobalt.withOpacity(0.2),
+                            selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
                             onSelected: (val) {
                               if (val) setState(() => _templateMode = ReportTemplateMode.eco);
                             },
@@ -984,7 +984,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                               ],
                             ),
                             selected: _templateMode == ReportTemplateMode.scas,
-                            selectedColor: AppTheme.cobalt.withOpacity(0.2),
+                            selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
                             onSelected: (val) {
                               if (val) setState(() => _templateMode = ReportTemplateMode.scas);
                             },
@@ -999,7 +999,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                               ],
                             ),
                             selected: _templateMode == ReportTemplateMode.custom,
-                            selectedColor: AppTheme.cobalt.withOpacity(0.2),
+                            selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
                             onSelected: (val) {
                               if (val) setState(() => _templateMode = ReportTemplateMode.custom);
                             },
@@ -1115,7 +1115,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                             width: 160,
                             child: DropdownButtonFormField<String>(
                               isExpanded: true,
-                              value: _filterMode,
+                              initialValue: _filterMode,
                               decoration: InputDecoration(labelText: l.dynFilterModeLabel, isDense: true, border: const OutlineInputBorder()),
                               items: [
                                 DropdownMenuItem(value: 'All', child: Text(l.dynModeAll)),
@@ -1136,7 +1136,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                             width: 160,
                             child: DropdownButtonFormField<String>(
                               isExpanded: true,
-                              value: _filterPriority,
+                              initialValue: _filterPriority,
                               decoration: InputDecoration(labelText: l.dynFilterPriorityLabel, isDense: true, border: const OutlineInputBorder()),
                               items: [
                                 DropdownMenuItem(value: 'All', child: Text(l.dynPriorityAll)),
@@ -1153,9 +1153,9 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                             decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withOpacity(0.08),
+                              color: AppTheme.cobalt.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2)),
                             ),
                             child: Row(
                               children: [
@@ -1194,7 +1194,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                         scrollDirection: Axis.horizontal,
                         child: SingleChildScrollView(
                           child: DataTable(
-                            headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
+                            headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withValues(alpha: 0.06)),
                             headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
                             dataTextStyle: const TextStyle(fontSize: 12, color: AppTheme.charcoal),
                             columns: activeCols.map((c) {
@@ -1237,7 +1237,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                                                   message: l.dynCopyRowTooltip,
                                                   child: Padding(
                                                     padding: const EdgeInsets.all(2),
-                                                    child: Icon(Icons.table_rows_rounded, size: 13, color: AppTheme.emerald.withOpacity(0.85)),
+                                                    child: Icon(Icons.table_rows_rounded, size: 13, color: AppTheme.emerald.withValues(alpha: 0.85)),
                                                   ),
                                                 ),
                                               ),
@@ -1261,7 +1261,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                                                   message: l.copyValue,
                                                   child: Padding(
                                                     padding: const EdgeInsets.all(2),
-                                                    child: Icon(Icons.copy_rounded, size: 13, color: AppTheme.cobalt.withOpacity(0.7)),
+                                                    child: Icon(Icons.copy_rounded, size: 13, color: AppTheme.cobalt.withValues(alpha: 0.7)),
                                                   ),
                                                 ),
                                               ),

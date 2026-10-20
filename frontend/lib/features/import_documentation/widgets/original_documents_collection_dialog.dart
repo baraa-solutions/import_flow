@@ -89,7 +89,7 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
                             children: [
                               Text(
                                 context.l10n.idocAReceiptAndDocumentationOfOriginalBank,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: AppTheme.white,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -141,7 +141,7 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             context.l10n.idocAStage5SailingAndCargoXCourier,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AppTheme.white,
                               fontSize: 12,
                             ),

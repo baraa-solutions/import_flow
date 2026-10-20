@@ -120,7 +120,7 @@ class CopyableText extends StatelessWidget {
               child: Icon(
                 Icons.copy_rounded,
                 size: (style?.fontSize ?? 14) * 0.95,
-                color: AppTheme.flatCobalt.withOpacity(0.8),
+                color: AppTheme.flatCobalt.withValues(alpha: 0.8),
               ),
             ),
           ),

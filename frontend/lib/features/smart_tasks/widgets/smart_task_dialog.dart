@@ -221,7 +221,7 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                           children: [
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                value: _priority,
+                                initialValue: _priority,
                                 isExpanded: true,
                                 decoration: InputDecoration(labelText: l.smartTaskFieldPriority, border: const OutlineInputBorder()),
                                 items: _priorities.map((p) => DropdownMenuItem(value: p, child: Text(l.smartTaskPriorityLabel(p)))).toList(),
@@ -231,7 +231,7 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                             const SizedBox(width: 14),
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                value: _reminderType,
+                                initialValue: _reminderType,
                                 isExpanded: true,
                                 decoration: InputDecoration(labelText: l.smartTaskFieldReminderType, border: const OutlineInputBorder()),
                                 items: _reminderTypes.map((t) => DropdownMenuItem(value: t, child: Text(l.smartTaskReminderTypeLabel(t)))).toList(),

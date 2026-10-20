@@ -46,15 +46,15 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: radar.criticalOverdueCount > 0
-              ? const Color(0xFFC0392B).withOpacity(0.5)
+              ? const Color(0xFFC0392B).withValues(alpha: 0.5)
               : (radar.warningContainersCount > 0
-                  ? const Color(0xFFE67E22).withOpacity(0.5)
+                  ? const Color(0xFFE67E22).withValues(alpha: 0.5)
                   : (isDark ? AppTheme.darkBorder : Colors.grey.shade200)),
           width: radar.criticalOverdueCount > 0 ? 1.5 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -71,10 +71,10 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: radar.criticalOverdueCount > 0
-                      ? const Color(0xFFC0392B).withOpacity(0.12)
+                      ? const Color(0xFFC0392B).withValues(alpha: 0.12)
                       : (radar.warningContainersCount > 0
-                          ? const Color(0xFFE67E22).withOpacity(0.12)
-                          : const Color(0xFF27AE60).withOpacity(0.12)),
+                          ? const Color(0xFFE67E22).withValues(alpha: 0.12)
+                          : const Color(0xFF27AE60).withValues(alpha: 0.12)),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -102,7 +102,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
                       l.demurrageRadarCardSubtitle,
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withOpacity(0.7),
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withValues(alpha: 0.7),
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -184,9 +184,9 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFC0392B).withOpacity(0.08),
+                color: const Color(0xFFC0392B).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFC0392B).withOpacity(0.3)),
+                border: Border.all(color: const Color(0xFFC0392B).withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -228,7 +228,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
                   l.demurrageRadarEmptyState,
                   style: TextStyle(
                     fontSize: 13,
-                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withOpacity(0.7),
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withValues(alpha: 0.7),
                   ),
                 ),
               ),
@@ -262,9 +262,9 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -337,7 +337,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: statusColor.withOpacity(0.4)),
+        border: Border.all(color: statusColor.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,7 +360,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.12),
+                    color: statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -383,7 +383,7 @@ class ContainerDemurrageRadarCard extends ConsumerWidget {
             '${item.carrierName} • ${item.importFileCode}',
             style: TextStyle(
               fontSize: 11,
-              color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withOpacity(0.7),
+              color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withValues(alpha: 0.7),
             ),
             overflow: TextOverflow.ellipsis,
           ),

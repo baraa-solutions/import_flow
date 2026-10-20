@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/theme/density_provider.dart';
@@ -120,15 +120,15 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ProviderScope(
               child: MetricCardStrip(
                 metrics: [
-                  const MetricCardData(title: 'Total POs', shortTitle: 'POs', value: '14', icon: Icons.receipt, color: Colors.blue),
-                  const MetricCardData(title: 'Total PI/PO Amount', shortTitle: 'PI/PO Amt', value: r',294.00', icon: Icons.attach_money, color: Colors.green),
-                  const MetricCardData(title: 'Total Cargo CBM', shortTitle: 'CBM', value: '124.50 CBM', icon: Icons.view_in_ar, color: Colors.purple),
-                  const MetricCardData(title: 'Total Gross Weight', shortTitle: 'Gross Wt', value: '45,200 KG', icon: Icons.scale, color: Colors.orange),
+                  MetricCardData(title: 'Total POs', shortTitle: 'POs', value: '14', icon: Icons.receipt, color: Colors.blue),
+                  MetricCardData(title: 'Total PI/PO Amount', shortTitle: 'PI/PO Amt', value: r',294.00', icon: Icons.attach_money, color: Colors.green),
+                  MetricCardData(title: 'Total Cargo CBM', shortTitle: 'CBM', value: '124.50 CBM', icon: Icons.view_in_ar, color: Colors.purple),
+                  MetricCardData(title: 'Total Gross Weight', shortTitle: 'Gross Wt', value: '45,200 KG', icon: Icons.scale, color: Colors.orange),
                 ],
               ),
             ),

@@ -31,7 +31,7 @@ class OpsStatusChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        border: Border.all(color: fg.withOpacity(0.35)),
+        border: Border.all(color: fg.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -157,7 +157,7 @@ class OpsSectionHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsetsDirectional.all(6),
             decoration: BoxDecoration(
-              color: accent.withOpacity(0.12),
+              color: accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             ),
             child: Icon(icon, size: 18, color: accent),
@@ -253,7 +253,7 @@ class OpsInfoBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(color: fg.withOpacity(0.3)),
+        border: Border.all(color: fg.withValues(alpha: 0.3)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {

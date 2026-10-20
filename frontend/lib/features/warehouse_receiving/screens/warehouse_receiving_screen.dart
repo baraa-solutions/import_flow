@@ -735,7 +735,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
       },
       headerActions: [
         IconButton(
-          icon: Icon(Icons.refresh, color: AppTheme.white.withOpacity(0.7), size: density.buttonIconSize),
+          icon: Icon(Icons.refresh, color: AppTheme.white.withValues(alpha: 0.7), size: density.buttonIconSize),
           tooltip: l.warehouseReceivingRefreshTooltip,
           onPressed: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
         ),

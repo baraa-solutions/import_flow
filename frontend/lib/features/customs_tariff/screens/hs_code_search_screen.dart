@@ -273,7 +273,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2)),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 2)),
                 ],
               ),
               child: Column(
@@ -338,7 +338,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                                 child: ActionChip(
                                   label: Text(q, style: const TextStyle(fontSize: 11)),
                                   backgroundColor: _searchCtrl.text == q
-                                      ? AppTheme.cobalt.withOpacity(0.15)
+                                      ? AppTheme.cobalt.withValues(alpha: 0.15)
                                       : Colors.grey.shade100,
                                   labelStyle: TextStyle(
                                     color: _searchCtrl.text == q ? AppTheme.cobalt : Colors.black87,
@@ -398,7 +398,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.1),
+                                color: AppTheme.cobalt.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -438,7 +438,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
 
                                   return ListTile(
                                     selected: isSelected,
-                                    selectedTileColor: AppTheme.cobalt.withOpacity(0.08),
+                                    selectedTileColor: AppTheme.cobalt.withValues(alpha: 0.08),
                                     title: Row(
                                       children: [
                                         Text(
@@ -585,7 +585,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -671,7 +671,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.white24),
                     ),
@@ -698,7 +698,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppTheme.emerald.withOpacity(0.25),
+                      color: AppTheme.emerald.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppTheme.emerald),
                     ),
@@ -721,7 +721,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.amber.shade400.withOpacity(0.2),
+                      color: Colors.amber.shade400.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.amber.shade400),
                     ),
@@ -1133,7 +1133,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                         margin: const EdgeInsets.only(bottom: 10),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade50.withOpacity(0.5),
+                          color: Colors.blue.shade50.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: Colors.blue.shade200),
                         ),
@@ -1224,9 +1224,9 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: actionColor.withOpacity(0.1),
+                            color: actionColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: actionColor.withOpacity(0.4)),
+                            border: Border.all(color: actionColor.withValues(alpha: 0.4)),
                           ),
                           child: Text(
                             action,
@@ -1590,7 +1590,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
           color: isRequired ? AppTheme.charcoal : Colors.grey.shade600,
         ),
       ),
-      backgroundColor: isRequired ? AppTheme.emerald.withOpacity(0.1) : Colors.grey.shade100,
+      backgroundColor: isRequired ? AppTheme.emerald.withValues(alpha: 0.1) : Colors.grey.shade100,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
     );
   }
@@ -1644,7 +1644,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedOriginCountry,
+                  initialValue: _selectedOriginCountry,
                   decoration: InputDecoration(
                     labelText: l.hsOriginCountryLabel,
                     border: const OutlineInputBorder(),

@@ -126,7 +126,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             color: isDark ? AppTheme.darkElevatedSurface : AppTheme.white,
-            boxShadow: [BoxShadow(color: AppTheme.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
+            boxShadow: [BoxShadow(color: AppTheme.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -155,7 +155,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     ),
                   ),
                   selected: state.showInactive,
-                  selectedColor: AppTheme.crimson.withOpacity(0.12),
+                  selectedColor: AppTheme.crimson.withValues(alpha: 0.12),
                   checkmarkColor: AppTheme.crimson,
                   onSelected: (val) => ref.read(cbmCalculatorProvider.notifier).toggleShowInactive(val),
                 ),
@@ -199,7 +199,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.1),
+                    color: AppTheme.cobalt.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -309,7 +309,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                   final calc = entry.value;
                                   final isEven = idx.isEven;
                                   final rowColor = !calc.isActive
-                                      ? (isDark ? AppTheme.crimson.withOpacity(0.3) : AppTheme.crimsonLight)
+                                      ? (isDark ? AppTheme.crimson.withValues(alpha: 0.3) : AppTheme.crimsonLight)
                                       : isEven
                                           ? (isDark ? AppTheme.darkCardBackground : AppTheme.white)
                                           : (isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface);
@@ -346,9 +346,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.cobalt.withOpacity(0.08),
+                                            color: AppTheme.cobalt.withValues(alpha: 0.08),
                                             borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                                            border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.25)),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
@@ -406,7 +406,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                                       Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                                         decoration: BoxDecoration(
-                                                          color: AppTheme.cobalt.withOpacity(0.08),
+                                                          color: AppTheme.cobalt.withValues(alpha: 0.08),
                                                           borderRadius: BorderRadius.circular(4),
                                                         ),
                                                         child: Text(
@@ -699,7 +699,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: !calc.isActive
-                ? (isDark ? AppTheme.crimson.withOpacity(0.2) : AppTheme.crimsonLight)
+                ? (isDark ? AppTheme.crimson.withValues(alpha: 0.2) : AppTheme.crimsonLight)
                 : (isDark ? AppTheme.darkCardBackground : AppTheme.white),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
@@ -813,9 +813,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -902,7 +902,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.emeraldLight.withOpacity(0.6),
+                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.emeraldLight.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.emeraldBorder),
                   ),
@@ -940,7 +940,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.1),
+                                  color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -987,7 +987,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.cobaltLight.withOpacity(0.5),
+                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.cobaltLight.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cobaltBorder),
                   ),
@@ -1019,7 +1019,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                         children: [
                           TableRow(
-                            decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.06)),
+                            decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withValues(alpha: 0.06)),
                             children: [
                               Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmScenarioHypothesisCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                               Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmScenarioStackableCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.emerald))),
@@ -1081,7 +1081,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   },
                   children: [
                     TableRow(
-                      decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.08)),
+                      decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withValues(alpha: 0.08)),
                       children: [
                         Padding(padding: const EdgeInsets.all(8), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                         Padding(padding: const EdgeInsets.all(8), child: Text(l.packageTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
@@ -1111,7 +1111,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: item.isStackable ? (isDark ? AppTheme.emerald.withOpacity(0.15) : AppTheme.emeraldLight) : (isDark ? AppTheme.crimson.withOpacity(0.15) : AppTheme.crimsonLight),
+                                  color: item.isStackable ? (isDark ? AppTheme.emerald.withValues(alpha: 0.15) : AppTheme.emeraldLight) : (isDark ? AppTheme.crimson.withValues(alpha: 0.15) : AppTheme.crimsonLight),
                                   borderRadius: BorderRadius.circular(4),
                                   border: Border.all(color: item.isStackable ? (isDark ? AppTheme.emerald : AppTheme.emeraldBorder) : (isDark ? AppTheme.crimson : AppTheme.crimsonBorder)),
                                 ),
@@ -1196,9 +1196,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       width: 280,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkElevatedSurface : color.withOpacity(0.08),
+        color: isDark ? AppTheme.darkElevatedSurface : color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : color.withOpacity(0.3)),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -1663,8 +1663,8 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: rec.isStackable
-                  ? (isDark ? AppTheme.emerald.withOpacity(0.15) : AppTheme.emerald.withOpacity(0.1))
-                  : (isDark ? AppTheme.orange.withOpacity(0.15) : AppTheme.orange.withOpacity(0.1)),
+                  ? (isDark ? AppTheme.emerald.withValues(alpha: 0.15) : AppTheme.emerald.withValues(alpha: 0.1))
+                  : (isDark ? AppTheme.orange.withValues(alpha: 0.15) : AppTheme.orange.withValues(alpha: 0.1)),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: rec.isStackable ? AppTheme.emerald : (isDark ? AppTheme.orange : AppTheme.wcagOrange)),
             ),
@@ -1685,7 +1685,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             },
             children: [
               TableRow(
-                decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.08)),
+                decoration: BoxDecoration(color: isDark ? AppTheme.darkCardBackground : AppTheme.charcoal.withValues(alpha: 0.08)),
                 children: [
                   Padding(padding: const EdgeInsets.all(8.0), child: Text(l.containerSpecCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
                   Padding(padding: const EdgeInsets.all(8.0), child: Text(l.cbmRequiredContainerCount, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : null))),
@@ -1702,7 +1702,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 final isBest = spec.code == rec.recommendedContainerCode;
 
                 return TableRow(
-                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withOpacity(0.12)) : null,
+                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withValues(alpha: 0.12)) : null,
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -1854,7 +1854,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: AppTheme.cobalt),
                     ),
@@ -1969,7 +1969,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.04),
+                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                       ),
@@ -2009,7 +2009,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       },
                       children: [
                         TableRow(
-                          decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.08)),
+                          decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.08)),
                           children: [
                             Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerSpecCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
                             Padding(padding: const EdgeInsets.all(6.0), child: Text(l.packageTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
@@ -2218,9 +2218,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2445,7 +2445,7 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.12),
+                    color: AppTheme.cobalt.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 24),

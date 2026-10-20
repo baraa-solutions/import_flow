@@ -70,7 +70,7 @@ class _SyncProgressAndDiffWidgetState extends State<SyncProgressAndDiffWidget> {
               border: Border.all(color: Colors.grey.shade300),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
+                  color: Colors.black.withValues(alpha: 0.02),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -115,7 +115,7 @@ class _SyncProgressAndDiffWidgetState extends State<SyncProgressAndDiffWidget> {
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: widget.diffSummary!.totalNewRecords > 0
-                                ? AppTheme.emerald.withOpacity(0.15)
+                                ? AppTheme.emerald.withValues(alpha: 0.15)
                                 : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
@@ -322,9 +322,9 @@ class _SyncProgressAndDiffWidgetState extends State<SyncProgressAndDiffWidget> {
                         padding: const EdgeInsets.symmetric(vertical: 4.5, horizontal: 6),
                         decoration: BoxDecoration(
                           color: isCurrentlySyncing
-                              ? AppTheme.cobalt.withOpacity(0.08)
+                              ? AppTheme.cobalt.withValues(alpha: 0.08)
                               : item.hasChanges
-                                  ? AppTheme.emerald.withOpacity(0.04)
+                                  ? AppTheme.emerald.withValues(alpha: 0.04)
                                   : Colors.transparent,
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -397,7 +397,7 @@ class _SyncProgressAndDiffWidgetState extends State<SyncProgressAndDiffWidget> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withOpacity(0.12),
+                                        color: AppTheme.cobalt.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
@@ -411,7 +411,7 @@ class _SyncProgressAndDiffWidgetState extends State<SyncProgressAndDiffWidget> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.emerald.withOpacity(0.12),
+                                        color: AppTheme.emerald.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
@@ -542,12 +542,12 @@ class _SyncProgressAndDiffWidgetState extends State<SyncProgressAndDiffWidget> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isComplete ? AppTheme.emerald.withOpacity(0.5) : AppTheme.cobalt.withOpacity(0.5),
+          color: isComplete ? AppTheme.emerald.withValues(alpha: 0.5) : AppTheme.cobalt.withValues(alpha: 0.5),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: (isComplete ? AppTheme.emerald : AppTheme.cobalt).withOpacity(0.06),
+            color: (isComplete ? AppTheme.emerald : AppTheme.cobalt).withValues(alpha: 0.06),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),

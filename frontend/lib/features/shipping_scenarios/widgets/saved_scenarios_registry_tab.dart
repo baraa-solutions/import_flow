@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../purchase_orders/models/purchase_order_model.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -137,7 +136,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-            boxShadow: [BoxShadow(color: isDark ? Colors.black26 : AppTheme.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
+            boxShadow: [BoxShadow(color: isDark ? Colors.black26 : AppTheme.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -166,7 +165,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     ),
                   ),
                   selected: state.showInactive,
-                  selectedColor: AppTheme.crimson.withOpacity(0.12),
+                  selectedColor: AppTheme.crimson.withValues(alpha: 0.12),
                   checkmarkColor: AppTheme.crimson,
                   onSelected: (val) => ref.read(shippingScenariosProvider.notifier).toggleShowInactive(val),
                 ),
@@ -181,7 +180,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.1),
+                    color: AppTheme.cobalt.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -323,10 +322,10 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: (sess.isActive ? AppTheme.cobalt : AppTheme.crimson).withOpacity(0.08),
+                                          color: (sess.isActive ? AppTheme.cobalt : AppTheme.crimson).withValues(alpha: 0.08),
                                           borderRadius: BorderRadius.circular(6),
                                           border: Border.all(
-                                            color: (sess.isActive ? AppTheme.cobalt : AppTheme.crimson).withOpacity(0.3),
+                                            color: (sess.isActive ? AppTheme.cobalt : AppTheme.crimson).withValues(alpha: 0.3),
                                             width: 1,
                                           ),
                                         ),
@@ -380,9 +379,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                   decoration: BoxDecoration(
-                                                    color: AppTheme.cobalt.withOpacity(0.08),
+                                                    color: AppTheme.cobalt.withValues(alpha: 0.08),
                                                     borderRadius: BorderRadius.circular(4),
-                                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.2), width: 0.8),
+                                                    border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2), width: 0.8),
                                                   ),
                                                   child: Text(
                                                     rawFileCode,
@@ -447,7 +446,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.warehouse_rounded, size: 14, color: AppTheme.emerald.withOpacity(0.7)),
+                                          Icon(Icons.warehouse_rounded, size: 14, color: AppTheme.emerald.withValues(alpha: 0.7)),
                                           const SizedBox(width: 4),
                                           Text(
                                             sess.avgExpectedWarehouseArrivalDate ?? '—',
@@ -603,9 +602,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -649,9 +648,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.08),
+                      color: AppTheme.cobalt.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                      border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -757,7 +756,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                 border: TableBorder.all(color: AppTheme.cloudWhite),
                 children: [
                   TableRow(
-                    decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                    decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
                     children: [
                       Padding(padding: const EdgeInsets.all(8), child: Text(l.statusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
                       Padding(padding: const EdgeInsets.all(8), child: Text('📦 ${l.stackableOption}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
@@ -974,7 +973,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: AppTheme.cobalt),
                     ),
@@ -1059,7 +1058,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppTheme.charcoal.withOpacity(0.04),
+                        color: AppTheme.charcoal.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: AppTheme.cloudWhite),
                       ),
@@ -1099,7 +1098,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       },
                       children: [
                           TableRow(
-                            decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                            decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
                             children: [
                               Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6.0), child: Text(l.itemsAndPackagesCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
@@ -1314,9 +1313,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1475,7 +1474,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
               color: !sess.isActive
-                  ? AppTheme.crimson.withOpacity(0.4)
+                  ? AppTheme.crimson.withValues(alpha: 0.4)
                   : (isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
             ),
           ),
@@ -1489,7 +1488,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                   children: [
                     CircleAvatar(
                       radius: 14,
-                      backgroundColor: AppTheme.cobalt.withOpacity(0.15),
+                      backgroundColor: AppTheme.cobalt.withValues(alpha: 0.15),
                       child: const Icon(Icons.alt_route, color: AppTheme.cobalt, size: 16),
                     ),
                     const SizedBox(width: 8),
@@ -1531,9 +1530,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.08),
+                          color: AppTheme.cobalt.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                          border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.2)),
                         ),
                         child: Text(
                           '📁 $rawFileCode${shipmentTitle != null ? " ($shipmentTitle)" : ""}',
@@ -1544,9 +1543,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppTheme.emerald.withOpacity(0.08),
+                          color: AppTheme.emerald.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppTheme.emerald.withOpacity(0.2)),
+                          border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.2)),
                         ),
                         child: Text(
                           'PO: ${sess.poNumber}',
@@ -1581,7 +1580,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.1),
+                          color: AppTheme.cobalt.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1593,9 +1592,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppTheme.emerald.withOpacity(0.12),
+                          color: AppTheme.emerald.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                          border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
                         ),
                         child: Text(
                           '⭐ ${sess.recommendedScenarioProvider}',

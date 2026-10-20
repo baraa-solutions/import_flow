@@ -157,7 +157,7 @@ void main() {
       const double? none = null;
       expect(none.fixedOrMissing(2, 'Missing'), 'Missing');
       expect(none.egpOrMissing('Missing'), 'Missing');
-      const double? v = 12.345;
+      const double v = 12.345;
       expect(v.fixedOrMissing(2), '12.35');
       expect(v.egpOrMissing('Missing'), '12.35 EGP');
     });

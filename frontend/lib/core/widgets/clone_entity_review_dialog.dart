@@ -227,7 +227,7 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.12),
+                        color: AppTheme.cobalt.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt, size: 24),
@@ -443,7 +443,7 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
                             final copiedBox = Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.green.shade50.withOpacity(0.5),
+                                color: Colors.green.shade50.withValues(alpha: 0.5),
                                 border: Border.all(color: Colors.green.shade200),
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -506,7 +506,7 @@ class _CloneEntityReviewDialogState extends State<CloneEntityReviewDialog> {
                             final resetBox = Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.orange.shade50.withOpacity(0.5),
+                                color: Colors.orange.shade50.withValues(alpha: 0.5),
                                 border: Border.all(color: Colors.orange.shade200),
                                 borderRadius: BorderRadius.circular(8),
                               ),

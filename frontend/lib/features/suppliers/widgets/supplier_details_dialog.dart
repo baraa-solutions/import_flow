@@ -45,7 +45,7 @@ class SupplierDetailsDialog extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha: 0.15),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -67,7 +67,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.orange.withOpacity(0.25),
+                      color: AppTheme.orange.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.flight_takeoff_rounded, color: AppTheme.orange, size: 24),
@@ -110,7 +110,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                                 child: Container(
                                   padding: const EdgeInsets.all(5),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.18),
+                                    color: Colors.white.withValues(alpha: 0.18),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Icon(Icons.copy_rounded, size: 15, color: Colors.white),
@@ -142,7 +142,7 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                                 child: Container(
                                   padding: const EdgeInsets.all(5),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.18),
+                                    color: Colors.white.withValues(alpha: 0.18),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Icon(Icons.copy_all_rounded, size: 15, color: Colors.white),
@@ -153,7 +153,7 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.25),
+                                color: (isActive ? AppTheme.emerald : AppTheme.crimson).withValues(alpha: 0.25),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
                                   color: isActive ? AppTheme.emerald : AppTheme.crimson,
@@ -609,9 +609,9 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: (isCompliant ? AppTheme.emerald : Colors.grey).withOpacity(0.12),
+        color: (isCompliant ? AppTheme.emerald : Colors.grey).withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: (isCompliant ? AppTheme.emerald : Colors.grey).withOpacity(0.4)),
+        border: Border.all(color: (isCompliant ? AppTheme.emerald : Colors.grey).withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

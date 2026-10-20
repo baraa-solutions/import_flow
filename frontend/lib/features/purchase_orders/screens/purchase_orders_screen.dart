@@ -13,7 +13,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 
 import '../../../core/widgets/widgets.dart';
-import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/services/container_load_plan_export_service.dart';
@@ -543,10 +542,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
 
     final tableScrollbarTheme = ScrollbarThemeData(
       thumbColor: WidgetStateProperty.all(
-        isDark ? AppTheme.wcagCobalt.withOpacity(0.8) : AppTheme.charcoal.withOpacity(0.6),
+        isDark ? AppTheme.wcagCobalt.withValues(alpha: 0.8) : AppTheme.charcoal.withValues(alpha: 0.6),
       ),
       trackColor: WidgetStateProperty.all(
-        isDark ? AppTheme.darkBorder.withOpacity(0.4) : AppTheme.cloudWhite,
+        isDark ? AppTheme.darkBorder.withValues(alpha: 0.4) : AppTheme.cloudWhite,
       ),
       trackBorderColor: WidgetStateProperty.all(Colors.transparent),
       thickness: WidgetStateProperty.all(10.0),
@@ -631,7 +630,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                         color: isDark ? AppTheme.darkSurface : AppTheme.charcoal,
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.black.withOpacity(isDark ? 0.35 : 0.08),
+                            color: AppTheme.black.withValues(alpha: isDark ? 0.35 : 0.08),
                             offset: const Offset(0, 2),
                             blurRadius: 4,
                           ),
@@ -827,9 +826,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.cobalt.withOpacity(0.08),
+                                  color: AppTheme.cobalt.withValues(alpha: 0.08),
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                 ),
                                 child: Text(
                                   fileName,
@@ -1254,7 +1253,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                           final isMismatched = itemHs != null && itemHs.isNotEmpty && mismatchedHsCodes.contains(itemHs);
 
                                           return TableRow(
-                                            decoration: isMismatched ? BoxDecoration(color: AppTheme.crimsonLight.withOpacity(0.3)) : null,
+                                            decoration: isMismatched ? BoxDecoration(color: AppTheme.crimsonLight.withValues(alpha: 0.3)) : null,
                                             children: [
                                               Padding(padding: const EdgeInsets.all(6), child: Text(item.itemCode ?? '-')),
                                               Padding(
@@ -1649,9 +1648,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 margin: const EdgeInsets.only(bottom: 12),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.orange.withOpacity(0.08),
+                                  color: AppTheme.orange.withValues(alpha: 0.08),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppTheme.orange.withOpacity(0.3)),
+                                  border: Border.all(color: AppTheme.orange.withValues(alpha: 0.3)),
                                 ),
                                 child: Row(
                                   children: [
@@ -1699,9 +1698,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.cobalt.withOpacity(0.1),
+                                            color: AppTheme.cobalt.withValues(alpha: 0.1),
                                             borderRadius: BorderRadius.circular(10),
-                                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                            border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                           ),
                                           child: Text(
                                             '🔢 ${l.totalPalletsMetric}: ${l.palletCountWithUnit(po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount))}',
@@ -1712,9 +1711,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.orange.withOpacity(0.12),
+                                            color: AppTheme.orange.withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(10),
-                                            border: Border.all(color: AppTheme.orange.withOpacity(0.4)),
+                                            border: Border.all(color: AppTheme.orange.withValues(alpha: 0.4)),
                                           ),
                                           child: Text(
                                             '📐 ${l.palletCbmWithUnit(po.palletPlanItems.fold<double>(0.0, (sum, p) => sum + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount)).toStringAsFixed(3))}',
@@ -2796,7 +2795,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.orange.withOpacity(0.12),
+                  color: AppTheme.orange.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.view_in_ar_rounded, size: 48, color: AppTheme.orange),
@@ -3073,9 +3072,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04),
+                  color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withOpacity(0.12)),
+                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withValues(alpha: 0.12)),
                 ),
                 child: Wrap(
                   spacing: 24,
@@ -3181,7 +3180,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.cobalt.withOpacity(0.1),
+                                    color: AppTheme.cobalt.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -3299,7 +3298,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                 child: Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                   decoration: BoxDecoration(
-                                                    color: AppTheme.cobalt.withOpacity(0.12),
+                                                    color: AppTheme.cobalt.withValues(alpha: 0.12),
                                                     borderRadius: BorderRadius.circular(4),
                                                   ),
                                                   child: Text('${g.count}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt), textAlign: TextAlign.center),
@@ -3437,7 +3436,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AppTheme.cobalt.withOpacity(0.12),
+                            color: AppTheme.cobalt.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(Icons.view_in_ar_rounded, color: AppTheme.cobalt, size: 24),
@@ -3652,9 +3651,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withOpacity(0.04),
+                        color: isDark ? AppTheme.darkSurface : AppTheme.charcoal.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withOpacity(0.12)),
+                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.charcoal.withValues(alpha: 0.12)),
                       ),
                       child: Wrap(
                         spacing: 24,
@@ -3760,7 +3759,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
-                                          color: AppTheme.cobalt.withOpacity(0.1),
+                                          color: AppTheme.cobalt.withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(
@@ -3878,7 +3877,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                                                       child: Container(
                                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                         decoration: BoxDecoration(
-                                                          color: AppTheme.cobalt.withOpacity(0.12),
+                                                          color: AppTheme.cobalt.withValues(alpha: 0.12),
                                                           borderRadius: BorderRadius.circular(4),
                                                         ),
                                                         child: Text('${g.count}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt), textAlign: TextAlign.center),
@@ -4318,7 +4317,7 @@ class _SearchAndClonePODialogState extends State<_SearchAndClonePODialog> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.wcagCobalt.withOpacity(0.12),
+                    color: AppTheme.wcagCobalt.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.wcagCobalt, size: 24),

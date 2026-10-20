@@ -160,7 +160,7 @@ class _SearchAndCloneFinancialSettlementDialogState
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.cobalt.withOpacity(0.12),
+                                            color: AppTheme.cobalt.withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(5),
                                           ),
                                           child: CopyableText(

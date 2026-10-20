@@ -425,7 +425,7 @@ class _SmartUploadButtonState extends ConsumerState<SmartUploadButton> {
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.12),
+                  color: AppTheme.cobalt.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppTheme.cobalt, width: 1.2),
                 ),
@@ -466,7 +466,7 @@ class _SmartUploadButtonState extends ConsumerState<SmartUploadButton> {
         side: BorderSide(color: AppTheme.cobalt, width: _isLoading ? 1.5 : 1.0),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        backgroundColor: _isLoading ? AppTheme.cobalt.withOpacity(0.06) : null,
+        backgroundColor: _isLoading ? AppTheme.cobalt.withValues(alpha: 0.06) : null,
       ),
       icon: _isLoading
           ? Stack(
@@ -478,7 +478,7 @@ class _SmartUploadButtonState extends ConsumerState<SmartUploadButton> {
                   child: CircularProgressIndicator(
                     value: _progressPercent > 0 ? _progressPercent : null,
                     strokeWidth: 2.5,
-                    backgroundColor: AppTheme.cobalt.withOpacity(0.2),
+                    backgroundColor: AppTheme.cobalt.withValues(alpha: 0.2),
                     color: AppTheme.cobalt,
                   ),
                 ),
@@ -654,7 +654,7 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: selectedPreset,
+                  initialValue: selectedPreset,
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: isAr ? 'نوع البيان المطلوب إضافته' : 'Field Type',
@@ -843,7 +843,7 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
               // ─ Header ─────────────────────────────────────────────────────
               Container(
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.08),
+                  color: statusColor.withValues(alpha: 0.08),
                   borderRadius: const BorderRadiusDirectional.only(
                     topStart: Radius.circular(16),
                     topEnd: Radius.circular(16),
@@ -867,7 +867,7 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
                           ),
                           Text(
                             '${result.filename} · ${l.extractionConfidenceLabel}: ${result.confidencePercent}%',
-                            style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.charcoal.withOpacity(0.6)),
+                            style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.charcoal.withValues(alpha: 0.6)),
                           ),
                         ],
                       ),
@@ -883,7 +883,7 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
                           LinearProgressIndicator(
                             value: result.confidenceScore,
                             color: statusColor,
-                            backgroundColor: statusColor.withOpacity(0.2),
+                            backgroundColor: statusColor.withValues(alpha: 0.2),
                             minHeight: 6,
                           ),
                         ],
@@ -941,9 +941,9 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppTheme.charcoal.withOpacity(0.04),
+                          color: AppTheme.charcoal.withValues(alpha: 0.04),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppTheme.charcoal.withOpacity(0.12)),
+                          border: Border.all(color: AppTheme.charcoal.withValues(alpha: 0.12)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1078,9 +1078,9 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: AppTheme.orange.withOpacity(0.08),
+                          color: AppTheme.orange.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.orange.withOpacity(0.3)),
+                          border: Border.all(color: AppTheme.orange.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1106,7 +1106,7 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
                       Text(
                         result.extractionNotes!,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppTheme.charcoal.withOpacity(0.5),
+                          color: AppTheme.charcoal.withValues(alpha: 0.5),
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -1285,9 +1285,9 @@ class _EntityVerificationRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: badgeColor.withOpacity(0.06),
+          color: badgeColor.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: badgeColor.withOpacity(0.25)),
+          border: Border.all(color: badgeColor.withValues(alpha: 0.25)),
         ),
         child: Row(
           children: [
@@ -1323,7 +1323,7 @@ class _EntityVerificationRow extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: badgeColor.withOpacity(0.12),
+                color: badgeColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
@@ -1346,7 +1346,7 @@ class _EntityVerificationRow extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.1),
+                    color: AppTheme.cobalt.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
@@ -1394,7 +1394,7 @@ class _FieldRow extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 2.5),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: isCustom ? Colors.blue.shade50.withOpacity(0.5) : Colors.grey.shade50,
+        color: isCustom ? Colors.blue.shade50.withValues(alpha: 0.5) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: isCustom ? Colors.blue.shade200 : Colors.grey.shade200),
       ),
@@ -1430,7 +1430,7 @@ class _FieldRow extends StatelessWidget {
               value,
               style: TextStyle(
                 fontSize: 12,
-                color: AppTheme.charcoal.withOpacity(0.85),
+                color: AppTheme.charcoal.withValues(alpha: 0.85),
                 fontWeight: isCustom ? FontWeight.w500 : FontWeight.normal,
               ),
             ),

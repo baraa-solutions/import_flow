@@ -80,7 +80,7 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 22),
@@ -177,7 +177,7 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.cobalt.withOpacity(0.12),
+                                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
@@ -215,7 +215,7 @@ class _SearchAndCloneConsultationDialogState extends State<SearchAndCloneConsult
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.emerald.withOpacity(0.12),
+                                        color: AppTheme.emerald.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
