@@ -143,13 +143,13 @@ void main() {
           truckPlateNumber: 'TRK-1234',
           grnItems: [
             GrnItemModel(
+              poNumber: 'PO-MAIN-50',
               itemCode: 'ITM-99',
               itemName: 'Centrifugal Pump',
               invoicedQty: 100,
               acceptedQty: 95,
               shortageQty: 5,
               damagedQty: 0,
-              poNumber: 'PO-MAIN-50',
             ),
           ],
           createdAt: '2026-09-08',
@@ -157,10 +157,7 @@ void main() {
         ),
       ];
 
-      final items = WarehouseReceivedReportItem.fromReceivingRecords(
-        records,
-        fileCodeById: {50: 'IMP-50'},
-      );
+      final items = WarehouseReceivedReportItem.fromReceivingRecords(records, fileCodeById: const {50: 'IMP-50'});
       expect(items.length, 1);
       expect(items.first.importFileCode, 'IMP-50');
       expect(items.first.poNumber, 'PO-MAIN-50');

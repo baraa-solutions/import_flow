@@ -6,8 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_locales.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/core/localization/app_localizations_en.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
+import 'package:frontend/features/inland_transport/providers/inland_transport_provider.dart';
 import 'package:frontend/features/inland_transport/widgets/inland_transport_dialog.dart';
 
 import '../../helpers/localized_app.dart';
@@ -127,9 +130,8 @@ void main() {
 
   group('InlandTransportDialog UI status buttons & edit mode (FE08-T02, FE08-T03)', () {
     Future<void> openDialog(WidgetTester tester, _Adapter a) async {
-      tester.view.physicalSize = const Size(1500, 1100);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
+      await tester.binding.setSurfaceSize(const Size(1280, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final dio = _dio(a);
       await tester.pumpWidget(
         ProviderScope(
@@ -137,8 +139,11 @@ void main() {
             dioProvider.overrideWithValue(dio),
             uploadDioProvider.overrideWithValue(dio),
           ],
-          child: localizedApp(
-            locale: AppLocales.english,
+          child: MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocales.localizationsDelegates,
+            supportedLocales: AppLocales.supportedLocales,
+            builder: (context, child) => AppLocalizationsProvider(locale: const Locale('en'), child: child!),
             home: Scaffold(
               body: Builder(
                 builder: (ctx) => Center(
@@ -177,7 +182,7 @@ void main() {
       await openDialog(tester, a);
 
       expect(find.byKey(const Key('inlandEditBookingBtn')), findsNothing);
-      expect(find.textContaining('The truck arrived at the warehouse'), findsOneWidget);
+      expect(find.text(AppLocalizationsEn().inlandArrivedMsg), findsOneWidget);
     });
 
     testWidgets('edit booking toggles edit form and submits PUT to update booking', (tester) async {
@@ -193,12 +198,11 @@ void main() {
       await tester.tap(find.byKey(const Key('inlandEditBookingBtn')));
       await tester.pumpAndSettle();
 
-      // Submit button should say Save Changes
-      expect(find.text('Save Changes'), findsOneWidget);
-
-      // Ensure button is visible in scrollview before tapping
-      await tester.ensureVisible(find.byKey(const Key('inlandSubmitBookingBtn')));
+      // Submit button (below the fold of the dialog) should say Save Changes
+      final submitBtn = find.byKey(const Key('inlandSubmitBookingBtn'));
+      await tester.scrollUntilVisible(submitBtn, 200, scrollable: find.byType(Scrollable).last);
       await tester.pumpAndSettle();
+      expect(find.descendant(of: submitBtn, matching: find.text(AppLocalizationsEn().inlandSaveChangesBtn)), findsOneWidget);
 
       // Tap Save Changes
       await tester.tap(find.byKey(const Key('inlandSubmitBookingBtn')));

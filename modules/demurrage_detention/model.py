@@ -35,9 +35,9 @@ class Terminal(Base):
     is_active = Column(Boolean, default=True, index=True, nullable=False)
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    created_by = Column(String(100), default="System", nullable=True)
+    created_by = Column(String(100), nullable=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_by = Column(String(100), default="System", nullable=True)
+    updated_by = Column(String(100), nullable=True)
 
     # Relationships
     storage_rates = relationship("TerminalStorageRate", back_populates="terminal", cascade="all, delete-orphan")
@@ -55,7 +55,7 @@ class TerminalStorageRate(Base):
     container_type = Column(String(50), nullable=False, index=True)  # e.g. "20ft DRY", "40ft DRY", "40ft High Cube", "Reefer", "IMO"
     free_days = Column(Integer, default=7, nullable=False)
     storage_tiers = Column(JSON, default=list, nullable=False)  # [{from_day, to_day, rate_per_day}]
-    currency = Column(String(10), default="USD", nullable=False)
+    currency = Column(String(10), nullable=False)
     imo_free_days = Column(Integer, default=0, nullable=False)
     imo_rate_multiplier = Column(Float, default=2.0, nullable=False)
     effective_date = Column(Date, nullable=False, index=True)
@@ -63,7 +63,7 @@ class TerminalStorageRate(Base):
     is_active = Column(Boolean, default=True, index=True, nullable=False)
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    created_by = Column(String(100), default="System", nullable=True)
+    created_by = Column(String(100), nullable=True)
 
     # Relationship
     terminal = relationship("Terminal", back_populates="storage_rates")
@@ -89,9 +89,9 @@ class Carrier(Base):
     is_active = Column(Boolean, default=True, index=True, nullable=False)
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    created_by = Column(String(100), default="System", nullable=True)
+    created_by = Column(String(100), nullable=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_by = Column(String(100), default="System", nullable=True)
+    updated_by = Column(String(100), nullable=True)
 
     # Relationships
     demurrage_rates = relationship("CarrierDemurrageRate", back_populates="carrier", cascade="all, delete-orphan")
@@ -111,13 +111,13 @@ class CarrierDemurrageRate(Base):
     detention_free_days_standard = Column(Integer, default=7, nullable=False)
     demurrage_tiers = Column(JSON, default=list, nullable=False)  # [{from_day, to_day, rate_per_day}]
     detention_tiers = Column(JSON, default=list, nullable=False)  # [{from_day, to_day, rate_per_day}]
-    currency = Column(String(10), default="USD", nullable=False)
+    currency = Column(String(10), nullable=False)
     effective_date = Column(Date, nullable=False, index=True)
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, index=True, nullable=False)
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    created_by = Column(String(100), default="System", nullable=True)
+    created_by = Column(String(100), nullable=True)
 
     # Relationship
     carrier = relationship("Carrier", back_populates="demurrage_rates")
@@ -186,7 +186,7 @@ class DemurrageTracking(Base):
     terminal_id = Column(Integer, ForeignKey("terminals.terminal_id"), nullable=True, index=True)
     carrier_name = Column(String(100), index=True, nullable=False)
     bill_of_lading_no = Column(String(100), index=True, nullable=False)
-    port_name = Column(String(100), default="Alexandria Port", nullable=False)
+    port_name = Column(String(100), nullable=False)
 
     discharge_date = Column(Date, nullable=False)  # Date containers discharged from vessel
     gate_out_date = Column(Date, nullable=True)   # Date container cleared & left port gate
@@ -231,13 +231,14 @@ class DemurrageTracking(Base):
     @property
     def total_ancillary_egp(self) -> float:
         fees = self.ancillary_fees or []
-        rate = float(self.exchange_rate or 1.0)
+        # No fabricated rate: a USD-only fee counts in EGP only when the tracking has a real exchange rate.
+        rate = float(self.exchange_rate) if self.exchange_rate else None
         total = 0.0
         for f in fees:
             if isinstance(f, dict):
                 if f.get("amount_egp") is not None:
                     total += float(f["amount_egp"])
-                elif f.get("amount_usd") is not None:
+                elif f.get("amount_usd") is not None and rate is not None:
                     total += float(f["amount_usd"]) * rate
         return round(total, 2)
 

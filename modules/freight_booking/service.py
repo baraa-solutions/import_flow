@@ -215,7 +215,10 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
     def _convert_orig_to_usd(amt: float, cur: Optional[str]) -> float:
         if amt <= 0.0:
             return 0.0
-        c = (cur or "USD").strip().upper()
+        # Unknown currency or missing rate -> 0.0 (unknown), never the raw amount read as USD.
+        if not cur or not cur.strip():
+            return 0.0
+        c = cur.strip().upper()
         if c == "USD":
             return round(amt, 2)
         if db is not None:
@@ -226,8 +229,8 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
                 rate_usd = fx.rate("USD", ref_date)
                 return round(amt * (rate_from / rate_usd), 2)
             except Exception:
-                return round(amt, 2)
-        return round(amt, 2)
+                return 0.0
+        return 0.0
 
     # Determine original quote amount
     orig_quote_total = float(quot_data.get("original_quote_total_usd") or 0.0)
@@ -235,8 +238,10 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
         if scenario_item:
             from modules.shipping_scenarios.service import scenario_item_totals
             _, frt_amt = scenario_item_totals(db, scenario_item, ref_date)
-            sc_curr = (scenario_item.quotation_currency or "USD").upper().strip()
-            if sc_curr == "USD":
+            sc_curr = (scenario_item.quotation_currency or "").upper().strip()
+            if not sc_curr:
+                orig_quote_total = 0.0
+            elif sc_curr == "USD":
                 orig_quote_total = frt_amt
             else:
                 orig_quote_total = _convert_orig_to_usd(frt_amt, sc_curr)
@@ -302,7 +307,12 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking, db: Optional[Sess
                 continue
 
             exec_rate = float(c_dict.get("rate", 0.0))
-            fx_to_usd = float(c_dict.get("fx_rate_to_usd") or 1.0)
+            raw_fx = c_dict.get("fx_rate_to_usd")
+            if raw_fx is None:
+                if str(c_dict.get("currency") or "").strip().upper() != "USD":
+                    continue  # legacy charge with no stored rate: cannot be compared in USD
+                raw_fx = 1.0
+            fx_to_usd = float(raw_fx)
             exec_rate_usd = round(exec_rate * fx_to_usd, 2)
             exec_qty = float(c_dict.get("quantity", 1))
 

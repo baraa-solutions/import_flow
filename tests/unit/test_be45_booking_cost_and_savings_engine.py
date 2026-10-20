@@ -5,7 +5,7 @@ Covers:
 - ACC3-T02: Keep insurance and storage out of freight total, 422 on insurance charge.
 - BE45-T20: Exact savings engine matching against original quotation/scenario.
 """
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 import pytest
 from fastapi import HTTPException
 from sqlalchemy import create_engine
@@ -45,10 +45,10 @@ def db_session():
     session.commit()
 
     # Commercial rates: USD = 50.0 EGP, EUR = 55.0 EGP
-    today = date.today()
-    rate_date = date(2020, 1, 1)
-    usd_rate = ExchangeRate(currency_id=usd.currency_id, commercial_rate=50.0, customs_rate=49.5, effective_date=rate_date, is_active=True)
-    eur_rate = ExchangeRate(currency_id=eur.currency_id, commercial_rate=55.0, customs_rate=54.0, effective_date=rate_date, is_active=True)
+    # Effective a week back: the service dates by UTC, so a rate dated local 'today' can be in its future.
+    today = date.today() - timedelta(days=7)
+    usd_rate = ExchangeRate(currency_id=usd.currency_id, commercial_rate=50.0, customs_rate=49.5, effective_date=today, is_active=True)
+    eur_rate = ExchangeRate(currency_id=eur.currency_id, commercial_rate=55.0, customs_rate=54.0, effective_date=today, is_active=True)
     session.add_all([usd_rate, eur_rate])
 
     # Import file
