@@ -125,6 +125,8 @@ from modules.port_storage.model import PortTerminalRate, PortStorageAccrual
 from modules.customs_abandonment.model import CustomsAbandonmentRadar
 from modules.inspection_appeals.model import InspectionAppeal
 from modules.custody_release.model import CustodyReleaseDossier
+from modules.reexport_protocol.model import ReexportDossier
+from modules.container_deposit.model import ContainerDepositLedger
 
 
 
@@ -192,6 +194,8 @@ from modules.port_storage.router import router as port_storage_router
 from modules.customs_abandonment.router import router as customs_abandonment_router
 from modules.inspection_appeals.router import router as inspection_appeals_router
 from modules.custody_release.router import router as custody_release_router
+from modules.reexport_protocol.router import router as reexport_protocol_router
+from modules.container_deposit.router import router as container_deposit_router
 from modules.system_observability.middleware import ObservabilityMiddleware
 from modules.system_observability.service import setup_query_listener
 
@@ -424,6 +428,8 @@ app.include_router(port_storage_router)
 app.include_router(customs_abandonment_router)
 app.include_router(inspection_appeals_router)
 app.include_router(custody_release_router)
+app.include_router(reexport_protocol_router)
+app.include_router(container_deposit_router)
 
 
 
