@@ -106,6 +106,12 @@ class ExpiryCheckerService:
         # CL-006 ── 13. ETA < 48 Hours without Open Customs Clearance
         new_notifications.extend(self._check_eta_customs_readiness_alerts())
 
+        # 14. Checklist Gatekeeper & Pending Mandatory Items
+        new_notifications.extend(self._check_checklist_gatekeeper_alerts())
+
+        # 15. ETA vs Port Arrival Checklist Readiness
+        new_notifications.extend(self._check_eta_checklist_readiness_alerts())
+
         return new_notifications
 
     # ─── 1. Company Expiries ──────────────────────────────────────────────────
@@ -732,4 +738,119 @@ class ExpiryCheckerService:
                 new_notifications.append(created)
 
         return new_notifications
+
+    def _check_checklist_gatekeeper_alerts(self) -> List[NotificationCreate]:
+        """
+        14. Checklist Gatekeeper Watchdog:
+        Emits notification if an active shipment is in a phase where mandatory checklist
+        requirements are blocking advancement.
+        """
+        new_notifications: List[NotificationCreate] = []
+        try:
+            from modules.smart_checklists.service import get_checklist_summary
+        except ImportError:
+            return new_notifications
+
+        active_files = self.db.query(ImportFile).filter(
+            ImportFile.is_active == True,
+            ImportFile.status.in_(["Draft", "Open", "In Progress"]),
+        ).all()
+
+        for file_obj in active_files:
+            try:
+                summary = get_checklist_summary(self.db, file_obj.import_file_id)
+                if summary.is_gate_blocked and summary.mandatory_pending_items > 0:
+                    category = "CHECKLIST_GATE_BLOCKED"
+                    if not self.repo.exists_active_for_entity("ImportFile", file_obj.import_file_id, category):
+                        phase_label = file_obj.current_stage or "Pre-Shipment"
+                        schema = _coded_notification(
+                            msg(
+                                "NOTIF_CHECKLIST_GATE_BLOCKED",
+                                import_file_code=file_obj.import_file_code,
+                                blocking_count=summary.mandatory_pending_items,
+                                target_phase=phase_label,
+                            ),
+                            severity="CRITICAL" if summary.mandatory_pending_items >= 5 else "WARNING",
+                            category=category,
+                            entity_type="ImportFile",
+                            entity_id=file_obj.import_file_id,
+                            target_role="COORDINATOR",
+                        )
+                        created = self.repo.create(schema)
+                        new_notifications.append(created)
+            except Exception:
+                continue
+
+        return new_notifications
+
+    def _check_eta_checklist_readiness_alerts(self) -> List[NotificationCreate]:
+        """
+        15. ETA vs Checklist Readiness Watchdog:
+        Emits alert if vessel arrival is within 7 days and Port Arrival / Clearance
+        checklist items are still unverified.
+        """
+        new_notifications: List[NotificationCreate] = []
+        try:
+            from modules.smart_checklists.service import get_checklist_summary
+        except ImportError:
+            return new_notifications
+
+        today = date.today()
+        threshold = today + timedelta(days=7)
+
+        active_files = self.db.query(ImportFile).filter(
+            ImportFile.is_active == True,
+            ImportFile.status.in_(["Draft", "Open", "In Progress"]),
+            ImportFile.required_eta.isnot(None),
+        ).all()
+
+        for file_obj in active_files:
+            try:
+                eta_val = file_obj.required_eta
+                if isinstance(eta_val, str):
+                    try:
+                        eta_d = date.fromisoformat(eta_val[:10])
+                    except ValueError:
+                        continue
+                elif isinstance(eta_val, datetime):
+                    eta_d = eta_val.date()
+                elif isinstance(eta_val, date):
+                    eta_d = eta_val
+                else:
+                    continue
+
+                if not (today <= eta_d <= threshold):
+                    continue
+
+                summary = get_checklist_summary(self.db, file_obj.import_file_id)
+                # Count pending mandatory items for port arrival & clearance
+                port_pending = sum(
+                    1 for i in summary.items
+                    if i.is_mandatory and i.status == "PENDING" and i.phase_code in ("PORT_ARRIVAL", "CLEARANCE")
+                )
+                if port_pending > 0:
+                    category = "CHECKLIST_ETA_APPROACHING"
+                    if not self.repo.exists_active_for_entity("ImportFile", file_obj.import_file_id, category):
+                        days_left = (eta_d - today).days
+                        schema = _coded_notification(
+                            msg(
+                                "NOTIF_CHECKLIST_ETA_APPROACHING",
+                                import_file_code=file_obj.import_file_code,
+                                days_left=days_left,
+                                eta_date=_iso(eta_d),
+                                blocking_count=port_pending,
+                            ),
+                            severity="CRITICAL" if days_left <= 3 else "WARNING",
+                            category=category,
+                            entity_type="ImportFile",
+                            entity_id=file_obj.import_file_id,
+                            target_role="ALL",
+                        )
+                        created = self.repo.create(schema)
+                        new_notifications.append(created)
+            except Exception:
+                continue
+
+        return new_notifications
+
 

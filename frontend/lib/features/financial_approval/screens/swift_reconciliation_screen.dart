@@ -18,7 +18,6 @@ import '../widgets/swift_extraction_review_widget.dart';
 import 'package:flutter/services.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/services/display_name_resolver.dart';
-import '../../../core/localization/stored_text.dart';
 
 import 'package:frontend/core/widgets/ltr_text.dart';
 
@@ -152,13 +151,7 @@ class _SwiftReconciliationScreenState
       ].join('\t'));
     }
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.swiftExportTsvSuccess),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
+    CopyHelper.copy(context, buffer.toString(), customMessage: l10n.swiftExportTsvSuccess);
   }
 
   void _copyPaymentDossier(PaymentRequestModel pay) {
@@ -190,13 +183,7 @@ ${l10n.swiftReconciliationNotesLabel}: ${pay.swiftReconciliationNotes ?? "-"}
 '''
         .trim();
 
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.swiftCopySummarySuccess),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
+    CopyHelper.copy(context, text, customMessage: l10n.swiftCopySummarySuccess);
   }
 
   void _copyFilteredSummary(List<PaymentRequestModel> payments) {
@@ -222,13 +209,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
 '''
         .trim();
 
-    Clipboard.setData(ClipboardData(text: summary));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.swiftCopySummarySuccess),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
+    CopyHelper.copy(context, summary, customMessage: l10n.swiftCopySummarySuccess);
   }
 
   Future<void> _pickAndExtractFile({int? targetPaymentId}) async {
@@ -567,9 +548,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
             final transferredAmt =
                 double.tryParse(transferredAmountController.text.trim()) ?? 0.0;
             final variance = transferredAmt - pay.requestedAmount;
-            final processingDays = receiptDate != null
-                ? receiptDate!.difference(requestDate).inDays
-                : null;
+            final processingDays = receiptDate?.difference(requestDate).inDays;
             final safeDays = processingDays != null
                 ? (processingDays < 0 ? 0 : processingDays)
                 : null;
@@ -625,7 +604,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppTheme.cobaltLight.withOpacity(0.5),
+                              color: AppTheme.cobaltLight.withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: AppTheme.cobaltBorder),
                             ),
@@ -754,15 +733,18 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                       final p = res['parsed_swift']
                                           as Map<String, dynamic>;
                                       setDialogState(() {
-                                        if (p['transaction_reference'] != null)
+                                        if (p['transaction_reference'] != null) {
                                           swiftRefController.text =
                                               p['transaction_reference'];
-                                        if (p['amount'] != null)
+                                        }
+                                        if (p['amount'] != null) {
                                           transferredAmountController.text =
                                               p['amount'].toString();
-                                        if (p['currency'] != null)
+                                        }
+                                        if (p['currency'] != null) {
                                           selectedCurrency =
                                               p['currency'].toString();
+                                        }
                                         if (p['value_date'] != null) {
                                           receiptDate = DateTime.tryParse(
                                                   p['value_date']) ??
@@ -797,15 +779,18 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                             as Map<String, dynamic>;
                                         setDialogState(() {
                                           if (p['transaction_reference'] !=
-                                              null)
+                                              null) {
                                             swiftRefController.text =
                                                 p['transaction_reference'];
-                                          if (p['amount'] != null)
+                                          }
+                                          if (p['amount'] != null) {
                                             transferredAmountController.text =
                                                 p['amount'].toString();
-                                          if (p['currency'] != null)
+                                          }
+                                          if (p['currency'] != null) {
                                             selectedCurrency =
                                                 p['currency'].toString();
+                                          }
                                           if (p['value_date'] != null) {
                                             receiptDate = DateTime.tryParse(
                                                     p['value_date']) ??
@@ -859,15 +844,18 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                               as Map<String, dynamic>;
                                           setDialogState(() {
                                             if (p['transaction_reference'] !=
-                                                null)
+                                                null) {
                                               swiftRefController.text =
                                                   p['transaction_reference'];
-                                            if (p['amount'] != null)
+                                            }
+                                            if (p['amount'] != null) {
                                               transferredAmountController.text =
                                                   p['amount'].toString();
-                                            if (p['currency'] != null)
+                                            }
+                                            if (p['currency'] != null) {
                                               selectedCurrency =
                                                   p['currency'].toString();
+                                            }
                                             if (p['value_date'] != null) {
                                               receiptDate = DateTime.tryParse(
                                                       p['value_date']) ??
@@ -995,12 +983,14 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                   ),
                                   onChanged: (v) => setDialogState(() {}),
                                   validator: (v) {
-                                    if (v == null || v.trim().isEmpty)
+                                    if (v == null || v.trim().isEmpty) {
                                       return l10n.swiftEnterAmountError;
+                                    }
                                     final num = double.tryParse(v.trim());
-                                    if (num == null || num <= 0)
+                                    if (num == null || num <= 0) {
                                       return l10n
                                           .swiftAmountGreaterThanZeroError;
+                                    }
                                     return null;
                                   },
                                 ),
@@ -1055,10 +1045,10 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                           Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: varianceColor.withOpacity(0.08),
+                              color: varianceColor.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                  color: varianceColor.withOpacity(0.4),
+                                  color: varianceColor.withValues(alpha: 0.4),
                                   width: 1.5),
                             ),
                             child: Column(
@@ -1510,15 +1500,15 @@ ${l10n.swiftVariancesMetric}: $varianceCount
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: TextStyle(fontSize: 10, color: AppTheme.textStrong)),
+                style: const TextStyle(fontSize: 10, color: AppTheme.textStrong)),
             const SizedBox(height: 2),
             Text(value,
                 style: TextStyle(
@@ -1616,13 +1606,13 @@ ${l10n.swiftVariancesMetric}: $varianceCount
         decoration: BoxDecoration(
           color: AppTheme.white,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
             const SizedBox(height: 2),
             InkWell(
               onTap: () => CopyHelper.copy(context, value),
@@ -1642,7 +1632,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                   ),
                   const SizedBox(width: 4),
                   Icon(Icons.copy_rounded,
-                      size: 12, color: color.withOpacity(0.7)),
+                      size: 12, color: color.withValues(alpha: 0.7)),
                 ],
               ),
             ),
@@ -1975,10 +1965,10 @@ ${l10n.swiftVariancesMetric}: $varianceCount
       decoration: BoxDecoration(
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.cobalt.withOpacity(0.3), width: 1.5),
+        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.cobalt.withOpacity(0.06),
+            color: AppTheme.cobalt.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 3),
           )
@@ -1992,7 +1982,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppTheme.charcoal, AppTheme.cobalt.withOpacity(0.9)],
+                colors: [AppTheme.charcoal, AppTheme.cobalt.withValues(alpha: 0.9)],
                 begin: AlignmentDirectional.centerEnd,
                 end: AlignmentDirectional.centerStart,
               ),
@@ -2093,7 +2083,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                   children: [
                                     Text(
                                       '${l10n.swiftExtractedDocLabel} ',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 12,
                                           color: AppTheme.wcagCobalt),
@@ -2101,7 +2091,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                     Expanded(
                                       child: Text(
                                         _uploadedFileName!,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 12,
                                             color: AppTheme.wcagCobalt),
@@ -2113,7 +2103,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                 const SizedBox(height: 2),
                                 Text(
                                   '${l10n.swiftDocTypePrefix} ${_detectedFileType ?? l10n.swiftDocumentDefaultType} ${_uploadedFileSize != null ? "• ${l10n.swiftDocSizePrefix} ${(_uploadedFileSize! / 1024).toStringAsFixed(1)} KB" : ""}',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                       fontSize: 11, color: AppTheme.wcagCobalt),
                                 ),
                               ],
@@ -2286,7 +2276,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppTheme.emeraldLight.withOpacity(0.4),
+                        color: AppTheme.emeraldLight.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: AppTheme.emerald, width: 2),
                       ),
@@ -2300,7 +2290,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                               const SizedBox(width: 8),
                               Text(
                                 context.l10n.faApprovedMatchingMatrix,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                   color: AppTheme.charcoal,
@@ -2316,7 +2306,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                 ),
                                 child: Text(
                                   context.l10n.faDataHumanVerified,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                       color: AppTheme.white,
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold),
@@ -2344,7 +2334,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                           child: Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: AppTheme.cobaltLight.withOpacity(0.6),
+                              color: AppTheme.cobaltLight.withValues(alpha: 0.6),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: AppTheme.cobaltBorder),
                             ),
@@ -2447,7 +2437,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                 const SizedBox(height: 6),
                                 Text(
                                     '${l10n.swiftExtractedSenderPrefix.replaceAll(':', '')}: ${_extractedSwift!['ordering_customer_name'] ?? "-"} (${_extractedSwift!['ordering_account_or_iban'] ?? "-"})',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                         fontSize: 11,
                                         color: AppTheme.textStrong)),
                                 if (_extractedSwift!['pi_number'] != null ||
@@ -2471,7 +2461,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                           child: Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: AppTheme.emeraldLight.withOpacity(0.4),
+                              color: AppTheme.emeraldLight.withValues(alpha: 0.4),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: AppTheme.emeraldBorder),
                             ),
@@ -2600,7 +2590,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                            color: AppTheme.black.withOpacity(0.04),
+                            color: AppTheme.black.withValues(alpha: 0.04),
                             blurRadius: 4,
                             offset: const Offset(0, 2))
                       ],
@@ -2677,7 +2667,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                            color: AppTheme.black.withOpacity(0.04),
+                            color: AppTheme.black.withValues(alpha: 0.04),
                             blurRadius: 4,
                             offset: const Offset(0, 2))
                       ],
@@ -2687,9 +2677,9 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                       children: [
                         Container(
                           padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             color: AppTheme.charcoalSurface,
-                            borderRadius: const BorderRadius.vertical(
+                            borderRadius: BorderRadius.vertical(
                                 top: Radius.circular(8)),
                             border: Border(
                                 bottom: BorderSide(color: AppTheme.cloudWhite)),
@@ -2937,14 +2927,14 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                                           vertical: 1),
                                                       decoration: BoxDecoration(
                                                         color: AppTheme.charcoal
-                                                            .withOpacity(0.08),
+                                                            .withValues(alpha: 0.08),
                                                         borderRadius:
                                                             BorderRadius
                                                                 .circular(4),
                                                       ),
                                                       child: Text(
                                                         pay.importFileCode!,
-                                                        style: TextStyle(
+                                                        style: const TextStyle(
                                                             fontSize: 9,
                                                             color: AppTheme
                                                                 .textStrong,
@@ -2985,7 +2975,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                             Text(
                                                 pay.bankName ??
                                                     l10n.swiftUnspecifiedBank,
-                                                style: TextStyle(
+                                                style: const TextStyle(
                                                     fontSize: 11,
                                                     color: AppTheme
                                                         .textSecondary)),
@@ -3244,7 +3234,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
         child: Container(
           padding: const EdgeInsets.all(2),
           decoration: BoxDecoration(
-            color: AppTheme.cobalt.withOpacity(0.08),
+            color: AppTheme.cobalt.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(4),
           ),
           child:

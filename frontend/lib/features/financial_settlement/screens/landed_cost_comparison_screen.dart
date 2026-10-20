@@ -232,7 +232,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.white.withOpacity(0.2),
+                    color: AppTheme.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
@@ -307,9 +307,9 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.1),
+                  color: AppTheme.cobalt.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -536,9 +536,9 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
           child: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.08),
+              color: color.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: color.withOpacity(0.35)),
+              border: Border.all(color: color.withValues(alpha: 0.35)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -556,7 +556,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(SettlementTokens.radius),
-        border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,7 +580,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
                         style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       const SizedBox(width: 4),
-                      Icon(Icons.copy, size: 12, color: AppTheme.white.withOpacity(0.7)),
+                      Icon(Icons.copy, size: 12, color: AppTheme.white.withValues(alpha: 0.7)),
                     ],
                   ),
                 ),
@@ -869,7 +869,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         border: Border.all(color: color),
         borderRadius: BorderRadius.circular(SettlementTokens.radius),
       ),

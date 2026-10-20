@@ -11,15 +11,15 @@ void main() {
   const stored = ['Critical field is empty: Booking Number', 'Critical mismatch in Consignee'];
 
   test('coded reasons render in English and Arabic', () {
-    final en = displayBlockingReasons(AppLocalizationsEn(), stored, coded);
+    final en = displayBlockingReasons(const AppLocalizationsEn(), stored, coded);
     expect(en, stored.map((s) => s.replaceAll('Consignee', 'Consignee Name, Address & Phone')).toList());
-    final ar = displayBlockingReasons(AppLocalizationsAr(), stored, coded, forExport: true);
+    final ar = displayBlockingReasons(const AppLocalizationsAr(), stored, coded, forExport: true);
     expect(ar[0], 'حقل حرج فارغ: رقم الحجز (Booking Number)');
     expect(ar[1], 'اختلاف حرج في المستورد / المرسل إليه (Consignee)');
   });
 
   test('null coded list falls back to stored text', () {
-    expect(displayBlockingReasons(AppLocalizationsAr(), stored, null), stored);
+    expect(displayBlockingReasons(const AppLocalizationsAr(), stored, null), stored);
   });
 
   test('parseBlockingReasonsCoded', () {

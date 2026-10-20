@@ -437,19 +437,21 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                   ? const OpsLoadingView()
                   : _loadError != null
                       ? _buildLoadError()
-                      : SingleChildScrollView(
-                          padding: const EdgeInsetsDirectional.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildKpiSummaryCards(),
-                              const SizedBox(height: 16),
-                              if (_existingBooking != null) ...[
-                                _buildExistingBookingCard(),
+                      : SelectionArea(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsetsDirectional.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildKpiSummaryCards(),
                                 const SizedBox(height: 16),
+                                if (_existingBooking != null) ...[
+                                  _buildExistingBookingCard(),
+                                  const SizedBox(height: 16),
+                                ],
+                                if (_showBookingForm) _buildBookingForm(),
                               ],
-                              if (_showBookingForm) _buildBookingForm(),
-                            ],
+                            ),
                           ),
                         ),
             ),

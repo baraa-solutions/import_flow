@@ -310,15 +310,15 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                     String statusText = l.poRecOk;
 
                     if (item.isMissingInPacking) {
-                      rowBg = isDark ? AppTheme.crimson.withOpacity(0.3) : AppTheme.crimsonLight.withOpacity(0.5);
+                      rowBg = isDark ? AppTheme.crimson.withValues(alpha: 0.3) : AppTheme.crimsonLight.withValues(alpha: 0.5);
                       statusColor = isDark ? Colors.redAccent : AppTheme.crimson;
                       statusText = l.poRecMissingInPacking;
                     } else if (item.isMissingInInvoice) {
-                      rowBg = isDark ? AppTheme.wcagOrange.withOpacity(0.3) : AppTheme.orangeLight.withOpacity(0.5);
+                      rowBg = isDark ? AppTheme.wcagOrange.withValues(alpha: 0.3) : AppTheme.orangeLight.withValues(alpha: 0.5);
                       statusColor = isDark ? AppTheme.orange : AppTheme.wcagOrange;
                       statusText = l.poRecMissingInInvoice;
                     } else if (!item.isMatched) {
-                      rowBg = isDark ? AppTheme.wcagOrange.withOpacity(0.3) : AppTheme.orangeLight.withOpacity(0.5);
+                      rowBg = isDark ? AppTheme.wcagOrange.withValues(alpha: 0.3) : AppTheme.orangeLight.withValues(alpha: 0.5);
                       statusColor = AppTheme.orange;
                       statusText = l.poRecQtyDiff;
                     }
@@ -359,9 +359,9 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: statusColor.withOpacity(0.12),
+                              color: statusColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: statusColor.withOpacity(0.4)),
+                              border: Border.all(color: statusColor.withValues(alpha: 0.4)),
                             ),
                             child: Text(
                               statusText,

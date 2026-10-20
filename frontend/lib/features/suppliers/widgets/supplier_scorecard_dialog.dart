@@ -145,7 +145,7 @@ class _SupplierScorecardDialogState extends ConsumerState<SupplierScorecardDialo
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: tierColor.withOpacity(0.12),
+                  color: tierColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(Icons.verified_outlined, color: tierColor, size: 30),
@@ -180,9 +180,9 @@ class _SupplierScorecardDialogState extends ConsumerState<SupplierScorecardDialo
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: tierColor.withOpacity(0.06),
+              color: tierColor.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: tierColor.withOpacity(0.4), width: 1.5),
+              border: Border.all(color: tierColor.withValues(alpha: 0.4), width: 1.5),
             ),
             child: Row(
               children: [
@@ -359,9 +359,9 @@ class _SupplierScorecardDialogState extends ConsumerState<SupplierScorecardDialo
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

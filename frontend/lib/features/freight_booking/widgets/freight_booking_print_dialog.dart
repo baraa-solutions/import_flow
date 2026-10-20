@@ -1,21 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../customs_clearance/widgets/cc_dialog_shell.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../models/freight_booking_model.dart';
+import '../services/freight_booking_pdf_service.dart';
 import 'freight_booking_ui.dart';
 
-/// Booking manifest preview ("paper" sheet) with copy and print actions.
-class FreightBookingPrintDialog extends StatelessWidget {
+/// Booking manifest preview ("paper" sheet) with copy, save PDF, and print actions.
+class FreightBookingPrintDialog extends StatefulWidget {
   final ShipmentBookingModel booking;
-  const FreightBookingPrintDialog({super.key, required this.booking});
+  final String? fileCode;
+
+  const FreightBookingPrintDialog({
+    super.key,
+    required this.booking,
+    this.fileCode,
+  });
+
+  @override
+  State<FreightBookingPrintDialog> createState() => _FreightBookingPrintDialogState();
+}
+
+class _FreightBookingPrintDialogState extends State<FreightBookingPrintDialog> {
+  bool _isExporting = false;
 
   List<String> _copyLines(AppLocalizations l) {
-    final b = booking;
+    final b = widget.booking;
     return <String>[
       l.freightBookingPrintSystemHeader,
       '${l.freightBookingColBookingCode}: ${b.bookingCode}',
@@ -31,41 +47,103 @@ class FreightBookingPrintDialog extends StatelessWidget {
     ];
   }
 
+  Future<void> _onPrint(AppLocalizations l) async {
+    setState(() => _isExporting = true);
+    try {
+      final bytes = await FreightBookingPdfService.build(
+        booking: widget.booking,
+        l: l,
+        fileCode: widget.fileCode,
+      );
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: '${widget.booking.bookingCode}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        FbkUi.snack(context, e.toString(), severity: AppSeverity.danger);
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _onSavePdf(AppLocalizations l) async {
+    setState(() => _isExporting = true);
+    try {
+      final bytes = await FreightBookingPdfService.build(
+        booking: widget.booking,
+        l: l,
+        fileCode: widget.fileCode,
+      );
+      if (!mounted) return;
+      final targetName = widget.fileCode ?? widget.booking.bookingCode;
+      await FileSaveHelper.exportAndSaveFile(
+        context: context,
+        bytes: bytes,
+        stageName: l.fbkStageName,
+        importFileNameOrCode: targetName,
+        extension: 'pdf',
+      );
+      if (mounted) {
+        FbkUi.snack(context, l.freightBookingPrintSuccess, severity: AppSeverity.success);
+      }
+    } catch (e) {
+      if (mounted) {
+        FbkUi.snack(context, e.toString(), severity: AppSeverity.danger);
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final b = booking;
+    final b = widget.booking;
 
     return CcStageDialogShell(
       title: l.freightBookingPrintTitle(b.bookingCode),
       icon: Icons.print,
       maxWidth: 780,
-      isSubmitting: false,
+      isSubmitting: _isExporting,
       confirmLabel: l.freightBookingPrintNowBtn,
       confirmIcon: Icons.print,
       confirmVariant: AppButtonVariant.primary,
       cancelKey: const Key('fbkPrintCloseBtn'),
       footerLeading: Align(
         alignment: AlignmentDirectional.centerStart,
-        child: FbkUi.fit(AppButton(
-          label: l.copyTooltip,
-          icon: Icons.copy_outlined,
-          variant: AppButtonVariant.ghost,
-          size: AppButtonSize.small,
-          onPressed: () => CopyHelper.copy(context, _copyLines(l).join('\n')),
-        )),
+        child: Wrap(
+          spacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            FbkUi.fit(AppButton(
+              label: l.copyTooltip,
+              icon: Icons.copy_outlined,
+              variant: AppButtonVariant.ghost,
+              size: AppButtonSize.small,
+              onPressed: () => CopyHelper.copy(context, _copyLines(l).join('\n')),
+            )),
+            FbkUi.fit(AppButton(
+              key: const Key('fbkSavePdfBtn'),
+              label: l.fbkSavePdfBtn,
+              icon: Icons.download_outlined,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
+              isLoading: _isExporting,
+              onPressed: _isExporting ? null : () => _onSavePdf(l),
+            )),
+          ],
+        ),
       ),
-      onConfirm: () {
-        FbkUi.snack(context, l.freightBookingPrintSuccess, severity: AppSeverity.success);
-        Navigator.pop(context);
-      },
+      onConfirm: () => _onPrint(l),
       body: SelectionArea(child: _sheet(context, l)),
     );
   }
 
   /// The printable sheet always keeps a white paper look with dark ink.
   Widget _sheet(BuildContext context, AppLocalizations l) {
-    final b = booking;
+    final b = widget.booking;
     const ink = AppTheme.charcoal;
     const muted = AppTheme.textCaption;
     const bold = TextStyle(fontWeight: FontWeight.bold, color: ink, fontSize: 13);

@@ -82,10 +82,11 @@ class _SearchAndCloneWarehouseReceivingDialogState
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
       backgroundColor: AppTheme.surfaceOf(context),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        padding: const EdgeInsetsDirectional.all(20),
+      child: SelectionArea(
+        child: Container(
+          width: dialogWidth,
+          height: dialogHeight,
+          padding: const EdgeInsetsDirectional.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -191,7 +192,7 @@ class _SearchAndCloneWarehouseReceivingDialogState
                                         Container(
                                           padding: const EdgeInsetsDirectional.symmetric(horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.cobalt.withOpacity(0.12),
+                                            color: AppTheme.cobalt.withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                                           ),
                                           child: CopyableText(
@@ -247,6 +248,7 @@ class _SearchAndCloneWarehouseReceivingDialogState
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -285,7 +287,7 @@ class _SearchAndCloneWarehouseReceivingDialogState
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => onSelected(value),
-      selectedColor: activeColor.withOpacity(0.2),
+      selectedColor: activeColor.withValues(alpha: 0.2),
       backgroundColor: AppTheme.surfaceAltOf(context),
       side: BorderSide(color: isSelected ? activeColor : AppTheme.borderOf(context)),
       labelStyle: TextStyle(

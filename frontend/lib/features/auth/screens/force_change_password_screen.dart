@@ -121,12 +121,13 @@ class _ForceChangePasswordScreenState extends ConsumerState<ForceChangePasswordS
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkScaffoldBackground : AppTheme.charcoal,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-          child: Card(
-            elevation: 10,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      body: SelectionArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            child: Card(
+              elevation: 10,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Container(
               width: 520,
               padding: const EdgeInsets.all(32),
@@ -232,7 +233,8 @@ class _ForceChangePasswordScreenState extends ConsumerState<ForceChangePasswordS
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

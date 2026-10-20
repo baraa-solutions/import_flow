@@ -259,7 +259,6 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   }
 
   void _copyApprovalsAsTsv(List<CustomsDocumentApprovalModel> approvals) {
-    final isAr = context.l10n.isArabic;
     final headers = [
       context.l10n.idocAApprovalCode,
       context.l10n.idocADocumentType,
@@ -286,7 +285,6 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   }
 
   Future<void> _exportApprovalsToExcel(List<CustomsDocumentApprovalModel> approvals) async {
-    final isAr = context.l10n.isArabic;
     final headers = [
       context.l10n.idocAApprovalCode,
       context.l10n.idocADocumentType,
@@ -319,7 +317,6 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   }
 
   Future<void> _exportApprovalsToPdf(List<CustomsDocumentApprovalModel> approvals) async {
-    final isAr = context.l10n.isArabic;
     final headers = [
       context.l10n.idocACode,
       context.l10n.idocADoc,
@@ -357,7 +354,6 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   }
 
   void _copyTicketsAsTsv(List<DiscrepancyRectificationTicketModel> tickets) {
-    final isAr = context.l10n.isArabic;
     final headers = [
       context.l10n.idocATicketCode,
       context.l10n.idocAIssueCategory,
@@ -382,7 +378,6 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   }
 
   Future<void> _exportTicketsToExcel(List<DiscrepancyRectificationTicketModel> tickets) async {
-    final isAr = context.l10n.isArabic;
     final headers = [
       context.l10n.idocATicketCode,
       context.l10n.idocAIssueCategory,
@@ -413,7 +408,6 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   }
 
   Future<void> _exportTicketsToPdf(List<DiscrepancyRectificationTicketModel> tickets) async {
-    final isAr = context.l10n.isArabic;
     final headers = [
       context.l10n.idocACode,
       context.l10n.idocASeverityAlt,
@@ -763,9 +757,9 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
                               key: const Key('matrixNotCheckedChip'),
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.15),
+                                color: Colors.grey.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.grey.withOpacity(0.5)),
+                                border: Border.all(color: Colors.grey.withValues(alpha: 0.5)),
                               ),
                               child: Text(
                                 context.l10n.idocAMatrixNotChecked(_matrixResult!.notCheckedCount),
@@ -1056,7 +1050,6 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   }
 
   Widget _buildApprovalRow(CustomsDocumentApprovalModel item) {
-    final isDark = AppTheme.isDark(context);
     final l = context.l10n;
     Color overallColor = AppTheme.orange;
     if (item.overallStatus == 'Approved for Clearance') overallColor = AppTheme.emerald;

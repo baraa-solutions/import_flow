@@ -1332,7 +1332,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                             border: Border.all(color: AppTheme.infoForeground, width: 1.5),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Text(
+                          child: const Text(
                             'A-004 • LT VM • 2026-08-11',
                             style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.infoForeground),
                           ),
@@ -1382,7 +1382,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                             border: Border.all(color: AppTheme.infoForeground, width: 1.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(
+                          child: const Text(
                             'NARBUTAS DOKUMENTAI',
                             style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.infoForeground),
                           ),

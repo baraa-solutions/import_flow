@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/file_save_helper.dart';
 import '../../services/table_export_service.dart';
@@ -10,7 +9,7 @@ import 'widgets/enterprise_table_column_picker_dialog.dart';
 import 'widgets/enterprise_table_header_toolbar.dart';
 import 'widgets/enterprise_table_pagination_bar.dart';
 import 'widgets/enterprise_table_shimmer_skeleton.dart';
-import '../../utils/bidi_text.dart';
+import '../../helpers/table_copy_helper.dart';
 
 export 'models/enterprise_column.dart';
 export 'widgets/enterprise_table_column_picker_dialog.dart';
@@ -360,32 +359,15 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
     final dataToExport = _filteredAndSortedData;
     if (dataToExport.isEmpty) return;
 
-    final headers = activeCols.map((c) => c.title.replaceAll('\t', ' ')).join('\t');
+    final headers = activeCols.map((c) => c.title.replaceAll('\t', ' ')).toList();
     final rows = dataToExport.map((item) {
       return activeCols.map((c) {
         final val = c.exportValue?.call(item) ?? c.searchValue?.call(item) ?? '';
         return val.replaceAll('\t', ' ').replaceAll('\n', ' ');
-      }).join('\t');
+      }).toList();
     }).toList();
 
-    final tsvContent = '$headers\n${rows.join('\n')}';
-    await Clipboard.setData(ClipboardData(text: stripBidiIsolates(tsvContent)));
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-              const SizedBox(width: 8),
-              Text('تم نسخ ${dataToExport.length} سجل إلى الحافظة بتنسيق Excel بنجاح'),
-            ],
-          ),
-          backgroundColor: AppTheme.emerald,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
+    await TableCopyHelper.copyTable(context, headers, rows);
   }
 
   Future<void> _exportToPdf() async {

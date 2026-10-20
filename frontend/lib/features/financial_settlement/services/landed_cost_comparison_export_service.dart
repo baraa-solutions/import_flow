@@ -1,15 +1,14 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/domain_enum_labels.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 /// Service responsible for exporting Landed Cost Comparison data across TSV, Excel (CSV), vector PDF, and clipboard dossier.
 class LandedCostComparisonExportService {
@@ -103,16 +102,11 @@ class LandedCostComparisonExportService {
   /// Copies dossier to clipboard and shows SnackBar notification.
   Future<void> copyDossierToClipboard() async {
     final text = buildDossierText();
-    await Clipboard.setData(ClipboardData(text: text));
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_l10n.landedCostCopyDossierSuccess),
-          backgroundColor: AppTheme.emerald,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
+    await CopyHelper.copy(
+      context,
+      text,
+      customMessage: _l10n.landedCostCopyDossierSuccess,
+    );
   }
 
   /// Exports Landed Cost comparison to TSV format with UTF-8 BOM.

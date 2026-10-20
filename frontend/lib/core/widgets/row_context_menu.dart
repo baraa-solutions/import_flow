@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/providers/current_permissions_provider.dart';
 import '../localization/app_localizations.dart';
 import '../network/api_error.dart';
 import '../theme/app_theme.dart';
+import 'copyable_data_helper.dart';
 import 'paged_data_table/row_action.dart';
 
 /// Helper to render right-click / long-press context menus for table rows.
@@ -165,14 +165,7 @@ class RowContextMenuHelper {
     ).then((value) async {
       if (value == null) return;
       if (value == '__copy_code__') {
-        Clipboard.setData(ClipboardData(text: codeToCopy!));
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text(l.copiedToClipboard(codeToCopy)),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        CopyHelper.copy(context, codeToCopy!);
       } else if (value is RowAction<T>) {
         if (!context.mounted) return;
         if (!value.enabled || value.disabledReason != null) return;
@@ -226,7 +219,6 @@ class RowContextMenuHelper {
     required VoidCallback onToggleActive,
   }) {
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final l = context.l10n;
 
     showMenu<String>(
@@ -337,14 +329,7 @@ class RowContextMenuHelper {
           onHistory();
           break;
         case 'copy':
-          Clipboard.setData(ClipboardData(text: codeToCopy));
-          scaffoldMessenger.showSnackBar(
-            SnackBar(
-              content: Text(l.copiedToClipboard(codeToCopy)),
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          CopyHelper.copy(context, codeToCopy);
           break;
         case 'toggle':
           onToggleActive();

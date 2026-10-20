@@ -153,7 +153,7 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
         border: Border.all(color: bannerBorderColor, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             offset: const Offset(0, 2),
             blurRadius: 6,
           ),
@@ -190,7 +190,7 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: bannerBorderColor.withOpacity(0.12),
+                              color: bannerBorderColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -404,7 +404,7 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: entry.severityColor.withOpacity(0.4)),
+        border: Border.all(color: entry.severityColor.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -426,7 +426,7 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: entry.severityColor.withOpacity(0.08),
+                  color: entry.severityColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -534,7 +534,7 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
             decoration: BoxDecoration(
               color: const Color(0xFFF0FDF4),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.flatEmerald.withOpacity(0.4)),
+              border: Border.all(color: AppTheme.flatEmerald.withValues(alpha: 0.4)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

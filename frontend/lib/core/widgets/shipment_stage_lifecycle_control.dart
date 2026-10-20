@@ -125,9 +125,9 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
           title: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppTheme.orange.withOpacity(0.12),
+              color: AppTheme.orange.withValues(alpha: 0.12),
               borderRadius: const BorderRadiusDirectional.only(topStart: Radius.circular(12), topEnd: Radius.circular(12)),
-              border: Border(bottom: BorderSide(color: AppTheme.orange.withOpacity(0.3))),
+              border: Border(bottom: BorderSide(color: AppTheme.orange.withValues(alpha: 0.3))),
             ),
             child: Row(
               children: [
@@ -266,7 +266,7 @@ class ShipmentStageLifecycleControl extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.red.shade900.withOpacity(0.2),
+              color: Colors.red.shade900.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: Colors.red.shade400, width: 1.2),
             ),
@@ -452,7 +452,7 @@ class ShipmentHoldWarningBanner extends ConsumerWidget {
         color: Colors.amber.shade900,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),

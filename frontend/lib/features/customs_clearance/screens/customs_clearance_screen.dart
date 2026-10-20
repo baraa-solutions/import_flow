@@ -829,6 +829,14 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                 record,
                 (f) => CustomsDeclaration46Dialog.show(context, f),
               ),
+              onInspection: () => _openRecordStage(
+                record,
+                (f) => CustomsInspectionSamplingDialog.show(context, f, clearanceRecord: record),
+              ),
+              onAssessDuties: () => _openRecordStage(
+                record,
+                (f) => FinalDutyAssessmentDialog.show(context, f),
+              ),
               onEdit: () => _showAddEditDialog(record),
               onCopyRow: () => _copyClearanceRowTsv(record, l),
               onClone: () => _onCloneClearance(record),

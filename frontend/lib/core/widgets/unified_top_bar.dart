@@ -53,7 +53,7 @@ class UnifiedTopBar extends ConsumerWidget {
               Container(
                 padding: EdgeInsets.all(density.isUltraCompact ? 2.5 : 3.5),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.12),
+                  color: AppTheme.cobalt.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(5),
                 ),
                 child: Icon(
@@ -175,7 +175,7 @@ class UnifiedTopBar extends ConsumerWidget {
                     color: AppTheme.emerald,
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.emerald.withOpacity(0.6),
+                        color: AppTheme.emerald.withValues(alpha: 0.6),
                         blurRadius: 3,
                         spreadRadius: 1,
                       ),

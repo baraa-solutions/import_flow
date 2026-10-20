@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -7,7 +8,7 @@ import '../../currencies/models/currency_model.dart';
 import 'broker_cost_row.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 
-class BrokerQuoteDetailsCard extends StatelessWidget {
+class BrokerQuoteDetailsCard extends ConsumerWidget {
   final int? selectedBrokerId;
   final bool isLoadingPriceList;
   final List<CustomsBrokerQuoteItemModel> brokerQuoteItems;
@@ -15,6 +16,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
   final String categoryFilter;
   final bool isExpanded;
   final List<CurrencyModel> currenciesList;
+  final double? referenceUsdExchangeRate;
   final VoidCallback onToggleExpanded;
   final ValueChanged<String> onCategoryChanged;
   final VoidCallback onAddCustomExpense;
@@ -32,6 +34,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
     required this.categoryFilter,
     required this.isExpanded,
     required this.currenciesList,
+    this.referenceUsdExchangeRate,
     required this.onToggleExpanded,
     required this.onCategoryChanged,
     required this.onAddCustomExpense,
@@ -42,7 +45,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     if (selectedBrokerId == null) {
@@ -87,8 +90,23 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
       );
     }
 
-    final totalBrokerFees = brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
     final appliedCount = brokerQuoteItems.where((i) => i.isApplicable).length;
+
+    // Currency totals (M2-2 Multi-Currency)
+    final egpTotal = brokerQuoteItems
+        .where((i) => i.isApplicable && (i.currency ?? '').toUpperCase() == 'EGP')
+        .fold(0.0, (sum, itm) => sum + itm.totalAmount);
+
+    final usdTotal = brokerQuoteItems
+        .where((i) => i.isApplicable && (i.currency ?? '').toUpperCase() == 'USD')
+        .fold(0.0, (sum, itm) => sum + itm.totalAmount);
+
+    final otherCurrenciesTotal = brokerQuoteItems
+        .where((i) => i.isApplicable && (i.currency ?? '').toUpperCase() != 'EGP' && (i.currency ?? '').toUpperCase() != 'USD')
+        .fold(0.0, (sum, itm) => sum + itm.totalAmount);
+
+    final hasUsdRate = referenceUsdExchangeRate != null && referenceUsdExchangeRate! > 0;
+    final convertedGrandTotalEgp = egpTotal + (hasUsdRate ? usdTotal * referenceUsdExchangeRate! : 0.0);
 
     final baseCategories = [
       'All',
@@ -222,7 +240,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                             child: ChoiceChip(
                               label: Text(label, style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
                               selected: isSelected,
-                              selectedColor: AppTheme.cobalt.withOpacity(0.15),
+                              selectedColor: AppTheme.cobalt.withValues(alpha: 0.15),
                               onSelected: (_) => onCategoryChanged(cat),
                             ),
                           );
@@ -265,18 +283,20 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                     index: idx,
                     item: item,
                     currenciesList: currenciesList,
+                    ref: ref,
+                    referenceUsdExchangeRate: referenceUsdExchangeRate,
                   );
                 }),
 
               const Divider(height: 24),
 
-              // Summary Bar
+              // Summary Bar (M2-2 Multi-Currency Breakdown)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.08),
+                  color: AppTheme.cobalt.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -291,9 +311,46 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    Text(
-                      '${totalBrokerFees.toStringAsFixed(2)} EGP',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.cobalt),
+                    Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        if (egpTotal > 0 || (usdTotal == 0 && otherCurrenciesTotal == 0)) ...[
+                          Text(
+                            '${egpTotal.toStringAsFixed(2)} EGP',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.cobalt),
+                          ),
+                        ],
+                        if (usdTotal > 0) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.orangeLight,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppTheme.wcagOrange.withValues(alpha: 0.4)),
+                            ),
+                            child: Text(
+                              '${usdTotal.toStringAsFixed(2)} USD',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.wcagOrange),
+                            ),
+                          ),
+                        ],
+                        if (usdTotal > 0 && hasUsdRate) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.emerald.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.4)),
+                            ),
+                            child: Text(
+                              '≈ ${convertedGrandTotalEgp.toStringAsFixed(0)} ج.م',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.emerald),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),

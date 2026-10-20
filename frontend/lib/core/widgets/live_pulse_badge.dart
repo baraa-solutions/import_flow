@@ -279,11 +279,11 @@ class _LivePulseBadgeState extends State<LivePulseBadge>
         break;
       case PulseBadgeStyle.soft:
         backgroundColor = isDark
-            ? themeColor.withOpacity(0.18)
-            : themeColor.withOpacity(0.10);
+            ? themeColor.withValues(alpha: 0.18)
+            : themeColor.withValues(alpha: 0.10);
         borderColor = isDark
-            ? themeColor.withOpacity(0.55)
-            : themeColor.withOpacity(0.40);
+            ? themeColor.withValues(alpha: 0.55)
+            : themeColor.withValues(alpha: 0.40);
         textColor = isDark
             ? Color.lerp(themeColor, Colors.white, 0.35)!
             : (themeColor == AppTheme.crimson
@@ -330,7 +330,7 @@ class _LivePulseBadgeState extends State<LivePulseBadge>
                             height: dotSize,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: pulseColor.withOpacity(_opacityAnimation.value),
+                              color: pulseColor.withValues(alpha: _opacityAnimation.value),
                             ),
                           ),
                         );
@@ -344,7 +344,7 @@ class _LivePulseBadgeState extends State<LivePulseBadge>
                         color: pulseColor,
                         boxShadow: [
                           BoxShadow(
-                            color: pulseColor.withOpacity(0.6),
+                            color: pulseColor.withValues(alpha: 0.6),
                             blurRadius: 4,
                             spreadRadius: 1,
                           ),

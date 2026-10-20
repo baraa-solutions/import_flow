@@ -82,11 +82,12 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: AppTheme.borderOf(context)),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 620),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 620),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
@@ -318,6 +319,7 @@ class _SearchAndCloneDraftBlDialogState extends State<SearchAndCloneDraftBlDialo
             ],
           ),
         ),
+      ),
       ),
     );
   }

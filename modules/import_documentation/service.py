@@ -2324,56 +2324,24 @@ def _group_ocr_boxes_into_lines(ocr_res, y_threshold: float = 15.0) -> List[str]
 def _ocr_pdf_or_image(filename: str, content_bytes: bytes, two_column_table: bool = False) -> str:
     """
     High-accuracy optical character recognition (OCR) for scanned PDFs and images.
-    Uses multilingual RapidOCR with natural reading order line grouping,
-    with ArabicRapidOCREngine and pytesseract fallbacks.
+    Uses ArabicRapidOCREngine as the primary engine with RTL support and spatial line grouping,
+    with fallback to pytesseract.
     """
     lower = filename.lower()
-    extracted_lines: List[str] = []
+    is_two_col = two_column_table or any(
+        k in lower for k in ["price", "quotation", "rate", "مستخلص", "مقايسة", "عرض", "اسعار"]
+    )
+    result_text = ""
 
-    # 1. Primary Engine: Multilingual RapidOCR with natural line grouping
+    # 1. Primary Engine: Arabic RapidOCR Engine with RTL and spatial line grouping
     try:
-        from rapidocr_onnxruntime import RapidOCR
-        import numpy as np
-        engine = RapidOCR()
-
-        if lower.endswith(".pdf"):
-            import pypdfium2 as pdfium
-            pdf = pdfium.PdfDocument(content_bytes)
-            max_pages = min(len(pdf), 8)
-            for i in range(max_pages):
-                page = pdf.get_page(i)
-                pil_img = page.render(scale=2.0).to_pil()
-                ocr_res, _ = engine(np.array(pil_img))
-                if ocr_res:
-                    page_lines = _group_ocr_boxes_into_lines(ocr_res, y_threshold=15.0)
-                    extracted_lines.append(f"--- PAGE {i+1} ---")
-                    extracted_lines.extend(page_lines)
-
-        elif lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
-            from PIL import Image
-            pil_img = Image.open(io.BytesIO(content_bytes)).convert("RGB")
-            ocr_res, _ = engine(np.array(pil_img))
-            if ocr_res:
-                image_lines = _group_ocr_boxes_into_lines(ocr_res, y_threshold=15.0)
-                extracted_lines.extend(image_lines)
-
+        from modules.import_documentation.arabic_ocr_engine import extract_arabic_ocr_text
+        result_text = extract_arabic_ocr_text(filename, content_bytes, two_column_table=is_two_col)
     except Exception as e:
-        logger.warning(f"RapidOCR extraction failed for '{filename}': {e}")
+        logger.warning(f"Arabic OCR engine failed for '{filename}': {e}")
+        result_text = ""
 
-    result_text = "\n".join(extracted_lines)
-
-    # 2. If RapidOCR produced insufficient output or document is Arabic-heavy, try ArabicRapidOCR
-    has_arabic = bool(re.search(r"[\u0600-\u06FF]", result_text))
-    if len(result_text.strip()) < 30 or (has_arabic and len(result_text.strip()) < 80):
-        try:
-            from modules.import_documentation.arabic_ocr_engine import extract_arabic_ocr_text
-            arabic_text = extract_arabic_ocr_text(filename, content_bytes, two_column_table=two_column_table)
-            if arabic_text and len(arabic_text.strip()) > len(result_text.strip()):
-                result_text = arabic_text
-        except Exception as e:
-            logger.warning(f"Arabic OCR engine fallback note for '{filename}': {e}")
-
-    # 3. Fallback to pytesseract if RapidOCR produced insufficient output for images
+    # 2. Fallback to pytesseract if Arabic OCR produced insufficient output for images
     if len(result_text.strip()) < 15 and lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
         try:
             import pytesseract
@@ -2388,7 +2356,9 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes, two_column_table: boo
     return result_text
 
 
-def extract_text_and_boxes_from_uploaded_file(filename: str, content_bytes: bytes) -> Tuple[str, dict]:
+def extract_text_and_boxes_from_uploaded_file(
+    filename: str, content_bytes: bytes, two_column_table: bool = False
+) -> Tuple[str, dict]:
     """
     Extracts raw text and 2D spatial bounding boxes from uploaded PDF or files.
     Includes automatic OCR fallback for scanned documents and images.
@@ -2421,8 +2391,11 @@ def extract_text_and_boxes_from_uploaded_file(filename: str, content_bytes: byte
         text_content = extract_text_from_uploaded_file(filename, content_bytes)
 
     # Automatic OCR fallback if document contains scanned images or no text stream
+    is_two_col = two_column_table or any(
+        k in lower_name for k in ["price", "quotation", "rate", "مستخلص", "مقايسة", "عرض", "اسعار"]
+    )
     if not text_content or len(text_content.strip()) < 30:
-        ocr_text = _ocr_pdf_or_image(filename, content_bytes)
+        ocr_text = _ocr_pdf_or_image(filename, content_bytes, two_column_table=is_two_col)
         if ocr_text and len(ocr_text.strip()) > len(text_content.strip()):
             text_content = ocr_text
 
@@ -2457,6 +2430,14 @@ def extract_text_from_uploaded_file(filename: str, content_bytes: bytes) -> str:
                 text_content = "\n\n".join(parts)
             except Exception as e2:
                 text_content = f"PDF Extraction Note: {str(e2)}"
+
+        if not text_content or len(text_content.strip()) < 30:
+            is_two_col = any(
+                k in lower_name for k in ["price", "quotation", "rate", "مستخلص", "مقايسة", "عرض", "اسعار"]
+            )
+            ocr_text = _ocr_pdf_or_image(filename, content_bytes, two_column_table=is_two_col)
+            if ocr_text and len(ocr_text.strip()) > len(text_content.strip()):
+                text_content = ocr_text
 
     elif lower_name.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
         text_content = _ocr_pdf_or_image(filename, content_bytes)

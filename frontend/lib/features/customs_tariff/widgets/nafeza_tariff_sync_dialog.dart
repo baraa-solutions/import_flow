@@ -109,7 +109,7 @@ class _NafezaTariffSyncDialogState extends ConsumerState<NafezaTariffSyncDialog>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.12),
+                        color: AppTheme.cobalt.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.sync_alt, color: AppTheme.cobalt, size: 28),

@@ -13,24 +13,37 @@ import '../models/freight_booking_model.dart';
 import '../providers/freight_booking_provider.dart';
 import 'freight_booking_ui.dart';
 
+/// Mode of the departure confirmation dialog.
+enum DepartureDialogMode { depart, editSailed }
+
 /// SH-01: confirm the actual sailing (ATD), issue / update the B/L number and
 /// the revised ETA of a confirmed or sailed booking.
 class DepartureConfirmationDialog extends ConsumerStatefulWidget {
   final ShipmentBookingModel booking;
+  final DepartureDialogMode mode;
 
   const DepartureConfirmationDialog({
     super.key,
     required this.booking,
+    this.mode = DepartureDialogMode.depart,
   });
 
   static Future<bool?> show(
     BuildContext context,
-    ShipmentBookingModel booking,
-  ) {
+    ShipmentBookingModel booking, {
+    DepartureDialogMode? mode,
+  }) {
+    final effectiveMode = mode ??
+        (booking.status == 'Sailed'
+            ? DepartureDialogMode.editSailed
+            : DepartureDialogMode.depart);
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => DepartureConfirmationDialog(booking: booking),
+      builder: (context) => DepartureConfirmationDialog(
+        booking: booking,
+        mode: effectiveMode,
+      ),
     );
   }
 
@@ -71,7 +84,7 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
     if (b.eta != null) {
       _revisedEta = DateTime.tryParse(b.eta!);
     } else {
-      _revisedEta = _actualDepartureDate.add(Duration(days: b.transitTimeDays > 0 ? b.transitTimeDays : 15));
+      _revisedEta = null;
     }
   }
 
@@ -121,21 +134,36 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
 
     setState(() => _isSubmitting = true);
     try {
-      final payload = <String, dynamic>{
-        'actual_departure_date': _actualDepartureDate.toIso8601String(),
-        'bill_of_lading_no': _bolController.text.trim(),
-        if (_revisedEta != null) 'revised_eta': _revisedEta!.toIso8601String(),
-        if (_vesselController.text.trim().isNotEmpty) 'vessel_name': _vesselController.text.trim(),
-        if (_voyageController.text.trim().isNotEmpty) 'voyage_number': _voyageController.text.trim(),
-        if (_shippedOnBoardDate != null)
-          'shipped_on_board_date': _shippedOnBoardDate!.toIso8601String().substring(0, 10),
-        if (_notesController.text.trim().isNotEmpty) 'notes': _notesController.text.trim(),
-      };
+      if (widget.mode == DepartureDialogMode.editSailed) {
+        final payload = <String, dynamic>{
+          'bill_of_lading_no': _bolController.text.trim(),
+          if (_revisedEta != null) 'eta': _revisedEta!.toIso8601String(),
+          if (_vesselController.text.trim().isNotEmpty) 'vessel_name': _vesselController.text.trim(),
+          if (_voyageController.text.trim().isNotEmpty) 'voyage_number': _voyageController.text.trim(),
+          if (_notesController.text.trim().isNotEmpty) 'notes': _notesController.text.trim(),
+        };
 
-      await ref.read(freightBookingProvider.notifier).confirmDepartureAndBol(
-            widget.booking.bookingId,
-            payload,
-          );
+        await ref.read(freightBookingProvider.notifier).updateBooking(
+              widget.booking.bookingId,
+              payload,
+            );
+      } else {
+        final payload = <String, dynamic>{
+          'actual_departure_date': _actualDepartureDate.toIso8601String(),
+          'bill_of_lading_no': _bolController.text.trim(),
+          if (_revisedEta != null) 'revised_eta': _revisedEta!.toIso8601String(),
+          if (_vesselController.text.trim().isNotEmpty) 'vessel_name': _vesselController.text.trim(),
+          if (_voyageController.text.trim().isNotEmpty) 'voyage_number': _voyageController.text.trim(),
+          if (_shippedOnBoardDate != null)
+            'shipped_on_board_date': _shippedOnBoardDate!.toIso8601String().substring(0, 10),
+          if (_notesController.text.trim().isNotEmpty) 'notes': _notesController.text.trim(),
+        };
+
+        await ref.read(freightBookingProvider.notifier).confirmDepartureAndBol(
+              widget.booking.bookingId,
+              payload,
+            );
+      }
 
       ref.invalidate(importFilesProvider);
       ref.invalidate(smartTasksProvider);
@@ -167,17 +195,19 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
     final transitDays = _calculatedTransitDays;
     final fileCode = b.importFileCode ?? (b.importFileId != null ? 'IMP-${b.importFileId}' : l.fbkDepNotLinked);
 
+    final isEditSailed = widget.mode == DepartureDialogMode.editSailed;
+
     return CcStageDialogShell(
-      title: l.fbkDepTitle,
-      icon: Icons.sailing_rounded,
+      title: isEditSailed ? l.fbkEditBlTitle : l.fbkDepTitle,
+      icon: isEditSailed ? Icons.receipt_long : Icons.sailing_rounded,
       maxWidth: 720,
       chips: [
         CcHeaderChip(Icons.tag, b.bookingConfirmationNo ?? b.bookingCode, ltr: true),
         CcHeaderChip(Icons.folder_special, fileCode, ltr: true),
       ],
       isSubmitting: _isSubmitting,
-      confirmKey: const Key('fbkDepartureConfirmBtn'),
-      confirmLabel: l.fbkDepBtn,
+      confirmKey: isEditSailed ? const Key('fbkEditBlConfirmBtn') : const Key('fbkDepartureConfirmBtn'),
+      confirmLabel: isEditSailed ? l.save : l.fbkDepBtn,
       loadingLabel: l.fbkDepBtnBusy,
       confirmVariant: AppButtonVariant.primary,
       onConfirm: _onSubmit,
@@ -211,11 +241,14 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
                     children: [
                       CcField(
                         label: l.fbkDepAtdLabel,
-                        child: CcDateTile(
-                          date: _actualDepartureDate,
-                          onTap: () => _selectDate(
-                            initialDate: _actualDepartureDate,
-                            onSelected: (d) => _actualDepartureDate = d,
+                        child: IgnorePointer(
+                          ignoring: isEditSailed,
+                          child: CcDateTile(
+                            date: _actualDepartureDate,
+                            onTap: () => _selectDate(
+                              initialDate: _actualDepartureDate,
+                              onSelected: (d) => _actualDepartureDate = d,
+                            ),
                           ),
                         ),
                       ),
@@ -236,12 +269,15 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
                   const SizedBox(height: 12),
                   CcField(
                     label: l.fbkDepSobLabel,
-                    child: CcDateTile(
-                      date: _shippedOnBoardDate,
-                      placeholder: l.fbkDepSobSameAsAtd(CcFormat.date(_actualDepartureDate)),
-                      onTap: () => _selectDate(
-                        initialDate: _shippedOnBoardDate ?? _actualDepartureDate,
-                        onSelected: (d) => _shippedOnBoardDate = d,
+                    child: IgnorePointer(
+                      ignoring: isEditSailed,
+                      child: CcDateTile(
+                        date: _shippedOnBoardDate,
+                        placeholder: l.fbkDepSobSameAsAtd(CcFormat.date(_actualDepartureDate)),
+                        onTap: () => _selectDate(
+                          initialDate: _shippedOnBoardDate ?? _actualDepartureDate,
+                          onSelected: (d) => _shippedOnBoardDate = d,
+                        ),
                       ),
                     ),
                   ),

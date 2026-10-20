@@ -56,7 +56,7 @@ void main() {
       await tester.pumpWidget(_buildTestApp(locale: const Locale('ar')));
       await tester.pumpAndSettle();
 
-      final ar = AppLocalizationsAr();
+      const ar = AppLocalizationsAr();
       expect(find.text(ar.loginRoleAdmin), findsOneWidget);
       expect(find.text(ar.loginRoleManager), findsOneWidget);
       expect(find.text(ar.loginRoleSpecialist), findsOneWidget);
@@ -70,7 +70,7 @@ void main() {
       await tester.pumpWidget(_buildTestApp(locale: const Locale('en')));
       await tester.pumpAndSettle();
 
-      final en = AppLocalizationsEn();
+      const en = AppLocalizationsEn();
       expect(find.text(en.loginButtonLabel), findsOneWidget);
       expect(find.text(en.loginRoleAdmin), findsOneWidget);
       expect(find.text(en.loginRoleManager), findsOneWidget);
@@ -85,7 +85,7 @@ void main() {
       await tester.pumpWidget(_buildTestApp(locale: const Locale('ar')));
       await tester.pumpAndSettle();
 
-      final ar = AppLocalizationsAr();
+      const ar = AppLocalizationsAr();
       // Tap Sign in without filling anything
       await tester.tap(find.text(ar.loginButtonLabel));
       await tester.pumpAndSettle();
@@ -103,7 +103,7 @@ void main() {
       await tester.pumpWidget(_buildTestApp(locale: const Locale('en'), showDemoLogins: false));
       await tester.pumpAndSettle();
 
-      final en = AppLocalizationsEn();
+      const en = AppLocalizationsEn();
       expect(find.text(en.loginQuickDemoAccess), findsNothing);
       expect(find.text(en.loginRoleAdmin), findsNothing);
       expect(find.text(en.loginRoleManager), findsNothing);

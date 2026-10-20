@@ -211,7 +211,7 @@ void main() {
 
 void _acc3t02Tests() {
   group('Insurance out of booking charges (ACC3-T02)', () {
-    final state = FbkQuoteState(
+    const state = FbkQuoteState(
       container40ftApp: true,
       container40ftPrice: 3000.0,
       container40ftQty: 1,

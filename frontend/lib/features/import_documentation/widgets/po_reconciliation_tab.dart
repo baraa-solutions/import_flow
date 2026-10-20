@@ -1032,9 +1032,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 28),
-              SizedBox(width: 10),
-              Text(context.l10n.idocANoticeASessionIsAlreadyRegistered, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 28),
+              const SizedBox(width: 10),
+              Text(context.l10n.idocANoticeASessionIsAlreadyRegistered, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
           content: Text(
@@ -1369,7 +1369,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               Expanded(
                 child: Text(
                   context.l10n.idocANoticeAReconciliationSessionIsAlready,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                 ),
               ),
             ],
@@ -1412,7 +1412,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 const SizedBox(height: 12),
                 Text(
                   context.l10n.idocAYouCanOpenAndContinueThe,
-                  style: TextStyle(fontSize: 12, color: AppTheme.charcoal, height: 1.4),
+                  style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, height: 1.4),
                 ),
               ],
             ),
@@ -1780,8 +1780,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Future<void> _exportSessionsToExcel(List<POReconciliationSessionModel> sessions) async {
-    final l = context.l10n;
-    final isAr = l.isArabic;
     final headers = [
       '#',
       context.l10n.idocASessionCodeAlt,
@@ -1819,8 +1817,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Future<void> _exportSessionsToPdf(List<POReconciliationSessionModel> sessions) async {
-    final l = context.l10n;
-    final isAr = l.isArabic;
     final headers = [
       '#',
       context.l10n.idocACodeAlt,
@@ -1887,8 +1883,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Future<void> _exportInvoiceItemsToExcel() async {
-    final l = context.l10n;
-    final isAr = l.isArabic;
     final headers = [
       context.l10n.idocAItemCode,
       context.l10n.idocADescription,
@@ -1946,8 +1940,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Future<void> _exportInvoiceItemsToPdf() async {
-    final l = context.l10n;
-    final isAr = l.isArabic;
     final headers = [
       context.l10n.idocACode,
       context.l10n.idocADescription,
@@ -2022,8 +2014,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Future<void> _exportPackingItemsToExcel() async {
-    final l = context.l10n;
-    final isAr = l.isArabic;
     final headers = [
       context.l10n.idocAItemCode,
       context.l10n.idocADescription,
@@ -2080,8 +2070,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Future<void> _exportPackingItemsToPdf() async {
-    final l = context.l10n;
-    final isAr = l.isArabic;
     final headers = [
       context.l10n.idocACode,
       context.l10n.idocADescription,
@@ -3684,7 +3672,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         backgroundColor: AppTheme.surfaceOf(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.transparent),
+          side: const BorderSide(color: Colors.transparent),
         ),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -4043,7 +4031,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
   // --- SMART EXTRACTION WIDGETS ---
   Widget _buildSummaryCard(String title, String value, IconData icon, Color color, [bool isDark = false]) {
-    final cardBg = AppTheme.white;
+    const cardBg = AppTheme.white;
     final labelColor = AppTheme.textSecondaryOf(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -4592,7 +4580,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Widget _buildExtractedPill(String label, String value, IconData icon, [bool isDark = false]) {
-    final pillBg = AppTheme.white;
+    const pillBg = AppTheme.white;
     final pillBorder = AppTheme.borderOf(context);
     final labelColor = AppTheme.textSecondaryOf(context);
     return Container(

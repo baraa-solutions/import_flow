@@ -32,7 +32,7 @@ class ConsultationStatusBadge extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+      decoration: BoxDecoration(color: bg.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
       child: Text(displayStatus, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
     );
   }
@@ -68,7 +68,7 @@ class ConsultationDocStatusBadge extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: bg.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+      decoration: BoxDecoration(color: bg.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
       child: Text(displayStatus, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 10)),
     );
   }

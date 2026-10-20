@@ -4,8 +4,8 @@ import 'package:frontend/core/localization/app_localizations_en.dart';
 
 void main() {
   group('Screen 60: Customs Clearance - Drawing Samples & Shortage Localization Tests', () {
-    final ar = AppLocalizationsAr();
-    final en = AppLocalizationsEn();
+    const ar = AppLocalizationsAr();
+    const en = AppLocalizationsEn();
 
     test('All Screen 60 getters return non-empty strings in AR and EN', () {
       final gettersAr = [

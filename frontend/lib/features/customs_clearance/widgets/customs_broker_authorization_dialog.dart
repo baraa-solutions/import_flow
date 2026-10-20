@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/ltr_text.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -267,11 +267,9 @@ class _CustomsBrokerAuthorizationDialogState
                   icon: const Icon(Icons.copy_rounded, size: 18),
                   tooltip: l.ccBrkCopyTooltip,
                   onPressed: () {
-                    if (_delegationNoController.text.trim().isNotEmpty) {
-                      Clipboard.setData(ClipboardData(text: _delegationNoController.text.trim()));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        AppTheme.snackBar(context, l.ccBrkCopied, severity: AppSeverity.success),
-                      );
+                    final text = _delegationNoController.text.trim();
+                    if (text.isNotEmpty) {
+                      CopyHelper.copy(context, text, customMessage: l.ccBrkCopied);
                     }
                   },
                 ),

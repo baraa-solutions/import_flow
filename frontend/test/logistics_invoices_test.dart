@@ -90,7 +90,7 @@ void main() {
       const premiumEgp = premiumFx * cbeRate; // 9336.25 EGP
       const stampDutyEgp = premiumEgp * 0.001; // 0.1% = 9.33625 EGP
       const supervisoryFeeEgp = premiumEgp * 0.12; // 12% = 1120.35 EGP
-      final netPremiumEgp = premiumEgp + stampDutyEgp + supervisoryFeeEgp;
+      const netPremiumEgp = premiumEgp + stampDutyEgp + supervisoryFeeEgp;
 
       expect(markup10Percent, closeTo(55000.0, 0.01));
       expect(premiumFx, closeTo(192.5, 0.01));

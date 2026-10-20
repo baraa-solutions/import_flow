@@ -1403,7 +1403,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: fromCurr,
+                              initialValue: fromCurr,
                               decoration: InputDecoration(labelText: l10n.fromCurrencyLabel, border: const OutlineInputBorder()),
                               items: const [
                                 DropdownMenuItem(value: 'USD', child: Text('USD')),
@@ -1420,7 +1420,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: toCurr,
+                              initialValue: toCurr,
                               decoration: InputDecoration(labelText: l10n.toCurrencyLabel, border: const OutlineInputBorder()),
                               items: const [
                                 DropdownMenuItem(value: 'EGP', child: Text('EGP')),
@@ -1436,7 +1436,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: rateType,
+                        initialValue: rateType,
                         decoration: InputDecoration(labelText: l10n.appliedRateTypeLabel, border: const OutlineInputBorder()),
                         items: [
                           DropdownMenuItem(value: 'commercial', child: Text(l10n.rateTypeCommercialOption)),
@@ -1604,7 +1604,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: currencyCode,
+                              initialValue: currencyCode,
                               decoration: InputDecoration(labelText: l10n.currencyLabel, border: const OutlineInputBorder()),
                               items: const [
                                 DropdownMenuItem(value: 'USD', child: Text('USD')),

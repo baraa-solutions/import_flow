@@ -85,7 +85,7 @@ class _ShipmentInquiryFilterPanelState
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -124,14 +124,14 @@ class _ShipmentInquiryFilterPanelState
                       hintText: l.inqAllSuppliers,
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.08),
+                        fillColor: Colors.white.withValues(alpha: 0.08),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                         ),
                         labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -172,14 +172,14 @@ class _ShipmentInquiryFilterPanelState
                       hintText: l.inqAllImporters,
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.08),
+                        fillColor: Colors.white.withValues(alpha: 0.08),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                         ),
                         labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -207,10 +207,10 @@ class _ShipmentInquiryFilterPanelState
                   decoration: InputDecoration(
                     labelText: l.inqHsCodeOrProduct,
                     hintText: l.inqHsCodeHint,
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11),
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
                     labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
                     filled: true,
-                    fillColor: Colors.white.withOpacity(0.08),
+                    fillColor: Colors.white.withValues(alpha: 0.08),
                     prefixIcon: const Icon(Icons.manage_search_outlined, color: Colors.white60, size: 18),
                     suffixIcon: _hsCodeController.text.isNotEmpty
                         ? Row(
@@ -233,11 +233,11 @@ class _ShipmentInquiryFilterPanelState
                         : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
@@ -271,7 +271,7 @@ class _ShipmentInquiryFilterPanelState
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.18),
+                  backgroundColor: Colors.white.withValues(alpha: 0.18),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -320,7 +320,7 @@ class _ShipmentInquiryFilterPanelState
                     labelText: l.inqIncoterm,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
+                      fillColor: Colors.white.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -336,7 +336,7 @@ class _ShipmentInquiryFilterPanelState
                 ),
                 const SizedBox(width: 8),
 
-                // POL
+                // Port of Loading (POL)
                 Expanded(
                   flex: 2,
                   child: TextField(
@@ -345,45 +345,46 @@ class _ShipmentInquiryFilterPanelState
                     decoration: InputDecoration(
                       labelText: l.inqPortOfLoading,
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
+                      fillColor: Colors.white.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      suffixIcon: _polController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.copy_rounded, color: Colors.white70, size: 14),
-                              tooltip: l.inqCopyCodeTooltip,
-                              onPressed: () => CopyHelper.copy(context, _polController.text),
-                            )
-                          : null,
                     ),
                     onSubmitted: (_) => _triggerSearch(),
                   ),
                 ),
                 const SizedBox(width: 8),
 
-                // POD
+                // Port of Discharge (POD)
                 Expanded(
                   flex: 2,
-                  child: TextField(
-                    controller: _podController,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  child: SearchableDropdownField<String?>(
+                    value: filters.portOfDischarge,
+                    items: [
+                      SearchableDropdownItem(value: null, label: l.inqPortOfDischarge),
+                      const SearchableDropdownItem(value: 'Alexandria', label: 'Alexandria'),
+                      const SearchableDropdownItem(value: 'El Dekheila', label: 'El Dekheila'),
+                      const SearchableDropdownItem(value: 'Port Said', label: 'Port Said'),
+                      const SearchableDropdownItem(value: 'Damietta', label: 'Damietta'),
+                      const SearchableDropdownItem(value: 'Sokhna', label: 'Sokhna'),
+                      const SearchableDropdownItem(value: 'Cairo Airport', label: 'Cairo Airport'),
+                    ],
+                    labelText: l.inqPortOfDischarge,
                     decoration: InputDecoration(
-                      labelText: l.inqPortOfDischarge,
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
+                      fillColor: Colors.white.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      suffixIcon: _podController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.copy_rounded, color: Colors.white70, size: 14),
-                              tooltip: l.inqCopyCodeTooltip,
-                              onPressed: () => CopyHelper.copy(context, _podController.text),
-                            )
-                          : null,
                     ),
-                    onSubmitted: (_) => _triggerSearch(),
+                    onChanged: (val) {
+                      _podController.text = val ?? '';
+                      ref.read(shipmentInquiryStateProvider.notifier).updateFilter(
+                            portOfDischarge: val,
+                            clearPod: val == null,
+                          );
+                      _triggerSearch();
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -403,7 +404,7 @@ class _ShipmentInquiryFilterPanelState
                     labelText: l.inqShippingMode,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
+                      fillColor: Colors.white.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -419,28 +420,37 @@ class _ShipmentInquiryFilterPanelState
                 ),
                 const SizedBox(width: 8),
 
-                // Carrier / Forwarder
+                // Carrier / Shipping Line
                 Expanded(
                   flex: 2,
-                  child: TextField(
-                    controller: _carrierController,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  child: SearchableDropdownField<String?>(
+                    value: filters.carrier,
+                    items: [
+                      SearchableDropdownItem(value: null, label: l.inqCarrier),
+                      const SearchableDropdownItem(value: 'MSC', label: 'MSC Line'),
+                      const SearchableDropdownItem(value: 'Maersk', label: 'Maersk Line'),
+                      const SearchableDropdownItem(value: 'CMA CGM', label: 'CMA CGM'),
+                      const SearchableDropdownItem(value: 'Hapag-Lloyd', label: 'Hapag-Lloyd'),
+                      const SearchableDropdownItem(value: 'COSCO', label: 'COSCO Shipping'),
+                      const SearchableDropdownItem(value: 'ONE', label: 'Ocean Network Express'),
+                      const SearchableDropdownItem(value: 'Evergreen', label: 'Evergreen Line'),
+                    ],
+                    labelText: l.inqCarrier,
                     decoration: InputDecoration(
-                      labelText: l.inqCarrier,
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
+                      fillColor: Colors.white.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       labelStyle: const TextStyle(color: Colors.white70, fontSize: 11),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      suffixIcon: _carrierController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.copy_rounded, color: Colors.white70, size: 14),
-                              tooltip: l.inqCopyCodeTooltip,
-                              onPressed: () => CopyHelper.copy(context, _carrierController.text),
-                            )
-                          : null,
                     ),
-                    onSubmitted: (_) => _triggerSearch(),
+                    onChanged: (val) {
+                      _carrierController.text = val ?? '';
+                      ref.read(shipmentInquiryStateProvider.notifier).updateFilter(
+                            carrier: val,
+                            clearCarrier: val == null,
+                          );
+                      _triggerSearch();
+                    },
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -451,7 +461,7 @@ class _ShipmentInquiryFilterPanelState
                   label: Text(l.inqResetBtn),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white70,
-                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
                   onPressed: _handleReset,
@@ -478,6 +488,100 @@ class _ShipmentInquiryFilterPanelState
                     );
                   },
                 ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Date Range & Status Filter Bar (UX-SEARCH-013 Section 2)
+            Row(
+              children: [
+                // Status Multi-select Chips
+                Text(
+                  '${l.inqFilterStatus}: ',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 6),
+                ...['Draft', 'Open', 'In Progress', 'Completed', 'Closed'].map((statusKey) {
+                  final isSelected = filters.statuses.contains(statusKey);
+                  String label = statusKey;
+                  if (statusKey == 'Draft') label = l.inqStatusDraft;
+                  if (statusKey == 'In Progress' || statusKey == 'Open') label = l.inqStatusInProgress;
+                  if (statusKey == 'Completed') label = l.inqStatusCompleted;
+                  if (statusKey == 'Closed') label = l.inqStatusClosed;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: FilterChip(
+                      label: Text(label, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : Colors.white70)),
+                      selected: isSelected,
+                      selectedColor: AppTheme.cobalt,
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      checkmarkColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      onSelected: (selected) {
+                        final current = List<String>.from(filters.statuses);
+                        if (selected) {
+                          current.add(statusKey);
+                        } else {
+                          current.remove(statusKey);
+                        }
+                        ref.read(shipmentInquiryStateProvider.notifier).updateFilter(statuses: current);
+                        _triggerSearch();
+                      },
+                    ),
+                  );
+                }),
+
+                const Spacer(),
+
+                // Date Range Buttons
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.date_range_outlined, size: 14, color: Colors.white70),
+                  label: Text(
+                    filters.dateFrom != null
+                        ? '${filters.dateFrom!.year}/${filters.dateFrom!.month} → ${filters.dateTo?.year ?? ''}/${filters.dateTo?.month ?? ''}'
+                        : l.inqDateRange,
+                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  ),
+                  onPressed: () async {
+                    final picked = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                      initialDateRange: filters.dateFrom != null && filters.dateTo != null
+                          ? DateTimeRange(start: filters.dateFrom!, end: filters.dateTo!)
+                          : DateTimeRange(
+                              start: DateTime.now().subtract(const Duration(days: 365)),
+                              end: DateTime.now(),
+                            ),
+                    );
+                    if (picked != null) {
+                      ref.read(shipmentInquiryStateProvider.notifier).updateFilter(
+                            dateFrom: picked.start,
+                            dateTo: picked.end,
+                          );
+                      _triggerSearch();
+                    }
+                  },
+                ),
+                if (filters.dateFrom != null) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 14, color: Colors.white60),
+                    tooltip: l.inqResetBtn,
+                    onPressed: () {
+                      ref.read(shipmentInquiryStateProvider.notifier).updateFilter(
+                            clearDateFrom: true,
+                            clearDateTo: true,
+                          );
+                      _triggerSearch();
+                    },
+                  ),
+                ],
               ],
             ),
           ],

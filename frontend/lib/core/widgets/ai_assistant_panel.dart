@@ -44,7 +44,7 @@ class _AiAssistantDockedPanelState extends ConsumerState<AiAssistantDockedPanel>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 10,
               offset: const Offset(-2, 0),
             ),
@@ -210,7 +210,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
+                  color: Colors.black.withValues(alpha: 0.12),
                   blurRadius: 18,
                   offset: const Offset(0, 4),
                 ),
@@ -329,7 +329,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
             boxShadow: [
               BoxShadow(
                 color: (state.isPanelOpen ? AppTheme.charcoal : const Color(0xFFE64A19))
-                    .withOpacity(0.45),
+                    .withValues(alpha: 0.45),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -348,7 +348,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
                 Positioned.fill(
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                   ),
                 ),
               // Online green badge
@@ -403,7 +403,7 @@ class _AiAssistantOverlayState extends ConsumerState<AiAssistantOverlay>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha: 0.15),
               blurRadius: 24,
               offset: const Offset(0, 8),
             ),
@@ -516,7 +516,7 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
           colors: [AppTheme.cobalt, Color(0xFF2980B9)],
         ),
         boxShadow: [
-          BoxShadow(color: AppTheme.cobalt.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 2)),
+          BoxShadow(color: AppTheme.cobalt.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 2)),
         ],
       ),
       child: Row(
@@ -524,7 +524,7 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.smart_toy_outlined, color: Colors.white, size: 18),
@@ -547,7 +547,7 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
                   state.currentScreenContext,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 10,
                   ),
                 ),
@@ -570,7 +570,7 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
           Container(
             height: 22,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
+              color: Colors.white.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(11),
               border: Border.all(color: Colors.white24),
             ),
@@ -819,7 +819,7 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: isSelected ? AppTheme.cobalt : Colors.white.withOpacity(0.9),
+            color: isSelected ? AppTheme.cobalt : Colors.white.withValues(alpha: 0.9),
           ),
         ),
       ),
@@ -913,9 +913,9 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
         decoration: BoxDecoration(
-          color: AppTheme.cobalt.withOpacity(0.06),
+          color: AppTheme.cobalt.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.cobalt.withOpacity(0.22)),
+          border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.22)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -947,10 +947,10 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: msg.isError ? AppTheme.crimson.withOpacity(0.08) : Colors.grey.shade100,
+          color: msg.isError ? AppTheme.crimson.withValues(alpha: 0.08) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: msg.isError ? AppTheme.crimson.withOpacity(0.3) : Colors.grey.shade200,
+            color: msg.isError ? AppTheme.crimson.withValues(alpha: 0.3) : Colors.grey.shade200,
           ),
         ),
         child: Row(
@@ -998,17 +998,17 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
         decoration: BoxDecoration(
           color: isUser
               ? AppTheme.cobalt
-              : (msg.isError ? AppTheme.crimson.withOpacity(0.06) : Colors.grey.shade100),
+              : (msg.isError ? AppTheme.crimson.withValues(alpha: 0.06) : Colors.grey.shade100),
           borderRadius: BorderRadiusDirectional.only(
             topStart: const Radius.circular(14),
             topEnd: const Radius.circular(14),
             bottomStart: Radius.circular(isUser ? 14 : 4),
             bottomEnd: Radius.circular(isUser ? 4 : 14),
           ),
-          border: msg.isError ? Border.all(color: AppTheme.crimson.withOpacity(0.35)) : null,
+          border: msg.isError ? Border.all(color: AppTheme.crimson.withValues(alpha: 0.35)) : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -1093,7 +1093,7 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
                           Icon(
                             Icons.refresh_rounded,
                             size: 12,
-                            color: AppTheme.crimson.withOpacity(0.8),
+                            color: AppTheme.crimson.withValues(alpha: 0.8),
                           ),
                           const SizedBox(width: 3),
                           Text(
@@ -1101,7 +1101,7 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: AppTheme.crimson.withOpacity(0.9),
+                              color: AppTheme.crimson.withValues(alpha: 0.9),
                             ),
                           ),
                         ],
@@ -1495,7 +1495,7 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
           width: 7,
           height: 7,
           decoration: BoxDecoration(
-            color: AppTheme.cobalt.withOpacity(0.7),
+            color: AppTheme.cobalt.withValues(alpha: 0.7),
             shape: BoxShape.circle,
           ),
         ),
@@ -1632,7 +1632,7 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.cobalt.withOpacity(0.07),
+                color: AppTheme.cobalt.withValues(alpha: 0.07),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.key_rounded, color: AppTheme.cobalt, size: 32),
@@ -1665,7 +1665,13 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
             TextButton.icon(
               onPressed: () async {
                 const url = 'https://aistudio.google.com/app/apikey';
-                await Clipboard.setData(const ClipboardData(text: url));
+                CopyHelper.copy(
+                  context,
+                  url,
+                  customMessage: isAr
+                      ? l.aiAssistantCopiedUrlSuccess
+                      : 'Opened Google AI Studio in browser and copied URL to clipboard',
+                );
                 try {
                   if (Platform.isWindows) {
                     await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);
@@ -1675,19 +1681,6 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
                     await Process.run('xdg-open', [url]);
                   }
                 } catch (_) {}
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isAr
-                            ? l.aiAssistantCopiedUrlSuccess
-                            : 'Opened Google AI Studio in browser and copied URL to clipboard',
-                      ),
-                      backgroundColor: AppTheme.cobalt,
-                      duration: const Duration(seconds: 4),
-                    ),
-                  );
-                }
               },
               icon: Icon(Icons.open_in_new, size: 13, color: Colors.grey.shade600),
               label: Text(
@@ -1748,7 +1741,13 @@ class _AiAssistantChatPanelState extends ConsumerState<AiAssistantChatPanel> {
                       TextButton.icon(
                         onPressed: () async {
                           const url = 'https://aistudio.google.com/app/apikey';
-                          await Clipboard.setData(const ClipboardData(text: url));
+                          CopyHelper.copy(
+                            context,
+                            url,
+                            customMessage: isAr
+                                ? l.aiAssistantCopiedUrlSuccess
+                                : 'Opened Google AI Studio in browser and copied URL to clipboard',
+                          );
                           try {
                             if (Platform.isWindows) {
                               await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);

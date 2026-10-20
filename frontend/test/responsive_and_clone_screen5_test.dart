@@ -15,7 +15,6 @@ import 'package:frontend/features/currencies/models/currency_model.dart';
 import 'package:frontend/features/currencies/providers/currencies_provider.dart';
 import 'package:frontend/features/external_service_providers/models/partner_model.dart';
 import 'package:frontend/features/external_service_providers/providers/partners_provider.dart';
-import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 import 'package:frontend/features/projects/providers/projects_provider.dart';
 import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';

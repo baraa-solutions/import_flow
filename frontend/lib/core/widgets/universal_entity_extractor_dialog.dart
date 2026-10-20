@@ -951,7 +951,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -1027,7 +1027,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: _confidenceScore >= 0.8 ? AppTheme.emerald.withOpacity(0.15) : AppTheme.orange.withOpacity(0.15),
+                                            color: _confidenceScore >= 0.8 ? AppTheme.emerald.withValues(alpha: 0.15) : AppTheme.orange.withValues(alpha: 0.15),
                                             borderRadius: BorderRadius.circular(12),
                                           ),
                                           child: Text(
@@ -1269,7 +1269,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.cobalt.withOpacity(0.4), style: BorderStyle.solid),
+          border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.4), style: BorderStyle.solid),
         ),
         alignment: Alignment.center,
         padding: const EdgeInsets.all(20),
@@ -1782,7 +1782,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.blueGrey.shade50.withOpacity(0.5),
+            color: Colors.blueGrey.shade50.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.blueGrey.shade200),
           ),
@@ -2200,7 +2200,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.blueGrey.shade50.withOpacity(0.5),
+            color: Colors.blueGrey.shade50.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.blueGrey.shade200),
           ),
@@ -2594,7 +2594,7 @@ class _UniversalEntityExtractorDialogState extends ConsumerState<UniversalEntity
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.blueGrey.shade50.withOpacity(0.5),
+            color: Colors.blueGrey.shade50.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.blueGrey.shade200),
           ),

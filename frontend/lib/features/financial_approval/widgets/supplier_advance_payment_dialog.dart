@@ -306,7 +306,6 @@ class _SupplierAdvancePaymentDialogState
   }
 
   Future<void> _submitAdvancePayment() async {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     if (!_formKey.currentState!.validate()) return;
 
     final amount = double.tryParse(_amountController.text.trim()) ?? 0.0;
@@ -400,7 +399,6 @@ class _SupplierAdvancePaymentDialogState
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     final dialogWidth = (screenWidth - 32).clamp(360.0, 740.0);
@@ -418,14 +416,15 @@ class _SupplierAdvancePaymentDialogState
           color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite,
         ),
       ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: dialogWidth,
-          maxHeight: MediaQuery.of(context).size.height * 0.88,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: dialogWidth,
+            maxHeight: MediaQuery.of(context).size.height * 0.88,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -435,7 +434,7 @@ class _SupplierAdvancePaymentDialogState
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.wcagOrange.withOpacity(0.15),
+                      color: AppTheme.wcagOrange.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
@@ -470,7 +469,7 @@ class _SupplierAdvancePaymentDialogState
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.15),
+                                color: AppTheme.cobalt.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: LtrText(
@@ -668,9 +667,9 @@ class _SupplierAdvancePaymentDialogState
                                           decoration: BoxDecoration(
                                             color: isSelected
                                                 ? AppTheme.white
-                                                    .withOpacity(0.25)
+                                                    .withValues(alpha: 0.25)
                                                 : AppTheme.orange
-                                                    .withOpacity(0.2),
+                                                    .withValues(alpha: 0.2),
                                             borderRadius:
                                                 BorderRadius.circular(4),
                                           ),
@@ -797,10 +796,10 @@ class _SupplierAdvancePaymentDialogState
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.emerald.withOpacity(0.12),
+                              color: AppTheme.emerald.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: AppTheme.emerald.withOpacity(0.3),
+                                color: AppTheme.emerald.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Row(
@@ -982,10 +981,10 @@ class _SupplierAdvancePaymentDialogState
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withOpacity(0.08),
+                              color: AppTheme.cobalt.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: AppTheme.cobalt.withOpacity(0.3),
+                                color: AppTheme.cobalt.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Row(
@@ -1043,6 +1042,7 @@ class _SupplierAdvancePaymentDialogState
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

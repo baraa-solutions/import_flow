@@ -1344,7 +1344,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                       const SizedBox(width: 6),
                       Text(
                         _pickedFileName!,
-                        style: TextStyle(fontSize: 12, color: AppTheme.textStrong),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textStrong),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -1550,12 +1550,12 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.gavel, color: AppTheme.warningForeground, size: 20),
+                        const Icon(Icons.gavel, color: AppTheme.warningForeground, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             context.l10n.cooOverrideReasonTitle,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.warningForeground),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.warningForeground),
                           ),
                         ),
                       ],
@@ -1563,7 +1563,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                     const SizedBox(height: 8),
                     Text(
                       context.l10n.cooOverrideReasonSub,
-                      style: TextStyle(fontSize: 11.5, color: AppTheme.charcoal),
+                      style: const TextStyle(fontSize: 11.5, color: AppTheme.charcoal),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
@@ -1692,7 +1692,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                               const SizedBox(height: 2),
                               Text(
                                 context.l10n.idocBCooRegistrySubtitle,
-                                style: TextStyle(fontSize: 11.5, color: AppTheme.cloudWhite),
+                                style: const TextStyle(fontSize: 11.5, color: AppTheme.cloudWhite),
                               ),
                             ],
                           ),
@@ -1730,7 +1730,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                     runSpacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(context.l10n.idocBCooFilterStatus, style: TextStyle(color: AppTheme.cloudWhite, fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text(context.l10n.idocBCooFilterStatus, style: const TextStyle(color: AppTheme.cloudWhite, fontSize: 12, fontWeight: FontWeight.bold)),
                       ChoiceChip(
                         label: Text(context.l10n.idocBCooFilterAll(totalSessions), style: TextStyle(fontSize: 11, color: _selectedStatusFilter == 'ALL' ? AppTheme.white : AppTheme.textPrimary)),
                         selected: _selectedStatusFilter == 'ALL',

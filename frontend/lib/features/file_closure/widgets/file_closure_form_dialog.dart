@@ -274,9 +274,9 @@ class _FileClosureFormDialogState extends ConsumerState<FileClosureFormDialog> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: progressColor.withOpacity(0.08),
+                      color: progressColor.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: progressColor.withOpacity(0.35)),
+                      border: Border.all(color: progressColor.withValues(alpha: 0.35)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

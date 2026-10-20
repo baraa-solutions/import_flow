@@ -286,7 +286,7 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: AppTheme.flatEmerald.withOpacity(0.12),
+            color: AppTheme.flatEmerald.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
           child: const Icon(Icons.verified_rounded, color: AppTheme.flatEmerald, size: 26),
@@ -306,7 +306,7 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
                 ),
                 style: TextStyle(
                   fontSize: 12,
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withOpacity(0.7),
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -471,9 +471,9 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,9 +513,9 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.flatCobalt.withOpacity(0.06),
+        color: AppTheme.flatCobalt.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.flatCobalt.withOpacity(0.25)),
+        border: Border.all(color: AppTheme.flatCobalt.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

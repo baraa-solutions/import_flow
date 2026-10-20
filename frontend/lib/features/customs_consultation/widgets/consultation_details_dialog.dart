@@ -84,7 +84,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                          decoration: BoxDecoration(color: AppTheme.cobalt.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
                           child: CopyableText('${l.totalExpenses}: ${session.totalBrokerFeesEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
                         ),
                       ],
@@ -101,7 +101,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                       },
                       children: [
                         TableRow(
-                          decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(isDark ? 0.2 : 0.08)),
+                          decoration: BoxDecoration(color: AppTheme.cobalt.withValues(alpha: isDark ? 0.2 : 0.08)),
                           children: [
                             Padding(padding: const EdgeInsets.all(8), child: Text(l.expenseItemNameCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                             Padding(padding: const EdgeInsets.all(8), child: Text(l.categoryCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
@@ -143,7 +143,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                     },
                     children: [
                       TableRow(
-                        decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.08)),
+                        decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.08)),
                         children: [
                           Padding(padding: const EdgeInsets.all(8), child: Text(l.requiredDocCheckbox, style: const TextStyle(fontWeight: FontWeight.bold))),
                           Padding(padding: const EdgeInsets.all(8), child: Text(l.responsiblePartyLabel, style: const TextStyle(fontWeight: FontWeight.bold))),

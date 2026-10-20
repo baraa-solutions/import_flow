@@ -34,20 +34,84 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
     super.dispose();
   }
 
-  void _bookInland() {
+  Future<void> _bookInland() async {
     final l = context.l10n;
-    final files = ref.read(importFilesProvider).valueOrNull ?? [];
-    if (files.isNotEmpty) {
-      final target = files.firstWhere(
-        (f) => f.inlandTransportStatus != 'Arrived Warehouse' && f.isActive,
-        orElse: () => files.first,
-      );
-      InlandTransportDialog.show(context, target);
-    } else {
+    final allFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+    final eligibleFiles = allFiles.where((f) {
+      if (!f.isActive) return false;
+      final st = InlandStatus.codeOf(f.inlandTransportStatus);
+      return !InlandStatus.isArrivedOrDelivered(st);
+    }).toList();
+
+    if (eligibleFiles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         AppTheme.snackBar(context, l.wrNoFilesForBooking, severity: AppSeverity.warning),
       );
+      return;
     }
+
+    int? selectedFileId;
+    final formKey = GlobalKey<FormState>();
+
+    final chosen = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(l.wrPickFileForBookingTitle),
+          content: SizedBox(
+            width: 450,
+            child: Form(
+              key: formKey,
+              child: SearchableDropdownField<int>(
+                key: const Key('gitPickFileForInlandField'),
+                value: selectedFileId,
+                labelText: l.settlementPickFileField,
+                items: eligibleFiles.map((f) {
+                  final label = f.companyName.isNotEmpty
+                      ? '${f.primaryNameWithCode} - ${f.companyName}'
+                      : f.primaryNameWithCode;
+                  return SearchableDropdownItem<int>(
+                    value: f.importFileId,
+                    label: label,
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  setDialogState(() {
+                    selectedFileId = val;
+                  });
+                },
+                validator: (v) =>
+                    v == null ? l.financialSettlementImportFileValidator : null,
+              ),
+            ),
+          ),
+          actions: [
+            AppButton(
+              label: l.cancel,
+              variant: AppButtonVariant.secondary,
+              onPressed: () => Navigator.of(dialogCtx).pop(false),
+            ),
+            AppButton(
+              key: const Key('gitPickFileForInlandContinueBtn'),
+              label: l.settlementPickFileContinue,
+              variant: AppButtonVariant.primary,
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.of(dialogCtx).pop(true);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (chosen != true || selectedFileId == null || !mounted) {
+      return;
+    }
+
+    final target = eligibleFiles.firstWhere((f) => f.importFileId == selectedFileId);
+    await InlandTransportDialog.show(context, target);
   }
 
   @override
@@ -224,7 +288,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
       onTabSelected: (_) {},
       headerActions: [
         IconButton(
-          icon: Icon(Icons.refresh, color: AppTheme.white.withOpacity(0.7), size: density.buttonIconSize),
+          icon: Icon(Icons.refresh, color: AppTheme.white.withValues(alpha: 0.7), size: density.buttonIconSize),
           tooltip: l.warehouseReceivingRefreshTooltip,
           onPressed: () => ref.invalidate(goodsInTransitProvider),
         ),

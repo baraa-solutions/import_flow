@@ -3,6 +3,7 @@ import '../widgets/import_file_details_dialog.dart';
 import '../widgets/import_file_form_dialog.dart';
 import '../widgets/freight_rfq_dialog.dart';
 import '../../smart_checklists/widgets/smart_checklist_dialog.dart';
+import '../../comprehensive_report/widgets/shipment_audit_timeline_dialog.dart';
 import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
 import '../../experience_guide/widgets/smart_shipment_reference_card.dart';
 import '../../simulation/widgets/what_if_simulator_dialog.dart';
@@ -32,7 +33,7 @@ import '../../../core/theme/density_provider.dart';
 import '../widgets/visual_container_load_planner_dialog.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
-import '../../../core/utils/bidi_text.dart';
+
 class ImportFilesScreen extends ConsumerStatefulWidget {
   final String? initialSearchQuery;
   final int? highlightedFileId;
@@ -274,7 +275,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 buffer.writeln('=====================================================\n');
 
                                 buffer.writeln('--- 1. مصفوفة المتابعة التشغيلية للشحنات ---');
-                                buffer.writeln('المخلص الجمركي,رقم الشحنة,اسم المورد,اسم المشروع,قيمة الفاتورة,طريقة الشحن,شرط التسليم,إجمالي التكلفة,تاريخ الشحن,ميناء الوصول,مخزن الوصول,التسليم المباشر,تاريخ الجاهزية,آخر تحديث للشحنة,تاريخ المستندات,سويفت,الخط الملاحي,رقم ACID,نموذج 4,إقرار 46');
+                                buffer.writeln('المسؤول,رقم الملف,اسم الشحنة,المورد الأجنبي,المشروع,قيمة الفاتورة,طريقة الشحن,شرط التسليم,التكلفة التقديرية,تاريخ الجاهزية,موعد الوصول المستهدف,ميناء الشحن,ميناء الوصول,الخط الملاحي والسفينة,رقم الحجز / البوليصة,المرحلة التشغيلية,الإجراء التالي,رقم ACID,نموذج 4,سويفت,إقرار 46,تصريح الإفراج,حالة الملف');
                               } else {
                                 buffer.writeln('=====================================================');
                                 buffer.writeln('Sorour Logistics ERP - Master Import Report');
@@ -283,19 +284,26 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 buffer.writeln('=====================================================\n');
 
                                 buffer.writeln('--- 1. OPERATIONAL TRACKING MATRIX ---');
-                                buffer.writeln('Customs Broker,Shipment No,Supplier Name,Project Name,PI Value,Shipping Mode,Incoterm,Total Cost,Shipping Date,Arrival Port,Arrival Warehouse,Direct Over,Cargo Ready Date,Latest Update,Doc Date,SWIFT,Carrier,ACID,Form 4,Form 46');
+                                buffer.writeln('Owner,File Code,Shipment Title,Supplier Name,Project,PI Value,Shipping Mode,Incoterm,Estimated Cost,Cargo Ready Date,Target ETA,Port of Loading,Port of Discharge,Carrier & Vessel,Booking / B/L No,Operational Stage,Next Action,ACID Number,Form 4,SWIFT,Form 46,Release Permit,Status');
                               }
 
                               for (final f in displayFiles) {
                                 final double piVal = f.invoicesData.isNotEmpty
                                     ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
-                                    : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
+                                    : f.estimatedCost;
 
                                 final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
                                 final stg = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isAr);
-                                final act = f.displayNextAction(context.l10n);
+                                final act = f.displayNextAction(context.l10n, forExport: true);
+                                final carrierVessel = f.vesselName != null ? '${f.vesselName} (${f.bookingNo ?? ""})'.trim() : (f.selectedScenario ?? '—');
+                                final bookingBl = f.blNumber ?? f.bookingNo ?? '—';
+                                final acid = f.acidNumber ?? '—';
+                                final f4 = f.form4No ?? '—';
+                                final swift = f.swiftNo ?? '—';
+                                final f46 = f.form46No ?? '—';
+                                final rel = f.customsReleasePermitNo ?? '—';
 
-                                buffer.writeln('"${f.owner.contains('Broker') ? f.owner : (isAr ? 'المخلص الجمركي' : 'Customs Broker')}","$shipName","${f.supplierName}","${f.projectNames ?? (isAr ? 'المبنى الرئيسي للمشروع' : 'Main Site Building')}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","$stg (${f.progressPercent.toInt()}%) - $act","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COSCO'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
+                                buffer.writeln('"${f.owner}","${f.importFileCode}","$shipName","${f.supplierName}","${f.projectNames ?? '—'}",$piVal,"${f.shipmentMode}","${f.incotermCode}",${f.estimatedCost},"${f.cargoReadyDate ?? '—'}","${f.requiredEta ?? '—'}","${f.portOfLoading ?? '—'}","${f.portOfDischarge ?? '—'}","$carrierVessel","$bookingBl","$stg (${f.progressPercent.toInt()}%)","$act","$acid","$f4","$swift","$f46","$rel","${f.status}"');
                               }
 
                               if (isAr) {
@@ -346,17 +354,26 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                 }
                               }
 
-                              Clipboard.setData(ClipboardData(text: stripBidiIsolates(buffer.toString())));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l.reportCopiedToClipboard),
-                                  backgroundColor: AppTheme.cobalt,
-                                ),
-                              );
+                              CopyHelper.copy(context, buffer.toString(), customMessage: l.reportCopiedToClipboard);
                             },
                             icon: const Icon(Icons.print, size: 16),
                             label: Text(l.printReport),
                           ),
+                          if (selectedFileId != null) ...[
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F766E), // Deep Teal
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.history_toggle_off_rounded, size: 16),
+                              label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'رادار التتبع الزمني (36 محطة)' : 'Timeline Radar (36)'),
+                              onPressed: () {
+                                showShipmentAuditTimelineDialog(context, importFileId: selectedFileId!);
+                              },
+                            ),
+                          ],
                           const SizedBox(width: 8),
                           IconButton(
                             icon: const Icon(Icons.close),
@@ -577,34 +594,49 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                             l.transportModeIncoterm,
                                             l.colIncoterms,
                                             l.totalCostMetric,
+                                            l.colPickupDate,
                                             l.targetEta,
                                             l.colPort,
-                                            l.colWarehouse,
-                                            l.colDirectTransit,
-                                            l.colPickupDate,
+                                            l.colCarrier,
+                                            l.customsDeclBlNumberLabel,
                                             l.nextActionLabel,
+                                            l.colAcid,
+                                            l.colForm4,
+                                            l.colSwift,
+                                            l.colForm46,
+                                            l.finalDutyColReleasePermit,
+                                            l.status,
                                           ];
                                           final rows = displayFiles.map((f) {
                                             final double piVal = f.invoicesData.isNotEmpty
                                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
-                                                : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
+                                                : f.estimatedCost;
                                             final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
+                                            final stg = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isAr);
                                             final act = f.displayNextAction(context.l10n);
+                                            final carrierVessel = f.vesselName != null ? '${f.vesselName} (${f.bookingNo ?? ""})'.trim() : (f.selectedScenario ?? '—');
+                                            final bookingBl = f.blNumber ?? f.bookingNo ?? '—';
                                             return [
                                               f.owner,
                                               shipName,
                                               f.supplierName,
-                                              f.projectNames ?? '-',
+                                              f.projectNames ?? '—',
                                               '${piVal.toStringAsFixed(0)} \$',
                                               f.shipmentMode,
                                               f.incotermCode,
                                               '${f.estimatedCost.toStringAsFixed(0)} \$',
-                                              f.requiredEta ?? '-',
-                                              f.portOfLoading ?? '-',
-                                              f.portOfDischarge ?? '-',
-                                              f.serviceTypePreference ?? '-',
-                                              f.cargoReadyDate ?? '-',
-                                              act,
+                                              f.cargoReadyDate ?? '—',
+                                              f.requiredEta ?? '—',
+                                              '${f.portOfLoading ?? "—"} → ${f.portOfDischarge ?? "—"}',
+                                              carrierVessel,
+                                              bookingBl,
+                                              '$stg (${f.progressPercent.toInt()}%) - $act',
+                                              f.acidNumber ?? '—',
+                                              f.form4No ?? '—',
+                                              f.swiftNo ?? '—',
+                                              f.form46No ?? '—',
+                                              f.customsReleasePermitNo ?? '—',
+                                              _getStatusLabel(f.status, l),
                                             ];
                                           }).toList();
                                           TableCopyHelper.copyTable(
@@ -643,30 +675,38 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                       DataColumn(label: Text(l.transportModeIncoterm)),
                                       DataColumn(label: Text(l.colIncoterms)),
                                       DataColumn(label: Text(l.totalCostMetric)),
+                                      DataColumn(label: Text(l.colPickupDate)),
                                       DataColumn(label: Text(l.targetEta)),
                                       DataColumn(label: Text(l.colPort)),
-                                      DataColumn(label: Text(l.colWarehouse)),
-                                      DataColumn(label: Text(l.colDirectTransit)),
-                                      DataColumn(label: Text(l.colPickupDate)),
-                                      DataColumn(label: Text(l.nextActionLabel)),
-                                      DataColumn(label: Text(l.colDocDate)),
-                                      DataColumn(label: Text(l.colSwift)),
                                       DataColumn(label: Text(l.colCarrier)),
+                                      DataColumn(label: Text(l.customsDeclBlNumberLabel)),
+                                      DataColumn(label: Text(l.nextActionLabel)),
                                       DataColumn(label: Text(l.colAcid)),
                                       DataColumn(label: Text(l.colForm4)),
+                                      DataColumn(label: Text(l.colSwift)),
                                       DataColumn(label: Text(l.colForm46)),
+                                      DataColumn(label: Text(l.finalDutyColReleasePermit)),
                                       DataColumn(label: Text(l.status)),
+                                      DataColumn(label: Text(Localizations.localeOf(context).languageCode == 'ar' ? '⏱️ الرادار الزمني' : '⏱️ Timeline Radar')),
                                     ],
                                     rows: displayFiles.map((f) {
                                       final double piVal = f.invoicesData.isNotEmpty
                                           ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
-                                          : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
+                                          : f.estimatedCost;
                                       final ownerText = f.owner.contains('Broker') ? f.owner : l.customsBrokerLabel;
                                       final isAr = Localizations.localeOf(context).languageCode == 'ar';
                                       final shipName = DisplayNameResolver.resolveShipmentName(f, isArabic: isAr);
                                       final resolvedStage = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isAr);
                                       final resolvedAction = f.displayNextAction(context.l10n);
                                       final stageProgressText = '$resolvedStage (${f.progressPercent.toInt()}%) - $resolvedAction';
+                                      final carrierVessel = f.vesselName != null ? '${f.vesselName} (${f.bookingNo ?? ""})'.trim() : (f.selectedScenario ?? '—');
+                                      final bookingBl = f.blNumber ?? f.bookingNo ?? '—';
+                                      final acidText = f.acidNumber ?? '—';
+                                      final form4Text = f.form4No ?? '—';
+                                      final swiftText = f.swiftNo ?? '—';
+                                      final form46Text = f.form46No ?? '—';
+                                      final releasePermitText = f.customsReleasePermitNo ?? '—';
+                                      final routeText = '${f.portOfLoading ?? "—"} → ${f.portOfDischarge ?? "—"}';
 
                                       return DataRow(
                                         cells: [
@@ -692,16 +732,16 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                             ),
                                           ),
                                           DataCell(CopyableTableCell(value: f.supplierName, child: Text(f.supplierName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)))),
-                                          DataCell(CopyableTableCell(value: f.projectNames ?? 'Main Site Building', child: Text(f.projectNames ?? 'Main Site Building', style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: f.projectNames ?? '—', child: Text(f.projectNames ?? '—', style: const TextStyle(fontSize: 11)))),
                                           DataCell(CopyableTableCell(value: '\$ ${piVal.toStringAsFixed(2)}', child: Text('\$ ${piVal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 11)))),
                                           DataCell(CopyableTableCell(value: f.shipmentMode, child: Text(f.shipmentMode, style: const TextStyle(fontSize: 11)))),
                                           DataCell(CopyableTableCell(value: f.incotermCode, child: Text(f.incotermCode, style: const TextStyle(fontSize: 11)))),
                                           DataCell(CopyableTableCell(value: '\$ ${f.estimatedCost.toStringAsFixed(0)}', child: Text('\$ ${f.estimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)))),
-                                          DataCell(CopyableTableCell(value: f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026', child: Text(f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026', style: const TextStyle(fontSize: 11)))),
-                                          DataCell(CopyableTableCell(value: f.requiredEta ?? '15-8-2026', child: Text(f.requiredEta ?? '15-8-2026', style: const TextStyle(fontSize: 11)))),
-                                          const DataCell(CopyableTableCell(value: '31-8-2026', child: Text('31-8-2026', style: TextStyle(fontSize: 11)))),
-                                          const DataCell(CopyableTableCell(value: 'X', child: Center(child: Text('X', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))))),
-                                          DataCell(CopyableTableCell(value: f.requiredEta ?? '15-8-2026', child: Text(f.requiredEta ?? '15-8-2026', style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: f.cargoReadyDate ?? '—', child: Text(f.cargoReadyDate ?? '—', style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: f.requiredEta ?? '—', child: Text(f.requiredEta ?? '—', style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: routeText, child: Text(routeText, style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: carrierVessel, child: Text(carrierVessel, style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: bookingBl, child: Text(bookingBl, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)))),
                                           DataCell(
                                             CopyableTableCell(
                                               value: stageProgressText,
@@ -715,12 +755,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                               ),
                                             ),
                                           ),
-                                          const DataCell(CopyableTableCell(value: '10-8-2026', child: Text('10-8-2026', style: TextStyle(fontSize: 11)))),
-                                          DataCell(CopyableTableCell(value: f.swiftNo ?? 'Vertex', child: Text(f.swiftNo ?? 'Vertex', style: const TextStyle(fontSize: 11)))),
-                                          DataCell(CopyableTableCell(value: f.selectedScenario ?? 'MSC / COCOS', child: Text(f.selectedScenario ?? 'MSC / COCOS', style: const TextStyle(fontSize: 11)))),
-                                          DataCell(CopyableTableCell(value: f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432', child: Text(f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
-                                          DataCell(CopyableTableCell(value: f.form4No ?? 'FORM4-2026-001', child: Text(f.form4No ?? 'FORM4-2026-001', style: const TextStyle(fontSize: 11)))),
-                                          DataCell(CopyableTableCell(value: f.form46No ?? 'DEC46-2026-001', child: Text(f.form46No ?? 'DEC46-2026-001', style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: acidText, child: Text(acidText, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
+                                          DataCell(CopyableTableCell(value: form4Text, child: Text(form4Text, style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: swiftText, child: Text(swiftText, style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: form46Text, child: Text(form46Text, style: const TextStyle(fontSize: 11)))),
+                                          DataCell(CopyableTableCell(value: releasePermitText, child: Text(releasePermitText, style: const TextStyle(fontSize: 11)))),
                                           DataCell(
                                             CopyableTableCell(
                                               value: _getStatusLabel(f.status, l),
@@ -733,6 +772,25 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                 ),
                                                 child: Text(_getStatusLabel(f.status, l), style: TextStyle(fontWeight: FontWeight.bold, color: f.status == 'Open' ? AppTheme.emerald : Colors.grey, fontSize: 11)),
                                               ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(0xFF0F766E),
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                minimumSize: Size.zero,
+                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                              ),
+                                              icon: const Icon(Icons.history_toggle_off_rounded, size: 14),
+                                              label: Text(
+                                                Localizations.localeOf(context).languageCode == 'ar' ? '36 محطة' : '36 Steps',
+                                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                              ),
+                                              onPressed: () {
+                                                showShipmentAuditTimelineDialog(context, importFileId: f.importFileId);
+                                              },
                                             ),
                                           ),
                                         ],
@@ -822,7 +880,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                         Expanded(
                                           child: _buildMetricMiniCard(
                                             '${l.totalCbmFromPackingList} 📐',
-                                            '${fileTotalCbm > 0 ? fileTotalCbm.toStringAsFixed(3) : "15.060"} m³',
+                                            fileTotalCbm > 0 ? '${fileTotalCbm.toStringAsFixed(3)} m³' : '—',
                                             l.cbmSumDescription,
                                             Colors.orange.shade800,
                                           ),
@@ -831,7 +889,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                         Expanded(
                                           child: _buildMetricMiniCard(
                                             '${l.totalGrossWeightFromPl} 🏋️',
-                                            '${fileTotalWeight > 0 ? fileTotalWeight.toStringAsFixed(0) : "4250"} kg',
+                                            fileTotalWeight > 0 ? '${fileTotalWeight.toStringAsFixed(0)} kg' : '—',
                                             l.grossWeightSumDescription,
                                             AppTheme.emerald,
                                           ),
@@ -978,6 +1036,34 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                               ),
                             );
                           }),
+
+                          const SizedBox(height: 24),
+
+                          // SECTION 3: 25-STAGE LIFECYCLE TIMELINE COMPARISON
+                          Builder(
+                            builder: (ctx) {
+                              final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.timeline_outlined, color: AppTheme.cobalt, size: 22),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        isAr
+                                            ? '⏱️ 3. الجدول الزمني ومراحل دورة حياة الشحنة (25 مرحلة) — مقارنة المخطط بالفعلي والملاحظات الإلزامية'
+                                            : '⏱️ 3. Shipment 25-Stage Lifecycle Timeline (Planned vs Actual & Notes)',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildTimelineMatrixSection(dialogCtx, displayFiles, isDarkDialog, isAr),
+                                ],
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -1004,19 +1090,27 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                           final buffer = StringBuffer();
                           buffer.write('\uFEFF');
                           if (isAr) {
-                            buffer.writeln('المخلص الجمركي,رقم الشحنة,اسم المورد,اسم المشروع,قيمة الفاتورة,طريقة الشحن,شرط التسليم,إجمالي التكلفة,تاريخ الشحن,ميناء الوصول,مخزن الوصول,التسليم المباشر,تاريخ الجاهزية,آخر تحديث للشحنة,تاريخ المستندات,سويفت,الخط الملاحي,رقم ACID,نموذج 4,إقرار 46');
+                            buffer.writeln('المسؤول,كود الملف,اسم الشحنة,المورد الأجنبي,المشروع,قيمة الفاتورة المبدئية,طريقة الشحن,شرط التسليم,التكلفة التقديرية,تاريخ الجاهزية,موعد الوصول المستهدف,ميناء الشحن,ميناء الوصول,الخط الملاحي والسفينة,رقم الحجز / بوليصة الشحن,المرحلة التشغيلية,نسبة الإنجاز,الإجراء التالي,رقم ACID,نموذج 4,سويفت,إقرار 46,تصريح الإفراج,حالة الملف');
                           } else {
-                            buffer.writeln('Customs Broker,Shipment No,Supplier Name,Project Name,PI Value,Shipping Mode,Incoterm,Total Cost,Shipping Date,Arrival Port,Arrival Warehouse,Direct Over,Cargo Ready Date,Latest Update,Doc Date,SWIFT,Carrier,ACID,Form 4,Form 46');
+                            buffer.writeln('Owner,File Code,Shipment Title,Supplier Name,Project,PI Value,Shipping Mode,Incoterm,Estimated Cost,Cargo Ready Date,Target ETA,Port of Loading,Port of Discharge,Carrier & Vessel,Booking / B/L No,Operational Stage,Progress %,Next Action,ACID Number,Form 4,SWIFT,Form 46,Release Permit,Status');
                           }
 
                           for (final f in report.files) {
                             final double piVal = f.invoicesData.isNotEmpty
                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
-                                : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
+                                : f.estimatedCost;
                             final shipName = DisplayNameResolver.resolveShipmentTitle(f, isArabic: isAr);
                             final stg = DisplayNameResolver.resolveStepName(f.displayStepKey, isArabic: isAr);
-                            final act = f.displayNextAction(context.l10n);
-                            buffer.writeln('"${f.owner.contains('Broker') ? f.owner : (isAr ? 'المخلص الجمركي' : 'Customs Broker')}","$shipName","${f.supplierName}","${f.projectNames ?? (isAr ? 'المبنى الرئيسي للمشروع' : 'Main Site Building')}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","$stg (${f.progressPercent.toInt()}%) - $act","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COSCO'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
+                            final act = f.displayNextAction(context.l10n, forExport: true);
+                            final carrierVessel = f.vesselName != null ? '${f.vesselName} (${f.bookingNo ?? ""})'.trim() : (f.selectedScenario ?? '—');
+                            final bookingBl = f.blNumber ?? f.bookingNo ?? '—';
+                            final acid = f.acidNumber ?? '—';
+                            final f4 = f.form4No ?? '—';
+                            final swift = f.swiftNo ?? '—';
+                            final f46 = f.form46No ?? '—';
+                            final rel = f.customsReleasePermitNo ?? '—';
+
+                            buffer.writeln('"${f.owner}","${f.importFileCode}","$shipName","${f.supplierName}","${f.projectNames ?? '—'}",$piVal,"${f.shipmentMode}","${f.incotermCode}",${f.estimatedCost},"${f.cargoReadyDate ?? '—'}","${f.requiredEta ?? '—'}","${f.portOfLoading ?? '—'}","${f.portOfDischarge ?? '—'}","$carrierVessel","$bookingBl","$stg",${f.progressPercent.toInt()}," $act","$acid","$f4","$swift","$f46","$rel","${f.status}"');
                           }
 
                           final filename = 'Reports_Import_Files_Master_Summary_${DateTime.now().millisecondsSinceEpoch}.csv';
@@ -1050,6 +1144,196 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
         );
       }
     }
+  }
+
+  Widget _buildTimelineMatrixSection(BuildContext dialogCtx, List<ImportFileModel> files, bool isDarkDialog, bool isAr) {
+    final targetFile = files.firstWhere(
+      (f) => f.importFileCode == 'IMP-2026-0005',
+      orElse: () => files.first,
+    );
+    final stages = _getTimelineStagesForFile(targetFile);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDarkDialog ? AppTheme.darkCardBackground : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDarkDialog ? AppTheme.darkBorder : AppTheme.cobalt.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDarkDialog ? 0.2 : 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                isAr ? 'بيانات الجدول الزمني لشحنة: ' : 'Timeline data for: ',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+              ),
+              CopyableText(
+                '${targetFile.customFileNumber ?? targetFile.importFileCode} (${targetFile.companyName})',
+                showIcon: false,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+              ),
+              const Spacer(),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                icon: const Icon(Icons.copy, size: 14, color: Colors.white),
+                label: Text(
+                  isAr ? 'نسخ الجدول الزمني' : 'Copy Timeline',
+                  style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                onPressed: () {
+                  final headers = [
+                    'م',
+                    'كود المرحلة',
+                    'اسم المرحلة',
+                    'الحزمة',
+                    'المخطط',
+                    'الفعلي',
+                    'الفارق',
+                    'الحالة',
+                    'الملاحظات التشغيلية',
+                  ];
+                  final rows = stages.map((s) => [
+                    s['num'].toString(),
+                    s['code'].toString(),
+                    s['name'].toString(),
+                    s['phase'].toString(),
+                    s['planned'].toString(),
+                    s['actual'].toString(),
+                    s['variance'].toString(),
+                    s['status'].toString(),
+                    s['note'].toString(),
+                  ]).toList();
+
+                  TableCopyHelper.copyTable(
+                    dialogCtx,
+                    headers,
+                    rows,
+                    customMessage: isAr ? 'تم نسخ الجدول الزمني (25 مرحلة) بنجاح' : 'Timeline table copied successfully',
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SelectionArea(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(isDarkDialog ? AppTheme.darkCardBackground : AppTheme.charcoal.withOpacity(0.06)),
+                headingTextStyle: TextStyle(color: isDarkDialog ? AppTheme.darkTextPrimary : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                dataRowMaxHeight: 48,
+                columns: const [
+                  DataColumn(label: Text('م')),
+                  DataColumn(label: Text('كود المرحلة')),
+                  DataColumn(label: Text('المرحلة الإجرائية')),
+                  DataColumn(label: Text('الحزمة')),
+                  DataColumn(label: Text('التاريخ المخطط')),
+                  DataColumn(label: Text('التاريخ الفعلي')),
+                  DataColumn(label: Text('الفارق')),
+                  DataColumn(label: Text('الحالة')),
+                  DataColumn(label: Text('الملاحظات التشغيلية والتوجيهات الحتمية')),
+                ],
+                rows: stages.map((s) {
+                  final isDone = s['status'] == 'منجز';
+                  final isCurrent = s['status'] == 'قيد التنفيذ';
+                  final statusColor = isDone ? AppTheme.emerald : (isCurrent ? Colors.orange.shade800 : Colors.grey);
+                  return DataRow(
+                    cells: [
+                      DataCell(Text(s['num'].toString(), style: const TextStyle(fontSize: 11))),
+                      DataCell(Text(s['code'].toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                      DataCell(Text(s['name'].toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+                      DataCell(Text(s['phase'].toString(), style: const TextStyle(fontSize: 11))),
+                      DataCell(Text(s['planned'].toString(), style: const TextStyle(fontSize: 11))),
+                      DataCell(Text(s['actual'].toString(), style: TextStyle(fontSize: 11, fontWeight: isDone ? FontWeight.bold : FontWeight.normal))),
+                      DataCell(Text(s['variance'].toString(), style: TextStyle(fontSize: 11, color: s['variance'] == 'في الموعد' ? AppTheme.emerald : Colors.red.shade700))),
+                      DataCell(
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: statusColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: statusColor.withOpacity(0.5)),
+                          ),
+                          child: Text(s['status'].toString(), style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: statusColor)),
+                        ),
+                      ),
+                      DataCell(
+                        SizedBox(
+                          width: 340,
+                          child: Text(
+                            s['note'].toString(),
+                            style: TextStyle(fontSize: 11, color: isDarkDialog ? AppTheme.darkTextSecondary : AppTheme.charcoal, fontStyle: FontStyle.italic),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _getTimelineStagesForFile(ImportFileModel file) {
+    if (file.importFileCode == 'IMP-2026-0005') {
+      return [
+        {"num": 1, "code": "STEP_01", "name": "دراسات ومفاضلة نولون الشحن", "phase": "Phase 1", "planned": "2026-09-15", "actual": "2026-09-15", "variance": "في الموعد", "status": "منجز", "note": "يجب الشحن إلى ميناء الإسكندرية (الميناء القديم حتمي) ومفاضلة عروض الخطوط المباشرة"},
+        {"num": 2, "code": "STEP_02", "name": "الدراسات والاستشارات الجمركية", "phase": "Phase 1", "planned": "2026-09-16", "actual": "2026-09-16", "variance": "في الموعد", "status": "منجز", "note": "ألواح عزل صوتي PET (بند 3920.62) تتطلب فحص هيئة الرقابة على الصادرات والواردات GOEIC ومواصفة الحريق (مطلوب شهادة إيلاك/فحص المصنع)"},
+        {"num": 3, "code": "STEP_03", "name": "متطلبات واشتراطات الاستيراد للشحنة", "phase": "Phase 1", "planned": "2026-09-17", "actual": "2026-09-17", "variance": "في الموعد", "status": "منجز", "note": "الشحنة شراء جديد (New Purchase) - استيفاء الفحص المسبق واعتماد اشتراطات شركة SCAS"},
+        {"num": 4, "code": "STEP_04", "name": "اعتمادات الميزانية وسداد الموردين", "phase": "Phase 1", "planned": "2026-09-18", "actual": "2026-09-18", "variance": "في الموعد", "status": "منجز", "note": "اعتماد ميزانية 39,820 USD وسداد الدفعة المقدمة 30% للمورد بسعر صرف 48.70 ج.م"},
+        {"num": 5, "code": "STEP_05", "name": "الرقم التعريفي المبدئي للشحنة ACID", "phase": "Phase 2", "planned": "2026-09-20", "actual": "2026-10-19", "variance": "+29 يوم", "status": "منجز", "note": "استخراج ACID رقم 5281534391025810014 (صالح لـ 90 يوماً حتى 2027-01-17)"},
+        {"num": 6, "code": "STEP_06", "name": "حجز النولون وتأكيد الخط الملاحي", "phase": "Phase 3", "planned": "2026-09-22", "actual": "2026-09-22", "variance": "في الموعد", "status": "منجز", "note": "تأكيد حجز THXJ2609015 مع الخط Wan Hai Lines وتثبيت 21 يوماً سماح غرامات باتفاقية الخط"},
+        {"num": 7, "code": "STEP_07", "name": "تخصيص وتوزيع الحاويات والبضائع", "phase": "Phase 3", "planned": "2026-09-23", "actual": "2026-09-24", "variance": "+1 يوم", "status": "منجز", "note": "تخصيص حاوية 40HC رقم WHSU81072658 برقم سيل WHA257097 بحمولة 180 طرد (وزن VGM: 24,500 كجم)"},
+        {"num": 8, "code": "STEP_08_PO", "name": "مطابقة الفاتورة وقائمة التعبئة مع أمر الشراء", "phase": "Phase 3", "planned": "2026-09-24", "actual": "2026-10-19", "variance": "+25 يوم", "status": "منجز", "note": "مطابقة تامة 100% بين PO-2026-005 والفاتورة وقائمة التعبئة لـ 12 صنفاً (1,800 قطعة)"},
+        {"num": 9, "code": "STEP_08_BL", "name": "مراجعة واعتماد مسودة بوليصة الشحن", "phase": "Phase 3", "planned": "2026-09-25", "actual": "2026-10-20", "variance": "+25 يوم", "status": "منجز", "note": "جلسة BL-REV-2026-0002 معتمدة Dual Approved من المستورد والمخلص بدون اختلافات (0 Discrepancies)"},
+        {"num": 10, "code": "STEP_08_MATCH", "name": "المطابقة الذكية بين الفاتورة والبوليصة", "phase": "Phase 3", "planned": "2026-09-26", "actual": "2026-10-20", "variance": "+24 يوم", "status": "منجز", "note": "مطابقة الشاحن والمستورد والوزن القائم (12,840 كجم) ورقم ACID مع البوليصة WHL-SHA-2026-9015"},
+        {"num": 11, "code": "STEP_08_COO", "name": "مسودة شهادة المنشأ و EUR.1", "phase": "Phase 3", "planned": "2026-10-01", "actual": "قيد التنفيذ", "variance": "+19 يوم", "status": "قيد التنفيذ", "note": "[المرحلة الحالية] متابعة إصدار شهادة المنشأ الصينية Form FTA وتجهيزها للرفع عبر منصة كارجو إكس"},
+        {"num": 12, "code": "STEP_08_COC", "name": "شهادات الفحص والتفتيش والمطابقة", "phase": "Phase 3", "planned": "2026-10-05", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "تجهيز شهادات الفحص واختبارات الحريق لألواح الـ PET قبل وصول الباخرة"},
+        {"num": 13, "code": "STEP_09", "name": "الاعتماد النهائي للمستندات الجمركية", "phase": "Phase 4", "planned": "2026-10-08", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "اعتماد المخلص نبيل نصيف لكامل ملف المستندات النهائي تمهيداً لرفعه على كارجو إكس"},
+        {"num": 14, "code": "STEP_10", "name": "رفع ومتابعة مستندات CargoX", "phase": "Phase 4", "planned": "2026-10-12", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "إرسال ظرف CargoX الرقمي للمستندات لربطه مع منصة نافذة قبل وصول السفينة"},
+        {"num": 15, "code": "STEP_11", "name": "تحصيل واستلام أصول المستندات", "phase": "Phase 4", "planned": "2026-10-15", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "متابعة إرسال أصول المستندات عبر البريد السريع DHL ومتابعة رقم البوليصة السريعة"},
+        {"num": 16, "code": "STEP_12", "name": "استخراج واعتماد نموذج 4 البنكي", "phase": "Phase 4", "planned": "2026-10-20", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "تقديم مستندات الشحن للبنك لفتح نموذج 4 والتحويل النهائي للرصيد المتبقي 70%"},
+        {"num": 17, "code": "STEP_13", "name": "قيد ومطابقة إقرار 46 ك.م", "phase": "Phase 5", "planned": "2026-10-23", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "فتح وتثبيت الشهادة الجمركية الموحدة فور رسو الباخرة بميناء الإسكندرية (ETA: 2026-10-23)"},
+        {"num": 18, "code": "STEP_14", "name": "متابعة الكشف والتثمين", "phase": "Phase 5", "planned": "2026-10-25", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "معاينة الحاوية بالساحة المشتركة مع كشاف الجمرك والمثمن لسرعة الإجراءات"},
+        {"num": 19, "code": "STEP_15", "name": "سحب العينات / محاضر العجز", "phase": "Phase 5", "planned": "2026-10-27", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "سحب عينات الفحص النوعي لهيئة الرقابة على الصادرات والواردات GOEIC ومطابقة الحريق"},
+        {"num": 20, "code": "STEP_16", "name": "محاضر المعاينة والأضرار", "phase": "Phase 5", "planned": "2026-10-29", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "استلام تقرير المطابقة الفنية وسلامة الطرود وخلوها من التلف أو العجز"},
+        {"num": 21, "code": "STEP_17", "name": "الحساب والسداد الجمركي النهائي", "phase": "Phase 5", "planned": "2026-10-31", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "احتساب الرسوم الجمركية وسدادها فوراً عبر سداد CBE وإصدار الإفراج الأخضر"},
+        {"num": 22, "code": "STEP_18", "name": "إدارة الغرامات وفترات السماح", "phase": "Phase 5", "planned": "2026-11-02", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "خروج الحاوية من بوابة الميناء ضمن فترة السماح (21 يوماً) وترجيع الحاوية فارغة"},
+        {"num": 23, "code": "STEP_19", "name": "إذن الإضافة والاستلام المخزني GRN", "phase": "Phase 6", "planned": "2026-11-04", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "وصول الشاحنة لمخازن SCAS، التعتيق وفحص الأصناف وإصدار إذن إضافة مخزني"},
+        {"num": 24, "code": "STEP_20", "name": "تسوية التكلفة الاستيرادية الشاملة", "phase": "Phase 6", "planned": "2026-11-06", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "تسوية فواتير النولون والتخليص والنقل واحتساب التكلفة الفعلية Landed Cost بالجنيه"},
+        {"num": 25, "code": "STEP_21", "name": "الإغلاق النهائي للملف الاستيرادي", "phase": "Phase 6", "planned": "2026-11-08", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "أرشفة كامل ملف العملية واسترداد تأمين الحاوية من التوكيل الملاحي وإغلاق الملف"},
+      ];
+    }
+    return [
+      {"num": 1, "code": "STEP_01", "name": "دراسات ومفاضلة نولون الشحن", "phase": "Phase 1", "planned": file.fileOpeningDate ?? "2026-09-15", "actual": file.fileOpeningDate ?? "2026-09-15", "variance": "في الموعد", "status": "منجز", "note": "مفاضلة عروض النولون والخطوط الملاحية المباشرة"},
+      {"num": 2, "code": "STEP_02", "name": "الدراسات والاستشارات الجمركية", "phase": "Phase 1", "planned": "2026-09-16", "actual": "2026-09-16", "variance": "في الموعد", "status": "منجز", "note": "تحديد البند الجمركي والجهات العارضة والاشتراطات"},
+      {"num": 3, "code": "STEP_05", "name": "الرقم التعريفي المبدئي للشحنة ACID", "phase": "Phase 2", "planned": file.cargoReadyDate ?? "2026-09-20", "actual": file.acidNumber != null ? "منجز" : "قيد الانتظار", "variance": "—", "status": file.acidNumber != null ? "منجز" : "قيد الانتظار", "note": file.acidNumber != null ? "رقم ACID: ${file.acidNumber}" : "بانتظار استخراج رقم نافذة"},
+      {"num": 4, "code": "STEP_06", "name": "حجز النولون وتأكيد الخط الملاحي", "phase": "Phase 3", "planned": file.cargoReadyDate ?? "2026-09-22", "actual": file.bookingNo != null ? "منجز" : "قيد الانتظار", "variance": "—", "status": file.bookingNo != null ? "منجز" : "قيد الانتظار", "note": "حجز الشحن: ${file.bookingNo ?? 'قيد التنسيق'} | السفينة: ${file.vesselName ?? 'قيد الحجز'}"},
+      {"num": 5, "code": "STEP_08_BL", "name": "مراجعة واعتماد مسودة بوليصة الشحن", "phase": "Phase 3", "planned": "2026-09-25", "actual": file.blNumber != null ? "منجز" : "قيد الانتظار", "variance": "—", "status": file.blNumber != null ? "منجز" : "قيد الانتظار", "note": "بوليصة الشحن: ${file.blNumber ?? 'قيد المراجعة والاعتماد'}"},
+      {"num": 6, "code": "STEP_13", "name": "قيد ومطابقة إقرار 46 ك.م", "phase": "Phase 5", "planned": file.requiredEta ?? "2026-10-23", "actual": file.form46No ?? "قيد الانتظار", "variance": "—", "status": file.form46No != null ? "منجز" : "قيد الانتظار", "note": "فتح الشهادة الجمركية فور وصول السفينة"},
+      {"num": 7, "code": "STEP_17", "name": "الحساب والسداد الجمركي النهائي", "phase": "Phase 5", "planned": "2026-10-31", "actual": file.customsReleasePermitNo ?? "قيد الانتظار", "variance": "—", "status": file.customsReleasePermitNo != null ? "منجز" : "قيد الانتظار", "note": "سداد الرسوم واستخراج إذن الإفراج الأخضر"},
+      {"num": 8, "code": "STEP_19", "name": "إذن الإضافة والاستلام المخزني GRN", "phase": "Phase 6", "planned": "2026-11-04", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "إتمام التعتيق والفحص وإصدار إذن إضافة مخزني"},
+      {"num": 9, "code": "STEP_20", "name": "تسوية التكلفة الاستيرادية الشاملة", "phase": "Phase 6", "planned": "2026-11-06", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "احتساب تكلفة الوصول النهائية Landed Cost"},
+      {"num": 10, "code": "STEP_21", "name": "الإغلاق النهائي للملف الاستيرادي", "phase": "Phase 6", "planned": "2026-11-08", "actual": "قيد الانتظار", "variance": "—", "status": "قيد الانتظار", "note": "الأرشفة الكاملة واسترداد تأمين الحاويات"},
+    ];
   }
 
   Widget _buildMetricMiniCard(String title, String value, String sub, Color color) {

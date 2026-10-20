@@ -652,7 +652,8 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
 
       final owner = _ownerController.text.trim();
       final payload = {
-        'booking_confirmation_no': _bookingConfirmNoController.text.trim(),
+        if (_bookingConfirmNoController.text.trim().isNotEmpty)
+          'booking_confirmation_no': _bookingConfirmNoController.text.trim(),
         'import_file_id': _selectedImportFileId,
         if (_rfqRequestId != null) 'rfq_request_id': _rfqRequestId,
         'scenario_session_id': _selectedScenarioSessionId,
@@ -671,7 +672,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
         'eta': _eta?.toIso8601String(),
         'atd': _atd?.toIso8601String(),
         'free_demurrage_days': _freeDemurrageController.text.trim().isNotEmpty ? int.tryParse(_freeDemurrageController.text.trim()) : null,
-        'expected_warehouse_days': int.tryParse(_expectedWhDaysController.text.trim()) ?? 7,
+        'expected_warehouse_days': int.parse(_expectedWhDaysController.text.trim()),
         'vessel_name': _vesselNameController.text.trim(),
         'voyage_number': _voyageNoController.text.trim(),
         'container_release_order_no': _releaseOrderNoController.text.trim(),
@@ -1042,7 +1043,6 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                   controller: _bookingConfirmNoController,
                   textDirection: TextDirection.ltr,
                   decoration: ccInputDecoration(prefix: Icons.confirmation_number_outlined),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? l.freightBookingConfirmNoValidator : null,
                 ),
               ),
             ],
@@ -1241,6 +1241,12 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
                   keyboardType: TextInputType.number,
                   decoration: ccInputDecoration(prefix: Icons.warehouse_outlined),
                   onChanged: (v) => setState(() {}),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return l.fbkWarehouseExpectedDaysRequired;
+                    final n = int.tryParse(v.trim());
+                    if (n == null || n < 0) return l.fbkWarehouseExpectedDaysInvalid;
+                    return null;
+                  },
                 ),
               ),
               CcField(
@@ -1476,35 +1482,63 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
             onPressed: _isSaving
                 ? null
                 : () {
-                    ref.read(freightBookingProvider.notifier).fetchBookings();
+                    ref.read(freightBookingProvider.notifier).refresh();
                     ref.read(importFilesProvider.notifier).fetchImportFiles();
                   },
           ),
+          if (!_isEdit)
+            AppButton(
+              key: const Key('fbkFormClearBtn'),
+              label: l.freightBookingBtnClearNew,
+              icon: Icons.cleaning_services_outlined,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
+              onPressed: _isSaving
+                  ? null
+                  : () {
+                      _formKey.currentState?.reset();
+                      setState(() {
+                        _selectedImportFileId = null;
+                        _selectedScenarioSessionId = null;
+                        _selectedScenarioItemId = null;
+                        _selectedScenarioProviderName = null;
+                        _bookingConfirmNoController.clear();
+                        _vesselNameController.clear();
+                        _voyageNoController.clear();
+                        _notesController.clear();
+                        _releaseOrderNoController.clear();
+                        _shippingLineName = null;
+                        _shippingLineId = null;
+                        _freightForwarderName = null;
+                        _freightForwarderId = null;
+                        _polLocationId = null;
+                        _polController.clear();
+                        _podLocationId = null;
+                        _podController.clear();
+                        _etd = null;
+                        _eta = null;
+                        _freeDemurrageController.text = '14';
+                        _expectedWhDaysController.text = '7';
+                        _status = 'Draft';
+                        _containers = [];
+                        _charges = [];
+                      });
+                    },
+            ),
           AppButton(
-            label: l.freightBookingBtnClearNew,
-            icon: Icons.cleaning_services_outlined,
-            variant: AppButtonVariant.secondary,
-            size: AppButtonSize.small,
-            onPressed: _isSaving
-                ? null
-                : () {
-                    setState(() {
-                      _selectedImportFileId = null;
-                      _selectedScenarioSessionId = null;
-                      _selectedScenarioItemId = null;
-                      _selectedScenarioProviderName = null;
-                      _bookingConfirmNoController.clear();
-                      _vesselNameController.clear();
-                      _voyageNoController.clear();
-                    });
-                  },
-          ),
-          AppButton(
+            key: const Key('fbkFormSaveDraftBtn'),
             label: l.freightBookingBtnSaveDraft,
             icon: Icons.save_outlined,
             variant: AppButtonVariant.saveDraft,
             size: AppButtonSize.small,
-            onPressed: _isSaving ? null : () => _submitWithContainerValidation(activeContainerRec),
+            onPressed: _isSaving
+                ? null
+                : () {
+                    if (!_isEdit) {
+                      _status = 'Draft';
+                    }
+                    _submitWithContainerValidation(activeContainerRec);
+                  },
           ),
         ],
       ),

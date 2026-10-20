@@ -210,8 +210,10 @@ from modules.financial_settlement.validators import LOCKED_SETTLEMENT_STATUSES
 SETTLEMENT_LOCKED_STATUSES = LOCKED_SETTLEMENT_STATUSES
 
 
-def validate_settlement_open(db: Any, import_file_id: int) -> None:
-    """CL-05 / BEW0-06: clearance invoices cannot be recorded or deleted after the landed-cost settlement is approved."""
+def validate_settlement_open(
+    db: Any, import_file_id: int, entity_label: str = "فواتير التخليص والرسوم الجمركية"
+) -> None:
+    """CL-05 / BEW0-06: clearance duties and invoices cannot be modified after the landed-cost settlement is approved."""
     from modules.financial_settlement.model import LandedCostSettlementRecord
 
     settlement = (
@@ -226,8 +228,9 @@ def validate_settlement_open(db: Any, import_file_id: int) -> None:
         raise coded_error(
             status.HTTP_409_CONFLICT,
             "CC_SETTLEMENT_LOCKED",
-            "لا يمكن تعديل فواتير التخليص بعد اعتماد تسوية تكلفة الوصول.",
+            f"لا يمكن تعديل {entity_label} بعد اعتماد تسوية تكلفة الوصول.",
             settlement_code=settlement.settlement_code,
             settlement_status=settlement.status,
         )
+
 

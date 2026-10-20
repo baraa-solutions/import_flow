@@ -278,9 +278,9 @@ class _FinalSettlementInvoicesDialogState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppTheme.orange.withOpacity(0.08),
+        color: AppTheme.orange.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(SettlementTokens.radius),
-        border: Border.all(color: AppTheme.orange.withOpacity(0.4)),
+        border: Border.all(color: AppTheme.orange.withValues(alpha: 0.4)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

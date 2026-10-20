@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/cc_dialog_shell.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../models/freight_booking_model.dart';
 
 /// Display helpers shared by the freight-booking widgets (presentation only).
@@ -24,6 +25,15 @@ class FbkFormat {
       : b.containersData.map((c) => '${c.quantity}x ${c.containerType}').join(', ');
 
   static String orDash(String? v) => (v == null || v.trim().isEmpty) ? '—' : v;
+
+  /// Resolves the import file code for an id from the given list of files.
+  static String? fileCodeFor(int? id, List<ImportFileModel> files) {
+    if (id == null) return null;
+    for (final f in files) {
+      if (f.importFileId == id) return f.importFileCode;
+    }
+    return null;
+  }
 }
 
 /// Status style of a booking (chip colour / label / icon).
@@ -57,10 +67,34 @@ class FbkUi {
           label: l.freightBookingStatusDraft,
           icon: Icons.edit_note_rounded
         );
+      case 'Amended':
+        return (
+          severity: AppSeverity.info,
+          label: l.fbkStatusAmended,
+          icon: Icons.published_with_changes_outlined
+        );
+      case 'Cancelled':
+        return (
+          severity: AppSeverity.danger,
+          label: l.fbkStatusCancelled,
+          icon: Icons.cancel_outlined
+        );
       default:
         return (severity: AppSeverity.info, label: status, icon: Icons.info_outline);
     }
   }
+
+  static bool canConfirm(String? status) =>
+      status == 'Draft' || status == 'Booking Requested' || status == 'Amended';
+
+  static bool canDepart(String? status) =>
+      status == 'Confirmed' || status == 'Amended';
+
+  static bool canDelete(String? status) =>
+      status == 'Draft' || status == 'Booking Requested' || status == 'Cancelled';
+
+  static bool canCancel(String? status) =>
+      status != null && status != 'Cancelled' && status != 'Sailed';
 
   /// Floating severity SnackBar (single entry point for the whole feature).
   static void snack(BuildContext context, String message,

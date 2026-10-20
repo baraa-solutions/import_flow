@@ -396,7 +396,7 @@ void main() {
             child: Scaffold(
               body: Builder(
                 builder: (context) {
-                  final l = AppLocalizations.of(context)!;
+                  final l = AppLocalizations.of(context);
                   return ElevatedButton(
                     onPressed: () {
                       DashboardCardDrillDownDialog.show(

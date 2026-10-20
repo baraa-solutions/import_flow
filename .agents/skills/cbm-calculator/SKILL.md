@@ -45,3 +45,9 @@ Convert all input dimensions and weights before performing calculations:
 - Interactive 3D Container Load Planner available inside `Edit Purchase Order` dialog (`Packing List` tab).
 - Live calculation of line CBM, Air Chargeable Weight, and Gross Weight.
 - Automatic verification of PO items vs Packing List quantities.
+
+### 6. Calculator UI & Interaction Standards
+- **Universal Mouse Selection (`SelectionArea`):** The CBM Calculator screen and dialog planner MUST wrap their root bodies in `SelectionArea` so users can highlight, select, and copy measurement numbers, CBM totals, container dimensions, and packing diagnostics freely.
+- **Pure View Separation:** Diagnostic messages and UI labels must strictly follow the active locale (Pure Arabic in Arabic mode, Pure English in English mode). Zero bilingual parenthesized stacking.
+- **Clean Copying:** Any action copying calculation results or packing manifests to clipboard must use `CopyHelper.copy(context, text)` or `TableCopyHelper.copyTable(context, ...)`.
+

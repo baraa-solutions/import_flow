@@ -108,11 +108,12 @@ class _SearchAndCloneCustomsClearanceDialogState
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         side: BorderSide(color: AppTheme.borderOf(context)),
       ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: dialogWidth, maxHeight: 680),
-        child: Padding(
-          padding: const EdgeInsetsDirectional.all(20),
-          child: Column(
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: dialogWidth, maxHeight: 680),
+          child: Padding(
+            padding: const EdgeInsetsDirectional.all(20),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 1. Header
@@ -231,6 +232,7 @@ class _SearchAndCloneCustomsClearanceDialogState
             ],
           ),
         ),
+      ),
       ),
     );
   }

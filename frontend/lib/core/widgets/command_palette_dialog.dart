@@ -17,7 +17,7 @@ class CommandPaletteDialog extends StatefulWidget {
     return showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(0.55),
+      barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (ctx) => CommandPaletteDialog(ref: ref),
     );
   }
@@ -176,7 +176,7 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.6 : 0.25),
+                color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.25),
                 blurRadius: 28,
                 offset: const Offset(0, 14),
               ),
@@ -328,7 +328,7 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
                                 borderRadius: BorderRadius.circular(10),
                                 border: isSelected
                                     ? Border.all(
-                                        color: isDark ? AppTheme.cobaltLight.withOpacity(0.5) : AppTheme.cobalt.withOpacity(0.4),
+                                        color: isDark ? AppTheme.cobaltLight.withValues(alpha: 0.5) : AppTheme.cobalt.withValues(alpha: 0.4),
                                         width: 1,
                                       )
                                     : null,
@@ -341,7 +341,7 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
                                     height: 36,
                                     decoration: BoxDecoration(
                                       color: isSelected
-                                          ? categoryColor.withOpacity(0.18)
+                                          ? categoryColor.withValues(alpha: 0.18)
                                           : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
@@ -377,7 +377,7 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: categoryColor.withOpacity(0.12),
+                                                color: categoryColor.withValues(alpha: 0.12),
                                                 borderRadius: BorderRadius.circular(4),
                                               ),
                                               child: Text(

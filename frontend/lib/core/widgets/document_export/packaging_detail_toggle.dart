@@ -124,7 +124,7 @@ class PackagingDetailToggle extends StatelessWidget {
   }) {
     final selectedBorderColor = activeColor;
     final unselectedBorderColor = isDark ? AppTheme.darkBorder : Colors.grey.shade300;
-    final selectedBgColor = activeColor.withOpacity(isDark ? 0.22 : 0.10);
+    final selectedBgColor = activeColor.withValues(alpha: isDark ? 0.22 : 0.10);
     final unselectedBgColor = isDark ? AppTheme.darkCardBackground : Colors.white;
     final textColor = isSelected
         ? activeColor

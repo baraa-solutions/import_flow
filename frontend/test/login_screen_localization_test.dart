@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
@@ -9,8 +9,8 @@ void main() {
     late AppLocalizations en;
 
     setUp(() {
-      ar = AppLocalizationsAr();
-      en = AppLocalizationsEn();
+      ar = const AppLocalizationsAr();
+      en = const AppLocalizationsEn();
     });
 
     test('All LoginScreen Arabic strings must be non-empty', () {

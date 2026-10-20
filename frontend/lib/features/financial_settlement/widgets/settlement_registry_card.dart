@@ -158,7 +158,7 @@ class SettlementRegistryCard extends ConsumerWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: AppTheme.cobalt.withOpacity(0.1),
+            color: AppTheme.cobalt.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
           ),
           child: CopyableText(
@@ -249,7 +249,7 @@ class SettlementRegistryCard extends ConsumerWidget {
         headingRowHeight: 36,
         dataRowMinHeight: 36,
         dataRowMaxHeight: 40,
-        headingRowColor: WidgetStateProperty.all(AppTheme.emerald.withOpacity(0.08)),
+        headingRowColor: WidgetStateProperty.all(AppTheme.emerald.withValues(alpha: 0.08)),
         columns: [
           DataColumn(label: settlementHeadCell(l10n.financialSettlementColItemCode)),
           DataColumn(label: settlementHeadCell(l10n.financialSettlementColItemName)),

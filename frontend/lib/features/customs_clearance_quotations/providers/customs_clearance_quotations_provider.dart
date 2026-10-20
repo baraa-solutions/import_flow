@@ -20,6 +20,8 @@ class CustomsClearanceQuotationsNotifier extends StateNotifier<AsyncValue<List<C
     String? status,
     String? portName,
     int? importFileId,
+    int? limit,
+    int? skip,
   }) async {
     state = const AsyncValue.loading();
     try {
@@ -27,6 +29,8 @@ class CustomsClearanceQuotationsNotifier extends StateNotifier<AsyncValue<List<C
       if (status != null && status.isNotEmpty) queryParams['status'] = status;
       if (portName != null && portName.isNotEmpty) queryParams['port_name'] = portName;
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
+      if (limit != null) queryParams['limit'] = limit;
+      if (skip != null) queryParams['skip'] = skip;
 
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/customs-clearance-quotations/rfqs',

@@ -138,6 +138,7 @@ class CustomsTariffResponse(BaseModel):
 
     notes: Optional[str]
     is_active: bool
+    total_versions: int = Field(default=1, description="إجمالي عدد المراحل والإصدارات التاريخية والسارية لهذا البند")
     created_at: datetime
     updated_at: datetime
 

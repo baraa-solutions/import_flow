@@ -23,6 +23,7 @@ from modules.lifecycle_board.schemas import (
     StepConfigAuditLogResponse,
     RegisterPendingReferenceRequest,
     RegisterPendingReferenceResponse,
+    ShipmentTimelineResponse,
     ShipmentTimelineSummaryResponse,
 )
 import modules.lifecycle_board.service as service
@@ -147,6 +148,16 @@ def get_shipment_stages(import_file_code: str, db: Session = Depends(get_db)):
     return service.get_all_activities_service(db, import_file_code=import_file_code)
 
 
+@router.get(
+    "/shipments/{import_file_code}/timeline",
+    response_model=ShipmentTimelineResponse,
+    summary="Get execution timeline and sequence integrity report for a specific shipment",
+    dependencies=[Depends(require_permission("lifecycle_board.view"))],
+)
+def get_shipment_timeline(import_file_code: str, db: Session = Depends(get_db)):
+    return service.get_shipment_timeline_service(db, import_file_code=import_file_code)
+
+
 @router.post(
     "/stages/advance",
     status_code=status.HTTP_200_OK,
@@ -181,6 +192,7 @@ def sync_lifecycle_step(
         auto_complete_prior=payload.auto_complete_prior,
         action_data=payload.action_data,
         notes=payload.notes,
+        enforce_gatekeeper=payload.enforce_gatekeeper,
         actor=current_user,
     )
 

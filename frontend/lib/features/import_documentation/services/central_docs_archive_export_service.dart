@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 /// Export service for Central Shipment Documents & Rectifications Archive (Screen 51).
 /// Supports TSV export, clean Excel (CSV) export, vector A4 landscape Cairo PDF, and clipboard dossier.
@@ -203,16 +203,11 @@ class CentralDocsArchiveExportService {
   /// Copies dossier to clipboard and shows SnackBar notification.
   Future<void> copyDossierToClipboard() async {
     final text = buildDossierText();
-    await Clipboard.setData(ClipboardData(text: text));
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_l10n.centralDocsCopyDossierSuccess),
-          backgroundColor: Colors.green.shade700,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
+    await CopyHelper.copy(
+      context,
+      text,
+      customMessage: _l10n.centralDocsCopyDossierSuccess,
+    );
   }
 
   /// Exports central archive documents and rectifications as TSV with UTF-8 BOM.

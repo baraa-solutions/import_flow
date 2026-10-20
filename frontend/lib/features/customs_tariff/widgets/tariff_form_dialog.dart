@@ -500,9 +500,9 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.emerald.withOpacity(0.06),
+                                    color: AppTheme.emerald.withValues(alpha: 0.06),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+                                    border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.4)),
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,7 +602,7 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
                                   return Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: Colors.amber.shade50.withOpacity(0.7),
+                                      color: Colors.amber.shade50.withValues(alpha: 0.7),
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(color: Colors.amber.shade400),
                                     ),
@@ -680,9 +680,9 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
                                               margin: const EdgeInsets.only(bottom: 4),
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                               decoration: BoxDecoration(
-                                                color: itemColor.withOpacity(0.08),
+                                                color: itemColor.withValues(alpha: 0.08),
                                                 borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: itemColor.withOpacity(0.4)),
+                                                border: Border.all(color: itemColor.withValues(alpha: 0.4)),
                                               ),
                                               child: Row(
                                                 children: [
@@ -708,7 +708,7 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
                                                     Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                       decoration: BoxDecoration(
-                                                        color: itemColor.withOpacity(0.15),
+                                                        color: itemColor.withValues(alpha: 0.15),
                                                         borderRadius: BorderRadius.circular(4),
                                                       ),
                                                       child: Text(

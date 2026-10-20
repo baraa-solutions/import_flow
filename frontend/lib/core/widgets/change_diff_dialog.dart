@@ -74,7 +74,7 @@ class ChangeDiffConfirmationDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.amber.shade700.withOpacity(0.2),
+                color: Colors.amber.shade700.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.amber.shade700),
               ),

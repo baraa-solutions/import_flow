@@ -19,3 +19,6 @@
 - **Scaffold:** `VerticalStageScaffold` لـ Type A | `PageHeader` لـ Type B/C
 - **Toolbar:** `MasterDataToolbarWidget` للقوائم | `StandardFormActionBar` للنماذج
 - **File Save:** `FileSaveHelper.exportAndSaveFile(...)` — ❌ ممنوع Silent Download
+- **Selection:** `SelectionArea` إلزامي لكل شاشة وDialog وحاسبة لتمكين التحديد الحر بالماوس
+- **Clipboard:** `CopyHelper.copy` و `TableCopyHelper.copyTable` حصراً — ❌ ممنوع `Clipboard.setData` مباشر
+- **Pure Views:** لغة نقية مفصولة 100% — ❌ ممنوع التكديس ثنائي اللغة بين أقواس مثل `(PO)` أو `(Terminal / Depot)`

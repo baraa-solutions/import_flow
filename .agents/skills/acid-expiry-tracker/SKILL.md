@@ -76,6 +76,11 @@ ACID Registration Session / Nafeza API / Input
 1. **Rule ACID-001 (Strict 14-Day Warning Threshold):** An alert trigger is activated when `days_remaining <= 14` to allow adequate time for amendment or customs filing before penalty imposition.
 2. **Rule ACID-002 (Automatic Release Suppression):** As soon as customs release approval is recorded (`is_customs_released = True`), the shipment is legally cleared through customs, and ACID expiry warnings MUST be silenced.
 3. **Rule ACID-003 (Bi-directional Synchronization):** Creating or modifying an ACID registration session in `import_documentation` automatically reflects in the linked `import_files` record.
+4. **Rule ACID-004 (UI Drag-Selection & Sanitized Copying):**
+   - **SelectionArea:** All ACID tracker tables, KPI metric cards, and drilldown dialogs MUST be wrapped in `SelectionArea` so users can highlight and copy ACID numbers, validity dates, remaining days, and file codes with the mouse freely.
+   - **Pure View Separation:** All status labels (Valid, Expiring Soon, Expired, Released) and table headers must follow pure view separation (pure Arabic in Arabic mode, pure English in English mode). Zero bilingual parenthesized stacking.
+   - **Sanitized Copying:** Any action copying ACID numbers or tracker data must use `CopyHelper.copy(context, text)` or `TableCopyHelper.copyTable(context, ...)` to strip Bidi Unicode isolates.
+
 
 ---
 

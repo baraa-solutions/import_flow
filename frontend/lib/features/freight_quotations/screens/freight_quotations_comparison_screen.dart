@@ -199,9 +199,9 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppTheme.flatCobalt.withOpacity(0.1),
+                  color: AppTheme.flatCobalt.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.flatCobalt.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.flatCobalt.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -354,7 +354,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _charcoal.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(color: _charcoal.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -387,7 +387,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
                     children: [
                       Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
                       const SizedBox(width: 4),
-                      Icon(Icons.copy_rounded, size: 12, color: color.withOpacity(0.6)),
+                      Icon(Icons.copy_rounded, size: 12, color: color.withValues(alpha: 0.6)),
                     ],
                   ),
                 ],
@@ -431,7 +431,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isSelected ? _emerald.withOpacity(0.1) : _charcoal.withOpacity(0.05),
+                    color: isSelected ? _emerald.withValues(alpha: 0.1) : _charcoal.withValues(alpha: 0.05),
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
                   ),
                   child: Column(

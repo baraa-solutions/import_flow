@@ -370,6 +370,13 @@ def create_import_file_service(
         auto_generate_system_tasks_for_file(db, created_file)
     except Exception:
         logger.exception("Failed to auto generate system tasks for %s", file_code)
+
+    try:
+        from modules.smart_checklists.service import auto_sync_checklist
+        auto_sync_checklist(db, created_file.import_file_id)
+    except Exception:
+        logger.exception("Failed to auto-seed and auto-sync checklist for %s", file_code)
+
     return created_file
 
 
@@ -673,6 +680,46 @@ def get_paginated_import_files_service(
     return repo.get_paginated_import_files(
         db,
         params,
+        search=search,
+        company_id=company_id,
+        supplier_id=supplier_id,
+        status=status,
+        owner=owner,
+        hs_code=hs_code,
+        incoterm_code=incoterm_code,
+        port_of_loading=port_of_loading,
+        port_of_discharge=port_of_discharge,
+        shipment_mode=shipment_mode,
+        carrier=carrier,
+        date_from=date_from,
+        date_to=date_to,
+        parent_import_file_id=parent_import_file_id,
+        is_partial_shipment=is_partial_shipment,
+    )
+
+def get_search_insights_service(
+    db: Session,
+    *,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    company_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    hs_code: Optional[str] = None,
+    incoterm_code: Optional[str] = None,
+    port_of_loading: Optional[str] = None,
+    port_of_discharge: Optional[str] = None,
+    shipment_mode: Optional[str] = None,
+    carrier: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    parent_import_file_id: Optional[int] = None,
+    is_partial_shipment: Optional[bool] = None,
+) -> dict:
+    return repo.get_search_insights(
+        db,
+        include_inactive=include_inactive,
         search=search,
         company_id=company_id,
         supplier_id=supplier_id,

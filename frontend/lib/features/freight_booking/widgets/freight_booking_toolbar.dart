@@ -125,7 +125,9 @@ class FbkFilterBar extends StatelessWidget {
             SearchableDropdownItem(value: 'Draft', label: l.freightBookingStatusDraft),
             SearchableDropdownItem(value: 'Booking Requested', label: l.freightBookingStatusRequested),
             SearchableDropdownItem(value: 'Confirmed', label: l.freightBookingStatusConfirmed),
+            SearchableDropdownItem(value: 'Amended', label: l.fbkStatusAmended),
             SearchableDropdownItem(value: 'Sailed', label: l.freightBookingStatusSailed),
+            SearchableDropdownItem(value: 'Cancelled', label: l.fbkStatusCancelled),
           ],
           onChanged: (v) {
             if (v != null) onStatusChanged(v);

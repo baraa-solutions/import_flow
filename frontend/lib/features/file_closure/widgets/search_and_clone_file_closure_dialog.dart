@@ -75,10 +75,11 @@ class _SearchAndCloneFileClosureDialogState
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
       backgroundColor: AppTheme.surfaceOf(context),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        padding: const EdgeInsetsDirectional.all(20),
+      child: SelectionArea(
+        child: Container(
+          width: dialogWidth,
+          height: dialogHeight,
+          padding: const EdgeInsetsDirectional.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -161,7 +162,7 @@ class _SearchAndCloneFileClosureDialogState
                                     child: Container(
                                       padding: const EdgeInsetsDirectional.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.emerald.withOpacity(0.12),
+                                        color: AppTheme.emerald.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                                         border: Border.all(color: AppTheme.emerald),
                                       ),
@@ -257,6 +258,7 @@ class _SearchAndCloneFileClosureDialogState
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -270,7 +272,7 @@ class _SearchAndCloneFileClosureDialogState
           setState(() => _statusFilter = filterKey);
         }
       },
-      selectedColor: AppTheme.emerald.withOpacity(0.2),
+      selectedColor: AppTheme.emerald.withValues(alpha: 0.2),
       backgroundColor: AppTheme.surfaceAltOf(context),
       labelStyle: TextStyle(
         fontSize: 12,

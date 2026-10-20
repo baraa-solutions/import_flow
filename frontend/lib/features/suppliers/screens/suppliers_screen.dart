@@ -260,7 +260,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                         scale: 0.8,
                         child: Switch(
                           value: showInactive,
-                          activeColor: AppTheme.cobalt,
+                          activeThumbColor: AppTheme.cobalt,
                           onChanged: (val) {
                             ref.read(showInactiveSuppliersProvider.notifier).state = val;
                           },
@@ -502,7 +502,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: (isActive ? AppTheme.cobalt : Colors.grey).withOpacity(0.1),
+                  color: (isActive ? AppTheme.cobalt : Colors.grey).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(Icons.factory, color: isActive ? AppTheme.cobalt : Colors.grey),
@@ -525,7 +525,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppTheme.charcoal.withOpacity(0.1),
+                                color: AppTheme.charcoal.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Row(
@@ -591,7 +591,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppTheme.orange.withOpacity(0.15),
+                            color: AppTheme.orange.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -924,7 +924,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: Colors.blueGrey.shade50.withOpacity(0.5),
+                                  color: Colors.blueGrey.shade50.withValues(alpha: 0.5),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(color: Colors.blueGrey.shade200),
                                 ),
@@ -1028,7 +1028,7 @@ Global Brand: ${s.hasGlobalBrand ? (s.globalBrandNumber ?? 'Yes') : 'No'} | ISO 
                               Container(
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
-                                  color: Colors.amber.shade50.withOpacity(0.4),
+                                  color: Colors.amber.shade50.withValues(alpha: 0.4),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: Colors.amber.shade300),
                                 ),

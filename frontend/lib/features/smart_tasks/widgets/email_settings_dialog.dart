@@ -252,11 +252,12 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
     return Dialog(
       backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 820,
-        height: 720,
-        padding: const EdgeInsets.all(24),
-        child: Column(
+      child: SelectionArea(
+        child: Container(
+          width: 820,
+          height: 720,
+          padding: const EdgeInsets.all(24),
+          child: Column(
           children: [
             // Title Header
             Row(
@@ -264,7 +265,7 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.12),
+                    color: AppTheme.cobalt.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.settings_suggest_rounded, color: AppTheme.cobalt, size: 28),
@@ -334,9 +335,9 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
                           child: Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withOpacity(isDark ? 0.15 : 0.08),
+                              color: AppTheme.cobalt.withValues(alpha: isDark ? 0.15 : 0.08),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.35)),
+                              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.35)),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,7 +359,7 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.emerald.withOpacity(0.15),
+                                        color: AppTheme.emerald.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(color: AppTheme.emerald),
                                       ),
@@ -429,9 +430,9 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.amber.withOpacity(isDark ? 0.15 : 0.1),
+                            color: Colors.amber.withValues(alpha: isDark ? 0.15 : 0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.amber.shade700.withOpacity(0.4)),
+                            border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.4)),
                           ),
                           child: Row(
                             children: [
@@ -455,9 +456,9 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppTheme.cobalt.withOpacity(isDark ? 0.15 : 0.08),
+                            color: AppTheme.cobalt.withValues(alpha: isDark ? 0.15 : 0.08),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                            border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
@@ -719,7 +720,7 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
                           Switch(
                             value: _autoFetchEnabled,
                             onChanged: (v) => setState(() => _autoFetchEnabled = v),
-                            activeColor: AppTheme.cobalt,
+                            activeThumbColor: AppTheme.cobalt,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -773,7 +774,7 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: (state.settings?.lastSyncStatus == 'SUCCESS' ? AppTheme.emerald : AppTheme.orange).withOpacity(0.15),
+                                    color: (state.settings?.lastSyncStatus == 'SUCCESS' ? AppTheme.emerald : AppTheme.orange).withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -801,9 +802,9 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withOpacity(0.12),
+                                        color: AppTheme.cobalt.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+                                        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.4)),
                                       ),
                                       child: const Row(
                                         mainAxisSize: MainAxisSize.min,
@@ -906,8 +907,9 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildProviderRadio(String value, String title, IconData icon) {
     final isSelected = _providerType == value;
@@ -921,7 +923,7 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
           padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.cobalt.withOpacity(isDark ? 0.25 : 0.12)
+                ? AppTheme.cobalt.withValues(alpha: isDark ? 0.25 : 0.12)
                 : (isDark ? AppTheme.darkInputBackground : const Color(0xFFF1F5F9)),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
@@ -961,8 +963,8 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: res.overallSuccess
-              ? AppTheme.emerald.withOpacity(isDark ? 0.2 : 0.1)
-              : AppTheme.crimson.withOpacity(isDark ? 0.2 : 0.1),
+              ? AppTheme.emerald.withValues(alpha: isDark ? 0.2 : 0.1)
+              : AppTheme.crimson.withValues(alpha: isDark ? 0.2 : 0.1),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: res.overallSuccess ? AppTheme.emerald : AppTheme.crimson,

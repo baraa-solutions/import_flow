@@ -19,7 +19,7 @@ from modules.customs_clearance_quotations.model import (
 def get_rfqs(
     db: Session,
     skip: int = 0,
-    limit: int = 100,
+    limit: Optional[int] = None,
     status: Optional[str] = None,
     port_name: Optional[str] = None,
     import_file_id: Optional[int] = None,
@@ -39,7 +39,12 @@ def get_rfqs(
     if import_file_id:
         stmt = stmt.where(CustomsClearanceRFQ.import_file_id == import_file_id)
 
-    return list(db.execute(stmt.offset(skip).limit(limit)).unique().scalars().all())
+    if skip:
+        stmt = stmt.offset(skip)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+
+    return list(db.execute(stmt).unique().scalars().all())
 
 
 def get_rfq_by_id(db: Session, rfq_id: int, active_only: bool = False) -> Optional[CustomsClearanceRFQ]:

@@ -33,7 +33,6 @@ import '../../simulation/widgets/what_if_simulator_dialog.dart';
 import 'swift_reconciliation_screen.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/widgets/recalculate_button.dart';
-import '../../../core/widgets/table_row_clone_helper.dart';
 
 import 'package:frontend/core/widgets/ltr_text.dart';
 
@@ -909,7 +908,7 @@ class _FinancialApprovalScreenState
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppTheme.wcagOrange,
                   shape: BoxShape.circle,
                 ),
@@ -1345,8 +1344,9 @@ class _FinancialApprovalScreenState
   }
 
   Widget _buildMobileLinkedPOCardsList(AppLocalizations l, bool isDark) {
-    if (_payPrefillData == null || _payPrefillData!.linkedPos.isEmpty)
+    if (_payPrefillData == null || _payPrefillData!.linkedPos.isEmpty) {
       return const SizedBox.shrink();
+    }
 
     return Column(
       children: _payPrefillData!.linkedPos.map((po) {
@@ -1733,16 +1733,21 @@ class _FinancialApprovalScreenState
               piNum.isNotEmpty &&
               (fCode.contains(piNum) ||
                   cNum.contains(piNum) ||
-                  pNum.contains(piNum))) return true;
+                  pNum.contains(piNum))) {
+            return true;
+          }
           if (poNum != null &&
               poNum.isNotEmpty &&
               (fCode.contains(poNum) ||
                   cNum.contains(poNum) ||
-                  pNum.contains(poNum))) return true;
+                  pNum.contains(poNum))) {
+            return true;
+          }
           if (transRef != null &&
               transRef.isNotEmpty &&
-              (fCode.contains(transRef) || cNum.contains(transRef)))
+              (fCode.contains(transRef) || cNum.contains(transRef))) {
             return true;
+          }
           return false;
         }).firstOrNull;
         if (matchedFile != null) {
@@ -1759,14 +1764,17 @@ class _FinancialApprovalScreenState
             '${l.swiftPaymentPrefix}: ${p['beneficiary_name']}$piText ($refNo)';
       }
       final notesParts = <String>[];
-      if (p['transaction_reference'] != null)
+      if (p['transaction_reference'] != null) {
         notesParts.add('SWIFT Ref: ${p['transaction_reference']}');
+      }
       if (p['pi_number'] != null) notesParts.add('PI: ${p['pi_number']}');
-      if (p['ordering_customer_name'] != null)
+      if (p['ordering_customer_name'] != null) {
         notesParts
             .add('${l.orderingCustomerPrefix}: ${p['ordering_customer_name']}');
-      if (p['payment_details'] != null)
+      }
+      if (p['payment_details'] != null) {
         notesParts.add('${l.paymentDetailsPrefix}: ${p['payment_details']}');
+      }
       if (notesParts.isNotEmpty) {
         _payNotesController.text = notesParts.join(' | ');
       }
@@ -1785,8 +1793,9 @@ class _FinancialApprovalScreenState
 
   Map<String, dynamic> _parseSwiftClientFallback(String rawText) {
     final text = rawText.trim();
-    if (text.isEmpty)
+    if (text.isEmpty) {
       return {'success': false, 'error': context.l10n.emptyTextError};
+    }
 
     // 1. Transaction Ref (:20)
     String? transRef;
@@ -1827,10 +1836,12 @@ class _FinancialApprovalScreenState
     if (valMatch != null) {
       final rawDate = valMatch.group(1)!;
       var rawCurr = valMatch.group(2)!.toUpperCase();
-      if (rawCurr == 'U5D' || rawCurr == 'U50' || rawCurr == 'US0')
+      if (rawCurr == 'U5D' || rawCurr == 'U50' || rawCurr == 'US0') {
         rawCurr = 'USD';
-      if (rawCurr == 'E0R' || rawCurr == 'EVR' || rawCurr == 'FUR')
+      }
+      if (rawCurr == 'E0R' || rawCurr == 'EVR' || rawCurr == 'FUR') {
         rawCurr = 'EUR';
+      }
       if (rawCurr == 'E6P' || rawCurr == 'ECP') rawCurr = 'EGP';
       if (rawCurr == '6BP') rawCurr = 'GBP';
       currency = rawCurr;
@@ -2305,7 +2316,7 @@ class _FinancialApprovalScreenState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                        color: AppTheme.cobaltLight.withOpacity(0.5),
+                        color: AppTheme.cobaltLight.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: AppTheme.cobaltBorder)),
                     child: Column(
@@ -3107,7 +3118,7 @@ class _FinancialApprovalScreenState
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.emerald.withOpacity(0.2),
+                  color: AppTheme.emerald.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -3128,7 +3139,7 @@ class _FinancialApprovalScreenState
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.orange.withOpacity(0.2),
+                  color: AppTheme.orange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -3182,7 +3193,7 @@ class _FinancialApprovalScreenState
           },
         )),
         IconButton(
-          icon: Icon(Icons.refresh, color: AppTheme.white.withOpacity(0.7)),
+          icon: Icon(Icons.refresh, color: AppTheme.white.withValues(alpha: 0.7)),
           tooltip: l.liveRefreshTooltip,
           onPressed: () {
             ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
@@ -3482,13 +3493,15 @@ class _FinancialApprovalScreenState
                                                   _supplierNameController.text =
                                                       sup.companyName;
                                                   if (sup.bankName != null &&
-                                                      sup.bankName!.isNotEmpty)
+                                                      sup.bankName!.isNotEmpty) {
                                                     _bankNameController.text =
                                                         sup.bankName!;
+                                                  }
                                                   if (sup.swiftCode != null &&
-                                                      sup.swiftCode!.isNotEmpty)
+                                                      sup.swiftCode!.isNotEmpty) {
                                                     _swiftCodeController.text =
                                                         sup.swiftCode!;
+                                                  }
                                                   if (sup.iban != null &&
                                                       sup.iban!.isNotEmpty) {
                                                     _ibanController.text =
@@ -3569,15 +3582,17 @@ class _FinancialApprovalScreenState
                                                         .text = sup.companyName;
                                                     if (sup.bankName != null &&
                                                         sup.bankName!
-                                                            .isNotEmpty)
+                                                            .isNotEmpty) {
                                                       _bankNameController.text =
                                                           sup.bankName!;
+                                                    }
                                                     if (sup.swiftCode != null &&
                                                         sup.swiftCode!
-                                                            .isNotEmpty)
+                                                            .isNotEmpty) {
                                                       _swiftCodeController
                                                               .text =
                                                           sup.swiftCode!;
+                                                    }
                                                     if (sup.iban != null &&
                                                         sup.iban!.isNotEmpty) {
                                                       _ibanController.text =
@@ -3834,7 +3849,7 @@ class _FinancialApprovalScreenState
                                         color: isDark
                                             ? AppTheme.darkElevatedSurface
                                             : AppTheme.cobaltLight
-                                                .withOpacity(0.4),
+                                                .withValues(alpha: 0.4),
                                         borderRadius: BorderRadius.circular(8),
                                         border: Border.all(
                                             color: isDark
@@ -4500,7 +4515,7 @@ class _FinancialApprovalScreenState
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
                                           labelText:
-                                              '\ (\)',
+                                              ' ()',
                                           border: const OutlineInputBorder(),
                                           fillColor: isDark
                                               ? AppTheme.darkElevatedSurface
@@ -4525,7 +4540,7 @@ class _FinancialApprovalScreenState
                                         validator: _validateExchangeRate,
                                         decoration: InputDecoration(
                                           labelText:
-                                              '\ (EGP)',
+                                              ' (EGP)',
                                           border: const OutlineInputBorder(),
                                           fillColor: isDark
                                               ? AppTheme.darkElevatedSurface
@@ -4551,7 +4566,7 @@ class _FinancialApprovalScreenState
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
                                           labelText:
-                                              '\ (\)',
+                                              ' ()',
                                           border: const OutlineInputBorder(),
                                           fillColor: isDark
                                               ? AppTheme.darkElevatedSurface
@@ -4576,7 +4591,7 @@ class _FinancialApprovalScreenState
                                         validator: _validateFreightExchangeRate,
                                         decoration: InputDecoration(
                                           labelText:
-                                              '\ (EGP)',
+                                              ' (EGP)',
                                           border: const OutlineInputBorder(),
                                           fillColor: isDark
                                               ? AppTheme.darkElevatedSurface
@@ -4600,7 +4615,7 @@ class _FinancialApprovalScreenState
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
                                           labelText:
-                                              '\ (EGP)',
+                                              ' (EGP)',
                                           border: const OutlineInputBorder(),
                                           fillColor: isDark
                                               ? AppTheme.darkElevatedSurface
@@ -4615,7 +4630,7 @@ class _FinancialApprovalScreenState
                                         keyboardType: TextInputType.number,
                                         decoration: InputDecoration(
                                           labelText:
-                                              '\ (EGP)',
+                                              ' (EGP)',
                                           border: const OutlineInputBorder(),
                                           fillColor: isDark
                                               ? AppTheme.darkElevatedSurface
@@ -4644,7 +4659,7 @@ class _FinancialApprovalScreenState
                                                   TextInputType.number,
                                               decoration: InputDecoration(
                                                 labelText:
-                                                    '\ (\)',
+                                                    ' ()',
                                                 border:
                                                     const OutlineInputBorder(),
                                                 fillColor: isDark
@@ -4677,7 +4692,7 @@ class _FinancialApprovalScreenState
                                               validator: _validateExchangeRate,
                                               decoration: InputDecoration(
                                                 labelText:
-                                                    '\ (EGP)',
+                                                    ' (EGP)',
                                                 border:
                                                     const OutlineInputBorder(),
                                                 fillColor: isDark
@@ -4722,7 +4737,7 @@ class _FinancialApprovalScreenState
                                                   TextInputType.number,
                                               decoration: InputDecoration(
                                                 labelText:
-                                                    '\ (\)',
+                                                    ' ()',
                                                 border:
                                                     const OutlineInputBorder(),
                                                 fillColor: isDark
@@ -4756,7 +4771,7 @@ class _FinancialApprovalScreenState
                                                   _validateFreightExchangeRate,
                                               decoration: InputDecoration(
                                                 labelText:
-                                                    '\ (EGP)',
+                                                    ' (EGP)',
                                                 border:
                                                     const OutlineInputBorder(),
                                                 fillColor: isDark
@@ -5203,7 +5218,7 @@ class _FinancialApprovalScreenState
                             border: Border.all(color: AppTheme.cloudWhite),
                             boxShadow: [
                               BoxShadow(
-                                color: AppTheme.black.withOpacity(0.04),
+                                color: AppTheme.black.withValues(alpha: 0.04),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
@@ -5370,13 +5385,13 @@ class _FinancialApprovalScreenState
                                                       vertical: 4),
                                                   decoration: BoxDecoration(
                                                     color: AppTheme.cobalt
-                                                        .withOpacity(0.1),
+                                                        .withValues(alpha: 0.1),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                             6),
                                                     border: Border.all(
                                                         color: AppTheme.cobalt
-                                                            .withOpacity(0.3)),
+                                                            .withValues(alpha: 0.3)),
                                                   ),
                                                   child: LtrText(
                                                     p.paymentCode,
@@ -5424,15 +5439,15 @@ class _FinancialApprovalScreenState
                                                             BoxDecoration(
                                                           color: AppTheme
                                                               .charcoal
-                                                              .withOpacity(
-                                                                  0.08),
+                                                              .withValues(
+                                                                  alpha: 0.08),
                                                           borderRadius:
                                                               BorderRadius
                                                                   .circular(4),
                                                         ),
                                                         child: Text(
                                                           rawFileCode,
-                                                          style: TextStyle(
+                                                          style: const TextStyle(
                                                               fontSize: 10,
                                                               color: AppTheme
                                                                   .textStrong,
@@ -5464,7 +5479,7 @@ class _FinancialApprovalScreenState
                                                                 FontWeight.bold,
                                                             fontSize: 13)),
                                                     Text(p.title,
-                                                        style: TextStyle(
+                                                        style: const TextStyle(
                                                             fontSize: 11,
                                                             color: AppTheme
                                                                 .textSecondary)),
@@ -5494,7 +5509,7 @@ class _FinancialApprovalScreenState
                                                         p.swiftCode!.isNotEmpty)
                                                       Text(
                                                           'SWIFT: ${p.swiftCode}',
-                                                          style: TextStyle(
+                                                          style: const TextStyle(
                                                               fontSize: 10,
                                                               color: AppTheme
                                                                   .textStrong)),
@@ -5520,7 +5535,7 @@ class _FinancialApprovalScreenState
                                                         color: AppTheme.orange),
                                                   ),
                                                   child: Text(p.paymentType,
-                                                      style: TextStyle(
+                                                      style: const TextStyle(
                                                           fontSize: 11,
                                                           fontWeight:
                                                               FontWeight.bold,
@@ -5547,7 +5562,7 @@ class _FinancialApprovalScreenState
                                                   ),
                                                   child: LtrText(
                                                     '${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}',
-                                                    style: TextStyle(
+                                                    style: const TextStyle(
                                                         fontWeight:
                                                             FontWeight.bold,
                                                         color:
@@ -5578,7 +5593,7 @@ class _FinancialApprovalScreenState
                                                   ),
                                                   child: LtrText(
                                                     '${p.requestedAmountEgp.toStringAsFixed(2)} EGP',
-                                                    style: TextStyle(
+                                                    style: const TextStyle(
                                                         fontWeight:
                                                             FontWeight.bold,
                                                         color: AppTheme
@@ -5605,7 +5620,7 @@ class _FinancialApprovalScreenState
                                                             fontSize: 11)),
                                                     Text(
                                                         '${l.dueDateLabel}: ${p.dueDate}',
-                                                        style: TextStyle(
+                                                        style: const TextStyle(
                                                             fontSize: 10,
                                                             color: AppTheme
                                                                 .textStrong)),
@@ -6144,10 +6159,10 @@ class _FinancialApprovalScreenState
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isDark
-                  ? AppTheme.emerald.withOpacity(0.2)
-                  : AppTheme.emerald.withOpacity(0.12),
+                  ? AppTheme.emerald.withValues(alpha: 0.2)
+                  : AppTheme.emerald.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+              border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.4)),
             ),
             child: Wrap(
               spacing: 8,
@@ -6190,7 +6205,7 @@ class _FinancialApprovalScreenState
         border: Border.all(color: AppTheme.cloudWhite),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.black.withOpacity(0.04),
+            color: AppTheme.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -6202,14 +6217,14 @@ class _FinancialApprovalScreenState
           // Header Bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppTheme.cobalt, AppTheme.wcagCobalt],
                 begin: AlignmentDirectional.centerEnd,
                 end: AlignmentDirectional.centerStart,
               ),
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(9)),
+                  BorderRadius.vertical(top: Radius.circular(9)),
             ),
             child: Row(
               children: [
@@ -6431,7 +6446,7 @@ class _FinancialApprovalScreenState
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                             color: isDark
-                                ? AppTheme.emerald.withOpacity(0.4)
+                                ? AppTheme.emerald.withValues(alpha: 0.4)
                                 : AppTheme.emeraldBorder),
                       ),
                       child: Row(
@@ -6501,9 +6516,9 @@ class _FinancialApprovalScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

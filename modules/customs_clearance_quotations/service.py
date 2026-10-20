@@ -131,7 +131,7 @@ def create_rfq_service(db: Session, data: CustomsClearanceRFQCreate, user: str =
 def get_rfqs_service(
     db: Session,
     skip: int = 0,
-    limit: int = 100,
+    limit: Optional[int] = None,
     status_filter: Optional[str] = None,
     port_name: Optional[str] = None,
     import_file_id: Optional[int] = None,

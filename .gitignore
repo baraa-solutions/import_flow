@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 *.sqlite3
 *.db
+*.db.backup*
 *.db-shm
 *.db-wal
 .pytest_cache/
@@ -40,6 +41,8 @@ backend.spec
 # Scratch / Temp
 scratch/
 scratch*.txt
+reports/
+*.xlsx
 test_*.xlsx
 test_*.xls
 *.xlsx.tmp

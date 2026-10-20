@@ -248,7 +248,7 @@ class _SearchableDropdownDialogState<T> extends State<_SearchableDropdownDialog<
                           dense: true,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           selected: isSelected,
-                          selectedTileColor: AppTheme.cobalt.withOpacity(0.08),
+                          selectedTileColor: AppTheme.cobalt.withValues(alpha: 0.08),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                           leading: item.icon != null
                               ? Icon(item.icon, size: 18, color: isSelected ? AppTheme.cobalt : AppTheme.charcoal)

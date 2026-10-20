@@ -120,7 +120,7 @@ class GrnRecordCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.1),
+                  color: AppTheme.cobalt.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                 ),
                 child: CopyableText(

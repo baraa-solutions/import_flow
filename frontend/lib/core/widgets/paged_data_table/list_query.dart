@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-const Object _unset = Object();
 
 /// Represents a standardized query for fetching paginated lists from server
 /// or client data sources across ImportFlow ERP tables.

@@ -104,11 +104,11 @@ class _HsCodeComplianceInsightCardState
     final hasAgreements = _agreements != null && _agreements!.isNotEmpty;
 
     final badgeBg = hasPriorApproval
-        ? AppTheme.crimson.withOpacity(isDark ? 0.2 : 0.08)
-        : AppTheme.cobalt.withOpacity(isDark ? 0.2 : 0.08);
+        ? AppTheme.crimson.withValues(alpha: isDark ? 0.2 : 0.08)
+        : AppTheme.cobalt.withValues(alpha: isDark ? 0.2 : 0.08);
     final borderColor = hasPriorApproval
-        ? AppTheme.crimson.withOpacity(0.4)
-        : AppTheme.cobalt.withOpacity(0.3);
+        ? AppTheme.crimson.withValues(alpha: 0.4)
+        : AppTheme.cobalt.withValues(alpha: 0.3);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -118,7 +118,7 @@ class _HsCodeComplianceInsightCardState
         border: Border.all(color: isDark ? AppTheme.darkBorder : borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
             blurRadius: 4,
             offset: const Offset(0, 1),
           ),
@@ -171,10 +171,10 @@ class _HsCodeComplianceInsightCardState
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppTheme.emerald.withOpacity(0.15),
+                        color: AppTheme.emerald.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                            color: AppTheme.emerald.withOpacity(0.5)),
+                            color: AppTheme.emerald.withValues(alpha: 0.5)),
                       ),
                       child: Text(
                         isAr
@@ -258,10 +258,10 @@ class _HsCodeComplianceInsightCardState
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: AppTheme.crimson.withOpacity(0.08),
+                            color: AppTheme.crimson.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(
-                                color: AppTheme.crimson.withOpacity(0.3)),
+                                color: AppTheme.crimson.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,7 +336,7 @@ class _HsCodeComplianceInsightCardState
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: originMatched
-                                  ? AppTheme.emerald.withOpacity(0.12)
+                                  ? AppTheme.emerald.withValues(alpha: 0.12)
                                   : (isDark
                                       ? AppTheme.darkSurface
                                       : Colors.grey.shade50),
@@ -384,7 +384,7 @@ class _HsCodeComplianceInsightCardState
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 5, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.emerald.withOpacity(0.15),
+                                        color: AppTheme.emerald.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(3),
                                       ),
                                       child: Text(
@@ -487,7 +487,7 @@ class _HsCodeComplianceInsightCardState
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: isDark
-            ? AppTheme.darkSurface.withOpacity(0.6)
+            ? AppTheme.darkSurface.withValues(alpha: 0.6)
             : const Color(0xFFF9FAFC),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(

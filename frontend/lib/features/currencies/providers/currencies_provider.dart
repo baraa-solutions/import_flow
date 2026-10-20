@@ -139,7 +139,7 @@ class CurrenciesNotifier extends StateNotifier<AsyncValue<List<CurrencyModel>>> 
     final code = currencyCode.trim().toUpperCase();
     if (code == 'EGP' || code.isEmpty) return 1.0;
 
-    final dateStr = onDate != null ? onDate.toIso8601String().substring(0, 10) : null;
+    final dateStr = onDate?.toIso8601String().substring(0, 10);
     final res = await convertCurrency(
       amount: 1.0,
       fromCurrency: code,

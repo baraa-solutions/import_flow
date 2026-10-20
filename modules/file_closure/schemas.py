@@ -240,3 +240,69 @@ class OfficialClosureCertificateResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+# ============================================================
+# CLO-05: 36-Date Lifecycle Audit Timeline Schemas
+# ============================================================
+
+class MilestoneAuditItem(BaseModel):
+    seq: int
+    code: str
+    name_ar: str
+    name_en: str
+    phase_number: int
+    planned_date: Optional[str] = None
+    actual_date: Optional[str] = None
+    variance_days: int = 0
+    tat_display: Optional[str] = None
+    status: str = "PENDING"
+    notes: Optional[str] = None
+    is_critical_watchpoint: bool = False
+
+
+class VesselTrackingPulseItem(BaseModel):
+    update_seq: int
+    tracking_date: str
+    vessel_location: str
+    current_eta: str
+    delay_days: int = 0
+    remarks: Optional[str] = None
+    is_ata_confirmed: bool = False
+
+
+class FinancialRadarSummary(BaseModel):
+    port_storage_start_date: Optional[str] = None
+    port_storage_free_days: int = 5
+    port_storage_days_remaining: Optional[int] = None
+    port_storage_status: str = "SAFE"
+    demurrage_start_date: Optional[str] = None
+    demurrage_free_days: int = 14
+    demurrage_days_remaining: Optional[int] = None
+    demurrage_status: str = "SAFE"
+    expected_warehouse_delivery_date: Optional[str] = None
+    actual_warehouse_delivery_date: Optional[str] = None
+    warehouse_variance_days: Optional[int] = None
+    status_overall: str = "SAFE"
+
+
+class ShipmentAuditTimelineResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    custom_file_number: Optional[str] = None
+    company_name: str
+    supplier_name: str
+    shipping_line_name: Optional[str] = None
+    bill_of_lading_no: Optional[str] = None
+    port_of_loading: Optional[str] = None
+    port_of_discharge: Optional[str] = None
+    containers_summary: Optional[str] = None
+    status: str = "Open"
+    financial_radar: FinancialRadarSummary
+    milestones: List[MilestoneAuditItem] = Field(default_factory=list)
+    vessel_tracking_pulse: List[VesselTrackingPulseItem] = Field(default_factory=list)
+    meeting_directives: Optional[str] = None
+
+
+class UpdateMeetingDirectivesPayload(BaseModel):
+    meeting_directives: str
+

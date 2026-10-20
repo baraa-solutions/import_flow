@@ -37,6 +37,16 @@ void main() {
       expect(model.carrier, equals('MSC'));
     });
 
+    test('supports statuses list in copyWith and hasActiveFilters', () {
+      var model = const ShipmentInquiryFilterModel();
+      expect(model.hasActiveFilters, isFalse);
+
+      model = model.copyWith(statuses: ['In Progress', 'Completed']);
+      expect(model.hasActiveFilters, isTrue);
+      expect(model.statuses, contains('In Progress'));
+      expect(model.statuses.length, equals(2));
+    });
+
     test('clear flags in copyWith reset fields to null', () {
       var model = const ShipmentInquiryFilterModel(
         supplierId: 5,
@@ -105,6 +115,10 @@ void main() {
       expect(row.incoterm, equals('EXW'));
       expect(row.freightCost, closeTo(2450.0, 0.001));
       expect(row.currency, equals('EUR'));
+      expect(row.finalCost, closeTo(2450.0, 0.001));
+      expect(row.finalCostCurrency, equals('EGP'));
+      expect(row.status, equals('In Progress'));
+      expect(row.fileDate, equals('2026-05-10'));
     });
   });
 }

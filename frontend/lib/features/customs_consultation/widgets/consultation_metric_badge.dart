@@ -26,9 +26,9 @@ class ConsultationMetricBadge extends StatelessWidget {
     final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: effectiveColor.withOpacity(isDark ? 0.18 : 0.1),
+        color: effectiveColor.withValues(alpha: isDark ? 0.18 : 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: effectiveColor.withOpacity(0.3)),
+        border: Border.all(color: effectiveColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

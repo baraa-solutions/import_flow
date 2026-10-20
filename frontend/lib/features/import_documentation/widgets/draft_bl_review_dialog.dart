@@ -86,7 +86,7 @@ class DraftBLReviewDialog extends StatelessWidget {
                             children: [
                               Text(
                                 context.l10n.idocADraftBillOfLadingReviewAnd,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: AppTheme.white,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,

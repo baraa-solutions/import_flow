@@ -1791,7 +1791,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   ? Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.2),
+                        color: AppTheme.cobalt.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -1816,7 +1816,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   ? Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.2),
+                        color: AppTheme.cobalt.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -2393,9 +2393,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 margin: const EdgeInsets.only(top: 10),
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.cobalt.withOpacity(0.06),
+                                  color: AppTheme.cobalt.withValues(alpha: 0.06),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.25)),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2491,6 +2491,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                       categoryFilter: _brokerExpenseCategoryFilter,
                       isExpanded: _isBrokerQuoteExpanded,
                       currenciesList: currenciesList,
+                      referenceUsdExchangeRate: double.tryParse(_exchangeRateController.text.trim()),
                       onToggleExpanded: () => setState(() => _isBrokerQuoteExpanded = !_isBrokerQuoteExpanded),
                       onCategoryChanged: (cat) => setState(() => _brokerExpenseCategoryFilter = cat),
                       onAddCustomExpense: _addCustomBrokerExpenseRow,
@@ -2721,9 +2722,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: isDark ? AppTheme.cobalt.withOpacity(0.12) : AppTheme.cobaltLight.withOpacity(0.5),
+                                color: isDark ? AppTheme.cobalt.withValues(alpha: 0.12) : AppTheme.cobaltLight.withValues(alpha: 0.5),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: isDark ? AppTheme.cobalt.withOpacity(0.3) : AppTheme.cobaltBorder),
+                                border: Border.all(color: isDark ? AppTheme.cobalt.withValues(alpha: 0.3) : AppTheme.cobaltBorder),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2874,9 +2875,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: isDark ? AppTheme.orange.withOpacity(0.12) : AppTheme.orangeLight.withOpacity(0.4),
+                                color: isDark ? AppTheme.orange.withValues(alpha: 0.12) : AppTheme.orangeLight.withValues(alpha: 0.4),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: isDark ? AppTheme.orange.withOpacity(0.3) : AppTheme.orange),
+                                border: Border.all(color: isDark ? AppTheme.orange.withValues(alpha: 0.3) : AppTheme.orange),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2959,12 +2960,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.04),
-                                    AppTheme.emerald.withOpacity(isDark ? 0.15 : 0.08),
+                                    isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.04),
+                                    AppTheme.emerald.withValues(alpha: isDark ? 0.15 : 0.08),
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 1.2),
+                                border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.4), width: 1.2),
                               ),
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
@@ -3169,7 +3170,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 scrollDirection: Axis.horizontal,
                                 child: DataTable(
                                   columnSpacing: 14,
-                                  headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
+                                  headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withValues(alpha: 0.06)),
                                   headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
                                   columns: [
                                     DataColumn(label: Text(l.actionsCol)),
@@ -3207,7 +3208,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                               children: [
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                  decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                                                  decoration: BoxDecoration(color: AppTheme.cobalt.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
                                                   child: Text(line.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                                 ),
                                                 if (line.isTariffMissing) ...[
@@ -3406,7 +3407,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   margin: const EdgeInsets.only(bottom: 10),
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.orange.withOpacity(0.12),
+                                    color: AppTheme.orange.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(color: AppTheme.wcagOrange, width: 1.2),
                                   ),
@@ -3469,9 +3470,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.charcoal.withOpacity(0.04),
+                                  color: AppTheme.charcoal.withValues(alpha: 0.04),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                 ),
                                 child: Wrap(
                                   spacing: 16,
@@ -3625,7 +3626,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                               if (item.hsCode != null && item.hsCode!.isNotEmpty)
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
+                                                  decoration: BoxDecoration(color: AppTheme.cobalt.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
                                                   child: CopyableText(item.hsCode!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                                 ),
                                               CopyableText(_getLocalizedDocType(item.documentType, l), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -3728,7 +3729,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                   if (item.hsCode != null && item.hsCode!.isNotEmpty)
                                                     Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                      decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
+                                                      decoration: BoxDecoration(color: AppTheme.cobalt.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
                                                       child: CopyableText(item.hsCode!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                                     ),
                                                   CopyableText(_getLocalizedDocType(item.documentType, l), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),

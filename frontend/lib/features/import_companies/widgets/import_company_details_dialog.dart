@@ -47,7 +47,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.15),
+                color: Colors.black.withValues(alpha: 0.15),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -69,7 +69,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.2),
+                        color: AppTheme.cobalt.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.business_rounded, color: Colors.white, size: 24),
@@ -100,7 +100,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                                   child: Container(
                                     padding: const EdgeInsets.all(5),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.18),
+                                      color: Colors.white.withValues(alpha: 0.18),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: const Icon(Icons.copy_rounded, size: 15, color: Colors.white),
@@ -111,7 +111,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.25),
+                                color: (isActive ? AppTheme.emerald : AppTheme.crimson).withValues(alpha: 0.25),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
                                   color: isActive ? AppTheme.emerald : AppTheme.crimson,
@@ -267,7 +267,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.amber.shade50.withOpacity(0.35),
+                        color: Colors.amber.shade50.withValues(alpha: 0.35),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.amber.shade300),
                       ),
@@ -567,16 +567,16 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
     final isExpired = daysRemaining <= 0;
     final isWarning = daysRemaining > 0 && daysRemaining <= 30;
 
-    Color badgeBg = AppTheme.emerald.withOpacity(0.12);
+    Color badgeBg = AppTheme.emerald.withValues(alpha: 0.12);
     Color badgeColor = AppTheme.emerald;
     String statusText = l10n.expiryValidDaysRemaining(daysRemaining);
 
     if (isExpired) {
-      badgeBg = AppTheme.crimson.withOpacity(0.12);
+      badgeBg = AppTheme.crimson.withValues(alpha: 0.12);
       badgeColor = AppTheme.crimson;
       statusText = l10n.expiryExpired;
     } else if (isWarning) {
-      badgeBg = AppTheme.orange.withOpacity(0.15);
+      badgeBg = AppTheme.orange.withValues(alpha: 0.15);
       badgeColor = AppTheme.orange;
       statusText = l10n.expiryEndingSoon(daysRemaining);
     }

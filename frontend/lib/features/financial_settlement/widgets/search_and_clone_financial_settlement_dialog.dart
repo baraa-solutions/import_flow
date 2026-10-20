@@ -68,10 +68,11 @@ class _SearchAndCloneFinancialSettlementDialogState
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: SizedBox(
-        width: dialogWidth,
-        height: dialogHeight,
-        child: Column(
+      child: SelectionArea(
+        child: SizedBox(
+          width: dialogWidth,
+          height: dialogHeight,
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SettlementDialogHeader(
@@ -159,7 +160,7 @@ class _SearchAndCloneFinancialSettlementDialogState
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.cobalt.withOpacity(0.12),
+                                            color: AppTheme.cobalt.withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(5),
                                           ),
                                           child: CopyableText(
@@ -245,6 +246,7 @@ class _SearchAndCloneFinancialSettlementDialogState
             ),
           ],
         ),
+      ),
       ),
     );
   }

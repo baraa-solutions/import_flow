@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
@@ -44,7 +45,7 @@ class ChecklistItemCard extends ConsumerWidget {
               const Icon(Icons.warning_amber_rounded, color: Colors.orange),
               const SizedBox(width: 8),
               Text(
-                isAr ? 'طلب تجاوز مشروط (Override)' : 'Conditional Override Request',
+                isAr ? 'طلب تجاوز مشروط' : 'Conditional Override Request',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -53,7 +54,8 @@ class ChecklistItemCard extends ConsumerWidget {
               ),
             ],
           ),
-          content: Column(
+          content: SelectionArea(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -109,7 +111,8 @@ class ChecklistItemCard extends ConsumerWidget {
               ),
             ],
           ),
-          actions: [
+        ),
+        actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text(

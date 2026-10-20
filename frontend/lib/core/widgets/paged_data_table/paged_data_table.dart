@@ -19,6 +19,7 @@ import 'paged_table_column.dart';
 import 'paged_table_column_picker_dialog.dart';
 import 'row_action.dart';
 import '../../services/file_save_helper.dart';
+import '../copyable_data_helper.dart';
 
 /// Standard, high-performance, virtualized Paged Data Table for ImportFlow ERP.
 ///
@@ -382,14 +383,7 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
       return '';
     }).toList();
 
-    Clipboard.setData(ClipboardData(text: values.join('\t')));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l.tableRowCopied),
-        backgroundColor: AppTheme.emerald,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    CopyHelper.copy(context, values.join('\t'), customMessage: l.tableRowCopied);
   }
 
   void _scrollToFocusedIndex(int index) {
@@ -519,15 +513,16 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
       focusNode: _tableFocusNode,
       autofocus: true,
       onKeyEvent: _handleKeyEvent,
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppTheme.darkCardBackground : Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isDark ? AppTheme.darkBorder : AppTheme.border,
+      child: SelectionArea(
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCardBackground : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isDark ? AppTheme.darkBorder : AppTheme.border,
+            ),
+            boxShadow: AppTheme.shadowSoft,
           ),
-          boxShadow: AppTheme.shadowSoft,
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -569,8 +564,9 @@ class _PagedDataTableState<T> extends ConsumerState<PagedDataTable<T>> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildToolbar(
     BuildContext context,

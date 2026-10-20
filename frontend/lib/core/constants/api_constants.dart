@@ -127,6 +127,9 @@ class ApiConstants {
   static String get smartDocumentUpload => '$baseUrl/smart-upload';
   static String get productionSync => '$baseUrl/production-sync';
   static String get simulation => '$baseUrl/simulation';
+  static String get vesselTracking => '$baseUrl/vessel-tracking';
+  static String get vesselTrackingRadar => '$vesselTracking/radar/overview';
+  static String vesselConfirmArrival(int importFileId) => '$vesselTracking/confirm-arrival/$importFileId';
 
   // ── In-app updates (backend verifies, downloads and installs) ──
   static String get appUpdate => '$baseUrl/app-update';

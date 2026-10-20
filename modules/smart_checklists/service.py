@@ -34,6 +34,7 @@ from modules.import_documentation.model import (
     ShipmentDocumentItem,
 )
 from modules.import_requirements.model import ImportRequirementAssessment
+from modules.warehouse_receiving.model import WarehouseReceivingRecord
 
 
 def get_checklist_summary(
@@ -213,8 +214,8 @@ def auto_sync_checklist(db: Session, file_id: int) -> ChecklistAutoSyncResponse:
         )
     )
     if clr:
-        if clr.port_arrival_date:
-            mark_passed("CHK_PRT_01", f"customs_clearance_records.port_arrival_date ({clr.port_arrival_date})")
+        if clr.port_arrival_date or clr.delivery_order_number or clr.delivery_order_status in ("Paid & Received", "PAID_AND_RECEIVED") or file_obj.delivery_order_no:
+            mark_passed("CHK_PRT_01", f"customs_clearance_records (D/O: {clr.delivery_order_number or file_obj.delivery_order_no or 'Issued'})")
         if clr.channel_type:
             mark_passed("CHK_PRT_03", f"customs_clearance_records.channel_type ({clr.channel_type})")
         if clr.declaration_46_no or file_obj.acid_number:
@@ -230,7 +231,21 @@ def auto_sync_checklist(db: Session, file_id: int) -> ChecklistAutoSyncResponse:
         if clr.release_permit_no:
             mark_passed("CHK_PST_01", f"customs_clearance_records.release_permit_no ({clr.release_permit_no})")
 
-    # 12. Check Financial Settlement (Landed Cost)
+    # 12. Check Step 09 / Draft Docs Dual Review
+    if file_obj.current_phase_id and file_obj.current_phase_id >= 4:
+        mark_passed("CHK_PRE_09", f"lifecycle_operations_board (Completed Phase {file_obj.current_phase_id - 1} Docs Approval)")
+
+    # 13. Check Warehouse Receiving / GRN
+    wh_rec = db.scalar(
+        select(WarehouseReceivingRecord).where(
+            WarehouseReceivingRecord.import_file_id == file_id,
+            WarehouseReceivingRecord.is_active == True,
+        )
+    )
+    if wh_rec and wh_rec.grn_code:
+        mark_passed("CHK_PST_01", f"warehouse_receiving_records.grn_code ({wh_rec.grn_code})")
+
+    # 14. Check Financial Settlement (Landed Cost)
     settle = db.scalar(
         select(LandedCostSettlementRecord).where(
             LandedCostSettlementRecord.import_file_id == file_id,
@@ -239,6 +254,8 @@ def auto_sync_checklist(db: Session, file_id: int) -> ChecklistAutoSyncResponse:
     )
     if settle and (settle.total_landed_cost_egp or 0) > 0:
         mark_passed("CHK_PST_02", f"financial_settlement_records (Total Landed Cost: {settle.total_landed_cost_egp} EGP)")
+    elif (file_obj.actual_landed_cost_total_egp or 0) > 0:
+        mark_passed("CHK_PST_02", f"import_files.actual_landed_cost_total_egp ({file_obj.actual_landed_cost_total_egp} EGP)")
 
     db.commit()
 
@@ -357,3 +374,55 @@ def check_gatekeeper(db: Session, file_id: int, target_phase: str) -> Gatekeeper
         blocking_questions=blocking,
         message=msg,
     )
+
+
+def enforce_gatekeeper_transition(db: Session, file_id: int, target_phase: str) -> GatekeeperStatusResponse:
+    """
+    Enforces that all mandatory checklist requirements are satisfied before transitioning
+    to target_phase. Raises HTTP 409 Conflict if blocked.
+    """
+    gate = check_gatekeeper(db, file_id=file_id, target_phase=target_phase)
+    if not gate.can_advance:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "CHECKLIST_GATE_BLOCKED",
+                "message": f"Gatekeeper blocked: {gate.blocking_count} mandatory checklist item(s) pending for phase {target_phase}.",
+                "blocking_count": gate.blocking_count,
+                "blocking_questions": gate.blocking_questions,
+            },
+        )
+    return gate
+
+
+def resolve_all_checklist_items_for_file(
+    db: Session,
+    file_id: int,
+    target_status: str = "PASSED",
+    verified_by: Optional[str] = "Operations Team",
+    notes: Optional[str] = "All operational checklist items verified and cleared",
+) -> ChecklistSummaryResponse:
+    """
+    Batch-verifies or waives all pending checklist items for an import file.
+    Ensures that no pending checklist items remain for operational stage clearance.
+    """
+    validators.validate_status(target_status)
+    file_obj = db.scalar(select(ImportFile).where(ImportFile.import_file_id == file_id))
+    if not file_obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Import file #{file_id} not found.",
+        )
+    items = repo.seed_checklist_for_file(db, file_id, file_obj.import_file_code)
+    now = datetime.now(timezone.utc)
+    for itm in items:
+        if itm.status == "PENDING":
+            itm.status = target_status
+            itm.verified_by = verified_by or "Operations Team"
+            itm.verified_at = now
+            itm.notes = notes
+            itm.updated_at = now
+    db.commit()
+    return get_checklist_summary(db, file_id)
+
+

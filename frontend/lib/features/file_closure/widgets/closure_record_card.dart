@@ -113,7 +113,7 @@ class ClosureRecordCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.emerald.withOpacity(0.12),
+                  color: AppTheme.emerald.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                   border: Border.all(color: AppTheme.emerald),
                 ),

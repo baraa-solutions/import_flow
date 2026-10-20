@@ -109,7 +109,7 @@ class PartnerDetailsDialog extends StatelessWidget {
           border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha: 0.15),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -131,7 +131,7 @@ class PartnerDetailsDialog extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.25),
+                      color: AppTheme.cobalt.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.handshake_rounded, color: Colors.white, size: 24),
@@ -178,7 +178,7 @@ class PartnerDetailsDialog extends StatelessWidget {
                                 child: Container(
                                   padding: const EdgeInsets.all(5),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.18),
+                                    color: Colors.white.withValues(alpha: 0.18),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Icon(Icons.copy_rounded, size: 15, color: Colors.white),
@@ -198,7 +198,7 @@ class PartnerDetailsDialog extends StatelessWidget {
                                 child: Container(
                                   padding: const EdgeInsets.all(5),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.emerald.withOpacity(0.3),
+                                    color: AppTheme.emerald.withValues(alpha: 0.3),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Icon(Icons.copy_all_rounded, size: 15, color: Colors.white),
@@ -209,7 +209,7 @@ class PartnerDetailsDialog extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.25),
+                                color: (isActive ? AppTheme.emerald : AppTheme.crimson).withValues(alpha: 0.25),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
                                   color: isActive ? AppTheme.emerald : AppTheme.crimson,
@@ -456,9 +456,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.emerald.withOpacity(0.1) : const Color(0xFFF0FDF4),
+                        color: isDark ? AppTheme.emerald.withValues(alpha: 0.1) : const Color(0xFFF0FDF4),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: isDark ? AppTheme.emerald.withOpacity(0.3) : const Color(0xFFBBF7D0)),
+                        border: Border.all(color: isDark ? AppTheme.emerald.withValues(alpha: 0.3) : const Color(0xFFBBF7D0)),
                       ),
                       child: Column(
                         children: [
@@ -619,9 +619,9 @@ class PartnerDetailsDialog extends StatelessWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isDark ? AppTheme.orange.withOpacity(0.12) : const Color(0xFFFFFBEB),
+                          color: isDark ? AppTheme.orange.withValues(alpha: 0.12) : const Color(0xFFFFFBEB),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isDark ? AppTheme.orange.withOpacity(0.3) : const Color(0xFFFDE68A)),
+                          border: Border.all(color: isDark ? AppTheme.orange.withValues(alpha: 0.3) : const Color(0xFFFDE68A)),
                         ),
                         child: Text(
                           partner.notes!,
@@ -816,7 +816,7 @@ class PartnerDetailsDialog extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: AppTheme.cobalt.withOpacity(0.3),
+        color: AppTheme.cobalt.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: Colors.white24),
       ),

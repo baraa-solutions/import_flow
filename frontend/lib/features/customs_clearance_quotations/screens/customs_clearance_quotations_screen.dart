@@ -600,13 +600,87 @@ class _CustomsClearanceQuotationsScreenState
       context,
       ref,
       targetRfqId: targetRfqId,
-      onExtracted: (extracted) {
-        final rfqs = ref.read(customsClearanceQuotationsProvider).value ?? [];
-        final rfqId = targetRfqId ?? (rfqs.isNotEmpty ? rfqs.first.rfqId : null);
+      onExtracted: (extracted) async {
+        int? rfqId = targetRfqId;
+        if (rfqId == null) {
+          final rfqs = ref.read(customsClearanceQuotationsProvider).value ?? [];
+          final activeRfqs = rfqs.where((r) => r.status != 'Awarded' && r.status != 'Cancelled').toList();
+          if (activeRfqs.isNotEmpty) {
+            rfqId = await showDialog<int>(
+              context: context,
+              builder: (ctx) {
+                int? selected;
+                return StatefulBuilder(
+                  builder: (ctx, setPickerState) {
+                    final l = ctx.l10n;
+                    return AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusXl)),
+                      title: Row(
+                        children: [
+                          const Icon(Icons.link_rounded, color: AppTheme.cobalt),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              l.isArabic ? 'ربط عرض السعر المستخرج بطلب أسعار' : 'Link Extracted Quote to RFQ',
+                            ),
+                          ),
+                        ],
+                      ),
+                      content: SizedBox(
+                        width: (MediaQuery.of(ctx).size.width - 48).clamp(320.0, 520.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l.isArabic
+                                  ? 'اختر طلب عرض الأسعار المستهدف لإضافة هذا العرض إليه:'
+                                  : 'Select the target RFQ to attach this quotation to:',
+                              style: TextStyle(color: AppTheme.textSecondaryOf(ctx), fontSize: 13),
+                            ),
+                            const SizedBox(height: 16),
+                            SearchableDropdownField<int>(
+                              value: selected,
+                              labelText: l.isArabic ? 'طلب عرض السعر (RFQ)' : 'Target RFQ',
+                              searchHintText: l.searchPlaceholder,
+                              items: activeRfqs
+                                  .map((r) => SearchableDropdownItem<int>(
+                                        value: r.rfqId,
+                                        label: '${r.rfqCode} - ${r.title}',
+                                      ))
+                                  .toList(),
+                              onChanged: (val) => setPickerState(() => selected = val),
+                            ),
+                          ],
+                        ),
+                      ),
+                      actions: [
+                        AppButton(
+                          label: l.cancel,
+                          variant: AppButtonVariant.secondary,
+                          size: AppButtonSize.small,
+                          onPressed: () => Navigator.pop(ctx, null),
+                        ),
+                        AppButton(
+                          label: l.confirm,
+                          variant: AppButtonVariant.primary,
+                          size: AppButtonSize.small,
+                          onPressed: selected != null ? () => Navigator.pop(ctx, selected) : null,
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            );
+          }
+        }
+
+        if (!mounted) return;
         if (rfqId != null) {
           showAddQuotationDialog(context, ref, rfqId, prefill: extracted);
         } else {
-          showCreateRfqDialog(context, ref);
+          showCreateRfqDialog(context, ref, initialPortName: extracted['port_name']?.toString());
         }
       },
     );

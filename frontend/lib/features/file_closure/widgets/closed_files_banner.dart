@@ -26,7 +26,7 @@ class ClosedFilesBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.severityBackgroundOf(context, AppSeverity.warning),
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(color: warn.withOpacity(0.35)),
+        border: Border.all(color: warn.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

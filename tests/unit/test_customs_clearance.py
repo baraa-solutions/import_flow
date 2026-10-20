@@ -23,6 +23,7 @@ from modules.customs_clearance.schemas import (
     DutyPaymentSubmit,
     CompleteReleaseSubmit,
     FinalDutyAssessmentSubmit,
+    DeliveryOrderPaymentSubmit,
 )
 from modules.customs_clearance.service import (
     create_customs_clearance_service,
@@ -34,7 +35,9 @@ from modules.customs_clearance.service import (
     restore_customs_clearance_service,
     update_customs_clearance_service,
     assess_final_customs_duties_service,
+    record_delivery_order_payment_service,
 )
+from modules.smart_tasks.model import SmartTask
 from modules.customs_clearance.validators import validate_bank_receipt_no
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -275,6 +278,123 @@ class TestCustomsClearanceModule(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertEqual(ctx.exception.detail["code"], "IMPORT_FILE_CLOSED")
 
+    def test_bew0_06_customs_locked_after_settlement_approval(self):
+        """BEW0-06: Customs duty assessment, payment, update, and deletion are rejected once settlement is Approved."""
+        from modules.financial_settlement.model import LandedCostSettlementRecord
+
+        # 1. Create active clearance record with Form 46
+        record = create_customs_clearance_service(
+            self.db,
+            CustomsClearanceCreate(
+                import_file_id=self.import_file_id,
+                declaration_46_no="DEC-46-BEW0",
+                customs_office_name="Alexandria Port",
+                channel_type="Yellow Channel",
+                import_duty_amount=10000.0,
+                vat_amount=14000.0,
+            ),
+        )
+        rec_id = record.customs_clearance_id
+
+        # 2. Create Approved landed-cost settlement
+        settlement = LandedCostSettlementRecord(
+            settlement_code="SET-2026-BEW0",
+            import_file_id=self.import_file_id,
+            status="Approved",
+            is_active=True,
+        )
+        self.db.add(settlement)
+        self.db.commit()
+
+        # 3. Assessment (CL-02) must be blocked
+        cl02_data = FinalDutyAssessmentSubmit(
+            import_file_id=self.import_file_id,
+            nafeza_claim_number="CLM-BEW0-001",
+            cif_base_amount=100000.0,
+            import_duty_amount=12000.0,
+            vat_amount=16800.0,
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            assess_final_customs_duties_service(self.db, cl02_data)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "CC_SETTLEMENT_LOCKED")
+
+        # 4. Duty payment must be blocked
+        pay_data = DutyPaymentSubmit(
+            bank_receipt_no="RCP-BEW0-001",
+            sadad_number="SAD-BEW0-001",
+            duty_paid_amount=24000.0,
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            submit_duty_payment_service(self.db, rec_id, pay_data)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "CC_SETTLEMENT_LOCKED")
+
+        # 5. Duty/costing update on clearance record must be blocked
+        with self.assertRaises(HTTPException) as ctx:
+            update_customs_clearance_service(
+                self.db, rec_id, CustomsClearanceUpdate(import_duty_amount=15000.0)
+            )
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "CC_SETTLEMENT_LOCKED")
+
+        # 6. Deletion of clearance record must be blocked
+        with self.assertRaises(HTTPException) as ctx:
+            soft_delete_customs_clearance_service(self.db, rec_id)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail["code"], "CC_SETTLEMENT_LOCKED")
+
+    def test_delivery_order_payment_closes_arrival_notice_task(self):
+        # 1. Create a pending SmartTask with reminder_type='Arrival Notice Payment'
+        task = SmartTask(
+            task_code="TSK-ARV-99999",
+            title="سداد مصاريف إذن التسليم",
+            description="متابعة سداد إذن التسليم والرسوم البحرية",
+            task_type="System Generated",
+            import_file_id=self.import_file_id,
+            import_file_code="IMP-001",
+            reminder_type="Arrival Notice Payment",
+            priority="High",
+            status="Pending",
+            due_date=date.today().isoformat(),
+            created_by="SmartEmailListener",
+        )
+        self.db.add(task)
+        self.db.commit()
+
+        # 2. Record Delivery Order Payment (CS-02)
+        payload = DeliveryOrderPaymentSubmit(
+            import_file_id=self.import_file_id,
+            delivery_order_number="DO-TEST-99999",
+            delivery_order_expiry=datetime(2028, 1, 1, tzinfo=timezone.utc),
+            free_days_allowed=14,
+            delivery_order_fees=15000.0,
+            delivery_order_currency="EGP",
+            delivery_order_payment_ref="RCP-DO-TEST-99999",
+            shipping_agent_name="Test Shipping Agency",
+            notes="Maritime fees payment verified and receipt recorded.",
+        )
+        record = record_delivery_order_payment_service(self.db, payload, user="Finance Team")
+
+        # 3. Assertions
+        self.assertEqual(record.delivery_order_number, "DO-TEST-99999")
+        self.assertEqual(record.delivery_order_status, "Paid & Received")
+        self.assertEqual(record.delivery_order_fees, 15000.0)
+        self.assertEqual(record.delivery_order_payment_ref, "RCP-DO-TEST-99999")
+
+        # ImportFile assertions
+        imp = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
+        self.assertEqual(imp.delivery_order_no, "DO-TEST-99999")
+        self.assertEqual(imp.delivery_order_status, "PAID_AND_RECEIVED")
+        self.assertGreaterEqual(imp.progress_percent, 83.0)
+
+        # SmartTask must be automatically completed
+        self.db.refresh(task)
+        self.assertEqual(task.status, "Completed")
+        self.assertIn("DO-TEST-99999", task.notes)
+
+
 if __name__ == "__main__":
     unittest.main()
+
 

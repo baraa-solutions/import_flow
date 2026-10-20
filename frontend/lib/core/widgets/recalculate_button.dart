@@ -314,13 +314,13 @@ class _PreviewDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: hasHardBlock
-                      ? AppTheme.orange.withOpacity(0.1)
-                      : AppTheme.cobalt.withOpacity(0.08),
+                      ? AppTheme.orange.withValues(alpha: 0.1)
+                      : AppTheme.cobalt.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: hasHardBlock
-                        ? AppTheme.orange.withOpacity(0.4)
-                        : AppTheme.cobalt.withOpacity(0.3),
+                        ? AppTheme.orange.withValues(alpha: 0.4)
+                        : AppTheme.cobalt.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Text(
@@ -338,9 +338,9 @@ class _PreviewDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.crimson.withOpacity(0.07),
+                    color: AppTheme.crimson.withValues(alpha: 0.07),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.crimson.withOpacity(0.3)),
+                    border: Border.all(color: AppTheme.crimson.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     '⚠️ الميزانية في حالة "${preview.currentEntityStatus}".\n'
@@ -389,9 +389,9 @@ class _PreviewDialog extends StatelessWidget {
                     TableRow(
                       decoration: BoxDecoration(
                         color: item.isHardBlock
-                            ? AppTheme.crimson.withOpacity(0.05)
+                            ? AppTheme.crimson.withValues(alpha: 0.05)
                             : (item.variancePercentage > 0
-                                ? AppTheme.orange.withOpacity(0.03)
+                                ? AppTheme.orange.withValues(alpha: 0.03)
                                 : Colors.white),
                       ),
                       children: [
@@ -434,7 +434,7 @@ class _PreviewDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppTheme.crimson.withOpacity(0.1),
+              color: AppTheme.crimson.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
@@ -549,9 +549,9 @@ class _JustificationDialogState extends State<_JustificationDialog> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.crimson.withOpacity(0.07),
+                  color: AppTheme.crimson.withValues(alpha: 0.07),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.crimson.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.crimson.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   'الفارق (${widget.maxVariancePct.toStringAsFixed(1)}%) يتجاوز الحد المسموح.\n'

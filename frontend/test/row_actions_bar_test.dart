@@ -285,7 +285,7 @@ void main() {
           child: RowActionsPill(
             onDelete: () async {
               // Custom caller-managed dialog where user cancels
-              final confirmed = false;
+              const confirmed = false;
               if (confirmed) {
                 actuallyDeleted = true;
               }

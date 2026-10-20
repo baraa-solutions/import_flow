@@ -545,7 +545,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
         ),
         const SizedBox(width: 8),
         IconButton(
-          icon: Icon(Icons.refresh, color: AppTheme.white.withOpacity(0.7), size: density.buttonIconSize),
+          icon: Icon(Icons.refresh, color: AppTheme.white.withValues(alpha: 0.7), size: density.buttonIconSize),
           tooltip: l10n.financialSettlementRefreshTooltip,
           onPressed: _reloadSettlements,
         ),

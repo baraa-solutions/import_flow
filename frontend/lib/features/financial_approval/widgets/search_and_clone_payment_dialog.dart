@@ -69,7 +69,6 @@ class _SearchAndClonePaymentDialogState
   Widget build(BuildContext context) {
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Dialog(
       backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
@@ -78,20 +77,21 @@ class _SearchAndClonePaymentDialogState
         side: BorderSide(
             color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680, maxHeight: 620),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680, maxHeight: 620),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Header
               Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.control_point_duplicate_rounded,
@@ -272,12 +272,12 @@ class _SearchAndClonePaymentDialogState
                                                       vertical: 2),
                                               decoration: BoxDecoration(
                                                 color: AppTheme.cobalt
-                                                    .withOpacity(0.12),
+                                                    .withValues(alpha: 0.12),
                                                 borderRadius:
                                                     BorderRadius.circular(4),
                                                 border: Border.all(
                                                     color: AppTheme.cobalt
-                                                        .withOpacity(0.3)),
+                                                        .withValues(alpha: 0.3)),
                                               ),
                                               child: LtrText(
                                                 p.paymentCode,
@@ -299,9 +299,9 @@ class _SearchAndClonePaymentDialogState
                                                     (p.status == 'Approved' ||
                                                             p.status == 'Paid')
                                                         ? AppTheme.emerald
-                                                            .withOpacity(0.12)
+                                                            .withValues(alpha: 0.12)
                                                         : AppTheme.orange
-                                                            .withOpacity(0.12),
+                                                            .withValues(alpha: 0.12),
                                                 borderRadius:
                                                     BorderRadius.circular(4),
                                               ),
@@ -429,7 +429,7 @@ class _SearchAndClonePaymentDialogState
                                       ],
                                     ),
                                   ),
-                                  Icon(
+                                  const Icon(
                                     Icons.chevron_right,
                                     color: AppTheme.cobalt,
                                     size: 20,
@@ -444,6 +444,7 @@ class _SearchAndClonePaymentDialogState
             ],
           ),
         ),
+      ),
       ),
     );
   }

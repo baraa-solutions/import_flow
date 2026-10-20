@@ -352,7 +352,7 @@ void main() {
     test('High-precision fractional weight calculation: 144 ctns / 10510 kg sums to exact 10510 kg without 72.99 rounding corruption', () {
       const double totalCertGross = 10510.0;
       const double totalPackages = 144.0;
-      final double unitGross = totalCertGross / totalPackages; // 72.98611111111111
+      const double unitGross = totalCertGross / totalPackages; // 72.98611111111111
       const double unitNet = 70.0;
 
       final itemCodes = ['YH-652', 'YH-644', 'YH-610', 'YH-612', 'YH-646', 'YH-656', 'YH-658'];

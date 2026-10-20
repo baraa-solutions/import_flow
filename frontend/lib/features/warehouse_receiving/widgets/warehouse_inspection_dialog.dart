@@ -239,7 +239,7 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.cobalt.withOpacity(0.12),
+              color: AppTheme.cobalt.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.verified_user_rounded, color: AppTheme.cobalt, size: 24),
@@ -273,24 +273,26 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
       content: SizedBox(
         width: (MediaQuery.of(context).size.width - 48).clamp(360.0, 860.0),
         height: (MediaQuery.of(context).size.height * 0.7).clamp(360.0, 560.0),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildMetricStrip(l10n, isDark, rec, totalDiscrepancy, discrepancyRate),
-                const SizedBox(height: 16),
-                if (rec.grnItems.isNotEmpty) ...[
-                  _buildItemsTable(l10n, isDark, rec),
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildMetricStrip(l10n, isDark, rec, totalDiscrepancy, discrepancyRate),
                   const SizedBox(height: 16),
+                  if (rec.grnItems.isNotEmpty) ...[
+                    _buildItemsTable(l10n, isDark, rec),
+                    const SizedBox(height: 16),
+                  ],
+                  _buildVerdictRow(l10n),
+                  const SizedBox(height: 12),
+                  _buildRootCauseRow(l10n),
+                  const SizedBox(height: 14),
+                  _buildClaimsPanel(l10n, isDark, currencies.map((c) => c.currencyCode).toList()),
                 ],
-                _buildVerdictRow(l10n),
-                const SizedBox(height: 12),
-                _buildRootCauseRow(l10n),
-                const SizedBox(height: 14),
-                _buildClaimsPanel(l10n, isDark, currencies.map((c) => c.currencyCode).toList()),
-              ],
+              ),
             ),
           ),
         ),
@@ -481,9 +483,9 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.orange.withOpacity(0.06),
+        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.orange.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.orange.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.orange.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

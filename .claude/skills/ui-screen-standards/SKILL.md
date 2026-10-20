@@ -247,13 +247,28 @@ StandardFormActionBar(
 
 ---
 
-## 5. 🌐 Language & Casing Rules
+## 5. 🌐 Language, Anti-Stacking & Text Selection Rules
 
-- ✅ **Title Case** لكل أزرار وعناوين الواجهة: `Skip Step`, `Save Draft`, `Back to Dashboard`
-- ✅ جميع الـ Labels في كود الواجهة بالإنجليزية عبر `context.l10n`
-- ❌ نصوص عربية Hard-coded داخل UI = Bug مخالفة صريحة
-- ❌ خلط اللغتين في نفس الـ Label (`"Save حفظ"`)
-- ✅ RTL يُعيَّن مرة واحدة في AppTheme — لا تتدخل يدوياً
+### أ. قواعد اللغة والفصل اللغوي الصارم (Language & Anti-Stacking):
+- ✅ **Title Case** لكل أزرار وعناوين الواجهة بالإنجليزية: `Skip Step`, `Save Draft`, `Back to Dashboard`.
+- ✅ جميع الـ Labels في كود الواجهة تُستدعى حصرياً عبر `context.l10n`.
+- ❌ **حظر التكديس اللغوي (Strict Anti-Stacking):** يُمنع منعاً باتاً وضع الترجمة الإنجليزية بين أقواس بجوار العربي أو العكس (مثل `"Save حفظ"`, `"New PO (أمر شراء جديد)"`, `'📦 قابل للرص (Stackable)'`).
+- ✅ **لغة أحادية نقية (Single-Locale Pure View):**
+  - في الوضع العربي: نصوص عربية نقية 100% (صفر حروف لاتينية أو شروحات إنجليزية إلا للرموز الدولية مثل `CBM`, `FOB`, `USD`, `EGP`).
+  - في الوضع الإنجليزي: نصوص إنجليزية نقية 100% (صفر حروف عربية).
+- ❌ نصوص عربية أو إنجليزية Hard-coded داخل UI = مخالفة صريحة و Bug يجب إصلاحه.
+- ✅ RTL يُعيَّن مركزياً عبر AppTheme و Directionality — لا تتدخل يدوياً واستخدم `EdgeInsetsDirectional` و `AlignmentDirectional`.
+- ✅ **التخزين أحادي اللغة (Single-Language Storage):**
+  - رسائل النظام: كود رسالة + باراميترات (`msg_code` + `msg_params`).
+  - النصوص الافتراضية واللواحق (Clone): ثوابت إنجليزية ثابتة (مثل ` (Copy)`).
+  - الـ Enums: أكواد `UPPER_SNAKE_CASE` (مثل `APPROVED`).
+
+### ب. قواعد تحديد ونسخ النصوص بالماوس (SelectionArea & Clipboard Standards):
+- ✅ **تغليف جذري إلزامي بـ `SelectionArea` (Root Wrapper Rule):**
+  - كل شاشة (`Scaffold.body`) وكل نافذة حوارية (`Dialog.content` أو `Dialog.child`) **يجب أن تُغلَّف بـ `SelectionArea`**.
+  - هذا يضمن تمكين تحديد النصوص بالماوس وسحبها ونسخها بـ `Ctrl + C` على بيئة الديسكتوب (Windows Desktop).
+- ✅ **خلايا الجداول والبيانات:** استخدام `CopyableTableCell` لتمكين قائمة كليك يمين لنسخ القيمة أو نسخ الصف بالكامل كـ TSV.
+- ✅ **أكواد الأعمال الحساسة:** (ACID, Import File Code, PO Number, BL) تُعرض بـ `CopyableText` أو مع أيقونة نسخ مدمجة وتستخدم `CopyHelper.copy(context, text)` الذي يزيل محارف الـ Bidi isolates تلقائياً.
 
 ---
 
@@ -483,6 +498,9 @@ class _YourStageScreenState extends ConsumerState<YourStageScreen> {
 | 11 | Table Sticky Header | ثابتة بخلفية مصمتة أثناء السكرول | `stickyHeader` + خلفية مصمتة |
 | 12 | Sticky Actions Col | ثابت أثناء السكرول الأفقي | تثبيت عمود الإجراءات |
 | 13 | Responsive Bounds | لا overflow عند 1366×768 | `Flexible/Expanded/Wrap` بدل أبعاد ثابتة |
+| 14 | Universal Mouse Selection | `SelectionArea` إلزامي لكل شاشة وDialog وحاسبة | تغليف جذر الشاشة أو الـ Dialog بـ `SelectionArea` |
+| 15 | Sanitized Clipboard Copy | تنظيف الـ Bidi Isolates (`\u2066`, `\u2067`, `\u2069`) | استخدام `CopyHelper.copy` و `TableCopyHelper.copyTable` حصراً |
+| 16 | Anti-Stacking & Pure View | لغة نقية مفصولة 100% ومنع الأقواس الثنائية | إزالة التكديس مثل `(PO)` واستخدام `context.l10n` |
 
 ## File save and export (moved from CORE_RULES, 2026-10-05)
 

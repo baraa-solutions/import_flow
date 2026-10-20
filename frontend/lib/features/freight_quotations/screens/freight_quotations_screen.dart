@@ -295,7 +295,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                 final rfq = filtered[i];
                                 return ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: AppTheme.cobalt.withOpacity(0.1),
+                                    backgroundColor: AppTheme.cobalt.withValues(alpha: 0.1),
                                     child: const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 20),
                                   ),
                                   title: Row(
@@ -494,9 +494,9 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: AppTheme.cobalt.withOpacity(0.08),
+                            color: AppTheme.cobalt.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                            border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
@@ -506,7 +506,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                 isArabic
                                     ? '🤖 تم استخراج هذا العرض تلقائياً من النص. راجع البيانات قبل الإضافة.'
                                     : '🤖 Auto-extracted from quote text. Please verify fields before adding.',
-                                style: TextStyle(fontSize: 12, color: AppTheme.cobalt.withOpacity(0.8)),
+                                style: TextStyle(fontSize: 12, color: AppTheme.cobalt.withValues(alpha: 0.8)),
                               )),
                             ],
                           ),
@@ -1144,7 +1144,7 @@ Best regards,
         border: Border.all(color: Colors.blueGrey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -1476,7 +1476,7 @@ Best regards,
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(color: Colors.grey.shade300),
                                   boxShadow: [
-                                    BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                                    BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2)),
                                   ],
                                 ),
                                 child: Column(
@@ -1687,7 +1687,7 @@ Best regards,
                     },
                     children: [
                       TableRow(
-                        decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.05)),
+                        decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.05)),
                         children: [
                           Padding(padding: const EdgeInsets.all(8.0), child: Text(isArabic ? 'الحالة / القرار' : 'Status / Decision', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                           Padding(padding: const EdgeInsets.all(8.0), child: Text(isArabic ? 'الخط الملاحي / السفينة' : 'Carrier / Vessel', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
@@ -2006,9 +2006,9 @@ Best regards,
                               margin: const EdgeInsets.only(top: 14),
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt.withOpacity(0.08),
+                                color: AppTheme.cobalt.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2090,7 +2090,7 @@ Best regards,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.amber.shade400, width: 1.5),
                         boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2)),
+                          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2)),
                         ],
                       ),
                       child: Row(
@@ -2350,9 +2350,9 @@ Best regards,
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2373,7 +2373,7 @@ Best regards,
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+      decoration: BoxDecoration(color: bg.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
       child: Text(status, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
     );
   }
@@ -2453,7 +2453,7 @@ Best regards,
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+              color: rec.isStackable ? AppTheme.emerald.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
             ),
@@ -2474,7 +2474,7 @@ Best regards,
             },
             children: [
               TableRow(
-                decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
                 children: [
                   Padding(padding: const EdgeInsets.all(8.0), child: Text(isArabic ? 'نوع الحاوية (Spec)' : 'Container Spec', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   Padding(padding: const EdgeInsets.all(8.0), child: Text(isArabic ? 'العدد المطلوب' : 'Required Count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
@@ -2491,7 +2491,7 @@ Best regards,
                 final isBest = spec.code == rec.recommendedContainerCode;
 
                 return TableRow(
-                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withOpacity(0.12)) : null,
+                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withValues(alpha: 0.12)) : null,
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(8.0),

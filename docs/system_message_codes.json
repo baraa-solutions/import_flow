@@ -121,12 +121,6 @@
       "note"
     ]
   },
-  "CCQ_RFQ_AWARDED": {
-    "params": [],
-    "parts": [
-      "note"
-    ]
-  },
   "CCQ_PRICE_LIST_DATE_RANGE": {
     "params": [
       "effective_from",
@@ -2507,6 +2501,17 @@
       "note"
     ]
   },
+  "LC_SKIP_HAS_OPEN_TASKS": {
+    "params": [
+      "open_tasks_count",
+      "step_code"
+    ],
+    "parts": [
+      "title",
+      "body",
+      "note"
+    ]
+  },
   "LC_STARTING_POINT_SET": {
     "params": [
       "step_code"
@@ -2732,6 +2737,30 @@
       "field"
     ],
     "parts": [
+      "note"
+    ]
+  },
+  "LOG_TASK_DELIVERY_ORDER": {
+    "params": [
+      "import_file_code",
+      "port_name",
+      "vessel_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "LOG_VESSEL_ARRIVED_PORT": {
+    "params": [
+      "arrival_date",
+      "import_file_code",
+      "port_name",
+      "vessel_name"
+    ],
+    "parts": [
+      "title",
+      "body",
       "note"
     ]
   },
@@ -3287,6 +3316,29 @@
       "eta_date",
       "import_file_code",
       "supplier_name"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_CHECKLIST_ETA_APPROACHING": {
+    "params": [
+      "blocking_count",
+      "days_left",
+      "eta_date",
+      "import_file_code"
+    ],
+    "parts": [
+      "title",
+      "body"
+    ]
+  },
+  "NOTIF_CHECKLIST_GATE_BLOCKED": {
+    "params": [
+      "blocking_count",
+      "import_file_code",
+      "target_phase"
     ],
     "parts": [
       "title",

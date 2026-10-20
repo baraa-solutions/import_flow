@@ -17,7 +17,7 @@ void main() {
         'role': 'ADMIN',
         'exp': exp,
       }))).replaceAll('=', '');
-      final sig = 'mock_signature_hash_123456';
+      const sig = 'mock_signature_hash_123456';
       return '$header.$payload.$sig';
     }
 

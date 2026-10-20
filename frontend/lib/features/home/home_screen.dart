@@ -87,6 +87,7 @@ import '../../core/providers/ai_assistant_provider.dart';
 import '../../core/widgets/system_settings_dialog.dart';
 import '../system_observability/screens/system_observability_screen.dart';
 import '../logistics_invoices/screens/logistics_invoices_screen.dart';
+import '../vessel_tracking/screens/vessel_tracking_radar_screen.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -238,6 +239,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 70: Logistics Service Invoices & Payments Hub
         LogisticsInvoicesScreen(),
+
+        // 71: Live Vessel & Carrier Tracking Radar
+        VesselTrackingRadarScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -419,7 +423,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               if (!ref.watch(focusModeProvider) && tabsState.tabs.length > 1)
                                 const MultiTabWorkspaceBar(),
                               Expanded(
-                                child: Stack(
+                                child: SelectionArea(
+                                  child: Stack(
                                   children: [
                                     // ── Sorour Official Brand Background Watermark Layer ──
                                     Positioned.fill(
@@ -458,6 +463,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           ),
                                   ],
                                 ),
+                                ),
                               ),
                             ],
                           ),
@@ -476,12 +482,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.charcoal.withOpacity(0.92),
+                                    color: AppTheme.charcoal.withValues(alpha: 0.92),
                                     borderRadius: BorderRadius.circular(30),
-                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.6), width: 1.0),
+                                    border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.6), width: 1.0),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.35),
+                                        color: Colors.black.withValues(alpha: 0.35),
                                         blurRadius: 12,
                                         offset: const Offset(0, 4),
                                       ),
@@ -509,7 +515,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.15),
+                                            color: Colors.white.withValues(alpha: 0.15),
                                             borderRadius: BorderRadius.circular(12),
                                           ),
                                           child: Row(
@@ -707,7 +713,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Tooltip(
             message: '${user.fullName} (${user.role})',
             child: CircleAvatar(
-              backgroundColor: _getRoleColor(user.role).withOpacity(0.2),
+              backgroundColor: _getRoleColor(user.role).withValues(alpha: 0.2),
               radius: 12,
               child: Icon(Icons.person, color: _getRoleColor(user.role), size: 14),
             ),
@@ -729,7 +735,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
           padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.3) : Colors.transparent,
+            color: isSelected ? color.withValues(alpha: 0.3) : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
             border: isSelected ? Border.all(color: color, width: 1.5) : null,
           ),
@@ -848,7 +854,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Container(
             height: 28,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(5),
             ),
             child: TextField(
@@ -858,9 +864,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               decoration: InputDecoration(
                 hintText: l.quickSearch,
                 hintStyle: TextStyle(
-                    color: Colors.white.withOpacity(0.4), fontSize: 11),
+                    color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
                 prefixIcon: Icon(Icons.search,
-                    color: Colors.white.withOpacity(0.5), size: 14),
+                    color: Colors.white.withValues(alpha: 0.5), size: 14),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear,
@@ -962,6 +968,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 initiallyExpanded: false,
                 children: [
                   _buildMenuItem(Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 25, selectedIndex),
+                  _buildMenuItem(Icons.radar_outlined, 'Live Vessel Tracking Radar', 'رادار التتبع الحي لخطوط الملاحة والسفن', 71, selectedIndex),
                   _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping & Tracking', 'حركة وتتبع الشحن وتوزيع الحاويات', 26, selectedIndex),
                   _buildMenuItem(Icons.shield_outlined, 'Cargo Insurance', 'شهادات ووثائق التأمين على البضائع', 65, selectedIndex),
                   _buildMenuItem(Icons.fact_check_outlined, '1. PO & Packing Reconciliation', '1. مطابقة الفاتورة والباكينج مع أمر الشراء', 21, selectedIndex),
@@ -1033,7 +1040,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildMenuItem(Icons.travel_explore_rounded, 'Shipment History & Inquiry', 'استعلام وسجل الشحنات والتكاليف التاريخية', 68, selectedIndex),
                   _buildMenuItem(Icons.request_quote_outlined, 'Freight RFQ & Quotations Comparison', 'طلب ومقارنة عروض النولون والترسية', 49, selectedIndex),
-                  _buildMenuItem(Icons.calculate_outlined, 'Cargo Measurement Engine', 'حاسبة الأحجام وتوزيع الحاويات (CBM)', 3, selectedIndex),
+                  _buildMenuItem(Icons.calculate_outlined, 'Cargo Measurement Engine', 'حاسبة الأحجام وتوزيع الحاويات', 3, selectedIndex),
                 ],
               ),
 
@@ -1092,11 +1099,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (user != null)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: _getRoleColor(user.role).withOpacity(0.2),
+                  backgroundColor: _getRoleColor(user.role).withValues(alpha: 0.2),
                   radius: 13,
                   child: Icon(Icons.person, color: _getRoleColor(user.role), size: 14),
                 ),
@@ -1158,7 +1165,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            color: Colors.black.withOpacity(0.28),
+            color: Colors.black.withValues(alpha: 0.28),
             child: Consumer(
               builder: (context, r, _) {
                 final versionAsync = r.watch(systemVersionInfoProvider);
@@ -1190,9 +1197,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                       decoration: BoxDecoration(
-                        color: AppTheme.emerald.withOpacity(0.18),
+                        color: AppTheme.emerald.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 0.8),
+                        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.4), width: 0.8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1272,8 +1279,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             leading: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Color.fromRGBO(
-                    color.red, color.green, color.blue, 0.2),
+                color: color.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Icon(icon, color: color, size: 14),

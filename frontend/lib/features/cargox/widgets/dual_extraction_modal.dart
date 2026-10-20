@@ -229,9 +229,9 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
               borderRadius: BorderRadius.circular(12),
-              color: AppTheme.cobalt.withOpacity(0.03),
+              color: AppTheme.cobalt.withValues(alpha: 0.03),
             ),
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -290,9 +290,9 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+              border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
               borderRadius: BorderRadius.circular(12),
-              color: AppTheme.emerald.withOpacity(0.03),
+              color: AppTheme.emerald.withValues(alpha: 0.03),
             ),
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -353,7 +353,7 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
                         ? (v) => setState(() => _plConfig = _plConfig.copyWith(includePalletDetails: v))
                         : null,
                     title: Text(l.dualExtractionIncludePallets, style: const TextStyle(fontSize: 11)),
-                    activeColor: AppTheme.emerald,
+                    activeThumbColor: AppTheme.emerald,
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                   ),
@@ -369,7 +369,7 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
   Widget _buildPalletsPanel(AppLocalizations l, bool isAr) {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(12),
         color: const Color(0xFFF1FBF5),
       ),
@@ -498,7 +498,7 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: palletType,
+                  initialValue: palletType,
                   items: palletTypeOptions
                       .map((t) => DropdownMenuItem(value: t.$1, child: Text(t.$2)))
                       .toList(),
@@ -603,7 +603,7 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
       decoration: BoxDecoration(
         color: const Color(0xFFE8F5E9),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -643,9 +643,9 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [

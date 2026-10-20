@@ -134,120 +134,122 @@ class _SystemObservabilityScreenState
   Widget build(BuildContext context) {
     final metricsAsync = ref.watch(systemMetricsProvider);
     final isAutoRefresh = ref.watch(autoRefreshObservabilityProvider);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
-      body: Column(
-        children: [
-          // ── Compact Header & Toolbar (Unified Header Rule) ──────────────────
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 3,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(6),
+      body: SelectionArea(
+        child: Column(
+          children: [
+            // ── Compact Header & Toolbar (Unified Header Rule) ──────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 3,
+                    offset: const Offset(0, 2),
                   ),
-                  child: const Icon(Icons.monitor_heart_outlined,
-                      color: AppTheme.cobalt, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'مركز مراقبة وصحة النظام (System Observability & Health)',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.charcoal,
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.monitor_heart_outlined,
+                        color: AppTheme.cobalt, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isArabic ? 'مركز مراقبة وصحة النظام' : 'System Observability & Health',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.charcoal,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Live Metrics • Database WAL • Domain Radar • Diagnostics',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                // Overall System Status Badge
-                metricsAsync.when(
-                  data: (m) => _buildStatusBadge(m.status),
-                  loading: () => const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                      Text(
+                        'Live Metrics • Database WAL • Domain Radar • Diagnostics',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                    ],
                   ),
-                  error: (_, __) => _buildStatusBadge('OFFLINE'),
-                ),
-                const SizedBox(width: 12),
-                // Auto-refresh Toggle Switch
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'تحديث تلقائي (5s)',
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                  const Spacer(),
+                  // Overall System Status Badge
+                  metricsAsync.when(
+                    data: (m) => _buildStatusBadge(m.status, isArabic),
+                    loading: () => const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                    const SizedBox(width: 4),
-                    Switch(
-                      value: isAutoRefresh,
-                      onChanged: _toggleAutoRefresh,
-                      activeColor: AppTheme.cobalt,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    error: (_, __) => _buildStatusBadge('OFFLINE', isArabic),
+                  ),
+                  const SizedBox(width: 12),
+                  // Auto-refresh Toggle Switch
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isArabic ? 'تحديث تلقائي (5 ثوانٍ)' : 'Auto-refresh (5s)',
+                        style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                      ),
+                      const SizedBox(width: 4),
+                      Switch(
+                        value: isAutoRefresh,
+                        onChanged: _toggleAutoRefresh,
+                        activeThumbColor: AppTheme.cobalt,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 8),
+                  // Refresh Button
+                  OutlinedButton.icon(
+                    onPressed: _refreshAllData,
+                    icon: const Icon(Icons.refresh_rounded, size: 15),
+                    label: Text(isArabic ? 'تحديث الآن' : 'Refresh Now', style: const TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
                     ),
-                  ],
-                ),
-                const SizedBox(width: 8),
-                // Refresh Button
-                OutlinedButton.icon(
-                  onPressed: _refreshAllData,
-                  icon: const Icon(Icons.refresh_rounded, size: 15),
-                  label: const Text('تحديث الآن', style: TextStyle(fontSize: 12)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    minimumSize: Size.zero,
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Test Toast Alert Button
-                OutlinedButton.icon(
-                  onPressed: _sendTestAlert,
-                  icon: const Icon(Icons.notifications_active_outlined, size: 15, color: AppTheme.orange),
-                  label: const Text('اختبار التنبيه (Toast)', style: TextStyle(fontSize: 12, color: AppTheme.charcoal)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    minimumSize: Size.zero,
+                  const SizedBox(width: 8),
+                  // Test Toast Alert Button
+                  OutlinedButton.icon(
+                    onPressed: _sendTestAlert,
+                    icon: const Icon(Icons.notifications_active_outlined, size: 15, color: AppTheme.orange),
+                    label: Text(isArabic ? 'اختبار التنبيه' : 'Test Alert', style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Export Diagnostics Button
-                ElevatedButton.icon(
-                  onPressed: _isExporting ? null : _exportDiagnosticsBundle,
-                  icon: _isExporting
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.archive_outlined, size: 15),
-                  label: const Text('تصدير حزمة الدعم (ZIP)',
-                      style: TextStyle(fontSize: 12)),
+                  const SizedBox(width: 8),
+                  // Export Diagnostics Button
+                  ElevatedButton.icon(
+                    onPressed: _isExporting ? null : _exportDiagnosticsBundle,
+                    icon: _isExporting
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.archive_outlined, size: 15),
+                    label: Text(isArabic ? 'تصدير حزمة الدعم' : 'Export Diagnostics',
+                        style: const TextStyle(fontSize: 12)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.charcoal,
                     foregroundColor: Colors.white,
@@ -270,11 +272,11 @@ class _SystemObservabilityScreenState
               indicatorColor: AppTheme.cobalt,
               indicatorWeight: 2.5,
               labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              tabs: const [
-                Tab(icon: Icon(Icons.speed_rounded, size: 17), text: 'المؤشرات الحيوية والأداء'),
-                Tab(icon: Icon(Icons.radar_rounded, size: 17), text: 'رادار العمليات اللوجستية'),
-                Tab(icon: Icon(Icons.alt_route_rounded, size: 17), text: 'سجل المرور والاستعلامات'),
-                Tab(icon: Icon(Icons.health_and_safety_outlined, size: 17), text: 'الفحص العميق وحزم الدعم'),
+              tabs: [
+                Tab(icon: const Icon(Icons.speed_rounded, size: 17), text: isArabic ? 'المؤشرات الحيوية والأداء' : 'Vital Metrics & Performance'),
+                Tab(icon: const Icon(Icons.radar_rounded, size: 17), text: isArabic ? 'رادار العمليات اللوجستية' : 'Operations Radar'),
+                Tab(icon: const Icon(Icons.alt_route_rounded, size: 17), text: isArabic ? 'سجل المرور والاستعلامات' : 'Traffic Telemetry & Queries'),
+                Tab(icon: const Icon(Icons.health_and_safety_outlined, size: 17), text: isArabic ? 'الفحص العميق وحزم الدعم' : 'Deep Health & Diagnostics'),
               ],
             ),
           ),
@@ -293,31 +295,32 @@ class _SystemObservabilityScreenState
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildStatusBadge(String status) {
+  Widget _buildStatusBadge(String status, [bool isArabic = true]) {
     Color bg;
     Color fg;
     String label;
 
     switch (status.toUpperCase()) {
       case 'HEALTHY':
-        bg = AppTheme.emerald.withOpacity(0.15);
+        bg = AppTheme.emerald.withValues(alpha: 0.15);
         fg = AppTheme.emerald;
-        label = '🟢 مستقر وطبيعي (Healthy)';
+        label = isArabic ? '🟢 مستقر وطبيعي' : '🟢 Healthy';
         break;
       case 'DEGRADED':
-        bg = AppTheme.orange.withOpacity(0.15);
+        bg = AppTheme.orange.withValues(alpha: 0.15);
         fg = AppTheme.orange;
-        label = '🟡 استجابة متدهورة (Degraded)';
+        label = isArabic ? '🟡 استجابة متدهورة' : '🟡 Degraded';
         break;
       case 'CRITICAL':
       case 'OFFLINE':
       default:
-        bg = AppTheme.crimson.withOpacity(0.15);
+        bg = AppTheme.crimson.withValues(alpha: 0.15);
         fg = AppTheme.crimson;
-        label = '🔴 تحذير حرج (Critical)';
+        label = isArabic ? '🔴 تحذير حرج' : '🔴 Critical';
         break;
     }
 
@@ -326,7 +329,7 @@ class _SystemObservabilityScreenState
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: fg.withOpacity(0.4)),
+        border: Border.all(color: fg.withValues(alpha: 0.4)),
       ),
       child: Text(
         label,
@@ -341,6 +344,7 @@ class _SystemObservabilityScreenState
   Widget _buildLivePulseTab() {
     final metricsAsync = ref.watch(systemMetricsProvider);
     final dbHealthAsync = ref.watch(databaseHealthProvider);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return metricsAsync.when(
       data: (metrics) {
@@ -354,7 +358,7 @@ class _SystemObservabilityScreenState
                 children: [
                   Expanded(
                     child: _buildKpiCard(
-                      title: 'خادم النظام والذاكرة (Server)',
+                      title: isArabic ? 'خادم النظام والذاكرة' : 'Server & Memory',
                       value: '${metrics.processMemoryMb} MB',
                       subtitle: 'Uptime: ${metrics.uptimeHuman} • Port: ${ApiConstants.serverPort}',
                       icon: Icons.memory_rounded,
@@ -365,17 +369,17 @@ class _SystemObservabilityScreenState
                   Expanded(
                     child: dbHealthAsync.when(
                       data: (dbh) => _buildKpiCard(
-                        title: 'محرك قاعدة البيانات (SQLite WAL)',
+                        title: isArabic ? 'محرك قاعدة البيانات' : 'SQLite WAL Engine',
                         value: '${dbh.databaseSizeMb} MB',
                         subtitle: 'WAL: ${dbh.walSizeMb} MB • Timeout: ${dbh.busyTimeoutMs}ms',
                         icon: Icons.storage_rounded,
                         color: AppTheme.charcoal,
                       ),
-                      loading: () => _buildLoadingKpiCard('جلب بيانات DB...'),
+                      loading: () => _buildLoadingKpiCard(isArabic ? 'جلب بيانات DB...' : 'Loading DB metrics...'),
                       error: (_, __) => _buildKpiCard(
-                        title: 'قاعدة البيانات',
-                        value: 'خطأ اتصال',
-                        subtitle: 'تعذر الاتصال',
+                        title: isArabic ? 'قاعدة البيانات' : 'Database',
+                        value: isArabic ? 'خطأ اتصال' : 'Connection Error',
+                        subtitle: isArabic ? 'تعذر الاتصال' : 'Unavailable',
                         icon: Icons.storage_rounded,
                         color: AppTheme.crimson,
                       ),
@@ -384,7 +388,7 @@ class _SystemObservabilityScreenState
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildKpiCard(
-                      title: 'معدل الطلبات والتزامن (Throughput)',
+                      title: isArabic ? 'معدل الطلبات والتزامن' : 'Request Throughput',
                       value: '${metrics.requestsPerSecond} req/s',
                       subtitle: 'Total requests: ${metrics.totalRequests}',
                       icon: Icons.bolt_rounded,
@@ -394,7 +398,7 @@ class _SystemObservabilityScreenState
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildKpiCard(
-                      title: 'أزمنة الاستجابة (Latencies)',
+                      title: isArabic ? 'أزمنة الاستجابة' : 'Response Latencies',
                       value: 'P50: ${metrics.p50LatencyMs} ms',
                       subtitle: 'P95: ${metrics.p95LatencyMs} ms • P99: ${metrics.p99LatencyMs} ms',
                       icon: Icons.timer_outlined,
@@ -423,19 +427,19 @@ class _SystemObservabilityScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'توزيع رموز الاستجابة (Status Codes)',
-                              style: TextStyle(
+                            Text(
+                              isArabic ? 'توزيع رموز الاستجابة' : 'Status Codes Distribution',
+                              style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.charcoal),
                             ),
                             const SizedBox(height: 14),
-                            _buildTrafficRow('2xx / 3xx (ناجح)', metrics.status2xx, AppTheme.emerald),
+                            _buildTrafficRow(isArabic ? '2xx / 3xx - طلبات ناجحة' : '2xx / 3xx - Success', metrics.status2xx, AppTheme.emerald),
                             const Divider(height: 16),
-                            _buildTrafficRow('4xx (أخطاء العميل / تحقق)', metrics.status4xx, AppTheme.orange),
+                            _buildTrafficRow(isArabic ? '4xx - أخطاء العميل' : '4xx - Client Errors', metrics.status4xx, AppTheme.orange),
                             const Divider(height: 16),
-                            _buildTrafficRow('5xx (أخطاء السيرفر)', metrics.status5xx, AppTheme.crimson),
+                            _buildTrafficRow(isArabic ? '5xx - أخطاء الخادم' : '5xx - Server Errors', metrics.status5xx, AppTheme.crimson),
                             const SizedBox(height: 12),
                             Container(
                               padding: const EdgeInsets.all(8),
@@ -446,7 +450,7 @@ class _SystemObservabilityScreenState
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('إجمالي الأخطاء:', style: TextStyle(fontSize: 11)),
+                                  Text(isArabic ? 'إجمالي الأخطاء:' : 'Total Errors:', style: const TextStyle(fontSize: 11)),
                                   Text(
                                     '${metrics.totalErrors} (${metrics.totalRequests > 0 ? ((metrics.totalErrors / metrics.totalRequests) * 100).toStringAsFixed(1) : 0}%)',
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
@@ -459,7 +463,7 @@ class _SystemObservabilityScreenState
                       ),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 16),
 
                   // Top active endpoints
                   Expanded(
@@ -474,9 +478,9 @@ class _SystemObservabilityScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'أكثر نقاط النهاية استخداماً (Top Active Endpoints)',
-                              style: TextStyle(
+                            Text(
+                              isArabic ? 'أكثر نقاط النهاية استخداماً' : 'Top Active Endpoints',
+                              style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.charcoal),
@@ -554,6 +558,7 @@ class _SystemObservabilityScreenState
   // ════════════════════════════════════════════════════════════════════════════
   Widget _buildDomainRadarTab() {
     final radarAsync = ref.watch(domainRadarProvider);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return radarAsync.when(
       data: (radar) {
@@ -567,9 +572,9 @@ class _SystemObservabilityScreenState
                 children: [
                   Expanded(
                     child: _buildRadarCard(
-                      title: 'رادار انتهاء صلاحية الـ ACID',
+                      title: isArabic ? 'رادار انتهاء صلاحية الـ ACID' : 'ACID Expiry Radar',
                       count: radar.expiringAcidsCount,
-                      subtitle: 'شحنات تنتهي صلاحية رقم القيد خلال < 7 أيام',
+                      subtitle: isArabic ? 'شحنات تنتهي صلاحية رقم القيد خلال < 7 أيام' : 'Shipments expiring within 7 days',
                       icon: Icons.timelapse_rounded,
                       color: radar.expiringAcidsCount > 0 ? AppTheme.crimson : AppTheme.emerald,
                     ),
@@ -577,9 +582,9 @@ class _SystemObservabilityScreenState
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildRadarCard(
-                      title: 'مخاطر غرامات الحاويات (Demurrage)',
+                      title: isArabic ? 'مخاطر غرامات الحاويات' : 'Demurrage Penalty Risks',
                       count: radar.demurrageRisksCount,
-                      subtitle: 'حاويات متبقي لها أقل من 48 ساعة فترة سماح',
+                      subtitle: isArabic ? 'حاويات متبقي لها أقل من 48 ساعة فترة سماح' : 'Containers with < 48h free time',
                       icon: Icons.warning_amber_rounded,
                       color: radar.demurrageRisksCount > 0 ? AppTheme.orange : AppTheme.emerald,
                     ),
@@ -587,9 +592,9 @@ class _SystemObservabilityScreenState
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildRadarCard(
-                      title: 'الشحنات العالقة (Stuck Shipments)',
+                      title: isArabic ? 'الشحنات العالقة' : 'Stuck Shipments',
                       count: radar.stuckShipmentsCount,
-                      subtitle: 'ملفات متوقفة في نفس المرحلة لأكثر من 10 أيام',
+                      subtitle: isArabic ? 'ملفات متوقفة في نفس المرحلة لأكثر من 10 أيام' : 'Files stuck in stage for > 10 days',
                       icon: Icons.pause_circle_outline_rounded,
                       color: radar.stuckShipmentsCount > 0 ? AppTheme.orange : AppTheme.emerald,
                     ),
@@ -615,7 +620,7 @@ class _SystemObservabilityScreenState
                           color: (radar.lastBackupStatus == 'HEALTHY'
                                   ? AppTheme.emerald
                                   : AppTheme.crimson)
-                              .withOpacity(0.12),
+                              .withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -631,9 +636,9 @@ class _SystemObservabilityScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'حالة النسخ الاحتياطي التلقائي اليومي (Daily Backup Health)',
-                              style: TextStyle(
+                            Text(
+                              isArabic ? 'حالة النسخ الاحتياطي التلقائي اليومي' : 'Daily Automated Backup Health',
+                              style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
                                   color: AppTheme.charcoal),
@@ -654,7 +659,7 @@ class _SystemObservabilityScreenState
                           color: (radar.lastBackupStatus == 'HEALTHY'
                                   ? AppTheme.emerald
                                   : AppTheme.crimson)
-                              .withOpacity(0.15),
+                              .withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
@@ -718,8 +723,8 @@ class _SystemObservabilityScreenState
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: isExpired
-                                ? AppTheme.crimson.withOpacity(0.15)
-                                : AppTheme.orange.withOpacity(0.15),
+                                ? AppTheme.crimson.withValues(alpha: 0.15)
+                                : AppTheme.orange.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -751,6 +756,7 @@ class _SystemObservabilityScreenState
   Widget _buildTrafficTelemetryTab() {
     final trafficAsync = ref.watch(recentTrafficProvider);
     final dbHealthAsync = ref.watch(databaseHealthProvider);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -768,15 +774,15 @@ class _SystemObservabilityScreenState
                     borderRadius: BorderRadius.circular(8),
                     side: BorderSide(color: Colors.grey.shade300),
                   ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(14),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
                     child: Row(
                       children: [
-                        Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 20),
-                        SizedBox(width: 8),
+                        const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 20),
+                        const SizedBox(width: 8),
                         Text(
-                          'لا توجد استعلامات بطيئة مسجلة (All queries < 150ms).',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                          isArabic ? 'لا توجد استعلامات بطيئة مسجلة (أقل من 150 مللي ثانية)' : 'No slow queries recorded (< 150ms)',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                         ),
                       ],
                     ),
@@ -788,7 +794,7 @@ class _SystemObservabilityScreenState
                 color: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: AppTheme.orange.withOpacity(0.4)),
+                  side: BorderSide(color: AppTheme.orange.withValues(alpha: 0.4)),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
@@ -800,7 +806,9 @@ class _SystemObservabilityScreenState
                           const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 20),
                           const SizedBox(width: 8),
                           Text(
-                            'استعلامات بطيئة تجاوزت حد الـ 150ms (${dbh.recentSlowQueries.length})',
+                            isArabic
+                                ? 'استعلامات بطيئة تجاوزت 150 مللي ثانية (${dbh.recentSlowQueries.length})'
+                                : 'Slow queries exceeding 150ms (${dbh.recentSlowQueries.length})',
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                           ),
                         ],
@@ -858,17 +866,17 @@ class _SystemObservabilityScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'سجل حركة المرور المباشر مع معرّف التتبع (Recent Requests & Correlation IDs)',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                  Text(
+                    isArabic ? 'سجل حركة المرور المباشر مع معرّف التتبع' : 'Recent Traffic & Correlation IDs',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                   ),
                   const SizedBox(height: 10),
                   trafficAsync.when(
                     data: (traffic) {
                       if (traffic.isEmpty) {
-                        return const Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Center(child: Text('لا توجد طلبات مسجلة')),
+                        return Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Center(child: Text(isArabic ? 'لا توجد طلبات مسجلة' : 'No recorded requests')),
                         );
                       }
                       return ListView.separated(
@@ -931,7 +939,7 @@ class _SystemObservabilityScreenState
                       );
                     },
                     loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (e, _) => Center(child: Text('خطأ في جلب سجل المرور: $e')),
+                    error: (e, _) => Center(child: Text(isArabic ? 'خطأ في جلب سجل المرور: $e' : 'Error fetching traffic logs: $e')),
                   ),
                 ],
               ),
@@ -947,6 +955,7 @@ class _SystemObservabilityScreenState
   // ════════════════════════════════════════════════════════════════════════════
   Widget _buildDeepHealthTab() {
     final deepHealthAsync = ref.watch(deepHealthProbeProvider);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -967,7 +976,7 @@ class _SystemObservabilityScreenState
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.troubleshoot_rounded, color: AppTheme.cobalt, size: 24),
@@ -977,13 +986,15 @@ class _SystemObservabilityScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'الفحص العميق لقاعدة البيانات والنظام (Deep Integrity Probe)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
+                        Text(
+                          isArabic ? 'الفحص العميق لقاعدة البيانات والنظام' : 'Deep Integrity Probe',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'يختبر فعلياً عملية الكتابة والقراءة الحية (Write Probe)، وفحص سلامة هياكل الجداول (PRAGMA quick_check)، والمساحة المتبقية على القرص.',
+                          isArabic
+                              ? 'يختبر فعلياً عملية الكتابة والقراءة الحية، وفحص سلامة هياكل الجداول، والمساحة المتبقية على القرص.'
+                              : 'Actively probes live read/write operations, table structure integrity, and remaining disk space.',
                           style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
                         ),
                       ],
@@ -992,7 +1003,7 @@ class _SystemObservabilityScreenState
                   ElevatedButton.icon(
                     onPressed: () => ref.read(deepHealthProbeProvider.notifier).runProbe(),
                     icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                    label: const Text('تشغيل الفحص العميق', style: TextStyle(fontSize: 12)),
+                    label: Text(isArabic ? 'تشغيل الفحص العميق' : 'Run Deep Probe', style: const TextStyle(fontSize: 12)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.cobalt,
                       foregroundColor: Colors.white,
@@ -1015,12 +1026,14 @@ class _SystemObservabilityScreenState
                     borderRadius: BorderRadius.circular(8),
                     side: BorderSide(color: Colors.grey.shade300),
                   ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(32),
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
                     child: Center(
                       child: Text(
-                        'اضغط على زر "تشغيل الفحص العميق" لبدء الاختبار الحي لقاعدة البيانات والقرص.',
-                        style: TextStyle(color: Colors.grey),
+                        isArabic
+                            ? 'اضغط على زر "تشغيل الفحص العميق" لبدء الاختبار الحي لقاعدة البيانات والقرص.'
+                            : 'Click "Run Deep Probe" to test live database operations and disk health.',
+                        style: const TextStyle(color: Colors.grey),
                       ),
                     ),
                   ),
@@ -1048,9 +1061,9 @@ class _SystemObservabilityScreenState
                         children: [
                           Row(
                             children: [
-                              _buildStatusBadge(probe.verdict),
+                              _buildStatusBadge(probe.verdict, isArabic),
                               const SizedBox(width: 10),
-                              Text('وقت الفحص: ${probe.timestamp}',
+                              Text('${isArabic ? 'وقت الفحص:' : 'Probe Time:'} ${probe.timestamp}',
                                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                             ],
                           ),
@@ -1061,17 +1074,17 @@ class _SystemObservabilityScreenState
                         children: [
                           Expanded(
                             child: _buildProbeItem(
-                              label: 'اختبار الكتابة الحية (Write Probe)',
-                              status: probe.databaseWriteProbe ? 'ناجح (PASS)' : 'فشل (FAIL)',
-                              detail: 'زمن تنفيذ الكتابة: ${probe.databaseWriteLatencyMs} ms',
+                              label: isArabic ? 'اختبار الكتابة الحية' : 'Live Write Probe',
+                              status: probe.databaseWriteProbe ? (isArabic ? 'ناجح' : 'PASS') : (isArabic ? 'فشل' : 'FAIL'),
+                              detail: '${isArabic ? 'زمن تنفيذ الكتابة:' : 'Write Latency:'} ${probe.databaseWriteLatencyMs} ms',
                               isOk: probe.databaseWriteProbe,
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: _buildProbeItem(
-                              label: 'سلامة هياكل الجداول (Integrity)',
-                              status: probe.databaseIntegrity == 'ok' ? 'سليم (OK)' : 'تلف محتمل',
+                              label: isArabic ? 'سلامة هياكل الجداول' : 'Table Structure Integrity',
+                              status: probe.databaseIntegrity == 'ok' ? (isArabic ? 'سليم' : 'Healthy') : (isArabic ? 'تلف محتمل' : 'Corrupted'),
                               detail: probe.databaseIntegrity,
                               isOk: probe.databaseIntegrity == 'ok',
                             ),
@@ -1079,9 +1092,9 @@ class _SystemObservabilityScreenState
                           const SizedBox(width: 12),
                           Expanded(
                             child: _buildProbeItem(
-                              label: 'مساحة القرص الصلب المتبقية',
+                              label: isArabic ? 'مساحة القرص الصلب المتبقية' : 'Remaining Disk Space',
                               status: '${probe.freeDiskSpaceGb} GB',
-                              detail: 'حالة القرص: ${probe.diskStatus}',
+                              detail: '${isArabic ? 'حالة القرص:' : 'Disk Status:'} ${probe.diskStatus}',
                               isOk: probe.diskStatus == 'OK',
                             ),
                           ),
@@ -1089,9 +1102,9 @@ class _SystemObservabilityScreenState
                       ),
                       if (probe.issues.isNotEmpty) ...[
                         const SizedBox(height: 14),
-                        const Text(
-                          'الملاحظات والتحذيرات المكتشفة:',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.crimson),
+                        Text(
+                          isArabic ? 'الملاحظات والتحذيرات المكتشفة:' : 'Detected Warnings & Issues:',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.crimson),
                         ),
                         const SizedBox(height: 6),
                         ...probe.issues.map((issue) => Padding(
@@ -1110,22 +1123,22 @@ class _SystemObservabilityScreenState
                 ),
               );
             },
-            loading: () => const Card(
+            loading: () => Card(
               elevation: 0,
               child: Padding(
-                padding: EdgeInsets.all(32),
+                padding: const EdgeInsets.all(32),
                 child: Center(
                   child: Column(
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 10),
-                      Text('جارٍ تنفيذ الفحص العميق لقاعدة البيانات...'),
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 10),
+                      Text(isArabic ? 'جارٍ تنفيذ الفحص العميق لقاعدة البيانات...' : 'Executing deep database probe...'),
                     ],
                   ),
                 ),
               ),
             ),
-            error: (e, _) => Center(child: Text('خطأ في الفحص العميق: $e')),
+            error: (e, _) => Center(child: Text(isArabic ? 'خطأ في الفحص العميق: $e' : 'Deep probe error: $e')),
           ),
 
           const SizedBox(height: 20),
@@ -1147,13 +1160,15 @@ class _SystemObservabilityScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'تصدير سجل أحداث واجهة الديسكتوب (Client Diagnostics Log)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                        Text(
+                          isArabic ? 'تصدير سجل أحداث واجهة الديسكتوب' : 'Client Diagnostics Log',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'تصدير ملف يحتوي على آخر الأحداث وأخطاء الشبكة والواجهة المسجلة على جهاز المستخدم الحالي.',
+                          isArabic
+                              ? 'تصدير ملف يحتوي على آخر الأحداث وأخطاء الشبكة والواجهة المسجلة على جهاز المستخدم الحالي.'
+                              : 'Export a file containing recent events, network requests, and client logs recorded on this device.',
                           style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
                         ),
                       ],
@@ -1162,7 +1177,7 @@ class _SystemObservabilityScreenState
                   OutlinedButton.icon(
                     onPressed: _exportClientLogs,
                     icon: const Icon(Icons.download_rounded, size: 15),
-                    label: const Text('تصدير لوج العميل (.log)', style: TextStyle(fontSize: 11.5)),
+                    label: Text(isArabic ? 'تصدير سجل العميل (.log)' : 'Export Client Log (.log)', style: const TextStyle(fontSize: 11.5)),
                   ),
                 ],
               ),
@@ -1246,7 +1261,7 @@ class _SystemObservabilityScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: color.withOpacity(0.4)),
+        side: BorderSide(color: color.withValues(alpha: 0.4)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -1283,9 +1298,9 @@ class _SystemObservabilityScreenState
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1341,7 +1356,7 @@ class _SystemObservabilityScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: bg.withOpacity(0.15),
+        color: bg.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -1366,7 +1381,7 @@ class _SystemObservabilityScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(

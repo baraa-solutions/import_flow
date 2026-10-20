@@ -21,3 +21,7 @@ paths:
   every write. Loading indicator inside buttons during async actions.
 - Endpoints come from `frontend/lib/core/constants/api_constants.dart`. Flutter never knows DB details.
 - Do not grow multi-thousand-line screen files; extract widgets into the feature's `widgets/`.
+- Mouse Drag-Selection: Every screen root, modal, dialog, calculator, and review sheet MUST be wrapped in `SelectionArea` to enable full mouse text and number highlighting and selection.
+- Sanitized Clipboard: Zero direct `Clipboard.setData(...)` calls. All clipboard writes must pass through `CopyHelper.copy(context, text)` or `TableCopyHelper.copyTable(context, ...)` to strip invisible Bidi Unicode isolates (`\u2066`, `\u2067`, `\u2069`).
+- Anti-Stacking & Pure Views: Zero parenthesized bilingual stacking (e.g. `(PO)`, `(Terminal / Depot)`). Pure Arabic in Arabic mode, pure English in English mode. Backend/DB constants remain in Tier 2 English (`PENDING`, `CUSTOMS_RELEASE`).
+

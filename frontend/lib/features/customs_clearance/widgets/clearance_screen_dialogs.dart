@@ -78,7 +78,7 @@ class _ClearanceFormDialogState extends ConsumerState<ClearanceFormDialog> {
     super.initState();
     final r = widget.recordToEdit;
     if (r != null) {
-      _selectedImportFileId = r.importFileId;
+      _selectedImportFileId = widget.isCloneDraft ? null : r.importFileId;
       _decl46Ctrl.text = widget.isCloneDraft ? '' : (r.declaration46No ?? '');
       _officeCtrl.text = r.customsOfficeName;
       _doNumberCtrl.text = widget.isCloneDraft ? '' : (r.deliveryOrderNumber ?? '');
@@ -133,6 +133,22 @@ class _ClearanceFormDialogState extends ConsumerState<ClearanceFormDialog> {
 
   Future<void> _save(AppLocalizations l) async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (widget.isCloneDraft &&
+        widget.recordToEdit != null &&
+        _selectedImportFileId == widget.recordToEdit!.importFileId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(
+          context,
+          l.isArabic
+              ? 'الاستنساخ متاح لشحنة أخرى فقط، لا يمكن استنساخ البيان لنفس ملف الشحنة.'
+              : 'Cloning is only allowed to a different shipment file.',
+          severity: AppSeverity.danger,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     final duty = double.tryParse(_dutyCtrl.text) ?? 0.0;
@@ -162,7 +178,14 @@ class _ClearanceFormDialogState extends ConsumerState<ClearanceFormDialog> {
     final navigator = Navigator.of(context);
     final successBar = AppTheme.snackBar(context, l.customsClearanceSaveRecordSuccess, severity: AppSeverity.success);
     try {
-      await ref.read(customsClearanceProvider.notifier).createRecord(payload);
+      if (widget.recordToEdit != null && !widget.isCloneDraft) {
+        await ref.read(customsClearanceProvider.notifier).updateRecord(
+              widget.recordToEdit!.customsClearanceId,
+              payload,
+            );
+      } else {
+        await ref.read(customsClearanceProvider.notifier).createRecord(payload);
+      }
       navigator.pop();
       messenger.showSnackBar(successBar);
     } catch (e) {
@@ -193,9 +216,13 @@ class _ClearanceFormDialogState extends ConsumerState<ClearanceFormDialog> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
+    final availableFiles = widget.isCloneDraft && widget.recordToEdit != null
+        ? importFiles.where((f) => f.importFileId != widget.recordToEdit!.importFileId).toList()
+        : importFiles;
+    final isEditing = widget.recordToEdit != null && !widget.isCloneDraft;
     final titleText = widget.isCloneDraft
         ? l.cloneCustomsClearanceDialogTitle
-        : (widget.recordToEdit == null
+        : (!isEditing
             ? l.customsClearanceNewDialogTitle
             : l.customsClearanceEditDialogTitle(widget.recordToEdit!.clearanceCode));
 
@@ -230,17 +257,18 @@ class _ClearanceFormDialogState extends ConsumerState<ClearanceFormDialog> {
                       children: [
                         SearchableDropdownField<int>(
                           value: _selectedImportFileId,
+                          enabled: !isEditing,
                           labelText: l.customsClearanceImportFileLabel,
                           searchHintText: l.customsClearanceImportFileSearchHint,
                           isRequired: true,
-                          items: importFiles
+                          items: availableFiles
                               .map((f) => SearchableDropdownItem<int>(
                                     value: f.importFileId,
                                     label: '${f.primaryNameWithCode} - ${f.companyName}',
                                     subtitle: 'PO: ${f.poNumber ?? "N/A"} | ACID: ${f.acidNumber ?? "N/A"}',
                                   ))
                               .toList(),
-                          onChanged: (val) => setState(() => _selectedImportFileId = val),
+                          onChanged: isEditing ? null : (val) => setState(() => _selectedImportFileId = val),
                           validator: (val) => val == null ? l.customsClearanceSelectFileValidator : null,
                         ),
                         const SizedBox(height: 12),

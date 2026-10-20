@@ -127,9 +127,7 @@ class CustomsExemptionEngine {
     }
 
     try {
-      final dateStr = calculationDate != null
-          ? calculationDate.toIso8601String().substring(0, 10)
-          : null;
+      final dateStr = calculationDate?.toIso8601String().substring(0, 10);
 
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/customs-tariff/check-duty-for-origin',

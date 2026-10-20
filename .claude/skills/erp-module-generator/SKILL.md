@@ -22,3 +22,5 @@ Every module under `modules/<module_name>/` MUST contain:
 - Always use explicit Python type hints.
 - Never hardcode dynamic tax/duty rates.
 - Maintain soft-delete support (`is_active`, `deleted_at`).
+- Single-language storage (Tier 2 English Constants): Always use English for all status codes, stage identifiers, enum values, and system constants stored in DB / returned by API (e.g. `PENDING`, `CUSTOMS_RELEASE`). Never store localized Arabic strings in DB columns. Localized representation is strictly the responsibility of the frontend UI layer.
+

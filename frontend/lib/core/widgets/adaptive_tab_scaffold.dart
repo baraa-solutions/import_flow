@@ -261,7 +261,7 @@ class _AdaptiveTabScaffoldState extends State<AdaptiveTabScaffold> {
             message: item.tooltip ?? item.label,
             waitDuration: const Duration(milliseconds: 600),
             child: Material(
-              color: isSelected ? widget.accentColor.withOpacity(0.12) : Colors.transparent,
+              color: isSelected ? widget.accentColor.withValues(alpha: 0.12) : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
@@ -271,7 +271,7 @@ class _AdaptiveTabScaffoldState extends State<AdaptiveTabScaffold> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isSelected ? widget.accentColor.withOpacity(0.4) : Colors.transparent,
+                      color: isSelected ? widget.accentColor.withValues(alpha: 0.4) : Colors.transparent,
                       width: 1.2,
                     ),
                   ),
@@ -343,7 +343,7 @@ class _AdaptiveTabScaffoldState extends State<AdaptiveTabScaffold> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 4,
             offset: const Offset(1, 0),
           ),
@@ -411,10 +411,10 @@ class _AdaptiveTabScaffoldState extends State<AdaptiveTabScaffold> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: widget.accentColor.withOpacity(0.08),
+                    color: widget.accentColor.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: widget.accentColor.withOpacity(0.3),
+                      color: widget.accentColor.withValues(alpha: 0.3),
                       width: 1.2,
                     ),
                   ),

@@ -12,13 +12,13 @@ class SettlementTokens {
   SettlementTokens._();
 
   /// Hairline border used by cards, tables and dividers.
-  static Color get border => AppTheme.charcoal.withOpacity(0.15);
+  static Color get border => AppTheme.charcoal.withValues(alpha: 0.15);
 
   /// Very light fill for muted panels (sign-off form, empty table, meta strip).
-  static Color get panelFill => AppTheme.charcoal.withOpacity(0.04);
+  static Color get panelFill => AppTheme.charcoal.withValues(alpha: 0.04);
 
   /// Table heading fill.
-  static Color get tableHeadFill => AppTheme.charcoal.withOpacity(0.07);
+  static Color get tableHeadFill => AppTheme.charcoal.withValues(alpha: 0.07);
 
   static const double pagePadding = 16;
   static const double sectionGap = 16;
@@ -91,9 +91,9 @@ class SettlementStatusChip extends StatelessWidget {
         vertical: dense ? 2 : 4,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.6)),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -285,7 +285,7 @@ class SettlementDialogHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.white.withOpacity(0.12),
+              color: AppTheme.white.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: AppTheme.white, size: 22),
@@ -309,7 +309,7 @@ class SettlementDialogHeader extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: TextStyle(
-                      color: AppTheme.white.withOpacity(0.8),
+                      color: AppTheme.white.withValues(alpha: 0.8),
                       fontSize: 12,
                     ),
                   ),
@@ -324,7 +324,7 @@ class SettlementDialogHeader extends StatelessWidget {
           if (onClose != null)
             IconButton(
               key: closeKey,
-              icon: Icon(Icons.close, color: AppTheme.white.withOpacity(0.8)),
+              icon: Icon(Icons.close, color: AppTheme.white.withValues(alpha: 0.8)),
               tooltip: closeTooltip,
               onPressed: onClose,
             ),

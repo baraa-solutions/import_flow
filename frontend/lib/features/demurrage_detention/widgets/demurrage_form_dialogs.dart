@@ -81,12 +81,12 @@ class DemurrageLookups {
   };
 
   static const List<String> ancillaryFeeTypes = [
-    'كشف وفحص بالأشعة (X-Ray Inspection)',
-    'وزن ميزان بسكول (Weighing & Scales)',
-    'سيل جمركي ملاحي (Customs/Carrier Seal)',
-    'حراسة ومراقبة ساحة (Yard Guarding)',
-    'تطهير وتبخير (Fumigation & Cleaning)',
-    'أذونات ونولون إضافي (Ancillary Clearance Permit)',
+    'كشف وفحص بالأشعة',
+    'وزن ميزان بسكول',
+    'سيل جمركي ملاحي',
+    'حراسة ومراقبة ساحة',
+    'تطهير وتبخير',
+    'أذونات ونولون إضافي',
   ];
 }
 
@@ -262,7 +262,7 @@ class _AddTrackingDialogState extends ConsumerState<AddTrackingDialog> {
 
                   // Terminal selection
                   SearchableDropdownField<String>(
-                    labelText: 'محطة الحاويات (Terminal / Depot)',
+                    labelText: 'محطة الحاويات',
                     value: _terminal,
                     items: terminals
                         .map((t) => SearchableDropdownItem(value: t, label: t))
@@ -325,7 +325,7 @@ class _AddTrackingDialogState extends ConsumerState<AddTrackingDialog> {
 
             // 3. Ancillary Terminal Fees Section (الرسوم الإضافية بالمحطة)
             CcFormSection(
-              title: 'الرسوم الإضافية بالمحطة (Ancillary Fees)',
+              title: 'الرسوم الإضافية بالمحطة',
               icon: Icons.receipt_long_outlined,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -483,7 +483,7 @@ class _UpdateTrackingDatesDialogState extends ConsumerState<UpdateTrackingDatesD
       messenger.showSnackBar(
         AppTheme.snackBar(
           context,
-          'لا يمكن تسجيل إعادة الحاوية الفارغة بدون تاريخ خروجها من الميناء (Gate-Out).',
+          'لا يمكن تسجيل إعادة الحاوية الفارغة بدون تاريخ خروجها من الميناء.',
           severity: AppSeverity.danger,
         ),
       );
@@ -572,7 +572,7 @@ class _UpdateTrackingDatesDialogState extends ConsumerState<UpdateTrackingDatesD
           ),
           const SizedBox(height: 16),
           CcFormSection(
-            title: 'الرسوم الإضافية بالمحطة (Ancillary Fees)',
+            title: 'الرسوم الإضافية بالمحطة',
             icon: Icons.receipt_long_outlined,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

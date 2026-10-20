@@ -261,7 +261,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: AppTheme.cobalt.withOpacity(0.1),
+                                          color: AppTheme.cobalt.withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: LtrText(
@@ -1635,9 +1635,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppTheme.emerald.withOpacity(0.18),
+                                color: AppTheme.emerald.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: AppTheme.emerald.withOpacity(0.4)),
+                                border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.4)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -1701,10 +1701,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           ),
 
         ),
-        content: SizedBox(
-          width: 850,
-          height: 520,
-          child: Form(
+        content: SelectionArea(
+          child: SizedBox(
+            width: 850,
+            height: 520,
+            child: Form(
             key: _formKey,
             child: TabBarView(
               children: [
@@ -2194,7 +2195,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
                               return Card(
                                 key: ValueKey('po_line_item_card_${PoRowList.keyOf(item)}'),
-                                color: isMismatched ? AppTheme.crimsonLight.withOpacity(0.4) : AppTheme.charcoalSurface,
+                                color: isMismatched ? AppTheme.crimsonLight.withValues(alpha: 0.4) : AppTheme.charcoalSurface,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   side: BorderSide(
@@ -2533,7 +2534,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     onSelected: (val) {
                                       if (val) setState(() => _isDirectVolumeMode = false);
                                     },
-                                    selectedColor: AppTheme.cobalt.withOpacity(0.18),
+                                    selectedColor: AppTheme.cobalt.withValues(alpha: 0.18),
                                   ),
                                   ChoiceChip(
                                     label: const Text('📦 مسار الحجم المباشر CBM ومخطط البالتات'),
@@ -2556,7 +2557,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                         });
                                       }
                                     },
-                                    selectedColor: AppTheme.emerald.withOpacity(0.18),
+                                    selectedColor: AppTheme.emerald.withValues(alpha: 0.18),
                                   ),
                                 ],
                               ),
@@ -2601,9 +2602,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                               decoration: BoxDecoration(
-                                                color: AppTheme.cobalt.withOpacity(0.1),
+                                                color: AppTheme.cobalt.withValues(alpha: 0.1),
                                                 borderRadius: BorderRadius.circular(12),
-                                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                               ),
                                               child: Text(
                                                 '🔢 ${context.l10n.totalPalletsPill(_dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount))}',
@@ -2613,9 +2614,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                               decoration: BoxDecoration(
-                                                color: AppTheme.orange.withOpacity(0.12),
+                                                color: AppTheme.orange.withValues(alpha: 0.12),
                                                 borderRadius: BorderRadius.circular(12),
-                                                border: Border.all(color: AppTheme.orange.withOpacity(0.4)),
+                                                border: Border.all(color: AppTheme.orange.withValues(alpha: 0.4)),
                                               ),
                                               child: Text(
                                                 '📐 ${context.l10n.palletsVolumePill(_dialogPalletItems.fold<double>(0.0, (sum, p) => sum + p.calculatedCbm).toStringAsFixed(3))}',
@@ -2704,7 +2705,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                                       decoration: BoxDecoration(
-                                                        color: AppTheme.cobalt.withOpacity(0.1),
+                                                        color: AppTheme.cobalt.withValues(alpha: 0.1),
                                                         borderRadius: BorderRadius.circular(4),
                                                       ),
                                                       child: Text(
@@ -3042,7 +3043,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
                                           return Card(
                                              key: ValueKey('po_pkg_card_${PoRowList.keyOf(p)}'),
-                                            color: isMismatched ? AppTheme.crimsonLight.withOpacity(0.4) : AppTheme.white,
+                                            color: isMismatched ? AppTheme.crimsonLight.withValues(alpha: 0.4) : AppTheme.white,
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                               side: BorderSide(
@@ -3061,7 +3062,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                        Container(
                                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                          decoration: BoxDecoration(
-                                                           color: isMismatched ? AppTheme.crimson.withOpacity(0.15) : AppTheme.cobalt.withOpacity(0.15),
+                                                           color: isMismatched ? AppTheme.crimson.withValues(alpha: 0.15) : AppTheme.cobalt.withValues(alpha: 0.15),
                                                            borderRadius: BorderRadius.circular(4),
                                                          ),
                                                          child: Text(
@@ -3390,6 +3391,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                 ),
               ),
             ),
+          ),
         actions: [
           AppButton(
             label: context.l10n.cancel,
@@ -4276,9 +4278,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: AppTheme.charcoal.withOpacity(0.04),
+                        color: AppTheme.charcoal.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.charcoal.withOpacity(0.12)),
+                        border: Border.all(color: AppTheme.charcoal.withValues(alpha: 0.12)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -4373,7 +4375,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
-                                          color: AppTheme.cobalt.withOpacity(0.1),
+                                          color: AppTheme.cobalt.withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(
@@ -4491,7 +4493,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                        child: Container(
                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                          decoration: BoxDecoration(
-                                                           color: AppTheme.cobalt.withOpacity(0.12),
+                                                           color: AppTheme.cobalt.withValues(alpha: 0.12),
                                                            borderRadius: BorderRadius.circular(4),
                                                          ),
                                                          child: Text('${g.count}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt), textAlign: TextAlign.center),

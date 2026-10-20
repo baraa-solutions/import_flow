@@ -410,7 +410,7 @@ void main() {
 
   group('Screen 8: FinancialApprovalScreen (Tab 0: Payment Requests Form / BP-012) - 5-Task Tests', () {
     testWidgets('Task A1: Desktop Viewport (1400x900) renders with 0 RenderFlex overflow', (tester) async {
-      final size = const Size(1400, 900);
+      const size = Size(1400, 900);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -429,7 +429,7 @@ void main() {
     });
 
     testWidgets('Task A2: Tablet Viewport (800x1024) renders with 0 RenderFlex overflow', (tester) async {
-      final size = const Size(800, 1024);
+      const size = Size(800, 1024);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -447,7 +447,7 @@ void main() {
     });
 
     testWidgets('Task A3: Mobile Viewport (390x844) renders with 0 RenderFlex overflow', (tester) async {
-      final size = const Size(390, 844);
+      const size = Size(390, 844);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -465,7 +465,7 @@ void main() {
     });
 
     testWidgets('Task B: Dark Mode Contrast and surface layering WCAG AA compliance', (tester) async {
-      final size = const Size(1400, 900);
+      const size = Size(1400, 900);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -488,7 +488,7 @@ void main() {
     });
 
     testWidgets('Task C: Full RTL Arabic support under Locale("ar")', (tester) async {
-      final size = const Size(1400, 900);
+      const size = Size(1400, 900);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -513,7 +513,7 @@ void main() {
     });
 
     testWidgets('Task D: Screen-Level Clone via searchAndClonePaymentRequestBtn and CloneEntityReviewDialog', (tester) async {
-      final size = const Size(1400, 900);
+      const size = Size(1400, 900);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -555,7 +555,7 @@ void main() {
     });
 
     testWidgets('Task E: Keyboard Shortcut Ctrl+D opens SearchAndClonePaymentDialog', (tester) async {
-      final size = const Size(1400, 900);
+      const size = Size(1400, 900);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -584,7 +584,7 @@ void main() {
     });
 
     testWidgets('Task F: Row-Level Clone on Linked POs duplicates allocation item', (tester) async {
-      final size = const Size(1400, 900);
+      const size = Size(1400, 900);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);

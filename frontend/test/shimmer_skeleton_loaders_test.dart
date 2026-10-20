@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/widgets/app_shimmer_skeleton.dart';
 import 'package:frontend/core/widgets/enterprise_data_table/widgets/enterprise_table_shimmer_skeleton.dart';
 

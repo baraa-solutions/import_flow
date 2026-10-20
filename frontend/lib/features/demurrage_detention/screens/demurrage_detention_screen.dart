@@ -667,7 +667,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             ),
             const SizedBox(height: 12),
             SearchableDropdownField<String>(
-              labelText: _isAr ? 'محطة الحاويات (Terminal / Depot)' : 'Container Terminal / Depot',
+              labelText: _isAr ? 'محطة الحاويات' : 'Container Terminal / Depot',
               value: _simTerminal,
               items: (DemurrageLookups.terminalsByPort[_simPort] ?? [])
                   .map((t) => SearchableDropdownItem(value: t, label: t))

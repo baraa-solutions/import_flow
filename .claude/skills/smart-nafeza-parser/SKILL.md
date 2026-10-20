@@ -119,3 +119,5 @@ Raw Text Input (Nafeza Block)
 1. **Master Data Tariff Schedule (`MD-008`):** Immediate 1-click creation of HS Codes with all preferential agreements.
 2. **Pre-Shipment Import Requirements (`BP-011`):** Auto-populates 5 pillars (Decree 43, COO, Inspection, Permits, Special Certs) upon HS Code selection.
 3. **Egyptian Customs Calculator (`customs-landed-cost-engine`):** Real-time duty calculation based on origin country using the parsed agreement tariff rates.
+4. **UI Drag-Selection & Sanitized Copying:** The Nafeza Parser input dialog and preview tables MUST be wrapped in `SelectionArea` for free text selection. Any clipboard extraction or export must pass through `CopyHelper.copy` or `TableCopyHelper.copyTable` to strip Bidi Unicode isolates.
+

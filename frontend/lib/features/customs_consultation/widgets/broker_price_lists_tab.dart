@@ -82,21 +82,21 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
               ChoiceChip(
                 label: Text(l.brokerPriceListsTab, style: const TextStyle(fontWeight: FontWeight.bold)),
                 selected: _managementSubTabIndex == 0,
-                selectedColor: AppTheme.cobalt.withOpacity(0.18),
+                selectedColor: AppTheme.cobalt.withValues(alpha: 0.18),
                 onSelected: (_) => setState(() => _managementSubTabIndex = 0),
               ),
               const SizedBox(width: 12),
               ChoiceChip(
                 label: Text(l.clearanceQuotesTab, style: const TextStyle(fontWeight: FontWeight.bold)),
                 selected: _managementSubTabIndex == 1,
-                selectedColor: AppTheme.cobalt.withOpacity(0.18),
+                selectedColor: AppTheme.cobalt.withValues(alpha: 0.18),
                 onSelected: (_) => setState(() => _managementSubTabIndex = 1),
               ),
               const SizedBox(width: 12),
               ChoiceChip(
                 label: Text(l.smartClearanceQuoteExtractor, style: const TextStyle(fontWeight: FontWeight.bold)),
                 selected: _managementSubTabIndex == 2,
-                selectedColor: AppTheme.cobalt.withOpacity(0.18),
+                selectedColor: AppTheme.cobalt.withValues(alpha: 0.18),
                 onSelected: (_) => setState(() => _managementSubTabIndex = 2),
               ),
             ],
@@ -202,7 +202,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                           child: ExpansionTile(
                             leading: Container(
                               padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                              decoration: BoxDecoration(color: AppTheme.cobalt.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
                               child: const Icon(Icons.price_change, color: AppTheme.cobalt),
                             ),
                             title: Row(
@@ -219,9 +219,9 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.cobalt.withOpacity(0.10),
+                                      color: AppTheme.cobalt.withValues(alpha: 0.10),
                                       borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                      border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                     ),
                                     child: Text(
                                       l.clonedFromBadge(pl.clonedFromCode!),
@@ -352,7 +352,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                       },
                                       children: [
                                         TableRow(
-                                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                                          decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
                                           children: [
                                             Padding(padding: const EdgeInsets.all(6), child: Text(l.expenseItemNameCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                                             Padding(padding: const EdgeInsets.all(6), child: Text(l.expenseCategoryCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
@@ -685,9 +685,9 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  color: AppTheme.cobalt.withOpacity(0.08),
+                                                  color: AppTheme.cobalt.withValues(alpha: 0.08),
                                                   borderRadius: BorderRadius.circular(4),
-                                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                                                 ),
                                                 child: Row(
                                                   mainAxisSize: MainAxisSize.min,
@@ -937,7 +937,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         setDlgState(() => isSaving = false);
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
+                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(l, e)}'), backgroundColor: AppTheme.crimson),
                           );
                         }
                       }
@@ -998,7 +998,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         setDlgState(() => isDeleting = false);
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
+                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(l, e)}'), backgroundColor: AppTheme.crimson),
                           );
                         }
                       }
@@ -1142,7 +1142,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         setDlgState(() => isSaving = false);
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
+                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(l, e)}'), backgroundColor: AppTheme.crimson),
                           );
                         }
                       }

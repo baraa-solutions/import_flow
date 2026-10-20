@@ -16,6 +16,8 @@ class ClearanceCardActions {
     this.onBrokerAuth,
     this.onDeliveryOrder,
     this.onDeclaration46,
+    this.onInspection,
+    this.onAssessDuties,
     required this.onEdit,
     required this.onCopyRow,
     required this.onClone,
@@ -30,6 +32,8 @@ class ClearanceCardActions {
   final VoidCallback? onBrokerAuth;
   final VoidCallback? onDeliveryOrder;
   final VoidCallback? onDeclaration46;
+  final VoidCallback? onInspection;
+  final VoidCallback? onAssessDuties;
   final VoidCallback onEdit;
   final VoidCallback onCopyRow;
   final VoidCallback onClone;
@@ -232,6 +236,12 @@ class ClearanceCard extends ConsumerWidget {
         if (actions.onDeclaration46 != null)
           _icon(Key('declaration46Btn_${record.clearanceCode}'), Icons.description_rounded,
               AppTheme.cobalt, l.ccStageDeclaration46, actions.onDeclaration46),
+        if (actions.onInspection != null)
+          _icon(Key('inspectionBtn_${record.clearanceCode}'), Icons.biotech_rounded,
+              AppTheme.cobalt, l.ccStageInspection, actions.onInspection),
+        if (actions.onAssessDuties != null)
+          _icon(Key('assessDutiesBtn_${record.clearanceCode}'), Icons.calculate_rounded,
+              AppTheme.cobalt, l.ccStageAssessment, actions.onAssessDuties),
         _icon(Key('editClearanceBtn_${record.clearanceCode}'), Icons.edit_outlined,
             AppTheme.cobalt, l.customsClearanceEditTooltip, actions.onEdit),
         _icon(Key('copyClearanceRowBtn_${record.clearanceCode}'), Icons.copy_rounded,

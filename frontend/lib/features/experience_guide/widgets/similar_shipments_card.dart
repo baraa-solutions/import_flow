@@ -38,7 +38,7 @@ class SimilarShipmentsCard extends ConsumerWidget {
             border: Border.all(color: Colors.grey.shade300),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 offset: const Offset(0, 1),
                 blurRadius: 4,
               ),
@@ -92,7 +92,7 @@ class SimilarShipmentsCard extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppTheme.flatCobalt.withOpacity(0.1),
+                  color: AppTheme.flatCobalt.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: LtrText(

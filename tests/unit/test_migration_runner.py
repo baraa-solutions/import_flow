@@ -26,10 +26,7 @@ from utils.migration_linter import MigrationLinter
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS_HEAD = "d3e4f5a6b7c8"
-
-
-
-HEAD_REVISION = "a6b7c8d9e0f1"
+HEAD_REVISION = "c7d8e9f0a1b2"
 
 
 class _SpyMasterData:
@@ -390,10 +387,12 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     # -> d4e5f6a7b8c9 (logistics service invoices and insurance policies)
     # -> e4f5a6b7c8d9 (pre-Form 4 readiness pipeline)
     # -> a1b2c3d4e5f6 (budget_currency in projects)
-    # -> e2f3a4b5c6d7 (legacy budget column backfill)
-    # -> f3a4b5c6d7e8 (partial shipments linkage DEV-OPS-04)
-    # -> 73cee71ca978 (shipment_containers table DEV-OPS-01)
-    assert script.get_revision(HEAD_REVISION).down_revision == "a5b6c7d8e9f0"
+    assert script.get_revision(HEAD_REVISION).down_revision == "c5d6e7f8a9b0"
+    assert script.get_revision("c5d6e7f8a9b0").down_revision == "b4c5d6e7f8a9"
+    assert script.get_revision("b4c5d6e7f8a9").down_revision == "f3a1b2c4d5e6"
+    assert script.get_revision("f3a1b2c4d5e6").down_revision == "ad470b9c8474"
+    assert script.get_revision("ad470b9c8474").down_revision == "a6b7c8d9e0f1"
+    assert script.get_revision("a6b7c8d9e0f1").down_revision == "a5b6c7d8e9f0"
     assert script.get_revision("a5b6c7d8e9f0").down_revision == "f4b5c6d7e8f9"
     assert script.get_revision("f4b5c6d7e8f9").down_revision == "d0e1f2a3b4c5"
     assert script.get_revision("d0e1f2a3b4c5").down_revision == "f2a3b4c5d6e7"

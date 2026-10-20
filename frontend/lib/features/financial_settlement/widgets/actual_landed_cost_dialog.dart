@@ -314,9 +314,9 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: AppTheme.orange.withOpacity(0.08),
+          color: AppTheme.orange.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(SettlementTokens.radius),
-          border: Border.all(color: AppTheme.orange.withOpacity(0.4)),
+          border: Border.all(color: AppTheme.orange.withValues(alpha: 0.4)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,7 +402,7 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
       child: TabBar(
         controller: _tabController,
         labelColor: AppTheme.flatCobalt,
-        unselectedLabelColor: AppTheme.flatCharcoal.withOpacity(0.7),
+        unselectedLabelColor: AppTheme.flatCharcoal.withValues(alpha: 0.7),
         indicatorColor: AppTheme.flatCobalt,
         indicatorWeight: 3,
         tabs: [

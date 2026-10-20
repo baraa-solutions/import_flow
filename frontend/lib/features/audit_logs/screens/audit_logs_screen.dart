@@ -327,7 +327,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -368,7 +368,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: actionColor.withOpacity(0.12),
+              color: actionColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(_getActionIcon(log.action), color: actionColor, size: 22),
@@ -386,7 +386,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: actionColor.withOpacity(0.15),
+                        color: actionColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -407,7 +407,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppTheme.charcoal.withOpacity(0.08),
+                          color: AppTheme.charcoal.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Row(

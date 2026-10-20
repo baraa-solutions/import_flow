@@ -221,8 +221,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
     return Scaffold(
       backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : AppTheme.charcoalSurface,
-      body: Column(
-        children: [
+      body: SelectionArea(
+        child: Column(
+          children: [
           // Header Banner (Responsive LayoutBuilder)
           LayoutBuilder(
             builder: (context, constraints) {
@@ -343,7 +344,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   // ---------------------------------------------------------------------------
@@ -527,13 +529,13 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: modeRec.isAirSuggested
-                    ? (isDark ? AppTheme.cobalt.withOpacity(0.15) : AppTheme.cobaltLight)
-                    : (modeRec.isLclSuggested ? (isDark ? AppTheme.orange.withOpacity(0.15) : AppTheme.orangeLight) : AppTheme.cobalt.withOpacity(isDark ? 0.15 : 0.08)),
+                    ? (isDark ? AppTheme.cobalt.withValues(alpha: 0.15) : AppTheme.cobaltLight)
+                    : (modeRec.isLclSuggested ? (isDark ? AppTheme.orange.withValues(alpha: 0.15) : AppTheme.orangeLight) : AppTheme.cobalt.withValues(alpha: isDark ? 0.15 : 0.08)),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: modeRec.isAirSuggested
                       ? AppTheme.cobaltBorder
-                      : (modeRec.isLclSuggested ? AppTheme.orange : AppTheme.cobalt.withOpacity(0.3)),
+                      : (modeRec.isLclSuggested ? AppTheme.orange : AppTheme.cobalt.withValues(alpha: 0.3)),
                 ),
               ),
               child: Column(
@@ -827,7 +829,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               children: [
                                 Container(
                                   padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                                  decoration: BoxDecoration(color: AppTheme.cobalt.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
                                   child: Text('#${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                 ),
                                 const SizedBox(width: 8),
@@ -1131,7 +1133,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
               child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(width: 12),
@@ -1205,7 +1207,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.wcagOrange.withOpacity(0.2) : AppTheme.orangeLight,
+                        color: isDark ? AppTheme.wcagOrange.withValues(alpha: 0.2) : AppTheme.orangeLight,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: AppTheme.wcagOrange),
                       ),
@@ -1448,7 +1450,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : AppTheme.orange.withOpacity(0.1),
+              color: rec.isStackable ? AppTheme.emerald.withValues(alpha: 0.1) : AppTheme.orange.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: rec.isStackable ? AppTheme.emerald : AppTheme.wcagOrange),
             ),
@@ -1469,7 +1471,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             },
             children: [
               TableRow(
-                decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.08)),
+                decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.08)),
                 children: [
                   Padding(padding: const EdgeInsets.all(8.0), child: Text(l.containerSpecCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
                   Padding(padding: const EdgeInsets.all(8.0), child: Text(l.requiredCountCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
@@ -1487,7 +1489,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 final rowSummary = '${spec.name} | $count x ${spec.code} | Vol: ${volUtil.toStringAsFixed(1)}% | Wt: ${weightUtil.toStringAsFixed(1)}%';
 
                 return TableRow(
-                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withOpacity(isDark ? 0.2 : 0.12)) : null,
+                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withValues(alpha: isDark ? 0.2 : 0.12)) : null,
                   children: [
                     CopyableTableCell(
                       value: '${spec.name} (${spec.internalVolumeCbm} CBM | ${spec.maxPayloadKg} kg)',
@@ -1661,7 +1663,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.12),
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(color: AppTheme.cobalt),
                     ),
@@ -1776,7 +1778,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withOpacity(0.04),
+                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
                       ),
@@ -1816,7 +1818,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       },
                       children: [
                         TableRow(
-                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                          decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
                           children: [
                             Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerSpecCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                             Padding(padding: const EdgeInsets.all(6.0), child: Text(l.packageTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
@@ -2045,9 +2047,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

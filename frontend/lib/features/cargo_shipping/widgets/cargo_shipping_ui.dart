@@ -565,9 +565,11 @@ class ShippingDialogFrame extends StatelessWidget {
               ),
             ),
             Flexible(
-              child: Padding(
-                padding: const EdgeInsetsDirectional.all(20),
-                child: child,
+              child: SelectionArea(
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.all(20),
+                  child: child,
+                ),
               ),
             ),
           ],

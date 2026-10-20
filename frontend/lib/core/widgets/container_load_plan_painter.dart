@@ -248,7 +248,7 @@ class ContainerLoadPlanPainter extends CustomPainter {
       // 0. Draw Drop Shadow for Stacked Items (z > 0)
       if (p.z > 0.01) {
         final Paint shadowPaint = Paint()
-          ..color = Colors.black.withOpacity(0.3)
+          ..color = Colors.black.withValues(alpha: 0.3)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
         canvas.drawRect(itemRect.shift(const Offset(2, 3)), shadowPaint);
       }
@@ -265,8 +265,8 @@ class ContainerLoadPlanPainter extends CustomPainter {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.white.withOpacity(0.35),
-              Colors.white.withOpacity(0.0),
+              Colors.white.withValues(alpha: 0.35),
+              Colors.white.withValues(alpha: 0.0),
             ],
           ).createShader(highlightRect);
         canvas.drawRRect(RRect.fromRectAndRadius(highlightRect, const Radius.circular(2)), highlightPaint);
@@ -274,13 +274,13 @@ class ContainerLoadPlanPainter extends CustomPainter {
 
       // 3. Subtle Outer Border & High-Contrast Inner Edge
       final Paint borderPaint = Paint()
-        ..color = Colors.black.withOpacity(0.45)
+        ..color = Colors.black.withValues(alpha: 0.45)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
       canvas.drawRRect(RRect.fromRectAndRadius(itemRect, const Radius.circular(2)), borderPaint);
 
       final Paint borderHighlight = Paint()
-        ..color = Colors.white.withOpacity(0.25)
+        ..color = Colors.white.withValues(alpha: 0.25)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.6;
       canvas.drawRRect(RRect.fromRectAndRadius(itemRect.deflate(0.5), const Radius.circular(1.5)), borderHighlight);
@@ -293,7 +293,7 @@ class ContainerLoadPlanPainter extends CustomPainter {
         final Offset badgeCenter = Offset(itemRect.left + (itemRect.width / 2), itemRect.top + badgeRadius + 3.0);
 
         // Circular background
-        final Paint circleBgPaint = Paint()..color = Colors.white.withOpacity(0.3);
+        final Paint circleBgPaint = Paint()..color = Colors.white.withValues(alpha: 0.3);
         canvas.drawCircle(badgeCenter, badgeRadius, circleBgPaint);
 
         final Paint circleRingPaint = Paint()
@@ -329,7 +329,7 @@ class ContainerLoadPlanPainter extends CustomPainter {
         textPainter.text = TextSpan(
           text: dimText,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.95),
+            color: Colors.white.withValues(alpha: 0.95),
             fontWeight: FontWeight.w700,
             fontSize: fontSize,
             shadows: const [
@@ -365,7 +365,7 @@ class ContainerLoadPlanPainter extends CustomPainter {
 
       // 6. Non-Stackable / On-Edge Visual Badge
       if (!p.item.isStackable && itemRect.width >= 20 && itemRect.height >= 18) {
-        final Paint noStackPaint = Paint()..color = Colors.red.shade900.withOpacity(0.85);
+        final Paint noStackPaint = Paint()..color = Colors.red.shade900.withValues(alpha: 0.85);
         final Rect noStackRect = Rect.fromLTWH(itemRect.left + 2, itemRect.top + 2, 14, 12);
         canvas.drawRRect(RRect.fromRectAndRadius(noStackRect, const Radius.circular(2)), noStackPaint);
 
@@ -376,7 +376,7 @@ class ContainerLoadPlanPainter extends CustomPainter {
         textPainter.layout();
         textPainter.paint(canvas, Offset(noStackRect.left + 1, noStackRect.top + 1));
       } else if (p.isStandingOnEdge && itemRect.width >= 22 && itemRect.height >= 18) {
-        final Paint edgeBadgePaint = Paint()..color = const Color(0xFF0D9488).withOpacity(0.9);
+        final Paint edgeBadgePaint = Paint()..color = const Color(0xFF0D9488).withValues(alpha: 0.9);
         final Rect edgeBadgeRect = Rect.fromLTWH(itemRect.left + 2, itemRect.top + 2, 18, 12);
         canvas.drawRRect(RRect.fromRectAndRadius(edgeBadgeRect, const Radius.circular(2)), edgeBadgePaint);
 

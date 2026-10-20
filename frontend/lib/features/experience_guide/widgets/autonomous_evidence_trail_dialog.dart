@@ -262,7 +262,7 @@ class _AutonomousEvidenceTrailDialogState
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: AppTheme.emerald.withOpacity(0.2),
+                      color: AppTheme.emerald.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.auto_awesome, color: AppTheme.emerald, size: 20),
@@ -284,7 +284,7 @@ class _AutonomousEvidenceTrailDialogState
                           widget.initialTitle ?? _provenance?.title ?? 'استنتاج آلي ذاتي',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
                         ),
                       ],
                     ),
@@ -376,9 +376,9 @@ class _AutonomousEvidenceTrailDialogState
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.1),
+                  color: AppTheme.cobalt.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -397,7 +397,7 @@ class _AutonomousEvidenceTrailDialogState
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.emerald.withOpacity(0.12),
+                    color: AppTheme.emerald.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: AppTheme.emerald),
                   ),
@@ -417,7 +417,7 @@ class _AutonomousEvidenceTrailDialogState
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.crimson.withOpacity(0.12),
+                    color: AppTheme.crimson.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: AppTheme.crimson),
                   ),
@@ -437,7 +437,7 @@ class _AutonomousEvidenceTrailDialogState
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.orange.withOpacity(0.12),
+                    color: AppTheme.orange.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: AppTheme.orange),
                   ),
@@ -692,7 +692,7 @@ class _AutonomousEvidenceTrailDialogState
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Row(
@@ -700,7 +700,7 @@ class _AutonomousEvidenceTrailDialogState
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 20),

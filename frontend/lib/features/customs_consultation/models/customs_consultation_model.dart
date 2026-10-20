@@ -65,6 +65,11 @@ class BrokerPriceListItemModel {
   final double? maxPrice;
   final String? notes;
   final bool isActive;
+  final String? code;
+  final bool isUncoded;
+  final String priceType; // fixed, range, negotiable
+  final double? confidence;
+  final String? rawExtractedText;
 
   BrokerPriceListItemModel({
     this.itemId,
@@ -79,9 +84,28 @@ class BrokerPriceListItemModel {
     this.maxPrice,
     this.notes,
     this.isActive = true,
+    this.code,
+    this.isUncoded = false,
+    this.priceType = 'fixed',
+    this.confidence,
+    this.rawExtractedText,
   });
 
   factory BrokerPriceListItemModel.fromJson(Map<String, dynamic> json) {
+    final stdPrice = (json['standard_price'] as num?)?.toDouble() ?? 0.0;
+    final minP = (json['min_price'] as num?)?.toDouble();
+    final maxP = (json['max_price'] as num?)?.toDouble();
+    String pType = json['price_type']?.toString() ?? '';
+    if (pType.isEmpty) {
+      if (minP != null || maxP != null) {
+        pType = 'range';
+      } else if (stdPrice == 0.0) {
+        pType = 'negotiable';
+      } else {
+        pType = 'fixed';
+      }
+    }
+
     return BrokerPriceListItemModel(
       itemId: json['item_id'],
       priceListId: json['price_list_id'],
@@ -95,6 +119,11 @@ class BrokerPriceListItemModel {
       maxPrice: (json['max_price'] as num?)?.toDouble(),
       notes: json['notes'],
       isActive: json['is_active'] ?? true,
+      code: json['code']?.toString(),
+      isUncoded: json['is_uncoded'] == true,
+      priceType: pType,
+      confidence: (json['confidence'] as num?)?.toDouble() ?? (json['match_score'] as num?)?.toDouble(),
+      rawExtractedText: json['raw_extracted_text']?.toString() ?? json['raw_text']?.toString(),
     );
   }
 
@@ -112,7 +141,52 @@ class BrokerPriceListItemModel {
       if (maxPrice != null) 'max_price': maxPrice,
       if (notes != null) 'notes': notes,
       'is_active': isActive,
+      if (code != null) 'code': code,
+      'is_uncoded': isUncoded,
+      'price_type': priceType,
+      if (confidence != null) 'confidence': confidence,
+      if (rawExtractedText != null) 'raw_extracted_text': rawExtractedText,
     };
+  }
+
+  BrokerPriceListItemModel copyWith({
+    int? itemId,
+    int? priceListId,
+    int? expenseTypeId,
+    String? expenseName,
+    String? category,
+    String? unitType,
+    double? standardPrice,
+    String? currency,
+    double? minPrice,
+    double? maxPrice,
+    String? notes,
+    bool? isActive,
+    String? code,
+    bool? isUncoded,
+    String? priceType,
+    double? confidence,
+    String? rawExtractedText,
+  }) {
+    return BrokerPriceListItemModel(
+      itemId: itemId ?? this.itemId,
+      priceListId: priceListId ?? this.priceListId,
+      expenseTypeId: expenseTypeId ?? this.expenseTypeId,
+      expenseName: expenseName ?? this.expenseName,
+      category: category ?? this.category,
+      unitType: unitType ?? this.unitType,
+      standardPrice: standardPrice ?? this.standardPrice,
+      currency: currency ?? this.currency,
+      minPrice: minPrice ?? this.minPrice,
+      maxPrice: maxPrice ?? this.maxPrice,
+      notes: notes ?? this.notes,
+      isActive: isActive ?? this.isActive,
+      code: code ?? this.code,
+      isUncoded: isUncoded ?? this.isUncoded,
+      priceType: priceType ?? this.priceType,
+      confidence: confidence ?? this.confidence,
+      rawExtractedText: rawExtractedText ?? this.rawExtractedText,
+    );
   }
 }
 
@@ -204,6 +278,13 @@ class CustomsBrokerQuoteItemModel {
   final bool isApplicable;
   final double totalAmount;
   final String? notes;
+  final String? code;
+  final bool isUncoded;
+  final String priceType; // fixed, range, negotiable
+  final double? minPrice;
+  final double? maxPrice;
+  final double? confidence;
+  final String? rawExtractedText;
 
   CustomsBrokerQuoteItemModel({
     this.quoteItemId,
@@ -218,9 +299,30 @@ class CustomsBrokerQuoteItemModel {
     this.isApplicable = true,
     this.totalAmount = 0.0,
     this.notes,
+    this.code,
+    this.isUncoded = false,
+    this.priceType = 'fixed',
+    this.minPrice,
+    this.maxPrice,
+    this.confidence,
+    this.rawExtractedText,
   });
 
   factory CustomsBrokerQuoteItemModel.fromJson(Map<String, dynamic> json) {
+    final uPrice = (json['unit_price'] as num?)?.toDouble() ?? 0.0;
+    final minP = (json['min_price'] as num?)?.toDouble();
+    final maxP = (json['max_price'] as num?)?.toDouble();
+    String pType = json['price_type']?.toString() ?? '';
+    if (pType.isEmpty) {
+      if (minP != null || maxP != null) {
+        pType = 'range';
+      } else if (uPrice == 0.0) {
+        pType = 'negotiable';
+      } else {
+        pType = 'fixed';
+      }
+    }
+
     return CustomsBrokerQuoteItemModel(
       quoteItemId: json['quote_item_id'],
       consultationId: json['consultation_id'],
@@ -234,6 +336,13 @@ class CustomsBrokerQuoteItemModel {
       isApplicable: json['is_applicable'] ?? true,
       totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
       notes: json['notes'],
+      code: json['code']?.toString(),
+      isUncoded: json['is_uncoded'] == true,
+      priceType: pType,
+      minPrice: minP,
+      maxPrice: maxP,
+      confidence: (json['confidence'] as num?)?.toDouble() ?? (json['match_score'] as num?)?.toDouble(),
+      rawExtractedText: json['raw_extracted_text']?.toString() ?? json['raw_text']?.toString(),
     );
   }
 
@@ -251,6 +360,13 @@ class CustomsBrokerQuoteItemModel {
       'is_applicable': isApplicable,
       'total_amount': totalAmount,
       if (notes != null) 'notes': notes,
+      if (code != null) 'code': code,
+      'is_uncoded': isUncoded,
+      'price_type': priceType,
+      if (minPrice != null) 'min_price': minPrice,
+      if (maxPrice != null) 'max_price': maxPrice,
+      if (confidence != null) 'confidence': confidence,
+      if (rawExtractedText != null) 'raw_extracted_text': rawExtractedText,
     };
   }
 
@@ -267,6 +383,13 @@ class CustomsBrokerQuoteItemModel {
     bool? isApplicable,
     double? totalAmount,
     String? notes,
+    String? code,
+    bool? isUncoded,
+    String? priceType,
+    double? minPrice,
+    double? maxPrice,
+    double? confidence,
+    String? rawExtractedText,
   }) {
     return CustomsBrokerQuoteItemModel(
       quoteItemId: quoteItemId ?? this.quoteItemId,
@@ -281,6 +404,13 @@ class CustomsBrokerQuoteItemModel {
       isApplicable: isApplicable ?? this.isApplicable,
       totalAmount: totalAmount ?? this.totalAmount,
       notes: notes ?? this.notes,
+      code: code ?? this.code,
+      isUncoded: isUncoded ?? this.isUncoded,
+      priceType: priceType ?? this.priceType,
+      minPrice: minPrice ?? this.minPrice,
+      maxPrice: maxPrice ?? this.maxPrice,
+      confidence: confidence ?? this.confidence,
+      rawExtractedText: rawExtractedText ?? this.rawExtractedText,
     );
   }
 }

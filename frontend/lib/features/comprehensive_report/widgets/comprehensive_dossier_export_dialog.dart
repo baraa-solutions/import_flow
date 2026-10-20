@@ -1,6 +1,5 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../import_files/models/import_file_model.dart';
@@ -12,6 +11,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers/navigation_provider.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 
 /// Desktop-oriented interactive modal dialog for CLO-03 Comprehensive Shipment Dossier Export.
 /// Provides 10-phase readiness KPIs, multi-format export buttons (PDF, Excel, TSV, Clipboard),
@@ -157,55 +157,57 @@ class _ComprehensiveDossierExportDialogState
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 960, maxHeight: 760),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildDialogHeader(),
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(color: AppTheme.flatCobalt),
-                          SizedBox(height: 12),
-                          Text('جاري تجميع بيانات الملف الاستيرادي الشامل من كافة المراحل...'),
-                        ],
-                      ),
-                    )
-                  : _errorMessage != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.error_outline, size: 48, color: AppTheme.flatCrimson),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'تعذر جلب بيانات الملف الشامل: $_errorMessage',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: AppTheme.flatCrimson),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton.icon(
-                                  onPressed: _loadDossier,
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('إعادة المحاولة'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.flatCobalt,
-                                    foregroundColor: Colors.white,
+      child: SelectionArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960, maxHeight: 760),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildDialogHeader(),
+              Expanded(
+                child: _isLoading
+                    ? const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(color: AppTheme.flatCobalt),
+                            SizedBox(height: 12),
+                            Text('جاري تجميع بيانات الملف الاستيرادي الشامل من كافة المراحل...'),
+                          ],
+                        ),
+                      )
+                    : _errorMessage != null
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.error_outline, size: 48, color: AppTheme.flatCrimson),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'تعذر جلب بيانات الملف الشامل: $_errorMessage',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: AppTheme.flatCrimson),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 16),
+                                  ElevatedButton.icon(
+                                    onPressed: _loadDossier,
+                                    icon: const Icon(Icons.refresh),
+                                    label: const Text('إعادة المحاولة'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.flatCobalt,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        )
-                      : _buildDialogBody(),
-            ),
-          ],
+                          )
+                        : _buildDialogBody(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -230,16 +232,18 @@ class _ComprehensiveDossierExportDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'إصدار وتصدير التقرير والملف الشامل (CLO-03)',
-                  style: TextStyle(
+                Text(
+                  Localizations.localeOf(context).languageCode == 'ar'
+                      ? 'إصدار وتصدير تقرير الملف الشامل'
+                      : 'Issue & Export Comprehensive Dossier',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  'شحنة: ${widget.file.primaryNameWithCode}  |  المورد: ${widget.file.supplierName}',
+                  '${Localizations.localeOf(context).languageCode == "ar" ? "شحنة" : "Shipment"}: ${widget.file.primaryNameWithCode}  |  ${Localizations.localeOf(context).languageCode == "ar" ? "المورد" : "Supplier"}: ${widget.file.supplierName}',
                   style: const TextStyle(
                     color: AppTheme.cloudWhite,
                     fontSize: 12,
@@ -256,7 +260,12 @@ class _ComprehensiveDossierExportDialogState
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             ),
             icon: const Icon(Icons.fullscreen, size: 16),
-            label: const Text('فتح بالشاشة كاملة (Screen 47)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(
+              Localizations.localeOf(context).languageCode == 'ar'
+                  ? 'فتح بالشاشة كاملة'
+                  : 'Open Full Screen',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
             onPressed: () {
               Navigator.of(context).pop();
               ref.read(selectedComprehensiveReportFileIdProvider.notifier).state = widget.file.importFileId;
@@ -476,17 +485,17 @@ class _ComprehensiveDossierExportDialogState
                     file: widget.file,
                     dossier: dossier,
                   );
-                  Clipboard.setData(ClipboardData(text: text));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('تم نسخ تقرير الملف الشامل للحافظة بنجاح!'),
-                      backgroundColor: AppTheme.flatEmerald,
-                      duration: Duration(seconds: 2),
-                    ),
+                  final isAr = Localizations.localeOf(context).languageCode == 'ar';
+                  CopyHelper.copy(
+                    context,
+                    text,
+                    customMessage: isAr
+                        ? 'تم نسخ تقرير الملف الشامل للحافظة بنجاح!'
+                        : 'Comprehensive dossier report copied to clipboard!',
                   );
                 },
                 icon: const Icon(Icons.copy, size: 18),
-                label: const Text('نسخ للحافظة'),
+                label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'نسخ للحافظة' : 'Copy to Clipboard'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.flatCharcoal,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

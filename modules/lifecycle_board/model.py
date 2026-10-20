@@ -21,6 +21,7 @@ class ShipmentStageActivity(Base):
     notes = Column(Text, nullable=True)
     msg_code = Column(String(80), nullable=True)  # system message code for notes (English render in notes)
     msg_params = Column(JSON, nullable=True)
+    completion_type = Column(String(30), nullable=True) # real, auto, skipped, bypassed
 
     __table_args__ = (
         Index("uq_shipment_stage_activity_file_step", "import_file_code", "step_code", unique=True),

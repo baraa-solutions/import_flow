@@ -90,8 +90,9 @@ class FinancialUi {
   static ({AppSeverity severity, String label}) statusStyle(
       AppLocalizations l, String status) {
     final s = status.toLowerCase();
-    if (s == 'paid')
+    if (s == 'paid') {
       return (severity: AppSeverity.success, label: l.paidStatus);
+    }
     if (s == 'reconciled') {
       return (severity: AppSeverity.info, label: l.reconciledStatus);
     }
@@ -124,7 +125,7 @@ class FinancialStatusChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: fg.withOpacity(0.5)),
+        border: Border.all(color: fg.withValues(alpha: 0.5)),
       ),
       child: Text(
         style.label,

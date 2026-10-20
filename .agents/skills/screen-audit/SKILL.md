@@ -123,6 +123,21 @@ Review the target files or codebase systematically across the following 7 catego
 - **Scrollbar UX:** Confirm clear, interactive scrollbars (`Scrollbar` widget) for both horizontal and vertical axes.
 - **Library Check:** Before proposing custom CSS/render hacks, check if existing grid/table components (`EnterpriseDataTable`) already provide built-in pinned headers/columns.
 
+### 10. 🖱️ Universal Mouse Drag-Selection (`SelectionArea`)
+- **Coverage:** Confirm that every screen, modal, dialog, calculator, tool, and review card has a root `SelectionArea` enabling the user to click, drag-select, and highlight text or numbers freely.
+- **Modals & Dialogs:** Confirm that custom `Dialog`, `AlertDialog`, or popup shells wrap their contents in `SelectionArea`.
+- **Calculators:** Confirm calculators (`CbmCalculatorScreen`, etc.) wrap their scaffold bodies in `SelectionArea`.
+
+### 11. 🌐 Anti-Stacking & Pure View Separation
+- **No Bilingual Stacking:** Confirm zero bilingual parenthesized stacking anywhere in the UI (e.g. `(Terminal / Depot)`, `(PO)`, `(409 Conflict)`, `(Clearance / تخليص)`).
+- **Pure Localization:** In Arabic mode, all labels, headers, pills, and tooltips must render 100% pure Arabic. In English mode, 100% pure English.
+- **Tier 2 English Storage:** Confirm all backend and database enum/status constants remain purely in English (`PENDING`, `CUSTOMS_RELEASE`). Never store localized Arabic strings in DB constants.
+
+### 12. 📋 Sanitized Clipboard Copy Operations
+- **No Raw Clipboard:** Confirm zero occurrences of direct `Clipboard.setData(ClipboardData(...))` in presentation or business logic.
+- **Sanitized Helpers:** All clipboard copying must use `CopyHelper.copy(context, text)` or `TableCopyHelper.copyTable(context, ...)` to strip invisible Bidi Unicode isolates (`\u2066`, `\u2067`, `\u2069`) before writing to the system clipboard.
+
+
 ---
 
 ## 🔨 PASS 2 — Fix (Only After User Confirmation)

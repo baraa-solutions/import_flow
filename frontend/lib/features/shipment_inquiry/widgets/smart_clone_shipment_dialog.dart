@@ -162,7 +162,7 @@ class _SmartCloneShipmentDialogState extends ConsumerState<SmartCloneShipmentDia
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.cobalt.withOpacity(0.12),
+                        color: AppTheme.cobalt.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 24),
@@ -199,9 +199,9 @@ class _SmartCloneShipmentDialogState extends ConsumerState<SmartCloneShipmentDia
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppTheme.emerald.withOpacity(0.08),
+                    color: AppTheme.emerald.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                    border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
@@ -227,9 +227,9 @@ class _SmartCloneShipmentDialogState extends ConsumerState<SmartCloneShipmentDia
                     padding: const EdgeInsets.all(10),
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: AppTheme.crimson.withOpacity(0.1),
+                      color: AppTheme.crimson.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.crimson.withOpacity(0.3)),
+                      border: Border.all(color: AppTheme.crimson.withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       _errorMessage!,

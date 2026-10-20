@@ -309,7 +309,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                             Expanded(
                               flex: 3,
                               child: DropdownButtonFormField<String>(
-                                value: _severity,
+                                initialValue: _severity,
                                 decoration: InputDecoration(
                                   labelText: l10n.guideSeverityLabel,
                                   border: const OutlineInputBorder(),
@@ -366,7 +366,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                             Expanded(
                               flex: 3,
                               child: DropdownButtonFormField<String>(
-                                value: _entryType,
+                                initialValue: _entryType,
                                 decoration: InputDecoration(
                                   labelText: l10n.guideEntryTypeLabel,
                                   border: const OutlineInputBorder(),
@@ -387,7 +387,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                             Expanded(
                               flex: 2,
                               child: DropdownButtonFormField<String>(
-                                value: _department,
+                                initialValue: _department,
                                 decoration: const InputDecoration(
                                   labelText: 'القسم المعني',
                                   border: OutlineInputBorder(),
@@ -485,7 +485,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                                 SizedBox(
                                   width: 210,
                                   child: DropdownButtonFormField<String>(
-                                    value: scope['scope_type'],
+                                    initialValue: scope['scope_type'],
                                     decoration: const InputDecoration(
                                       contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       border: OutlineInputBorder(),

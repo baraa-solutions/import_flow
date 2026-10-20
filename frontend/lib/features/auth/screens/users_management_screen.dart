@@ -90,7 +90,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.12),
+                  color: AppTheme.cobalt.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -209,7 +209,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
 
                     // ── Role Dropdown ──────────────────────────────────────────
                     DropdownButtonFormField<String>(
-                      value: selectedRole,
+                      initialValue: selectedRole,
                       decoration: InputDecoration(
                         labelText: l.usersMgmtFieldRole,
                         prefixIcon: const Icon(Icons.shield_outlined, size: 20),
@@ -476,7 +476,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                           Container(
                             padding: const EdgeInsets.all(7),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.12),
+                              color: Colors.white.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(7),
                             ),
                             child: const Icon(Icons.security_rounded, color: Colors.white, size: 18),
@@ -496,7 +496,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                                   children: [
                                     Text(
                                       '@${user.username} — ${user.fullName}',
-                                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.7)),
+                                      style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7)),
                                     ),
                                     const SizedBox(width: 6),
                                     InkWell(
@@ -505,7 +505,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                                         '${user.username} (${user.fullName})',
                                         customMessage: l.usersMgmtCopyBadgeSuccess(l.usersMgmtColUsername, user.username),
                                       ),
-                                      child: Icon(Icons.copy_rounded, size: 13, color: Colors.white.withOpacity(0.7)),
+                                      child: Icon(Icons.copy_rounded, size: 13, color: Colors.white.withValues(alpha: 0.7)),
                                     ),
                                   ],
                                 ),
@@ -538,7 +538,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: DropdownButtonFormField<int?>(
-                            value: selectedRoleId,
+                            initialValue: selectedRoleId,
                             decoration: InputDecoration(
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -572,9 +572,9 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppTheme.cobalt.withOpacity(0.08),
+                            color: AppTheme.cobalt.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                            border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.25)),
                           ),
                           child: Text(
                             l.usersMgmtPermRolePermCount(selectedRole.permissions.length),
@@ -638,7 +638,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                                       Icon(
                                         Icons.folder_outlined,
                                         size: 15,
-                                        color: AppTheme.cobalt.withOpacity(0.7),
+                                        color: AppTheme.cobalt.withValues(alpha: 0.7),
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(
@@ -989,9 +989,9 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppTheme.orange.withOpacity(0.10),
+                color: AppTheme.orange.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppTheme.orange.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.orange.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -1253,7 +1253,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
           // Avatar
           CircleAvatar(
             radius: 16,
-            backgroundColor: _roleColor(user.role).withOpacity(0.15),
+            backgroundColor: _roleColor(user.role).withValues(alpha: 0.15),
             child: Icon(_roleIcon(user.role), color: _roleColor(user.role), size: 16),
           ),
           const SizedBox(width: 8),
@@ -1503,9 +1503,9 @@ class _StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
@@ -1518,7 +1518,7 @@ class _StatChip extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
@@ -1556,10 +1556,10 @@ class _FilterTab extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
-          color: selected ? activeColor.withOpacity(0.12) : Colors.transparent,
+          color: selected ? activeColor.withValues(alpha: 0.12) : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: selected ? activeColor.withOpacity(0.5) : Colors.grey.shade300,
+            color: selected ? activeColor.withValues(alpha: 0.5) : Colors.grey.shade300,
           ),
         ),
         child: Text(
@@ -1585,9 +1585,9 @@ class _RoleDescriptionCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: info.color.withOpacity(0.06),
+        color: info.color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: info.color.withOpacity(0.25)),
+        border: Border.all(color: info.color.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1741,7 +1741,7 @@ class _PermissionRow extends StatelessWidget {
     } else if (hasExplicitGrant) {
       effectiveColor = AppTheme.emerald;
     } else if (roleHas) {
-      effectiveColor = AppTheme.cobalt.withOpacity(0.7);
+      effectiveColor = AppTheme.cobalt.withValues(alpha: 0.7);
     } else {
       effectiveColor = Colors.grey.shade400;
     }
@@ -1750,9 +1750,9 @@ class _PermissionRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
         color: hasExplicitGrant
-            ? AppTheme.emerald.withOpacity(0.04)
+            ? AppTheme.emerald.withValues(alpha: 0.04)
             : hasExplicitRevoke
-                ? AppTheme.crimson.withOpacity(0.04)
+                ? AppTheme.crimson.withValues(alpha: 0.04)
                 : null,
         border: Border(
           top: BorderSide(color: Colors.grey.shade100),
@@ -1801,8 +1801,8 @@ class _PermissionRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
                 color: hasExplicitGrant
-                    ? AppTheme.emerald.withOpacity(0.12)
-                    : AppTheme.crimson.withOpacity(0.12),
+                    ? AppTheme.emerald.withValues(alpha: 0.12)
+                    : AppTheme.crimson.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -1820,14 +1820,14 @@ class _PermissionRow extends StatelessWidget {
               margin: const EdgeInsetsDirectional.only(end: 8),
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
-                color: AppTheme.cobalt.withOpacity(0.08),
+                color: AppTheme.cobalt.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 l.usersMgmtPermBadgeRole,
                 style: TextStyle(
                   fontSize: 10,
-                  color: AppTheme.cobalt.withOpacity(0.8),
+                  color: AppTheme.cobalt.withValues(alpha: 0.8),
                   fontWeight: FontWeight.w500,
                 ),
               ),

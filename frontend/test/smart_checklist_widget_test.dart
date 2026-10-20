@@ -232,7 +232,7 @@ void main() {
       updatedAt: '2026-09-13T12:00:00Z',
     );
 
-    final mockSummary = ChecklistSummaryModel(
+    const mockSummary = ChecklistSummaryModel(
       importFileId: 101,
       importFileCode: 'IMP-2026-001',
       totalItems: 2,
@@ -244,7 +244,7 @@ void main() {
       isGateBlocked: true,
       blockingQuestions: ['CHK-002'],
       items: [
-        const ChecklistItemModel(
+        ChecklistItemModel(
           itemId: 101,
           importFileId: 101,
           questionCode: 'CHK-001',
@@ -258,7 +258,7 @@ void main() {
           verificationType: 'AUTOMATIC',
           status: 'PASSED',
         ),
-        const ChecklistItemModel(
+        ChecklistItemModel(
           itemId: 102,
           importFileId: 101,
           questionCode: 'CHK-002',

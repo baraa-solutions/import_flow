@@ -122,6 +122,9 @@ class ImportFileModel {
   final String? customsReleaseType;
   final String? customsReleaseOfficer;
   final String? customsGatePassNo;
+  final String? blNumber;
+  final String? bookingNo;
+  final String? vesselName;
   final double totalClearanceExpensesEgp;
   final String clearanceInvoicesStatus;
   final String inlandTransportStatus;
@@ -276,6 +279,9 @@ class ImportFileModel {
     this.customsReleaseType,
     this.customsReleaseOfficer,
     this.customsGatePassNo,
+    this.blNumber,
+    this.bookingNo,
+    this.vesselName,
     this.totalClearanceExpensesEgp = 0.0,
     this.clearanceInvoicesStatus = 'Pending Invoices',
     this.inlandTransportStatus = 'Not Booked',
@@ -453,6 +459,9 @@ class ImportFileModel {
       customsReleaseType: json['customs_release_type'],
       customsReleaseOfficer: json['customs_release_officer'],
       customsGatePassNo: json['customs_gate_pass_no'],
+      blNumber: json['bl_number'],
+      bookingNo: json['booking_no'],
+      vesselName: json['vessel_name'],
       totalClearanceExpensesEgp: (json['total_clearance_expenses_egp'] as num?)?.toDouble() ?? 0.0,
       clearanceInvoicesStatus: json['clearance_invoices_status'] ?? 'Pending Invoices',
       inlandTransportStatus: json['inland_transport_status'] ?? 'Not Booked',
@@ -592,6 +601,9 @@ class ImportFileModel {
       'is_customs_released': isCustomsReleased,
       'customs_released_at': customsReleasedAt,
       if (customsReleasePermitNo != null) 'customs_release_permit_no': customsReleasePermitNo,
+      if (blNumber != null) 'bl_number': blNumber,
+      if (bookingNo != null) 'booking_no': bookingNo,
+      if (vesselName != null) 'vessel_name': vesselName,
       if (customsReleaseType != null) 'customs_release_type': customsReleaseType,
       if (customsReleaseOfficer != null) 'customs_release_officer': customsReleaseOfficer,
       if (customsGatePassNo != null) 'customs_gate_pass_no': customsGatePassNo,

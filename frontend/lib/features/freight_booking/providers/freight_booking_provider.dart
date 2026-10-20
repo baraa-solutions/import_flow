@@ -135,6 +135,15 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
     }
   }
 
+  Future<void> refresh() async {
+    await fetchBookings(
+      includeInactive: _lastIncludeInactive,
+      importFileId: _lastImportFileId,
+      status: _lastStatus,
+      search: _lastSearch,
+    );
+  }
+
   Future<ShipmentBookingModel?> createBooking(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
@@ -143,7 +152,7 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
       );
       final created = ShipmentBookingModel.fromJson(response.data);
       _invalidateRelatedProviders();
-      await fetchBookings();
+      await refresh();
       return created;
     } catch (e) {
       rethrow;
@@ -158,7 +167,7 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
       );
       final updated = ShipmentBookingModel.fromJson(response.data);
       _invalidateRelatedProviders();
-      await fetchBookings();
+      await refresh();
       return updated;
     } catch (e) {
       rethrow;
@@ -173,7 +182,7 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
       );
       final confirmed = ShipmentBookingModel.fromJson(response.data);
       _invalidateRelatedProviders();
-      await fetchBookings();
+      await refresh();
       return confirmed;
     } catch (e) {
       rethrow;
@@ -188,7 +197,7 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
       );
       final departed = ShipmentBookingModel.fromJson(response.data);
       _invalidateRelatedProviders();
-      await fetchBookings();
+      await refresh();
       return departed;
     } catch (e) {
       rethrow;
@@ -199,7 +208,7 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
     try {
       await _dio.delete('${ApiConstants.baseUrl}/freight-booking/$bookingId');
       _invalidateRelatedProviders();
-      await fetchBookings();
+      await refresh();
     } catch (e) {
       rethrow;
     }
@@ -209,7 +218,7 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
     try {
       await _dio.patch('${ApiConstants.baseUrl}/freight-booking/$bookingId/restore');
       _invalidateRelatedProviders();
-      await fetchBookings();
+      await refresh();
     } catch (e) {
       rethrow;
     }

@@ -24,7 +24,7 @@ class UnsavedChangesDialog extends StatelessWidget {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.55),
+      barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (ctx) => UnsavedChangesDialog(
         customMessage: customMessage,
         onSave: onSave,
@@ -52,7 +52,7 @@ class UnsavedChangesDialog extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.6 : 0.25),
+              color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.25),
               blurRadius: 28,
               offset: const Offset(0, 14),
             ),
@@ -70,7 +70,7 @@ class UnsavedChangesDialog extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.crimson.withOpacity(0.12),
+                      color: AppTheme.crimson.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
