@@ -119,6 +119,8 @@ from modules.logistics_invoices.model import (
 )
 from modules.containers.model import ShipmentContainer
 from modules.vessel_tracking.model import Vessel, VesselPositionLog, ShipmentVesselTracking
+from modules.port_storage.model import PortTerminalRate, PortStorageAccrual
+from modules.customs_abandonment.model import CustomsAbandonmentRadar
 
 
 
@@ -180,6 +182,8 @@ from modules.app_update.router import router as app_update_router
 from modules.logistics_invoices.router import router as logistics_invoices_router
 from modules.containers.router import router as containers_router
 from modules.vessel_tracking.router import router as vessel_tracking_router
+from modules.port_storage.router import router as port_storage_router
+from modules.customs_abandonment.router import router as customs_abandonment_router
 from modules.system_observability.middleware import ObservabilityMiddleware
 from modules.system_observability.service import setup_query_listener
 
@@ -406,6 +410,8 @@ app.include_router(app_update_router)
 app.include_router(logistics_invoices_router)
 app.include_router(containers_router)
 app.include_router(vessel_tracking_router)
+app.include_router(port_storage_router)
+app.include_router(customs_abandonment_router)
 
 
 
