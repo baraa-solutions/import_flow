@@ -22,6 +22,7 @@ import '../services/comprehensive_report_export_service.dart';
 import '../services/comprehensive_dossier_service.dart';
 import '../models/comprehensive_dossier_model.dart';
 import '../widgets/comprehensive_dossier_export_dialog.dart';
+import '../widgets/shipment_audit_timeline_dialog.dart';
 import '../../purchase_orders/utils/po_packing_matcher.dart';
 import '../../../core/providers/navigation_provider.dart';
 import '../../smart_checklists/providers/smart_checklists_provider.dart';
@@ -429,6 +430,23 @@ class _ImportFileComprehensiveReportScreenState
                         style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                       onPressed: () => SmartChecklistDialog.show(context, _selectedFile!),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      key: const Key('shipmentAuditTimelineToolbarBtn'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F766E), // Deep Teal
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      ),
+                      icon: const Icon(Icons.history_toggle_off_rounded, size: 15, color: Colors.white),
+                      label: const Text(
+                        '⏱️ رادار ومحضر التتبع الزمني (36 محطة)',
+                        style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () => showShipmentAuditTimelineDialog(
+                        context,
+                        importFileId: _selectedFile!.importFileId,
+                      ),
                     ),
                   ],
                 ),
@@ -2303,6 +2321,59 @@ class _ImportFileComprehensiveReportScreenState
                 ],
               ),
             ),
+
+          // Action banner to open full 36-station timeline audit dialog
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF0F766E).withOpacity(0.12),
+                  const Color(0xFF0D9488).withOpacity(0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF0D9488).withOpacity(0.4)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.history_toggle_off_rounded, color: Color(0xFF0F766E), size: 24),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'رادار ومحضر التتبع الزمني للشحنة (36 محطة ومصفوفة نبض السفينة)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F766E)),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'يعرض المقارنة الكاملة بين التواريخ المخططة والفعلية، ونبض التتبع كل 3 أيام للسفينة، ورادار احتساب الأرضيات والغرامات والوصول الديناميكي للمخزن.',
+                        style: TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F766E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  icon: const Icon(Icons.launch_rounded, size: 16),
+                  label: const Text('فتح الرادار (36 محطة)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  onPressed: () => showShipmentAuditTimelineDialog(
+                    context,
+                    importFileId: file.importFileId,
+                  ),
+                ),
+              ],
+            ),
+          ),
 
           // Operational Turnaround SLAs Strip
           Container(

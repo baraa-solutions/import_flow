@@ -58,6 +58,7 @@ import '../../demurrage_detention/widgets/empty_container_return_dialog.dart';
 import '../../financial_settlement/widgets/final_settlement_invoices_dialog.dart';
 import '../../financial_settlement/widgets/actual_landed_cost_dialog.dart';
 import '../../comprehensive_report/widgets/comprehensive_dossier_export_dialog.dart';
+import '../../comprehensive_report/widgets/shipment_audit_timeline_dialog.dart';
 import '../../file_closure/widgets/official_file_closure_dialog.dart';
 import 'create_partial_batch_dialog.dart';
 import 'logistics_shipment_expenses_summary_card.dart';
@@ -1180,6 +1181,27 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               ComprehensiveDossierExportDialog.show(
                 context,
                 file: file,
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            key: const Key('shipmentAuditTimelineHeaderBtn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F766E), // Deep Teal
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.history_toggle_off_rounded, size: 18),
+            label: Text(
+              isAr ? 'رادار ومحضر التتبع الزمني (36 محطة)' : 'Audit Timeline Radar (36)',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            onPressed: () {
+              showShipmentAuditTimelineDialog(
+                context,
+                importFileId: file.importFileId,
               );
             },
           ),

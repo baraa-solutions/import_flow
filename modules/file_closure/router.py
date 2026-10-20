@@ -15,6 +15,8 @@ from .schemas import (
     DossierExportConfirmResponse,
     ClosurePrecheckResponse,
     OfficialClosureCertificateResponse,
+    ShipmentAuditTimelineResponse,
+    UpdateMeetingDirectivesPayload,
 )
 from .service import (
     close_import_file_service,
@@ -27,6 +29,8 @@ from .service import (
     confirm_dossier_export_service,
     get_closure_precheck_service,
     official_close_import_file_service,
+    get_shipment_audit_timeline_service,
+    update_audit_meeting_directives_service,
 )
 
 VIEW = "import_files.view"
@@ -146,5 +150,36 @@ def official_close_import_file(
     CLO-04: Issue official closure certificate, lock file to 100% closed, advance lifecycle board to STEP_21.
     """
     return official_close_import_file_service(db, schema, user=current_user.username, actor=current_user)
+
+
+# ==============================================================================
+# CLO-05: 36-Date Lifecycle Audit Timeline Endpoints
+# ==============================================================================
+
+@router.get("/audit-timeline/{import_file_id}", response_model=ShipmentAuditTimelineResponse)
+def get_shipment_audit_timeline(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_permission(VIEW)),
+):
+    """
+    CLO-05: Retrieve 36-date operational & financial audit timeline with vessel pulse & meeting directives.
+    """
+    return get_shipment_audit_timeline_service(db, import_file_id)
+
+
+@router.post("/audit-timeline/{import_file_id}/directives")
+def update_audit_meeting_directives(
+    import_file_id: int,
+    payload: UpdateMeetingDirectivesPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(EDIT)),
+):
+    """
+    CLO-05: Save or update the meeting action directives and notes for the shipment timeline audit.
+    """
+    return update_audit_meeting_directives_service(
+        db, import_file_id, payload.meeting_directives, user=current_user.username
+    )
 
 

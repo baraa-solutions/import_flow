@@ -3,6 +3,7 @@ import '../widgets/import_file_details_dialog.dart';
 import '../widgets/import_file_form_dialog.dart';
 import '../widgets/freight_rfq_dialog.dart';
 import '../../smart_checklists/widgets/smart_checklist_dialog.dart';
+import '../../comprehensive_report/widgets/shipment_audit_timeline_dialog.dart';
 import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
 import '../../experience_guide/widgets/smart_shipment_reference_card.dart';
 import '../../simulation/widgets/what_if_simulator_dialog.dart';
@@ -358,6 +359,21 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                             icon: const Icon(Icons.print, size: 16),
                             label: Text(l.printReport),
                           ),
+                          if (selectedFileId != null) ...[
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F766E), // Deep Teal
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.history_toggle_off_rounded, size: 16),
+                              label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'رادار التتبع الزمني (36 محطة)' : 'Timeline Radar (36)'),
+                              onPressed: () {
+                                showShipmentAuditTimelineDialog(context, importFileId: selectedFileId!);
+                              },
+                            ),
+                          ],
                           const SizedBox(width: 8),
                           IconButton(
                             icon: const Icon(Icons.close),
@@ -671,6 +687,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                       DataColumn(label: Text(l.colForm46)),
                                       DataColumn(label: Text(l.finalDutyColReleasePermit)),
                                       DataColumn(label: Text(l.status)),
+                                      DataColumn(label: Text(Localizations.localeOf(context).languageCode == 'ar' ? '⏱️ الرادار الزمني' : '⏱️ Timeline Radar')),
                                     ],
                                     rows: displayFiles.map((f) {
                                       final double piVal = f.invoicesData.isNotEmpty
@@ -755,6 +772,25 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                 ),
                                                 child: Text(_getStatusLabel(f.status, l), style: TextStyle(fontWeight: FontWeight.bold, color: f.status == 'Open' ? AppTheme.emerald : Colors.grey, fontSize: 11)),
                                               ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(0xFF0F766E),
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                minimumSize: Size.zero,
+                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                              ),
+                                              icon: const Icon(Icons.history_toggle_off_rounded, size: 14),
+                                              label: Text(
+                                                Localizations.localeOf(context).languageCode == 'ar' ? '36 محطة' : '36 Steps',
+                                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                              ),
+                                              onPressed: () {
+                                                showShipmentAuditTimelineDialog(context, importFileId: f.importFileId);
+                                              },
                                             ),
                                           ),
                                         ],
