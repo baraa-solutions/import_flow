@@ -308,7 +308,6 @@ class TestDemurrageDetentionEngine:
             carrier_name="MSC",
             port_name="Alexandria Port",
             bill_of_lading_no="BL-NO-GATEOUT",
-            port_name="Alexandria Port",
             discharge_date=date(2026, 9, 1),
             gate_out_date=None,
             empty_return_date=date(2026, 9, 10),
