@@ -1,9 +1,11 @@
-from datetime import timedelta
-from typing import Dict, List, Optional
+from datetime import date, timedelta
+from typing import Any, Dict, List, Optional, Tuple
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from modules.common.validators import get_or_404
+from modules.financial_settlement.service import SettlementFx
 from modules.import_files.repository import codes_by_ids
 from modules.shipping_scenarios.model import ShippingEvaluationSession
 from modules.shipping_scenarios.repository import ShippingScenarioRepository
@@ -16,6 +18,166 @@ from modules.shipping_scenarios.schemas import (
     ShippingScenarioItemCalculated,
 )
 from modules.shipping_scenarios.validators import ShippingScenarioValidator
+
+
+def scenario_item_totals(db: Session, item: Any, on_date: date) -> Tuple[float, float]:
+    """
+    Computes (total_quotation_amount, freight_total_amount) for a scenario item in quotation_currency
+    using commercial FX rates on on_date (session created_at date or today).
+
+    1. International Freight (freight_total_amount):
+       - 40' container: container_40ft_price * container_40ft_qty (if container_40ft_applicable)
+       - 20' container: container_20ft_price * container_20ft_qty (if container_20ft_applicable)
+       - LCL: lcl_cbm_price * lcl_cbm_qty (if lcl_cbm_applicable)
+       - Express courier: express_courier_price * 1 (if express_courier_applicable)
+
+    2. Per-Container Charges (multiplied by container_40ft_qty + container_20ft_qty):
+       - SOLAS VGM: solas_vgm_price * (c40_qty + c20_qty) (if solas_vgm_applicable)
+       - VGM notification: vgm_notification_price * (c40_qty + c20_qty) (if vgm_notification_applicable)
+
+    3. Flat Charges (x 1):
+       - eur_atr, telex_release, insurance, booking_cancellation, ics2_filing_fee,
+         others_fee, document_fees, waiver_letter_fee, dthc, storage_per_week,
+         extra_day_storage, clearance_fee, inspection_fee, inland_transport_fee, port_expenses.
+
+    Raises 409 SS_FX_RATE_MISSING when a commercial rate is missing.
+    All components converted into quotation_currency, rounded to 2 decimals.
+    """
+    BREAKDOWN_APPLICABLE_FLAGS = [
+        "container_40ft_applicable",
+        "container_20ft_applicable",
+        "lcl_cbm_applicable",
+        "express_courier_applicable",
+        "solas_vgm_applicable",
+        "vgm_notification_applicable",
+        "eur_atr_applicable",
+        "telex_release_applicable",
+        "insurance_applicable",
+        "booking_cancellation_applicable",
+        "ics2_filing_fee_applicable",
+        "others_fee_applicable",
+        "document_fees_applicable",
+        "waiver_letter_fee_applicable",
+        "dthc_applicable",
+        "storage_per_week_applicable",
+        "extra_day_storage_applicable",
+        "clearance_fee_applicable",
+        "inspection_fee_applicable",
+        "inland_transport_fee_applicable",
+        "port_expenses_applicable",
+    ]
+    if not any(getattr(item, f, False) for f in BREAKDOWN_APPLICABLE_FLAGS):
+        if getattr(item, "item_id", None) is not None:
+            legacy_amt = float(getattr(item, "total_quotation_amount", 0.0) or 0.0)
+            return legacy_amt, legacy_amt
+        return 0.0, 0.0
+
+    target_currency = (getattr(item, "quotation_currency", None) or "USD").strip().upper()
+    c40_qty = int(getattr(item, "container_40ft_qty", 0) or 0) if getattr(item, "container_40ft_applicable", False) else 0
+    c20_qty = int(getattr(item, "container_20ft_qty", 0) or 0) if getattr(item, "container_20ft_applicable", False) else 0
+    total_cntrs = c40_qty + c20_qty
+    lcl_qty = float(getattr(item, "lcl_cbm_qty", 0.0) or 0.0) if getattr(item, "lcl_cbm_applicable", False) else 0.0
+
+    eff_date = on_date or date.today()
+    fx = SettlementFx(db, "commercial")
+
+    def _convert(amount: float, source_currency: Optional[str]) -> float:
+        if amount == 0.0:
+            return 0.0
+        c_from = (source_currency or target_currency).strip().upper()
+        if c_from == target_currency:
+            return round(amount, 2)
+        try:
+            rate_from = fx.rate(c_from, eff_date)
+        except HTTPException:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "SS_FX_RATE_MISSING",
+                    "message": f"لا يوجد سعر صرف تجاري مسجل للعملة {c_from} بتاريخ {eff_date.isoformat()}.",
+                    "currency": c_from,
+                    "on_date": eff_date.isoformat(),
+                },
+            )
+        try:
+            rate_to = fx.rate(target_currency, eff_date)
+        except HTTPException:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "SS_FX_RATE_MISSING",
+                    "message": f"لا يوجد سعر صرف تجاري مسجل للعملة {target_currency} بتاريخ {eff_date.isoformat()}.",
+                    "currency": target_currency,
+                    "on_date": eff_date.isoformat(),
+                },
+            )
+        return round(amount * (rate_from / rate_to), 2)
+
+    freight_total = 0.0
+    total = 0.0
+
+    # 1. International Freight
+    if getattr(item, "container_40ft_applicable", False):
+        amt = float(getattr(item, "container_40ft_price", 0.0) or 0.0) * c40_qty
+        converted = _convert(amt, getattr(item, "container_40ft_currency", None))
+        freight_total += converted
+        total += converted
+
+    if getattr(item, "container_20ft_applicable", False):
+        amt = float(getattr(item, "container_20ft_price", 0.0) or 0.0) * c20_qty
+        converted = _convert(amt, getattr(item, "container_20ft_currency", None))
+        freight_total += converted
+        total += converted
+
+    if getattr(item, "lcl_cbm_applicable", False):
+        amt = float(getattr(item, "lcl_cbm_price", 0.0) or 0.0) * lcl_qty
+        converted = _convert(amt, getattr(item, "lcl_cbm_currency", None))
+        freight_total += converted
+        total += converted
+
+    if getattr(item, "express_courier_applicable", False):
+        amt = float(getattr(item, "express_courier_price", 0.0) or 0.0)
+        converted = _convert(amt, getattr(item, "express_courier_currency", None))
+        freight_total += converted
+        total += converted
+
+    # 2. Per-Container Surcharges
+    if getattr(item, "solas_vgm_applicable", False):
+        amt = float(getattr(item, "solas_vgm_price", 0.0) or 0.0) * total_cntrs
+        converted = _convert(amt, getattr(item, "solas_vgm_currency", None))
+        total += converted
+
+    if getattr(item, "vgm_notification_applicable", False):
+        amt = float(getattr(item, "vgm_notification_price", 0.0) or 0.0) * total_cntrs
+        converted = _convert(amt, getattr(item, "vgm_notification_currency", None))
+        total += converted
+
+    # 3. Flat Charges
+    flat_components = [
+        ("eur_atr_applicable", "eur_atr_price", "eur_atr_currency"),
+        ("telex_release_applicable", "telex_release_price", "telex_release_currency"),
+        ("insurance_applicable", "insurance_price", "insurance_currency"),
+        ("booking_cancellation_applicable", "booking_cancellation_price", "booking_cancellation_currency"),
+        ("ics2_filing_fee_applicable", "ics2_filing_fee_price", "ics2_filing_fee_currency"),
+        ("others_fee_applicable", "others_fee_price", "others_fee_currency"),
+        ("document_fees_applicable", "document_fees_price", "document_fees_currency"),
+        ("waiver_letter_fee_applicable", "waiver_letter_fee_price", "waiver_letter_fee_currency"),
+        ("dthc_applicable", "dthc_price", "dthc_currency"),
+        ("storage_per_week_applicable", "storage_per_week_price", "storage_per_week_currency"),
+        ("extra_day_storage_applicable", "extra_day_storage_price", "extra_day_storage_currency"),
+        ("clearance_fee_applicable", "clearance_fee_price", "clearance_fee_currency"),
+        ("inspection_fee_applicable", "inspection_fee_price", "inspection_fee_currency"),
+        ("inland_transport_fee_applicable", "inland_transport_fee_price", "inland_transport_fee_currency"),
+        ("port_expenses_applicable", "port_expenses_price", "port_expenses_currency"),
+    ]
+
+    for app_field, price_field, curr_field in flat_components:
+        if getattr(item, app_field, False):
+            amt = float(getattr(item, price_field, 0.0) or 0.0)
+            converted = _convert(amt, getattr(item, curr_field, None))
+            total += converted
+
+    return round(total, 2), round(freight_total, 2)
 
 
 def _total_days(session_obj: ShippingEvaluationSession, item) -> int:
@@ -45,6 +207,7 @@ def _recommended_provider(session_obj: ShippingEvaluationSession) -> Optional[st
 
 
 def _build_response(
+    db: Session,
     session_obj: ShippingEvaluationSession,
     import_file_code: Optional[str],
     po_number: Optional[str] = None,
@@ -52,6 +215,7 @@ def _build_response(
 ) -> ShippingEvaluationResponse:
     """Pure: per-scenario day arithmetic plus the average / earliest / latest / recommended summary."""
     crd = session_obj.cargo_ready_date
+    on_date = session_obj.created_at.date() if getattr(session_obj, "created_at", None) else date.today()
     calculated_items: List[ShippingScenarioItemCalculated] = []
     valid_transit_days: List[int] = []
     earliest: Optional[ShippingScenarioItemCalculated] = None
@@ -60,14 +224,19 @@ def _build_response(
         vessel_lead_time = (item.estimated_arrival_date - item.sailing_date).days
         ready_for_shipping = (item.sailing_date - crd).days
         expected_total_days = _total_days(session_obj, item)
-        calc_item = ShippingScenarioItemCalculated(
-            **{f: getattr(item, f) for f in SCENARIO_ITEM_FIELDS},
-            item_id=item.item_id,
-            vessel_lead_time_days=vessel_lead_time,
-            ready_for_shipping_days=ready_for_shipping,
-            expected_total_days_to_warehouse=expected_total_days,
-            expected_warehouse_arrival_date=crd + timedelta(days=expected_total_days),
-        )
+        total, freight_total = scenario_item_totals(db, item, on_date)
+        calc_dict = {f: getattr(item, f) for f in SCENARIO_ITEM_FIELDS}
+        calc_dict.update({
+            "item_id": item.item_id,
+            "total_quotation_amount": total,
+            "freight_total_amount": freight_total,
+            "totals_rate_date": on_date,
+            "vessel_lead_time_days": vessel_lead_time,
+            "ready_for_shipping_days": ready_for_shipping,
+            "expected_total_days_to_warehouse": expected_total_days,
+            "expected_warehouse_arrival_date": crd + timedelta(days=expected_total_days),
+        })
+        calc_item = ShippingScenarioItemCalculated(**calc_dict)
         calculated_items.append(calc_item)
 
         if not item.is_excluded_from_average:
@@ -134,6 +303,7 @@ class ShippingScenarioService:
         if po_numbers is None or project_names is None:
             po_numbers, project_names = ShippingScenarioRepository.po_and_project_names(db, [session_obj])
         return _build_response(
+            db,
             session_obj,
             codes.get(session_obj.import_file_id),
             po_numbers.get(session_obj.po_id),
@@ -164,6 +334,11 @@ class ShippingScenarioService:
         ShippingScenarioValidator.validate_foreign_keys(db, payload, payload.items)
         if payload.import_file_id:
             ShippingScenarioService._check_one_per_file(db, payload.import_file_id)
+        on_date = date.today()
+        if payload.items:
+            for item in payload.items:
+                tot, _ = scenario_item_totals(db, item, on_date)
+                item.total_quotation_amount = tot
         session_obj = ShippingScenarioRepository.create(db, payload)
         session_obj.created_by = session_obj.updated_by = user
         return ShippingScenarioService._commit_with_file_selection(db, session_obj)
@@ -200,6 +375,7 @@ class ShippingScenarioService:
         session_obj = get_or_404(db, ShippingEvaluationSession, session_id, "دراسة سيناريوهات الشحن")
 
         ShippingScenarioValidator.validate_evaluation_update(payload, session_obj)
+        on_date = session_obj.created_at.date() if session_obj.created_at else date.today()
         if payload.items is not None:
             stored_ids = {it.item_id for it in session_obj.items}
             sent_ids = [it.item_id for it in payload.items]
@@ -209,6 +385,10 @@ class ShippingScenarioService:
             if removed_ids:
                 booked = ShippingScenarioRepository.booked_item_ids(db, removed_ids)
                 ShippingScenarioValidator.validate_removed_not_booked(booked)
+
+            for item in payload.items:
+                tot, _ = scenario_item_totals(db, item, on_date)
+                item.total_quotation_amount = tot
         ShippingScenarioValidator.validate_foreign_keys(db, payload, payload.items, stored=session_obj)
         file_id = payload.import_file_id or session_obj.import_file_id
         reactivated = not session_obj.is_active and payload.is_active is not False  # an update reactivates

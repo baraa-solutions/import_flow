@@ -256,11 +256,11 @@ class TestContainersService:
 
         # 2. Add DemurrageTracking with dates and charges
         tracking = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-901",
             import_file_id=file_id,
             carrier_name="CMA CGM",
             bill_of_lading_no="CMA998877",
-            port_name="Alexandria Port",
             discharge_date=date(2026, 9, 1),
             containers=[
                 {
@@ -329,12 +329,12 @@ class TestContainersService:
         )
 
         tracking = DemurrageTracking(
+            port_name="Alexandria",
             tracking_code="DND-2026-MSK",
             import_file_id=file_id,
             policy_id=policy.policy_id,
             carrier_name="Maersk",
             bill_of_lading_no="MSK123456",
-            port_name="Alexandria Port",
             discharge_date=date(2026, 9, 1),
             containers=[
                 {

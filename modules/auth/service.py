@@ -208,6 +208,7 @@ class AuthService:
                 )
             user.email = update_data.email
 
+        role_changed = False
         if update_data.role_id is not None:
             target_role = self.db.query(Role).filter(Role.role_id == update_data.role_id).first()
             if not target_role:
@@ -216,6 +217,8 @@ class AuthService:
                     detail=f"معرف الدور '{update_data.role_id}' غير موجود."
                 )
             self._guard_role_assignment(actor, target_role, target_role.role_code)
+            if user.role_id != target_role.role_id or user.role != target_role.role_code:
+                role_changed = True
             user.role_id = target_role.role_id
             user.role = target_role.role_code
         elif update_data.role is not None:
@@ -226,13 +229,18 @@ class AuthService:
                 role_input = "LOGISTICS_OPERATOR"
 
             target_role = self.db.query(Role).filter(Role.role_code == role_input).first()
+            if not target_role:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="AUTH_ROLE_UNKNOWN: Role does not exist."
+                )
             self._guard_role_assignment(actor, target_role, role_input)
-            if target_role:
-                user.role_id = target_role.role_id
-                user.role = target_role.role_code
-            else:
-                user.role = role_input
+            if user.role_id != target_role.role_id or user.role != target_role.role_code:
+                role_changed = True
+            user.role_id = target_role.role_id
+            user.role = target_role.role_code
 
+        password_changed = False
         if update_data.password is not None:
             is_valid, err_msg = validate_password_strength(update_data.password)
             if not is_valid:
@@ -241,9 +249,14 @@ class AuthService:
                     detail=err_msg
                 )
             user.hashed_password = hash_password(update_data.password)
+            password_changed = True
+
+        if role_changed or password_changed:
+            user.token_version = (user.token_version or 0) + 1
 
         self.db.commit()
         self.db.refresh(user)
+
 
         if update_data.password is not None:
             self._forget_admin_initial_password(user, update_data.password)
@@ -270,7 +283,7 @@ class AuthService:
         # Wrong current passwords are throttled per user with the login limiter (429 after 5 in 60 s).
         limiter_key = change_password_limiter_key(db_user.user_id)
         login_limiter.check_key(limiter_key)
-        if not current_password or not verify_password(current_password, db_user.hashed_password):
+        if not current_password or not verify_password(current_password, db_user.hashed_password, username=db_user.username):
             login_limiter.record_failure_key(limiter_key)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MSG_CURRENT_PASSWORD_WRONG)
         login_limiter.record_success_key(limiter_key)
@@ -283,6 +296,7 @@ class AuthService:
         was_forced = bool(db_user.must_change_password)
         db_user.hashed_password = hash_password(new_password)
         db_user.must_change_password = False
+        db_user.token_version = (db_user.token_version or 0) + 1
         self.db.commit()
         self.db.refresh(db_user)
 
@@ -326,6 +340,7 @@ class AuthService:
 
         old_status = user.is_active
         user.is_active = not user.is_active
+        user.token_version = (user.token_version or 0) + 1
         self.db.commit()
         self.db.refresh(user)
 
@@ -358,8 +373,9 @@ class AuthService:
                 detail="حساب المستخدم معطّل. تواصل مع مدير النظام.",
             )
 
-        if not verify_password(password, user.hashed_password):
+        if not verify_password(password, user.hashed_password, username=user.username):
             return None
+
 
         # Automatically upgrade legacy SHA-256 hashes to PBKDF2
         if not user.hashed_password.startswith("pbkdf2_sha256$"):
@@ -373,6 +389,7 @@ class AuthService:
             "sub": str(user.user_id),
             "username": user.username,
             "role": user.role,
+            "tv": user.token_version or 0,
         }
         return create_access_token(payload)
 
@@ -492,6 +509,8 @@ class AuthService:
 
         # 1. Update role if specified
         if target_role is not None:
+            if user.role_id != target_role.role_id or user.role != target_role.role_code:
+                user.token_version = (user.token_version or 0) + 1
             user.role_id = target_role.role_id
             user.role = target_role.role_code
 

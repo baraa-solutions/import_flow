@@ -15,6 +15,7 @@ from modules.financial_settlement.schemas import (
     FinancialSettlementCreate,
     ExpenseInvoiceSchema,
     ItemLandedCostSchema,
+    OdooExportConfig,
 )
 from modules.financial_settlement.service import create_settlement_service
 from modules.financial_settlement.odoo_export_service import (
@@ -211,9 +212,27 @@ def test_odoo_journal_lines_category_mapping(db_session):
 
 def test_odoo_csv_export_format(db_session):
     """
-    Test Odoo standard CSV export string and headers.
+    BE09-T11: CSV export requires settlement Approved.
+    - Calculated settlement -> 409 SETTLEMENT_NOT_APPROVED
+    - Approved settlement -> 200 and standard Odoo CSV format
     """
+    from fastapi import HTTPException
+    from modules.financial_settlement.validators import SETTLEMENT_NOT_APPROVED
+
     imp_file, settlement = _create_sample_settlement(db_session)
+    assert settlement.status == "Calculated"
+
+    # 1. Non-approved settlement raises 409 SETTLEMENT_NOT_APPROVED
+    with pytest.raises(HTTPException) as exc:
+        export_odoo_csv_service(db_session, settlement.settlement_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail.get("code") == SETTLEMENT_NOT_APPROVED
+    assert exc.value.detail.get("status") == "Calculated"
+
+    # 2. Approved settlement succeeds
+    settlement.status = "Approved"
+    db_session.commit()
+
     csv_str = export_odoo_csv_service(db_session, settlement.settlement_id)
 
     reader = csv.reader(io.StringIO(csv_str))
@@ -231,9 +250,26 @@ def test_odoo_csv_export_format(db_session):
 
 def test_odoo_excel_export_structure(db_session):
     """
-    Test Excel export generates 3 valid sheets with proper accounting voucher structure.
+    BE09-T11: Excel export requires settlement Approved.
+    - Calculated settlement -> 409 SETTLEMENT_NOT_APPROVED
+    - Approved settlement -> generates 3 valid sheets with proper accounting voucher structure.
     """
+    from fastapi import HTTPException
+    from modules.financial_settlement.validators import SETTLEMENT_NOT_APPROVED
+
     imp_file, settlement = _create_sample_settlement(db_session)
+    assert settlement.status == "Calculated"
+
+    # 1. Non-approved settlement raises 409 SETTLEMENT_NOT_APPROVED
+    with pytest.raises(HTTPException) as exc:
+        export_odoo_excel_service(db_session, settlement.settlement_id)
+    assert exc.value.status_code == 409
+    assert exc.value.detail.get("code") == SETTLEMENT_NOT_APPROVED
+
+    # 2. Approved settlement succeeds
+    settlement.status = "Approved"
+    db_session.commit()
+
     excel_bytes = export_odoo_excel_service(db_session, settlement.settlement_id)
 
     wb = openpyxl.load_workbook(io.BytesIO(excel_bytes))
@@ -247,11 +283,15 @@ def test_odoo_excel_export_structure(db_session):
 
 def test_odoo_endpoints_rest_api(client, db_session):
     """
-    Test FastAPI REST endpoints for Odoo JSON preview, CSV download, and Excel download.
+    Test FastAPI REST endpoints for Odoo JSON preview, CSV download, and Excel download (BE09-T11).
+    - JSON preview is allowed on Calculated status (status=200).
+    - CSV and Excel downloads on Calculated status return 409 SETTLEMENT_NOT_APPROVED.
+    - CSV and Excel downloads on Approved status return 200 with appropriate files.
     """
     imp_file, settlement = _create_sample_settlement(db_session)
+    assert settlement.status == "Calculated"
 
-    # 1. GET JSON
+    # 1. GET JSON preview works on Calculated settlement
     res_json = client.get(f"/api/v1/financial-settlement/{settlement.settlement_id}/odoo-journal-entry")
     assert res_json.status_code == 200
     data = res_json.json()
@@ -259,14 +299,212 @@ def test_odoo_endpoints_rest_api(client, db_session):
     assert data["total_debit"] == 695000.0
     assert len(data["lines"]) == 8 # 1 debit + 1 fob credit + 6 expense credit lines
 
-    # 2. GET CSV
+    # 2. GET CSV on Calculated settlement returns 409
+    res_csv_blocked = client.get(f"/api/v1/financial-settlement/{settlement.settlement_id}/export-odoo-csv")
+    assert res_csv_blocked.status_code == 409
+    assert res_csv_blocked.json().get("detail", {}).get("code") == "SETTLEMENT_NOT_APPROVED"
+
+    # 3. GET Excel on Calculated settlement returns 409
+    res_excel_blocked = client.get(f"/api/v1/financial-settlement/{settlement.settlement_id}/export-odoo-excel")
+    assert res_excel_blocked.status_code == 409
+    assert res_excel_blocked.json().get("detail", {}).get("code") == "SETTLEMENT_NOT_APPROVED"
+
+    # Approve settlement
+    settlement.status = "Approved"
+    db_session.commit()
+
+    # 4. GET CSV on Approved settlement returns 200
     res_csv = client.get(f"/api/v1/financial-settlement/{settlement.settlement_id}/export-odoo-csv")
     assert res_csv.status_code == 200
     assert "text/csv" in res_csv.headers["content-type"]
     assert "odoo_landed_cost_settlement_" in res_csv.headers["content-disposition"]
 
-    # 3. GET Excel
+    # 5. GET Excel on Approved settlement returns 200
     res_excel = client.get(f"/api/v1/financial-settlement/{settlement.settlement_id}/export-odoo-excel")
     assert res_excel.status_code == 200
     assert "spreadsheetml.sheet" in res_excel.headers["content-type"]
     assert "accounting_landed_cost_voucher_" in res_excel.headers["content-disposition"]
+
+
+def test_acc2_t02_odoo_clearance_categories_accounts(db_session):
+    """
+    ACC2-T02: Settlement rows 'Clearance / Customs Broker Fees' 8,000 and
+    'Clearance / Port Dues & Wharfage' 3,000 -> two lines on 210300 (broker),
+    none on 210500 (customs authority) or 210200 (freight); journal balanced.
+    """
+    imp_file = ImportFile(
+        import_file_code="IMP-2026-T02",
+        company_name="Egyptian Import Co",
+        supplier_name="Global Supplier",
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+    db_session.refresh(imp_file)
+
+    payload = FinancialSettlementCreate(
+        import_file_id=imp_file.import_file_id,
+        expense_invoices=[
+            ExpenseInvoiceSchema(
+                invoice_no="CLR-01",
+                category="Clearance / Customs Broker Fees",
+                provider_name="Broker Ahmed",
+                currency="EGP",
+                amount_fx=8000.0,
+                exchange_rate=1.0,
+                amount_egp=8000.0,
+                allocation_rule="Value-Based",
+            ),
+            ExpenseInvoiceSchema(
+                invoice_no="CLR-02",
+                category="Clearance / Port Dues & Wharfage",
+                provider_name="Alexandria Port Dues",
+                currency="EGP",
+                amount_fx=3000.0,
+                exchange_rate=1.0,
+                amount_egp=3000.0,
+                allocation_rule="Value-Based",
+            ),
+        ],
+        item_landed_costs=[
+            ItemLandedCostSchema(
+                item_code="ITM-01",
+                item_name="Item 1",
+                qty=100,
+                fob_unit_egp=100.0,
+                fob_total_egp=10000.0,
+            ),
+        ],
+        accountant_name="Accountant",
+    )
+    settlement = create_settlement_service(db_session, payload)
+    entry = generate_odoo_journal_entry_service(db_session, settlement.settlement_id)
+
+    assert entry.is_balanced is True
+    # Accounts:
+    # Debit 110400 = 10,000 + 11,000 = 21,000
+    # Credit 210100 (Supplier) = 10,000
+    # Credit 210300 (Customs Broker) = 8,000 + 3,000 = 11,000 (two lines on 210300)
+    # None on 210500 (Customs Authority) or 210200 (Freight)
+    broker_lines = [l for l in entry.lines if l.account_code == "210300"]
+    assert len(broker_lines) == 2
+    assert {l.credit for l in broker_lines} == {8000.0, 3000.0}
+    assert all(l.cost_category == "Clearance" for l in broker_lines)
+
+    customs_lines = [l for l in entry.lines if l.account_code == "210500"]
+    assert len(customs_lines) == 0
+
+    freight_lines = [l for l in entry.lines if l.account_code == "210200"]
+    assert len(freight_lines) == 0
+
+
+def test_acc2_t13_tax_aware_journal_flag(db_session):
+    """
+    ACC2-T13: Tax-aware Odoo Journal Entry with import_vat_recoverable=True.
+    Validates:
+    - 500k FOB + 100k Duty + 150k Customs VAT + 11.4k Broker (10k base + 1.4k VAT - 300 WHT) = 761.4k
+    - Dr Inventory = 610,000 (net of recoverable VAT: 761,400 - 151,400)
+    - Dr VAT Input = 151,400 (150k customs VAT + 1.4k broker VAT)
+    - Cr Supplier = 500,000
+    - Cr Customs Authority = 250,000 (100k duty + 150k VAT)
+    - Cr Broker Net Payable = 11,100
+    - Cr WHT Payable = 300
+    - Total debits (761,400) == Total credits (761,400), balanced down to 0.00 difference.
+    """
+    imp_file = ImportFile(
+        import_file_code="IMP-TAX-2026-01",
+        company_name="المصرية للصناعات المتطورة",
+        supplier_name="Bavaria Machinery GmbH",
+        project_names="Factory Line 2",
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+    db_session.refresh(imp_file)
+
+    payload = FinancialSettlementCreate(
+        import_file_id=imp_file.import_file_id,
+        expense_invoices=[
+            ExpenseInvoiceSchema(
+                invoice_no="DECL46-9901/import_duty_amount",
+                category="Customs Duty",
+                provider_name="Egyptian Customs Authority",
+                currency="EGP",
+                amount_fx=100000.0,
+                exchange_rate=1.0,
+                amount_egp=100000.0,
+                duty_component="import_duty_amount",
+                allocation_rule="Value-Based",
+            ),
+            ExpenseInvoiceSchema(
+                invoice_no="DECL46-9901/vat_amount",
+                category="VAT",
+                provider_name="Egyptian Customs Authority",
+                currency="EGP",
+                amount_fx=150000.0,
+                exchange_rate=1.0,
+                amount_egp=150000.0,
+                duty_component="vat_amount",
+                allocation_rule="Value-Based",
+            ),
+            ExpenseInvoiceSchema(
+                invoice_no="INV-BRK-880",
+                category="Brokerage",
+                provider_name="El-Nour Customs Broker",
+                currency="EGP",
+                amount_fx=11400.0,
+                exchange_rate=1.0,
+                amount_egp=11400.0,
+                vat_amount_egp=1400.0,
+                wht_amount_egp=300.0,
+                net_payable_egp=11100.0,
+                allocation_rule="Value-Based",
+            ),
+        ],
+        item_landed_costs=[
+            ItemLandedCostSchema(
+                item_code="MACH-001",
+                item_name="Industrial CNC Machine",
+                qty=1,
+                fob_unit_egp=500000.0,
+                fob_total_egp=500000.0,
+            ),
+        ],
+        accountant_name="Senior Accountant",
+    )
+    settlement = create_settlement_service(db_session, payload)
+
+    config = OdooExportConfig(
+        import_vat_recoverable=True,
+        inventory_account_code="110400",
+        vat_input_account_code="110500",
+        supplier_account_code="210100",
+        customs_authority_account_code="210500",
+        customs_broker_account_code="210300",
+        wht_payable_account_code="210900",
+    )
+    entry = generate_odoo_journal_entry_service(db_session, settlement.settlement_id, config=config)
+
+    assert entry.is_balanced is True
+    assert entry.difference == 0.0
+    assert entry.total_debit == 761400.0
+    assert entry.total_credit == 761400.0
+
+    # Debits:
+    inv_line = next(l for l in entry.lines if l.account_code == "110400")
+    assert inv_line.debit == 610000.0
+
+    vat_input_line = next(l for l in entry.lines if l.account_code == "110500")
+    assert vat_input_line.debit == 151400.0
+
+    # Credits:
+    sup_line = next(l for l in entry.lines if l.account_code == "210100")
+    assert sup_line.credit == 500000.0
+
+    customs_lines = [l for l in entry.lines if l.account_code == "210500"]
+    assert sum(l.credit for l in customs_lines) == 250000.0
+
+    broker_line = next(l for l in entry.lines if l.account_code == "210300")
+    assert broker_line.credit == 11100.0
+
+    wht_line = next(l for l in entry.lines if l.account_code == "210900")
+    assert wht_line.credit == 300.0
+

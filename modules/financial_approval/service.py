@@ -87,8 +87,10 @@ from modules.financial_approval.validators import (
     require_known_currency,
     require_payment_status,
     require_same_currency,
+    validate_payment_rate,
     validate_payment_request_inputs,
     validate_payment_update,
+    validate_po_ceiling,
 )
 from modules.notifications.model import SystemNotification
 from modules.users.model import User
@@ -433,7 +435,11 @@ def create_payment_request_service(
         project_id=schema.project_id,
     )
     norm_currency = require_known_currency(db, schema.currency_code)
+    validate_payment_rate(norm_currency, schema.exchange_rate)
     updates: Dict[str, Any] = {"currency_code": norm_currency}
+    if schema.po_id:
+        adv_pct = validate_po_ceiling(db, schema.po_id, norm_currency, schema.requested_amount)
+        updates["advance_percentage"] = adv_pct
     if schema.supplier_id:
         from modules.suppliers.model import Supplier
 
@@ -504,6 +510,19 @@ def update_payment_request_service(
     if "currency_code" in changes and changes["currency_code"] is not None:
         changes["currency_code"] = require_known_currency(db, changes["currency_code"])
     _require_reject_permission(db, db_item, changes, current_user)
+
+    target_po_id = changes.get("po_id", db_item.po_id)
+    target_curr = changes.get("currency_code", db_item.currency_code)
+    target_amount = changes.get("requested_amount", db_item.requested_amount)
+    target_rate = changes.get("exchange_rate", db_item.exchange_rate)
+    validate_payment_rate(target_curr, target_rate)
+
+    if target_po_id and ("po_id" in changes or "requested_amount" in changes or "currency_code" in changes
+                         or (changes.get("status") == PAYMENT_DRAFT and db_item.status == PAYMENT_REJECTED)):
+        new_adv_pct = validate_po_ceiling(
+            db, target_po_id, target_curr, target_amount, exclude_id=db_item.payment_id
+        )
+        changes["advance_percentage"] = new_adv_pct
 
     if changes.get("import_file_id") is not None:
         from modules.import_files.model import ImportFile
@@ -598,6 +617,8 @@ class _PaidEvent:
 
 def _mark_paid(db: Session, item: PaymentRequestSession, swift_reference_no: Optional[str],
                transferred_amount: Optional[float], currency_code: Optional[str],
+               swift_debit_amount_egp: Optional[float] = None,
+               receipt_date: Optional[date] = None,
                updated_by: Optional[str] = None) -> _PaidEvent:
     """Core of the Paid transition (same transaction as the caller): status, SWIFT reference, the import
     file's ``swift_no`` and the LOGISTICS_OFFICER notification. Follow-ups: ``_after_paid``."""
@@ -606,9 +627,27 @@ def _mark_paid(db: Session, item: PaymentRequestSession, swift_reference_no: Opt
     assert swift_ref, "swift_reference_no must be non-empty when marking Paid"
     amount = float(transferred_amount or item.swift_transferred_amount or item.requested_amount or 0.0)
     currency = currency_code or item.swift_transferred_currency or item.currency_code
+    r_date = receipt_date or item.swift_receipt_date
 
     item.status = PAYMENT_PAID
     item.swift_reference_no = swift_ref
+
+    # Realised payment in EGP and exchange rate (ACC2-T07)
+    if swift_debit_amount_egp is not None and float(swift_debit_amount_egp) > 0 and amount > 0:
+        paid_rate = float(swift_debit_amount_egp) / amount
+        paid_egp = round(float(swift_debit_amount_egp), 2)
+    elif currency.upper().strip() == "EGP":
+        paid_rate = 1.0
+        paid_egp = round(amount, 2)
+    else:
+        from modules.financial_settlement.service import SettlementFx
+        fx = SettlementFx(db, "commercial")
+        paid_rate = fx.rate(currency, r_date)
+        paid_egp = round(amount * paid_rate, 2)
+
+    item.paid_exchange_rate = paid_rate
+    item.paid_amount_egp = paid_egp
+
     item.version = (item.version or 1) + 1
     item.updated_at = _now()
     if updated_by:
@@ -762,7 +801,10 @@ def reconcile_swift_service(
     db_item.swift_reconciliation_notes = payload.swift_reconciliation_notes
 
     event = _mark_paid(db, db_item, payload.swift_reference_no, payload.swift_transferred_amount,
-                       payload.swift_transferred_currency, updated_by=current_user_name)
+                       payload.swift_transferred_currency,
+                       swift_debit_amount_egp=payload.swift_debit_amount_egp,
+                       receipt_date=payload.swift_receipt_date,
+                       updated_by=current_user_name)
     db.commit()
     return _finish_paid(db, event)
 
@@ -791,7 +833,10 @@ def smart_reconcile_swift_service(
     event = None
     if payload.auto_execute:
         event = _mark_paid(db, db_item, payload.swift_reference_no, payload.swift_transferred_amount,
-                           payload.swift_transferred_currency, updated_by=current_user_name)
+                           payload.swift_transferred_currency,
+                           swift_debit_amount_egp=payload.swift_debit_amount_egp,
+                           receipt_date=payload.swift_receipt_date,
+                           updated_by=current_user_name)
     else:
         db_item.version = (db_item.version or 1) + 1
         db_item.updated_at = _now()
@@ -816,6 +861,7 @@ def clone_payment_request_service(
     rate = orig.exchange_rate
     if not rate or rate <= 0:
         raise _fx_missing(orig.currency_code)
+    validate_payment_rate(orig.currency_code, rate)
 
     supplier_id = schema.target_supplier_id or orig.supplier_id
     supplier_name = orig.supplier_name
@@ -832,6 +878,9 @@ def clone_payment_request_service(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="يجب أن يكون المبلغ المطلوب أكبر من صفر.")
     import_file_id = None if schema.unlink_import_file else orig.import_file_id
     po_id = None if schema.unlink_import_file else orig.po_id
+    cloned_adv_pct = orig.advance_percentage
+    if po_id:
+        cloned_adv_pct = validate_po_ceiling(db, po_id, orig.currency_code, amount)
     payment_type = normalize_payment_type(orig.payment_type)
     if import_file_id:
         _ensure_no_open_payment_of_type(db, import_file_id, payment_type)
@@ -851,9 +900,10 @@ def clone_payment_request_service(
             project_id=orig.project_id,
             payment_type=payment_type,
             requested_amount=amount,
+            advance_percentage=cloned_adv_pct,
             currency_code=orig.currency_code,
             exchange_rate=rate,
-            requested_amount_egp=amount * rate,
+            requested_amount_egp=round(amount * rate, 2),
             request_date=date.today(),
             due_date=date.today() + timedelta(days=12),
             status=PAYMENT_DRAFT,
@@ -1384,13 +1434,10 @@ def get_budget_prefill_service(db: Session, import_file_id: int) -> BudgetPrefil
     highest_freight_egp = 0.0
     freight_currency: Optional[str] = None
     for s in shipping_sessions:
+        s_date = s.created_at.date() if getattr(s, "created_at", None) else date.today()
         for itm in s.items:
-            f_amt = float(getattr(itm, "total_quotation_amount", 0.0) or 0.0)
-            if f_amt == 0.0:
-                c40 = (itm.container_40ft_price or 0.0) * (itm.container_40ft_qty or 1) if itm.container_40ft_applicable else 0.0
-                c20 = (itm.container_20ft_price or 0.0) * (itm.container_20ft_qty or 1) if itm.container_20ft_applicable else 0.0
-                lcl = (itm.lcl_cbm_price or 0.0) * (itm.lcl_cbm_qty or 1) if itm.lcl_cbm_applicable else 0.0
-                f_amt = c40 + c20 + lcl
+            from modules.shipping_scenarios.service import scenario_item_totals
+            _, f_amt = scenario_item_totals(db, itm, s_date)
             if f_amt <= 0:
                 continue
             source = f"freight quotation ({s.session_code})" if getattr(s, "session_code", None) else "freight quotation"
@@ -2177,7 +2224,7 @@ def reconcile_reviewed_batch_service(
 
     event = None
     if payload.auto_execute:
-        event = _mark_paid(db, db_item, swift_ref, amount, currency)
+        event = _mark_paid(db, db_item, swift_ref, amount, currency, receipt_date=receipt_date)
     else:
         db_item.version = (db_item.version or 1) + 1
         db_item.updated_at = _now()

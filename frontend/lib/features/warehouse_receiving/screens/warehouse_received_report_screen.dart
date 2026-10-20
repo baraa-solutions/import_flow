@@ -67,7 +67,14 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
           onAction: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
         ),
         data: (records) {
-          final allItems = WarehouseReceivedReportItem.fromReceivingRecords(records);
+          final shipments = ref.watch(importFilesProvider).valueOrNull ?? [];
+          final fileCodeById = {
+            for (final f in shipments) f.importFileId: f.importFileCode,
+          };
+          final allItems = WarehouseReceivedReportItem.fromReceivingRecords(
+            records,
+            fileCodeById: fileCodeById,
+          );
 
           final filtered = allItems.where((i) {
             if (_searchCtrl.text.trim().isEmpty) return true;
@@ -83,9 +90,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
           final totalReceived = filtered.fold<int>(0, (s, i) => s + i.receivedQty);
           final totalDamaged = filtered.fold<int>(0, (s, i) => s + i.damagedQty);
           final totalShortage = filtered.fold<int>(0, (s, i) => s + i.shortageQty);
-          final totalSamples = filtered.fold<int>(0, (s, i) => s + i.samplesQty);
           final totalVariance = filtered.fold<int>(0, (s, i) => s + i.varianceQty);
-          final shipments = ref.watch(importFilesProvider).valueOrNull ?? [];
 
           final exportButtons = OpsActionWrap(
             children: [
@@ -161,13 +166,6 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                       value: l.whReportUnitsValue(totalShortage),
                       icon: Icons.remove_circle_outline,
                       color: AppTheme.orange,
-                    ),
-                    MetricCardData(
-                      title: l.whReportKpiSamplesQty,
-                      shortTitle: l.whReportKpiSamplesQty,
-                      value: l.whReportUnitsValue(totalSamples),
-                      icon: Icons.science,
-                      color: AppTheme.charcoal,
                     ),
                     MetricCardData(
                       title: l.whReportKpiVarianceQty,

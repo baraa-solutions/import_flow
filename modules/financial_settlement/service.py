@@ -1,4 +1,5 @@
 import logging
+import math
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional, Dict, Any, Tuple
@@ -29,12 +30,12 @@ from .schemas import (
     EstimatedLandedCostExpenseItem,
     SettlementMessage,
     RECALC_ADJUSTMENT_PREFIX,
+    CustomsDutyComponentSchema,
 )
 from .repository import (
     add_with_new_code,
     apply_settlement_update,
     build_settlement,
-    generate_settlement_code,
     get_settlement_by_id,
     get_settlement_by_import_file_id,
     list_settlements,
@@ -42,17 +43,27 @@ from .repository import (
     restore_settlement,
     get_effective_tax_rate,
 )
-from .model import WHT_CLEARANCE_SERVICES, WHT_TRANSPORT_SERVICES
+from .model import (
+    WHT_CLEARANCE_SERVICES,
+    WHT_TRANSPORT_SERVICES,
+    CLEARANCE_CATEGORY_BUCKET,
+)
 from .validators import (
+    SETTLEMENT_ACTUAL_FOB_MISSING,
     SETTLEMENT_DUPLICATE_ACTIVE,
     SETTLEMENT_FX_RATE_MISSING,
     coded_error,
     ensure_cost_not_approved,
     ensure_file_open,
     ensure_invoices_not_settled,
+    ensure_invoices_settlement_ready,
+    ensure_invoices_settled,
+    ensure_no_manual_rows,
     ensure_no_other_active_settlement,
+    ensure_no_client_adjustment_rows,
     ensure_settlement_editable,
     fx_rate_missing_error,
+    currency_missing_error,
     validate_expense_invoice,
     validate_items_allocation_readiness,
 )
@@ -75,6 +86,8 @@ PAYMENT_STATUS_UNKNOWN = "PAYMENT_STATUS_UNKNOWN"
 ESTIMATE_UNAVAILABLE = "ESTIMATE_UNAVAILABLE"
 SETTLEMENT_UNPAID_INVOICE = "SETTLEMENT_UNPAID_INVOICE"
 WHT_RATE_MISSING_WARNING = "WHT_RATE_MISSING_WARNING"
+ALLOCATION_BASIS_INCOMPLETE = "ALLOCATION_BASIS_INCOMPLETE"
+ACTUAL_SOURCE_MISSING = "ACTUAL_SOURCE_MISSING"
 
 # PL-08 estimate constants, configurable through system_parameters (FS-07). The defaults are the former literals,
 # so the estimate is unchanged while no parameter row exists.
@@ -85,6 +98,11 @@ PARAM_DEFAULT_PORT_HANDLING_EGP = "settlement.default_port_handling_egp"
 PARAM_DEFAULT_INLAND_TRANSPORT_EGP = "settlement.default_inland_transport_egp"
 PARAM_DEFAULT_BANK_FEES_EGP = "settlement.default_bank_fees_egp"
 PARAM_DEFAULT_OTHER_EXPENSES_EGP = "settlement.default_other_expenses_egp"
+PARAM_VARIANCE_UNIT_TOLERANCE_EGP = "settlement.variance_unit_tolerance_egp"
+PARAM_VARIANCE_FILE_TOLERANCE_EGP = "settlement.variance_file_tolerance_egp"
+DEFAULT_VARIANCE_UNIT_TOLERANCE_EGP: float = 0.05
+DEFAULT_VARIANCE_FILE_TOLERANCE_EGP: float = 100.0
+
 ESTIMATE_PARAMETER_DEFAULTS: Dict[str, float] = {
     PARAM_DEEMED_FREIGHT_PCT: 2.0,
     PARAM_DEEMED_INSURANCE_PCT: 2.5,
@@ -101,13 +119,24 @@ def _message(code: str, severity: str = "warning", **params: Any) -> SettlementM
 
 
 def actual_expense_bucket(category: Optional[str], party_type: Optional[str] = None) -> str:
-    """Actual landed-cost bucket of an aggregated expense invoice. For broker (clearance) invoices a
-    CLEARANCE_EXPENSE_CATEGORY code or English label is matched through its legacy label, so coded rows land
-    exactly where the legacy text landed."""
-    text = category or ""
+    """Actual landed-cost bucket of an aggregated expense invoice. Code-first classification (ACC2-T02):
+    CLEARANCE_EXPENSE_CATEGORY codes or labels map directly to Clearance & Port / Demurrage & Storage.
+    Keywords are used only for other free text."""
+    raw = (category or "").strip()
+    if raw.startswith("Clearance / "):
+        raw = raw[len("Clearance / "):].strip()
+
+    norm = enum_codes.normalize(enum_codes.CLEARANCE_EXPENSE_CATEGORY, raw)
+    if enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, norm):
+        return CLEARANCE_CATEGORY_BUCKET[norm]
+
     if (party_type or "").upper() == "BROKER":
-        text = enum_codes.legacy_text(enum_codes.CLEARANCE_EXPENSE_CATEGORY, text)
-    cat_lower = text.lower()
+        leg = enum_codes.legacy_text(enum_codes.CLEARANCE_EXPENSE_CATEGORY, raw)
+        leg_norm = enum_codes.normalize(enum_codes.CLEARANCE_EXPENSE_CATEGORY, leg)
+        if enum_codes.is_code(enum_codes.CLEARANCE_EXPENSE_CATEGORY, leg_norm):
+            return CLEARANCE_CATEGORY_BUCKET[leg_norm]
+
+    cat_lower = raw.lower()
     if any(w in cat_lower for w in ["freight", "ocean", "air", "نولون", "شحن"]):
         return "Freight"
     if any(w in cat_lower for w in ["insurance", "تأمين"]):
@@ -207,6 +236,79 @@ def apply_settlement_field_total(expenses: List[Dict[str, Any]], field_name: str
     return rows
 
 
+def allocation_ratios(items: List[Dict[str, Any]], rule: str) -> Tuple[List[float], str, List[str]]:
+    """
+    Computes allocation ratios per item with BP-038 completeness rule.
+    Weight / Volume used only when EVERY item value > 0;
+    else falls back to Value-Based (or Equal if total FOB is 0) and returns the missing item codes.
+    Returns: (ratios, rule_actually_used, missing_item_codes)
+    """
+    num_items = len(items)
+    if num_items == 0:
+        return [], rule, []
+
+    def _item_fob(i: Dict[str, Any]) -> float:
+        if "fob_total_egp" in i:
+            return float(i.get("fob_total_egp") or 0.0)
+        if "fob_total_fc" in i:
+            return float(i.get("fob_total_fc") or 0.0)
+        return float(i.get("qty", 1.0) or 1.0) * float(i.get("fob_unit_egp", 0.0) or 0.0)
+
+    def _item_weight(i: Dict[str, Any]) -> float:
+        return float(i.get("gross_weight_kg") or i.get("weight_kg") or 0.0)
+
+    def _item_cbm(i: Dict[str, Any]) -> float:
+        return float(i.get("cbm") or 0.0)
+
+    total_fob = sum(_item_fob(i) for i in items)
+
+    def _val_ratios() -> List[float]:
+        if total_fob > 0:
+            return [_item_fob(i) / total_fob for i in items]
+        return [1.0 / num_items] * num_items
+
+    if rule == "Weight-Based":
+        missing = [i.get("item_code") or f"ITM-{idx+1}" for idx, i in enumerate(items) if _item_weight(i) <= 0.0]
+        tot_weight = sum(_item_weight(i) for i in items)
+        if not missing and tot_weight > 0:
+            return [_item_weight(i) / tot_weight for i in items], "Weight-Based", []
+        return _val_ratios(), "Value-Based", missing
+
+    elif rule == "Volume-Based":
+        missing = [i.get("item_code") or f"ITM-{idx+1}" for idx, i in enumerate(items) if _item_cbm(i) <= 0.0]
+        tot_cbm = sum(_item_cbm(i) for i in items)
+        if not missing and tot_cbm > 0:
+            return [_item_cbm(i) / tot_cbm for i in items], "Volume-Based", []
+        return _val_ratios(), "Value-Based", missing
+
+    elif rule == "Value-Based":
+        if total_fob > 0:
+            return _val_ratios(), "Value-Based", []
+        return [1.0 / num_items] * num_items, "Equal", []
+
+    elif rule == "Equal":
+        return [1.0 / num_items] * num_items, "Equal", []
+
+    return _val_ratios(), "Value-Based", []
+
+
+def row_amount_egp(exp: Dict[str, Any]) -> float:
+    """Returns the EGP amount for an expense row (ACC2-T15, F19):
+    uses amount_egp when not None and != 0.0, else amount_fx * (exchange_rate or 1.0 if EGP else 0.0),
+    rounded to 2 decimal places."""
+    amt = exp.get("amount_egp")
+    if amt is not None and float(amt) != 0.0:
+        return round(float(amt), 2)
+    fx = float(exp.get("amount_fx") or 0.0)
+    ccy = (exp.get("currency") or "EGP").upper().strip()
+    rate = exp.get("exchange_rate")
+    if rate is None or float(rate) <= 0.0:
+        rate = 1.0 if ccy == "EGP" else 0.0
+    else:
+        rate = float(rate)
+    return round(fx * rate, 2)
+
+
 def calculate_landed_cost_engine(
     expenses: List[Dict[str, Any]],
     items: List[Dict[str, Any]],
@@ -226,7 +328,7 @@ def calculate_landed_cost_engine(
 
     if not items or len(items) == 0:
         # Seller-paid rows are never the importer's cost, with or without items (review 2 #10).
-        importer_total = sum(e.get("amount_egp", 0.0) for e in expenses if not is_seller_paid_expense(e))
+        importer_total = round(sum(row_amount_egp(e) for e in expenses if not is_seller_paid_expense(e)), 2)
         return {
             "incoterm_code": incoterm_normalized,
             "total_fob_egp": 0.0,
@@ -238,7 +340,9 @@ def calculate_landed_cost_engine(
 
     # Reset allocation buckets on items
     for item in items:
-        qty = item.get("qty", 1)
+        qty = item.get("qty")
+        if qty is None:
+            qty = item.get("quantity", 1)
         fob_unit = item.get("fob_unit_egp", 0.0)
         item["fob_total_egp"] = qty * fob_unit
         item["allocated_freight_egp"] = 0.0
@@ -248,10 +352,6 @@ def calculate_landed_cost_engine(
         item["allocated_other_egp"] = 0.0
 
     total_fob_egp = sum(i["fob_total_egp"] for i in items)
-    total_weight_kg = sum(i.get("gross_weight_kg", 0.0) for i in items)
-    total_cbm = sum(i.get("cbm", 0.0) for i in items)
-    num_items = len(items)
-
     total_expenses_egp = 0.0
 
     for exp in expenses:
@@ -259,27 +359,16 @@ def calculate_landed_cost_engine(
         if is_seller_paid_expense(exp):
             continue
 
-        amount_egp = exp.get("amount_egp", 0.0)
-        if amount_egp == 0.0:
-            amount_egp = exp.get("amount_fx", 0.0) * exp.get("exchange_rate", 1.0)
-            exp["amount_egp"] = amount_egp
+        amount_egp = row_amount_egp(exp)
+        exp["amount_egp"] = amount_egp
 
         total_expenses_egp += amount_egp
         category = exp.get("category", "Other")
         rule = exp.get("allocation_rule", "Value-Based")
 
-        for item in items:
-            ratio = 1.0 / num_items
-            if rule == "Value-Based" and total_fob_egp > 0:
-                ratio = item["fob_total_egp"] / total_fob_egp
-            elif rule == "Weight-Based" and total_weight_kg > 0:
-                ratio = item.get("gross_weight_kg", 0.0) / total_weight_kg
-            elif rule == "Volume-Based" and total_cbm > 0:
-                ratio = item.get("cbm", 0.0) / total_cbm
-            elif rule == "Equal":
-                ratio = 1.0 / num_items
-
-            allocated_share = amount_egp * ratio
+        ratios, actual_rule, _ = allocation_ratios(items, rule)
+        for idx, item in enumerate(items):
+            allocated_share = amount_egp * ratios[idx]
 
             if category in ENGINE_FREIGHT_CATEGORIES:
                 item["allocated_freight_egp"] += allocated_share
@@ -576,6 +665,33 @@ def _resolve_client_expense_rates(expenses: List[Dict[str, Any]], fx: "Settlemen
         e["exchange_rate"] = 1.0 if currency == "EGP" else fx.rate(currency, _as_date(e.get("invoice_date")))
 
 
+def _derive_expense_egp(expenses: List[Dict[str, Any]]) -> None:
+    """Server-derived EGP amounts on settlement expense rows (ACC2-T05, F07).
+    - EGP -> exchange_rate = 1.0, amount_egp = round(amount_fx, 2) if amount_fx > 0 else round(amount_egp, 2)
+    - foreign -> amount_egp = round(amount_fx * exchange_rate, 2) (require amount_fx > 0, 400 otherwise)
+    - RECALC-ADJ-* rows only rounded.
+    """
+    for e in expenses:
+        inv_no = str(e.get("invoice_no") or "")
+        if inv_no.startswith(RECALC_ADJUSTMENT_PREFIX):
+            e["amount_egp"] = round(float(e.get("amount_egp") or 0.0), 2)
+            continue
+        currency = (e.get("currency") or "EGP").strip().upper()
+        amount_fx = float(e.get("amount_fx") or 0.0)
+        amount_egp = float(e.get("amount_egp") or 0.0)
+        rate = float(e.get("exchange_rate") or 0.0)
+        if currency == "EGP":
+            e["exchange_rate"] = 1.0
+            e["amount_egp"] = round(amount_fx, 2) if amount_fx > 0 else round(amount_egp, 2)
+            if amount_fx > 0:
+                e["amount_fx"] = round(amount_fx, 2)
+        else:
+            if amount_fx <= 0:
+                raise HTTPException(status_code=400, detail="amount_fx must be > 0 for foreign currency expense row")
+            e["amount_egp"] = round(amount_fx * rate, 2)
+            e["amount_fx"] = round(amount_fx, 2)
+
+
 def _validate_client_expenses(expenses: List[Dict[str, Any]]) -> None:
     """Run after ``_resolve_client_expense_rates``: every row then has a positive rate."""
     for e in expenses:
@@ -596,6 +712,16 @@ DUTY_COMPONENT_CATEGORIES = (
     ("wht_amount", "Taxes"),
     ("lab_service_fees", "Clearance"),
 )
+
+CUSTOMS_COMPONENT_BUCKET = {
+    "import_duty_amount": "Customs Duty",
+    "vat_amount": "VAT & Taxes",
+    "schedule_tax_amount": "VAT & Taxes",
+    "development_fee_amount": "VAT & Taxes",
+    "customs_service_fees": "VAT & Taxes",
+    "wht_amount": "VAT & Taxes",
+    "lab_service_fees": "Clearance & Port",
+}
 
 
 def _duty_row(clearance: Any, category: str, amount: float, component: str) -> Dict[str, Any]:
@@ -706,6 +832,68 @@ def _settlement_snapshot_dict(record: Optional[LandedCostSettlementRecord]) -> D
     }
 
 
+def build_initial_settlement(
+    db: Session,
+    imp_file: ImportFile,
+    actor: str,
+    expenses_in: Optional[List[Dict[str, Any]]] = None,
+    items_in: Optional[List[Dict[str, Any]]] = None,
+    incoterm: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> LandedCostSettlementRecord:
+    """Builds an unflushed, calculated LandedCostSettlementRecord with auto-fetched duties and PO items (BE09-T10)."""
+    incoterm_code = (incoterm or imp_file.incoterm_code or "FOB").upper()
+
+    expenses = [e if isinstance(e, dict) else e.model_dump() for e in (expenses_in or [])]
+    ensure_no_client_adjustment_rows(expenses, stored_rows=[])
+    _resolve_client_expense_rates(expenses, SettlementFx(db, "commercial"))
+    _derive_expense_egp(expenses)
+    _validate_client_expenses(expenses)
+
+    # ── Auto-fetch: Customs Duty totals → expense_invoices pre-fill ──────────
+    has_duty_expense = any(
+        (e.get("category", "") or "").lower() in ("customs duty", "customs", "import duty", "taxes")
+        for e in expenses
+    )
+    if not has_duty_expense:
+        from modules.customs_clearance.model import CustomsClearanceRecord
+        clearance = db.query(CustomsClearanceRecord).filter(
+            CustomsClearanceRecord.import_file_id == imp_file.import_file_id,
+            CustomsClearanceRecord.is_active == True,
+            CustomsClearanceRecord.status == "Final Release Granted",
+        ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
+        if clearance and (clearance.actual_duty_total or 0) > 0:
+            # actual_duty_total already contains the lab fees: one row per duty component when the components add
+            # up to the assessed total, else one row for the assessed total. Never a second lab-fee row (review #3).
+            expenses.extend(_customs_duty_rows(clearance))
+        elif clearance and (clearance.lab_service_fees or 0) > 0:
+            expenses.append(_duty_row(clearance, "Clearance", float(clearance.lab_service_fees), "lab_service_fees"))
+
+    # ── Auto-populate: item_landed_costs from PO Line Items (FS-05) ─────────
+    messages_settlement: List[SettlementMessage] = []
+    items = [i if isinstance(i, dict) else i.model_dump() for i in (items_in or [])]
+    if not items:
+        items = _items_from_purchase_orders(
+            db, imp_file, SettlementFx(db, "commercial"), messages=messages_settlement
+        )
+
+    record = build_settlement(
+        imp_file.import_file_id, expenses, items, accountant_name=actor, notes=notes, actor=actor
+    )
+    record.incoterm_code = incoterm_code
+
+    # Perform Landed Cost Engine calculation
+    calc_res = calculate_landed_cost_engine(record.expense_invoices, record.item_landed_costs, incoterm=incoterm_code)
+    record.total_fob_egp = calc_res["total_fob_egp"]
+    record.total_expenses_egp = calc_res["total_expenses_egp"]
+    record.total_landed_cost_egp = calc_res["total_landed_cost_egp"]
+    record.average_markup_factor = calc_res["average_markup_factor"]
+    record.item_landed_costs = calc_res["item_landed_costs"]
+    record.status = "Calculated"
+    record.messages = messages_settlement
+    return record
+
+
 def create_settlement_service(
     db: Session, schema: FinancialSettlementCreate, actor: str = "System"
 ) -> LandedCostSettlementRecord:
@@ -721,52 +909,18 @@ def create_settlement_service(
             settlement_code=existing.settlement_code,
         )
 
-    incoterm = (schema.incoterm_code or imp_file.incoterm_code or "FOB").upper()
-
     expenses_in = [e if isinstance(e, dict) else e.model_dump() for e in (schema.expense_invoices or [])]
-    _resolve_client_expense_rates(expenses_in, SettlementFx(db, "commercial"))
-    _validate_client_expenses(expenses_in)
-
-    # ── Auto-fetch: Customs Duty totals → expense_invoices pre-fill ──────────
-    has_duty_expense = any(
-        (e.get("category", "") or "").lower() in ("customs duty", "customs", "import duty", "taxes")
-        for e in expenses_in
-    )
-    if not has_duty_expense:
-        from modules.customs_clearance.model import CustomsClearanceRecord
-        clearance = db.query(CustomsClearanceRecord).filter(
-            CustomsClearanceRecord.import_file_id == schema.import_file_id,
-            CustomsClearanceRecord.is_active == True,
-            CustomsClearanceRecord.status == "Final Release Granted",
-        ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
-        if clearance and (clearance.actual_duty_total or 0) > 0:
-            # actual_duty_total already contains the lab fees: one row per duty component when the components add
-            # up to the assessed total, else one row for the assessed total. Never a second lab-fee row (review #3).
-            expenses_in.extend(_customs_duty_rows(clearance))
-        elif clearance and (clearance.lab_service_fees or 0) > 0:
-            expenses_in.append(_duty_row(clearance, "Clearance", float(clearance.lab_service_fees), "lab_service_fees"))
-
-    # ── Auto-populate: item_landed_costs from PO Line Items (FS-05) ─────────
-    messages_settlement: List[SettlementMessage] = []
     items_in = [i if isinstance(i, dict) else i.model_dump() for i in (schema.item_landed_costs or [])]
-    if not items_in:
-        items_in = _items_from_purchase_orders(
-            db, imp_file, SettlementFx(db, "commercial"), messages=messages_settlement
-        )
 
-    record = build_settlement(
-        schema.import_file_id, expenses_in, items_in, accountant_name=actor, notes=schema.notes, actor=actor
+    record = build_initial_settlement(
+        db,
+        imp_file,
+        actor=actor,
+        expenses_in=expenses_in,
+        items_in=items_in,
+        incoterm=schema.incoterm_code,
+        notes=schema.notes,
     )
-    record.incoterm_code = incoterm
-
-    # Perform Landed Cost Engine calculation
-    calc_res = calculate_landed_cost_engine(record.expense_invoices, record.item_landed_costs, incoterm=incoterm)
-    record.total_fob_egp = calc_res["total_fob_egp"]
-    record.total_expenses_egp = calc_res["total_expenses_egp"]
-    record.total_landed_cost_egp = calc_res["total_landed_cost_egp"]
-    record.average_markup_factor = calc_res["average_markup_factor"]
-    record.item_landed_costs = calc_res["item_landed_costs"]
-    record.status = "Calculated"
     add_with_new_code(db, record)
 
     # Update Import File progress
@@ -778,9 +932,11 @@ def create_settlement_service(
         stage_code="LANDED_COST_CALCULATED",
         next_action=msg("NA_REVIEW_SETTLEMENT_AND_CLOSE"),
     )
+    saved_messages = list(getattr(record, "messages", []) or [])
+    incoterm = record.incoterm_code
     db.commit()
     db.refresh(record)
-    record.messages = messages_settlement
+    record.messages = saved_messages
     code = record.settlement_code
     audit_data = {
         "import_file_id": schema.import_file_id,
@@ -848,7 +1004,9 @@ def update_settlement_service(
         if key in update_data and update_data[key] is None:
             del update_data[key]
     if update_data.get("expense_invoices") is not None:
+        ensure_no_client_adjustment_rows(update_data["expense_invoices"], stored_rows=existing.expense_invoices or [])
         _resolve_client_expense_rates(update_data["expense_invoices"], SettlementFx(db, "commercial"))
+        _derive_expense_egp(update_data["expense_invoices"])
         _validate_client_expenses(update_data["expense_invoices"])
     old_data = {k: getattr(existing, k, None) for k in update_data.keys()}
 
@@ -963,7 +1121,7 @@ def simulate_estimated_landed_cost_service(
     # 1. Fetch Purchase Orders and Items (FS-05, ACC2-T01: partial shipments supported)
     line_shares = file_po_line_shares(db, imp_file, messages=messages)
 
-    currency = "USD"
+    currency: Optional[str] = None
     items_raw = []
     line_no = 1
 
@@ -980,6 +1138,8 @@ def simulate_estimated_landed_cost_service(
         qty = share_qty
         u_price = float(itm.unit_price or 0.0)
         tot_price = round(qty * u_price, 2)
+        if tot_price > 0 and not po_currency:
+            raise currency_missing_error("Purchase Order", getattr(po, "po_number", None) if po else None)
 
         w_kg = round(float(itm.gross_weight_kg or 0.0) * ratio, 4)
         cbm_val = round(float(itm.total_cbm or 0.0) * ratio, 4)
@@ -1009,8 +1169,11 @@ def simulate_estimated_landed_cost_service(
         for inv in imp_file.invoices_data:
             inv_amt = float(inv.get("amount") or 0.0)
             if inv_amt > 0:
-                inv_curr = inv.get("currency") or "USD"
-                currency = inv_curr
+                inv_curr = inv.get("currency")
+                if not inv_curr or not str(inv_curr).strip():
+                    inv_no = inv.get("invoice_no") or inv.get("invoice_number")
+                    raise currency_missing_error("Commercial Invoice", inv_no)
+                currency = str(inv_curr).strip()
                 items_raw.append({
                     "line_no": line_no,
                     "item_code": f"INV-{line_no:03d}",
@@ -1027,7 +1190,9 @@ def simulate_estimated_landed_cost_service(
 
     if not items_raw and (imp_file.estimated_cost or 0) > 0:
         cost = float(imp_file.estimated_cost)
-        currency = imp_file.estimated_cost_currency or "USD"
+        if not imp_file.estimated_cost_currency or not str(imp_file.estimated_cost_currency).strip():
+            raise currency_missing_error("Import File Estimated Cost", imp_file.import_file_code)
+        currency = str(imp_file.estimated_cost_currency).strip()
         items_raw.append({
             "line_no": 1,
             "item_code": "ITM-001",
@@ -1057,8 +1222,10 @@ def simulate_estimated_landed_cost_service(
     customs_fx = SettlementFx(db, "customs")
     if req.exchange_rate_override and req.exchange_rate_override > 0:
         fx_rate = float(req.exchange_rate_override)
-    else:
+    elif currency:
         fx_rate = customs_fx.rate(currency, calc_date)
+    else:
+        fx_rate = 1.0
 
     # Multi-currency POs (review 3 #7): a line in another PO currency is restated in the reference currency at
     # the ratio of the two customs rates, so every EGP value is the line's own currency x its own customs rate.
@@ -1117,6 +1284,18 @@ def simulate_estimated_landed_cost_service(
             freight_egp = total_fob_egp * (deemed_freight_pct / 100.0)
             freight_src = deemed_freight_src
 
+    ship_mode = (getattr(imp_file, "shipment_mode", None) or getattr(imp_file, "shipping_mode", None) or "").lower()
+    is_air = "air" in ship_mode or "طيران" in ship_mode or "جوي" in ship_mode
+    intended_freight_rule = "Weight-Based" if is_air else "Volume-Based"
+    freight_ratios, actual_freight_rule, missing_freight = allocation_ratios(items_raw, intended_freight_rule)
+    if missing_freight and freight_egp > 0:
+        messages.append(_message(
+            ALLOCATION_BASIS_INCOMPLETE,
+            bucket="Ocean/Air Freight",
+            rule=intended_freight_rule,
+            item_codes=", ".join(missing_freight),
+        ))
+
     expenses_breakdown.append(EstimatedLandedCostExpenseItem(
         category="Ocean/Air Freight",
         description="النولون والشحن الدولي التقديري",
@@ -1125,7 +1304,7 @@ def simulate_estimated_landed_cost_service(
         amount_egp=round(freight_egp, 2),
         is_estimated=True,
         source=freight_src,
-        allocation_rule="Volume-Based" if any(i["cbm"] > 0 for i in items_raw) else "Weight-Based" if any(i["weight_kg"] > 0 for i in items_raw) else "Value-Based",
+        allocation_rule=actual_freight_rule,
     ))
 
     # 4. Resolve Marine Insurance (deemed % or override)
@@ -1191,18 +1370,22 @@ def simulate_estimated_landed_cost_service(
         total_vat_egp = float(customs_breakdown.total_vat_egp)
         total_schedule_tax_egp = float(customs_breakdown.total_schedule_tax_egp)
         total_service_fee_egp = float(customs_breakdown.total_customs_service_fee_egp)
-        total_taxes_and_fees_egp = float(getattr(customs_breakdown, "items_taxes_total_egp", None) or getattr(customs_breakdown, "grand_total_payable_egp", 0.0) or (total_customs_duty_egp + total_vat_egp + total_schedule_tax_egp + total_service_fee_egp))
+        total_inspection_fees_egp = float(getattr(customs_breakdown, "total_inspection_fees_egp", 0.0) or 0.0)
+        total_taxes_and_fees_egp = float(getattr(customs_breakdown, "items_taxes_total_egp", None) or getattr(customs_breakdown, "grand_total_payable_egp", 0.0) or (total_customs_duty_egp + total_vat_egp + total_schedule_tax_egp + total_service_fee_egp + total_inspection_fees_egp))
         customs_line_map = {l.line_no: l for l in customs_breakdown.lines}
     else:
         total_customs_duty_egp = total_vat_egp = total_schedule_tax_egp = total_service_fee_egp = 0.0
+        total_inspection_fees_egp = 0.0
         total_taxes_and_fees_egp = 0.0
         customs_line_map = {}
+
+    vat_and_taxes_line_egp = round(total_taxes_and_fees_egp - total_customs_duty_egp, 2)
 
     expenses_breakdown.append(EstimatedLandedCostExpenseItem(
         category="Customs Duties",
         description="ضريبة الوارد الجمركية (Import Duty)",
         amount_fc=round(total_customs_duty_egp / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(total_customs_duty_egp, 2),
         is_estimated=True,
         source="محرك التعريفة الجمركية المصري MD-008",
@@ -1212,9 +1395,9 @@ def simulate_estimated_landed_cost_service(
     expenses_breakdown.append(EstimatedLandedCostExpenseItem(
         category="VAT & Taxes",
         description="ضريبة القيمة المضافة وضريبة الجدول ورسوم الخدمات الجمركية",
-        amount_fc=round((total_vat_egp + total_schedule_tax_egp + total_service_fee_egp) / fx_rate, 2),
-        currency="EGP",
-        amount_egp=round(total_vat_egp + total_schedule_tax_egp + total_service_fee_egp, 2),
+        amount_fc=round(vat_and_taxes_line_egp / fx_rate, 2),
+        currency=currency,
+        amount_egp=vat_and_taxes_line_egp,
         is_estimated=True,
         source="مصلحة الضرائب المصرية وقانون القيمة المضافة",
         allocation_rule="Direct HS Code Allocation",
@@ -1231,7 +1414,7 @@ def simulate_estimated_landed_cost_service(
         category="Customs Clearance & Brokerage",
         description="أتعاب التخليص الجمركي وإصدار إذن التسليم والتراخيص",
         amount_fc=round(clearance_fee / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(clearance_fee, 2),
         is_estimated=True,
         source="تقدير قياسي / مخلص معتمد" if req.clearance_fees_egp_override is None else "تعديل يدوي",
@@ -1242,29 +1425,38 @@ def simulate_estimated_landed_cost_service(
         category="Port & Terminal Handling (THC)",
         description="مصاريف الميناء والتفريغ والعتالة والتخزين المؤقت",
         amount_fc=round(port_handling / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(port_handling, 2),
         is_estimated=True,
         source="تعريفة محطة الحاويات والميناء" if req.port_handling_egp_override is None else "تعديل يدوي",
         allocation_rule="Volume-Based" if any(i["cbm"] > 0 for i in items_raw) else "Weight-Based" if any(i["weight_kg"] > 0 for i in items_raw) else "Value-Based",
     ))
 
+    inland_ratios, actual_inland_rule, missing_inland = allocation_ratios(items_raw, "Weight-Based")
+    if missing_inland and inland_trucking > 0:
+        messages.append(_message(
+            ALLOCATION_BASIS_INCOMPLETE,
+            bucket="Inland Transport",
+            rule="Weight-Based",
+            item_codes=", ".join(missing_inland),
+        ))
+
     expenses_breakdown.append(EstimatedLandedCostExpenseItem(
         category="Inland Transport",
         description="النقل الداخلي بالشاحنات من ميناء الوصول لمخازن الشركة",
         amount_fc=round(inland_trucking / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(inland_trucking, 2),
         is_estimated=True,
         source="أسعار النقل البري المعتمدة" if req.inland_transport_egp_override is None else "تعديل يدوي",
-        allocation_rule="Weight-Based" if any(i["weight_kg"] > 0 for i in items_raw) else "Volume-Based" if any(i["cbm"] > 0 for i in items_raw) else "Value-Based",
+        allocation_rule=actual_inland_rule,
     ))
 
     expenses_breakdown.append(EstimatedLandedCostExpenseItem(
         category="Banking & Form 4 Fees",
         description="عمولات التحويلات البنكية ومصاريف استخراج نموذج 4 وفتح الاعتماد",
         amount_fc=round(bank_fees / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(bank_fees, 2),
         is_estimated=True,
         source="جدول العمولات البنكية الرسمي" if req.bank_fees_egp_override is None else "تعديل يدوي",
@@ -1275,7 +1467,7 @@ def simulate_estimated_landed_cost_service(
         category="Inspection & Administrative",
         description="فحص الرقابة على الصادرات والواردات، رسوم كارجو إكس، ومصاريف إدارية",
         amount_fc=round(other_fees / fx_rate, 2),
-        currency="EGP",
+        currency=currency,
         amount_egp=round(other_fees, 2),
         is_estimated=True,
         source="مصاريف إدارية تقديرية" if req.other_expenses_egp_override is None else "تعديل يدوي",
@@ -1284,12 +1476,19 @@ def simulate_estimated_landed_cost_service(
 
     # 7. Allocation per item
     pref = req.allocation_preference or "Value-Based"
-    total_weight = sum(i["weight_kg"] for i in items_raw)
-    total_cbm = sum(i["cbm"] for i in items_raw)
+    primary_ratios, actual_pri_rule, missing_pri = allocation_ratios(items_raw, pref)
+    if missing_pri and (clearance_fee + port_handling) > 0:
+        messages.append(_message(
+            ALLOCATION_BASIS_INCOMPLETE,
+            bucket="Clearance & Port",
+            rule=pref,
+            item_codes=", ".join(missing_pri),
+        ))
+    val_ratios, _, _ = allocation_ratios(items_raw, "Value-Based")
 
     items_breakdown: List[EstimatedLandedCostItemBreakdown] = []
 
-    for itm in items_raw:
+    for idx, itm in enumerate(items_raw):
         l_no = itm["line_no"]
         c_line = customs_line_map.get(l_no)
         excluded_from_customs = itm["customs_excluded"]
@@ -1298,28 +1497,17 @@ def simulate_estimated_landed_cost_service(
         qty = _unit_qty(itm["qty"])
         fob_unit_egp = fob_item_egp / qty
 
-        # Ratios
-        val_ratio = (fob_item_egp / total_fob_egp) if total_fob_egp > 0 else (1.0 / len(items_raw))
-        wt_ratio = (itm["weight_kg"] / total_weight) if total_weight > 0 else val_ratio
-        cbm_ratio = (itm["cbm"] / total_cbm) if total_cbm > 0 else wt_ratio
-
-        # Select allocation ratio based on preference
-        if pref == "Weight-Based" and total_weight > 0:
-            primary_ratio = wt_ratio
-        elif pref == "Volume-Based" and total_cbm > 0:
-            primary_ratio = cbm_ratio
-        else:
-            primary_ratio = val_ratio
-
         # Allocation shares
-        alloc_freight = freight_egp * (cbm_ratio if total_cbm > 0 else (wt_ratio if total_weight > 0 else val_ratio))
-        alloc_ins = insurance_egp * val_ratio
+        alloc_freight = freight_egp * freight_ratios[idx]
+        alloc_ins = insurance_egp * val_ratios[idx]
 
         if excluded_from_customs:
             alloc_duty = 0.0
             alloc_vat = 0.0
         else:
-            alloc_duty = float(c_line.duty_egp) if c_line else (total_customs_duty_egp * val_ratio)
+            inc_val_ratio = (itm["fob_total_fc"] / included_fob_fc) if included_fob_fc > 0 else 0.0
+            alloc_duty = float(c_line.duty_egp) if c_line else (total_customs_duty_egp * inc_val_ratio)
+            alloc_inspection = total_inspection_fees_egp * inc_val_ratio
             alloc_vat = (
                 float(
                     c_line.vat_egp
@@ -1328,13 +1516,14 @@ def simulate_estimated_landed_cost_service(
                     + getattr(c_line, "development_fee_egp", 0.0)
                     + getattr(c_line, "import_fee_egp", 0.0)
                 )
+                + alloc_inspection
                 if c_line
-                else ((total_vat_egp + total_schedule_tax_egp + total_service_fee_egp) * val_ratio)
+                else ((total_taxes_and_fees_egp - total_customs_duty_egp) * inc_val_ratio)
             )
 
-        alloc_clearance_port = (clearance_fee + port_handling) * primary_ratio
-        alloc_inland = inland_trucking * (wt_ratio if total_weight > 0 else primary_ratio)
-        alloc_other = (bank_fees + other_fees) * val_ratio
+        alloc_clearance_port = (clearance_fee + port_handling) * primary_ratios[idx]
+        alloc_inland = inland_trucking * inland_ratios[idx]
+        alloc_other = (bank_fees + other_fees) * val_ratios[idx]
 
         tot_alloc_expenses = (
             alloc_freight + alloc_ins + alloc_duty + alloc_vat +
@@ -1505,33 +1694,92 @@ def aggregate_shipment_invoices_service(
     imp = require_active(db, ImportFile, import_file_id, IMPORT_FILE_LABEL_AR, status_code=404)
     fx = SettlementFx(db, "commercial")
 
-    currency = imp.estimated_cost_currency or "USD"
+    currency: Optional[str] = None
     messages: List[SettlementMessage] = []
     goods_rate: Optional[float] = None
 
     invoices: List[AggregatedInvoiceItemSchema] = []
 
     # 1. Commercial Goods Invoices (FOB / CIF from PO & Invoices Data)
+    # Query Paid supplier payment requests for this import file (ACC2-T07)
+    import sqlalchemy as sa
+    from modules.financial_approval.model import PaymentRequestSession
+
+    paid_supplier_reqs = (
+        db.query(PaymentRequestSession)
+        .filter(
+            PaymentRequestSession.import_file_id == import_file_id,
+            PaymentRequestSession.is_active == True,
+            sa.func.lower(PaymentRequestSession.status) == "paid",
+        )
+        .order_by(PaymentRequestSession.payment_id.asc())
+        .all()
+    )
+
+    paid_fc_by_curr: Dict[str, float] = {}
+    for req in paid_supplier_reqs:
+        c_code = (req.swift_transferred_currency or req.currency_code or "").strip().upper()
+        if c_code:
+            amt = float(req.swift_transferred_amount if req.swift_transferred_amount is not None else (req.requested_amount or 0.0))
+            paid_fc_by_curr[c_code] = paid_fc_by_curr.get(c_code, 0.0) + amt
+
+    file_has_supplier_reqs = (
+        db.query(PaymentRequestSession)
+        .filter(
+            PaymentRequestSession.import_file_id == import_file_id,
+            PaymentRequestSession.is_active == True,
+        )
+        .count() > 0
+    )
+
+    unallocated_paid_fc = dict(paid_fc_by_curr)
+    allocated_goods_egp_at_inv_rate = 0.0
+
     invoices_data = imp.invoices_data or []
     if invoices_data and isinstance(invoices_data, list):
         for idx, inv in enumerate(invoices_data):
             inv_no = str(inv.get("invoice_no") or inv.get("invoice_number") or f"COMM-{imp.import_file_code}-{idx+1}")
             inv_date = str(inv.get("invoice_date") or (imp.file_opening_date or ""))
-            c_curr = str(inv.get("currency") or currency)
-            if c_curr.upper() == "EGP":
+            amt_fc = float(inv.get("amount") or inv.get("total_amount") or inv.get("total_fob") or 0.0)
+            inv_curr = inv.get("currency")
+            if amt_fc > 0:
+                if not inv_curr or not str(inv_curr).strip():
+                    raise currency_missing_error("Commercial Invoice", inv_no)
+                c_curr = str(inv_curr).strip().upper()
+                if not currency:
+                    currency = c_curr
+            else:
+                c_curr = str(inv_curr).strip().upper() if inv_curr else (currency or "EGP")
+
+            if c_curr == "EGP":
                 c_rate = float(inv.get("exchange_rate") or 1.0)
             elif inv.get("exchange_rate") and float(inv.get("exchange_rate")) != 1.0:  # 1.0 on foreign = not set
                 c_rate = float(inv.get("exchange_rate"))
             else:
                 c_rate = fx.rate(c_curr, _as_date(inv.get("invoice_date")))
-            if goods_rate is None:
+            if goods_rate is None and amt_fc > 0:
                 goods_rate = c_rate
-            amt_fc = float(inv.get("amount") or inv.get("total_amount") or inv.get("total_fob") or 0.0)
             amt_egp = round(amt_fc * c_rate if c_curr != "EGP" else amt_fc, 2)
-            is_paid = bool(imp.swift_no or inv.get("payment_status") == "PAID" or inv.get("paid"))
-            paid_egp = amt_egp if is_paid else 0.0
-            rem_egp = max(0.0, amt_egp - paid_egp)
-            status = "PAID" if rem_egp == 0 else ("PARTIAL" if paid_egp > 0 else "UNPAID")
+
+            # Sourcing paid amounts (ACC2-T07): when PaymentRequestSession rows exist for the file,
+            # allocate transferred FC from Paid requests only (imp.swift_no does NOT decide).
+            # When no payment requests exist in the system for this file, legacy swift_no / paid flag applies.
+            if file_has_supplier_reqs:
+                avail_fc = unallocated_paid_fc.get(c_curr, 0.0)
+                inv_paid_fc = min(avail_fc, amt_fc) if amt_fc > 0 else 0.0
+                unallocated_paid_fc[c_curr] = max(0.0, avail_fc - inv_paid_fc)
+                paid_egp = round(inv_paid_fc * c_rate if c_curr != "EGP" else inv_paid_fc, 2)
+                allocated_goods_egp_at_inv_rate += paid_egp
+            else:
+                is_paid = bool(imp.swift_no or inv.get("payment_status") == "PAID" or inv.get("paid"))
+                inv_paid_fc = amt_fc if is_paid else 0.0
+                paid_egp = amt_egp if is_paid else 0.0
+
+            rem_egp = max(0.0, round(amt_egp - paid_egp, 2))
+            status = "PAID" if rem_egp == 0 and amt_egp > 0 else ("PARTIAL" if paid_egp > 0 else "UNPAID")
+
+            swift_refs = [r.swift_reference_no for r in paid_supplier_reqs if r.swift_reference_no]
+            pay_ref = ", ".join(swift_refs) if swift_refs else (imp.swift_no or inv.get("payment_ref") or "سويفت بنكي")
 
             invoices.append(AggregatedInvoiceItemSchema(
                 invoice_id=f"COMM-{idx+1}",
@@ -1549,7 +1797,7 @@ def aggregate_shipment_invoices_service(
                 paid_amount_egp=paid_egp,
                 remaining_amount_egp=rem_egp,
                 payment_status=status,
-                payment_reference=imp.swift_no or inv.get("payment_ref") or "سويفت بنكي",
+                payment_reference=pay_ref,
                 withholding_tax_rate=0.0,
                 withholding_tax_amount_egp=0.0,
                 net_payable_egp=amt_egp,
@@ -1557,14 +1805,30 @@ def aggregate_shipment_invoices_service(
                 notes=f"فاتورة تجارية للشحنة {imp.import_file_code}",
             ))
     elif imp.estimated_cost and imp.estimated_cost > 0:
+        if not imp.estimated_cost_currency or not str(imp.estimated_cost_currency).strip():
+            raise currency_missing_error("Import File Estimated Cost", imp.import_file_code)
+        currency = str(imp.estimated_cost_currency).strip().upper()
         amt_fc = float(imp.estimated_cost)
-        est_rate = 1.0 if currency.upper() == "EGP" else fx.rate(currency, _as_date(imp.file_opening_date))
+        est_rate = 1.0 if currency == "EGP" else fx.rate(currency, _as_date(imp.file_opening_date))
         goods_rate = est_rate
         amt_egp = round(amt_fc * est_rate if currency != "EGP" else amt_fc, 2)
-        is_paid = bool(imp.swift_no)
-        paid_egp = amt_egp if is_paid else 0.0
-        rem_egp = max(0.0, amt_egp - paid_egp)
-        status = "PAID" if rem_egp == 0 else "UNPAID"
+
+        if file_has_supplier_reqs:
+            avail_fc = unallocated_paid_fc.get(currency, 0.0)
+            inv_paid_fc = min(avail_fc, amt_fc) if amt_fc > 0 else 0.0
+            unallocated_paid_fc[currency] = max(0.0, avail_fc - inv_paid_fc)
+            paid_egp = round(inv_paid_fc * est_rate if currency != "EGP" else inv_paid_fc, 2)
+            allocated_goods_egp_at_inv_rate += paid_egp
+        else:
+            is_paid = bool(imp.swift_no)
+            inv_paid_fc = amt_fc if is_paid else 0.0
+            paid_egp = amt_egp if is_paid else 0.0
+
+        rem_egp = max(0.0, round(amt_egp - paid_egp, 2))
+        status = "PAID" if rem_egp == 0 and amt_egp > 0 else ("PARTIAL" if paid_egp > 0 else "UNPAID")
+
+        swift_refs = [r.swift_reference_no for r in paid_supplier_reqs if r.swift_reference_no]
+        pay_ref = ", ".join(swift_refs) if swift_refs else (imp.swift_no or "سويفت بنكي")
 
         invoices.append(AggregatedInvoiceItemSchema(
             invoice_id="COMM-1",
@@ -1582,7 +1846,7 @@ def aggregate_shipment_invoices_service(
             paid_amount_egp=paid_egp,
             remaining_amount_egp=rem_egp,
             payment_status=status,
-            payment_reference=imp.swift_no or "سويفت بنكي",
+            payment_reference=pay_ref,
             withholding_tax_rate=0.0,
             withholding_tax_amount_egp=0.0,
             net_payable_egp=amt_egp,
@@ -1680,6 +1944,15 @@ def aggregate_shipment_invoices_service(
             has_customs_inv = True
             rem = max(0.0, c_duty - paid)
             p_stat = "PAID" if rem == 0 else ("PARTIAL" if paid > 0 else "UNPAID")
+            customs_components: List[CustomsDutyComponentSchema] = []
+            for field_name, cat in DUTY_COMPONENT_CATEGORIES:
+                val = float(getattr(cl, field_name, 0.0) or 0.0)
+                if val > 0:
+                    customs_components.append(CustomsDutyComponentSchema(
+                        component=field_name,
+                        category=cat,
+                        amount_egp=val,
+                    ))
             invoices.append(AggregatedInvoiceItemSchema(
                 invoice_id=f"CUST-{cl.customs_clearance_id}",
                 invoice_no=cl.sadad_number or cl.declaration_46_no or cl.bank_receipt_no or f"DECL46-{imp.import_file_code}",
@@ -1702,6 +1975,7 @@ def aggregate_shipment_invoices_service(
                 net_payable_egp=c_duty,
                 source_module="Customs Declaration 46",
                 notes=f"سداد جمركي إقرار 46 رقم {cl.declaration_46_no or 'سداد'}",
+                components=customs_components,
             ))
 
         # Delivery order fees (converted at the delivery order date when not in EGP, FS-10)
@@ -1796,11 +2070,6 @@ def aggregate_shipment_invoices_service(
             amt = round(float(cl_inv.amount_fx * inv_rate), 2)  # stored rows are cents (review 2 #9)
         is_p = (cl_inv.payment_status or "").lower() in ("paid", "مسدد")
         is_part = "part" in (cl_inv.payment_status or "").lower()
-        # A partial payment has no stored paid amount: it is reported as unknown and counted as 0 paid (FS-10).
-        paid = float(cl_inv.net_payable_egp if is_p else 0.0)
-        if is_part:
-            messages.append(_message(PAYMENT_STATUS_UNKNOWN, invoice_no=inv_ref, party_name=cl_inv.provider_name or "-"))
-        rem = max(0.0, float(cl_inv.net_payable_egp or amt) - paid)
         # WHT rate valid on the invoice date (Cairo, tax_rates table); a stored wht_amount always wins.
         wht_rate = 0.0
         if cl_inv.wht_deducted:
@@ -1825,6 +2094,12 @@ def aggregate_shipment_invoices_service(
             wht_rate = configured or 0.0
         wht_amt = float(cl_inv.wht_amount or (wht_amount_for(amt, wht_rate) if cl_inv.wht_deducted else 0.0))
         net = float(cl_inv.net_payable_egp or (amt - wht_amt))
+
+        # A partial payment has no stored paid amount: it is reported as unknown and counted as 0 paid (FS-10).
+        paid = net if is_p else 0.0
+        if is_part:
+            messages.append(_message(PAYMENT_STATUS_UNKNOWN, invoice_no=inv_ref, party_name=cl_inv.provider_name or "-"))
+        rem = max(0.0, net - paid)
 
         invoices.append(AggregatedInvoiceItemSchema(
             invoice_id=f"BROKER-{cl_inv.invoice_id}",
@@ -2019,7 +2294,9 @@ def aggregate_shipment_invoices_service(
         cost = float(d.total_cost_egp or 0.0)
         tot_fx = float(d.total_demurrage_fx or 0.0) + float(d.total_detention_fx or 0.0)
         if cost > 0 or tot_fx > 0:
-            d_ccy = (d.currency or "USD").upper()
+            if tot_fx > 0 and (not d.currency or not str(d.currency).strip()):
+                raise currency_missing_error("Demurrage Tracking", d.tracking_code or str(d.tracking_id))
+            d_ccy = (d.currency or "EGP").upper()
             if d.exchange_rate:
                 d_rate = float(d.exchange_rate)
             elif d_ccy == "EGP":
@@ -2039,7 +2316,7 @@ def aggregate_shipment_invoices_service(
                 party_name=d.carrier_name or "الخط الملاحي",
                 category="Demurrage & Detention",
                 category_ar="غرامات تأخير الحاويات ورسوم الأرضيات",
-                currency=d.currency or "USD",
+                currency=d.currency or "EGP",
                 exchange_rate=d_rate,
                 amount_fc=tot_fx,
                 amount_egp=amt_egp,
@@ -2067,11 +2344,14 @@ def aggregate_shipment_invoices_service(
                 "total_egp": 0.0,
                 "paid_egp": 0.0,
                 "remaining_egp": 0.0,
+                "net_payable_egp": 0.0,
             }
         parties_map[pkey]["invoices_count"] += 1
         parties_map[pkey]["total_egp"] = round(parties_map[pkey]["total_egp"] + inv.amount_egp, 2)
         parties_map[pkey]["paid_egp"] = round(parties_map[pkey]["paid_egp"] + inv.paid_amount_egp, 2)
         parties_map[pkey]["remaining_egp"] = round(parties_map[pkey]["remaining_egp"] + inv.remaining_amount_egp, 2)
+        net_egp = inv.net_payable_egp if inv.net_payable_egp is not None else inv.amount_egp
+        parties_map[pkey]["net_payable_egp"] = round(parties_map[pkey].get("net_payable_egp", 0.0) + net_egp, 2)
 
     parties_summary = [InvoicesPartySummary(**pdata) for pdata in parties_map.values()]
 
@@ -2079,7 +2359,8 @@ def aggregate_shipment_invoices_service(
     total_paid = round(sum(inv.paid_amount_egp for inv in invoices), 2)
     total_rem = round(sum(inv.remaining_amount_egp for inv in invoices), 2)
     total_wht = round(sum(inv.withholding_tax_amount_egp for inv in invoices), 2)
-    readiness = round((total_paid / total_amt * 100.0), 1) if total_amt > 0 else 100.0
+    total_net = round(sum((inv.net_payable_egp if inv.net_payable_egp is not None else inv.amount_egp) for inv in invoices), 2)
+    readiness = min(100.0, round((total_paid / total_net * 100.0), 1)) if total_net > 0 else 100.0
 
     warnings: List[str] = list(wht_warnings)
     for inv in invoices:
@@ -2093,10 +2374,19 @@ def aggregate_shipment_invoices_service(
     # The reported rate: the goods invoice rate, else the file currency rate today (display only, 0 when missing).
     if goods_rate is not None:
         reported_rate = goods_rate
-    elif currency.upper() == "EGP":
+    elif currency and currency.upper() == "EGP":
         reported_rate = 1.0
-    else:
+    elif currency:
         reported_rate = fx.rate_or_none(currency) or 0.0
+    else:
+        reported_rate = 0.0
+
+    # Realised FX difference on supplier payments (ACC2-T07): sum(paid_amount_egp) - sum(paid FC x invoice rate)
+    fx_diff_egp: Optional[float] = None
+    paid_reqs_with_debit = [r for r in paid_supplier_reqs if r.paid_amount_egp is not None]
+    if paid_reqs_with_debit:
+        total_paid_debit_egp = sum(float(r.paid_amount_egp) for r in paid_reqs_with_debit)
+        fx_diff_egp = round(total_paid_debit_egp - allocated_goods_egp_at_inv_rate, 2)
 
     return InvoicesAggregationResponse(
         import_file_id=imp.import_file_id,
@@ -2108,8 +2398,10 @@ def aggregate_shipment_invoices_service(
         total_amount_egp=total_amt,
         total_paid_egp=total_paid,
         total_remaining_egp=total_rem,
+        total_net_payable_egp=total_net,
         total_withholding_tax_egp=total_wht,
         settlement_readiness_percent=readiness,
+        fx_difference_egp=fx_diff_egp,
         financial_settlement_status=imp.financial_settlement_status or "PENDING_SETTLEMENT",
         parties_summary=parties_summary,
         invoices=invoices,
@@ -2141,8 +2433,15 @@ def confirm_invoices_settlement_service(
     agg = aggregate_shipment_invoices_service(db, payload.import_file_id)
     invoices = agg.invoices
 
+    unpaid_count = sum(1 for inv in invoices if inv.payment_status != "PAID")
+    ensure_invoices_settlement_ready(
+        agg.settlement_readiness_percent,
+        unpaid_count,
+        payload.acknowledge_unpaid,
+    )
+
     total_settled_egp = round(sum(inv.amount_egp for inv in invoices), 2)
-    today_date = datetime.now(timezone.utc).date()
+    today_date = cairo_today()
     today_str = str(today_date)
 
     old_data = {
@@ -2169,10 +2468,11 @@ def confirm_invoices_settlement_service(
         SmartTask.status != "Completed",
         SmartTask.task_code.ilike("TSK-0901%"),
     ).all()
+    ack_suffix = " (unpaid acknowledged)" if payload.acknowledge_unpaid else ""
     for t in tasks_901:
         t.status = "Completed"
         t.is_auto_closed = True
-        t.notes = f"Invoices settlement and reconciliation approved by {actor} on {today_str}"
+        t.notes = f"Invoices settlement and reconciliation approved by {actor} on {today_str}{ack_suffix}"
 
     # 3. Create downstream SmartTask TSK-0902
     task_code_902 = f"TSK-0902-{imp.import_file_id}"
@@ -2290,6 +2590,39 @@ def _is_goods_invoice(inv: AggregatedInvoiceItemSchema) -> bool:
     return "goods" in cat or "fob" in cat or "commercial" in cat
 
 
+def scale_item_fobs_to_header(items: List[Dict[str, Any]], target_fob_egp: float) -> None:
+    """Scale item fob_total_egp so they sum exactly to target_fob_egp using largest remainder (ACC2-T06).
+    Distributes cents with largest remainder so the rounded item FOB sum equals the rounded header.
+    fob_unit = fob_total / qty (unrounded internally).
+    """
+    if not items:
+        return
+    total_fob = sum(float(i.get("fob_total_egp", 0.0) or 0.0) for i in items)
+    if total_fob <= 0:
+        return
+    target_cents = int(round(target_fob_egp * 100))
+    allocations = []
+    for idx, item in enumerate(items):
+        fob = float(item.get("fob_total_egp", 0.0) or 0.0)
+        share_cents = (fob / total_fob) * target_cents
+        base_cents = int(math.floor(share_cents))
+        rem = share_cents - base_cents
+        allocations.append({"idx": idx, "base": base_cents, "rem": rem})
+
+    deficit = target_cents - sum(a["base"] for a in allocations)
+    allocations.sort(key=lambda a: (-a["rem"], a["idx"]))
+    for i in range(deficit):
+        allocations[i]["base"] += 1
+
+    allocations.sort(key=lambda a: a["idx"])
+    for idx, item in enumerate(items):
+        cents = allocations[idx]["base"]
+        item_fob = round(cents / 100.0, 2)
+        qty = float(item.get("qty", 1.0) or 1.0)
+        item["fob_total_egp"] = item_fob
+        item["fob_unit_egp"] = (item_fob / qty) if qty > 0 else item_fob
+
+
 def calculate_actual_landed_cost_service(
     db: Session,
     import_file_id: int,
@@ -2317,6 +2650,8 @@ def _calculate_actual_landed_cost(
     pref = req.allocation_preference or "Value-Based"
     fx = SettlementFx(db, "commercial")
     messages: List[SettlementMessage] = []
+    unit_tol = get_float_parameter(db, PARAM_VARIANCE_UNIT_TOLERANCE_EGP, DEFAULT_VARIANCE_UNIT_TOLERANCE_EGP)
+    file_tol = get_float_parameter(db, PARAM_VARIANCE_FILE_TOLERANCE_EGP, DEFAULT_VARIANCE_FILE_TOLERANCE_EGP)
 
     # 1. Fetch simulation estimates (PL-08) for baseline comparison. A domain failure (e.g. missing customs rate)
     # leaves the estimate out with a message; anything else propagates (FS-13).
@@ -2332,22 +2667,12 @@ def _calculate_actual_landed_cost(
     agg = aggregate_shipment_invoices_service(db, import_file_id)
     messages.extend(agg.messages)
     all_invoices = agg.invoices
-    currency = agg.currency or "USD"
+    currency = agg.currency
     exchange_rate = agg.exchange_rate
 
     # Separate FOB Goods from other Expenses
     goods_invoices = [inv for inv in all_invoices if _is_goods_invoice(inv)]
     expense_invoices = [inv for inv in all_invoices if inv not in goods_invoices]
-
-    # Calculate actual FOB from goods invoices, or fallback to simulation / estimated_cost
-    if goods_invoices:
-        actual_total_fob_egp = sum(inv.amount_egp for inv in goods_invoices)
-    elif sim and sim.total_fob_egp > 0:
-        actual_total_fob_egp = sim.total_fob_egp
-    elif (imp.estimated_cost or 0) > 0:
-        actual_total_fob_egp = float(imp.estimated_cost) * fx.rate(currency, _as_date(imp.file_opening_date))
-    else:
-        actual_total_fob_egp = 0.0
 
     # Category buckets for actual expenses
     cat_expenses = {
@@ -2362,40 +2687,67 @@ def _calculate_actual_landed_cost(
     }
 
     for inv in expense_invoices:
-        bucket = actual_expense_bucket(inv.category, inv.party_type)
-        cat_expenses[bucket]["actual"] += float(inv.amount_egp or 0.0)
-        cat_expenses[bucket]["count"] += 1
+        if inv.components:
+            for comp in inv.components:
+                b = CUSTOMS_COMPONENT_BUCKET.get(comp.component, actual_expense_bucket(comp.category, inv.party_type))
+                cat_expenses[b]["actual"] += float(comp.amount_egp or 0.0)
+                cat_expenses[b]["count"] += 1
+        else:
+            bucket = actual_expense_bucket(inv.category, inv.party_type)
+            cat_expenses[bucket]["actual"] += float(inv.amount_egp or 0.0)
+            cat_expenses[bucket]["count"] += 1
 
     actual_total_expenses_egp = sum(c["actual"] for c in cat_expenses.values())
-    actual_total_landed_cost_egp = actual_total_fob_egp + actual_total_expenses_egp
-    actual_markup_factor = (actual_total_landed_cost_egp / actual_total_fob_egp) if actual_total_fob_egp > 0 else 1.0
 
     # Estimated numbers from simulation (duty / VAT split = the simulation's own totals, FS-07)
-    est_total_fob = sim.total_fob_egp if sim else actual_total_fob_egp
-    est_freight = sim.total_freight_egp if sim else 0.0
-    est_ins = sim.total_insurance_egp if sim else 0.0
-    est_taxes = sim.total_customs_and_taxes_egp if sim else 0.0
-    est_duty = sim.total_customs_duty_egp if sim else 0.0
-    est_vat = sim.total_vat_and_fees_egp if sim else 0.0
-    est_clearance = sim.total_clearance_and_port_egp if sim else 0.0
-    est_transport = sim.total_inland_transport_egp if sim else 0.0
-    est_demurrage = 0.0 # usually 0 planned
-    est_other = sim.total_other_expenses_egp if sim else 0.0
-
-    est_total_expenses = sim.total_expenses_egp if sim else (est_freight + est_ins + est_taxes + est_clearance + est_transport + est_other)
-    est_total_landed = sim.total_landed_cost_egp if sim else (est_total_fob + est_total_expenses)
-    est_markup = sim.average_markup_factor if sim else 1.0
-
-    cat_est_map = {
-        "Freight": est_freight,
-        "Insurance": est_ins,
-        "Customs Duty": est_duty,
-        "VAT & Taxes": est_vat,
-        "Clearance & Port": est_clearance,
-        "Inland Transport": est_transport,
-        "Demurrage & Storage": est_demurrage,
-        "Other & Admin": est_other,
-    }
+    if sim:
+        est_total_fob = sim.total_fob_egp
+        est_freight = sim.total_freight_egp
+        est_ins = sim.total_insurance_egp
+        est_taxes = sim.total_customs_and_taxes_egp
+        est_duty = sim.total_customs_duty_egp
+        est_vat = sim.total_vat_and_fees_egp
+        est_clearance = sim.total_clearance_and_port_egp
+        est_transport = sim.total_inland_transport_egp
+        est_demurrage = 0.0 # usually 0 planned
+        est_other = sim.total_other_expenses_egp
+        est_total_expenses = sim.total_expenses_egp
+        est_total_landed = sim.total_landed_cost_egp
+        est_markup = sim.average_markup_factor
+        cat_est_map = {
+            "Freight": est_freight,
+            "Insurance": est_ins,
+            "Customs Duty": est_duty,
+            "VAT & Taxes": est_vat,
+            "Clearance & Port": est_clearance,
+            "Inland Transport": est_transport,
+            "Demurrage & Storage": est_demurrage,
+            "Other & Admin": est_other,
+        }
+        for b_key, est_val in cat_est_map.items():
+            if est_val and est_val > 0 and cat_expenses.get(b_key, {}).get("count", 0) == 0:
+                messages.append(
+                    _message(
+                        ACTUAL_SOURCE_MISSING,
+                        bucket=b_key,
+                        estimated_egp=round(est_val, 2),
+                    )
+                )
+    else:
+        est_total_fob = None
+        est_freight = None
+        est_ins = None
+        est_taxes = None
+        est_duty = None
+        est_vat = None
+        est_clearance = None
+        est_transport = None
+        est_demurrage = None
+        est_other = None
+        est_total_expenses = None
+        est_total_landed = None
+        est_markup = None
+        cat_est_map = {}
 
     # 3. Extract items to allocate across: Prefer POLineItem directly if available (ACC2-T01)
     items_raw = []
@@ -2418,7 +2770,7 @@ def _calculate_actual_landed_cost(
             fob_u_egp = fob_tot_egp / qty if qty > 0 else 0.0
 
             s_match = sim_map.get(pl.item_code)
-            est_u = float(s_match.unit_landed_cost_egp) if s_match else (fob_u_egp * est_markup)
+            est_u = float(s_match.unit_landed_cost_egp) if s_match else (float(fob_u_egp * est_markup) if (sim and est_markup) else None)
 
             items_raw.append({
                 "line_no": idx + 1,
@@ -2432,75 +2784,87 @@ def _calculate_actual_landed_cost(
                 "cbm": round(float(pl.total_cbm or 0.0) * ratio, 4),
                 "estimated_unit_landed_cost_egp": est_u,
             })
-    elif sim and sim.items_breakdown and len(sim.items_breakdown) > 0:
-        for s_itm in sim.items_breakdown:
-            items_raw.append({
-                "line_no": s_itm.line_no,
-                "item_code": s_itm.item_code,
-                "item_name": s_itm.item_name,
-                "hs_code": s_itm.hs_code,
-                "qty": float(s_itm.qty or 1.0),
-                "fob_unit_egp": float(s_itm.fob_unit_egp or 0.0),
-                "fob_total_egp": float(s_itm.fob_total_egp or 0.0),
-                "gross_weight_kg": 0.0,
-                "cbm": 0.0,
-                "estimated_unit_landed_cost_egp": float(s_itm.unit_landed_cost_egp or 0.0),
-            })
-    else:
-        # Fallback to single general cargo item
-        items_raw.append({
-            "line_no": 1,
-            "item_code": "ITM-001",
-            "item_name": imp.product_category or "General Imported Cargo",
-            "hs_code": imp.hs_code or "",
-            "qty": 1.0,
-            "fob_unit_egp": actual_total_fob_egp,
-            "fob_total_egp": actual_total_fob_egp,
-            "gross_weight_kg": 0.0,
-            "cbm": 0.0,
-            "estimated_unit_landed_cost_egp": est_total_landed,
-        })
 
     total_items_fob = sum(i["fob_total_egp"] for i in items_raw)
+
+    # 4. Single FOB basis determination and scaling (ACC2-T06, F08, F09)
+    if goods_invoices:
+        fob_basis = "INVOICE"
+        actual_total_fob_egp = sum(inv.amount_egp for inv in goods_invoices)
+        if total_items_fob > 0:
+            scale_item_fobs_to_header(items_raw, actual_total_fob_egp)
+    elif items_raw:
+        fob_basis = "PO"
+        actual_total_fob_egp = total_items_fob
+    elif sim and sim.total_fob_egp > 0:
+        fob_basis = "ESTIMATE"
+        actual_total_fob_egp = sim.total_fob_egp
+    elif (imp.estimated_cost or 0) > 0:
+        fob_basis = "ESTIMATE"
+        actual_total_fob_egp = float(imp.estimated_cost) * (fx.rate(currency, _as_date(imp.file_opening_date)) if currency else 1.0)
+    else:
+        fob_basis = "ESTIMATE"
+        actual_total_fob_egp = 0.0
+
+    actual_total_landed_cost_egp = actual_total_fob_egp + actual_total_expenses_egp
+    actual_markup_factor = (actual_total_landed_cost_egp / actual_total_fob_egp) if actual_total_fob_egp > 0 else 1.0
     total_items_wt = sum(i["gross_weight_kg"] for i in items_raw)
     total_items_cbm = sum(i["cbm"] for i in items_raw)
     n_items = len(items_raw)
 
-    # Rule actually applied per bucket (FS-09: reported as used; custom_category_allocation does not drive it, Q7)
-    if pref == "Weight-Based" and total_items_wt > 0:
-        pri_rule = "Weight-Based"
-    elif pref == "Volume-Based" and total_items_cbm > 0:
-        pri_rule = "Volume-Based"
-    elif pref == "Equal":
-        pri_rule = "Equal"
-    else:
-        pri_rule = "Value-Based"
-    rules_used = {
-        "Freight": "Volume-Based" if total_items_cbm > 0 else pri_rule,
+    ship_mode = (getattr(imp, "shipment_mode", None) or getattr(imp, "shipping_mode", None) or "").lower()
+    is_air = "air" in ship_mode or "طيران" in ship_mode or "جوي" in ship_mode
+    default_freight_rule = "Weight-Based" if is_air else "Volume-Based"
+
+    intended_rules = {
+        "Freight": default_freight_rule,
         "Insurance": "Value-Based",
         "Customs Duty": "Value-Based",
         "VAT & Taxes": "Value-Based",
-        "Clearance & Port": pri_rule,
-        "Inland Transport": "Weight-Based" if total_items_wt > 0 else pri_rule,
-        "Demurrage & Storage": pri_rule,
+        "Clearance & Port": pref,
+        "Inland Transport": "Weight-Based",
+        "Demurrage & Storage": "Volume-Based",
         "Other & Admin": "Value-Based",
     }
+
+    rules_used: Dict[str, str] = {}
+    bucket_ratios: Dict[str, List[float]] = {}
+    for b_key in cat_expenses:
+        intended = intended_rules.get(b_key, pref)
+        ratios, actual_rule, missing = allocation_ratios(items_raw, intended)
+        rules_used[b_key] = actual_rule
+        bucket_ratios[b_key] = ratios
+        if missing and cat_expenses[b_key]["actual"] > 0:
+            messages.append(_message(
+                ALLOCATION_BASIS_INCOMPLETE,
+                bucket=b_key,
+                rule=intended,
+                item_codes=", ".join(missing),
+            ))
 
     # Build Categories Breakdown
     categories_breakdown: List[ActualLandedCostCategoryBreakdown] = []
     for c_key, c_data in cat_expenses.items():
-        est_val = cat_est_map.get(c_key, 0.0)
         act_val = c_data["actual"]
-        v_egp = round(act_val - est_val, 2)
-        v_pct = round((v_egp / est_val * 100.0), 2) if est_val > 0 else (100.0 if act_val > 0 else 0.0)
+        if sim is not None:
+            est_val = cat_est_map.get(c_key, 0.0)
+            v_egp = round(act_val - est_val, 2)
+            v_pct = round((v_egp / est_val * 100.0), 2) if est_val > 0 else (100.0 if act_val > 0 else 0.0)
+            c_est_egp: Optional[float] = round(est_val, 2)
+            c_var_egp: Optional[float] = v_egp
+            c_var_pct: Optional[float] = v_pct
+        else:
+            c_est_egp = None
+            c_var_egp = None
+            c_var_pct = None
 
         categories_breakdown.append(ActualLandedCostCategoryBreakdown(
             category=c_key,
             category_ar=c_data["ar"],
-            estimated_egp=round(est_val, 2),
+            estimated_egp=c_est_egp,
             actual_egp=round(act_val, 2),
-            variance_egp=v_egp,
-            variance_pct=v_pct,
+            variance_egp=c_var_egp,
+            variance_pct=c_var_pct,
             invoices_count=c_data["count"],
             allocation_rule=rules_used[c_key],
         ))
@@ -2516,34 +2880,20 @@ def _calculate_actual_landed_cost(
     act_demurrage = cat_expenses["Demurrage & Storage"]["actual"]
     act_other = cat_expenses["Other & Admin"]["actual"]
 
-    for itm in items_raw:
+    for idx, itm in enumerate(items_raw):
         qty = _unit_qty(itm["qty"])
         fob_tot = itm["fob_total_egp"]
         fob_u = itm["fob_unit_egp"]
 
-        v_ratio = (fob_tot / total_items_fob) if total_items_fob > 0 else (1.0 / n_items)
-        w_ratio = (itm["gross_weight_kg"] / total_items_wt) if total_items_wt > 0 else v_ratio
-        c_ratio = (itm["cbm"] / total_items_cbm) if total_items_cbm > 0 else v_ratio
-        eq_ratio = 1.0 / n_items
-
-        if pref == "Weight-Based" and total_items_wt > 0:
-            pri_ratio = w_ratio
-        elif pref == "Volume-Based" and total_items_cbm > 0:
-            pri_ratio = c_ratio
-        elif pref == "Equal":
-            pri_ratio = eq_ratio
-        else:
-            pri_ratio = v_ratio
-
-        # Allocation per bucket
-        all_freight = act_freight * (c_ratio if total_items_cbm > 0 else pri_ratio)
-        all_ins = act_ins * v_ratio
-        all_duty = act_duty * v_ratio
-        all_vat = act_vat * v_ratio
-        all_clearance = act_clearance * pri_ratio
-        all_transport = act_transport * (w_ratio if total_items_wt > 0 else pri_ratio)
-        all_demurrage = act_demurrage * pri_ratio
-        all_other = act_other * v_ratio
+        # Allocation per bucket using BP-038 ratios
+        all_freight = act_freight * bucket_ratios["Freight"][idx]
+        all_ins = act_ins * bucket_ratios["Insurance"][idx]
+        all_duty = act_duty * bucket_ratios["Customs Duty"][idx]
+        all_vat = act_vat * bucket_ratios["VAT & Taxes"][idx]
+        all_clearance = act_clearance * bucket_ratios["Clearance & Port"][idx]
+        all_transport = act_transport * bucket_ratios["Inland Transport"][idx]
+        all_demurrage = act_demurrage * bucket_ratios["Demurrage & Storage"][idx]
+        all_other = act_other * bucket_ratios["Other & Admin"][idx]
 
         tot_alloc = all_freight + all_ins + all_duty + all_vat + all_clearance + all_transport + all_demurrage + all_other
         item_landed_tot = fob_tot + tot_alloc
@@ -2551,16 +2901,24 @@ def _calculate_actual_landed_cost(
         item_mkp = (item_landed_u / fob_u) if fob_u > 0 else 1.0
         item_mkp_pct = (item_mkp - 1.0) * 100.0
 
-        est_u = itm.get("estimated_unit_landed_cost_egp") or fob_u
-        u_var = item_landed_u - est_u
-        u_var_pct = (u_var / est_u * 100.0) if est_u > 0 else 0.0
-
-        if u_var < -0.05:
-            v_status = "SAVING"
-        elif u_var > 0.05:
-            v_status = "INCREASED"
+        if sim is not None and itm.get("estimated_unit_landed_cost_egp") is not None:
+            est_u = float(itm["estimated_unit_landed_cost_egp"])
+            u_var = item_landed_u - est_u
+            u_var_pct = (u_var / est_u * 100.0) if est_u > 0 else 0.0
+            if u_var < -unit_tol:
+                v_status = "SAVING"
+            elif u_var > unit_tol:
+                v_status = "INCREASED"
+            else:
+                v_status = "MATCHED"
+            i_est_u: Optional[float] = round(est_u, 2)
+            i_u_var: Optional[float] = round(u_var, 2)
+            i_u_var_pct: Optional[float] = round(u_var_pct, 2)
         else:
-            v_status = "MATCHED"
+            i_est_u = None
+            i_u_var = None
+            i_u_var_pct = None
+            v_status = "NO_ESTIMATE"
 
         items_breakdown.append(ActualLandedCostItemLine(
             line_no=itm["line_no"],
@@ -2585,43 +2943,70 @@ def _calculate_actual_landed_cost(
             actual_unit_landed_cost_egp=round(item_landed_u, 2),
             actual_markup_factor=round(item_mkp, 4),
             actual_markup_pct=round(item_mkp_pct, 2),
-            estimated_unit_landed_cost_egp=round(est_u, 2),
-            unit_cost_variance_egp=round(u_var, 2),
-            unit_cost_variance_pct=round(u_var_pct, 2),
+            estimated_unit_landed_cost_egp=i_est_u,
+            unit_cost_variance_egp=i_u_var,
+            unit_cost_variance_pct=i_u_var_pct,
             item_variance_status=v_status,
         ))
 
     # Overall file variances
-    fob_var_egp = round(actual_total_fob_egp - est_total_fob, 2)
-    fob_var_pct = round((fob_var_egp / est_total_fob * 100.0), 2) if est_total_fob > 0 else 0.0
+    if sim is not None:
+        fob_var_egp = round(actual_total_fob_egp - est_total_fob, 2)
+        fob_var_pct = round((fob_var_egp / est_total_fob * 100.0), 2) if est_total_fob > 0 else 0.0
 
-    exp_var_egp = round(actual_total_expenses_egp - est_total_expenses, 2)
-    exp_var_pct = round((exp_var_egp / est_total_expenses * 100.0), 2) if est_total_expenses > 0 else 0.0
+        exp_var_egp = round(actual_total_expenses_egp - est_total_expenses, 2)
+        exp_var_pct = round((exp_var_egp / est_total_expenses * 100.0), 2) if est_total_expenses > 0 else 0.0
 
-    landed_var_egp = round(actual_total_landed_cost_egp - est_total_landed, 2)
-    landed_var_pct = round((landed_var_egp / est_total_landed * 100.0), 2) if est_total_landed > 0 else 0.0
+        landed_var_egp = round(actual_total_landed_cost_egp - est_total_landed, 2)
+        landed_var_pct = round((landed_var_egp / est_total_landed * 100.0), 2) if est_total_landed > 0 else 0.0
 
-    if landed_var_egp < -100.0:
-        overall_status = "UNDER_BUDGET"
-        overall_status_ar = f"وفورات في التكلفة بنسبة {abs(landed_var_pct):.1f}% (تحت الميزانية التقديرية)"
-    elif landed_var_egp > 100.0:
-        overall_status = "OVER_BUDGET"
-        overall_status_ar = f"تجاوز وحيود في التكلفة بنسبة {landed_var_pct:.1f}% (فوق الميزانية التقديرية)"
+        if landed_var_egp < -file_tol:
+            overall_status = "UNDER_BUDGET"
+            overall_status_ar = f"وفورات في التكلفة بنسبة {abs(landed_var_pct):.1f}% (تحت الميزانية التقديرية)"
+        elif landed_var_egp > file_tol:
+            overall_status = "OVER_BUDGET"
+            overall_status_ar = f"تجاوز وحيود في التكلفة بنسبة {landed_var_pct:.1f}% (فوق الميزانية التقديرية)"
+        else:
+            overall_status = "ON_BUDGET"
+            overall_status_ar = "مطابق للميزانية التقديرية بدقة عالية"
+
+        res_est_fob: Optional[float] = round(est_total_fob, 2)
+        res_est_exp: Optional[float] = round(est_total_expenses, 2)
+        res_est_landed: Optional[float] = round(est_total_landed, 2)
+        res_est_markup: Optional[float] = round(est_markup, 4) if est_markup is not None else None
+
+        exec_summary = (
+            f"بلغت التكلفة الإجمالية الفعلية الواصلة للشحنة {imp.import_file_code} ما قيمته "
+            f"{actual_total_landed_cost_egp:,.2f} جنيه مصري، مقارنة بالتكلفة التقديرية البالغة "
+            f"{est_total_landed:,.2f} جنيه مصري، بفارق انحراف قدره {landed_var_egp:+,.2f} جنيه "
+            f"({landed_var_pct:+.1f}% — {overall_status_ar}). "
+            f"بلغت قيمة البضاعة الفعلية {actual_total_fob_egp:,.2f} جنيه، ومجموع المصاريف الفعلية "
+            f"{actual_total_expenses_egp:,.2f} جنيه موزعة عبر {len(expense_invoices)} فاتورة ومطالبة. "
+            f"متوسط معامل الزيادة الفعلي (Landed Markup Factor) يبلغ {actual_markup_factor:.3f}x، "
+            f"وتم توزيع المصاريف بنجاح على عدد {len(items_breakdown)} صنف طبقا لقاعدة '{pref}'."
+        )
     else:
-        overall_status = "ON_BUDGET"
-        overall_status_ar = "مطابق للميزانية التقديرية بدقة عالية"
+        fob_var_egp = None
+        fob_var_pct = None
+        exp_var_egp = None
+        exp_var_pct = None
+        landed_var_egp = None
+        landed_var_pct = None
+        overall_status = "NO_ESTIMATE"
+        overall_status_ar = "لا يوجد تقدير مبدئي للمقارنة"
+        res_est_fob = None
+        res_est_exp = None
+        res_est_landed = None
+        res_est_markup = None
 
-    # Executive Summary in Arabic (deprecated)
-    exec_summary = (
-        f"بلغت التكلفة الإجمالية الفعلية الواصلة للشحنة {imp.import_file_code} ما قيمته "
-        f"{actual_total_landed_cost_egp:,.2f} جنيه مصري، مقارنة بالتكلفة التقديرية البالغة "
-        f"{est_total_landed:,.2f} جنيه مصري، بفارق انحراف قدره {landed_var_egp:+,.2f} جنيه "
-        f"({landed_var_pct:+.1f}% — {overall_status_ar}). "
-        f"بلغت قيمة البضاعة الفعلية {actual_total_fob_egp:,.2f} جنيه، ومجموع المصاريف الفعلية "
-        f"{actual_total_expenses_egp:,.2f} جنيه موزعة عبر {len(expense_invoices)} فاتورة ومطالبة. "
-        f"متوسط معامل الزيادة الفعلي (Landed Markup Factor) يبلغ {actual_markup_factor:.3f}x، "
-        f"وتم توزيع المصاريف بنجاح على عدد {len(items_breakdown)} صنف طبقا لقاعدة '{pref}'."
-    )
+        exec_summary = (
+            f"بلغت التكلفة الإجمالية الفعلية الواصلة للشحنة {imp.import_file_code} ما قيمته "
+            f"{actual_total_landed_cost_egp:,.2f} جنيه مصري (لا يوجد تقدير مبدئي للمقارنة). "
+            f"بلغت قيمة البضاعة الفعلية {actual_total_fob_egp:,.2f} جنيه، ومجموع المصاريف الفعلية "
+            f"{actual_total_expenses_egp:,.2f} جنيه موزعة عبر {len(expense_invoices)} فاتورة ومطالبة. "
+            f"متوسط معامل الزيادة الفعلي (Landed Markup Factor) يبلغ {actual_markup_factor:.3f}x، "
+            f"وتم توزيع المصاريف بنجاح على عدد {len(items_breakdown)} صنف طبقا لقاعدة '{pref}'."
+        )
 
     # Header vs items reconciliation (FS-08, Q6): reported, never redistributed.
     reconciliation_difference = round(
@@ -2635,22 +3020,23 @@ def _calculate_actual_landed_cost(
         currency=currency,
         exchange_rate=round(exchange_rate, 4),
         incoterm=imp.incoterm_code or "FOB",
+        fob_basis=fob_basis,
         allocation_preference=pref,
         total_items_count=len(items_breakdown),
         total_invoices_count=len(all_invoices),
-        estimated_total_fob_egp=round(est_total_fob, 2),
+        estimated_total_fob_egp=res_est_fob,
         actual_total_fob_egp=round(actual_total_fob_egp, 2),
         fob_variance_egp=fob_var_egp,
         fob_variance_pct=fob_var_pct,
-        estimated_total_expenses_egp=round(est_total_expenses, 2),
+        estimated_total_expenses_egp=res_est_exp,
         actual_total_expenses_egp=round(actual_total_expenses_egp, 2),
         expenses_variance_egp=exp_var_egp,
         expenses_variance_pct=exp_var_pct,
-        estimated_total_landed_cost_egp=round(est_total_landed, 2),
+        estimated_total_landed_cost_egp=res_est_landed,
         actual_total_landed_cost_egp=round(actual_total_landed_cost_egp, 2),
         landed_variance_egp=landed_var_egp,
         landed_variance_pct=landed_var_pct,
-        estimated_markup_factor=round(est_markup, 4),
+        estimated_markup_factor=res_est_markup,
         actual_markup_factor=round(actual_markup_factor, 4),
         variance_status=overall_status,
         variance_status_ar=overall_status_ar,
@@ -2682,19 +3068,25 @@ def settlement_expense_row(inv: AggregatedInvoiceItemSchema, allocation_rule: st
         "party_type": inv.party_type,
         "invoice_date": inv.invoice_date,
         "source_module": inv.source_module,
+        "vat_amount_egp": round(float(getattr(inv, "vat_amount_egp", 0.0) or 0.0), 2),
+        "wht_amount_egp": round(float(getattr(inv, "withholding_tax_amount_egp", 0.0) or 0.0), 2),
+        "net_payable_egp": round(float(getattr(inv, "net_payable_egp", inv.amount_egp) or 0.0), 2),
+        "duty_component": getattr(inv, "duty_component", None),
     }
 
 
 def settlement_item_row(line: ActualLandedCostItemLine) -> Dict[str, Any]:
     """An actual item line stored in the canonical ``ItemLandedCostSchema`` keys (FS-01): customs = duty + VAT,
     other = insurance + demurrage + other. The actual line keys stay additively (canonical keys win)."""
+    qty = _unit_qty(line.qty)
+    fob_unit_unrounded = (line.fob_total_egp / qty) if qty > 0 else line.fob_unit_egp
     canonical = {
         "item_code": line.item_code,
         "item_name": line.item_name,
         "qty": line.qty,
         "gross_weight_kg": line.gross_weight_kg,
         "cbm": line.cbm,
-        "fob_unit_egp": line.fob_unit_egp,
+        "fob_unit_egp": fob_unit_unrounded,
         "fob_total_egp": line.fob_total_egp,
         "allocated_freight_egp": line.allocated_freight_egp,
         "allocated_customs_egp": round(line.allocated_customs_duty_egp + line.allocated_vat_egp, 2),
@@ -2730,6 +3122,7 @@ def approve_actual_landed_cost_service(
     imp = require_active(db, ImportFile, payload.import_file_id, IMPORT_FILE_LABEL_AR, status_code=404)
     ensure_file_open(imp)
     ensure_cost_not_approved(imp, get_settlement_by_import_file_id(db, imp.import_file_id))
+    ensure_invoices_settled(imp)
 
     # Run calculation
     calc_req = ActualLandedCostCalculationRequest(
@@ -2737,20 +3130,69 @@ def approve_actual_landed_cost_service(
         custom_category_allocation=payload.custom_category_allocation,
     )
     calc, expense_invoices = _calculate_actual_landed_cost(db, payload.import_file_id, calc_req)
+    if calc.fob_basis == "ESTIMATE":
+        raise coded_error(
+            status.HTTP_409_CONFLICT,
+            SETTLEMENT_ACTUAL_FOB_MISSING,
+            "لا يمكن اعتماد تكلفة الوصول الفعلية لعدم وجود فواتير بضائع تجارية أو بنود أمر شراء لتحديد قيمة FOB الفعلية.",
+            import_file_id=payload.import_file_id,
+        )
+    validate_items_allocation_readiness(calc.items_breakdown)
 
     now_utc = datetime.now(timezone.utc)
     today_str = str(now_utc.date())
 
     # 1. Update or create LandedCostSettlementRecord
     settlement = get_settlement_by_import_file_id(db, imp.import_file_id)
+    if settlement and settlement.expense_invoices:
+        aggregated_nos = {inv.invoice_no for inv in expense_invoices}
+        for inv in expense_invoices:
+            if getattr(inv, "components", None):
+                for comp in inv.components:
+                    aggregated_nos.add(f"{inv.invoice_no}/{comp.component}")
+        manual_rows = [
+            e for e in settlement.expense_invoices
+            if e.get("invoice_no") not in aggregated_nos
+            and (e.get("invoice_no") or "").split("/")[0] not in aggregated_nos
+            and not str(e.get("note") or "").startswith("Auto-fetched")
+            and not str(e.get("invoice_no") or "").startswith(RECALC_ADJUSTMENT_PREFIX)
+        ]
+        ensure_no_manual_rows(manual_rows)
+
     old_data = _settlement_snapshot_dict(settlement)
 
     rules_used = {c.category: c.allocation_rule for c in calc.categories_breakdown}
     items_json = [settlement_item_row(itm) for itm in calc.items_breakdown]
-    expenses_json = [
-        settlement_expense_row(inv, rules_used.get(actual_expense_bucket(inv.category, inv.party_type), "Value-Based"))
-        for inv in expense_invoices
-    ]
+    expenses_json = []
+    for inv in expense_invoices:
+        if inv.components:
+            for comp in inv.components:
+                comp_bucket = CUSTOMS_COMPONENT_BUCKET.get(comp.component, actual_expense_bucket(comp.category, inv.party_type))
+                rule = rules_used.get(comp_bucket, rules_used.get(comp.category, "Value-Based"))
+                expenses_json.append({
+                    "invoice_no": f"{inv.invoice_no}/{comp.component}",
+                    "category": comp.category,
+                    "duty_component": comp.component,
+                    "provider_name": inv.party_name,
+                    "currency": "EGP",
+                    "amount_fx": 0.0,
+                    "exchange_rate": 1.0,
+                    "amount_egp": round(float(comp.amount_egp or 0.0), 2),
+                    "allocation_rule": rule,
+                    "bucket": comp_bucket,
+                    "source_category": comp.category,
+                    "category_code": inv.category_code,
+                    "party_type": inv.party_type,
+                    "invoice_date": inv.invoice_date,
+                    "source_module": inv.source_module,
+                    "is_seller_paid": False,
+                    "payer": "Importer",
+                    "note": f"Declaration 46 component {comp.component}",
+                })
+        else:
+            expenses_json.append(
+                settlement_expense_row(inv, rules_used.get(actual_expense_bucket(inv.category, inv.party_type), "Value-Based"))
+            )
 
     if not settlement:
         settlement = LandedCostSettlementRecord(

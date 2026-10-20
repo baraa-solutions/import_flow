@@ -5,8 +5,8 @@ retaining the newest row (highest id), and creates a unique index
 uq_shipment_stage_activity_file_step to prevent duplicate stage entries under
 concurrent advances.
 
-Revision ID: b8c9d0e1f2a3
-Revises: a7b8c9d0e1f2
+Revision ID: f4b5c6d7e8f9
+Revises: d0e1f2a3b4c5
 Create Date: 2026-10-18
 """
 
@@ -17,8 +17,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers
-revision: str = "b8c9d0e1f2a3"
-down_revision: Union[str, Sequence[str], None] = "a7b8c9d0e1f2"
+revision: str = "f4b5c6d7e8f9"
+down_revision: Union[str, Sequence[str], None] = "d0e1f2a3b4c5"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -9,6 +9,8 @@ import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../models/currency_model.dart';
 
+import 'package:dio/dio.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../providers/currencies_provider.dart';
 import '../../simulation/widgets/what_if_simulator_dialog.dart';
 
@@ -1281,7 +1283,41 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                             customsRate: double.parse(custCtrl.text.trim()),
                             effectiveDate: selectedDate.toIso8601String().split('T').first,
                           );
-                          final ok = await ref.read(currenciesProvider.notifier).addExchangeRate(rateModel);
+                          bool ok = false;
+                          try {
+                            ok = await ref.read(currenciesProvider.notifier).addExchangeRate(rateModel);
+                          } on DioException catch (dioErr) {
+                            final errCode = ApiErrorText.code(dioErr);
+                            if (errCode == ApiErrorCode.currencyRateExists && context.mounted) {
+                              final confirmReplace = await showDialog<bool>(
+                                context: dialogCtx,
+                                builder: (c) => AlertDialog(
+                                  title: Text(l10n.warning),
+                                  content: Text(ApiErrorText.of(l10n, dioErr)),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(c, false),
+                                      child: Text(l10n.cancel),
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+                                      onPressed: () => Navigator.pop(c, true),
+                                      child: Text(l10n.confirm),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmReplace == true) {
+                                ok = await ref.read(currenciesProvider.notifier).addExchangeRate(rateModel, replace: true);
+                              }
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(ApiErrorText.of(l10n, dioErr)), backgroundColor: AppTheme.crimson),
+                                );
+                              }
+                            }
+                          }
                           if (ok && context.mounted) Navigator.pop(dialogCtx);
                         } finally {
                           if (context.mounted) {

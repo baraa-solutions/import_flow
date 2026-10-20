@@ -2,10 +2,13 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import secrets
 import time
 import re
 from typing import Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from settings import SECRET_KEY, JWT_ACCESS_TOKEN_EXPIRE_SECONDS, JWT_REFRESH_GRACE_PERIOD_SECONDS
 
@@ -44,7 +47,7 @@ def hash_password(password: str) -> str:
     return f"pbkdf2_sha256${iterations}${salt}${derived}"
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
+def verify_password(plain_password: str, hashed_password: str, username: Optional[str] = None) -> bool:
     """
     Verifies a plain password against a stored hash.
     Supports modern PBKDF2 and seamlessly verifies legacy SHA-256 hashes.
@@ -72,7 +75,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     # Legacy SHA-256 fallback (importflow_salt_v1)
     legacy_salt = "importflow_salt_v1"
     legacy_hash = hashlib.sha256((plain_password + legacy_salt).encode('utf-8')).hexdigest()
-    return hmac.compare_digest(legacy_hash, hashed_password)
+    matched = hmac.compare_digest(legacy_hash, hashed_password)
+    if matched:
+        logger.warning("Legacy SHA-256 password verified for user %s; password needs upgrade", username or "<unknown>")
+    return matched
+
 
 
 def create_access_token(data: dict, expires_in_seconds: Optional[int] = None) -> str:
@@ -81,6 +88,9 @@ def create_access_token(data: dict, expires_in_seconds: Optional[int] = None) ->
 
     to_encode = data.copy()
     to_encode.update({"exp": int(time.time()) + expires_in_seconds})
+    if "jti" not in to_encode:
+        to_encode["jti"] = secrets.token_hex(8)
+
 
     header = json.dumps({"alg": "HS256", "typ": "JWT"}).encode('utf-8')
     payload = json.dumps(to_encode).encode('utf-8')
@@ -169,6 +179,19 @@ class TokenRevocationManager:
         self._lock = threading.Lock()
         self._initialized = False
 
+    def ensure_loaded(self):
+        if self._initialized:
+            return
+        try:
+            from database.database import SessionLocal
+            db = SessionLocal()
+            try:
+                self.init_from_db(db)
+            finally:
+                db.close()
+        except Exception:
+            logger.exception("Failed to connect to database in ensure_loaded")
+
     def init_from_db(self, db):
         with self._lock:
             if self._initialized:
@@ -184,7 +207,7 @@ class TokenRevocationManager:
                 self._revoked_hashes = {r[0] for r in rows}
                 self._initialized = True
             except Exception:
-                pass
+                logger.exception("Failed to initialize revoked tokens from database")
 
     def revoke(self, token: str, user_id: Optional[int], expires_at: datetime, db):
         t_hash = hash_token(token)
@@ -203,11 +226,15 @@ class TokenRevocationManager:
             db.commit()
         except Exception:
             db.rollback()
+            logger.exception("Failed to persist revoked token to database")
+            raise
 
     def is_revoked(self, token: str) -> bool:
+        self.ensure_loaded()
         t_hash = hash_token(token)
         with self._lock:
             return t_hash in self._revoked_hashes
+
 
 
 token_revocation_manager = TokenRevocationManager()

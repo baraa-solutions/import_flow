@@ -52,6 +52,134 @@ class DemurragePolicyResponse(DemurragePolicyBase):
     created_by: Optional[str] = None
     updated_at: Optional[datetime] = None
     updated_by: Optional[str] = None
+# =========================================================================
+# MD-TERM-CARR-001: Terminals & Carriers Rate Cards Schemas
+# =========================================================================
+
+class TerminalBase(BaseModel):
+    terminal_code: str = Field(..., min_length=2, max_length=50, description="كود المحطة (e.g. AICTC-ALEX)")
+    terminal_name: str = Field(..., min_length=2, max_length=150, description="اسم المحطة")
+    terminal_name_en: Optional[str] = Field(None, max_length=150, description="الاسم بالإنجليزية")
+    port_name: str = Field(..., min_length=2, max_length=100, description="ميناء الوصول")
+    country_code: str = Field("EG", min_length=2, max_length=10, description="كود الدولة")
+    notes: Optional[str] = None
+
+
+class TerminalCreate(TerminalBase):
+    pass
+
+
+class TerminalUpdate(BaseModel):
+    terminal_code: Optional[str] = None
+    terminal_name: Optional[str] = None
+    terminal_name_en: Optional[str] = None
+    port_name: Optional[str] = None
+    country_code: Optional[str] = None
+    notes: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+@read_model
+class TerminalResponse(TerminalBase):
+    model_config = ConfigDict(from_attributes=True)
+    terminal_id: int
+    is_active: bool
+    created_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[str] = None
+
+
+class TerminalStorageRateCreate(BaseModel):
+    terminal_id: Optional[int] = Field(None, description="معرف المحطة (اختياري إذا تم تحديده في مسار URL)")
+    container_type: str = Field(..., min_length=2, max_length=50, description="نوع الحاوية")
+    free_days: int = Field(..., ge=0, description="أيام سماح الأرضيات بالمحطة")
+    storage_tiers: List[TierRateItem] = Field(default_factory=list, description="شرائح الأرضيات اليومية بالدولار")
+    currency: str = Field(..., min_length=3, max_length=10, description="عملة الأرضيات")
+    imo_free_days: int = Field(0, ge=0, description="أيام سماح الحاويات الخطرة")
+    imo_rate_multiplier: float = Field(2.0, ge=1.0, description="معامل مضاعفة سعر الحاويات الخطرة")
+    effective_date: date = Field(..., description="تاريخ سريان التعريفة")
+    notes: Optional[str] = None
+
+
+@read_model
+class TerminalStorageRateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    rate_id: int
+    terminal_id: int
+    container_type: str
+    free_days: int
+    storage_tiers: List[Dict[str, Any]] = Field(default_factory=list)
+    currency: str
+    imo_free_days: int
+    imo_rate_multiplier: float
+    effective_date: date
+    notes: Optional[str] = None
+    is_active: bool
+    created_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+
+
+class CarrierBase(BaseModel):
+    carrier_code: str = Field(..., min_length=2, max_length=50, description="كود الخط الملاحي (e.g. MSC)")
+    carrier_name: str = Field(..., min_length=2, max_length=150, description="اسم الخط الملاحي")
+    carrier_name_ar: Optional[str] = Field(None, max_length=150, description="الاسم بالعربية")
+    scac_code: Optional[str] = Field(None, max_length=10, description="كود SCAC للخط")
+    notes: Optional[str] = None
+
+
+class CarrierCreate(CarrierBase):
+    pass
+
+
+class CarrierUpdate(BaseModel):
+    carrier_code: Optional[str] = None
+    carrier_name: Optional[str] = None
+    carrier_name_ar: Optional[str] = None
+    scac_code: Optional[str] = None
+    notes: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+@read_model
+class CarrierResponse(CarrierBase):
+    model_config = ConfigDict(from_attributes=True)
+    carrier_id: int
+    is_active: bool
+    created_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[str] = None
+
+
+class CarrierDemurrageRateCreate(BaseModel):
+    carrier_id: Optional[int] = Field(None, description="معرف الخط الملاحي (اختياري إذا تم تحديده في مسار URL)")
+    container_type: str = Field(..., min_length=2, max_length=50, description="نوع الحاوية")
+    demurrage_free_days_standard: int = Field(..., ge=0, description="أيام السماح المعيارية لغرامات التأخير")
+    detention_free_days_standard: int = Field(..., ge=0, description="أيام السماح المعيارية لإعادة الفارغ")
+    demurrage_tiers: List[TierRateItem] = Field(default_factory=list, description="شرائح غرامات التأخير بالدولار")
+    detention_tiers: List[TierRateItem] = Field(default_factory=list, description="شرائح غرامات تأخير الفارغ")
+    currency: str = Field(..., min_length=3, max_length=10, description="عملة الغرامات")
+    effective_date: date = Field(..., description="تاريخ سريان التعريفة")
+    notes: Optional[str] = None
+
+
+@read_model
+class CarrierDemurrageRateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    rate_id: int
+    carrier_id: int
+    container_type: str
+    demurrage_free_days_standard: int
+    detention_free_days_standard: int
+    demurrage_tiers: List[Dict[str, Any]] = Field(default_factory=list)
+    detention_tiers: List[Dict[str, Any]] = Field(default_factory=list)
+    currency: str
+    effective_date: date
+    notes: Optional[str] = None
+    is_active: bool
+    created_at: Optional[datetime] = None
+    created_by: Optional[str] = None
 
 
 class ContainerItemInput(BaseModel):
@@ -63,6 +191,8 @@ class DemurrageTrackingBase(BaseModel):
     import_file_id: Optional[int] = Field(None, description="رقم ملف الاستيراد المرتبط")
     import_file_code: Optional[str] = Field(None, description="كود ملف الاستيراد")
     policy_id: Optional[int] = Field(None, description="رقم سياسة الخط الملاحي المطبقة")
+    carrier_id: Optional[int] = Field(None, description="رقم الخط الملاحي")
+    terminal_id: Optional[int] = Field(None, description="رقم المحطة المشغلة")
     carrier_name: str = Field(..., min_length=2, max_length=100, description="اسم الخط الملاحي")
     bill_of_lading_no: str = Field(..., min_length=3, max_length=100, description="رقم بوليصة الشحن")
     port_name: str = Field(..., min_length=2, max_length=100, description="ميناء الوصول")
@@ -70,6 +200,7 @@ class DemurrageTrackingBase(BaseModel):
     gate_out_date: Optional[date] = Field(None, description="تاريخ خروج الحاوية من بوابة الميناء")
     empty_return_date: Optional[date] = Field(None, description="تاريخ إعادة الحاوية الفارغة لساحة الخط")
     containers: List[ContainerItemInput] = Field(default_factory=list, min_length=1, description="قائمة الحاويات")
+    ancillary_fees: List[Dict[str, Any]] = Field(default_factory=list, description="رسوم المحطة الإضافية مثل الكشف والوزن")
     currency: Optional[str] = Field(None, min_length=3, max_length=10, description="عملة جلسة التتبع (null = عملة سياسة الخط الملاحي)")
     exchange_rate: Optional[float] = Field(None, gt=0.0, description="null = bank rate of the currency at the discharge date")
     notes: Optional[str] = None
@@ -83,6 +214,7 @@ class DemurrageTrackingUpdate(BaseModel):
     gate_out_date: Optional[date] = None
     empty_return_date: Optional[date] = None
     exchange_rate: Optional[float] = None
+    ancillary_fees: Optional[List[Dict[str, Any]]] = None
     notes: Optional[str] = None
     status: Optional[str] = None
 
@@ -96,6 +228,8 @@ class DemurrageTrackingResponse(LegacyRowTolerantModel):
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
     policy_id: Optional[int] = None
+    carrier_id: Optional[int] = None
+    terminal_id: Optional[int] = None
     carrier_name: str = ""
     bill_of_lading_no: str = ""
     port_name: str = ""
@@ -103,6 +237,9 @@ class DemurrageTrackingResponse(LegacyRowTolerantModel):
     gate_out_date: Optional[date] = None
     empty_return_date: Optional[date] = None
     containers: List[Dict[str, Any]] = Field(default_factory=list)
+    ancillary_fees: List[Dict[str, Any]] = Field(default_factory=list)
+    total_ancillary_usd: float = 0.0
+    total_ancillary_egp: float = 0.0
     total_demurrage_fx: Optional[float] = None
     total_detention_fx: Optional[float] = None
     total_storage_egp: Optional[float] = None
@@ -134,6 +271,13 @@ class DemurrageSimulationRequest(BaseModel):
     port_storage_daily_rate_egp: float = Field(250.0, ge=0.0)
     demurrage_tiers: Optional[List[TierRateItem]] = None
     detention_tiers: Optional[List[TierRateItem]] = None
+    storage_tiers: Optional[List[TierRateItem]] = None
+    storage_currency: str = "USD"
+    port_name: Optional[str] = None
+    carrier_id: Optional[int] = None
+    terminal_id: Optional[int] = None
+    ancillary_fees: List[Dict[str, Any]] = Field(default_factory=list, description="المصروفات الإضافية بالمحطة مثل الكشف والمعاينة والوزن")
+    is_imo: bool = False
     discharge_date: date
     gate_out_date: Optional[date] = None
     empty_return_date: Optional[date] = None
@@ -158,13 +302,24 @@ class DemurrageSimulationResponse(BaseModel):
     storage_days_consumed: int
     storage_free_days: int
     storage_days_overdue: int
+    storage_fee_fx: float = 0.0
     storage_fee_egp: float
+    storage_currency: str = "USD"
+    storage_tier_breakdown: List[Dict[str, Any]] = Field(default_factory=list)
+
+    ancillary_fee_fx: float = 0.0
+    ancillary_fee_egp: float = 0.0
 
     total_fee_fx: float
     total_cost_egp: float
     status_badge: str  # "SAFE", "WARNING", "DEMURRAGE_INCURRED", "DETENTION_INCURRED", "OVERDUE"
     countdown_summary_ar: str
     breakdown_details: List[Dict[str, Any]]
+
+
+class RatesHistoryResponse(BaseModel):
+    terminal_rates: List[TerminalStorageRateResponse] = Field(default_factory=list)
+    carrier_rates: List[CarrierDemurrageRateResponse] = Field(default_factory=list)
 
 
 class PushToSettlementRequest(BaseModel):

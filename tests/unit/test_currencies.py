@@ -81,3 +81,90 @@ class TestCurrenciesBackend:
         assert restored.is_active is True
         active_list = service.get_all_currencies(include_inactive=False)
         assert len(active_list) == 1
+
+    def test_duplicate_exchange_rate_raises_409_unless_replace(self, db_session):
+        service = CurrencyService(db_session)
+        currency = service.create_currency(CurrencyCreate(
+            currency_code="USD",
+            currency_name="US Dollar",
+            currency_symbol="$",
+            is_base_currency=False,
+            decimal_places=2,
+        ))
+
+        # Add rate on 2026-10-01 at 48.50
+        rate1 = service.add_exchange_rate(ExchangeRateCreate(
+            currency_id=currency.currency_id,
+            commercial_rate=48.50,
+            customs_rate=48.50,
+            effective_date=date(2026, 10, 1),
+        ))
+        assert rate1.commercial_rate == 48.50
+
+        # Adding same rate again without replace -> 409 CURRENCY_RATE_EXISTS
+        with pytest.raises(HTTPException) as exc_info:
+            service.add_exchange_rate(ExchangeRateCreate(
+                currency_id=currency.currency_id,
+                commercial_rate=48.60,
+                customs_rate=48.60,
+                effective_date=date(2026, 10, 1),
+                replace=False,
+            ))
+        assert exc_info.value.status_code == 409
+        detail = exc_info.value.detail
+        assert isinstance(detail, dict)
+        assert detail["code"] == "CURRENCY_RATE_EXISTS"
+
+        # Adding same rate with replace=True -> succeeds, first row inactive, get_rate returns 48.60
+        rate2 = service.add_exchange_rate(ExchangeRateCreate(
+            currency_id=currency.currency_id,
+            commercial_rate=48.60,
+            customs_rate=48.60,
+            effective_date=date(2026, 10, 1),
+            replace=True,
+        ))
+        assert rate2.commercial_rate == 48.60
+
+        rate_val, eff_date, _ = service._get_rate_to_egp("USD", as_of_date=date(2026, 10, 1))
+        assert rate_val == 48.60
+
+        # Verify old row is inactive in DB
+        old_row = db_session.query(ExchangeRate).filter(ExchangeRate.rate_id == rate1.rate_id).first()
+        assert old_row.is_active is False
+
+    def test_second_base_currency_raises_409(self, db_session):
+        service = CurrencyService(db_session)
+        service.create_currency(CurrencyCreate(
+            currency_code="EGP",
+            currency_name="Egyptian Pound",
+            currency_symbol="ج.م",
+            is_base_currency=True,
+            decimal_places=2,
+        ))
+
+        # Attempt to create another currency with is_base_currency=True -> 409 CURRENCY_BASE_EXISTS
+        with pytest.raises(HTTPException) as exc_info:
+            service.create_currency(CurrencyCreate(
+                currency_code="USD",
+                currency_name="US Dollar",
+                currency_symbol="$",
+                is_base_currency=True,
+                decimal_places=2,
+            ))
+        assert exc_info.value.status_code == 409
+        detail = exc_info.value.detail
+        assert isinstance(detail, dict)
+        assert detail["code"] == "CURRENCY_BASE_EXISTS"
+
+        # Attempt to update existing currency to is_base_currency=True -> 409 CURRENCY_BASE_EXISTS
+        usd = service.create_currency(CurrencyCreate(
+            currency_code="USD",
+            currency_name="US Dollar",
+            currency_symbol="$",
+            is_base_currency=False,
+            decimal_places=2,
+        ))
+        with pytest.raises(HTTPException) as exc_info2:
+            service.update_currency(usd.currency_id, CurrencyUpdate(is_base_currency=True))
+        assert exc_info2.value.status_code == 409
+        assert exc_info2.value.detail["code"] == "CURRENCY_BASE_EXISTS"

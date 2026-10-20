@@ -113,7 +113,7 @@ class DemurrageTrackingCard extends StatelessWidget {
               ),
             ),
             Text(
-              '${item.carrierName} - ${item.portName}',
+              '${item.carrierName} - ${item.portName}${item.terminalName != null && item.terminalName!.isNotEmpty ? " (${item.terminalName})" : ""}',
               style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryOf(context)),
             ),
           ],
@@ -170,6 +170,10 @@ class DemurrageTrackingCard extends StatelessWidget {
         _fact(l.gateOutDateLabel, item.gateOutDate ?? l.notGatedOutYet, mono: item.gateOutDate != null),
         _fact(l.emptyReturnDateLabel, item.emptyReturnDate ?? l.notReturnedYet, mono: item.emptyReturnDate != null),
         _fact(l.containersCountLabel, l.containersCountValue(item.containers.length)),
+        if (item.terminalName != null && item.terminalName!.isNotEmpty)
+          _fact('المحطة', item.terminalName!),
+        if (item.ancillaryFees.isNotEmpty)
+          _fact('رسوم إضافية', '${item.ancillaryFees.length}'),
         _fact(
           l.demDaysSinceDischarge,
           l.daysCountFormatted(DemurrageStatusStyle.daysSinceDischarge(item.dischargeDate, item.gateOutDate)),
@@ -232,11 +236,15 @@ class DemurrageTrackingCard extends StatelessWidget {
               child: CcMoneyText(item.totalCostEgp, color: color, fontSize: 20),
             ),
           ),
-          if (hasCost) ...[
+          if (hasCost || item.totalAncillaryEgp > 0 || item.totalAncillaryUsd > 0) ...[
             const SizedBox(height: 8),
             _breakdownLine(context, l.demurrageFeeMetric, item.totalDemurrageFx, item.currency),
             _breakdownLine(context, l.detentionFeeMetric, item.totalDetentionFx, item.currency),
             _breakdownLine(context, l.portStorageFeeMetric, item.totalStorageEgp, l.egpCurrency),
+            if (item.totalAncillaryUsd > 0)
+              _breakdownLine(context, 'رسوم إضافية بالمحطة', item.totalAncillaryUsd, 'USD')
+            else if (item.totalAncillaryEgp > 0)
+              _breakdownLine(context, 'رسوم إضافية بالمحطة', item.totalAncillaryEgp, l.egpCurrency),
           ],
         ],
       ),

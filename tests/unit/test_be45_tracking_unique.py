@@ -68,11 +68,11 @@ def _make_tracking_req(
     discharge_date=None,
 ):
     return DemurrageTrackingCreate(
+        port_name="Alexandria",
         import_file_id=import_file_id,
         import_file_code=import_file_code,
         carrier_name=carrier_name,
         bill_of_lading_no=bill_of_lading_no,
-        port_name="Alexandria",
         discharge_date=discharge_date or date(2026, 1, 1),
         containers=[
             ContainerItemInput(container_no="MSCU1111111", container_type="40ft High Cube")
@@ -204,21 +204,21 @@ def test_create_tracking_allowed_after_soft_delete(db, test_import_file):
 def test_record_empty_container_return_multiple_active_trackings(db, test_import_file):
     # Simulate legacy duplicate data: two active trackings for the same import file
     t1 = DemurrageTracking(
+        port_name="Alexandria",
         import_file_id=test_import_file.import_file_id,
         tracking_code="DND-DUP-001",
         carrier_name="MSC",
         bill_of_lading_no="BL-DUP1",
-        port_name="Alexandria",
         discharge_date=date(2026, 1, 1),
         exchange_rate=50.0,
         is_active=True,
     )
     t2 = DemurrageTracking(
+        port_name="Alexandria",
         import_file_id=test_import_file.import_file_id,
         tracking_code="DND-DUP-002",
         carrier_name="MSC",
         bill_of_lading_no="BL-DUP2",
-        port_name="Alexandria",
         discharge_date=date(2026, 1, 1),
         exchange_rate=50.0,
         is_active=True,

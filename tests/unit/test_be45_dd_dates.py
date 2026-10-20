@@ -108,10 +108,10 @@ def _setup_tracking(db, file_id: int, bl_no: str = "BL-MSC-12345") -> DemurrageT
     discharge = today - timedelta(days=20)
     gate_out = today - timedelta(days=5)
     tracking_req = DemurrageTrackingCreate(
+        port_name="Alexandria",
         import_file_id=file_id,
         bill_of_lading_no=bl_no,
         carrier_name="MSC",
-        port_name="Alexandria",
         discharge_date=discharge,
         gate_out_date=gate_out,
         exchange_rate=50.0,
@@ -209,10 +209,10 @@ def test_tracking_creation_and_update_future_dates_rejected(db):
         dd.create_demurrage_tracking_service(
             db,
             DemurrageTrackingCreate(
+                port_name="Alexandria",
                 import_file_id=1,
                 bill_of_lading_no="BL-1",
                 carrier_name="MSC",
-                port_name="Alexandria",
                 discharge_date=past,
                 gate_out_date=tomorrow,
                 exchange_rate=50.0,

@@ -81,12 +81,203 @@ class DemurragePolicyModel {
   }
 }
 
+class TerminalModel {
+  final int terminalId;
+  final String terminalCode;
+  final String terminalName;
+  final String? terminalNameEn;
+  final String portName;
+  final String countryCode;
+  final String? notes;
+  final bool isActive;
+
+  TerminalModel({
+    required this.terminalId,
+    required this.terminalCode,
+    required this.terminalName,
+    this.terminalNameEn,
+    required this.portName,
+    this.countryCode = 'EG',
+    this.notes,
+    required this.isActive,
+  });
+
+  factory TerminalModel.fromJson(Map<String, dynamic> json) {
+    return TerminalModel(
+      terminalId: json['terminal_id'] ?? 0,
+      terminalCode: json['terminal_code'] ?? '',
+      terminalName: json['terminal_name'] ?? '',
+      terminalNameEn: json['terminal_name_en'],
+      portName: json['port_name'] ?? '',
+      countryCode: json['country_code'] ?? 'EG',
+      notes: json['notes'],
+      isActive: json['is_active'] ?? true,
+    );
+  }
+}
+
+class TerminalStorageRateModel {
+  final int rateId;
+  final int terminalId;
+  final String containerType;
+  final int freeDays;
+  final List<TierRateModel> storageTiers;
+  final String currency;
+  final int imoFreeDays;
+  final double imoRateMultiplier;
+  final String effectiveDate;
+  final String? notes;
+  final bool isActive;
+
+  TerminalStorageRateModel({
+    required this.rateId,
+    required this.terminalId,
+    required this.containerType,
+    required this.freeDays,
+    required this.storageTiers,
+    required this.currency,
+    this.imoFreeDays = 0,
+    this.imoRateMultiplier = 2.0,
+    required this.effectiveDate,
+    this.notes,
+    required this.isActive,
+  });
+
+  factory TerminalStorageRateModel.fromJson(Map<String, dynamic> json) {
+    return TerminalStorageRateModel(
+      rateId: json['rate_id'] ?? 0,
+      terminalId: json['terminal_id'] ?? 0,
+      containerType: json['container_type'] ?? '',
+      freeDays: json['free_days'] ?? 7,
+      storageTiers: (json['storage_tiers'] as List?)
+              ?.map((t) => TierRateModel.fromJson(t))
+              .toList() ??
+          [],
+      currency: json['currency'] ?? 'USD',
+      imoFreeDays: json['imo_free_days'] ?? 0,
+      imoRateMultiplier: (json['imo_rate_multiplier'] ?? 2.0).toDouble(),
+      effectiveDate: json['effective_date'] ?? '',
+      notes: json['notes'],
+      isActive: json['is_active'] ?? true,
+    );
+  }
+}
+
+class CarrierModel {
+  final int carrierId;
+  final String carrierCode;
+  final String carrierName;
+  final String? carrierNameAr;
+  final String? scacCode;
+  final String? notes;
+  final bool isActive;
+
+  CarrierModel({
+    required this.carrierId,
+    required this.carrierCode,
+    required this.carrierName,
+    this.carrierNameAr,
+    this.scacCode,
+    this.notes,
+    required this.isActive,
+  });
+
+  factory CarrierModel.fromJson(Map<String, dynamic> json) {
+    return CarrierModel(
+      carrierId: json['carrier_id'] ?? 0,
+      carrierCode: json['carrier_code'] ?? '',
+      carrierName: json['carrier_name'] ?? '',
+      carrierNameAr: json['carrier_name_ar'],
+      scacCode: json['scac_code'],
+      notes: json['notes'],
+      isActive: json['is_active'] ?? true,
+    );
+  }
+}
+
+class CarrierDemurrageRateModel {
+  final int rateId;
+  final int carrierId;
+  final String containerType;
+  final int demurrageFreeDaysStandard;
+  final int detentionFreeDaysStandard;
+  final List<TierRateModel> demurrageTiers;
+  final List<TierRateModel> detentionTiers;
+  final String currency;
+  final String effectiveDate;
+  final String? notes;
+  final bool isActive;
+
+  CarrierDemurrageRateModel({
+    required this.rateId,
+    required this.carrierId,
+    required this.containerType,
+    required this.demurrageFreeDaysStandard,
+    required this.detentionFreeDaysStandard,
+    required this.demurrageTiers,
+    required this.detentionTiers,
+    required this.currency,
+    required this.effectiveDate,
+    this.notes,
+    required this.isActive,
+  });
+
+  factory CarrierDemurrageRateModel.fromJson(Map<String, dynamic> json) {
+    return CarrierDemurrageRateModel(
+      rateId: json['rate_id'] ?? 0,
+      carrierId: json['carrier_id'] ?? 0,
+      containerType: json['container_type'] ?? '',
+      demurrageFreeDaysStandard: json['demurrage_free_days_standard'] ?? 14,
+      detentionFreeDaysStandard: json['detention_free_days_standard'] ?? 7,
+      demurrageTiers: (json['demurrage_tiers'] as List?)
+              ?.map((t) => TierRateModel.fromJson(t))
+              .toList() ??
+          [],
+      detentionTiers: (json['detention_tiers'] as List?)
+              ?.map((t) => TierRateModel.fromJson(t))
+              .toList() ??
+          [],
+      currency: json['currency'] ?? 'USD',
+      effectiveDate: json['effective_date'] ?? '',
+      notes: json['notes'],
+      isActive: json['is_active'] ?? true,
+    );
+  }
+}
+
+class RatesHistoryModel {
+  final List<TerminalStorageRateModel> terminalRates;
+  final List<CarrierDemurrageRateModel> carrierRates;
+
+  RatesHistoryModel({
+    this.terminalRates = const [],
+    this.carrierRates = const [],
+  });
+
+  factory RatesHistoryModel.fromJson(Map<String, dynamic> json) {
+    return RatesHistoryModel(
+      terminalRates: (json['terminal_rates'] as List?)
+              ?.map((t) => TerminalStorageRateModel.fromJson(t))
+              .toList() ??
+          [],
+      carrierRates: (json['carrier_rates'] as List?)
+              ?.map((c) => CarrierDemurrageRateModel.fromJson(c))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+
 class DemurrageTrackingModel {
   final int trackingId;
   final String trackingCode;
   final int? importFileId;
   final String? importFileCode;
   final int? policyId;
+  final int? carrierId;
+  final int? terminalId;
+  final String? terminalName;
   final String carrierName;
   final String billOfLadingNo;
   final String portName;
@@ -94,6 +285,9 @@ class DemurrageTrackingModel {
   final String? gateOutDate;
   final String? emptyReturnDate;
   final List<dynamic> containers;
+  final List<dynamic> ancillaryFees;
+  final double totalAncillaryUsd;
+  final double totalAncillaryEgp;
   final double totalDemurrageFx;
   final double totalDetentionFx;
   final double totalStorageEgp;
@@ -112,6 +306,9 @@ class DemurrageTrackingModel {
     this.importFileId,
     this.importFileCode,
     this.policyId,
+    this.carrierId,
+    this.terminalId,
+    this.terminalName,
     required this.carrierName,
     required this.billOfLadingNo,
     required this.portName,
@@ -119,6 +316,9 @@ class DemurrageTrackingModel {
     this.gateOutDate,
     this.emptyReturnDate,
     required this.containers,
+    this.ancillaryFees = const [],
+    this.totalAncillaryUsd = 0.0,
+    this.totalAncillaryEgp = 0.0,
     required this.totalDemurrageFx,
     required this.totalDetentionFx,
     required this.totalStorageEgp,
@@ -139,6 +339,9 @@ class DemurrageTrackingModel {
       importFileId: json['import_file_id'],
       importFileCode: json['import_file_code'],
       policyId: json['policy_id'],
+      carrierId: json['carrier_id'],
+      terminalId: json['terminal_id'],
+      terminalName: json['terminal_name'] as String?,
       carrierName: json['carrier_name'] ?? '',
       billOfLadingNo: json['bill_of_lading_no'] ?? '',
       portName: json['port_name'] ?? '',
@@ -146,6 +349,9 @@ class DemurrageTrackingModel {
       gateOutDate: json['gate_out_date'],
       emptyReturnDate: json['empty_return_date'],
       containers: json['containers'] ?? [],
+      ancillaryFees: json['ancillary_fees'] as List<dynamic>? ?? [],
+      totalAncillaryUsd: (json['total_ancillary_usd'] ?? 0.0).toDouble(),
+      totalAncillaryEgp: (json['total_ancillary_egp'] ?? 0.0).toDouble(),
       totalDemurrageFx: (json['total_demurrage_fx'] ?? 0.0).toDouble(),
       totalDetentionFx: (json['total_detention_fx'] ?? 0.0).toDouble(),
       totalStorageEgp: (json['total_storage_egp'] ?? 0.0).toDouble(),
@@ -175,7 +381,10 @@ class DemurrageSimulationResultModel {
   final int storageDaysConsumed;
   final int storageFreeDays;
   final int storageDaysOverdue;
+  final double storageFeeFx;
   final double storageFeeEgp;
+  final String storageCurrency;
+  final List<dynamic> storageTierBreakdown;
   final double totalFeeFx;
   final double totalCostEgp;
   final String statusBadge;
@@ -196,7 +405,10 @@ class DemurrageSimulationResultModel {
     required this.storageDaysConsumed,
     required this.storageFreeDays,
     required this.storageDaysOverdue,
+    this.storageFeeFx = 0.0,
     required this.storageFeeEgp,
+    this.storageCurrency = 'USD',
+    this.storageTierBreakdown = const [],
     required this.totalFeeFx,
     required this.totalCostEgp,
     required this.statusBadge,
@@ -219,7 +431,10 @@ class DemurrageSimulationResultModel {
       storageDaysConsumed: json['storage_days_consumed'] ?? 0,
       storageFreeDays: json['storage_free_days'] ?? 5,
       storageDaysOverdue: json['storage_days_overdue'] ?? 0,
+      storageFeeFx: (json['storage_fee_fx'] ?? 0.0).toDouble(),
       storageFeeEgp: (json['storage_fee_egp'] ?? 0.0).toDouble(),
+      storageCurrency: json['storage_currency'] ?? 'USD',
+      storageTierBreakdown: json['storage_tier_breakdown'] ?? [],
       totalFeeFx: (json['total_fee_fx'] ?? 0.0).toDouble(),
       totalCostEgp: (json['total_cost_egp'] ?? 0.0).toDouble(),
       statusBadge: json['status_badge'] ?? 'SAFE',

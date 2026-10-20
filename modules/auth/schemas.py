@@ -31,6 +31,7 @@ class UserResponse(UserBase):
     user_id: int
     is_active: bool
     must_change_password: bool = False
+    token_version: int = 0
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -41,6 +42,15 @@ class UserResponse(UserBase):
     def _null_flag_is_false(cls, value):
         """A row whose column was added without a default reads NULL: that user was never forced."""
         return False if value is None else value
+
+    @field_validator("token_version", mode="before")
+    @classmethod
+    def _null_token_version_is_zero(cls, value):
+        return 0 if value is None else value
+
+
+class ChangeOwnPasswordResponse(UserResponse):
+    access_token: Optional[str] = None
 
 
 class LoginRequest(BaseModel):

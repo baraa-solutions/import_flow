@@ -10,7 +10,7 @@ FreightTerms = Literal["Prepaid", "Collect"]
 
 class ContainerAllocationItem(BaseModel):
     container_type: str = Field(..., description="e.g. 20GP, 40HC, 45HC")
-    quantity: int = Field(default=1, ge=1)
+    quantity: float = Field(default=1.0, gt=0.0)
     container_numbers: Optional[List[str]] = Field(default_factory=list)
     seal_numbers: Optional[List[str]] = Field(default_factory=list)
     vgm_weight_kg: Optional[float] = Field(default=0.0)

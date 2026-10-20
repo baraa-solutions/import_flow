@@ -33,6 +33,10 @@ class ApiErrorCode {
   static const ctSimulationNoLines = 'CT_SIMULATION_NO_LINES';
   static const ctSimulationNoBroker = 'CT_SIMULATION_NO_BROKER';
   static const settlementDuplicateActive = 'SETTLEMENT_DUPLICATE_ACTIVE';
+  static const invoicesNotReady = 'INVOICES_NOT_READY';
+  static const settlementActualFobMissing = 'SETTLEMENT_ACTUAL_FOB_MISSING';
+  static const currencyRateExists = 'CURRENCY_RATE_EXISTS';
+  static const currencyBaseExists = 'CURRENCY_BASE_EXISTS';
 }
 
 /// User-facing, localized text for a failed API call.
