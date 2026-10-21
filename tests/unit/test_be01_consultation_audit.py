@@ -44,6 +44,12 @@ def db():
     )
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, autoflush=False)()
+    # Money fields need an active currency in master data (currency required when a value is entered).
+    from modules.currencies.model import Currency as _Currency
+    for _code in ("USD", "EGP", "EUR"):
+        if not session.query(_Currency).filter_by(currency_code=_code).first():
+            session.add(_Currency(currency_code=_code, currency_name=_code, currency_symbol=_code, is_active=True))
+    session.commit()
     yield session
     session.close()
     engine.dispose()

@@ -61,6 +61,12 @@ def db_session():
     db.add_all([c1, c2, c3_inactive, f1])
     db.commit()
 
+    # Money fields need an active currency in master data (currency required when a value is entered).
+    from modules.currencies.model import Currency as _Currency
+    for _code in ("USD", "EGP", "EUR"):
+        if not db.query(_Currency).filter_by(currency_code=_code).first():
+            db.add(_Currency(currency_code=_code, currency_name=_code, currency_symbol=_code, is_active=True))
+    db.commit()
     yield db
     db.close()
 
@@ -82,6 +88,7 @@ class TestBE01FreightRFQIntegrity:
             pod_name="Alexandria",
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
                     ocean_freight_cost=3000.0,
@@ -89,6 +96,7 @@ class TestBE01FreightRFQIntegrity:
                     estimated_arrival_date=crd + timedelta(days=22),
                 ),
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[1].provider_id,
                     provider_name=carriers[1].partner_name,
                     ocean_freight_cost=2800.0,
@@ -113,6 +121,7 @@ class TestBE01FreightRFQIntegrity:
             title="RFQ Test Award then PUT - Updated Title",
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     quotation_id=q1_id,
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
@@ -121,6 +130,7 @@ class TestBE01FreightRFQIntegrity:
                     estimated_arrival_date=crd + timedelta(days=22),
                 ),
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     quotation_id=q2_id,
                     provider_id=carriers[1].provider_id,
                     provider_name=carriers[1].partner_name,
@@ -154,6 +164,7 @@ class TestBE01FreightRFQIntegrity:
             pod_name="Alexandria",
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
                     ocean_freight_cost=3000.0,
@@ -161,6 +172,7 @@ class TestBE01FreightRFQIntegrity:
                     estimated_arrival_date=crd + timedelta(days=22),
                 ),
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[1].provider_id,
                     provider_name=carriers[1].partner_name,
                     ocean_freight_cost=2800.0,
@@ -181,6 +193,7 @@ class TestBE01FreightRFQIntegrity:
         update_in = FreightRFQRequestUpdate(
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     quotation_id=q2_id,
                     provider_id=carriers[1].provider_id,
                     provider_name=carriers[1].partner_name,
@@ -265,6 +278,7 @@ class TestBE01FreightRFQIntegrity:
             pod_name="Alexandria",
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
                     ocean_freight_cost=3000.0,
@@ -273,6 +287,7 @@ class TestBE01FreightRFQIntegrity:
                     is_awarded=True,  # Client tries to award
                 ),
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[1].provider_id,
                     provider_name=carriers[1].partner_name,
                     ocean_freight_cost=2800.0,
@@ -307,6 +322,7 @@ class TestBE01FreightRFQIntegrity:
             pod_name="Alexandria",
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
                     ocean_freight_cost=3000.0,
@@ -342,6 +358,7 @@ class TestBE01FreightRFQIntegrity:
             pod_name="Alexandria",
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
                     ocean_freight_cost=3000.0,
@@ -404,6 +421,7 @@ class TestBE01FreightRFQIntegrity:
             pod_name="Alexandria",
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
                     ocean_freight_cost=3000.0,
@@ -411,6 +429,7 @@ class TestBE01FreightRFQIntegrity:
                     estimated_arrival_date=crd + timedelta(days=22),
                 ),
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[1].provider_id,
                     provider_name=carriers[1].partner_name,
                     ocean_freight_cost=2800.0,
@@ -427,6 +446,7 @@ class TestBE01FreightRFQIntegrity:
         update_in = FreightRFQRequestUpdate(
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     quotation_id=q1_id,
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
@@ -435,6 +455,7 @@ class TestBE01FreightRFQIntegrity:
                     estimated_arrival_date=crd + timedelta(days=22),
                 ),
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     # No quotation_id -> new quote
                     provider_id=carriers[1].provider_id,
                     provider_name="New Quote Provider",
@@ -470,6 +491,7 @@ class TestBE01FreightRFQIntegrity:
             pod_name="Alexandria",
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=inactive_carrier.provider_id,
                     provider_name=inactive_carrier.partner_name,
                     ocean_freight_cost=3000.0,

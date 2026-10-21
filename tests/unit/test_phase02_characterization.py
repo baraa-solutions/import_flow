@@ -61,10 +61,11 @@ def _payment(db, amount=10000.0, rate=50.0, **extra):
 # 1. Payment EGP value
 def test_payment_egp_is_amount_times_rate_unrounded(db):
     p = _payment(db, amount=1234.56, rate=48.37)
-    assert p.requested_amount_egp == 1234.56 * 48.37
+    # Money is stored rounded to 2 decimals since ACC2 (was the raw product).
+    assert p.requested_amount_egp == round(1234.56 * 48.37, 2)
 
     updated = service.update_payment_request_service(db, p.payment_id, PaymentRequestUpdate(exchange_rate=51.13))
-    assert updated.requested_amount_egp == 1234.56 * 51.13
+    assert updated.requested_amount_egp == round(1234.56 * 51.13, 2)
 
 
 # 2. SWIFT variance golden values

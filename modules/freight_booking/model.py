@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text, JSON
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text, JSON, text
 from sqlalchemy.orm import relationship
 
 from database.database import Base
@@ -47,7 +47,7 @@ class ShipmentBooking(Base):
     eta = Column(DateTime, nullable=True)  # Estimated Time of Arrival
     atd = Column(DateTime, nullable=True)  # Actual Time of Departure
     ata = Column(DateTime, nullable=True)  # Actual Time of Arrival
-    is_ata_confirmed = Column(Boolean, default=False, nullable=False)
+    is_ata_confirmed = Column(Boolean, default=False, server_default=text("0"), nullable=False)
     shipped_on_board_date = Column(Date, nullable=True)  # Shipped On Board Date (BE45-T11)
     departure_delay_days = Column(Integer, nullable=True, default=0)
     expected_warehouse_days = Column(Integer, nullable=True, default=7)
@@ -109,7 +109,7 @@ class ShipmentEtaTrackingLog(Base):
     delay_days = Column(Integer, nullable=False, default=0)
     remarks = Column(Text, nullable=True)
 
-    is_ata_confirmed = Column(Boolean, default=False, nullable=False)
+    is_ata_confirmed = Column(Boolean, default=False, server_default=text("0"), nullable=False)
     confirmed_ata = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)

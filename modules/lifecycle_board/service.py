@@ -1534,7 +1534,7 @@ def skip_step_service(
             {
                 "code": "OPEN_TASKS_BYPASSED",
                 "count": len(open_tasks),
-                "message": f"تم تجاوز {len(open_tasks)} مهمة غير مكتملة عند التخطي الإجباري",
+                "message": f"{len(open_tasks)} open task(s) were bypassed by the forced skip",
             }
         ] if open_tasks else [],
     }

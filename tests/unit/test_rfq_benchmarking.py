@@ -29,6 +29,12 @@ def db_session():
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     try:
+        # Money fields need an active currency in master data (currency required when a value is entered).
+        from modules.currencies.model import Currency as _Currency
+        for _code in ("USD", "EGP", "EUR"):
+            if not db.query(_Currency).filter_by(currency_code=_code).first():
+                db.add(_Currency(currency_code=_code, currency_name=_code, currency_symbol=_code, is_active=True))
+        db.commit()
         yield db
     finally:
         db.close()
@@ -75,6 +81,7 @@ class TestFreightRFQBenchmarking:
 
         quotes = [
             FreightQuotationItemCreate(
+                currency_code="USD",
                 provider_id=forwarders[0].provider_id,
                 provider_name=forwarders[0].partner_name,
                 ocean_freight_cost=2500.0,
@@ -86,6 +93,7 @@ class TestFreightRFQBenchmarking:
                 estimated_arrival_date=arrival,
             ),
             FreightQuotationItemCreate(
+                currency_code="USD",
                 provider_id=forwarders[1].provider_id,
                 provider_name=forwarders[1].partner_name,
                 ocean_freight_cost=2600.0,
@@ -97,6 +105,7 @@ class TestFreightRFQBenchmarking:
                 estimated_arrival_date=arrival,
             ),
             FreightQuotationItemCreate(
+                currency_code="USD",
                 provider_id=forwarders[2].provider_id,
                 provider_name=forwarders[2].partner_name,
                 ocean_freight_cost=2400.0,
@@ -108,6 +117,7 @@ class TestFreightRFQBenchmarking:
                 estimated_arrival_date=arrival,
             ),
             FreightQuotationItemCreate(
+                currency_code="USD",
                 provider_id=forwarders[3].provider_id,
                 provider_name=forwarders[3].partner_name,
                 ocean_freight_cost=3400.0,
@@ -119,6 +129,7 @@ class TestFreightRFQBenchmarking:
                 estimated_arrival_date=arrival,
             ),
             FreightQuotationItemCreate(
+                currency_code="USD",
                 provider_id=forwarders[4].provider_id,
                 provider_name=forwarders[4].partner_name,
                 ocean_freight_cost=4000.0,
@@ -187,6 +198,7 @@ class TestFreightRFQBenchmarking:
                 pod_name="Damietta Port",
                 quotations=[
                     FreightQuotationItemCreate(
+                        currency_code="USD",
                         provider_id=p.provider_id,
                         provider_name=p.partner_name,
                         ocean_freight_cost=3100.0,
