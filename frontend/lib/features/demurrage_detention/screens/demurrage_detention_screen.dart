@@ -23,6 +23,9 @@ import '../widgets/dual_clock_radar_dialog.dart';
 import '../widgets/empty_container_return_dialog.dart';
 import '../widgets/free_days_agreement_dialog.dart';
 import '../widgets/freight_data_monitor_dialog.dart';
+import '../widgets/customs_abandonment_radar_dialog.dart';
+import '../widgets/port_terminal_storage_dialog.dart';
+import '../widgets/container_deposit_ledger_dialog.dart';
 
 class DemurrageDetentionScreen extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -270,6 +273,30 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
         title: l10n.demurrageScreenTitle,
         subtitle: stageBadge.isEmpty ? null : stageBadge,
         actions: [
+          AppButton(
+            label: _isAr ? 'رادار المهمل (مادة 67)' : 'Abandonment Radar',
+            icon: Icons.radar_rounded,
+            variant: AppButtonVariant.danger,
+            size: AppButtonSize.small,
+            onPressed: () => CustomsAbandonmentRadarDialog.show(context),
+          ),
+          const SizedBox(width: 8),
+          AppButton(
+            label: _isAr ? 'أرضيات المحطات' : 'Port Storage',
+            icon: Icons.account_balance_outlined,
+            variant: AppButtonVariant.primary,
+            size: AppButtonSize.small,
+            onPressed: () => PortTerminalStorageDialog.show(context),
+          ),
+          const SizedBox(width: 8),
+          AppButton(
+            label: _isAr ? 'تأمين الحاويات (EIR)' : 'Container Deposit',
+            icon: Icons.inventory_2_outlined,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
+            onPressed: () => ContainerDepositLedgerDialog.show(context, initialImportFileId: widget.initialImportFileId),
+          ),
+          const SizedBox(width: 8),
           AppButton(
             label: l10n.demHeaderFreeDaysBtn,
             icon: Icons.verified_user_outlined,

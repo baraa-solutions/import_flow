@@ -294,9 +294,9 @@ class _PreForm4NafezaWorkflowDialogState
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppTheme.cobalt.withOpacity(0.08),
+              color: AppTheme.cobalt.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.25)),
             ),
             child: Row(
               children: [
@@ -392,9 +392,9 @@ class _PreForm4NafezaWorkflowDialogState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.orange.withOpacity(0.1),
+                      color: AppTheme.orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                      border: Border.all(color: AppTheme.orange.withOpacity(0.3)),
+                      border: Border.all(color: AppTheme.orange.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -491,9 +491,9 @@ class _PreForm4NafezaWorkflowDialogState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.charcoal.withOpacity(0.06),
+                      color: AppTheme.charcoal.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                      border: Border.all(color: AppTheme.charcoal.withOpacity(0.15)),
+                      border: Border.all(color: AppTheme.charcoal.withValues(alpha: 0.15)),
                     ),
                     child: Row(
                       children: [
@@ -588,13 +588,13 @@ class _PreForm4NafezaWorkflowDialogState
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(
           color: isCompleted
-              ? AppTheme.emerald.withOpacity(0.4)
+              ? AppTheme.emerald.withValues(alpha: 0.4)
               : AppTheme.borderOf(context),
           width: isCompleted ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -607,8 +607,8 @@ class _PreForm4NafezaWorkflowDialogState
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: isCompleted
-                  ? AppTheme.emerald.withOpacity(0.08)
-                  : accentColor.withOpacity(0.06),
+                  ? AppTheme.emerald.withValues(alpha: 0.08)
+                  : accentColor.withValues(alpha: 0.06),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(AppTheme.radiusLg),
               ),
@@ -671,7 +671,7 @@ class _PreForm4NafezaWorkflowDialogState
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppTheme.charcoal.withOpacity(0.12),
+                      color: AppTheme.charcoal.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

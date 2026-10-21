@@ -37,6 +37,9 @@ import '../widgets/final_duty_payment_tab.dart';
 import '../widgets/import_file_picker_dialog.dart';
 import '../widgets/search_and_clone_customs_clearance_dialog.dart';
 import '../widgets/under_bond_release_dialog.dart';
+import '../widgets/reexport_protocol_dialog.dart';
+import '../widgets/inspection_appeals_dialog.dart';
+import '../widgets/broker_custody_settlement_dialog.dart';
 
 class CustomsClearanceScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -540,6 +543,12 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         open: (f) => CustomsFinalReleaseDialog.show(context, f),
       ),
       _stageButton(
+        keyName: 'customsBrokerCustodyBtn',
+        icon: Icons.account_balance_wallet_outlined,
+        label: l.isArabic ? 'عهد ومصروفات المخلص' : 'Broker Custody',
+        open: (f) => BrokerCustodySettlementDialog.show(context, initialImportFileId: f.importFileId),
+      ),
+      _stageButton(
         keyName: 'customsClearanceInvoicesScreenBtn',
         icon: Icons.receipt_long_rounded,
         label: l.ccStageInvoices,
@@ -563,6 +572,22 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             return;
           }
           ClearanceFollowupDialog.show(context, clearanceRecord: record, importFile: f);
+        },
+      ),
+      _stageButton(
+        keyName: 'customsInspectionAppealsBtn',
+        icon: Icons.biotech_rounded,
+        label: l.isArabic ? 'تظلمات الفحص المعملي' : 'Lab Appeals',
+        open: (f) {
+          InspectionAppealsDialog.show(context, initialImportFileId: f.importFileId);
+        },
+      ),
+      _stageButton(
+        keyName: 'customsReexportProtocolBtn',
+        icon: Icons.outbox_rounded,
+        label: l.isArabic ? 'إعادة التصدير والرفض' : 'Re-Export Protocol',
+        open: (f) {
+          ReexportProtocolDialog.show(context, initialImportFileId: f.importFileId);
         },
       ),
       IconButton(
