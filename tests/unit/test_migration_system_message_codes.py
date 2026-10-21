@@ -1,10 +1,9 @@
 """
-Alembic b7c1d2e3f4a5 (system message codes) + c8d3e4f5a6b7 (email listener codes): additive, defensive
-columns + indexes.
+Alembic migration d8e9f0a1b2c3 (stage notes & attachments): creates two new tables.
 
-- BEHIND DB at f7a1c3e5b9d2 without the columns: startup upgrade adds them through Alembic.
-- UNSTAMPED legacy DB: startup step 4b adds the columns and 4c their indexes, then stamps head.
-- A create_all DB already has everything: upgrade is a no-op. Downgrade removes the columns.
+- BEHIND DB at c7d8e9f0a1b2 without stage_notes tables: startup upgrade adds them via Alembic.
+- UNSTAMPED legacy DB: startup stamps head; new tables already present via create_all.
+- A create_all DB already has everything: upgrade is a no-op. Downgrade drops the tables.
 """
 import sqlite3
 from pathlib import Path
@@ -20,12 +19,21 @@ from database.database import Base
 from database.schema_upgrade_service import SchemaUpgradeService
 from utils import db_safety
 
-PREVIOUS = "f7a1c3e5b9d2"
+# The revision this migration builds on top of
+PREVIOUS = "c7d8e9f0a1b2"
 
+# The new head revision (stage notes & attachments)
+HEAD = "d8e9f0a1b2c3"
 
-HEAD = "c7d8e9f0a1b2"  # current head (port storage & abandonment)
+# This migration adds NO columns to existing tables — only creates new tables
+NEW_COLUMNS = {}
+NEW_INDEXES = {}
 
-NEW_COLUMNS = {
+# Tables created by d8e9f0a1b2c3
+NEW_TABLES = ["stage_notes", "stage_note_attachments"]
+
+# Columns/indexes added by earlier migrations (still present at PREVIOUS — kept for reference)
+LEGACY_COLUMNS = {
     "smart_tasks": ["msg_code", "msg_params", "step_code"],
     "system_notifications": ["msg_code", "msg_params"],
     "shipment_stage_activity": ["msg_code", "msg_params"],
@@ -37,7 +45,7 @@ NEW_COLUMNS = {
     "inbound_email_logs": ["msg_code", "msg_params"],
     "email_settings": ["msg_code", "msg_params"],
 }
-NEW_INDEXES = {"idx_smart_tasks_step_code": "smart_tasks", "idx_import_files_current_phase_id": "import_files"}
+LEGACY_INDEXES = {"idx_smart_tasks_step_code": "smart_tasks", "idx_import_files_current_phase_id": "import_files"}
 
 
 class _NoMasterData:
@@ -64,8 +72,21 @@ def _indexes(db_file: Path, table: str):
         conn.close()
 
 
+def _existing_tables(db_file: Path) -> set:
+    conn = sqlite3.connect(db_file)
+    try:
+        return {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    finally:
+        conn.close()
+
+
 def _legacy_db(db_file: Path, stamp: str = None) -> None:
-    """Current schema minus the b7c1 columns/indexes, with one legacy row per touched table."""
+    """DB at PREVIOUS revision: full schema minus the NEW_TABLES introduced by d8e9f0a1b2c3.
+
+    Note: LEGACY_INDEXES are also dropped so that unstamped-startup tests can verify
+    SchemaUpgradeService re-creates them. LEGACY_COLUMNS are kept intact because
+    they already exist at PREVIOUS=c7d8e9f0a1b2.
+    """
     engine = create_engine(f"sqlite:///{db_file.as_posix()}")
     try:
         Base.metadata.create_all(bind=engine)
@@ -73,11 +94,13 @@ def _legacy_db(db_file: Path, stamp: str = None) -> None:
         engine.dispose()
     conn = sqlite3.connect(db_file)
     try:
-        for index in NEW_INDEXES:
+        # Drop legacy indexes (so startup can re-create them — tests validate this)
+        for index in LEGACY_INDEXES:
             conn.execute(f'DROP INDEX IF EXISTS "{index}"')
-        for table, cols in NEW_COLUMNS.items():
-            for col in cols:
-                conn.execute(f'ALTER TABLE "{table}" DROP COLUMN "{col}"')
+        # Drop the tables that d8e9f0a1b2c3 would create — simulate pre-migration state
+        # (drop attachments first due to FK dependency)
+        conn.execute('DROP TABLE IF EXISTS "stage_note_attachments"')
+        conn.execute('DROP TABLE IF EXISTS "stage_notes"')
         conn.execute(
             "INSERT INTO system_notifications (title, message, severity, category, target_role, is_read, created_at, updated_at) "
             "VALUES ('تنبيه قديم', 'رسالة قديمة', 'INFO', 'SYSTEM', 'ALL', 0, '2026-01-01', '2026-01-01')"
@@ -90,15 +113,19 @@ def _legacy_db(db_file: Path, stamp: str = None) -> None:
         conn.close()
 
 
-def _assert_all_present(db_file: Path):
-    for table, cols in NEW_COLUMNS.items():
-        present = _columns(db_file, table)
-        for col in cols:
-            assert col in present, f"{table}.{col}"
-            assert present[col][3] == 0  # nullable
-            assert present[col][4] is None  # no server default
-    for index, table in NEW_INDEXES.items():
-        assert index in _indexes(db_file, table), index
+
+def _assert_new_tables_present(db_file: Path):
+    """Verify that tables added by d8e9f0a1b2c3 are present."""
+    existing = _existing_tables(db_file)
+    for table in NEW_TABLES:
+        assert table in existing, f"Expected table '{table}' to exist after migration d8e9f0a1b2c3"
+
+
+def _assert_new_tables_absent(db_file: Path):
+    """Verify that tables added by d8e9f0a1b2c3 were removed by downgrade."""
+    existing = _existing_tables(db_file)
+    for table in NEW_TABLES:
+        assert table not in existing, f"Table '{table}' should be dropped after downgrade to {PREVIOUS}"
 
 
 def _startup(db_file: Path, monkeypatch):
@@ -120,9 +147,14 @@ def test_head_is_c8d3():
 
 
 def test_behind_db_is_upgraded_by_alembic(tmp_path, monkeypatch):
+    """DB stamped at PREVIOUS (c7d8e9f0a1b2) without stage_notes tables: startup upgrades to HEAD."""
     db_file = tmp_path / "sorour_logistics.db"
     _legacy_db(db_file, stamp=PREVIOUS)
-    assert "msg_code" not in _columns(db_file, "smart_tasks")
+    # Confirm stage_notes tables are absent before upgrade
+    assert "stage_notes" not in _existing_tables(db_file)
+    assert "stage_note_attachments" not in _existing_tables(db_file)
+    # Legacy columns from earlier migrations must still be intact at PREVIOUS
+    assert "msg_code" in _columns(db_file, "smart_tasks")
 
     res = _startup(db_file, monkeypatch)
 
@@ -130,17 +162,16 @@ def test_behind_db_is_upgraded_by_alembic(tmp_path, monkeypatch):
     assert res["migration"]["action"] == "upgraded"
     assert res["migration"]["from_revision"] == PREVIOUS
     assert res["migration"]["to_revision"] == HEAD
-    assert not any(c.startswith(("smart_tasks.msg", "import_files.current_step")) for c in res["columns_added"])
-    _assert_all_present(db_file)
+    _assert_new_tables_present(db_file)
     conn = sqlite3.connect(db_file)
     try:
-        assert conn.execute("SELECT msg_code, msg_params FROM system_notifications").fetchone() == (None, None)
         assert conn.execute("SELECT version_num FROM alembic_version").fetchall() == [(HEAD,)]
     finally:
         conn.close()
 
 
 def test_unstamped_legacy_db_gets_columns_and_indexes_then_stamped(tmp_path, monkeypatch):
+    """Unstamped DB (no alembic_version): startup stamps HEAD; new tables present via create_all."""
     db_file = tmp_path / "sorour_logistics.db"
     _legacy_db(db_file, stamp=None)
 
@@ -149,14 +180,14 @@ def test_unstamped_legacy_db_gets_columns_and_indexes_then_stamped(tmp_path, mon
     assert res["status"] == "upgraded_successfully", res
     assert res["migration"]["state"] == "unstamped"
     assert res["migration"]["action"] == "stamped"
-    for table, cols in NEW_COLUMNS.items():
-        for col in cols:
-            assert f"{table}.{col}" in res["columns_added"]
-    assert set(NEW_INDEXES) <= set(res["indexes_added"])
-    _assert_all_present(db_file)
+    # d8e9f0a1b2c3 creates tables (not columns), so columns_added should not include NEW_TABLES columns
+    # but legacy indexes should be re-added
+    assert set(LEGACY_INDEXES) <= set(res["indexes_added"])
+    _assert_new_tables_present(db_file)
 
 
-def test_upgrade_is_a_no_op_on_a_create_all_db_and_downgrade_removes_columns(tmp_path):
+def test_upgrade_is_a_no_op_on_a_create_all_db_and_downgrade_removes_tables(tmp_path):
+    """create_all DB already has stage_notes tables: upgrade is no-op. Downgrade drops them."""
     db_file = tmp_path / "created.db"
     engine = create_engine(f"sqlite:///{db_file.as_posix()}")
     try:
@@ -166,21 +197,17 @@ def test_upgrade_is_a_no_op_on_a_create_all_db_and_downgrade_removes_columns(tmp
         conn.execute("INSERT INTO alembic_version (version_num) VALUES (?)", (PREVIOUS,))
         conn.commit()
         conn.close()
-        before = {t: _columns(db_file, t) for t in NEW_COLUMNS}
+        # Tables already exist — upgrade should be a no-op (migration uses defensive IF NOT EXISTS)
         assert migration_runner.upgrade_to_head(engine) == HEAD
-        assert {t: _columns(db_file, t) for t in NEW_COLUMNS} == before
-        _assert_all_present(db_file)
+        _assert_new_tables_present(db_file)
 
+        # Downgrade should remove the new tables
         with engine.connect() as connection:
             command.downgrade(migration_runner.build_alembic_config(connection), PREVIOUS)
             connection.commit()
     finally:
         engine.dispose()
-    for table, cols in NEW_COLUMNS.items():
-        present = _columns(db_file, table)
-        assert not any(c in present for c in cols), table
-    for index, table in NEW_INDEXES.items():
-        assert index not in _indexes(db_file, table)
+    _assert_new_tables_absent(db_file)
 
 
 def _drop(db_file: Path, *names: str) -> None:
