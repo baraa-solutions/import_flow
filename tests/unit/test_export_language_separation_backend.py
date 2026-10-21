@@ -16,18 +16,27 @@ def db_session():
         db.close()
 
 
+@pytest.fixture(autouse=True)
+def override_db(db_session):
+    app.dependency_overrides[get_db] = lambda: db_session
+    yield
+    app.dependency_overrides.pop(get_db, None)
+
+
 @pytest.fixture
 def auth_headers(db_session):
     from modules.auth.router import get_current_user
 
-    user = db_session.query(User).first()
+    user = db_session.query(User).filter(User.username == "export_test_admin").first()
     if not user:
         user = User(
-            username="testadmin",
-            full_name="Test Admin",
-            email="testadmin@sorour.com",
+            username="export_test_admin",
+            full_name="Export Test Admin",
+            email="export_test_admin@sorour.com",
             role="ADMIN",
             is_active=True,
+            token_version=0,
+            must_change_password=False,
             hashed_password="hashed_placeholder"
         )
         db_session.add(user)
@@ -36,12 +45,13 @@ def auth_headers(db_session):
         user.role = "ADMIN"
         user.is_active = True
         user.must_change_password = False
+        user.token_version = 0
         db_session.commit()
 
     from modules.auth.security import create_access_token
     from modules.auth.permissions import invalidate_permission_cache
     invalidate_permission_cache()
-    token = create_access_token({"sub": str(user.user_id), "username": user.username, "role": user.role, "tv": user.token_version or 0})
+    token = create_access_token({"sub": str(user.user_id), "username": user.username, "role": user.role, "tv": 0})
 
     app.dependency_overrides[get_current_user] = lambda: user
     yield {"Authorization": f"Bearer {token}"}
