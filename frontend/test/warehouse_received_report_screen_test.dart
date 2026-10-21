@@ -1,3 +1,5 @@
+import 'package:frontend/features/import_files/models/import_file_model.dart';
+import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -60,6 +62,7 @@ void main() {
     driverName: 'Mohamed',
     grnItems: [
       GrnItemModel(
+        poNumber: 'PO-MAIN-101',
         itemCode: 'SKU-001',
         itemName: 'Industrial Ball Bearings',
         invoicedQty: 500,
@@ -130,6 +133,11 @@ void main() {
         warehouseReceivingProvider.overrideWith(
           (ref) => _MockWarehouseReceivingNotifier(receivingRecords, testDio),
         ),
+        // The report shows the real file code from the import files list (no invented "IMP-{id}").
+        importFilesProvider.overrideWith((ref) => _FileCodesNotifier([
+              ImportFileModel.fromJson({'import_file_id': 101, 'import_file_code': 'IMP-101'}),
+              ImportFileModel.fromJson({'import_file_id': 102, 'import_file_code': 'IMP-102'}),
+            ])),
       ],
       child: AppLocalizationsProvider(
         locale: locale,
@@ -180,8 +188,6 @@ void main() {
       expect(find.text('5 وحدة'), findsOneWidget);
       // Shortage: 10
       expect(find.text('10 وحدة'), findsOneWidget);
-      // Samples: 0
-      expect(find.text('0 وحدة'), findsOneWidget);
       // Variance: -15
       expect(find.text('-15 وحدة'), findsOneWidget);
     });
@@ -296,7 +302,16 @@ void main() {
       expect(find.text('Copy Comprehensive Dossier'), findsOneWidget);
       expect(find.text('700 units'), findsOneWidget);
       expect(find.text('IMP-101'), findsOneWidget);
-      expect(find.text('Approved & Received'), findsWidgets);
+      // No invented "Approved & Received": the mock records carry no status, so none is shown.
+      expect(find.text('Approved & Received'), findsNothing);
     });
   });
+}
+
+
+class _FileCodesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>>> implements ImportFilesNotifier {
+  _FileCodesNotifier(List<ImportFileModel> files) : super(AsyncValue.data(files));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
 }

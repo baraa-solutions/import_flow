@@ -356,7 +356,7 @@ class _PreForm4NafezaWorkflowDialogState
                 ),
                 const SizedBox(height: 12),
                 Align(
-                  alignment: isAr ? Alignment.centerLeft : Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: AppButton(
                     label: _isTariffCodingCompleted
                         ? (isAr ? 'تحديث تاريخ التكويد' : 'Update Coding Date')
@@ -453,7 +453,7 @@ class _PreForm4NafezaWorkflowDialogState
                 ),
                 const SizedBox(height: 12),
                 Align(
-                  alignment: isAr ? Alignment.centerLeft : Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: AppButton(
                     label: _isBankLinkCompleted
                         ? (isAr ? 'تحديث قبول ربط البنك' : 'Update Bank Link')
@@ -551,7 +551,7 @@ class _PreForm4NafezaWorkflowDialogState
                 ),
                 const SizedBox(height: 12),
                 Align(
-                  alignment: isAr ? Alignment.centerLeft : Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: AppButton(
                     label: _isPaymentRequestCompleted
                         ? (isAr ? 'تحديث طلب السداد والمطالبة' : 'Update Payment Request')

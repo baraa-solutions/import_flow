@@ -1678,4 +1678,76 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'SYSPARAM_INVALID_VALUE': {
     'note': 'قيمة غير صالحة لمعامل النظام \'{param_key}\': {reason}',
   },
+  'ACTUAL_SOURCE_MISSING': {
+    'note': 'بند المصروفات \'{bucket}\' له قيمة تقديرية {estimated_egp} جنيه بدون فواتير فعلية مصدرية.',
+  },
+  'ACTUAL_WH_ARRIVAL': {
+    'note': 'تاريخ الوصول الفعلي للمخزن.',
+  },
+  'ALLOCATION_BASIS_INCOMPLETE': {
+    'note': 'أساس التوزيع \'{rule}\' لبند {bucket} غير مكتمل (قيم ناقصة في {item_codes})؛ تم الرجوع للتوزيع حسب القيمة.',
+  },
+  'CC_BANK_LINK_REQUIRES_TARIFF_CODING': {
+    'note': 'لا يمكن قبول ربط البنك على نافذة قبل استكمال التكويد الجمركي للأصناف (tariff_coding_date).',
+  },
+  'CHECKLIST_GATE_BLOCKED': {
+    'note': 'تم إيقاف الانتقال: يوجد {blocking_count} بند إلزامي معلق في قائمة التحقق للمرحلة {target_phase}.',
+  },
+  'DYNAMIC_WH_ESTIMATE': {
+    'note': 'التاريخ المتوقع للوصول للمخزن (محسوب).',
+  },
+  'EMPTY_CONTAINER_RETURN': {
+    'note': 'تاريخ إعادة الحاوية الفارغة.',
+  },
+  'FA_EGP_RATE_NOT_ONE': {
+    'note': 'عند الدفع بالجنيه المصري يجب أن يكون سعر الصرف 1.0 (القيمة المرسلة {exchange_rate}).',
+  },
+  'FA_PAYMENT_CURRENCY_MISMATCH': {
+    'note': 'عملة طلب الصرف {request_currency} لا تطابق عملة أمر الشراء {po_currency}.',
+  },
+  'FA_PAYMENT_EXCEEDS_PO': {
+    'note': 'مبلغ الصرف {requested} يتجاوز سقف أمر الشراء {po_number} (الإجمالي {po_total}، المرتبط بالفعل {committed}).',
+  },
+  'INVOICES_NOT_READY': {
+    'note': 'جاهزية تسوية الفواتير ({readiness}%) أقل من 100% بسبب فواتير غير مسددة ({unpaid_count}). يرجى تأكيد السداد أو الإقرار بالمبالغ غير المسددة.',
+  },
+  'INVOICES_NOT_SETTLED': {
+    'note': 'لا يمكن اعتماد التكلفة الفعلية قبل تسوية فواتير الشحنة (الحالة: {status}).',
+  },
+  'LOG_TASK_DELIVERY_ORDER': {
+    'title': 'سداد مصاريف التوكيل الملاحي واستلام إذن التسليم (D/O) - {import_file_code}',
+    'body': 'وصلت الباخرة {vessel_name} إلى {port_name}. يرجى سداد مصاريف الحاويات والتوكيل للحصول على إذن التسليم قبل بدء الأرضيات.',
+  },
+  'LOG_VESSEL_ARRIVED_PORT': {
+    'title': 'رست الباخرة في {port_name} - {import_file_code}',
+    'body': 'رست الباخرة {vessel_name} في {port_name}. بدأ احتساب أيام السماح للأرضيات. يرجى سداد مصاريف التوكيل الملاحي واستلام إذن التسليم.',
+    'note': 'رست الباخرة {vessel_name} في {port_name} بتاريخ {arrival_date}.',
+  },
+  'OPEN_TASKS_BYPASSED': {
+    'note': 'تم تجاوز {count} مهمة مفتوحة عند التخطي الإجباري.',
+  },
+  'PO_HAS_ALLOCATIONS': {
+    'note': 'لا يمكن حذف أمر الشراء لوجود تخصيصات شحن مسجلة عليه.',
+  },
+  'PO_NOT_EDITABLE': {
+    'note': 'لا يمكن تعديل أمر الشراء أو التخصيص عليه وهو في الحالة \'{status}\'.',
+  },
+  'SETTLEMENT_ACTUAL_FOB_MISSING': {
+    'note': 'لا يمكن اعتماد التكلفة الفعلية بدون فاتورة بضاعة فعلية أو قيمة FOB لأمر الشراء.',
+  },
+  'SETTLEMENT_CURRENCY_MISSING': {
+    'note': 'العملة غير محددة لفاتورة {source} رقم {invoice_no}؛ يرجى إدخال عملة صحيحة.',
+  },
+  'SETTLEMENT_MANUAL_ROWS_NOT_AGGREGATED': {
+    'note': 'التسوية تحتوي على بنود مصروفات يدوية غير موجودة في مصادر الفواتير المجمعة: {invoice_nos}.',
+  },
+  'SETTLEMENT_NOT_APPROVED': {
+    'note': 'لا يمكن تصدير التسوية {settlement_code} لأن حالتها \'{status}\': يجب اعتمادها أولاً.',
+  },
+  'SETTLEMENT_NO_ITEMS': {
+    'note': 'لا يمكن اعتماد التكلفة الفعلية: ملف الشحنة لا يحتوي على بنود أصناف لتوزيع التكلفة.',
+  },
+  'SETTLEMENT_RESERVED_INVOICE_NO': {
+    'note': 'رقم الفاتورة \'{invoice_no}\' يستخدم البادئة المحجوزة لتسويات إعادة الاحتساب، ولا يُنشأ إلا من محرك إعادة الاحتساب.',
+  },
 };
