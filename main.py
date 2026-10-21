@@ -229,6 +229,27 @@ if _settings.ALLOW_DEV_AUTH_BYPASS:
     )
 
 # ==================================================
+# API Path Normalization Middleware
+# ==================================================
+# Defensively normalizes duplicate path prefixes (e.g. /api/v1/api/v1/ -> /api/v1/)
+# so that any legacy or un-reloaded client requests resolve seamlessly.
+class PathNormalizationMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if path.startswith("/api/v1/api/v1/"):
+                new_path = path.replace("/api/v1/api/v1/", "/api/v1/", 1)
+                scope["path"] = new_path
+                if "raw_path" in scope:
+                    scope["raw_path"] = new_path.encode("ascii")
+        await self.app(scope, receive, send)
+
+app.add_middleware(PathNormalizationMiddleware)
+
+# ==================================================
 # Observability & Request Correlation Middleware
 # ==================================================
 app.add_middleware(ObservabilityMiddleware)
