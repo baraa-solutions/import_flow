@@ -510,7 +510,7 @@ class _ShipmentInquiryFilterPanelState
                   if (statusKey == 'Closed') label = l.inqStatusClosed;
 
                   return Padding(
-                    padding: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsetsDirectional.only(end: 6),
                     child: FilterChip(
                       label: Text(label, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : Colors.white70)),
                       selected: isSelected,

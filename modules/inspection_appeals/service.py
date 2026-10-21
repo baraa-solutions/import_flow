@@ -164,7 +164,7 @@ class InspectionAppealService:
         if payload.official_letter_ref:
             appeal.official_letter_ref = payload.official_letter_ref
         if payload.notes:
-            formatted_note = f"[تصعيد إلى {payload.target_tier}]: {payload.notes}"
+            formatted_note = f"[Escalated to {payload.target_tier}]: {payload.notes}"
             appeal.notes = f"{appeal.notes}\n{formatted_note}" if appeal.notes else formatted_note
 
         appeal.appeal_result = "PENDING"
@@ -193,7 +193,7 @@ class InspectionAppealService:
         if payload.official_letter_ref:
             appeal.official_letter_ref = payload.official_letter_ref
         if payload.notes:
-            formatted_note = f"[قرار اللجنة - {payload.appeal_result}]: {payload.notes}"
+            formatted_note = f"[Committee decision - {payload.appeal_result}]: {payload.notes}"
             appeal.notes = f"{appeal.notes}\n{formatted_note}" if appeal.notes else formatted_note
 
         appeal.updated_at = datetime.now(timezone.utc)
@@ -216,7 +216,7 @@ class InspectionAppealService:
         if payload.official_letter_ref:
             appeal.official_letter_ref = payload.official_letter_ref
         if payload.notes:
-            formatted_note = f"[إحالة للمعمل المحايد {payload.triplicate_lab_assigned}]: {payload.notes}"
+            formatted_note = f"[Referred to neutral lab {payload.triplicate_lab_assigned}]: {payload.notes}"
             appeal.notes = f"{appeal.notes}\n{formatted_note}" if appeal.notes else formatted_note
 
         appeal.updated_at = datetime.now(timezone.utc)

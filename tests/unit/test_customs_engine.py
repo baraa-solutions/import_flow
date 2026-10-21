@@ -428,7 +428,8 @@ def test_tariff_rate_change_creates_version_history(db_session):
 
     # Check old version was archived
     db_session.refresh(old_version)
-    assert old_version.effective_to == date.today()
+    # Versions never overlap (BE67 HS versioning): the old one closes the day before the new one starts.
+    assert old_version.effective_to == date.today() - timedelta(days=1)
     assert old_version.is_active is False
 
     # Step 3: Historical date query (15 days ago) returns old 10% rate!

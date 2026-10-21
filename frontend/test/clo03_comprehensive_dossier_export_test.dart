@@ -311,7 +311,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // 1. Verify Dialog Header
-      expect(find.text('إصدار وتصدير التقرير والملف الشامل (CLO-03)'), findsOneWidget);
+      // The header follows the MaterialApp locale (English here): Arabic-only / English-only strings, no mixing.
+      expect(find.text('Issue & Export Comprehensive Dossier'), findsOneWidget);
       expect(find.byKey(const Key('comprehensiveDossierCloseBtn')), findsOneWidget);
 
       // 2. Verify KPI Banner

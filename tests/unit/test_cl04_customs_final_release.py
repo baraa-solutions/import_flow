@@ -28,9 +28,9 @@ def test_issue_final_customs_release_success(db_session: Session):
     # 1. Setup active import file with paid duties
     imp_file = ImportFile(
         import_file_code=f"IMP-TEST-CL04-{int(datetime.now().timestamp())}",
-        company_id=1,
+        company_id=None,  # FK enforced (PRAGMA foreign_keys): no invented company row
         company_name="Delta Industrial Machinery LLC",
-        supplier_id=1,
+        supplier_id=None,
         supplier_name="Bavaria Tech GmbH",
         port_of_discharge="El Dekheila Port",
         acid_number="9876543210123456789",
@@ -123,9 +123,9 @@ def test_issue_final_customs_release_success(db_session: Session):
 def test_issue_final_customs_release_blocks_if_duties_unpaid(db_session: Session):
     imp_file = ImportFile(
         import_file_code=f"IMP-TEST-UNPAID-{int(datetime.now().timestamp())}",
-        company_id=1,
+        company_id=None,  # FK enforced (PRAGMA foreign_keys): no invented company row
         company_name="Delta Industrial Machinery LLC",
-        supplier_id=1,
+        supplier_id=None,
         supplier_name="Bavaria Tech GmbH",
         acid_number="9876543210123456789",
         acid_expiry_date=date.today() + timedelta(days=90),
@@ -167,9 +167,9 @@ def test_issue_final_customs_release_blocks_if_duties_unpaid(db_session: Session
 def test_issue_final_customs_release_blocks_if_acid_expired(db_session: Session):
     imp_file = ImportFile(
         import_file_code=f"IMP-TEST-EXPIRED-{int(datetime.now().timestamp())}",
-        company_id=1,
+        company_id=None,  # FK enforced (PRAGMA foreign_keys): no invented company row
         company_name="Delta Industrial Machinery LLC",
-        supplier_id=1,
+        supplier_id=None,
         supplier_name="Bavaria Tech GmbH",
         acid_number="1234567890123456789",
         acid_expiry_date=date.today() - timedelta(days=5), # Expired!
@@ -196,9 +196,9 @@ def test_issue_final_customs_release_blocks_if_acid_expired(db_session: Session)
 def test_issue_final_customs_release_api_endpoint(db_session: Session):
     imp_file = ImportFile(
         import_file_code=f"IMP-TEST-API-{int(datetime.now().timestamp())}",
-        company_id=1,
+        company_id=None,  # FK enforced (PRAGMA foreign_keys): no invented company row
         company_name="Delta Industrial Machinery LLC",
-        supplier_id=1,
+        supplier_id=None,
         supplier_name="Bavaria Tech GmbH",
         acid_number="9876543210123456789",
         acid_expiry_date=date.today() + timedelta(days=60),

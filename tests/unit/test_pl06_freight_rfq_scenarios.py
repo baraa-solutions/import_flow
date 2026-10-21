@@ -92,6 +92,12 @@ def db_session():
 
     db.commit()
 
+    # Money fields need an active currency in master data (currency required when a value is entered).
+    from modules.currencies.model import Currency as _Currency
+    for _code in ("USD", "EGP", "EUR"):
+        if not db.query(_Currency).filter_by(currency_code=_code).first():
+            db.add(_Currency(currency_code=_code, currency_name=_code, currency_symbol=_code, is_active=True))
+    db.commit()
     yield db
     db.close()
 
@@ -113,6 +119,7 @@ class TestPL06FreightRFQScenarios:
             chargeable_weight_kg=45000.0,
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
                     vessel_name="MAERSK MC-KINNEY",
@@ -124,6 +131,7 @@ class TestPL06FreightRFQScenarios:
                     free_days_at_pod=14,
                 ),
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[1].provider_id,
                     provider_name=carriers[1].partner_name,
                     vessel_name="MSC GULSUN",
@@ -135,6 +143,7 @@ class TestPL06FreightRFQScenarios:
                     free_days_at_pod=21,
                 ),
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[2].provider_id,
                     provider_name=carriers[2].partner_name,
                     vessel_name="CMA CGM ANTOINE",
@@ -176,6 +185,7 @@ class TestPL06FreightRFQScenarios:
             pod_name="El Dekheila Port",
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
                     ocean_freight_cost=3000.0,
@@ -186,6 +196,7 @@ class TestPL06FreightRFQScenarios:
                     estimated_arrival_date=crd + timedelta(days=28),  # 25 days
                 ),
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[1].provider_id,
                     provider_name=carriers[1].partner_name,
                     ocean_freight_cost=2500.0,
@@ -232,6 +243,7 @@ class TestPL06FreightRFQScenarios:
             import_file_id=imp.import_file_id,
             quotations=[
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[0].provider_id,
                     provider_name=carriers[0].partner_name,
                     ocean_freight_cost=3100.0,
@@ -240,6 +252,7 @@ class TestPL06FreightRFQScenarios:
                     estimated_arrival_date=crd + timedelta(days=26),
                 ),
                 FreightQuotationItemCreate(
+                    currency_code="USD",
                     provider_id=carriers[1].provider_id,
                     provider_name=carriers[1].partner_name,
                     ocean_freight_cost=2750.0,
@@ -284,6 +297,7 @@ class TestPL06FreightRFQScenarios:
                     pod_name="Port",
                     quotations=[
                         FreightQuotationItemCreate(
+                            currency_code="USD",
                             provider_id=carriers[0].provider_id,
                             provider_name=carriers[0].partner_name,
                             ocean_freight_cost=2000.0,
@@ -293,7 +307,7 @@ class TestPL06FreightRFQScenarios:
                     ],
                 ),
             )
-        assert "Sailing date" in exc1.value.detail
+        assert "تاريخ الإبحار" in exc1.value.detail  # single-language (Arabic) API message
 
         # 2. Arrival date <= sailing date
         with pytest.raises(HTTPException) as exc2:
@@ -306,6 +320,7 @@ class TestPL06FreightRFQScenarios:
                     pod_name="Port",
                     quotations=[
                         FreightQuotationItemCreate(
+                            currency_code="USD",
                             provider_id=carriers[0].provider_id,
                             provider_name=carriers[0].partner_name,
                             ocean_freight_cost=2000.0,
@@ -315,7 +330,7 @@ class TestPL06FreightRFQScenarios:
                     ],
                 ),
             )
-        assert "Estimated arrival date" in exc2.value.detail
+        assert "تاريخ الوصول المتوقع" in exc2.value.detail  # single-language (Arabic) API message
 
         # 3. Non-existent carrier
         with pytest.raises(HTTPException) as exc3:
@@ -328,6 +343,7 @@ class TestPL06FreightRFQScenarios:
                     pod_name="Port",
                     quotations=[
                         FreightQuotationItemCreate(
+                            currency_code="USD",
                             provider_id=99999,
                             provider_name="Ghost Line",
                             ocean_freight_cost=2000.0,
@@ -351,7 +367,7 @@ class TestPL06FreightRFQScenarios:
                     import_file_id=88888,
                 ),
             )
-        assert "Import File" in exc4.value.detail
+        assert "ملف الاستيراد" in exc4.value.detail
 
     def test_rfq_filtering_and_soft_delete_lifecycle(self, db_session):
         imp = db_session.query(ImportFile).first()

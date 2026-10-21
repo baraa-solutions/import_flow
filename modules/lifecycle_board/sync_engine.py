@@ -271,11 +271,12 @@ class LifecycleAutoSyncEngine:
         except Exception as e:
             logger.debug("Failed querying tracking logs for file %s: %s", import_file_id, e)
 
-        # 4. Booking ETA
+        # 4. Booking ETA, pushed by the departure delay (BE45: a late ATD moves the planned ETA)
         if booking and getattr(booking, "eta", None):
             eta = _to_dt(booking.eta)
             if eta:
-                return eta, "booking_eta", 0
+                delay = getattr(booking, "departure_delay_days", 0) or 0
+                return eta + timedelta(days=delay), "booking_eta", delay
 
         # 5. Clearance Port Arrival Date
         if clearance and getattr(clearance, "port_arrival_date", None):

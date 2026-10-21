@@ -521,8 +521,10 @@ def test_dd_put_after_bk02_keeps_agreed_free_days(db, with_booking):
         import_file_id=1, agreed_demurrage_free_days=20, agreed_detention_free_days=10), user="op")
     db.refresh(t)
     after_bk02 = (t.total_demurrage_fx, t.total_detention_fx, t.total_storage_egp, t.total_cost_egp)
-    # 24 days in port - 20 free = 4 days (anchored to calendar day 21: 4 x 120 = 480); return 16 days after gate-out - 10 free = 6 x 35; storage 24 - 7 = 17 x 250 = 4250
-    assert after_bk02 == (480.0, 210.0, 4250.0, round((480.0 + 210.0) * 50 + 4250.0, 2))
+    # Extended free time (> 14 days) prices the overdue days at the calendar tier of each day since discharge
+    # (decision 2026-10-21): days 21-24 fall in the 15+ tier = 4 x 120; return 16 days after gate-out - 10 free
+    # = 6 x 35; storage 24 - 7 = 17 x 250 = 4250
+    assert after_bk02 == (480.0, 210.0, 4250.0, round(690.0 * 50 + 4250.0, 2))
     for put in (DemurrageTrackingUpdate(notes="x"), DemurrageTrackingUpdate(exchange_rate=50.0)):
         updated = dd.recalculate_and_update_tracking_service(db, t.tracking_id, put)
         assert (updated.total_demurrage_fx, updated.total_detention_fx, updated.total_storage_egp, updated.total_cost_egp) == after_bk02

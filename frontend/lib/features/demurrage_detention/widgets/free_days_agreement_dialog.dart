@@ -95,12 +95,12 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
       _carrierName = widget.initialCarrierName!;
     }
     _demurrageController = TextEditingController(
-      text: widget.initialDemurrageDays?.toString() ?? '21',
+      text: widget.initialDemurrageDays?.toString() ?? '',  // no invented agreement days
     );
     _detentionController = TextEditingController(
-      text: widget.initialDetentionDays?.toString() ?? '7',
+      text: widget.initialDetentionDays?.toString() ?? '',
     );
-    _storageController = TextEditingController(text: '7');
+    _storageController = TextEditingController();
 
     if (_selectedImportFileId != null) {
       _loadExistingAgreement(_selectedImportFileId!);

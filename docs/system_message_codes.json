@@ -8,6 +8,12 @@
       "note"
     ]
   },
+  "ACTUAL_WH_ARRIVAL": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "ALERT_ACID_EXPIRY_RADAR": {
     "params": [
       "acid_numbers",
@@ -527,6 +533,15 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "CHECKLIST_GATE_BLOCKED": {
+    "params": [
+      "blocking_count",
+      "target_phase"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "CLO_DOSSIER_EXPORTED": {
@@ -1520,6 +1535,12 @@
       "note"
     ]
   },
+  "DYNAMIC_WH_ESTIMATE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "EMAIL_PARSE_MATCHED": {
     "params": [
       "import_file_code",
@@ -1630,6 +1651,12 @@
     "parts": [
       "title",
       "body",
+      "note"
+    ]
+  },
+  "EMPTY_CONTAINER_RETURN": {
+    "params": [],
+    "parts": [
       "note"
     ]
   },
@@ -3543,6 +3570,14 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "OPEN_TASKS_BYPASSED": {
+    "params": [
+      "count"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "OVER_SHIPPED": {

@@ -360,7 +360,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(CloneEntityReviewDialog), findsOneWidget);
-      expect(find.text('BGT-2026-001-CLONE'), findsOneWidget);
+      // The server assigns the clone's code: the review dialog never shows an invented '-CLONE' code.
+      expect(find.text('BGT-2026-001-CLONE'), findsNothing);
 
       final confirmBtn = find.byIcon(Icons.control_point_duplicate_rounded);
       expect(confirmBtn, findsOneWidget);

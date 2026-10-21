@@ -46,6 +46,11 @@ def db():
     session.add(ExternalServiceProvider(provider_id=1, partner_code="PRT-BRK-001", partner_name="Nasr Customs",
                                         partner_type="Customs Broker", is_active=True))
     session.commit()
+    from modules.currencies.model import Currency as _Currency
+    for _code in ("USD", "EGP"):
+        if not session.query(_Currency).filter_by(currency_code=_code).first():
+            session.add(_Currency(currency_code=_code, currency_name=_code, currency_symbol=_code, is_active=True))
+    session.commit()
     yield session
     session.close()
     engine.dispose()
@@ -100,9 +105,9 @@ def test_expense_type_category_and_unit_become_codes(db):
 def test_price_list_items_normalized_and_clone_uses_copy_code_and_english_notes(db):
     pl = BrokerPriceListService.create_price_list(db, BrokerPriceListCreate(
         title="Alex 2026", broker_id=1, broker_name="Nasr Customs", effective_from=date(2026, 1, 1),
-        items=[BrokerPriceListItemCreate(expense_name="Fee 20ft", category="Clearance Fees (أتعاب ومصاريف تخليص)",
-                                         unit_type="Per Invoice (لكل فاتورة)", standard_price=2500.0, currency="EGP"),
-               BrokerPriceListItemCreate(expense_name="Odd", category="Special Cat", unit_type="SET")],
+        items=[BrokerPriceListItemCreate(currency="EGP", expense_name="Fee 20ft", category="Clearance Fees (أتعاب ومصاريف تخليص)",
+                                         unit_type="Per Invoice (لكل فاتورة)", standard_price=2500.0),
+               BrokerPriceListItemCreate(currency="EGP", expense_name="Odd", category="Special Cat", unit_type="SET")],
     ))
     assert [(i.category, i.unit_type) for i in pl.items] == [("CLEARANCE_FEES", "PER_INVOICE"), ("Special Cat", "SET")]
 

@@ -190,8 +190,9 @@ class TestDualClockAndContainerLifecycle:
         clock_data = resp_clock.json()
         assert "carrier_clock" in clock_data
         assert "port_storage_clock" in clock_data
-        assert clock_data["carrier_clock"]["free_days_allowed"] == 14
-        assert clock_data["port_storage_clock"]["storage_free_days"] == 5
+        # Defaults since the dual-clock change (#184): 5 line free days, 7 terminal storage free days.
+        assert clock_data["carrier_clock"]["free_days_allowed"] == 5
+        assert clock_data["port_storage_clock"]["storage_free_days"] == 7
 
         # Test PATCH single container API
         patch_payload = {

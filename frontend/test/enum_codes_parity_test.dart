@@ -59,7 +59,8 @@ const _typeMap = <String, String>{
 };
 
 /// Backend-only types that the Flutter UI does not pick from a list.
-const _backendOnly = {'PHASE_FOLLOW_UP_TASK'};
+// Backend-only types: not shown in the UI (PO_ALLOCATION_STATUS guards PO deletes server-side, BE01-T11).
+const _backendOnly = {'PHASE_FOLLOW_UP_TASK', 'PO_ALLOCATION_STATUS'};
 
 void main() {
   final file = File('../docs/enum_codes.json');
