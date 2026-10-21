@@ -33,6 +33,7 @@ from modules.lifecycle_board.schemas import StepConfigUpdateRequest
 from modules.customs_clearance.model import CustomsClearanceRecord
 from modules.purchase_orders.model import PurchaseOrder
 from modules.import_documentation.model import InspectionCertificateReviewSession
+from modules.currencies.model import Currency
 from modules.customs_consultation.model import ClearanceExpenseType
 
 
@@ -41,6 +42,7 @@ def db():
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(bind=engine)
     session = sessionmaker(bind=engine)()
+    session.add(Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="E£", is_active=True))
     session.add(ExternalServiceProvider(provider_id=1, partner_code="PRT-BRK-001", partner_name="Nasr Customs",
                                         partner_type="Customs Broker", is_active=True))
     session.commit()

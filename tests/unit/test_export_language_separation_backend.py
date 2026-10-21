@@ -39,12 +39,14 @@ def auth_headers(db_session):
         db_session.commit()
 
     from modules.auth.security import create_access_token
-    # BEX-T08: carry the user's current token_version, other tests may have bumped it in the shared DB.
-    token = create_access_token({"sub": str(user.user_id), "username": user.username, "tv": user.token_version or 0})
+    from modules.auth.permissions import invalidate_permission_cache
+    invalidate_permission_cache()
+    token = create_access_token({"sub": str(user.user_id), "username": user.username, "role": user.role, "tv": user.token_version or 0})
 
     app.dependency_overrides[get_current_user] = lambda: user
     yield {"Authorization": f"Bearer {token}"}
     app.dependency_overrides.pop(get_current_user, None)
+    invalidate_permission_cache()
 
 
 def test_import_companies_exports_csv_excel_pdf(auth_headers):
