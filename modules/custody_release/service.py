@@ -140,7 +140,7 @@ class CustodyReleaseService:
         if payload.warehouse_address:
             dossier.warehouse_address = payload.warehouse_address
         if payload.notes:
-            formatted_note = f"[تجميد وتحفظ بالمستودع]: {payload.notes}"
+            formatted_note = f"[Warehouse freeze and custody hold]: {payload.notes}"
             dossier.notes = f"{dossier.notes}\n{formatted_note}" if dossier.notes else formatted_note
 
         dossier.updated_at = datetime.now(timezone.utc)
@@ -176,7 +176,7 @@ class CustodyReleaseService:
         dossier.release_approved_at = payload.release_approved_at or datetime.now(timezone.utc)
 
         if payload.notes:
-            formatted_note = f"[إفراج نهائي ومطابقة]: {payload.notes}"
+            formatted_note = f"[Final release and match]: {payload.notes}"
             dossier.notes = f"{dossier.notes}\n{formatted_note}" if dossier.notes else formatted_note
 
         dossier.updated_at = datetime.now(timezone.utc)
@@ -204,7 +204,7 @@ class CustodyReleaseService:
         dossier.lock_active = True
         dossier.breach_reason = payload.breach_reason.strip()
 
-        formatted_note = f"[تقرير مخالفة وضبط]: {payload.breach_reason}"
+        formatted_note = f"[Breach and seizure report]: {payload.breach_reason}"
         if payload.notes:
             formatted_note += f" | {payload.notes}"
         dossier.notes = f"{dossier.notes}\n{formatted_note}" if dossier.notes else formatted_note

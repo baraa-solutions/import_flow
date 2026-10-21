@@ -306,8 +306,8 @@ class _ClearanceFollowupDialogState extends ConsumerState<ClearanceFollowupDialo
                     flex: 5,
                     child: Container(
                       decoration: BoxDecoration(
-                        border: Border(
-                          right: BorderSide(color: AppTheme.borderOf(context)),
+                        border: BorderDirectional(
+                          end: BorderSide(color: AppTheme.borderOf(context)),
                         ),
                       ),
                       padding: const EdgeInsets.all(16),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/customs_clearance/providers/customs_clearance_provider.dart';
+import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 import 'package:frontend/features/warehouse_receiving/models/goods_in_transit_model.dart';
@@ -84,6 +85,13 @@ class _MockGoodsInTransitNotifier extends GoodsInTransitNotifier {
   void initLedger() {
     state = AsyncValue.data(mockItems);
   }
+}
+
+class _FileCodesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>>> implements ImportFilesNotifier {
+  _FileCodesNotifier(List<ImportFileModel> files) : super(AsyncValue.data(files));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
 }
 
 void main() {
@@ -197,6 +205,10 @@ void main() {
         ProviderScope(
           overrides: [
             warehouseReceivingProvider.overrideWith((ref) => _MockWarehouseReceivingNotifier([mockGrnRecord])),
+            // The report shows the real file code from the import files list (no invented "IMP-{id}").
+            importFilesProvider.overrideWith((ref) => _FileCodesNotifier([
+                  ImportFileModel.fromJson({'import_file_id': 1, 'import_file_code': 'IMP-2026-001'}),
+                ])),
           ],
           child: const AppLocalizationsProvider(
             locale: Locale('ar'),
@@ -213,7 +225,7 @@ void main() {
 
       expect(find.textContaining('تقرير الشحنات المستلمة بالمخزن تفصيلي'), findsWidgets);
       expect(find.textContaining('المستلم الفعلي بالمخزن'), findsOneWidget);
-      expect(find.textContaining('IMP-1'), findsWidgets);
+      expect(find.textContaining('IMP-2026-001'), findsWidgets);
       expect(find.textContaining('Enterprise Servers'), findsOneWidget);
     });
   });

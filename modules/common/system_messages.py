@@ -1413,6 +1413,13 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "CCQ_RFQ_STATUS_INVALID": {
         "note": "RFQ status '{status}' is not allowed; awarding is done through the award action only.",
     },
+    "CHECKLIST_GATE_BLOCKED": {
+        "note": "Gatekeeper blocked: {blocking_count} mandatory checklist item(s) pending for phase {target_phase}.",
+    },
+    "OPEN_TASKS_BYPASSED": {"note": "{count} open task(s) were bypassed by the forced skip."},
+    "DYNAMIC_WH_ESTIMATE": {"note": "Expected warehouse arrival date (computed)."},
+    "ACTUAL_WH_ARRIVAL": {"note": "Actual warehouse arrival date."},
+    "EMPTY_CONTAINER_RETURN": {"note": "Empty container return date."},
     "CCQ_RFQ_AWARDED": {
         "note": "The RFQ is already awarded and cannot be modified, deleted, or awarded again.",
     },

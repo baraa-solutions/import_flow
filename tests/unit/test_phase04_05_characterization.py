@@ -204,6 +204,8 @@ def _sim(gate_out: date):
     return simulate_demurrage_and_detention(DemurrageSimulationRequest(
         discharge_date=date(2026, 8, 1), gate_out_date=gate_out, empty_return_date=gate_out + timedelta(days=10),
         exchange_rate=50.0, containers_count=2,
+        # Pinned free days: these tests characterise the fee mechanics, not the defaults (5 / 7 / 7 since #184).
+        demurrage_free_days=14, detention_free_days=7, port_storage_free_days=5,
     ))
 
 
@@ -228,6 +230,11 @@ def test_simulator_gate_out_one_day_after_expiry():
 # 6. Last free day: dual clock and radar (Q11 pin) ---------------------------------------------------------
 
 def _tracking_on_last_free_day(db) -> DemurrageTracking:
+    # Pinned default tariff (14 line free days, 5 storage free days): the Q11 pin is about the last free day.
+    from modules.common.system_parameters import SystemParameter
+    for key, value in (("DD_DEFAULT_FREE_DAYS_DEMURRAGE", "14"), ("DD_DEFAULT_STORAGE_FREE_DAYS", "5")):
+        db.add(SystemParameter(param_key=key, param_value=value))
+    db.commit()
     tracking = DemurrageTracking(
         tracking_code="DND-CHAR-0001", import_file_id=1, import_file_code="IMP-2026-0450", carrier_name="MSC",
         bill_of_lading_no="BL-CHAR-1", port_name="Alexandria Port", discharge_date=date.today() - timedelta(days=14),

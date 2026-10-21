@@ -165,18 +165,19 @@ class TestBE45NoInventedDefaults:
         res = client.post("/api/v1/demurrage-detention/policies", json=payload)
         assert res.status_code == 201, res.text
         policy_data = res.json()
-        assert policy_data["demurrage_free_days"] == 14
+        # Defaults since the dual-clock change (#184): 5 line free days, 7 detention, 7 terminal storage.
+        assert policy_data["demurrage_free_days"] == 5
         assert policy_data["detention_free_days"] == 7
-        assert policy_data["port_storage_free_days"] == 5
+        assert policy_data["port_storage_free_days"] == 7
         assert policy_data["port_storage_daily_rate_egp"] == 250.0
 
         # Verify in DB directly
         policy_db = db_session.query(DemurragePolicy).filter_by(
             policy_id=policy_data["policy_id"]
         ).first()
-        assert policy_db.demurrage_free_days == 14
+        assert policy_db.demurrage_free_days == 5
         assert policy_db.detention_free_days == 7
-        assert policy_db.port_storage_free_days == 5
+        assert policy_db.port_storage_free_days == 7
         assert policy_db.port_storage_daily_rate_egp == 250.0
 
     def test_empty_container_return_without_depot_name_stores_null(self, db_session, client):

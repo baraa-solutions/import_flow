@@ -52,6 +52,12 @@ def db_session():
     session.add(broker)
     session.commit()
 
+    # Money fields need an active currency in master data (currency required when a value is entered).
+    from modules.currencies.model import Currency as _Currency
+    for _code in ("USD", "EGP", "EUR"):
+        if not session.query(_Currency).filter_by(currency_code=_code).first():
+            session.add(_Currency(currency_code=_code, currency_name=_code, currency_symbol=_code, is_active=True))
+    session.commit()
     yield session
     session.close()
 
@@ -167,6 +173,7 @@ def test_consultation_study_with_broker_quote_calculations(db_session):
         ],
         broker_quote_items=[
             CustomsBrokerQuoteItemCreate(
+                currency="EGP",
                 expense_name="أتعاب تخليص (فاتورة)",
                 category="Clearance Fees (أتعاب ومصاريف تخليص)",
                 unit_type="Per Invoice",
@@ -175,6 +182,7 @@ def test_consultation_study_with_broker_quote_calculations(db_session):
                 is_applicable=True,
             ),
             CustomsBrokerQuoteItemCreate(
+                currency="EGP",
                 expense_name="مصاريف تخليص حاوية 20 قدم",
                 category="Clearance Fees (أتعاب ومصاريف تخليص)",
                 unit_type="Per Container",
@@ -183,6 +191,7 @@ def test_consultation_study_with_broker_quote_calculations(db_session):
                 is_applicable=True,
             ),
             CustomsBrokerQuoteItemCreate(
+                currency="EGP",
                 expense_name="نقل حاوية 20 قدم للقاهرة",
                 category="Inland Transport (نقل بري وشاحنات)",
                 unit_type="Per Container",
@@ -191,6 +200,7 @@ def test_consultation_study_with_broker_quote_calculations(db_session):
                 is_applicable=True,
             ),
             CustomsBrokerQuoteItemCreate(
+                currency="EGP",
                 expense_name="عرض أمن عام للقاهرة",
                 category="Procedures & Approvals (إجراءات وموافقات وفحص)",
                 unit_type="Per Case",
@@ -226,6 +236,7 @@ def test_historical_snapshot_isolation(db_session):
             effective_from=date(2026, 1, 1),
             items=[
                 BrokerPriceListItemCreate(
+                    currency="EGP",
                     expense_name="أتعاب تخليص",
                     category="Clearance Fees",
                     unit_type="Per Invoice",
@@ -243,6 +254,7 @@ def test_historical_snapshot_isolation(db_session):
         broker_price_list_id=pl.price_list_id,
         broker_quote_items=[
             CustomsBrokerQuoteItemCreate(
+                currency="EGP",
                 expense_name="أتعاب تخليص",
                 category="Clearance Fees",
                 unit_type="Per Invoice",
@@ -262,6 +274,7 @@ def test_historical_snapshot_isolation(db_session):
         BrokerPriceListUpdate(
             items=[
                 BrokerPriceListItemCreate(
+                    currency="EGP",
                     expense_name="أتعاب تخليص",
                     category="Clearance Fees",
                     unit_type="Per Invoice",

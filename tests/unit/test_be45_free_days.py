@@ -218,9 +218,9 @@ def test_tracking_uses_policy_free_days_when_booking_has_none(db):
         user="tester",
     )
 
-    # 22 days consumed - 21 policy free days = 1 overdue day
-    # Tier 1 rate = 40.0 USD
-    assert tracking.total_demurrage_fx == 40.0
+    # 22 days consumed - 21 policy free days = 1 overdue day (day 22). Extended free time (> 14 days) is priced
+    # at the calendar tier of that day (decision 2026-10-21): day 22 is in the 15+ tier = 120.0 USD.
+    assert tracking.total_demurrage_fx == 120.0
 
 
 def test_tracking_respects_agreed_zero_free_days(db):

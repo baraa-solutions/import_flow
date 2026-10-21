@@ -8,6 +8,12 @@
       "note"
     ]
   },
+  "ACTUAL_WH_ARRIVAL": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "ALERT_ACID_EXPIRY_RADAR": {
     "params": [
       "acid_numbers",
@@ -134,6 +140,12 @@
     "params": [
       "validity_date"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CCQ_RFQ_AWARDED": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -521,6 +533,15 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "CHECKLIST_GATE_BLOCKED": {
+    "params": [
+      "blocking_count",
+      "target_phase"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "CLO_DOSSIER_EXPORTED": {
@@ -1514,6 +1535,12 @@
       "note"
     ]
   },
+  "DYNAMIC_WH_ESTIMATE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "EMAIL_PARSE_MATCHED": {
     "params": [
       "import_file_code",
@@ -1624,6 +1651,12 @@
     "parts": [
       "title",
       "body",
+      "note"
+    ]
+  },
+  "EMPTY_CONTAINER_RETURN": {
+    "params": [],
+    "parts": [
       "note"
     ]
   },
@@ -3539,6 +3572,14 @@
       "body"
     ]
   },
+  "OPEN_TASKS_BYPASSED": {
+    "params": [
+      "count"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "OVER_SHIPPED": {
     "params": [
       "item_code",
@@ -4049,6 +4090,23 @@
       "note"
     ]
   },
+  "SYSPARAM_INVALID_VALUE": {
+    "params": [
+      "param_key",
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SYSPARAM_UNKNOWN": {
+    "params": [
+      "param_key"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "TASK_AUTO_PHASE_FOLLOW_UP": {
     "params": [
       "import_file_code",
@@ -4382,22 +4440,5 @@
     "4": "4. Digital & Banking",
     "5": "5. Port Operations & Clearance",
     "6": "6. Inbound & Final Closure"
-  },
-  "SYSPARAM_INVALID_VALUE": {
-    "params": [
-      "param_key",
-      "reason"
-    ],
-    "parts": [
-      "note"
-    ]
-  },
-  "SYSPARAM_UNKNOWN": {
-    "params": [
-      "param_key"
-    ],
-    "parts": [
-      "note"
-    ]
   }
 }
