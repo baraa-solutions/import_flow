@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
@@ -539,6 +540,12 @@ void main() {
       // Run comparison
       await tester.tap(find.text('تشغيل مصفوفة المطابقة الفورية'));
       await tester.pumpAndSettle();
+
+      // Clipboard has no platform handler in widget tests; answer Clipboard.setData so the confirmation shows.
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (MethodCall methodCall) async => null,
+      );
 
       // Tap Copy Report button
       final copyBtn = find.text('نسخ تقرير المطابقة');

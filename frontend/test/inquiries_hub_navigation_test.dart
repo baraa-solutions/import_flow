@@ -107,7 +107,7 @@ void main() {
 
       // Verify both items are now visible inside Inquiries
       expect(find.text('طلب ومقارنة عروض النولون والترسية'), findsOneWidget);
-      expect(find.text('حاسبة الأحجام وتوزيع الحاويات (CBM)'), findsOneWidget);
+      expect(find.text('حاسبة الأحجام وتوزيع الحاويات'), findsOneWidget);
 
       // Verify tapping Freight RFQ navigates to index 49
       await tester.tap(find.text('طلب ومقارنة عروض النولون والترسية'));
@@ -115,7 +115,7 @@ void main() {
       expect(container.read(navigationIndexProvider), 49);
 
       // Verify tapping Cargo Measurement Engine navigates to index 3
-      await tester.tap(find.text('حاسبة الأحجام وتوزيع الحاويات (CBM)'));
+      await tester.tap(find.text('حاسبة الأحجام وتوزيع الحاويات'));
       await tester.pump();
       expect(container.read(navigationIndexProvider), 3);
 

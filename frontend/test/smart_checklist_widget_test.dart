@@ -299,7 +299,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('قائمة التحقق التشغيلية الذكية (Smart Import Checklist)'), findsOneWidget);
+      expect(find.text('قائمة التحقق التشغيلية الذكية'), findsOneWidget);
       expect(find.text('مؤشر الجاهزية'), findsOneWidget);
       expect(find.text('معلق مانع [Gate]'), findsOneWidget);
       expect(find.text('فحص آلي مع الداتابيز'), findsOneWidget);
