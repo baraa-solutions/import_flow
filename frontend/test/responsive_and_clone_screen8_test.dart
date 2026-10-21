@@ -582,5 +582,37 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(SearchAndClonePaymentDialog), findsNothing);
     });
+
+    testWidgets('Task F: Row-Level Clone on Linked POs duplicates allocation item', (tester) async {
+      final size = const Size(1400, 900);
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final notifier = MockPaymentRequestsNotifier(_createSamplePayments());
+      await tester.pumpWidget(_buildTestWidget(
+        surfaceSize: size,
+        paymentNotifier: notifier,
+        locale: const Locale('en'),
+        initialImportFileId: 102,
+      ));
+      await tester.pumpAndSettle();
+
+      // Verify linked PO is loaded
+      expect(find.text('Alpha Project'), findsOneWidget);
+      final clonePoBtn = find.byIcon(Icons.copy_rounded).first;
+      expect(clonePoBtn, findsOneWidget);
+
+      await tester.ensureVisible(clonePoBtn);
+      await tester.pumpAndSettle();
+
+      // Tap clone PO allocation button
+      await tester.tap(clonePoBtn);
+      await tester.pumpAndSettle();
+
+      // Verify PO allocation was duplicated
+      expect(find.text('Alpha Project'), findsNWidgets(2));
+      expect(find.text('PO allocation cloned successfully'), findsOneWidget);
+    });
   });
 }
