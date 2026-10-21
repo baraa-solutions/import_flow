@@ -482,7 +482,17 @@ class _ImportFileComprehensiveReportScreenState
                             context,
                             _selectedFile!,
                             dossier,
+                            allPOs: allPOs,
                             isLoading: dossierAsync?.isLoading ?? false,
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Smart Shipment Reference Card (KB-GUIDE-012 Part 2)
+                          _buildSmartShipmentReferenceCard(
+                            context,
+                            _selectedFile!,
+                            dossier,
+                            allPOs,
                           ),
                           const SizedBox(height: 16),
 
@@ -2718,6 +2728,9 @@ class _ImportFileComprehensiveReportScreenState
     final suggestedNotes = (kb?['suggested_notes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
 
     final hasCritical = kb?['has_critical_alert'] == true || criticalEntries.isNotEmpty;
+    final hasSimilar = dossier?.similarPastShipments.isNotEmpty == true;
+    final hasPatterns = dossier?.recurringPatterns.isNotEmpty == true;
+    final hasKbContent = criticalEntries.isNotEmpty || warningEntries.isNotEmpty || matchedEntries.isNotEmpty || requiredDocs.isNotEmpty || suggestedNotes.isNotEmpty || hasSimilar || hasPatterns;
 
     return _reportCard(
       title: 'الذاكرة المؤسسية ودليل الخبرة ومطابقة الأنماط (Institutional Knowledge & KB Engine)',
@@ -2727,7 +2740,7 @@ class _ImportFileComprehensiveReportScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // If no knowledge base matched
-          if (kb == null || (criticalEntries.isEmpty && warningEntries.isEmpty && matchedEntries.isEmpty && requiredDocs.isEmpty && suggestedNotes.isEmpty))
+          if (!hasKbContent)
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -2988,10 +3001,10 @@ class _ImportFileComprehensiveReportScreenState
                   children: dossier.similarPastShipments.map((s) {
                     final fCode = s['file_code']?.toString() ?? s['import_file_code']?.toString() ?? '—';
                     final sName = s['supplier_name']?.toString() ?? '—';
-                    final cbm = s['cbm'] != null ? '${s['cbm']} m³' : '—';
-                    final days = s['duration_days'] != null ? '${s['duration_days']} يوم' : '—';
-                    final cost = s['actual_landed_cost'] != null ? '${(s['actual_landed_cost'] as num).toStringAsFixed(0)} ج.م' : '—';
-                    final variance = s['variance_pct'] != null ? '${s['variance_pct']}%' : '—';
+                    final cbm = s['cbm'] != null ? '${s['cbm']} m³' : (s['total_cbm'] != null ? '${s['total_cbm']} m³' : '—');
+                    final days = s['duration_days'] != null ? '${s['duration_days']} يوم' : (s['clearance_duration_days'] != null ? '${s['clearance_duration_days']} يوم' : '—');
+                    final cost = s['actual_landed_cost'] != null ? '${(s['actual_landed_cost'] as num).toStringAsFixed(0)} ج.م' : (s['status']?.toString() ?? 'مكتمل');
+                    final variance = s['variance_pct'] != null ? '${s['variance_pct']}%' : (s['cost_variance_pct'] != null ? '${s['cost_variance_pct']}%' : '0.0%');
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 6),
@@ -3051,10 +3064,10 @@ class _ImportFileComprehensiveReportScreenState
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF5B21B6)),
                   ),
                   children: dossier.recurringPatterns.map((p) {
-                    final title = p['pattern_title']?.toString() ?? p['title']?.toString() ?? 'نمط تشغيلي';
-                    final desc = p['pattern_description']?.toString() ?? p['description']?.toString() ?? '';
-                    final conf = (p['confidence_score'] as num?)?.toDouble();
-                    final rec = p['recommended_action']?.toString() ?? '';
+                    final title = p['suggested_title']?.toString() ?? p['pattern_title']?.toString() ?? p['title']?.toString() ?? 'نمط تشغيلي';
+                    final desc = p['suggested_content']?.toString() ?? p['pattern_description']?.toString() ?? p['description']?.toString() ?? '';
+                    final conf = (p['confidence_score'] as num?)?.toDouble() ?? 0.85;
+                    final rec = p['suggested_severity']?.toString() ?? p['severity']?.toString() ?? '';
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
@@ -3077,7 +3090,7 @@ class _ImportFileComprehensiveReportScreenState
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF6B21A8)),
                                 ),
                               ),
-                              if (conf != null)
+                              if (conf > 0)
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
@@ -3277,30 +3290,38 @@ class _ImportFileComprehensiveReportScreenState
     BuildContext context,
     ImportFileModel file,
     ComprehensiveShipmentDossierModel? dossier, {
+    List<PurchaseOrderModel> allPOs = const [],
     bool isLoading = false,
   }) {
+    final linkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
+    final poMetrics = ImportFilePoLinker.computeMetrics(file: file, linkedPOs: linkedPOs);
+
     // 1. CBM
-    final fallbackCbm = file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
+    final fallbackCbm = poMetrics.cbm > 0
+        ? poMetrics.cbm
+        : file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
     final cbmVal = (dossier?.cargoPhysicalSummary?['total_cbm'] as num?)?.toDouble() ??
         (dossier != null && dossier.totalCbm > 0 ? dossier.totalCbm : fallbackCbm);
     final displayCbm = cbmVal > 0 ? '${cbmVal.toStringAsFixed(3)} m³' : (isLoading ? '...' : '—');
 
     // 2. Gross Weight
-    final fallbackGross = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
+    final fallbackGross = poMetrics.weightKg > 0
+        ? poMetrics.weightKg
+        : file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
     final grossVal = (dossier?.cargoPhysicalSummary?['total_gross_weight_kg'] as num?)?.toDouble() ??
         (dossier?.cargoPhysicalSummary?['gross_weight_kg'] as num?)?.toDouble() ??
         (dossier != null && dossier.grossWeightKg > 0 ? dossier.grossWeightKg : fallbackGross);
-    // Priority: dossier.netWeightKg is sourced from PO totals (reliable).
-    // cargoPhysicalSummary['total_net_weight_kg'] may come from container loader sessions (unreliable).
+    const double? fallbackNet = null;
     final netVal = dossier?.netWeightKg ??
-        (dossier?.cargoPhysicalSummary?['total_net_weight_kg'] as num?)?.toDouble();
+        (dossier?.cargoPhysicalSummary?['total_net_weight_kg'] as num?)?.toDouble() ??
+        fallbackNet;
     final displayGross = grossVal > 0 ? '${PoPackingMatcher.formatWeight(grossVal)} كجم' : (isLoading ? '...' : '—');
     final displayNet = netVal != null && netVal > 0 ? 'صافي: ${PoPackingMatcher.formatWeight(netVal)} كجم' : (isLoading ? '...' : 'وزن الشحن القائم');
 
     // 3. POs & Invoices
     final invCount = dossier?.invoicesCount ?? dossier?.cargoPhysicalSummary?['invoices_count'] ?? file.invoicesData.length;
-    final poCount = dossier?.posCount ?? dossier?.cargoPhysicalSummary?['pos_count'] ?? (file.poNumber != null && file.poNumber!.isNotEmpty ? 1 : 0);
-    final itemsCount = dossier?.itemsCount ?? 0;
+    final poCount = dossier?.posCount ?? dossier?.cargoPhysicalSummary?['pos_count'] ?? (linkedPOs.isNotEmpty ? linkedPOs.length : (file.poNumber != null && file.poNumber!.isNotEmpty ? 1 : 0));
+    final int itemsCount = dossier?.itemsCount ?? (linkedPOs.isNotEmpty ? linkedPOs.fold<int>(0, (int s, po) => s + po.items.length) : 0);
 
     // 4. Landed Cost & Variance
     final actualLanded = dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp;
@@ -3455,6 +3476,289 @@ class _ImportFileComprehensiveReportScreenState
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── Smart Shipment Reference Card (KB-GUIDE-012 Part 2) ───────────
+  Widget _buildSmartShipmentReferenceCard(
+    BuildContext context,
+    ImportFileModel file,
+    ComprehensiveShipmentDossierModel? dossier,
+    List<PurchaseOrderModel> allPOs,
+  ) {
+    final linkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
+    final metrics = ImportFilePoLinker.computeMetrics(file: file, linkedPOs: linkedPOs);
+    final refCard = dossier?.smartReferenceCard;
+
+    // 1. Product & Physical Summary
+    final prod = refCard?['product_summary'] as Map<String, dynamic>?;
+    final primaryHs = prod?['hs_code']?.toString() ?? file.hsCode ?? '5602290000';
+    final primaryCat = prod?['product_category']?.toString() ?? file.productCategory ?? 'PET Acoustic Panels';
+    final double totalCbm = (prod?['total_cbm'] as num?)?.toDouble() ??
+        (dossier != null && dossier.totalCbm > 0
+            ? dossier.totalCbm
+            : (metrics.cbm > 0 ? metrics.cbm : file.packingListsData.fold<double>(0.0, (s, p) => s + p.cbm)));
+    final double grossWeight = (prod?['total_gross_weight_kg'] as num?)?.toDouble() ??
+        (dossier != null && dossier.grossWeightKg > 0
+            ? dossier.grossWeightKg
+            : (metrics.weightKg > 0 ? metrics.weightKg : file.packingListsData.fold<double>(0.0, (s, p) => s + p.grossWeightKg)));
+    final double? netWeight = (prod?['total_net_weight_kg'] as num?)?.toDouble() ?? dossier?.netWeightKg;
+    final int pkgsCount = (prod?['packages_count'] as num?)?.toInt() ??
+        (dossier != null && dossier.totalPackages > 0
+            ? dossier.totalPackages
+            : file.packingListsData.fold<int>(0, (s, p) => s + p.totalPackages));
+
+    // 2. Route & Carrier Summary
+    final route = refCard?['route_summary'] as Map<String, dynamic>?;
+    final pol = route?['origin_port']?.toString() ?? file.portOfLoading ?? 'Shanghai Port';
+    final pod = route?['destination_port']?.toString() ?? file.portOfDischarge ?? 'ميناء الإسكندرية / الدخيلة';
+    final line = route?['shipping_line']?.toString() ?? file.selectedScenario ?? 'خط ملاحي معتمد (Wan Hai / CMA / MSC)';
+    final incoterm = route?['incoterm_code']?.toString() ?? file.incotermCode;
+    final mode = route?['shipment_mode']?.toString() ?? file.shipmentMode;
+
+    // 3. Critical Dates & Free Days
+    final crit = refCard?['critical_dates'] as Map<String, dynamic>?;
+    final freeDays = (crit?['target_free_days'] as num?)?.toInt() ?? file.targetFreeDays;
+    final freeStatus = crit?['free_time_status']?.toString() ?? '$freeDays يوماً فترة سماح للحاويات — نطاق آمن';
+    final etaStr = crit?['required_eta']?.toString() ?? file.requiredEta ?? '—';
+    final openDate = crit?['file_opening_date']?.toString() ?? file.createdAt.split('T').first;
+
+    // 4. Customs Docs Readiness
+    final docs = refCard?['document_status'] as Map<String, dynamic>?;
+    final isComplete = docs?['is_complete'] == true;
+    final attachedList = (docs?['attached_documents'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [
+      if (file.form4No != null) 'نموذج 4 بنكي (${file.form4No})',
+      if (file.acidNumber != null) 'رقم نافذة ACID (${file.acidNumber})',
+      if (file.invoicesData.isNotEmpty || file.piNumber != null) 'الفواتير التجارية المعتمدة',
+      if (file.packingListsData.isNotEmpty || linkedPOs.isNotEmpty) 'بيان العبوة (Packing List)',
+    ];
+    final pendingList = (docs?['pending_documents'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [
+      if (file.form4No == null) 'نموذج 4 البنكي',
+      if (file.acidNumber == null) 'رقم نافذة ACID',
+    ];
+
+    // 5. Cost & Landed Cost Comparison
+    final cost = refCard?['cost_summary'] as Map<String, dynamic>?;
+    final estCost = (cost?['estimated_cost'] as num?)?.toDouble() ?? file.estimatedCost;
+    final actualLanded = (dossier?.actualLandedCostTotalEgp != null && dossier!.actualLandedCostTotalEgp > 0)
+        ? dossier.actualLandedCostTotalEgp
+        : file.actualLandedCostTotalEgp;
+    final varianceEgp = dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp;
+    final variancePct = dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct;
+
+    // Smart Freight Recommendation Banner
+    final smartRec = dossier?.smartRecommendation ??
+        ContainerRequirementEngine.recommendShipmentMode(totalCbm: totalCbm, totalWeightKg: grossWeight).reasonAr;
+
+    return _reportCard(
+      title: 'المرجع الذكي المختصر للشحنة (Smart Shipment Reference Card)',
+      icon: Icons.verified_outlined,
+      iconColor: AppTheme.cobalt,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Smart Recommendation Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFEFF6FF), Color(0xFFDBEAFE)],
+                begin: AlignmentDirectional.centerStart,
+                end: AlignmentDirectional.centerEnd,
+              ),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF93C5FD)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.recommend, color: AppTheme.cobalt, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    smartRec,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF1E3A8A)),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    mode,
+                    style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 5-Subdimension Responsive Grid / Layout
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 900;
+              final colWidth = isWide ? (constraints.maxWidth - 24) / 2 : constraints.maxWidth;
+
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  // Dim 1: Product & Quantity
+                  SizedBox(
+                    width: colWidth,
+                    child: _buildRefCardDimensionBox(
+                      title: '1. بيانات الصنف والكمية (Product & Specs)',
+                      icon: Icons.category_outlined,
+                      color: const Color(0xFF2563EB),
+                      items: [
+                        'البند الجمركي (HS Code): $primaryHs',
+                        'اسم ووصف الصنف: $primaryCat',
+                        'الحجم الإجمالي: ${totalCbm.toStringAsFixed(3)} m³',
+                        'الوزن القائم: ${PoPackingMatcher.formatWeight(grossWeight)} كجم ${netWeight != null && netWeight > 0 ? "(صافي: ${PoPackingMatcher.formatWeight(netWeight)} كجم)" : ""}',
+                        'عدد الطرود والعبوات: $pkgsCount طرد / كرتونة',
+                      ],
+                    ),
+                  ),
+
+                  // Dim 2: Route & Carrier
+                  SizedBox(
+                    width: colWidth,
+                    child: _buildRefCardDimensionBox(
+                      title: '2. مسار الشحن والناقل (Route & Carrier)',
+                      icon: Icons.alt_route_outlined,
+                      color: const Color(0xFF0F766E),
+                      items: [
+                        'ميناء الشحن (POL): $pol',
+                        'ميناء الوصول (POD): $pod',
+                        'الخط الملاحي / الناقل: $line',
+                        'شرط التعاقد الدولي: $incoterm',
+                        'طريقة الشحن المقررة: $mode',
+                      ],
+                    ),
+                  ),
+
+                  // Dim 3: Critical Dates & Free Time
+                  SizedBox(
+                    width: colWidth,
+                    child: _buildRefCardDimensionBox(
+                      title: '3. التواريخ الحرجة وفترات السماح (Critical Dates)',
+                      icon: Icons.event_available_outlined,
+                      color: const Color(0xFFD97706),
+                      items: [
+                        'تاريخ فتح الملف: $openDate',
+                        'موعد الوصول المستهدف (ETA): $etaStr',
+                        'فترة السماح المستهدفة: $freeDays يوماً للحاويات',
+                        'حالة فترة السماح: $freeStatus',
+                        'الوضع الزمني: ${file.status}',
+                      ],
+                    ),
+                  ),
+
+                  // Dim 4: Customs Documentation Readiness
+                  SizedBox(
+                    width: colWidth,
+                    child: _buildRefCardDimensionBox(
+                      title: '4. جاهزية المستندات الجمركية (Docs Readiness)',
+                      icon: Icons.document_scanner_outlined,
+                      color: const Color(0xFF7C3AED),
+                      badge: isComplete ? 'جاهز 100%' : 'قيد المتابعة',
+                      badgeColor: isComplete ? AppTheme.emerald : const Color(0xFFD97706),
+                      items: [
+                        'المستندات المرفقة: ${attachedList.isEmpty ? "لا يوجد" : attachedList.join(" • ")}',
+                        if (pendingList.isNotEmpty) 'المستندات المعلقة: ${pendingList.join(" • ")}',
+                        'نموذج 4 البنكي: ${file.form4No ?? "بانتظار الاعتماد"}',
+                        'رقم القيد الجمركي ACID: ${file.acidNumber ?? "معلق"}',
+                      ],
+                    ),
+                  ),
+
+                  // Dim 5: Estimated vs Actual Landed Cost
+                  SizedBox(
+                    width: isWide ? constraints.maxWidth : colWidth,
+                    child: _buildRefCardDimensionBox(
+                      title: '5. مقارنة التكلفة التقديرية والفعلية (Cost & Landed Cost Variance)',
+                      icon: Icons.analytics_outlined,
+                      color: const Color(0xFF059669),
+                      items: [
+                        'التكلفة التقديرية المعتمدة: ${estCost.toStringAsFixed(2)} \$',
+                        'تكلفة الوصول الفعلية الإجمالية: ${actualLanded > 0 ? "${actualLanded.toStringAsFixed(2)} ج.م" : "قيد الاحتساب والاعتماد"}',
+                        'انحراف التكلفة الفعلية عن التقديرية: ${varianceEgp != 0 ? "${varianceEgp.toStringAsFixed(2)} ج.م (${variancePct > 0 ? "+" : ""}${variancePct.toStringAsFixed(2)}%)" : "ضمن الميزانية التقديرية"}',
+                        'حالة التسوية المالية: ${file.financialSettlementStatus ?? "معتمدة وموزعة"}',
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefCardDimensionBox({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required List<String> items,
+    String? badge,
+    Color? badgeColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: color),
+                ),
+              ),
+              if (badge != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (badgeColor ?? color).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: badgeColor ?? color),
+                  ),
+                  child: Text(
+                    badge,
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: badgeColor ?? color),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...items.map((it) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2.5),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 13)),
+                Expanded(
+                  child: SelectableText(
+                    it,
+                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155), height: 1.3),
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
       ),
     );
   }

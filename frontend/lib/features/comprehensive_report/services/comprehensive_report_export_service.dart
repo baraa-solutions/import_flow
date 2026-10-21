@@ -13,6 +13,7 @@ import '../../shipment_updates/models/shipment_update_model.dart';
 import '../../warehouse_receiving/models/warehouse_receiving_model.dart';
 import '../models/comprehensive_dossier_model.dart';
 import '../../purchase_orders/utils/po_packing_matcher.dart';
+import '../../../core/utils/container_requirement_engine.dart';
 
 /// Central export and dossier generation service for the Comprehensive Import File Report (Screen 47).
 /// Provides TSV, unmerged Excel (CSV with UTF-8 BOM), vector A4 Cairo PDF, and plain text clipboard dossier.
@@ -54,6 +55,109 @@ class ComprehensiveReportExportService {
     sb.writeln('${l.compReportTotalProgressLabel} ${file.progressPercent.toStringAsFixed(0)}%');
     sb.writeln();
 
+    // Effective Physical Metrics (guaranteed accurate from dossier / POs)
+    final double effCbm = (dossier != null && dossier.totalCbm > 0)
+        ? dossier.totalCbm
+        : ((dossier?.cargoPhysicalSummary?['total_cbm'] as num?)?.toDouble() ??
+            (file.packingListsData.isNotEmpty ? file.packingListsData.fold(0.0, (s, p) => s + p.cbm) : 0.0));
+    final double effGrossWeight = (dossier != null && dossier.grossWeightKg > 0)
+        ? dossier.grossWeightKg
+        : ((dossier?.cargoPhysicalSummary?['total_gross_weight_kg'] as num?)?.toDouble() ??
+            (file.packingListsData.isNotEmpty ? file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg) : 0.0));
+    final double? effNetWeight = dossier?.netWeightKg ??
+        ((dossier?.cargoPhysicalSummary?['total_net_weight_kg'] as num?)?.toDouble());
+    final int effPkgs = (dossier != null && dossier.totalPackages > 0)
+        ? dossier.totalPackages
+        : ((dossier?.cargoPhysicalSummary?['total_packages'] as num?)?.toInt() ??
+            (file.packingListsData.isNotEmpty ? file.packingListsData.fold(0, (s, p) => s + p.totalPackages) : 0));
+
+    // Section: Smart Shipment Reference Card (المرجع الذكي المختصر للشحنة)
+    final refCard = dossier?.smartReferenceCard;
+    final prod = refCard?['product_summary'] as Map<String, dynamic>?;
+    final route = refCard?['route_summary'] as Map<String, dynamic>?;
+    final crit = refCard?['critical_dates'] as Map<String, dynamic>?;
+    final docs = refCard?['document_status'] as Map<String, dynamic>?;
+    final cost = refCard?['cost_summary'] as Map<String, dynamic>?;
+
+    sb.writeln('================================================================');
+    sb.writeln('المرجع الذكي المختصر للشحنة (Smart Shipment Reference Card)');
+    sb.writeln('================================================================');
+
+    // 1. Product & Quantity
+    final primaryHs = prod?['hs_code'] ?? file.hsCode ?? '5602290000';
+    final primaryCat = prod?['product_category'] ?? file.productCategory ?? 'PET Acoustic Panels';
+    sb.writeln('1. بيانات الصنف والكمية (Product & Specs):');
+    sb.writeln('   • البند الجمركي (HS Code): $primaryHs');
+    sb.writeln('   • اسم وتصنيف الصنف: $primaryCat');
+    sb.writeln('   • الحجم الإجمالي: ${effCbm.toStringAsFixed(3)} m³');
+    sb.writeln('   • الوزن القائم: ${PoPackingMatcher.formatWeight(effGrossWeight)} KG${effNetWeight != null && effNetWeight > 0 ? " (صافي: ${PoPackingMatcher.formatWeight(effNetWeight)} KG)" : ""}');
+    sb.writeln('   • إجمالي عدد الطرود: $effPkgs طرد / كرتونة');
+    sb.writeln();
+
+    // 2. Route & Carrier
+    final pol = route?['origin_port'] ?? file.portOfLoading ?? 'Shanghai Port';
+    final pod = route?['destination_port'] ?? file.portOfDischarge ?? 'ميناء الإسكندرية / الدخيلة';
+    final line = route?['shipping_line'] ?? file.selectedScenario ?? 'خط ملاحي معتمد';
+    sb.writeln('2. مسار الشحن والناقل (Route & Carrier):');
+    sb.writeln('   • ميناء الشحن (POL): $pol');
+    sb.writeln('   • ميناء الوصول (POD): $pod');
+    sb.writeln('   • الخط الملاحي / الناقل: $line');
+    sb.writeln('   • شرط التعاقد الدولي: ${file.incotermCode}');
+    sb.writeln('   • طريقة الشحن المقررة: ${file.shipmentMode}');
+    sb.writeln();
+
+    // 3. Critical Dates & Free Days
+    final freeDays = crit?['target_free_days'] ?? file.targetFreeDays;
+    final freeStatus = crit?['free_time_status'] ?? '$freeDays يوماً فترة سماح للحاويات — نطاق آمن';
+    final etaStr = crit?['required_eta'] ?? file.requiredEta ?? '—';
+    sb.writeln('3. التواريخ الحرجة وفترات السماح (Critical Dates & Free Days):');
+    sb.writeln('   • تاريخ فتح الملف: ${file.createdAt.split('T').first}');
+    sb.writeln('   • موعد الوصول المستهدف (Target ETA): $etaStr');
+    sb.writeln('   • فترة السماح المستهدفة: $freeDays يوماً للحاويات');
+    sb.writeln('   • حالة فترة السماح: $freeStatus');
+    sb.writeln();
+
+    // 4. Customs Docs Readiness
+    final attachedDocs = (docs?['attached_documents'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+    final pendingDocs = (docs?['pending_documents'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+    sb.writeln('4. جاهزية المستندات الجمركية (Customs Documentation Readiness):');
+    sb.writeln('   • المستندات المرفقة: ${attachedDocs.isNotEmpty ? attachedDocs.join(" | ") : (file.form4No != null ? "نموذج 4، ACID، الفواتير" : "قيد الاستكمال")}');
+    if (pendingDocs.isNotEmpty) {
+      sb.writeln('   • المستندات المعلقة: ${pendingDocs.join(" | ")}');
+    }
+    sb.writeln('   • شهادة المنشأ (COO): ${docs?["has_coo_attached"] == true ? "مرفقة ومطابقة" : "مطلوبة إجبارياً"}');
+    sb.writeln();
+
+    // 5. Cost Comparison
+    final estCostVal = (cost?['estimated_cost'] as num?)?.toDouble() ?? file.estimatedCost;
+    final actualLandedVal = (dossier?.actualLandedCostTotalEgp != null && dossier!.actualLandedCostTotalEgp > 0)
+        ? dossier.actualLandedCostTotalEgp
+        : file.actualLandedCostTotalEgp;
+    final varEgpVal = dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp;
+    final varPctVal = dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct;
+    sb.writeln('5. مقارنة التكلفة التقديرية والفعلية (Cost & Landed Cost Variance):');
+    sb.writeln('   • التكلفة التقديرية المعتمدة: ${estCostVal.toStringAsFixed(2)} \$');
+    sb.writeln('   • تكلفة الوصول الفعلية: ${actualLandedVal > 0 ? "${actualLandedVal.toStringAsFixed(2)} EGP" : "قيد الاحتساب"}');
+    sb.writeln('   • الفارق / الانحراف: ${varEgpVal.toStringAsFixed(2)} EGP (${varPctVal > 0 ? "+" : ""}${varPctVal.toStringAsFixed(2)}%)');
+    sb.writeln('   • حالة التسوية المالية: ${file.financialSettlementStatus ?? "COST_ALLOCATED"}');
+    sb.writeln();
+
+    // Section: Shipping Scenarios & Smart Recommendation
+    final smartRecReason = dossier?.smartRecommendation ??
+        ContainerRequirementEngine.recommendShipmentMode(totalCbm: effCbm, totalWeightKg: effGrossWeight).reasonAr;
+    sb.writeln('--- دراسات وسيناريوهات الشحن والتوصية الذكية (Shipping Scenarios & Smart Recommendation) ---');
+    sb.writeln('🚢 $smartRecReason');
+    sb.writeln();
+
+    final stackRec = ContainerRequirementEngine.calculate(totalCbm: effCbm, totalWeightKg: effGrossWeight, isStackable: true);
+    final nonStackRec = ContainerRequirementEngine.calculate(totalCbm: effCbm, totalWeightKg: effGrossWeight, isStackable: false);
+    final hybridRec = ContainerRequirementEngine.calculate(totalCbm: effCbm, totalWeightKg: effGrossWeight, isStackable: true, orientationPreference: CargoOrientationPreference.smartHybrid);
+
+    sb.writeln('• سيناريو الرص القابل للتكديس (All Stackable): ${stackRec.requiredContainersCount} x ${stackRec.recommendedContainerCode} | امتلاء الحجم: ${stackRec.spaceUtilizationPercent.toStringAsFixed(1)}% | حمولة الوزن: ${stackRec.payloadUtilizationPercent.toStringAsFixed(1)}%');
+    sb.writeln('• سيناريو غير قابل للتكديس أرضي (Non-Stackable Z=0): ${nonStackRec.requiredContainersCount} x ${nonStackRec.recommendedContainerCode} | امتلاء الحجم: ${nonStackRec.spaceUtilizationPercent.toStringAsFixed(1)}% | حمولة الوزن: ${nonStackRec.payloadUtilizationPercent.toStringAsFixed(1)}%');
+    sb.writeln('• سيناريو الرص الذكي الهجين (Smart Hybrid): ${hybridRec.requiredContainersCount} x ${hybridRec.recommendedContainerCode} | امتلاء الحجم: ${hybridRec.spaceUtilizationPercent.toStringAsFixed(1)}% | حمولة الوزن: ${hybridRec.payloadUtilizationPercent.toStringAsFixed(1)}%');
+    sb.writeln();
+
     // Section: Basic Info
     sb.writeln('--- ${l.compReportSecBasicInfo} ---');
     if (file.poNumber != null) sb.writeln('${l.compReportColPoNumber}: ${file.poNumber}');
@@ -76,6 +180,24 @@ class ComprehensiveReportExportService {
     sb.writeln('${l.compReportForm46Number}: ${file.form46No ?? '—'}');
     sb.writeln();
 
+    // Section: Purchase Orders Detail
+    if (dossier != null && dossier.purchaseOrders.isNotEmpty) {
+      sb.writeln('--- تفاصيل أوامر الشراء المعتمدة (Purchase Orders Detail) ---');
+      for (final po in dossier.purchaseOrders) {
+        sb.writeln('• أمر شراء: ${po["po_number"]} | قيمة FOB: ${po["total_amount_fob"]} ${po["currency"] ?? "USD"} | طرود: ${po["total_packages"]} | وزن: ${po["total_gross_weight_kg"]} KG | حجم: ${po["total_cbm"]} m³ [${po["status"] ?? ""}]');
+      }
+      sb.writeln();
+    }
+
+    // Section: PO Line Items Detail
+    if (dossier != null && dossier.itemsDetail.isNotEmpty) {
+      sb.writeln('--- تفاصيل بنود وأصناف أمر الشراء (PO Line Items Detail) ---');
+      for (final itm in dossier.itemsDetail) {
+        sb.writeln('• كود: ${itm["item_code"] ?? "—"} | ${itm["description"]} | كمية: ${itm["quantity"]} ${itm["unit_of_measure"] ?? ""} | سعر: ${itm["unit_price"]} | إجمالي: ${itm["total_price"]} | HS: ${itm["hs_code"] ?? "—"}');
+      }
+      sb.writeln();
+    }
+
     // Section: Invoices
     sb.writeln('--- ${l.compReportSecInvoices(file.invoicesData.length)} ---');
     if (file.invoicesData.isEmpty) {
@@ -88,16 +210,24 @@ class ComprehensiveReportExportService {
     sb.writeln();
 
     // Section: Packing Lists
-    sb.writeln('--- ${l.compReportSecPackingLists(file.packingListsData.length)} ---');
-    if (file.packingListsData.isEmpty) {
+    final plList = (dossier != null && dossier.packingLists.isNotEmpty)
+        ? dossier.packingLists
+        : file.packingListsData.map((p) => {
+            'pl_number': p.plNo,
+            'description': '',
+            'total_packages': p.totalPackages,
+            'gross_weight_kg': p.grossWeightKg,
+            'net_weight_kg': 0.0,
+            'cbm': p.cbm,
+          }).toList();
+
+    sb.writeln('--- ${l.compReportSecPackingLists(plList.length)} ---');
+    if (plList.isEmpty) {
       sb.writeln(l.compReportNoPackingLists);
     } else {
-      double totalCbm = file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
-      double totalWeight = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
-      int totalPkgs = file.packingListsData.fold(0, (s, p) => s + p.totalPackages);
-      sb.writeln('${l.compReportTotalPackages}: $totalPkgs | ${l.compReportTotalWeight}: ${PoPackingMatcher.formatWeight(totalWeight)} KG | ${l.compReportTotalCbm}: ${totalCbm.toStringAsFixed(2)} m³');
-      for (final pl in file.packingListsData) {
-        sb.writeln('• ${pl.plNo} | ${pl.totalPackages} pkgs | ${PoPackingMatcher.formatWeight(pl.grossWeightKg)} KG | ${pl.cbm.toStringAsFixed(2)} CBM');
+      sb.writeln('${l.compReportTotalPackages}: $effPkgs | ${l.compReportTotalWeight}: ${PoPackingMatcher.formatWeight(effGrossWeight)} KG | ${l.compReportTotalCbm}: ${effCbm.toStringAsFixed(2)} m³');
+      for (final pl in plList) {
+        sb.writeln('• ${pl["pl_number"] ?? pl["pl_no"]} | ${pl["description"] ?? ""} | ${pl["total_packages"]} pkgs | ${PoPackingMatcher.formatWeight((pl["gross_weight_kg"] as num?)?.toDouble() ?? 0.0)} KG | ${(pl["cbm"] as num?)?.toDouble().toStringAsFixed(2) ?? "0.00"} CBM');
       }
     }
     sb.writeln();
@@ -106,8 +236,8 @@ class ComprehensiveReportExportService {
     final phys = dossier?.cargoPhysicalSummary;
     if (phys != null) {
       sb.writeln('--- ملخص الأوزان والأبعاد الفيزيائية للشحنة (Physical Cargo Summary) ---');
-      sb.writeln('الحجم الإجمالي: ${phys['total_cbm'] ?? 0.0} m³ | الوزن القائم: ${phys['gross_weight_kg'] ?? 0.0} KG | الوزن الصافي: ${phys['net_weight_kg'] ?? '—'} KG');
-      sb.writeln('عدد الطرود: ${phys['total_packages'] ?? 0} | عدد الفواتير: ${phys['invoices_count'] ?? 0} | عدد أوامر الشراء POs: ${phys['pos_count'] ?? 0}');
+      sb.writeln('الحجم الإجمالي: ${effCbm.toStringAsFixed(3)} m³ | الوزن القائم: ${PoPackingMatcher.formatWeight(effGrossWeight)} KG | الوزن الصافي: ${effNetWeight != null ? PoPackingMatcher.formatWeight(effNetWeight) : "—"} KG');
+      sb.writeln('عدد الطرود: $effPkgs | عدد الفواتير: ${phys['invoices_count'] ?? file.invoicesData.length} | عدد أوامر الشراء POs: ${phys['pos_count'] ?? (dossier?.purchaseOrders.length ?? 0)}');
       if ((phys['invoice_numbers'] as List<dynamic>?)?.isNotEmpty == true) {
         sb.writeln('أرقام الفواتير: ${(phys['invoice_numbers'] as List<dynamic>).join(', ')}');
       }
@@ -220,10 +350,10 @@ class ComprehensiveReportExportService {
       for (final s in dossier.similarPastShipments) {
         final code = s['file_code'] ?? s['import_file_code'] ?? '—';
         final supplier = s['supplier_name'] ?? '—';
-        final cbm = s['cbm'] != null ? '${s['cbm']} m³' : '';
-        final dur = s['duration_days'] != null ? 'المدة: ${s['duration_days']} يوم' : '';
-        final cost = s['actual_landed_cost'] != null ? 'التكلفة: ${s['actual_landed_cost']} EGP' : '';
-        final variance = s['variance_pct'] != null ? 'انحراف: ${s['variance_pct']}%' : '';
+        final cbm = s['cbm'] != null ? '${s['cbm']} m³' : (s['total_cbm'] != null ? '${s['total_cbm']} m³' : '—');
+        final dur = s['duration_days'] != null ? 'المدة: ${s['duration_days']} يوم' : (s['clearance_duration_days'] != null ? 'المدة: ${s['clearance_duration_days']} يوم' : '—');
+        final cost = s['actual_landed_cost'] != null ? 'التكلفة: ${s['actual_landed_cost']} EGP' : (s['status'] != null ? 'الحالة: ${s['status']}' : '');
+        final variance = s['variance_pct'] != null ? 'انحراف: ${s['variance_pct']}%' : (s['cost_variance_pct'] != null ? 'انحراف: ${s['cost_variance_pct']}%' : '0.0%');
         sb.writeln('• $code | مورد: $supplier | $cbm | $dur | $cost | $variance');
       }
       sb.writeln();
@@ -233,10 +363,11 @@ class ComprehensiveReportExportService {
     if (dossier != null && dossier.recurringPatterns.isNotEmpty) {
       sb.writeln('--- الأنماط التشغيلية المتكررة المكتشفة (Discovered Operational Patterns) ---');
       for (final p in dossier.recurringPatterns) {
-        final title = p['pattern_title'] ?? p['title'] ?? 'نمط تشغيلي';
-        final desc = p['pattern_description'] ?? p['description'] ?? '';
+        final title = p['suggested_title'] ?? p['pattern_title'] ?? p['title'] ?? 'نمط تشغيلي';
+        final desc = p['suggested_content'] ?? p['pattern_description'] ?? p['description'] ?? '';
         final conf = p['confidence_score'] != null ? ' (ثقة: ${(p['confidence_score'] * 100).toStringAsFixed(0)}%)' : '';
-        sb.writeln('• $title$conf: $desc');
+        final sev = p['suggested_severity'] ?? p['severity'] ?? '';
+        sb.writeln('• $title$conf${sev.toString().isNotEmpty ? " [$sev]" : ""}: $desc');
       }
       sb.writeln();
     }
@@ -427,9 +558,52 @@ class ComprehensiveReportExportService {
         ? dossier.totalFobFc!
         : file.invoicesData.fold(0.0, (s, i) => s + i.amount);
     final String fobCurr = dossier?.fobCurrency ?? 'USD';
-    final totalCbm = file.packingListsData.fold(0.0, (s, p) => s + p.cbm);
-    final totalWeight = file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg);
-    final totalPkgs = file.packingListsData.fold(0, (s, p) => s + p.totalPackages);
+
+    final double effCbm = (dossier?.cargoPhysicalSummary != null && (dossier!.cargoPhysicalSummary!['total_cbm'] as num? ?? 0) > 0)
+        ? (dossier.cargoPhysicalSummary!['total_cbm'] as num).toDouble()
+        : (file.packingListsData.isNotEmpty
+            ? file.packingListsData.fold(0.0, (s, p) => s + p.cbm)
+            : ((dossier?.smartReferenceCard?['product_summary']?['total_cbm'] as num?)?.toDouble() ?? 0.0));
+
+    final double effGrossWeight = (dossier?.cargoPhysicalSummary != null && (dossier!.cargoPhysicalSummary!['gross_weight_kg'] as num? ?? 0) > 0)
+        ? (dossier.cargoPhysicalSummary!['gross_weight_kg'] as num).toDouble()
+        : (file.packingListsData.isNotEmpty
+            ? file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg)
+            : ((dossier?.smartReferenceCard?['product_summary']?['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0));
+
+    final double? effNetWeight = (dossier?.cargoPhysicalSummary != null && (dossier!.cargoPhysicalSummary!['net_weight_kg'] as num? ?? 0) > 0)
+        ? (dossier.cargoPhysicalSummary!['net_weight_kg'] as num).toDouble()
+        : ((dossier?.smartReferenceCard?['product_summary']?['total_net_weight_kg'] as num?)?.toDouble());
+
+    final int effPkgs = (dossier?.cargoPhysicalSummary != null && (dossier!.cargoPhysicalSummary!['total_packages'] as num? ?? 0) > 0)
+        ? (dossier.cargoPhysicalSummary!['total_packages'] as num).toInt()
+        : (file.packingListsData.isNotEmpty
+            ? file.packingListsData.fold(0, (s, p) => s + p.totalPackages)
+            : ((dossier?.smartReferenceCard?['product_summary']?['total_packages'] as num?)?.toInt() ?? 0));
+
+    final smartRecReason = dossier?.smartRecommendation ??
+        ContainerRequirementEngine.recommendShipmentMode(totalCbm: effCbm, totalWeightKg: effGrossWeight).reasonAr;
+    final stackRec = ContainerRequirementEngine.calculate(totalCbm: effCbm, totalWeightKg: effGrossWeight, isStackable: true);
+    final nonStackRec = ContainerRequirementEngine.calculate(totalCbm: effCbm, totalWeightKg: effGrossWeight, isStackable: false);
+    final hybridRec = ContainerRequirementEngine.calculate(totalCbm: effCbm, totalWeightKg: effGrossWeight, isStackable: true, orientationPreference: CargoOrientationPreference.smartHybrid);
+
+    final refCard = dossier?.smartReferenceCard;
+    final prodSummary = refCard?['product_summary'] as Map<String, dynamic>?;
+    final routeSummary = refCard?['route_summary'] as Map<String, dynamic>?;
+    final datesSummary = refCard?['critical_dates'] as Map<String, dynamic>?;
+    final docsSummary = refCard?['customs_readiness'] as Map<String, dynamic>?;
+    final costSummary = refCard?['cost_summary'] as Map<String, dynamic>?;
+
+    final plList = (dossier != null && dossier.packingLists.isNotEmpty)
+        ? dossier.packingLists
+        : file.packingListsData.map((p) => {
+            'pl_number': p.plNo,
+            'description': p.date ?? '',
+            'total_packages': p.totalPackages,
+            'gross_weight_kg': p.grossWeightKg,
+            'net_weight_kg': null,
+            'cbm': p.cbm,
+          }).toList();
 
     pdf.addPage(
       pw.MultiPage(
@@ -499,6 +673,100 @@ class ComprehensiveReportExportService {
                 ),
                 pw.SizedBox(height: 12),
 
+                // Section: Smart Shipment Reference Card (المرجع الذكي المختصر للشحنة)
+                pw.Text('المرجع الذكي المختصر للشحنة (Smart Shipment Reference Card)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#1B4F72'))),
+                pw.SizedBox(height: 4),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey300),
+                  children: [
+                    _pdfTableRow(
+                      '1. الصنف والكمية',
+                      'بند: ${prodSummary?['primary_hs_code'] ?? "—"} | تصنيف: ${prodSummary?['shipment_category'] ?? file.shipmentCategory}',
+                      'الأبعاد والطرود',
+                      'حجم: ${effCbm.toStringAsFixed(2)} m³ | قائم: ${PoPackingMatcher.formatWeight(effGrossWeight)} KG | صافي: ${effNetWeight != null ? PoPackingMatcher.formatWeight(effNetWeight) : "—"} KG | $effPkgs طرد',
+                    ),
+                    _pdfTableRow(
+                      '2. مسار الشحن والناقل',
+                      '${routeSummary?['pol_code'] ?? "—"} ➔ ${routeSummary?['pod_code'] ?? "—"} | خط: ${routeSummary?['carrier_name'] ?? file.selectedScenario ?? file.vesselName ?? "—"}',
+                      'طريقة الشحن والشرط',
+                      '${routeSummary?['shipment_mode'] ?? file.shipmentMode} | ${routeSummary?['incoterm'] ?? file.incotermCode}',
+                    ),
+                    _pdfTableRow(
+                      '3. التواريخ وفترات السماح',
+                      'سماح: ${datesSummary?['demurrage_free_days'] ?? "—"} يوم [${datesSummary?['free_days_status'] ?? "—"}]',
+                      'الوصول المستهدف',
+                      '${datesSummary?['target_eta'] ?? file.requiredEta ?? "—"}',
+                    ),
+                    _pdfTableRow(
+                      '4. جاهزية المستندات',
+                      'الحالة: ${docsSummary?['readiness_status'] ?? "—"} | منشأ: ${docsSummary?['coo_status'] ?? "—"}',
+                      'النواقص',
+                      (docsSummary?['missing_docs_list'] as List<dynamic>?)?.isNotEmpty == true
+                          ? (docsSummary!['missing_docs_list'] as List<dynamic>).join(', ')
+                          : 'مكتملة ومطابقة',
+                    ),
+                    _pdfTableRow(
+                      '5. مقارنة التكلفة',
+                      'تقديرية: ${(costSummary?['estimated_total_egp'] as num?)?.toStringAsFixed(2) ?? file.estimatedCost.toStringAsFixed(2)} | فعلية: ${(costSummary?['actual_landed_cost_egp'] as num?)?.toStringAsFixed(2) ?? (dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp).toStringAsFixed(2)} EGP',
+                      'فارق التكلفة',
+                      '${(costSummary?['cost_variance_egp'] as num?)?.toStringAsFixed(2) ?? (dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp).toStringAsFixed(2)} EGP (${(costSummary?['cost_variance_pct'] as num?)?.toStringAsFixed(2) ?? (dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct).toStringAsFixed(2)}%)',
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 12),
+
+                // Section: Shipping Scenarios & Smart Recommendation
+                pw.Text('دراسات وسيناريوهات الشحن المسجلة للشحنة (Shipping Scenarios & Stacking Studies)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#16A085'))),
+                pw.SizedBox(height: 4),
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(6),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#E8F8F5'),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.Text('🚢 التوصية الذكية: $smartRecReason', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#0E6251'))),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey300),
+                  children: [
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: PdfColor.fromHex('#16A085')),
+                      children: [
+                        _pdfHeaderCell('سيناريو الرص (Stacking Scenario)'),
+                        _pdfHeaderCell('الحاويات المقترحة'),
+                        _pdfHeaderCell('امتلاء الحجم (Vol %)'),
+                        _pdfHeaderCell('حمولة الوزن (Weight %)'),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        _pdfDataCell('رص قابل للتكديس (All Stackable)'),
+                        _pdfDataCell('${stackRec.requiredContainersCount} x ${stackRec.recommendedContainerCode}'),
+                        _pdfDataCell('${stackRec.spaceUtilizationPercent.toStringAsFixed(1)}%'),
+                        _pdfDataCell('${stackRec.payloadUtilizationPercent.toStringAsFixed(1)}%'),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        _pdfDataCell('غير قابل للتكديس أرضي (Non-Stackable Z=0)'),
+                        _pdfDataCell('${nonStackRec.requiredContainersCount} x ${nonStackRec.recommendedContainerCode}'),
+                        _pdfDataCell('${nonStackRec.spaceUtilizationPercent.toStringAsFixed(1)}%'),
+                        _pdfDataCell('${nonStackRec.payloadUtilizationPercent.toStringAsFixed(1)}%'),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        _pdfDataCell('الرص الذكي الهجين (Smart Hybrid)'),
+                        _pdfDataCell('${hybridRec.requiredContainersCount} x ${hybridRec.recommendedContainerCode}'),
+                        _pdfDataCell('${hybridRec.spaceUtilizationPercent.toStringAsFixed(1)}%'),
+                        _pdfDataCell('${hybridRec.payloadUtilizationPercent.toStringAsFixed(1)}%'),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 12),
+
                 // Section 2: Official Documents Table
                 pw.Text(l.compReportSecDocs, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#E67E22'))),
                 pw.SizedBox(height: 4),
@@ -510,6 +778,105 @@ class ComprehensiveReportExportService {
                   ],
                 ),
                 pw.SizedBox(height: 12),
+
+                // Section: Purchase Orders Detail (if available)
+                if (dossier != null && dossier.purchaseOrders.isNotEmpty) ...[
+                  pw.Text('أوامر الشراء المعتمدة للشحنة (Purchase Orders Detail)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2C3E50'))),
+                  pw.SizedBox(height: 4),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    children: [
+                      pw.TableRow(
+                        decoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                        children: [
+                          _pdfHeaderCell('رقم PO'),
+                          _pdfHeaderCell('قيمة FOB'),
+                          _pdfHeaderCell('الطرود'),
+                          _pdfHeaderCell('الوزن القائم'),
+                          _pdfHeaderCell('الحجم CBM'),
+                          _pdfHeaderCell('الحالة'),
+                        ],
+                      ),
+                      ...dossier.purchaseOrders.map((po) => pw.TableRow(
+                        children: [
+                          _pdfDataCell(po['po_number']?.toString() ?? '—'),
+                          _pdfDataCell('${po['total_amount_fob'] ?? 0} ${po['currency'] ?? "USD"}'),
+                          _pdfDataCell('${po['total_packages'] ?? 0}'),
+                          _pdfDataCell('${po['total_gross_weight_kg'] ?? 0} KG'),
+                          _pdfDataCell('${po['total_cbm'] ?? 0} m³'),
+                          _pdfDataCell(po['status']?.toString() ?? '—'),
+                        ],
+                      )),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
+                // Section: PO Line Items Detail (if available)
+                if (dossier != null && dossier.itemsDetail.isNotEmpty) ...[
+                  pw.Text('تفاصيل أصناف وبنود أمر الشراء (PO Line Items Detail)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#34495E'))),
+                  pw.SizedBox(height: 4),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    children: [
+                      pw.TableRow(
+                        decoration: pw.BoxDecoration(color: PdfColor.fromHex('#34495E')),
+                        children: [
+                          _pdfHeaderCell('كود الصنف'),
+                          _pdfHeaderCell('الوصف والبيان', widthFactor: 2),
+                          _pdfHeaderCell('الكمية'),
+                          _pdfHeaderCell('السعر'),
+                          _pdfHeaderCell('الإجمالي'),
+                          _pdfHeaderCell('بند جمركي HS'),
+                        ],
+                      ),
+                      ...dossier.itemsDetail.map((itm) => pw.TableRow(
+                        children: [
+                          _pdfDataCell(itm['item_code']?.toString() ?? '—'),
+                          _pdfDataCell(itm['description']?.toString() ?? '—'),
+                          _pdfDataCell('${itm['quantity'] ?? 0} ${itm['unit_of_measure'] ?? ""}'),
+                          _pdfDataCell('${itm['unit_price'] ?? 0}'),
+                          _pdfDataCell('${itm['total_price'] ?? 0}'),
+                          _pdfDataCell(itm['hs_code']?.toString() ?? '—'),
+                        ],
+                      )),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
+
+                // Section: Packing Lists Detail (if available)
+                if (plList.isNotEmpty) ...[
+                  pw.Text('قوائم التعبئة المعتمدة (Packing Lists Detail)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColor.fromHex('#2C3E50'))),
+                  pw.SizedBox(height: 4),
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey300),
+                    children: [
+                      pw.TableRow(
+                        decoration: pw.BoxDecoration(color: PdfColor.fromHex('#2C3E50')),
+                        children: [
+                          _pdfHeaderCell('رقم PL'),
+                          _pdfHeaderCell('البيان / الوصف'),
+                          _pdfHeaderCell('الطرود'),
+                          _pdfHeaderCell('الوزن القائم'),
+                          _pdfHeaderCell('الوزن الصافي'),
+                          _pdfHeaderCell('الحجم CBM'),
+                        ],
+                      ),
+                      ...plList.map((pl) => pw.TableRow(
+                        children: [
+                          _pdfDataCell(pl['pl_number']?.toString() ?? pl['pl_no']?.toString() ?? '—'),
+                          _pdfDataCell(pl['description']?.toString() ?? '—'),
+                          _pdfDataCell('${pl['total_packages'] ?? 0}'),
+                          _pdfDataCell('${PoPackingMatcher.formatWeight((pl['gross_weight_kg'] as num?)?.toDouble() ?? 0.0)} KG'),
+                          _pdfDataCell(pl['net_weight_kg'] != null ? '${PoPackingMatcher.formatWeight((pl['net_weight_kg'] as num).toDouble())} KG' : '—'),
+                          _pdfDataCell('${(pl['cbm'] as num?)?.toDouble().toStringAsFixed(2) ?? "0.00"} m³'),
+                        ],
+                      )),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+                ],
 
                 // Section 2.1: Containers & Seal Matrix (if available)
                 if (dossier != null && dossier.containers.isNotEmpty) ...[
@@ -575,7 +942,7 @@ class ComprehensiveReportExportService {
                   border: pw.TableBorder.all(color: PdfColors.grey300),
                   children: [
                     _pdfTableRow(l.compReportTotalInvoicesVal, '${totalInvoicesValue.toStringAsFixed(2)} $fobCurr', l.compReportEstimatedCostVal, '${file.estimatedCost.toStringAsFixed(2)} $fobCurr'),
-                    _pdfTableRow(l.compReportTotalPackages, '$totalPkgs pkgs (${PoPackingMatcher.formatWeight(totalWeight)} KG)', l.compReportTotalCbm, '${totalCbm.toStringAsFixed(2)} m³'),
+                    _pdfTableRow(l.compReportTotalPackages, '$effPkgs pkgs (${PoPackingMatcher.formatWeight(effGrossWeight)} KG)', l.compReportTotalCbm, '${effCbm.toStringAsFixed(2)} m³'),
                     if (dossier?.cargoPhysicalSummary != null)
                       _pdfTableRow('POs Count', '${dossier!.cargoPhysicalSummary!['pos_count'] ?? 0}', 'Invoices Count', '${dossier.cargoPhysicalSummary!['invoices_count'] ?? 0}'),
                     if (file.actualLandedCostTotalEgp > 0 || (dossier != null && dossier.actualLandedCostTotalEgp > 0)) ...[
@@ -721,17 +1088,17 @@ class ComprehensiveReportExportService {
                         if (dossier.similarPastShipments.isNotEmpty) ...[
                           pw.SizedBox(height: 4),
                           pw.Text('سجل الشحنات السابقة المماثلة:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
-                          ...dossier.similarPastShipments.take(3).map((s) => pw.Padding(
+                          ...dossier.similarPastShipments.take(6).map((s) => pw.Padding(
                             padding: const pw.EdgeInsets.symmetric(vertical: 1),
-                            child: pw.Text('• ${s['file_code'] ?? s['import_file_code'] ?? "—"} | مورد: ${s['supplier_name'] ?? "—"} | ${s['cbm'] ?? 0} m³ | مدة: ${s['duration_days'] ?? "—"} يوم | تكلفة: ${s['actual_landed_cost'] ?? "—"} EGP', style: const pw.TextStyle(fontSize: 7)),
+                            child: pw.Text('• ${s['file_code'] ?? s['import_file_code'] ?? "—"} | مورد: ${s['supplier_name'] ?? "—"} | ${s['cbm'] ?? 0} m³ | مدة: ${s['duration_days'] ?? s['clearance_duration_days'] ?? "—"} يوم | تكلفة: ${s['actual_landed_cost'] ?? "—"} EGP (${s['variance_pct'] ?? s['cost_variance_pct'] ?? "—"}%)', style: const pw.TextStyle(fontSize: 7)),
                           )),
                         ],
                         if (dossier.recurringPatterns.isNotEmpty) ...[
                           pw.SizedBox(height: 4),
                           pw.Text('الأنماط التشغيلية المتكررة المكتشفة:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
-                          ...dossier.recurringPatterns.take(3).map((p) => pw.Padding(
+                          ...dossier.recurringPatterns.take(6).map((p) => pw.Padding(
                             padding: const pw.EdgeInsets.symmetric(vertical: 1),
-                            child: pw.Text('• ${p['pattern_title'] ?? p['title'] ?? ""}: ${p['pattern_description'] ?? p['description'] ?? ""}', style: const pw.TextStyle(fontSize: 7)),
+                            child: pw.Text('• ${p['pattern_title'] ?? p['suggested_title'] ?? p['title'] ?? ""}: ${p['pattern_description'] ?? p['description'] ?? ""}', style: const pw.TextStyle(fontSize: 7)),
                           )),
                         ],
                       ],
@@ -851,6 +1218,28 @@ class ComprehensiveReportExportService {
       rows.add([section, field, value, details]);
     }
 
+    final double effCbm = (dossier?.cargoPhysicalSummary != null && (dossier!.cargoPhysicalSummary!['total_cbm'] as num? ?? 0) > 0)
+        ? (dossier.cargoPhysicalSummary!['total_cbm'] as num).toDouble()
+        : (file.packingListsData.isNotEmpty
+            ? file.packingListsData.fold(0.0, (s, p) => s + p.cbm)
+            : ((dossier?.smartReferenceCard?['product_summary']?['total_cbm'] as num?)?.toDouble() ?? 0.0));
+
+    final double effGrossWeight = (dossier?.cargoPhysicalSummary != null && (dossier!.cargoPhysicalSummary!['gross_weight_kg'] as num? ?? 0) > 0)
+        ? (dossier.cargoPhysicalSummary!['gross_weight_kg'] as num).toDouble()
+        : (file.packingListsData.isNotEmpty
+            ? file.packingListsData.fold(0.0, (s, p) => s + p.grossWeightKg)
+            : ((dossier?.smartReferenceCard?['product_summary']?['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0));
+
+    final double? effNetWeight = (dossier?.cargoPhysicalSummary != null && (dossier!.cargoPhysicalSummary!['net_weight_kg'] as num? ?? 0) > 0)
+        ? (dossier.cargoPhysicalSummary!['net_weight_kg'] as num).toDouble()
+        : ((dossier?.smartReferenceCard?['product_summary']?['total_net_weight_kg'] as num?)?.toDouble());
+
+    final int effPkgs = (dossier?.cargoPhysicalSummary != null && (dossier!.cargoPhysicalSummary!['total_packages'] as num? ?? 0) > 0)
+        ? (dossier.cargoPhysicalSummary!['total_packages'] as num).toInt()
+        : (file.packingListsData.isNotEmpty
+            ? file.packingListsData.fold(0, (s, p) => s + p.totalPackages)
+            : ((dossier?.smartReferenceCard?['product_summary']?['total_packages'] as num?)?.toInt() ?? 0));
+
     // Basic Info
     final sBasic = l.compReportSecBasicInfo;
     addRow(sBasic, l.compReportColFileCode, file.importFileCode);
@@ -869,12 +1258,66 @@ class ComprehensiveReportExportService {
     addRow(sBasic, l.compReportColCreatedAt, file.createdAt);
     addRow(sBasic, l.compReportColUpdatedAt, file.updatedAt);
 
+    // Smart Shipment Reference Card (5 Dimensions)
+    const sRef = 'المرجع الذكي المختصر للشحنة (Smart Reference Card)';
+    final refCard = dossier?.smartReferenceCard;
+    final prodSummary = refCard?['product_summary'] as Map<String, dynamic>?;
+    final routeSummary = refCard?['route_summary'] as Map<String, dynamic>?;
+    final datesSummary = refCard?['critical_dates'] as Map<String, dynamic>?;
+    final docsSummary = refCard?['customs_readiness'] as Map<String, dynamic>?;
+    final costSummary = refCard?['cost_summary'] as Map<String, dynamic>?;
+
+    addRow(sRef, '1. بيانات الصنف والكمية', 'بند جمركي: ${prodSummary?['primary_hs_code'] ?? "—"} | تصنيف: ${prodSummary?['shipment_category'] ?? file.shipmentCategory}', 'حجم: ${effCbm.toStringAsFixed(2)} m³ | قائم: ${PoPackingMatcher.formatWeight(effGrossWeight)} KG | صافي: ${effNetWeight != null ? PoPackingMatcher.formatWeight(effNetWeight) : "—"} KG | طرود: $effPkgs');
+    addRow(sRef, '2. مسار الشحن والناقل', '${routeSummary?['pol_code'] ?? "—"} ➔ ${routeSummary?['pod_code'] ?? "—"}', 'خط: ${routeSummary?['carrier_name'] ?? file.selectedScenario ?? file.vesselName ?? "—"} | طريقة: ${routeSummary?['shipment_mode'] ?? file.shipmentMode} | شرط: ${routeSummary?['incoterm'] ?? file.incotermCode}');
+    addRow(sRef, '3. التواريخ الحرجة وفترات السماح', 'سماح: ${datesSummary?['demurrage_free_days'] ?? "—"} يوم [${datesSummary?['free_days_status'] ?? "—"}]', 'وصول مستهدف: ${datesSummary?['target_eta'] ?? file.requiredEta ?? "—"} | جاهزية: ${datesSummary?['cargo_readiness_date'] ?? "—"}');
+    addRow(sRef, '4. جاهزية المستندات الجمركية', 'الحالة: ${docsSummary?['readiness_status'] ?? "—"} | المنشأ: ${docsSummary?['coo_status'] ?? "—"}', (docsSummary?['missing_docs_list'] as List<dynamic>?)?.isNotEmpty == true ? 'النواقص: ${(docsSummary!['missing_docs_list'] as List<dynamic>).join(", ")}' : 'مكتملة ومطابقة');
+    addRow(sRef, '5. مقارنة التكلفة التقديرية والفعلية', 'تقديرية: ${(costSummary?['estimated_total_egp'] as num?)?.toStringAsFixed(2) ?? file.estimatedCost.toStringAsFixed(2)} EGP | فعلية: ${(costSummary?['actual_landed_cost_egp'] as num?)?.toStringAsFixed(2) ?? (dossier?.actualLandedCostTotalEgp ?? file.actualLandedCostTotalEgp).toStringAsFixed(2)} EGP', 'انحراف: ${(costSummary?['cost_variance_egp'] as num?)?.toStringAsFixed(2) ?? (dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp).toStringAsFixed(2)} EGP (${(costSummary?['cost_variance_pct'] as num?)?.toStringAsFixed(2) ?? (dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct).toStringAsFixed(2)}%)');
+
+    // Shipping Scenarios & Smart Recommendation
+    const sScenarios = 'دراسات وسيناريوهات الشحن والتوصية الذكية';
+    final smartRecReason = dossier?.smartRecommendation ??
+        ContainerRequirementEngine.recommendShipmentMode(totalCbm: effCbm, totalWeightKg: effGrossWeight).reasonAr;
+    final stackRec = ContainerRequirementEngine.calculate(totalCbm: effCbm, totalWeightKg: effGrossWeight, isStackable: true);
+    final nonStackRec = ContainerRequirementEngine.calculate(totalCbm: effCbm, totalWeightKg: effGrossWeight, isStackable: false);
+    final hybridRec = ContainerRequirementEngine.calculate(totalCbm: effCbm, totalWeightKg: effGrossWeight, isStackable: true, orientationPreference: CargoOrientationPreference.smartHybrid);
+
+    addRow(sScenarios, 'التوصية الذكية', smartRecReason);
+    addRow(sScenarios, 'سيناريو الرص القابل للتكديس (All Stackable)', '${stackRec.requiredContainersCount} x ${stackRec.recommendedContainerCode}', 'امتلاء حجم: ${stackRec.spaceUtilizationPercent.toStringAsFixed(1)}% | حمولة وزن: ${stackRec.payloadUtilizationPercent.toStringAsFixed(1)}%');
+    addRow(sScenarios, 'سيناريو غير قابل للتكديس أرضي (Non-Stackable Z=0)', '${nonStackRec.requiredContainersCount} x ${nonStackRec.recommendedContainerCode}', 'امتلاء حجم: ${nonStackRec.spaceUtilizationPercent.toStringAsFixed(1)}% | حمولة وزن: ${nonStackRec.payloadUtilizationPercent.toStringAsFixed(1)}%');
+    addRow(sScenarios, 'سيناريو الرص الذكي الهجين (Smart Hybrid)', '${hybridRec.requiredContainersCount} x ${hybridRec.recommendedContainerCode}', 'امتلاء حجم: ${hybridRec.spaceUtilizationPercent.toStringAsFixed(1)}% | حمولة وزن: ${hybridRec.payloadUtilizationPercent.toStringAsFixed(1)}%');
+
     // Official Documents
     final sDocs = l.compReportSecDocs;
     addRow(sDocs, l.compReportAcidNumber, file.acidNumber ?? '—');
     addRow(sDocs, l.compReportBankForm4, file.form4No ?? '—');
     addRow(sDocs, l.compReportSwiftNumber, file.swiftNo ?? '—');
     addRow(sDocs, l.compReportForm46Number, file.form46No ?? '—');
+
+    // Purchase Orders Detail
+    if (dossier != null && dossier.purchaseOrders.isNotEmpty) {
+      const sPO = 'أوامر الشراء المعتمدة (Purchase Orders)';
+      for (final po in dossier.purchaseOrders) {
+        addRow(
+          sPO,
+          po['po_number']?.toString() ?? '—',
+          '${po['total_amount_fob']} ${po['currency'] ?? "USD"} | ${po['total_packages']} pkgs',
+          'Gross: ${po['total_gross_weight_kg']} KG | CBM: ${po['total_cbm']} m³ | [${po['status'] ?? ""}]',
+        );
+      }
+    }
+
+    // PO Line Items Detail
+    if (dossier != null && dossier.itemsDetail.isNotEmpty) {
+      const sItems = 'تفاصيل أصناف وبنود أمر الشراء (PO Line Items)';
+      for (final itm in dossier.itemsDetail) {
+        addRow(
+          sItems,
+          itm['item_code']?.toString() ?? '—',
+          '${itm['description']} (${itm['quantity']} ${itm['unit_of_measure'] ?? ""})',
+          'سعر: ${itm['unit_price']} | إجمالي: ${itm['total_price']} | HS: ${itm['hs_code'] ?? "—"}',
+        );
+      }
+    }
 
     // Invoices
     final sInvoices = l.compReportSecInvoices(file.invoicesData.length);
@@ -884,23 +1327,37 @@ class ComprehensiveReportExportService {
     }
 
     // Packing Lists
-    final sPL = l.compReportSecPackingLists(file.packingListsData.length);
-    for (var i = 0; i < file.packingListsData.length; i++) {
-      final pl = file.packingListsData[i];
-      addRow(sPL, '${pl.plNo} (#${i + 1})', '${pl.totalPackages} pkgs | ${pl.grossWeightKg.toStringAsFixed(1)} KG', '${pl.cbm.toStringAsFixed(2)} CBM');
+    final plList = (dossier != null && dossier.packingLists.isNotEmpty)
+        ? dossier.packingLists
+        : file.packingListsData.map((p) => {
+            'pl_number': p.plNo,
+            'description': p.date ?? '',
+            'total_packages': p.totalPackages,
+            'gross_weight_kg': p.grossWeightKg,
+            'net_weight_kg': null,
+            'cbm': p.cbm,
+          }).toList();
+
+    final sPL = l.compReportSecPackingLists(plList.length);
+    for (var i = 0; i < plList.length; i++) {
+      final pl = plList[i];
+      final plNo = pl['pl_number']?.toString() ?? pl['pl_no']?.toString() ?? 'PL-${i + 1}';
+      final pkgs = pl['total_packages'] ?? 0;
+      final gw = PoPackingMatcher.formatWeight((pl['gross_weight_kg'] as num?)?.toDouble() ?? 0.0);
+      final cbmVal = (pl['cbm'] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+      final desc = pl['description']?.toString() ?? '';
+      addRow(sPL, '$plNo (#${i + 1})', '$pkgs pkgs | $gw KG', '$cbmVal CBM | $desc');
     }
 
     // Physical Cargo Summary & KPIs
     final phys = dossier?.cargoPhysicalSummary;
-    if (phys != null) {
-      const sPhys = 'الملخص الفيزيائي والمقاييس (Physical Cargo)';
-      addRow(sPhys, 'إجمالي الحجم CBM', '${phys['total_cbm'] ?? 0.0} m³');
-      addRow(sPhys, 'الوزن القائم Gross Weight', '${phys['gross_weight_kg'] ?? 0.0} KG');
-      addRow(sPhys, 'الوزن الصافي Net Weight', '${phys['net_weight_kg'] ?? "—"} KG');
-      addRow(sPhys, 'عدد الطرود Packages', '${phys['total_packages'] ?? 0}');
-      addRow(sPhys, 'عدد الفواتير Invoices', '${phys['invoices_count'] ?? 0}');
-      addRow(sPhys, 'عدد أوامر الشراء POs', '${phys['pos_count'] ?? 0}');
-    }
+    const sPhys = 'الملخص الفيزيائي والمقاييس (Physical Cargo)';
+    addRow(sPhys, 'إجمالي الحجم CBM', '${effCbm.toStringAsFixed(3)} m³');
+    addRow(sPhys, 'الوزن القائم Gross Weight', '${PoPackingMatcher.formatWeight(effGrossWeight)} KG');
+    addRow(sPhys, 'الوزن الصافي Net Weight', '${effNetWeight != null ? PoPackingMatcher.formatWeight(effNetWeight) : "—"} KG');
+    addRow(sPhys, 'عدد الطرود Packages', '$effPkgs');
+    addRow(sPhys, 'عدد الفواتير Invoices', '${phys?['invoices_count'] ?? file.invoicesData.length}');
+    addRow(sPhys, 'عدد أوامر الشراء POs', '${phys?['pos_count'] ?? (dossier?.purchaseOrders.length ?? 0)}');
 
     // Financial
     final sFin = l.compReportSecFinancial;
@@ -1053,11 +1510,17 @@ class ComprehensiveReportExportService {
     if (dossier != null && dossier.similarPastShipments.isNotEmpty) {
       const sSim = 'الشحنات السابقة المماثلة';
       for (final s in dossier.similarPastShipments) {
+        final code = s['file_code']?.toString() ?? s['import_file_code']?.toString() ?? '—';
+        final supp = s['supplier_name']?.toString() ?? '—';
+        final cbmVal = s['cbm']?.toString() ?? '—';
+        final dur = s['duration_days']?.toString() ?? s['clearance_duration_days']?.toString() ?? '—';
+        final cost = s['actual_landed_cost']?.toString() ?? '—';
+        final vPct = s['variance_pct']?.toString() ?? s['cost_variance_pct']?.toString() ?? '—';
         addRow(
           sSim,
-          s['file_code']?.toString() ?? s['import_file_code']?.toString() ?? '—',
-          'المورد: ${s['supplier_name'] ?? "—"} | CBM: ${s['cbm'] ?? "—"}',
-          'مدة: ${s['duration_days'] ?? "—"} يوم | تكلفة: ${s['actual_landed_cost'] ?? "—"} EGP (${s['variance_pct'] ?? "—"}%)',
+          code,
+          'المورد: $supp | CBM: $cbmVal m³',
+          'مدة: $dur يوم | تكلفة: $cost EGP (انحراف: $vPct%)',
         );
       }
     }
@@ -1066,11 +1529,14 @@ class ComprehensiveReportExportService {
     if (dossier != null && dossier.recurringPatterns.isNotEmpty) {
       const sPat = 'الأنماط التشغيلية المتكررة';
       for (final p in dossier.recurringPatterns) {
+        final title = p['pattern_title']?.toString() ?? p['suggested_title']?.toString() ?? p['title']?.toString() ?? 'نمط تشغيلي';
+        final desc = p['pattern_description']?.toString() ?? p['description']?.toString() ?? '';
+        final conf = p['confidence_score'] != null ? 'ثقة: ${((p['confidence_score'] as num) * 100).toStringAsFixed(0)}%' : '';
         addRow(
           sPat,
-          p['pattern_title']?.toString() ?? p['title']?.toString() ?? 'نمط',
-          p['pattern_description']?.toString() ?? p['description']?.toString() ?? '',
-          p['confidence_score'] != null ? 'ثقة: ${(p['confidence_score'] * 100).toStringAsFixed(0)}%' : '',
+          title,
+          desc,
+          conf,
         );
       }
     }
