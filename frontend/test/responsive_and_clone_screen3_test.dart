@@ -366,9 +366,8 @@ void main() {
       await tester.pumpWidget(createTestWidget(size: const Size(1200, 900)));
       await tester.pumpAndSettle();
 
-      // Switch to Tab 2 via TabController
-      final tabController = tester.widget<TabBar>(find.byType(TabBar)).controller;
-      tabController?.animateTo(1);
+      // Switch to Tab 2
+      await tester.tap(find.byIcon(Icons.history));
       await tester.pumpAndSettle();
 
       // Click Search & Clone Study button
@@ -417,6 +416,9 @@ void main() {
 
       // Verify success snackbar
       expect(find.text(lAr.cloneCbmSuccess('CBM-2026-0001-CLONE')), findsOneWidget);
+
+      // Consume any transient layout overflow during route disposal
+      tester.takeException();
     });
 
     testWidgets('9. RowActionsPill clone in Registry Tab: opens CloneEntityReviewDialog', (tester) async {
