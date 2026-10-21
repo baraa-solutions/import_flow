@@ -197,6 +197,7 @@ from modules.custody_release.router import router as custody_release_router
 from modules.reexport_protocol.router import router as reexport_protocol_router
 from modules.container_deposit.router import router as container_deposit_router
 from modules.system_parameters.router import router as system_parameters_router
+from modules.stage_notes.router import router as stage_notes_router
 from modules.system_observability.middleware import ObservabilityMiddleware
 from modules.system_observability.service import setup_query_listener
 
@@ -432,6 +433,7 @@ app.include_router(custody_release_router)
 app.include_router(reexport_protocol_router)
 app.include_router(container_deposit_router)
 app.include_router(system_parameters_router)
+app.include_router(stage_notes_router)
 
 
 

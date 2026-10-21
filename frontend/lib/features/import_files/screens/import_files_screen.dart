@@ -1974,6 +1974,21 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                              },
                                            ),
                                            const SizedBox(width: 4),
+                                            IconButton(
+                                              icon: const Icon(Icons.rate_review_outlined, color: AppTheme.cobalt, size: 18),
+                                              tooltip: 'ملاحظات ومرفقات الشحنة',
+                                              splashRadius: 18,
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                              onPressed: () => StageNotesCard.showAsDialog(
+                                                context,
+                                                screenCode: 'import_files',
+                                                recordId: file.importFileId,
+                                                stageCode: file.currentStage,
+                                                title: 'ملاحظات ومرفقات الشحنة',
+                                              ),
+                                            ),
+          const SizedBox(width: 4),
                                            RowActionsPill(
                                            onView: () => _showImportFileDetailsDialog(context, file),
                                            onEdit: () => _showAddEditFileDialog(file),
@@ -2753,6 +2768,23 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
+              side: BorderSide(color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt),
+              minimumSize: Size(0, density.buttonHeight),
+              padding: density.buttonPadding,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            onPressed: () => StageNotesCard.showAsDialog(
+              context,
+              screenCode: 'import_files',
+              title: 'ملاحظات ومرفقات - ملفات الاستيراد',
+            ),
+            icon: Icon(Icons.rate_review_outlined, size: density.buttonIconSize),
+            label: Text('الملاحظات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize)),
+          ),
+          const SizedBox(width: 6),
           _buildMoreActionsMenu(context, isDark, l),
           const SizedBox(width: 6),
           _buildQuickDataActions(context, isDark, l),
