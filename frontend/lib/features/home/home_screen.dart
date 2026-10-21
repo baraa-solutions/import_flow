@@ -88,6 +88,10 @@ import '../../core/widgets/system_settings_dialog.dart';
 import '../system_observability/screens/system_observability_screen.dart';
 import '../logistics_invoices/screens/logistics_invoices_screen.dart';
 import '../vessel_tracking/screens/vessel_tracking_radar_screen.dart';
+import '../expense_catalog/screens/expense_catalog_screen.dart';
+import '../formal_letters/screens/formal_letters_screen.dart';
+import '../custody_release/screens/custody_release_screen.dart';
+import '../smart_document_upload/screens/smart_document_upload_hub_screen.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -242,6 +246,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 71: Live Vessel & Carrier Tracking Radar
         VesselTrackingRadarScreen(),
+
+        // 72: Coded Reference Expense Catalog & Broker Memory
+        ExpenseCatalogScreen(),
+
+        // 73: AI Formal Letter Drafting Hub
+        FormalLettersScreen(),
+
+        // 74: Customs Warehouse Custody & Under-Bond Release
+        CustodyReleaseScreen(),
+
+        // 75: AI Document Extraction & Sessions Audit Hub
+        SmartDocumentUploadHubScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -907,6 +923,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.handshake_outlined, 'Incoterms Rules', 'الشروط التجارية الدولية', 35, selectedIndex),
                   _buildMenuItem(Icons.description_outlined, 'Customs Tariff & HS Explorer', 'جدول ومستكشف التعريفة الجمركية', 36, selectedIndex),
                   _buildMenuItem(Icons.currency_exchange_outlined, 'Currencies & Rates', 'العملات وأسعار الصرف', 38, selectedIndex),
+                  _buildMenuItem(Icons.receipt_long_outlined, 'Expense Catalog & Codes', 'كتالوج المصروفات الجمركية القياسي', 72, selectedIndex),
                 ],
               ),
 
@@ -977,6 +994,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.flag_circle_outlined, '4. Draft COO & EUR.1 Review', '4. مسودة شهادة المنشأ و EUR.1', 19, selectedIndex),
                   _buildMenuItem(Icons.security_outlined, '5. Inspection Review (COC)', '5. شهادات الفحص والتفتيش والمطابقة', 53, selectedIndex),
                   _buildMenuItem(Icons.verified_user_outlined, '6. Docs Customs Approval Hub', '6. مركز اعتماد المستندات وتعديلات المورد', 20, selectedIndex),
+                  _buildMenuItem(Icons.document_scanner_outlined, 'AI Document Extraction Hub', 'مركز الاستخراج والتدقيق الذكي للمستندات', 75, selectedIndex),
                   _buildMenuItem(Icons.inventory_2_outlined, 'Central Docs & Rectifications Hub', 'الأرشيف المركزي لمستندات وتعديلات الشحنة', 51, selectedIndex),
                 ],
               ),
@@ -993,6 +1011,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildMenuItem(Icons.cloud_upload_outlined, 'Original Docs & CargoX Hub', 'أصول المستندات ومنظومة CargoX الرقمية', 54, selectedIndex),
                   _buildMenuItem(Icons.account_balance_outlined, 'Bank Form 4', 'النموذج الإحصائي والتحويل البنكي نموذج 4', 16, selectedIndex),
+                  _buildMenuItem(Icons.mark_email_read_outlined, 'Formal Letters Drafting', 'محرر ومولد الخطابات الرسمية المعتمدة', 73, selectedIndex),
                 ],
               ),
 
@@ -1008,6 +1027,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildMenuItem(Icons.description_outlined, 'Customs Declaration 46', 'شهادة الإجراءات الجمركية إقرار 46 ك.م', 23, selectedIndex),
                   _buildMenuItem(Icons.fact_check_outlined, 'Customs Clearance Hub', 'متابعة التخليص والكشف والعينات والرسوم', 27, selectedIndex),
+                  _buildMenuItem(Icons.shield_outlined, 'Customs Custody Release', 'الإفراج تحت التحفظ وتعهدات البضائع', 74, selectedIndex),
                   _buildMenuItem(Icons.timer_outlined, 'Demurrage & Detention', 'تتبع غرامات الأرضيات وحراسات الحاويات', 44, selectedIndex),
                 ],
               ),

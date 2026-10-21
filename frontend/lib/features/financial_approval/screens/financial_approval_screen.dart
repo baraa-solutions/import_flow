@@ -27,6 +27,7 @@ import '../widgets/saved_budgets_registry_tab.dart';
 import '../widgets/async_action_button.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 import '../widgets/search_and_clone_payment_dialog.dart';
 import '../widgets/search_and_clone_budget_dialog.dart';
 import '../../simulation/widgets/what_if_simulator_dialog.dart';
@@ -1236,6 +1237,48 @@ class _FinancialApprovalScreenState
     );
   }
 
+  void _cloneLinkedPoItem(LinkedPOItemModel po) {
+    if (_payPrefillData == null) return;
+    final l = context.l10n;
+
+    final clonedItem = LinkedPOItemModel(
+      poId: 0,
+      poNumber: '${po.poNumber}${TableRowCloneHelper.copyCodeSuffix}',
+      poReference: TableRowCloneHelper.withCodeSuffix(po.poReference),
+      piNumber: po.piNumber,
+      projectId: po.projectId,
+      projectName: po.projectName,
+      paymentTerms: po.paymentTerms,
+      currency: po.currency,
+      totalAmount: po.totalAmount,
+      status: 'Draft',
+    );
+
+    setState(() {
+      final currentList =
+          List<LinkedPOItemModel>.from(_payPrefillData!.linkedPos);
+      final idx = currentList.indexOf(po);
+      if (idx >= 0) {
+        currentList.insert(idx + 1, clonedItem);
+      } else {
+        currentList.add(clonedItem);
+      }
+      _payPrefillData = _payPrefillData!.copyWith(
+        linkedPos: currentList,
+        estimatedGrandTotalEgp: _payPrefillData!.estimatedGrandTotalEgp +
+            (po.totalAmount * _payPrefillData!.exchangeRate),
+      );
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l.poAllocationClonedSuccess),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   void _openSearchAndCloneBudgetDialog() {
     final budgets = ref.read(importBudgetsProvider).valueOrNull ?? [];
     showDialog(
@@ -1411,6 +1454,15 @@ class _FinancialApprovalScreenState
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        icon: const Icon(Icons.copy_rounded,
+                            size: 16, color: AppTheme.cobalt),
+                        tooltip: l.clonePoAllocationTooltip,
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                        onPressed: () => _cloneLinkedPoItem(po),
                       ),
                     ],
                   ),
@@ -3986,6 +4038,7 @@ class _FinancialApprovalScreenState
                                             3: FlexColumnWidth(1.2),
                                             4: FlexColumnWidth(1.4),
                                             5: FlexColumnWidth(1.2),
+                                            6: FixedColumnWidth(40),
                                           },
                                           children: [
                                             TableRow(
@@ -4057,6 +4110,7 @@ class _FinancialApprovalScreenState
                                                             fontWeight:
                                                                 FontWeight.bold,
                                                             fontSize: 12))),
+                                                const SizedBox.shrink(),
                                               ],
                                             ),
                                             ..._payPrefillData!.linkedPos
@@ -4171,6 +4225,22 @@ class _FinancialApprovalScreenState
                                                               fontSize: 11,
                                                               color: AppTheme
                                                                   .cobalt))),
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(4),
+                                                    child: IconButton(
+                                                      icon: const Icon(
+                                                          Icons.copy_rounded,
+                                                          size: 16,
+                                                          color:
+                                                              AppTheme.cobalt),
+                                                      tooltip: l
+                                                          .clonePoAllocationTooltip,
+                                                      onPressed: () =>
+                                                          _cloneLinkedPoItem(
+                                                              po),
+                                                    ),
+                                                  ),
                                                 ],
                                               );
                                             }),

@@ -658,11 +658,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     );
   }
 
-  void _openSearchAndCloneCBMDialog(BuildContext context, List<CBMCalculationModel> calculations) {
+  Future<void> _openSearchAndCloneCBMDialog(BuildContext context, List<CBMCalculationModel> calculations) async {
     final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
     final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
     final locale = isArabic ? const Locale('ar') : const Locale('en');
-    showDialog(
+    final selectedCalc = await showDialog<CBMCalculationModel>(
       context: context,
       builder: (ctx) => AppLocalizationsProvider(
         locale: locale,
@@ -671,13 +671,15 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           child: _SearchAndCloneCBMDialog(
             calculations: calculations,
             onSelectCalculation: (calc) {
-              Navigator.of(ctx).pop();
-              _showCloneReviewDialog(context, calc);
+              Navigator.of(ctx).pop(calc);
             },
           ),
         ),
       ),
     );
+    if (selectedCalc != null && context.mounted) {
+      _showCloneReviewDialog(context, selectedCalc);
+    }
   }
 
   Widget _buildMobileCBMCardList(

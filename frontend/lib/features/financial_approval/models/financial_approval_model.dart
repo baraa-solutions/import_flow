@@ -155,6 +155,67 @@ class BudgetPrefillModel {
       exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 0.0,
     );
   }
+
+  BudgetPrefillModel copyWith({
+    int? importFileId,
+    String? importFileCode,
+    String? importFileTitle,
+    String? incoterm,
+    int? supplierId,
+    String? supplierName,
+    String? beneficiaryName,
+    String? bankName,
+    String? swiftCode,
+    String? accountNumber,
+    String? iban,
+    String? paymentTermsSummary,
+    List<LinkedPOItemModel>? linkedPos,
+    double? totalInvoiceAmount,
+    String? invoiceCurrency,
+    double? totalInvoiceAmountEgp,
+    double? estimatedFreightCost,
+    String? freightCurrency,
+    double? estimatedFreightCostEgp,
+    double? estimatedCustomsDutiesEgp,
+    double? estimatedClearanceFeesEgp,
+    int? brokerId,
+    String? brokerName,
+    double? estimatedGrandTotalEgp,
+    double? exchangeRate,
+  }) {
+    return BudgetPrefillModel(
+      importFileId: importFileId ?? this.importFileId,
+      importFileCode: importFileCode ?? this.importFileCode,
+      importFileTitle: importFileTitle ?? this.importFileTitle,
+      incoterm: incoterm ?? this.incoterm,
+      supplierId: supplierId ?? this.supplierId,
+      supplierName: supplierName ?? this.supplierName,
+      beneficiaryName: beneficiaryName ?? this.beneficiaryName,
+      bankName: bankName ?? this.bankName,
+      swiftCode: swiftCode ?? this.swiftCode,
+      accountNumber: accountNumber ?? this.accountNumber,
+      iban: iban ?? this.iban,
+      paymentTermsSummary: paymentTermsSummary ?? this.paymentTermsSummary,
+      linkedPos: linkedPos ?? this.linkedPos,
+      totalInvoiceAmount: totalInvoiceAmount ?? this.totalInvoiceAmount,
+      invoiceCurrency: invoiceCurrency ?? this.invoiceCurrency,
+      totalInvoiceAmountEgp:
+          totalInvoiceAmountEgp ?? this.totalInvoiceAmountEgp,
+      estimatedFreightCost: estimatedFreightCost ?? this.estimatedFreightCost,
+      freightCurrency: freightCurrency ?? this.freightCurrency,
+      estimatedFreightCostEgp:
+          estimatedFreightCostEgp ?? this.estimatedFreightCostEgp,
+      estimatedCustomsDutiesEgp:
+          estimatedCustomsDutiesEgp ?? this.estimatedCustomsDutiesEgp,
+      estimatedClearanceFeesEgp:
+          estimatedClearanceFeesEgp ?? this.estimatedClearanceFeesEgp,
+      brokerId: brokerId ?? this.brokerId,
+      brokerName: brokerName ?? this.brokerName,
+      estimatedGrandTotalEgp:
+          estimatedGrandTotalEgp ?? this.estimatedGrandTotalEgp,
+      exchangeRate: exchangeRate ?? this.exchangeRate,
+    );
+  }
 }
 
 class PaymentRequestModel {
