@@ -45,14 +45,18 @@ def export_projects_csv(
     headers = MasterDataExportImportHelper.get_localized_headers("projects", lang=lang)
     rows = []
     for p in projects:
+        client_name = getattr(p, "client_name", None) or getattr(p, "company_name", None) or ''
+        manager_name = getattr(p, "manager_name", None) or getattr(p, "project_owner", None) or ''
+        budget = getattr(p, "budget", None) or getattr(p, "total_budget_usd", 0.0) or 0.0
+        currency = getattr(p, "currency", None) or getattr(p, "budget_currency", "USD") or 'USD'
         rows.append([
             p.project_id,
             p.project_code,
             p.project_name,
-            p.client_name or '',
-            p.manager_name or '',
-            p.budget or 0.0,
-            p.currency or 'USD',
+            client_name,
+            manager_name,
+            budget,
+            currency,
             MasterDataExportImportHelper.format_status(p.is_active, lang=lang),
         ])
     title = MasterDataExportImportHelper.get_localized_title("projects", lang=lang)
@@ -71,14 +75,18 @@ def export_projects_excel(
     headers = MasterDataExportImportHelper.get_localized_headers("projects", lang=lang)
     rows = []
     for p in projects:
+        client_name = getattr(p, "client_name", None) or getattr(p, "company_name", None) or ''
+        manager_name = getattr(p, "manager_name", None) or getattr(p, "project_owner", None) or ''
+        budget = getattr(p, "budget", None) or getattr(p, "total_budget_usd", 0.0) or 0.0
+        currency = getattr(p, "currency", None) or getattr(p, "budget_currency", "USD") or 'USD'
         rows.append([
             p.project_id,
             p.project_code,
             p.project_name,
-            p.client_name or '',
-            p.manager_name or '',
-            p.budget or 0.0,
-            p.currency or 'USD',
+            client_name,
+            manager_name,
+            budget,
+            currency,
             MasterDataExportImportHelper.format_status(p.is_active, lang=lang),
         ])
     title = MasterDataExportImportHelper.get_localized_title("projects", lang=lang)
@@ -97,13 +105,17 @@ def export_projects_pdf(
     headers = MasterDataExportImportHelper.get_localized_headers("projects", lang=lang, is_pdf=True)
     rows = []
     for p in projects:
+        client_name = getattr(p, "client_name", None) or getattr(p, "company_name", None) or ''
+        manager_name = getattr(p, "manager_name", None) or getattr(p, "project_owner", None) or ''
+        budget = getattr(p, "budget", None) or getattr(p, "total_budget_usd", 0.0) or 0.0
+        currency = getattr(p, "currency", None) or getattr(p, "budget_currency", "USD") or 'USD'
         rows.append([
             p.project_id,
             p.project_code,
             p.project_name,
-            p.client_name or '',
-            p.manager_name or '',
-            f"{p.budget or 0.0:,.2f} {p.currency or 'USD'}",
+            client_name,
+            manager_name,
+            f"{budget:,.2f} {currency}",
             MasterDataExportImportHelper.format_status(p.is_active, lang=lang),
         ])
     title = MasterDataExportImportHelper.get_localized_title("projects", lang=lang)
