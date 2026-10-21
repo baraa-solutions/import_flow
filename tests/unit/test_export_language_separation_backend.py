@@ -39,7 +39,8 @@ def auth_headers(db_session):
         db_session.commit()
 
     from modules.auth.security import create_access_token
-    token = create_access_token({"sub": str(user.user_id), "username": user.username})
+    # BEX-T08: carry the user's current token_version, other tests may have bumped it in the shared DB.
+    token = create_access_token({"sub": str(user.user_id), "username": user.username, "tv": user.token_version or 0})
 
     app.dependency_overrides[get_current_user] = lambda: user
     yield {"Authorization": f"Bearer {token}"}
