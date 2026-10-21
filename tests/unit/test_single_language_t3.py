@@ -33,6 +33,7 @@ from modules.lifecycle_board.schemas import StepConfigUpdateRequest
 from modules.customs_clearance.model import CustomsClearanceRecord
 from modules.purchase_orders.model import PurchaseOrder
 from modules.import_documentation.model import InspectionCertificateReviewSession
+from modules.currencies.model import Currency
 from modules.customs_consultation.model import ClearanceExpenseType
 
 
@@ -41,6 +42,7 @@ def db():
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(bind=engine)
     session = sessionmaker(bind=engine)()
+    session.add(Currency(currency_code="EGP", currency_name="Egyptian Pound", currency_symbol="E£", is_active=True))
     session.add(ExternalServiceProvider(provider_id=1, partner_code="PRT-BRK-001", partner_name="Nasr Customs",
                                         partner_type="Customs Broker", is_active=True))
     session.commit()
@@ -99,7 +101,7 @@ def test_price_list_items_normalized_and_clone_uses_copy_code_and_english_notes(
     pl = BrokerPriceListService.create_price_list(db, BrokerPriceListCreate(
         title="Alex 2026", broker_id=1, broker_name="Nasr Customs", effective_from=date(2026, 1, 1),
         items=[BrokerPriceListItemCreate(expense_name="Fee 20ft", category="Clearance Fees (أتعاب ومصاريف تخليص)",
-                                         unit_type="Per Invoice (لكل فاتورة)", standard_price=2500.0),
+                                         unit_type="Per Invoice (لكل فاتورة)", standard_price=2500.0, currency="EGP"),
                BrokerPriceListItemCreate(expense_name="Odd", category="Special Cat", unit_type="SET")],
     ))
     assert [(i.category, i.unit_type) for i in pl.items] == [("CLEARANCE_FEES", "PER_INVOICE"), ("Special Cat", "SET")]

@@ -41,6 +41,11 @@ _RAISERS = re.compile(r"^(?:\w*_error|CodedHTTPException|_message|issue|to_item|
 # Plain-dict "codes" that are not system messages.
 NOT_MESSAGE_CODES = {
     "PASSWORD_CHANGE_REQUIRED",  # auth protocol code (403), handled by the API client, never rendered
+    "DYNAMIC_WH_ESTIMATE",  # milestone audit item code in file_closure
+    "ACTUAL_WH_ARRIVAL",  # milestone audit item code in file_closure
+    "EMPTY_CONTAINER_RETURN",  # milestone audit item code in file_closure
+    "CHECKLIST_GATE_BLOCKED",  # gatekeeper 409 error code with custom dictionary payload
+    "OPEN_TASKS_BYPASSED",  # lifecycle step skip warning payload code
 }
 NOT_MESSAGE_FILES = {"modules/auth/seed_rbac.py"}  # role definitions ({"code": "GENERAL_MANAGER", ...})
 
