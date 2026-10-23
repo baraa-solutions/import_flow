@@ -1,0 +1,10 @@
+New operational tracks: customs abandonment countdown, Egyptian port terminal storage, re-export and destruction, inspection appeals, broker custody settlement, and a container deposit ledger.
+Unified notes and attachments on every screen and stage: notes with images, PDF, Excel or Word files, downloads keep their Arabic names, and only the author or an administrator can delete a note.
+New screens: custody release, expense catalog, formal letters, smart document upload hub, and system parameters.
+Comprehensive shipment dossier: timeline with service-level dates, a smart reference card, packing list details, and multi-format export.
+Official Sorour Logistics identity: new logo and colours, with a light watermark on the login, startup and home screens.
+Financial settlement: a new settlement engine, a closed file makes the settlement read-only, and recalculation never replaces actual costs with estimates.
+Demurrage and storage: no charges after the empty container is returned, one active tracking per file, and containers are now their own records.
+Booking and shipping: sailed or cancelled bookings are locked, shipments need approval before edits, and partial shipments link to their parent file.
+Financial approval: no assumed exchange rates or SWIFT references, budget EGP amounts are computed on the server, and linked purchase order lines can be cloned.
+Documents and clearance: real approvals before certifying matches and documents, no invented references or inspection results, and long lists load page by page.
