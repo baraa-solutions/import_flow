@@ -584,7 +584,7 @@ void main() {
     });
 
     testWidgets('Task F: Row-Level Clone on Linked POs duplicates allocation item', (tester) async {
-      const size = Size(1400, 900);
+      final size = const Size(1400, 900);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);

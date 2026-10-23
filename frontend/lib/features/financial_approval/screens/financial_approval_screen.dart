@@ -36,6 +36,7 @@ import '../../../core/services/display_name_resolver.dart';
 import '../../../core/widgets/recalculate_button.dart';
 
 import 'package:frontend/core/widgets/ltr_text.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 
 class FinancialApprovalScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -1382,6 +1383,71 @@ class _FinancialApprovalScreenState
             },
           ),
         ),
+      ),
+    );
+  }
+
+  void _cloneLinkedPoItem(LinkedPOItemModel po) {
+    if (_payPrefillData == null) return;
+    final l = context.l10n;
+
+    final clonedItem = LinkedPOItemModel(
+      poId: 0,
+      poNumber: '${po.poNumber}${TableRowCloneHelper.copyCodeSuffix}',
+      poReference: TableRowCloneHelper.withCodeSuffix(po.poReference),
+      piNumber: po.piNumber,
+      projectId: po.projectId,
+      projectName: po.projectName,
+      paymentTerms: po.paymentTerms,
+      currency: po.currency,
+      totalAmount: po.totalAmount,
+      status: 'Draft',
+    );
+
+    setState(() {
+      final currentList =
+          List<LinkedPOItemModel>.from(_payPrefillData!.linkedPos);
+      final idx = currentList.indexOf(po);
+      if (idx >= 0) {
+        currentList.insert(idx + 1, clonedItem);
+      } else {
+        currentList.add(clonedItem);
+      }
+      _payPrefillData = BudgetPrefillModel(
+        importFileId: _payPrefillData!.importFileId,
+        importFileCode: _payPrefillData!.importFileCode,
+        importFileTitle: _payPrefillData!.importFileTitle,
+        incoterm: _payPrefillData!.incoterm,
+        supplierId: _payPrefillData!.supplierId,
+        supplierName: _payPrefillData!.supplierName,
+        beneficiaryName: _payPrefillData!.beneficiaryName,
+        bankName: _payPrefillData!.bankName,
+        swiftCode: _payPrefillData!.swiftCode,
+        accountNumber: _payPrefillData!.accountNumber,
+        iban: _payPrefillData!.iban,
+        paymentTermsSummary: _payPrefillData!.paymentTermsSummary,
+        linkedPos: currentList,
+        totalInvoiceAmount:
+            _payPrefillData!.totalInvoiceAmount + po.totalAmount,
+        invoiceCurrency: _payPrefillData!.invoiceCurrency,
+        totalInvoiceAmountEgp: _payPrefillData!.totalInvoiceAmountEgp +
+            (po.totalAmount * _payPrefillData!.exchangeRate),
+        estimatedFreightCost: _payPrefillData!.estimatedFreightCost,
+        freightCurrency: _payPrefillData!.freightCurrency,
+        estimatedFreightCostEgp: _payPrefillData!.estimatedFreightCostEgp,
+        estimatedCustomsDutiesEgp: _payPrefillData!.estimatedCustomsDutiesEgp,
+        estimatedClearanceFeesEgp: _payPrefillData!.estimatedClearanceFeesEgp,
+        estimatedGrandTotalEgp: _payPrefillData!.estimatedGrandTotalEgp +
+            (po.totalAmount * _payPrefillData!.exchangeRate),
+        exchangeRate: _payPrefillData!.exchangeRate,
+      );
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l.poAllocationClonedSuccess),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -4038,7 +4104,7 @@ class _FinancialApprovalScreenState
                                             3: FlexColumnWidth(1.2),
                                             4: FlexColumnWidth(1.4),
                                             5: FlexColumnWidth(1.2),
-                                            6: FixedColumnWidth(40),
+                                            6: FlexColumnWidth(0.8),
                                           },
                                           children: [
                                             TableRow(
@@ -4110,7 +4176,18 @@ class _FinancialApprovalScreenState
                                                             fontWeight:
                                                                 FontWeight.bold,
                                                             fontSize: 12))),
-                                                const SizedBox.shrink(),
+                                                Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(8),
+                                                    child: Text(l.actionsCol,
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        style: const TextStyle(
+                                                            color:
+                                                                AppTheme.white,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 12))),
                                               ],
                                             ),
                                             ..._payPrefillData!.linkedPos
