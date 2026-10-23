@@ -354,7 +354,9 @@ void main() {
       expect(find.text(lAr.latestLineMetric), findsWidgets);
       expect(find.text(lAr.recommendedLineMetric), findsWidgets);
 
-      // Check Carrier Option card
+      // Check Carrier Option card after adding a new option
+      await tester.tap(find.text(lAr.addNewShippingOption).first);
+      await tester.pumpAndSettle();
       expect(find.byIcon(Icons.copy_rounded), findsWidgets);
       expect(find.byTooltip(lAr.cloneCarrierOptionTooltip), findsWidgets);
 
@@ -383,6 +385,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(lAr.studySetupAndParameters), findsOneWidget);
+      final addOptionBtn = find.text(lAr.addNewShippingOption).first;
+      await tester.ensureVisible(addOptionBtn);
+      await tester.tap(addOptionBtn);
+      await tester.pumpAndSettle();
       expect(find.byTooltip(lAr.cloneCarrierOptionTooltip), findsWidgets);
       expect(tester.takeException(), isNull);
     });
@@ -395,14 +401,18 @@ void main() {
       await tester.pumpWidget(createTestWidget(size: const Size(1400, 900)));
       await tester.pumpAndSettle();
 
+      // Add a carrier option first
+      await tester.tap(find.text(lAr.addNewShippingOption).first);
+      await tester.pumpAndSettle();
+
       // Find the duplicate carrier option icon button
       final cloneBtn = find.byTooltip(lAr.cloneCarrierOptionTooltip).first;
       await tester.ensureVisible(cloneBtn);
       await tester.tap(cloneBtn);
       await tester.pumpAndSettle();
 
-      // Verify second carrier option appeared (original 2 + cloned 1 = 3 clone buttons)
-      expect(find.byTooltip(lAr.cloneCarrierOptionTooltip), findsNWidgets(3));
+      // Verify second carrier option appeared (original 1 + cloned 1 = 2 clone buttons)
+      expect(find.byTooltip(lAr.cloneCarrierOptionTooltip), findsNWidgets(2));
       // Verify success snackbar
       expect(find.text(lAr.carrierOptionClonedSuccess), findsOneWidget);
     });

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../models/comprehensive_dossier_model.dart';
 
@@ -19,7 +20,7 @@ class ComprehensiveDossierService {
   ComprehensiveDossierService(this._dio);
 
   Future<ComprehensiveShipmentDossierModel> fetchComprehensiveDossier(int importFileId) async {
-    final res = await _dio.get('/api/v1/file-closure/comprehensive-dossier/$importFileId');
+    final res = await _dio.get('${ApiConstants.fileClosure}/comprehensive-dossier/$importFileId');
     if (res.statusCode == 200 && res.data != null) {
       return ComprehensiveShipmentDossierModel.fromJson(res.data as Map<String, dynamic>);
     }
@@ -30,7 +31,7 @@ class ComprehensiveDossierService {
     DossierExportConfirmRequestModel request,
   ) async {
     final res = await _dio.post(
-      '/api/v1/file-closure/confirm-dossier-export',
+      '${ApiConstants.fileClosure}/confirm-dossier-export',
       data: request.toJson(),
     );
     if (res.statusCode == 200 && res.data != null) {

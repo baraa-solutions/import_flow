@@ -27,6 +27,7 @@ import '../widgets/saved_budgets_registry_tab.dart';
 import '../widgets/async_action_button.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/clone_entity_review_dialog.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 import '../widgets/search_and_clone_payment_dialog.dart';
 import '../widgets/search_and_clone_budget_dialog.dart';
 import '../../simulation/widgets/what_if_simulator_dialog.dart';

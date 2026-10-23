@@ -46,29 +46,23 @@ class UnifiedTopBar extends ConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 1. App Branding (Icon + System Name)
+          // 1. App Branding (Sorour Icon + System Name)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: EdgeInsets.all(density.isUltraCompact ? 2.5 : 3.5),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Icon(
-                  Icons.local_shipping_rounded,
-                  size: density.isUltraCompact ? 13 : 15,
-                  color: AppTheme.cobalt,
-                ),
+              Image.asset(
+                'assets/brand/sorour_logo_icon.png',
+                width: density.isUltraCompact ? 16 : 18,
+                height: density.isUltraCompact ? 16 : 18,
+                fit: BoxFit.contain,
               ),
-              const SizedBox(width: 5),
+              const SizedBox(width: 6),
               Text(
-                'ImportFlow',
+                isArabic ? 'سرور' : 'Sorour Logistics',
                 style: TextStyle(
                   fontSize: density.isUltraCompact ? 11.5 : 12.5,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : AppTheme.charcoal,
+                  color: isDark ? Colors.white : AppTheme.sorourNavy,
                   letterSpacing: 0.3,
                 ),
               ),

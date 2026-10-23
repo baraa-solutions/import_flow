@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_error.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -55,6 +56,14 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
   }
 
   Future<void> _loadTimelineData() async {
+    if (widget.importFileId <= 0) {
+      setState(() {
+        _errorMessage = 'رقم ملف الشحنة غير صالح (${widget.importFileId}).';
+        _isLoading = false;
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -62,7 +71,7 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
 
     try {
       final dio = ref.read(dioProvider);
-      final response = await dio.get('/api/v1/file-closure/audit-timeline/${widget.importFileId}');
+      final response = await dio.get('/file-closure/audit-timeline/${widget.importFileId}');
       final model = ShipmentAuditTimelineModel.fromJson(response.data as Map<String, dynamic>);
 
       if (mounted) {
@@ -74,8 +83,9 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
       }
     } catch (e) {
       if (mounted) {
+        final errText = ApiError.message(e);
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = errText.isNotEmpty ? errText : e.toString();
           _isLoading = false;
         });
       }
@@ -89,7 +99,7 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
     try {
       final dio = ref.read(dioProvider);
       await dio.post(
-        '/api/v1/file-closure/audit-timeline/${widget.importFileId}/directives',
+        '/file-closure/audit-timeline/${widget.importFileId}/directives',
         data: {'meeting_directives': _directivesController.text},
       );
 
@@ -103,9 +113,10 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
       }
     } catch (e) {
       if (mounted) {
+        final errText = ApiError.message(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ تعذر حفظ التوجيهات: $e'),
+            content: Text('❌ تعذر حفظ التوجيهات: ${errText.isNotEmpty ? errText : e.toString()}'),
             backgroundColor: AppTheme.wcagCrimson,
           ),
         );
@@ -370,13 +381,15 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
                 children: [
                   const Text(
                     'محضر ورادار التتبع الزمني الشامل للشحنة',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(width: 10),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
@@ -388,8 +401,7 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ),
-                  if (_data!.customFileNumber != null) ...[
-                    const SizedBox(width: 8),
+                  if (_data!.customFileNumber != null)
                     Text(
                       '(${_data!.customFileNumber})',
                       style: TextStyle(
@@ -398,7 +410,6 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
                 ],
               ),
               const SizedBox(height: 2),
@@ -466,11 +477,11 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
       ),
-      child: Row(
-        children: [
-          // 1. Storage Radar
-          Expanded(
-            child: _buildRadarCardItem(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 850;
+          final items = [
+            _buildRadarCardItem(
               title: 'أرضيات الميناء (Storage)',
               icon: Icons.domain,
               dateStr: r.portStorageStartDate ?? 'غير محدد',
@@ -479,12 +490,7 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
               badgeColor: r.portStorageStatus == 'SAFE' ? AppTheme.emerald : AppTheme.wcagCrimson,
               isDark: isDark,
             ),
-          ),
-          const SizedBox(width: 8),
-
-          // 2. Demurrage Radar
-          Expanded(
-            child: _buildRadarCardItem(
+            _buildRadarCardItem(
               title: 'غرامات الحاوية (Demurrage)',
               icon: Icons.directions_boat,
               dateStr: r.demurrageStartDate ?? 'غير محدد',
@@ -493,12 +499,7 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
               badgeColor: r.demurrageStatus == 'SAFE' ? AppTheme.emerald : AppTheme.wcagCrimson,
               isDark: isDark,
             ),
-          ),
-          const SizedBox(width: 8),
-
-          // 3. Dynamic Warehouse Delivery ETA
-          Expanded(
-            child: _buildRadarCardItem(
+            _buildRadarCardItem(
               title: 'المتوقع لوصول المخزن (ديناميكي)',
               icon: Icons.schedule,
               dateStr: r.expectedWarehouseDeliveryDate ?? 'غير محدد',
@@ -507,12 +508,7 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
               badgeColor: AppTheme.cobalt,
               isDark: isDark,
             ),
-          ),
-          const SizedBox(width: 8),
-
-          // 4. Actual Warehouse Intake
-          Expanded(
-            child: _buildRadarCardItem(
+            _buildRadarCardItem(
               title: 'الوصول الفعلي للمخزن (GRN)',
               icon: Icons.inventory_2,
               dateStr: r.actualWarehouseDeliveryDate ?? '⏳ جاري الإبحار والتخليص',
@@ -523,8 +519,42 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
               badgeColor: r.actualWarehouseDeliveryDate != null ? AppTheme.emerald : Colors.blueGrey,
               isDark: isDark,
             ),
-          ),
-        ],
+          ];
+
+          if (isNarrow) {
+            return Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: items[0]),
+                    const SizedBox(width: 8),
+                    Expanded(child: items[1]),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: items[2]),
+                    const SizedBox(width: 8),
+                    Expanded(child: items[3]),
+                  ],
+                ),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: items[0]),
+              const SizedBox(width: 8),
+              Expanded(child: items[1]),
+              const SizedBox(width: 8),
+              Expanded(child: items[2]),
+              const SizedBox(width: 8),
+              Expanded(child: items[3]),
+            ],
+          );
+        },
       ),
     );
   }
@@ -548,21 +578,31 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 4,
+            runSpacing: 2,
             children: [
-              Icon(icon, size: 14, color: AppTheme.cobalt),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 14, color: AppTheme.cobalt),
+                  const SizedBox(width: 4),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 160),
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),

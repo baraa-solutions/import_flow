@@ -520,6 +520,7 @@ def get_comprehensive_shipment_dossier_service(
 
     po_summaries = []
     items_detail = []
+    packing_lists_detail = []
     fob_by_currency: Dict[str, float] = {}
     unknown_currency = False
 
@@ -542,6 +543,40 @@ def get_comprehensive_shipment_dossier_service(
         else:
             po_rate = None
 
+        pli_items = list(getattr(po, "packing_list_items", []) or [])
+        po_pkgs = int(po.total_packages_count or 0)
+        po_gw = float(po.total_gross_weight_kg or 0.0)
+        po_nw = float(po.total_net_weight_kg) if getattr(po, "total_net_weight_kg", None) is not None and float(po.total_net_weight_kg) > 0 else None
+        po_cbm = float(po.total_cbm or 0.0)
+
+        if pli_items:
+            if po_pkgs <= 0:
+                po_pkgs = sum(int(pli.qty_pkg or 0) for pli in pli_items)
+            if po_gw <= 0:
+                po_gw = sum(float(pli.total_gross_weight_kg or 0.0) for pli in pli_items)
+            if po_nw is None or po_nw <= 0:
+                pli_nw_sum = sum(float(pli.total_net_weight_kg or 0.0) for pli in pli_items)
+                if pli_nw_sum > 0:
+                    po_nw = pli_nw_sum
+            if po_cbm <= 0:
+                po_cbm = sum(float(pli.total_cbm or 0.0) for pli in pli_items)
+
+            for pli in pli_items:
+                packing_lists_detail.append({
+                    "packing_list_id": getattr(pli, "packing_list_id", None) or getattr(pli, "item_id", None) or len(packing_lists_detail) + 1,
+                    "pl_number": getattr(pli, "pl_number", None) or po.po_number,
+                    "po_number": po.po_number,
+                    "item_code": getattr(pli, "item_code", None),
+                    "description": getattr(pli, "description", None) or getattr(pli, "main_description", "") or "",
+                    "hs_code": getattr(pli, "hs_code", "") or (imp.hs_code or ""),
+                    "total_packages": int(getattr(pli, "qty_pkg", 0) or 0),
+                    "package_type": getattr(pli, "package_type", None) or "Carton",
+                    "quantity_pcs": float(getattr(pli, "qty_pcs", 0.0) or 0.0),
+                    "gross_weight_kg": float(getattr(pli, "total_gross_weight_kg", 0.0) or 0.0),
+                    "net_weight_kg": float(getattr(pli, "total_net_weight_kg", 0.0) or 0.0),
+                    "cbm": float(getattr(pli, "total_cbm", 0.0) or 0.0),
+                })
+
         po_summaries.append({
             "po_id": po.po_id,
             "po_number": po.po_number,
@@ -550,10 +585,10 @@ def get_comprehensive_shipment_dossier_service(
             "currency": curr,
             "exchange_rate": po_rate,
             "total_amount_fob": amt,
-            "total_packages": int(po.total_packages_count or 0),
-            "total_gross_weight_kg": float(po.total_gross_weight_kg or 0.0),
-            "total_net_weight_kg": float(po.total_net_weight_kg) if getattr(po, "total_net_weight_kg", None) is not None and float(po.total_net_weight_kg) > 0 else None,
-            "total_cbm": float(po.total_cbm or 0.0),
+            "total_packages": po_pkgs,
+            "total_gross_weight_kg": po_gw,
+            "total_net_weight_kg": po_nw,
+            "total_cbm": po_cbm,
             "status": po.status,
         })
 
@@ -574,6 +609,23 @@ def get_comprehensive_shipment_dossier_service(
                 "cbm": float(itm.total_cbm or 0.0),
                 "weight_kg": float(itm.gross_weight_kg or 0.0),
                 "net_weight_kg": itm_nw,
+            })
+
+    if not packing_lists_detail and getattr(imp, "packing_lists_data", None):
+        for idx, pl in enumerate(imp.packing_lists_data or []):
+            packing_lists_detail.append({
+                "packing_list_id": idx + 1,
+                "pl_number": pl.get("pl_no") or pl.get("pl_number") or f"PL-{idx+1}",
+                "po_number": imp.po_number or "",
+                "item_code": pl.get("item_code"),
+                "description": pl.get("description") or "",
+                "hs_code": pl.get("hs_code") or (imp.hs_code or ""),
+                "total_packages": int(pl.get("total_packages") or 0),
+                "package_type": pl.get("package_type") or "Carton",
+                "quantity_pcs": float(pl.get("quantity") or 0.0),
+                "gross_weight_kg": float(pl.get("gross_weight_kg") or 0.0),
+                "net_weight_kg": float(pl.get("net_weight_kg") or 0.0),
+                "cbm": float(pl.get("cbm") or 0.0),
             })
 
     # Track FOB source: PO vs ESTIMATE vs None (FC-07 / BE810-T07)
@@ -1100,6 +1152,165 @@ def get_comprehensive_shipment_dossier_service(
     final_gross_weight = float(getattr(imp, "gross_weight_kg", 0.0) or sum(p.get("total_gross_weight_kg", 0.0) for p in po_summaries) or 0.0)
     final_total_cbm = float(getattr(imp, "total_cbm", 0.0) or sum(p.get("total_cbm", 0.0) for p in po_summaries) or 0.0)
 
+    # 12. Institutional Knowledge, Smart Reference Card, Past Similar Shipments, and Recurring Patterns
+    institutional_knowledge = None
+    similar_past_shipments = []
+    recurring_patterns = []
+    smart_reference_card = None
+    try:
+        from modules.experience_guide.service import ExperienceGuideService
+        from modules.experience_guide.schemas import GuideMatchRequest
+        guide_svc = ExperienceGuideService(db)
+
+        # Smart Reference Card (5-dimension dynamic aggregation)
+        try:
+            ref_card_obj = guide_svc.generate_smart_reference_card(imp.import_file_id)
+            if ref_card_obj:
+                smart_reference_card = (
+                    ref_card_obj.model_dump()
+                    if hasattr(ref_card_obj, "model_dump")
+                    else ref_card_obj.dict()
+                )
+                prod_sum = smart_reference_card.get("product_summary") or {}
+                ref_cbm = float(prod_sum.get("total_cbm") or 0.0)
+                ref_gw = float(prod_sum.get("total_gross_weight_kg") or 0.0)
+                ref_nw = float(prod_sum.get("total_net_weight_kg") or 0.0)
+                ref_pkgs = int(prod_sum.get("packages_count") or 0)
+                if final_total_cbm <= 0 and ref_cbm > 0:
+                    final_total_cbm = ref_cbm
+                if final_gross_weight <= 0 and ref_gw > 0:
+                    final_gross_weight = ref_gw
+                if (dossier_net_weight is None or dossier_net_weight <= 0) and ref_nw > 0:
+                    dossier_net_weight = ref_nw
+                if final_total_packages <= 0 and ref_pkgs > 0:
+                    final_total_packages = ref_pkgs
+        except Exception:
+            smart_reference_card = None
+
+        # Collect HS codes and categories from file and PO line items
+        file_hs = imp.hs_code or (po_summaries[0].get("hs_code") if po_summaries else None)
+        file_category = imp.product_category or (po_summaries[0].get("product_category") if po_summaries else None)
+        all_hs = [file_hs] if file_hs else []
+        all_cats = [file_category] if file_category else []
+        for itm in (items_detail or []):
+            if itm.get("hs_code") and itm.get("hs_code") not in all_hs:
+                all_hs.append(itm.get("hs_code"))
+            if itm.get("product_category") and itm.get("product_category") not in all_cats:
+                all_cats.append(itm.get("product_category"))
+
+        match_req = GuideMatchRequest(
+            hs_code=file_hs,
+            hs_codes=all_hs or None,
+            product_category=file_category,
+            product_categories=all_cats or None,
+            supplier=supplier_name,
+            port_of_loading=imp.port_of_loading,
+            port_of_discharge=imp.port_of_discharge,
+            destination_port=imp.port_of_discharge,
+            shipping_line=getattr(imp, "shipping_line", None) or getattr(imp, "selected_scenario", None),
+            incoterm=imp.incoterm_code,
+            import_file_id=imp.import_file_id,
+            import_file_reference=imp.import_file_code,
+        )
+        matched_guide = guide_svc.match_shipment(match_req)
+
+        try:
+            raw_sim = guide_svc.get_similar_shipments(imp.import_file_id)
+            similar_past_shipments = [
+                {
+                    "import_file_id": s.import_file_id,
+                    "import_file_code": s.import_file_code,
+                    "file_code": s.import_file_code,
+                    "company_name": s.company_name,
+                    "supplier_name": s.supplier_name,
+                    "port_of_loading": s.port_of_loading,
+                    "port_of_discharge": s.port_of_discharge,
+                    "shipping_line": s.shipping_line,
+                    "status": s.status,
+                    "opening_date": s.opening_date,
+                    "clearance_duration_days": s.clearance_duration_days,
+                    "duration_days": s.clearance_duration_days,
+                    "cost_variance_pct": s.cost_variance_pct,
+                    "variance_pct": s.cost_variance_pct,
+                    "matched_dimensions": s.matched_dimensions,
+                }
+                for s in raw_sim
+            ]
+        except Exception:
+            similar_past_shipments = []
+
+        try:
+            raw_pat = guide_svc.get_detected_patterns()
+            recurring_patterns = [
+                {
+                    "pattern_id": p.pattern_id,
+                    "pattern_type": p.pattern_type,
+                    "dimension_type": p.dimension_type,
+                    "dimension_value": p.dimension_value,
+                    "occurrence_count": p.occurrence_count,
+                    "suggested_title": p.suggested_title,
+                    "pattern_title": p.suggested_title,
+                    "title": p.suggested_title,
+                    "suggested_content": p.suggested_content,
+                    "pattern_description": p.suggested_content,
+                    "description": p.suggested_content,
+                    "suggested_severity": p.suggested_severity,
+                    "severity": p.suggested_severity,
+                    "confidence_score": 0.85,
+                    "evidence_shipments": p.evidence_shipments,
+                }
+                for p in raw_pat
+            ]
+        except Exception:
+            recurring_patterns = []
+
+        institutional_knowledge = {
+            "has_critical_alert": matched_guide.has_critical_alert,
+            "has_warning_alert": matched_guide.has_warning_alert,
+            "mandatory_ports": matched_guide.mandatory_ports,
+            "required_documents": matched_guide.required_documents,
+            "suggested_notes": matched_guide.suggested_notes,
+            "matched_entries": [
+                {
+                    "entry_id": e.entry_id,
+                    "title": e.title,
+                    "content": e.content,
+                    "entry_type": e.entry_type,
+                    "severity": e.severity,
+                    "department": e.department,
+                    "source_type": e.source_type,
+                    "confidence_level": e.confidence_level,
+                    "is_system_inferred": e.is_system_inferred,
+                }
+                for e in matched_guide.matched_entries
+            ],
+            "critical_entries": [
+                {
+                    "entry_id": e.entry_id,
+                    "title": e.title,
+                    "content": e.content,
+                    "severity": e.severity,
+                }
+                for e in matched_guide.critical_entries
+            ],
+            "warning_entries": [
+                {
+                    "entry_id": e.entry_id,
+                    "title": e.title,
+                    "content": e.content,
+                    "severity": e.severity,
+                }
+                for e in matched_guide.warning_entries
+            ],
+            "similar_past_shipments": similar_past_shipments,
+            "recurring_patterns": recurring_patterns,
+        }
+    except Exception:
+        institutional_knowledge = None
+        similar_past_shipments = []
+        recurring_patterns = []
+        smart_reference_card = None
+
     unique_invoices = set()
     if imp.pi_number:
         unique_invoices.add(imp.pi_number)
@@ -1126,7 +1337,17 @@ def get_comprehensive_shipment_dossier_service(
         "pos_numbers": [p.get("po_number") for p in po_summaries if p.get("po_number")],
     }
 
-    # 12. ETA Tracking Revisions Log
+    # 13. Smart Freight Mode Recommendation
+    if final_total_cbm >= 15.0:
+        smart_recommendation = f"اقتراح شحن بحري حاوية كاملة (Sea FCL) لأن الحجم ({final_total_cbm:.2f} m³) يبلغ 15 m³ أو أكثر."
+    elif 0 < final_total_cbm < 5.0 and final_gross_weight >= (final_total_cbm * 167.0):
+        smart_recommendation = f"اقتراح شحن جوي (AIR) لاكتمال الشرطين: الوزن القائم ({final_gross_weight:.1f} kg) يغطي الوزن الحجمي والحجم ({final_total_cbm:.2f} m³) أقل من 5 m³."
+    elif 0 < final_total_cbm < 15.0:
+        smart_recommendation = f"اقتراح شحن بحري جزئي (Sea LCL) لأن إجمالي الحجم ({final_total_cbm:.2f} m³) أقل من 15 m³ ولا يستدعي شحن حاوية كاملة (FCL)."
+    else:
+        smart_recommendation = "اقتراح شحن بحري حاوية كاملة (Sea FCL) بناءً على خطة شحن أمر الشراء."
+
+    # 14. ETA Tracking Revisions Log
     eta_revisions_log = []
     try:
         from modules.shipment_updates.model import ShipmentUpdateLog
@@ -1181,128 +1402,6 @@ def get_comprehensive_shipment_dossier_service(
                     "reason": f"رصد حركة السفينة وتعديل موعد الوصول ({'تأخير' if drift and drift > 0 else 'تقديم'} {abs(drift or 0)} أيام)",
                     "recorded_by": "Tracking Engine",
                 })
-
-    # 13. Institutional Knowledge, Past Similar Shipments, and Recurring Patterns
-    institutional_knowledge = None
-    similar_past_shipments = []
-    recurring_patterns = []
-    try:
-        from modules.experience_guide.service import ExperienceGuideService
-        from modules.experience_guide.schemas import GuideMatchRequest
-        guide_svc = ExperienceGuideService(db)
-        # Collect HS codes and categories from file and PO line items
-        file_hs = imp.hs_code or (po_summaries[0].get("hs_code") if po_summaries else None)
-        file_category = imp.product_category or (po_summaries[0].get("product_category") if po_summaries else None)
-        all_hs = [file_hs] if file_hs else []
-        all_cats = [file_category] if file_category else []
-        for itm in (items_detail or []):
-            if itm.get("hs_code") and itm.get("hs_code") not in all_hs:
-                all_hs.append(itm.get("hs_code"))
-            if itm.get("product_category") and itm.get("product_category") not in all_cats:
-                all_cats.append(itm.get("product_category"))
-
-        match_req = GuideMatchRequest(
-            hs_code=file_hs,
-            hs_codes=all_hs or None,
-            product_category=file_category,
-            product_categories=all_cats or None,
-            supplier=supplier_name,
-            port_of_loading=imp.port_of_loading,
-            port_of_discharge=imp.port_of_discharge,
-            destination_port=imp.port_of_discharge,
-            shipping_line=getattr(imp, "shipping_line", None) or getattr(imp, "selected_scenario", None),
-            incoterm=imp.incoterm_code,
-            import_file_id=imp.import_file_id,
-            import_file_reference=imp.import_file_code,
-        )
-        matched_guide = guide_svc.match_shipment(match_req)
-
-        try:
-            raw_sim = guide_svc.get_similar_shipments(imp.import_file_id)
-            similar_past_shipments = [
-                {
-                    "import_file_id": s.import_file_id,
-                    "import_file_code": s.import_file_code,
-                    "company_name": s.company_name,
-                    "supplier_name": s.supplier_name,
-                    "port_of_loading": s.port_of_loading,
-                    "port_of_discharge": s.port_of_discharge,
-                    "shipping_line": s.shipping_line,
-                    "status": s.status,
-                    "opening_date": s.opening_date,
-                    "clearance_duration_days": s.clearance_duration_days,
-                    "cost_variance_pct": s.cost_variance_pct,
-                    "matched_dimensions": s.matched_dimensions,
-                }
-                for s in raw_sim
-            ]
-        except Exception:
-            similar_past_shipments = []
-
-        try:
-            raw_pat = guide_svc.get_detected_patterns()
-            recurring_patterns = [
-                {
-                    "pattern_id": p.pattern_id,
-                    "pattern_type": p.pattern_type,
-                    "dimension_type": p.dimension_type,
-                    "dimension_value": p.dimension_value,
-                    "occurrence_count": p.occurrence_count,
-                    "suggested_title": p.suggested_title,
-                    "suggested_content": p.suggested_content,
-                    "suggested_severity": p.suggested_severity,
-                    "evidence_shipments": p.evidence_shipments,
-                }
-                for p in raw_pat
-            ]
-        except Exception:
-            recurring_patterns = []
-
-        institutional_knowledge = {
-            "has_critical_alert": matched_guide.has_critical_alert,
-            "has_warning_alert": matched_guide.has_warning_alert,
-            "mandatory_ports": matched_guide.mandatory_ports,
-            "required_documents": matched_guide.required_documents,
-            "suggested_notes": matched_guide.suggested_notes,
-            "matched_entries": [
-                {
-                    "entry_id": e.entry_id,
-                    "title": e.title,
-                    "content": e.content,
-                    "entry_type": e.entry_type,
-                    "severity": e.severity,
-                    "department": e.department,
-                    "source_type": e.source_type,
-                    "confidence_level": e.confidence_level,
-                    "is_system_inferred": e.is_system_inferred,
-                }
-                for e in matched_guide.matched_entries
-            ],
-            "critical_entries": [
-                {
-                    "entry_id": e.entry_id,
-                    "title": e.title,
-                    "content": e.content,
-                    "severity": e.severity,
-                }
-                for e in matched_guide.critical_entries
-            ],
-            "warning_entries": [
-                {
-                    "entry_id": e.entry_id,
-                    "title": e.title,
-                    "content": e.content,
-                    "severity": e.severity,
-                }
-                for e in matched_guide.warning_entries
-            ],
-            "similar_past_shipments": similar_past_shipments,
-            "recurring_patterns": recurring_patterns,
-        }
-    except Exception:
-        institutional_knowledge = None
-        similar_past_shipments = []
-        recurring_patterns = []
 
     return ComprehensiveShipmentDossierResponse(
         import_file_id=imp.import_file_id,
@@ -1396,6 +1495,9 @@ def get_comprehensive_shipment_dossier_service(
         similar_past_shipments=similar_past_shipments,
         recurring_patterns=recurring_patterns,
         institutional_knowledge=institutional_knowledge,
+        smart_reference_card=smart_reference_card,
+        smart_recommendation=smart_recommendation,
+        packing_lists=packing_lists_detail,
     )
 
 

@@ -197,6 +197,7 @@ from modules.custody_release.router import router as custody_release_router
 from modules.reexport_protocol.router import router as reexport_protocol_router
 from modules.container_deposit.router import router as container_deposit_router
 from modules.system_parameters.router import router as system_parameters_router
+from modules.stage_notes.router import router as stage_notes_router
 from modules.system_observability.middleware import ObservabilityMiddleware
 from modules.system_observability.service import setup_query_listener
 
@@ -226,6 +227,27 @@ if _settings.ALLOW_DEV_AUTH_BYPASS:
         "ALLOW_DEV_AUTH_BYPASS is enabled: requests without an Authorization header are resolved to "
         "a local user. Never enable this on a networked or production deployment."
     )
+
+# ==================================================
+# API Path Normalization Middleware
+# ==================================================
+# Defensively normalizes duplicate path prefixes (e.g. /api/v1/api/v1/ -> /api/v1/)
+# so that any legacy or un-reloaded client requests resolve seamlessly.
+class PathNormalizationMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if path.startswith("/api/v1/api/v1/"):
+                new_path = path.replace("/api/v1/api/v1/", "/api/v1/", 1)
+                scope["path"] = new_path
+                if "raw_path" in scope:
+                    scope["raw_path"] = new_path.encode("ascii")
+        await self.app(scope, receive, send)
+
+app.add_middleware(PathNormalizationMiddleware)
 
 # ==================================================
 # Observability & Request Correlation Middleware
@@ -432,6 +454,7 @@ app.include_router(custody_release_router)
 app.include_router(reexport_protocol_router)
 app.include_router(container_deposit_router)
 app.include_router(system_parameters_router)
+app.include_router(stage_notes_router)
 
 
 

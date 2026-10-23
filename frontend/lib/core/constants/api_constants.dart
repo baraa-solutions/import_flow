@@ -102,6 +102,7 @@ class ApiConstants {
   static String get customs => '$baseUrl/customs';
   static String get customsConsultation => '$baseUrl/customs-consultation';
   static String get customsClearance => '$baseUrl/customs-clearance';
+  static String get custodyRelease => '$baseUrl/custody-release';
 
   // ── Finance ───────────────────────────────────────────────
   static String get financialApproval => '$baseUrl/financial-approval';
@@ -110,11 +111,13 @@ class ApiConstants {
 
   // ── Documentation ─────────────────────────────────────────
   static String get importDocumentation => '$baseUrl/import-documentation';
+  static String get formalLetters => '$baseUrl/formal-letters';
   static String get warehouseReceiving => '$baseUrl/warehouse-receiving';
   static String get fileClosure => '$baseUrl/file-closure';
 
   // ── System & Integrations ─────────────────────────────────
   static String get auditLogs => '$baseUrl/audit-logs';
+  static String get systemParameters => '$baseUrl/system-parameters';
   static String get notifications => '$baseUrl/notifications';
   static String get smartTasks => '$baseUrl/smart-tasks';
   static String get smartEmail => '$baseUrl/smart-email';

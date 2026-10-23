@@ -58,6 +58,9 @@ export 'existing_record_snackbar.dart';
 export 'states/states.dart';
 export 'app_shimmer_skeleton.dart';
 
+// ── Operational Notes & Attachments ─────────────────────────────────────────
+export 'stage_notes_card.dart';
+
 // ── Dialogs & Modals ────────────────────────────────────────────────────────
 export 'app_confirm_dialog.dart';
 export 'reopen_shipment_dialog.dart';

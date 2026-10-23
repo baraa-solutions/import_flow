@@ -172,6 +172,9 @@ class ComprehensiveShipmentDossierResponse(BaseModel):
     similar_past_shipments: List[Dict[str, Any]] = Field(default_factory=list, description="Historical similar matching shipments with cost and time variance")
     recurring_patterns: List[Dict[str, Any]] = Field(default_factory=list, description="Recurring operational patterns discovered for supplier, line, or port")
     institutional_knowledge: Optional[Dict[str, Any]] = Field(None, description="Matched institutional knowledge, alerts, and operational patterns")
+    smart_reference_card: Optional[Dict[str, Any]] = Field(None, description="Comprehensive 5-dimension smart shipment reference card")
+    smart_recommendation: Optional[str] = Field(None, description="Container and freight mode recommendation reason string")
+    packing_lists: List[Dict[str, Any]] = Field(default_factory=list, description="Detailed itemized packing list records and packages")
 
     model_config = ConfigDict(from_attributes=True)
 

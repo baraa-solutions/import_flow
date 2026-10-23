@@ -141,6 +141,9 @@ class ComprehensiveShipmentDossierModel {
   final List<Map<String, dynamic>> similarPastShipments;
   final List<Map<String, dynamic>> recurringPatterns;
   final Map<String, dynamic>? institutionalKnowledge;
+  final Map<String, dynamic>? smartReferenceCard;
+  final String? smartRecommendation;
+  final List<Map<String, dynamic>> packingLists;
 
   ComprehensiveShipmentDossierModel({
     required this.importFileId,
@@ -234,6 +237,9 @@ class ComprehensiveShipmentDossierModel {
     this.similarPastShipments = const [],
     this.recurringPatterns = const [],
     this.institutionalKnowledge,
+    this.smartReferenceCard,
+    this.smartRecommendation,
+    this.packingLists = const [],
   });
 
   factory ComprehensiveShipmentDossierModel.fromJson(Map<String, dynamic> json) {
@@ -246,6 +252,7 @@ class ComprehensiveShipmentDossierModel {
     var rawEta = json['eta_revisions_log'] as List<dynamic>? ?? [];
     var rawSimilar = json['similar_past_shipments'] as List<dynamic>? ?? [];
     var rawPatterns = json['recurring_patterns'] as List<dynamic>? ?? [];
+    var rawPackingLists = json['packing_lists'] as List<dynamic>? ?? [];
     var rawFx = json['fx_reconciliation'] as Map<String, dynamic>?;
     var rawFobByCurrency = json['fob_by_currency'] as Map<String, dynamic>? ?? {};
     Map<String, double> parsedFobByCurrency = rawFobByCurrency.map(
@@ -344,6 +351,9 @@ class ComprehensiveShipmentDossierModel {
       similarPastShipments: rawSimilar.map((s) => s as Map<String, dynamic>).toList(),
       recurringPatterns: rawPatterns.map((p) => p as Map<String, dynamic>).toList(),
       institutionalKnowledge: json['institutional_knowledge'] as Map<String, dynamic>?,
+      smartReferenceCard: json['smart_reference_card'] as Map<String, dynamic>?,
+      smartRecommendation: json['smart_recommendation'] as String?,
+      packingLists: rawPackingLists.map((p) => p as Map<String, dynamic>).toList(),
     );
   }
 
@@ -411,6 +421,9 @@ class ComprehensiveShipmentDossierModel {
       'similar_past_shipments': similarPastShipments,
       'recurring_patterns': recurringPatterns,
       if (institutionalKnowledge != null) 'institutional_knowledge': institutionalKnowledge,
+      if (smartReferenceCard != null) 'smart_reference_card': smartReferenceCard,
+      if (smartRecommendation != null) 'smart_recommendation': smartRecommendation,
+      'packing_lists': packingLists,
     };
   }
 }

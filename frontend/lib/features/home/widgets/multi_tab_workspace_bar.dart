@@ -82,6 +82,10 @@ String getLocalizedTabTitle(BuildContext context, int routeIndex, String fallbac
     case 59: return l10n.productionSyncHub;
     case 65: return l10n.cargoInsurance;
     case 66: return l10n.userManagement;
+    case 72: return isArabic ? 'كتالوج المصروفات القياسي' : 'Expense Catalog';
+    case 73: return isArabic ? 'محرر الخطابات الرسمية' : 'Formal Letters';
+    case 74: return isArabic ? 'الإفراج تحت التحفظ' : 'Custody Release';
+    case 75: return isArabic ? 'مركز الاستخراج الذكي' : 'Smart Upload Hub';
     default: return fallbackTitle;
   }
 }

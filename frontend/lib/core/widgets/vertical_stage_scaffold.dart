@@ -3,6 +3,7 @@ import '../services/display_name_resolver.dart';
 import '../theme/app_theme.dart';
 import 'back_to_dashboard_button.dart';
 import 'shipment_stage_lifecycle_control.dart';
+import 'stage_notes_card.dart';
 
 class VerticalNavTabItem {
   final IconData icon;
@@ -32,6 +33,7 @@ class VerticalStageScaffold extends StatelessWidget {
   final Widget? topBanner;
   final int? selectedImportFileId;
   final bool showStageLifecycleControls;
+  final bool showNotesButton;
   final VoidCallback? onShipmentStatusChanged;
 
   const VerticalStageScaffold({
@@ -49,6 +51,7 @@ class VerticalStageScaffold extends StatelessWidget {
     this.topBanner,
     this.selectedImportFileId,
     this.showStageLifecycleControls = true,
+    this.showNotesButton = true,
     this.onShipmentStatusChanged,
   });
 
@@ -173,6 +176,22 @@ class VerticalStageScaffold extends StatelessWidget {
                                 if (hasActions) const SizedBox(width: 8),
                               ],
                               if (hasActions) ...headerActions!,
+                              if (showNotesButton) ...[
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  icon: const Icon(Icons.rate_review_outlined, color: Colors.white, size: 20),
+                                  tooltip: isArabic ? 'ملاحظات ومرفقات المرحلة (+)' : 'Stage Notes & Attachments (+)',
+                                  onPressed: () {
+                                    StageNotesCard.showAsDialog(
+                                      context,
+                                      screenCode: stageCode,
+                                      recordId: selectedImportFileId,
+                                      stageCode: stageCode,
+                                      title: isArabic ? titleAr : titleEn,
+                                    );
+                                  },
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -229,6 +248,22 @@ class VerticalStageScaffold extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
+                    ],
+                    if (showNotesButton) ...[
+                      IconButton(
+                        icon: const Icon(Icons.rate_review_outlined, color: Colors.white, size: 20),
+                        tooltip: isArabic ? 'ملاحظات ومرفقات المرحلة (+)' : 'Stage Notes & Attachments (+)',
+                        onPressed: () {
+                          StageNotesCard.showAsDialog(
+                            context,
+                            screenCode: stageCode,
+                            recordId: selectedImportFileId,
+                            stageCode: stageCode,
+                            title: isArabic ? titleAr : titleEn,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 6),
                     ],
                     const BackToDashboardButton(),
                   ],
@@ -419,6 +454,41 @@ class VerticalStageScaffold extends StatelessWidget {
                           },
                         ),
                       ),
+                      if (showNotesButton)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            border: Border(
+                              top: BorderSide(color: Colors.grey.shade200),
+                            ),
+                          ),
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.cobalt,
+                              side: const BorderSide(color: AppTheme.cobalt),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            icon: const Icon(Icons.rate_review_outlined, size: 15),
+                            label: Text(
+                              Directionality.of(context) == TextDirection.rtl
+                                  ? 'الملاحظات والمرفقات'
+                                  : 'Notes & Attachments',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () {
+                              StageNotesCard.showAsDialog(
+                                context,
+                                screenCode: stageCode,
+                                recordId: selectedImportFileId,
+                                stageCode: stageCode,
+                                title: Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
+                              );
+                            },
+                          ),
+                        ),
                     ],
                   ),
                 ),

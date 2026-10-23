@@ -30,7 +30,36 @@ class _BackendStartupGateState extends ConsumerState<BackendStartupGate> {
   Widget build(BuildContext context) {
     final status = ref.watch(backendStartupProvider);
     if (status.isReady) _wasReady = true;
-    if (!_wasReady) return Scaffold(body: _StatusPanel(status: status));
+    if (!_wasReady) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return Scaffold(
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // ── Sorour Brand Background Watermark (Startup Screen) ──
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: Center(
+                    child: Opacity(
+                      opacity: isDark ? 0.035 : 0.05,
+                      child: Image.asset(
+                        'assets/brand/sorour_logo_watermark.png',
+                        width: 480,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.medium,
+                        cacheWidth: 960,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            _StatusPanel(status: status),
+          ],
+        ),
+      );
+    }
     // Same Stack shape whether or not the overlay shows, so the child element
     // is never reparented (that would drop its state).
     return Stack(
@@ -82,10 +111,19 @@ class _StartingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       key: const ValueKey('backend-startup-starting'),
       mainAxisSize: MainAxisSize.min,
       children: [
+        Image.asset(
+          isDark
+              ? 'assets/brand/sorour_logo_dark.png'
+              : 'assets/brand/sorour_logo_full.png',
+          height: 60,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(height: 20),
         const SizedBox(
           width: 36,
           height: 36,

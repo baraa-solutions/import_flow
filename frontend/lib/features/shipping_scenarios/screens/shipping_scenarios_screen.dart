@@ -319,36 +319,28 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   }
 
   void _initDefaultItems() {
-    final crd = _cargoReadyDate;
     _evalItems.clear();
-    _evalItems.addAll([
-      ShippingScenarioItemModel(
-        providerName: 'COSCO Shipping',
-        vesselName: 'COSCO UNIVERSE',
-        voyageNumber: '042E',
-        polName: 'Shanghai Port',
-        podName: 'El Dekheila Port',
-        sailingDate: crd.add(const Duration(days: 2)).toString().substring(0, 10),
-        estimatedArrivalDate: crd.add(const Duration(days: 26)).toString().substring(0, 10),
-        expectedLineDelayDays: 2,
-        isRecommended: true,
+  }
+
+  void _addNewBlankCarrierOption() {
+    setState(() {
+      _evalItems.add(ShippingScenarioItemModel(
+        providerName: '',
+        vesselName: '',
+        voyageNumber: '',
+        polName: null,
+        podName: null,
+        portOfLoadingId: null,
+        portOfDischargeId: null,
+        sailingDate: '',
+        estimatedArrivalDate: '',
+        expectedLineDelayDays: 0,
+        isRecommended: _evalItems.isEmpty,
         riskLevel: 'Low',
-        notes: 'أقرب موعد إبحار وتوافر حاويات HQ في ميناء شانغهاي',
-      ),
-      ShippingScenarioItemModel(
-        providerName: 'Maersk Line',
-        vesselName: 'MAERSK MC-KINNEY MOLLER',
-        voyageNumber: '2608W',
-        polName: 'Ningbo-Zhoushan Port',
-        podName: 'Damietta Port',
-        sailingDate: crd.add(const Duration(days: 5)).toString().substring(0, 10),
-        estimatedArrivalDate: crd.add(const Duration(days: 32)).toString().substring(0, 10),
-        expectedLineDelayDays: 4,
-        isRecommended: false,
-        riskLevel: 'Medium',
-        notes: r'ترانزيت في بيرايوس مع تكلفة شحن أقل بمقدار $300',
-      ),
-    ]);
+        notes: '',
+      ));
+      _expandedQuotes[_evalItems.length - 1] = false;
+    });
   }
 
   @override
@@ -584,9 +576,9 @@ Best regards,
       vesselName: effectiveVessel,
       voyageNumber: effectiveVoyage,
       portOfLoadingId: matchedPol?.locationId,
-      polName: matchedPol != null ? matchedPol.locationName : (opt.originPort ?? 'Shanghai Port'),
+      polName: matchedPol != null ? matchedPol.locationName : opt.originPort,
       portOfDischargeId: matchedPod?.locationId,
-      podName: matchedPod != null ? matchedPod.locationName : (opt.destinationPort ?? 'El Dekheila Port'),
+      podName: matchedPod != null ? matchedPod.locationName : opt.destinationPort,
       sailingDate: sDate.toString().substring(0, 10),
       estimatedArrivalDate: arrDate.toString().substring(0, 10),
       expectedLineDelayDays: isDirect ? 2 : 5,
@@ -1816,20 +1808,7 @@ Best regards,
                         label: l.addNewShippingOption,
                         icon: Icons.add,
                         variant: AppButtonVariant.primary,
-                        onPressed: () {
-                          setState(() {
-                            final defaultLineName = shippingLines.isNotEmpty ? shippingLines.first.partnerName : 'COSCO Shipping';
-                            _evalItems.add(ShippingScenarioItemModel(
-                              providerName: defaultLineName,
-                              vesselName: 'VESSEL NEW',
-                              polName: 'Shanghai Port',
-                              podName: 'El Dekheila Port',
-                              sailingDate: crd.add(const Duration(days: 3)).toString().substring(0, 10),
-                              estimatedArrivalDate: crd.add(const Duration(days: 28)).toString().substring(0, 10),
-                              expectedLineDelayDays: 2,
-                            ));
-                          });
-                        },
+                        onPressed: _addNewBlankCarrierOption,
                       );
                       if (isNarrowHeader) {
                         return Column(
@@ -1853,6 +1832,60 @@ Best regards,
                   ),
 
                   const SizedBox(height: 12),
+
+                  if (_evalItems.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.directions_boat_outlined,
+                            size: 40,
+                            color: isDark ? AppTheme.darkTextMuted : AppTheme.textMuted,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            (Localizations.maybeLocaleOf(context)?.languageCode ?? 'ar') == 'ar'
+                                ? 'لا توجد خيارات أو عروض شحن مضافة حتى الآن'
+                                : 'No shipping carrier options added yet',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppTheme.darkTextMuted : AppTheme.textMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            (Localizations.maybeLocaleOf(context)?.languageCode ?? 'ar') == 'ar'
+                                ? 'اضغط "+ إضافة خيار شحن جديد" لإضافة خيار شحن فارغ، أو استخرج العروض تلقائياً من المستندات أعلاه'
+                                : 'Click "+ Add New Shipping Option" to add a blank carrier option, or extract quotes above',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? AppTheme.darkTextMuted : AppTheme.textMuted,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          AppButton(
+                            label: l.addNewShippingOption,
+                            icon: Icons.add,
+                            variant: AppButtonVariant.primary,
+                            size: AppButtonSize.small,
+                            onPressed: _addNewBlankCarrierOption,
+                          ),
+                        ],
+                      ),
+                    ),
 
                   // Carrier Option Cards List
                   ..._evalItems.asMap().entries.map((entry) {
@@ -1972,14 +2005,12 @@ Best regards,
 
                             final deleteCarrierBtn = IconButton(
                               icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
-                              onPressed: _evalItems.length <= 1
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        _evalItems.removeAt(idx);
-                                        _expandedQuotes.remove(idx);
-                                      });
-                                    },
+                              onPressed: () {
+                                setState(() {
+                                  _evalItems.removeAt(idx);
+                                  _expandedQuotes.remove(idx);
+                                });
+                              },
                             );
 
                             final polDropdown = SearchableDropdownField<int?>(
@@ -2067,7 +2098,16 @@ Best regards,
                               },
                               child: InputDecorator(
                                 decoration: InputDecoration(labelText: '${l.sailingDateCol} *', isDense: true),
-                                child: Text(item.sailingDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text(
+                                  item.sailingDate.isNotEmpty ? item.sailingDate : l.unassigned,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: item.sailingDate.isNotEmpty
+                                        ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)
+                                        : (isDark ? AppTheme.darkTextMuted : AppTheme.textMuted),
+                                  ),
+                                ),
                               ),
                             );
 
@@ -2086,7 +2126,16 @@ Best regards,
                               },
                               child: InputDecorator(
                                 decoration: InputDecoration(labelText: '${l.estimatedArrivalDateCol} *', isDense: true),
-                                child: Text(item.estimatedArrivalDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text(
+                                  item.estimatedArrivalDate.isNotEmpty ? item.estimatedArrivalDate : l.unassigned,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: item.estimatedArrivalDate.isNotEmpty
+                                        ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)
+                                        : (isDark ? AppTheme.darkTextMuted : AppTheme.textMuted),
+                                  ),
+                                ),
                               ),
                             );
 
@@ -2257,64 +2306,75 @@ Best regards,
                             // Live Calculation & Expand Quote buttons
                             if (calc.isNotEmpty) ...[
                               const SizedBox(height: 8),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: isDark ? AppTheme.cobaltMedium : AppTheme.cobaltLight,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        l.polToPodLeadTimeStrip(item.polName ?? '-', item.podName ?? '-', calc["vesselLeadTime"] as int, calc["totalDays"] as int),
-                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Row(
+                              Builder(
+                                builder: (context) {
+                                  final hasRealDates = item.sailingDate.isNotEmpty && item.estimatedArrivalDate.isNotEmpty;
+                                  return Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? AppTheme.cobaltMedium : AppTheme.cobaltLight,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          AppButton(
-                                            label: isExpanded 
-                                                  ? l.hideQuote 
-                                                  : (item.totalQuotationAmount != null
-                                                      ? '${l.quoteDetails} [${item.totalQuotationAmount!.toStringAsFixed(0)} ${item.quotationCurrency ?? "—"}]'
-                                                      : '${l.quoteDetails} [—]'),
-                                            icon: isExpanded ? Icons.expand_less : Icons.expand_more,
-                                            variant: AppButtonVariant.secondary,
-                                            size: AppButtonSize.small,
-                                            onPressed: () => setState(() => _expandedQuotes[idx] = !isExpanded),
+                                          Text(
+                                            hasRealDates
+                                                ? l.polToPodLeadTimeStrip(item.polName ?? '-', item.podName ?? '-', calc["vesselLeadTime"] as int, calc["totalDays"] as int)
+                                                : ((Localizations.maybeLocaleOf(context)?.languageCode ?? 'ar') == 'ar'
+                                                    ? 'يرجى تحديد تواريخ الإبحار والوصول لاحتساب مدد الشحن'
+                                                    : 'Select sailing & arrival dates to calculate transit lead times'),
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
                                           ),
-                                          if (item.totalQuotationAmount == null) ...[
-                                            const SizedBox(width: 6),
-                                            Builder(
-                                              builder: (context) {
-                                                final missing = ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currenciesList).missingCurrencies;
-                                                final missingStr = missing.isNotEmpty ? missing.join(', ') : (item.quotationCurrency ?? '—');
-                                                return Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: AppTheme.wcagOrange.withValues(alpha: 0.15),
-                                                    borderRadius: BorderRadius.circular(4),
-                                                    border: Border.all(color: AppTheme.wcagOrange, width: 0.8),
-                                                  ),
-                                                  child: Text(
-                                                    l.rateMissingWarning(missingStr),
-                                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          ],
-                                          const SizedBox(width: 10),
-                                          Text('${l.avgWarehouseArrivalMetric}: ${calc["expectedWhDate"]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                          const SizedBox(width: 16),
+                                          Row(
+                                            children: [
+                                              AppButton(
+                                                label: isExpanded 
+                                                      ? l.hideQuote 
+                                                      : (item.totalQuotationAmount != null
+                                                          ? '${l.quoteDetails} [${item.totalQuotationAmount!.toStringAsFixed(0)} ${item.quotationCurrency ?? "—"}]'
+                                                          : '${l.quoteDetails} [—]'),
+                                                icon: isExpanded ? Icons.expand_less : Icons.expand_more,
+                                                variant: AppButtonVariant.secondary,
+                                                size: AppButtonSize.small,
+                                                onPressed: () => setState(() => _expandedQuotes[idx] = !isExpanded),
+                                              ),
+                                              if (item.totalQuotationAmount == null) ...[
+                                                const SizedBox(width: 6),
+                                                Builder(
+                                                  builder: (context) {
+                                                    final missing = ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currenciesList).missingCurrencies;
+                                                    final missingStr = missing.isNotEmpty ? missing.join(', ') : (item.quotationCurrency ?? '—');
+                                                    return Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.wcagOrange.withValues(alpha: 0.15),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        border: Border.all(color: AppTheme.wcagOrange, width: 0.8),
+                                                      ),
+                                                      child: Text(
+                                                        l.rateMissingWarning(missingStr),
+                                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ],
+                                              if (hasRealDates) ...[
+                                                const SizedBox(width: 10),
+                                                Text('${l.avgWarehouseArrivalMetric}: ${calc["expectedWhDate"]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                              ],
+                                            ],
+                                          ),
                                         ],
                                       ),
-                                    ],
-                                  ),
-                                ),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
 
@@ -3142,6 +3202,19 @@ Best regards,
       return;
     }
 
+    if (_evalItems.isEmpty) {
+      final isArabic = (Localizations.maybeLocaleOf(context)?.languageCode ?? 'ar') == 'ar';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isArabic
+              ? 'يرجى إضافة خيار شحن واحد على الأقل لحفظ دراسة السيناريوهات'
+              : 'Please add at least one shipping carrier option to save the study'),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
+      return;
+    }
+
     // Client-side validation of shipping scenarios items
     final seen = <String>{};
     for (int i = 0; i < _evalItems.length; i++) {
@@ -3454,7 +3527,9 @@ Best regards,
           title: titleToSave,
           cargoReadyDate: _cargoReadyDate.toString().substring(0, 10),
           items: _evalItems,
-          recommendedScenarioProvider: _evalItems.firstWhere((i) => i.isRecommended, orElse: () => _evalItems.first).providerName,
+          recommendedScenarioProvider: _evalItems.isNotEmpty
+              ? _evalItems.firstWhere((i) => i.isRecommended, orElse: () => _evalItems.first).providerName
+              : null,
         ),
       );
 

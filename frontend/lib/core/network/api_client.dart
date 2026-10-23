@@ -55,6 +55,13 @@ final dioProvider = Provider<Dio>((ref) {
           options.headers['X-Request-ID'] = reqId;
           options.headers['X-Client-Version'] = ApiConstants.clientVersion;
           options.extra['request_start_time'] = DateTime.now().millisecondsSinceEpoch;
+
+          // Prevent /api/v1/api/v1/ path doubling trap
+          if (options.path.startsWith('/api/v1/')) {
+            options.path = options.path.substring(7);
+          } else if (options.path.startsWith('api/v1/')) {
+            options.path = options.path.substring(6);
+          }
         } catch (_) {}
         handler.next(options);
       },
@@ -206,6 +213,12 @@ final uploadDioProvider = Provider<Dio>((ref) {
           if (authState.user != null) {
             options.headers['x-user-role'] = authState.user!.role;
             options.headers['x-user-name'] = authState.user!.username;
+          }
+          // Prevent /api/v1/api/v1/ path doubling trap
+          if (options.path.startsWith('/api/v1/')) {
+            options.path = options.path.substring(7);
+          } else if (options.path.startsWith('api/v1/')) {
+            options.path = options.path.substring(6);
           }
         } catch (_) {}
         handler.next(options);

@@ -141,6 +141,7 @@ def active_purchase_orders(db: Session, import_file_id: int) -> list:
         .options(
             selectinload(PurchaseOrder.currency),
             selectinload(PurchaseOrder.line_items).selectinload(POLineItem.tariff),
+            selectinload(PurchaseOrder.packing_list_items),
         )
         .filter(
             PurchaseOrder.import_file_id == import_file_id,

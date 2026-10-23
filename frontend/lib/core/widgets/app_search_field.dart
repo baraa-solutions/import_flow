@@ -94,15 +94,23 @@ class _AppSearchFieldState extends State<AppSearchField> {
           color: AppTheme.textMutedOf(context),
         ),
         suffixIcon: hasText
-            ? IconButton(
-                icon: Icon(Icons.clear_rounded, size: widget.dense ? 14 : 18),
-                color: AppTheme.textMutedOf(context),
-                tooltip: l.clearSearch,
-                splashRadius: 16,
-                onPressed: () {
-                  widget.controller.clear();
-                  widget.onChanged?.call('');
-                },
+            ? Tooltip(
+                message: l.clearSearch,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    widget.controller.clear();
+                    widget.onChanged?.call('');
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      Icons.clear_rounded,
+                      size: widget.dense ? 14 : 18,
+                      color: AppTheme.textMutedOf(context),
+                    ),
+                  ),
+                ),
               )
             : null,
         enabledBorder: OutlineInputBorder(

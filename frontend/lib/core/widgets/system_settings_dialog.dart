@@ -8,6 +8,7 @@ import '../localization/locale_provider.dart';
 import '../theme/app_theme.dart';
 import '../theme/density_provider.dart';
 import '../theme/theme_provider.dart';
+import '../../features/system_parameters/widgets/system_parameters_tab.dart';
 
 /// Comprehensive Basic System Settings Dialog (نافذة الإعدادات الأساسية للنظام)
 /// Provides real-time configuration for:
@@ -16,6 +17,7 @@ import '../theme/theme_provider.dart';
 /// 3. Table & Display Density (Comfortable, Compact, Ultra-Compact)
 /// 4. World Clocks & Logistics Jurisdictions Overview
 /// 5. System Diagnostics & Cache Refresh
+/// 6. System Business Parameters Configuration
 class SystemSettingsDialog extends ConsumerStatefulWidget {
   const SystemSettingsDialog({super.key});
 
@@ -40,7 +42,7 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _loadExportSettings();
   }
 
@@ -181,6 +183,10 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
                       icon: const Icon(Icons.info_outline_rounded, size: 18),
                       text: isArabic ? 'التشخيص والبيئة' : 'Diagnostics',
                     ),
+                    Tab(
+                      icon: const Icon(Icons.tune_rounded, size: 18),
+                      text: isArabic ? 'معاملات التشغيل' : 'Parameters',
+                    ),
                   ],
                 ),
                 const Divider(height: 1),
@@ -229,6 +235,9 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
                         cardBg: cardBg,
                         borderColor: borderColor,
                       ),
+
+                      // 5. Business Parameters
+                      const SystemParametersTab(),
                     ],
                   ),
                 ),
@@ -565,7 +574,7 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
               children: [
                 Flexible(
                   child: Text(
-                    isArabic ? 'لوحة ألوان ImportFlow ERP:' : 'ImportFlow Palette:',
+                    isArabic ? 'لوحة ألوان هوية سرور:' : 'Sorour Logistics Palette:',
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,

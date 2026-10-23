@@ -21,6 +21,7 @@ import '../providers/cbm_calculator_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/localization/stored_text.dart';
+import '../../container_loader/widgets/container_loader_tab.dart';
 
 class CBMCalculatorScreen extends ConsumerStatefulWidget {
   const CBMCalculatorScreen({super.key});
@@ -87,7 +88,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     Future.microtask(() {
       if (!ref.read(cbmCalculatorProvider).isLoading) {
         ref.read(cbmCalculatorProvider.notifier).fetchCalculations();
@@ -227,7 +228,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           // Header Banner (Responsive LayoutBuilder)
           LayoutBuilder(
             builder: (context, constraints) {
-              final isCompact = constraints.maxWidth < 1280;
+              final isCompact = constraints.maxWidth < 1600;
               return Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: isCompact ? 16 : 24,
@@ -282,6 +283,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             tabs: [
                               Tab(icon: const Icon(Icons.speed), text: l.quickOperationalCalculatorTab),
                               Tab(icon: const Icon(Icons.history), text: l.savedCalculationsRegistryTab),
+                              Tab(icon: const Icon(Icons.view_in_ar_rounded), text: context.l10n.isArabic ? 'محاكي تحميل الحاويات 3D' : 'Container 3D Loader'),
                             ],
                           ),
                         ],
@@ -309,18 +311,21 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                           ),
                           const BackToDashboardButton(),
                           const SizedBox(width: 10),
-                          TabBar(
-                            controller: _tabController,
-                            isScrollable: true,
-                            indicatorColor: AppTheme.orange,
-                            indicatorWeight: 3,
-                            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                            unselectedLabelColor: Colors.white70,
-                            labelColor: AppTheme.orange,
-                            tabs: [
-                              Tab(icon: const Icon(Icons.speed), text: l.quickOperationalCalculatorTab),
-                              Tab(icon: const Icon(Icons.history), text: l.savedCalculationsRegistryTab),
-                            ],
+                          Flexible(
+                            child: TabBar(
+                              controller: _tabController,
+                              isScrollable: true,
+                              indicatorColor: AppTheme.orange,
+                              indicatorWeight: 3,
+                              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              unselectedLabelColor: Colors.white70,
+                              labelColor: AppTheme.orange,
+                              tabs: [
+                                Tab(icon: const Icon(Icons.speed), text: l.quickOperationalCalculatorTab),
+                                Tab(icon: const Icon(Icons.history), text: l.savedCalculationsRegistryTab),
+                                Tab(icon: const Icon(Icons.view_in_ar_rounded), text: context.l10n.isArabic ? 'محاكي تحميل الحاويات 3D' : 'Container 3D Loader'),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -339,6 +344,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
                 // Tab 2: Saved History Registry
                 _buildSavedRegistryTab(context, state, projectsList, poList),
+
+                // Tab 3: Container Loader 3D/2D Simulator
+                const ContainerLoaderTab(),
               ],
             ),
           ),

@@ -8,6 +8,7 @@ import '../network/dio_client.dart';
 import '../services/file_save_helper.dart';
 import '../theme/app_theme.dart';
 import 'buttons/app_button.dart';
+import 'stage_notes_card.dart';
 
 /// Reusable master data toolbar with Export/Import/Refresh actions.
 ///
@@ -276,6 +277,21 @@ class _MasterDataToolbarWidgetState
                 onPressed: _isUploading
                     ? null
                     : (widget.onImportExcel ?? _handleImportExcel),
+              ),
+
+              // Notes & Attachments (+)
+              AppButton(
+                label: l.isArabic ? 'الملاحظات (+)' : 'Notes (+)',
+                variant: AppButtonVariant.primary,
+                size: AppButtonSize.small,
+                icon: Icons.rate_review_outlined,
+                onPressed: () {
+                  StageNotesCard.showAsDialog(
+                    context,
+                    screenCode: widget.moduleEndpoint,
+                    title: widget.title,
+                  );
+                },
               ),
 
               if (widget.extraTrailing != null) widget.extraTrailing!,
