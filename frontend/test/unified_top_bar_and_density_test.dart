@@ -162,8 +162,8 @@ void main() {
       );
 
       // 1. App Brand
-      expect(find.text('ImportFlow'), findsOneWidget);
-      expect(find.byIcon(Icons.local_shipping_rounded), findsOneWidget);
+      expect(find.text('سرور'), findsOneWidget);
+      expect(find.byType(Image), findsWidgets);
 
       // 2. Breadcrumbs
       expect(find.text('الرئيسية'), findsOneWidget);

@@ -574,7 +574,7 @@ class _SystemSettingsDialogState extends ConsumerState<SystemSettingsDialog>
               children: [
                 Flexible(
                   child: Text(
-                    isArabic ? 'لوحة ألوان ImportFlow ERP:' : 'ImportFlow Palette:',
+                    isArabic ? 'لوحة ألوان هوية سرور:' : 'Sorour Logistics Palette:',
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,

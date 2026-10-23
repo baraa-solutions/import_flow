@@ -143,11 +143,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF141A22) : AppTheme.charcoal,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          child: Stack(
-            clipBehavior: Clip.none,
+      body: Stack(
+        children: [
+          // ── Sorour Brand Background Watermark (Login Screen) ──
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ExcludeSemantics(
+                child: Center(
+                  child: Opacity(
+                    opacity: isDark ? 0.04 : 0.06,
+                    child: Image.asset(
+                      'assets/brand/sorour_logo_watermark.png',
+                      width: 520,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.medium,
+                      cacheWidth: 1040,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Stack(
+                clipBehavior: Clip.none,
             children: [
               Card(
                 elevation: 10,
@@ -432,6 +453,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ],
           ),
         ),
+          ),
+        ],
       ),
     );
   }
