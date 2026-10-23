@@ -1238,48 +1238,6 @@ class _FinancialApprovalScreenState
     );
   }
 
-  void _cloneLinkedPoItem(LinkedPOItemModel po) {
-    if (_payPrefillData == null) return;
-    final l = context.l10n;
-
-    final clonedItem = LinkedPOItemModel(
-      poId: 0,
-      poNumber: '${po.poNumber}${TableRowCloneHelper.copyCodeSuffix}',
-      poReference: TableRowCloneHelper.withCodeSuffix(po.poReference),
-      piNumber: po.piNumber,
-      projectId: po.projectId,
-      projectName: po.projectName,
-      paymentTerms: po.paymentTerms,
-      currency: po.currency,
-      totalAmount: po.totalAmount,
-      status: 'Draft',
-    );
-
-    setState(() {
-      final currentList =
-          List<LinkedPOItemModel>.from(_payPrefillData!.linkedPos);
-      final idx = currentList.indexOf(po);
-      if (idx >= 0) {
-        currentList.insert(idx + 1, clonedItem);
-      } else {
-        currentList.add(clonedItem);
-      }
-      _payPrefillData = _payPrefillData!.copyWith(
-        linkedPos: currentList,
-        estimatedGrandTotalEgp: _payPrefillData!.estimatedGrandTotalEgp +
-            (po.totalAmount * _payPrefillData!.exchangeRate),
-      );
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l.poAllocationClonedSuccess),
-        backgroundColor: AppTheme.emerald,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   void _openSearchAndCloneBudgetDialog() {
     final budgets = ref.read(importBudgetsProvider).valueOrNull ?? [];
     showDialog(
