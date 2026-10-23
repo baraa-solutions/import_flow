@@ -10,6 +10,7 @@ from typing import List, Optional, Tuple
 from fastapi import UploadFile, HTTPException, status
 from sqlalchemy.orm import Session
 
+from utils.db_safety import app_base_dir
 import modules.stage_notes.repository as repo
 import modules.stage_notes.validators as validators
 from modules.stage_notes.schemas import (
@@ -20,14 +21,47 @@ from modules.stage_notes.schemas import (
 
 logger = logging.getLogger(__name__)
 
-# Base storage path for uploaded stage attachments
-STORAGE_DIR = os.path.join(os.getcwd(), "uploads", "stage_notes")
+# Base storage path for uploaded stage attachments: next to backend.exe when frozen, repo root in dev.
+# Never derived from the process working directory, which depends on how the app was launched.
+STORAGE_DIR = str(app_base_dir() / "uploads" / "stage_notes")
 
 
 def _ensure_storage_dir():
     """Ensure directory exists on disk."""
     if not os.path.exists(STORAGE_DIR):
         os.makedirs(STORAGE_DIR, exist_ok=True)
+
+
+def _resolve_attachment_path(stored_path: str) -> str:
+    """Stored paths are file names relative to STORAGE_DIR; absolute paths from older rows are used as-is."""
+    if os.path.isabs(stored_path):
+        return stored_path
+    return os.path.join(STORAGE_DIR, stored_path)
+
+
+def _read_validated_uploads(files: Optional[List[UploadFile]]) -> List[Tuple[UploadFile, str, bytes]]:
+    """Validate every upload (extension and size) before anything is written to disk."""
+    validated = []
+    for file in files or []:
+        if not file.filename:
+            continue
+        ext = validators.validate_attachment_file(file)
+        content = file.file.read()
+        if len(content) > validators.MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File '{file.filename}' exceeds maximum allowed size of 50 MB",
+            )
+        validated.append((file, ext, content))
+    return validated
+
+
+def _remove_files(paths: List[str]) -> None:
+    for path in paths:
+        try:
+            os.remove(path)
+        except OSError:
+            logger.warning(f"Could not remove orphaned stage note attachment: {path}")
 
 
 def _format_attachment_response(att) -> StageNoteAttachmentResponse:
@@ -107,58 +141,49 @@ def create_note_with_attachments_service(
     screen_code = validators.validate_screen_code(screen_code)
     note_text = validators.validate_note_content(note_text)
 
-    _ensure_storage_dir()
+    uploads = _read_validated_uploads(files)
+    if uploads:
+        _ensure_storage_dir()
 
-    # 1. Create the StageNote
-    note = repo.create_note(
-        db=db,
-        screen_code=screen_code,
-        record_id=record_id,
-        stage_code=stage_code,
-        note_text=note_text,
-        created_by=created_by,
-    )
+    written_paths: List[str] = []
+    try:
+        # 1. Create the StageNote
+        note = repo.create_note(
+            db=db,
+            screen_code=screen_code,
+            record_id=record_id,
+            stage_code=stage_code,
+            note_text=note_text,
+            created_by=created_by,
+        )
 
-    # 2. Save any uploaded attachments
-    if files:
-        for file in files:
-            if not file.filename:
-                continue
-
-            ext = validators.validate_attachment_file(file)
-            file_type = validators.determine_file_type(ext)
-
-            # Generate unique safe file name
-            unique_prefix = uuid.uuid4().hex[:12]
-            safe_filename = f"{unique_prefix}_{os.path.basename(file.filename)}"
+        # 2. Save the already-validated attachments
+        for file, ext, content in uploads:
+            safe_filename = f"{uuid.uuid4().hex[:12]}_{os.path.basename(file.filename)}"
             destination_path = os.path.join(STORAGE_DIR, safe_filename)
-
-            # Read content and check size
-            content = file.file.read()
-            if len(content) > validators.MAX_FILE_SIZE_BYTES:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"File '{file.filename}' exceeds maximum allowed size of 50 MB",
-                )
-
             with open(destination_path, "wb") as f_out:
                 f_out.write(content)
+            written_paths.append(destination_path)
 
             repo.create_attachment(
                 db=db,
                 note_id=note.id,
                 file_name=file.filename,
-                file_path=destination_path,
+                file_path=safe_filename,
                 file_size_bytes=len(content),
-                file_type=file_type,
+                file_type=validators.determine_file_type(ext),
             )
 
-    db.commit()
+        db.commit()
+    except Exception:
+        db.rollback()
+        _remove_files(written_paths)
+        raise
     db.refresh(note)
 
     logger.info(
         f"StageNote created: id={note.id}, screen={screen_code}, "
-        f"attachments={len(files or [])}, user={created_by}"
+        f"attachments={len(uploads)}, user={created_by}"
     )
     return _format_note_response(note)
 
@@ -172,7 +197,8 @@ def get_attachment_file_for_download_service(
     Returns: (file_path, file_name, media_type)
     """
     att = repo.get_attachment_by_id(db, attachment_id)
-    if not att or not os.path.exists(att.file_path):
+    file_path = _resolve_attachment_path(att.file_path) if att else ""
+    if not att or not os.path.exists(file_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Attachment file not found",
@@ -183,25 +209,30 @@ def get_attachment_file_for_download_service(
     if ext == ".pdf":
         media_type = "application/pdf"
     elif ext in {".png", ".jpg", ".jpeg", ".webp"}:
-        media_type = f"image/{ext.lstrip('.')}"
-    elif ext in {".xlsx", ".xls"}:
+        media_type = "image/jpeg" if ext in {".jpg", ".jpeg"} else f"image/{ext.lstrip('.')}"
+    elif ext == ".xlsx":
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    elif ext == ".xls":
+        media_type = "application/vnd.ms-excel"
 
-    return att.file_path, att.file_name, media_type
+    return file_path, att.file_name, media_type
 
 
 def delete_note_service(
     db: Session,
     note_id: int,
     user_name: str,
+    is_admin: bool = False,
 ) -> bool:
-    """Soft-delete note and its attachments."""
-    success = repo.soft_delete_note(db, note_id)
-    if not success:
+    """Soft-delete note and its attachments. Only the note's author or an admin may delete it."""
+    note = repo.get_note_by_id(db, note_id)
+    if not note:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Stage note with id {note_id} not found",
         )
+    validators.validate_can_delete_note(note, user_name, is_admin)
+    repo.soft_delete_note(db, note_id)
     db.commit()
     logger.info(f"StageNote deleted: id={note_id} by user={user_name}")
     return True

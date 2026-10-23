@@ -164,3 +164,64 @@ def test_delete_stage_note(db_session):
 
     summary = service.list_notes_service(db_session, screen_code="purchase_orders")
     assert summary.total_notes == 0
+
+
+def test_rejected_second_file_leaves_no_note_and_no_orphan_files(db_session, tmp_path, monkeypatch):
+    monkeypatch.setattr(service, "STORAGE_DIR", str(tmp_path))
+
+    with pytest.raises(HTTPException) as exc:
+        service.create_note_with_attachments_service(
+            db=db_session,
+            screen_code="import_files",
+            note_text="Note with one valid and one rejected file",
+            created_by="Clerk",
+            files=[
+                UploadFile(filename="valid.pdf", file=io.BytesIO(b"%PDF ok")),
+                UploadFile(filename="malware.exe", file=io.BytesIO(b"bad")),
+            ],
+        )
+    assert exc.value.status_code == 400
+    assert list(tmp_path.iterdir()) == []
+    assert db_session.query(StageNote).count() == 0
+
+
+def test_attachment_path_is_stored_relative_to_storage_dir(db_session, tmp_path, monkeypatch):
+    monkeypatch.setattr(service, "STORAGE_DIR", str(tmp_path))
+
+    note = service.create_note_with_attachments_service(
+        db=db_session,
+        screen_code="import_files",
+        note_text="Photo of damaged carton",
+        created_by="Clerk",
+        files=[UploadFile(filename="صورة الكرتونة.jpg", file=io.BytesIO(b"jpeg-bytes"))],
+    )
+    stored = db_session.query(StageNoteAttachment).one().file_path
+    assert not os.path.isabs(stored)
+
+    path, name, media_type = service.get_attachment_file_for_download_service(db_session, note.attachments[0].id)
+    assert path == os.path.join(str(tmp_path), stored)
+    assert name == "صورة الكرتونة.jpg"
+    assert media_type == "image/jpeg"
+
+
+def test_delete_stage_note_by_another_user_is_forbidden(db_session):
+    note = service.create_note_with_attachments_service(
+        db=db_session,
+        screen_code="import_files",
+        note_text="Owner's note",
+        created_by="Owner",
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        service.delete_note_service(db_session, note.id, user_name="Someone Else")
+    assert exc.value.status_code == 403
+    assert service.list_notes_service(db_session, screen_code="import_files").total_notes == 1
+
+    service.delete_note_service(db_session, note.id, user_name="Someone Else", is_admin=True)
+    assert service.list_notes_service(db_session, screen_code="import_files").total_notes == 0
+
+
+def test_delete_missing_stage_note_returns_404(db_session):
+    with pytest.raises(HTTPException) as exc:
+        service.delete_note_service(db_session, 999, user_name="Admin", is_admin=True)
+    assert exc.value.status_code == 404

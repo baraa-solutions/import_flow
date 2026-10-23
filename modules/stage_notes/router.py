@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.auth.router import get_current_user
-from modules.auth.permissions import require_permission
+from modules.auth.permissions import is_admin_user, require_permission
 from modules.users.model import User
 import modules.stage_notes.service as service
 from modules.stage_notes.schemas import (
@@ -65,7 +65,7 @@ def create_stage_note(
     stage_code: Optional[str] = Form(None, description="Optional workflow stage"),
     files: Optional[List[UploadFile]] = File(None, description="Optional attachment files"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("import_files.view")),
+    current_user: User = Depends(require_permission("import_files.edit")),
 ):
     """
     Record a new note entry with optional file attachments (images, PDFs, documents, spreadsheets).
@@ -102,7 +102,6 @@ def download_attachment(
         path=file_path,
         filename=file_name,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
     )
 
 
@@ -114,11 +113,16 @@ def download_attachment(
 def delete_stage_note(
     note_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("import_files.view")),
+    current_user: User = Depends(require_permission("import_files.edit")),
 ):
     """
     Soft-delete a stage note and its associated attachments.
     """
     user_name = current_user.full_name or current_user.username
-    service.delete_note_service(db=db, note_id=note_id, user_name=user_name)
+    service.delete_note_service(
+        db=db,
+        note_id=note_id,
+        user_name=user_name,
+        is_admin=is_admin_user(current_user),
+    )
     return {"message": "Stage note deleted successfully", "note_id": note_id}

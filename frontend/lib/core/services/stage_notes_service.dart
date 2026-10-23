@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/api_constants.dart';
+import '../helpers/file_picker_helper.dart';
 import '../models/stage_note_model.dart';
 import '../network/api_client.dart';
 import '../theme/app_theme.dart';
@@ -55,11 +56,12 @@ class StageNotesService {
     if (files != null && files.isNotEmpty) {
       final uploadFiles = <MultipartFile>[];
       for (final f in files) {
-        if (f.bytes != null) {
-          uploadFiles.add(
-            MultipartFile.fromBytes(f.bytes!, filename: f.name),
-          );
+        // On Windows desktop the picker often returns only `path`; the helper reads the bytes from disk.
+        final bytes = FilePickerHelper.getBytes(f);
+        if (bytes == null) {
+          throw StateError('تعذر قراءة الملف المرفق: ${f.name}');
         }
+        uploadFiles.add(MultipartFile.fromBytes(bytes, filename: f.name));
       }
       if (uploadFiles.isNotEmpty) {
         formMap['files'] = uploadFiles;
@@ -84,7 +86,8 @@ class StageNotesService {
   }) async {
     try {
       final response = await _dio.get<List<int>>(
-        '${ApiConstants.baseUrl}${attachment.downloadUrl}',
+        // downloadUrl already carries the /api/v1 prefix, so it is joined to the server root, not baseUrl.
+        '${ApiConstants.serverUrl}${attachment.downloadUrl}',
         options: Options(responseType: ResponseType.bytes),
       );
 

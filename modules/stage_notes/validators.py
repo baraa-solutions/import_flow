@@ -64,6 +64,16 @@ def validate_attachment_file(file: UploadFile) -> str:
     return ext
 
 
+def validate_can_delete_note(note, user_name: str, is_admin: bool) -> None:
+    """Only the user who wrote the note, or an admin, may delete it."""
+    if is_admin or (note.created_by or "") == (user_name or ""):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Only the note author or an administrator can delete this note",
+    )
+
+
 def determine_file_type(ext: str) -> str:
     """Classify file extension into logical type for UI display."""
     ext = ext.lower().lstrip(".")
