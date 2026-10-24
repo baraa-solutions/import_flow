@@ -3599,6 +3599,16 @@
       "note"
     ]
   },
+  "PORT_TERMINAL_RATE_EXISTS": {
+    "params": [
+      "container_size",
+      "effective_date",
+      "terminal_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "PO_HAS_ALLOCATIONS": {
     "params": [],
     "parts": [
