@@ -105,6 +105,50 @@ def validate_storage_dates(gate_in: date, end_date: date) -> None:
         )
 
 
+def duplicate_terminal_rate_error(
+    terminal_code: str,
+    container_size: str,
+    is_reefer: bool,
+    effective_date: date,
+    existing_is_active: Optional[bool] = True,
+) -> HTTPException:
+    """409 for a rate card that would repeat uq_port_terminal_rate_unique."""
+    kind = "مبرّدة" if is_reefer else "جافة"
+    message = (
+        f"يوجد بالفعل سعر أرضيات للمحطة {terminal_code} لحاوية {container_size} ({kind}) "
+        f"يسري من {effective_date.isoformat()}."
+    )
+    if existing_is_active is False:
+        message += " السعر الموجود محذوف، عدّله وأعد تفعيله بدلاً من إضافة سعر جديد."
+    else:
+        message += " عدّل السعر الموجود أو اختر تاريخ سريان مختلفاً."
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={
+            "code": "PORT_TERMINAL_RATE_EXISTS",
+            "message": message,
+            "terminal_code": terminal_code,
+            "container_size": container_size,
+            "is_reefer": is_reefer,
+            "effective_date": effective_date.isoformat(),
+        },
+    )
+
+
+def validate_unique_terminal_rate(
+    existing,
+    terminal_code: str,
+    container_size: str,
+    is_reefer: bool,
+    effective_date: date,
+) -> None:
+    """Raise 409 when another row (active or soft-deleted) already holds this rate card key."""
+    if existing is not None:
+        raise duplicate_terminal_rate_error(
+            terminal_code, container_size, is_reefer, effective_date, existing.is_active
+        )
+
+
 def validate_accrual_status(status_str: str) -> str:
     """Validates accrual financial status."""
     clean = status_str.strip().upper()
