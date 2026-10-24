@@ -60,6 +60,30 @@ class PortStorageRepository:
         return rates, total
 
     @staticmethod
+    def find_rate_by_id_any_status(db: Session, rate_id: int) -> Optional[PortTerminalRate]:
+        return db.query(PortTerminalRate).filter(PortTerminalRate.rate_id == rate_id).first()
+
+    @staticmethod
+    def find_rate_by_unique_key(
+        db: Session,
+        terminal_code: str,
+        container_size: str,
+        is_reefer: bool,
+        effective_date: date,
+        exclude_rate_id: Optional[int] = None,
+    ) -> Optional[PortTerminalRate]:
+        """Any row (active or soft-deleted) holding uq_port_terminal_rate_unique's key."""
+        query = db.query(PortTerminalRate).filter(
+            PortTerminalRate.terminal_code == terminal_code,
+            PortTerminalRate.container_size == container_size,
+            PortTerminalRate.is_reefer == is_reefer,
+            PortTerminalRate.effective_date == effective_date,
+        )
+        if exclude_rate_id is not None:
+            query = query.filter(PortTerminalRate.rate_id != exclude_rate_id)
+        return query.first()
+
+    @staticmethod
     def create_terminal_rate(db: Session, rate_obj: PortTerminalRate) -> PortTerminalRate:
         db.add(rate_obj)
         db.commit()

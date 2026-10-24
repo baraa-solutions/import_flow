@@ -1,5 +1,6 @@
 from datetime import date, datetime, timezone
 from typing import List, Optional, Tuple, Dict, Any, Union
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -22,6 +23,8 @@ from .validators import (
     parse_date,
     validate_storage_dates,
     validate_accrual_status,
+    validate_unique_terminal_rate,
+    duplicate_terminal_rate_error,
 )
 
 
@@ -248,7 +251,14 @@ def create_terminal_rate_service(db: Session, payload: PortTerminalRateCreate, u
         created_by=user,
         updated_by=user,
     )
-    return PortStorageRepository.create_terminal_rate(db, rate_obj)
+    rate_key = (norm_terminal, norm_size, rate_obj.is_reefer, rate_obj.effective_date)
+    validate_unique_terminal_rate(PortStorageRepository.find_rate_by_unique_key(db, *rate_key), *rate_key)
+    try:
+        return PortStorageRepository.create_terminal_rate(db, rate_obj)
+    except IntegrityError:
+        # a concurrent create took the same key between the check and the commit
+        db.rollback()
+        raise duplicate_terminal_rate_error(*rate_key)
 
 
 def list_terminal_rates_service(
@@ -279,7 +289,23 @@ def get_terminal_rate_by_id_service(db: Session, rate_id: int) -> PortTerminalRa
 def update_terminal_rate_service(db: Session, rate_id: int, payload: PortTerminalRateUpdate, user: str = "System") -> PortTerminalRate:
     updates = payload.model_dump(exclude_unset=True)
     updates["updated_by"] = user
-    rate = PortStorageRepository.update_terminal_rate(db, rate_id, updates)
+    new_effective_date = updates.get("effective_date")
+    rate_key = None
+    if new_effective_date is not None:
+        current = PortStorageRepository.find_rate_by_id_any_status(db, rate_id)
+        if not current:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Terminal rate not found.")
+        rate_key = (current.terminal_code, current.container_size, current.is_reefer, new_effective_date)
+        validate_unique_terminal_rate(
+            PortStorageRepository.find_rate_by_unique_key(db, *rate_key, exclude_rate_id=rate_id), *rate_key
+        )
+    try:
+        rate = PortStorageRepository.update_terminal_rate(db, rate_id, updates)
+    except IntegrityError:
+        db.rollback()
+        if rate_key is None:
+            raise
+        raise duplicate_terminal_rate_error(*rate_key)
     if not rate:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Terminal rate not found.")
     return rate
