@@ -6610,7 +6610,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get cargoxModeConsolidatedTitle => '1. Single Consolidated File';
   @override
-  String get cargoxModeConsolidatedSubtitle => 'Merge same HS Code line items with weighted unit price';
+  String get cargoxModeConsolidatedSubtitle => 'Merge line items by HS Code and price group (Customs compliant)';
   @override
   String get cargoxModeDetailedTitle => '2. Single Detailed File';
   @override
@@ -6618,7 +6618,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get cargoxModePerInvoiceConsolidatedTitle => '3. Per-Invoice Consolidated File (ZIP Archive)';
   @override
-  String get cargoxModePerInvoiceConsolidatedSubtitle => 'Generate separate consolidated Excel file per invoice in ZIP archive';
+  String get cargoxModePerInvoiceConsolidatedSubtitle => 'Generate consolidated Excel file by HS Code and price group per invoice';
   @override
   String get cargoxModePerInvoiceDetailedTitle => '4. Per-Invoice Detailed File (ZIP Archive)';
   @override

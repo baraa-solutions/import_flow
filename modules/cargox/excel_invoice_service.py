@@ -94,6 +94,51 @@ def normalize_cargox_weight_unit(val: Optional[str]) -> str:
     return "KGM"
 
 
+def normalize_cargox_country_code(val: Optional[str]) -> str:
+    """
+    Normalizes any country string (e.g. 'CN - الصين (China)', 'China', 'cn', 'DE - ألمانيا')
+    to a clean 2-letter uppercase ISO Country Code expected by CargoX Excel dropdowns (e.g. 'CN').
+    """
+    if not val:
+        return "CN"
+    raw = str(val).strip()
+    if not raw:
+        return "CN"
+    # Format 'CN - ...'
+    if " - " in raw:
+        p = raw.split(" - ")[0].strip()
+        if len(p) == 2 and p.isalpha():
+            return p.upper()
+    # Format 'CN (...)'
+    if "(" in raw and raw[:2].isalpha():
+        p = raw[:2].strip()
+        return p.upper()
+    # Direct 2-letter code
+    if len(raw) == 2 and raw.isalpha():
+        return raw.upper()
+    lower = raw.lower()
+    mapping = {
+        "china": "CN", "صين": "CN", "prc": "CN",
+        "germany": "DE", "ألمانيا": "DE",
+        "italy": "IT", "إيطاليا": "IT",
+        "turkey": "TR", "تركيا": "TR",
+        "egypt": "EG", "مصر": "EG",
+        "united states": "US", "usa": "US", "أمريكا": "US",
+        "united kingdom": "GB", "uk": "GB", "بريطانيا": "GB",
+        "france": "FR", "فرنسا": "FR",
+        "spain": "ES", "إسبانيا": "ES",
+        "india": "IN", "هند": "IN",
+        "japan": "JP", "يابان": "JP",
+        "korea": "KR", "كوريا": "KR",
+    }
+    for k, v in mapping.items():
+        if k in lower:
+            return v
+    if len(raw) >= 2 and raw[:2].isalpha() and (len(raw) == 2 or not raw[2].isalpha()):
+        return raw[:2].upper()
+    return "CN"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Reference Data Definitions for Data Validation Sheets (2 to 6)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -434,7 +479,7 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
             ws[f"D{r}"] = item.brand_name or ""
             ws[f"E{r}"] = item.model or ""
             ws[f"F{r}"] = item.hs_code
-            ws[f"G{r}"] = item.country_of_origin
+            ws[f"G{r}"] = normalize_cargox_country_code(item.country_of_origin)
             ws[f"H{r}"] = item.description
             ws[f"I{r}"] = item.quantity
             ws[f"J{r}"] = item.qty_unit
@@ -776,7 +821,7 @@ def generate_standard_invoice_excel_bytes(payload: StandardInvoicePayload) -> by
         ws[f"D{current_row}"] = item.brand_name or ""
         ws[f"E{current_row}"] = item.model or ""
         ws[f"F{current_row}"] = item.hs_code
-        ws[f"G{current_row}"] = item.country_of_origin
+        ws[f"G{current_row}"] = normalize_cargox_country_code(item.country_of_origin)
         ws[f"H{current_row}"] = item.description
         ws[f"I{current_row}"] = item.quantity
         ws[f"J{current_row}"] = item.qty_unit
@@ -1448,13 +1493,57 @@ def compare_standard_invoice_data(
         )
     )
 
-    sys_items = system_snapshot.items or []
-    sup_items = supplier_data.items or []
-    max_lines = max(len(sys_items), len(sup_items))
+    sys_items = list(system_snapshot.items or [])
+    sup_items = list(supplier_data.items or [])
 
-    for idx in range(max_lines):
-        s_item = sys_items[idx] if idx < len(sys_items) else None
-        u_item = sup_items[idx] if idx < len(sup_items) else None
+    # Smart 2-pass pairing:
+    # Pass 1: Match by product_code (if code is meaningful)
+    # Pass 2: Match by (clean_hs, unit_price)
+    # Pass 3: Pair remaining in order
+    paired = []
+    used_sys = set()
+    used_sup = set()
+
+    for u_idx, u_item in enumerate(sup_items):
+        u_code = (u_item.product_code or "").strip().upper()
+        if not u_code or u_code.startswith("ITEM-") or u_code.startswith("LINE-") or u_code.startswith("EXTRA-"):
+            continue
+        for s_idx, s_item in enumerate(sys_items):
+            if s_idx in used_sys:
+                continue
+            s_code = (s_item.product_code or "").strip().upper()
+            if s_code and s_code == u_code:
+                paired.append((s_item, u_item))
+                used_sys.add(s_idx)
+                used_sup.add(u_idx)
+                break
+
+    for u_idx, u_item in enumerate(sup_items):
+        if u_idx in used_sup:
+            continue
+        u_hs = re.sub(r"\D", "", u_item.hs_code or "")
+        u_price = round(u_item.unit_price or 0.0, 2)
+        for s_idx, s_item in enumerate(sys_items):
+            if s_idx in used_sys:
+                continue
+            s_hs = re.sub(r"\D", "", s_item.hs_code or "")
+            s_price = round(s_item.unit_price or 0.0, 2)
+            if s_hs and u_hs and s_hs[:6] == u_hs[:6] and abs(s_price - u_price) < 0.05:
+                paired.append((s_item, u_item))
+                used_sys.add(s_idx)
+                used_sup.add(u_idx)
+                break
+
+    rem_sys = [s for s_idx, s in enumerate(sys_items) if s_idx not in used_sys]
+    rem_sup = [u for u_idx, u in enumerate(sup_items) if u_idx not in used_sup]
+    for s_item, u_item in zip(rem_sys, rem_sup):
+        paired.append((s_item, u_item))
+    for u_item in rem_sup[len(rem_sys):]:
+        paired.append((None, u_item))
+    for s_item in rem_sys[len(rem_sup):]:
+        paired.append((s_item, None))
+
+    for idx, (s_item, u_item) in enumerate(paired):
 
         line_status = "MATCH"
         note_parts = []

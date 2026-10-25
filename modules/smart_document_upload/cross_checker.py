@@ -398,6 +398,246 @@ def cross_check_invoice_vs_bl(
         "details_ar": "التسلسل الزمني منطقي لإجراءات التصدير والشحن.",
     })
 
+    # ─── 11. Headers & Basic Compliance Reconciliation ───────────────────────
+    # 11.a  Exporter Name (اسم المصدر)
+    sys_exp_name = sys_d.get("supplier_name") or sys_d.get("shipper") or ""
+    inv_exp_name = invoice_data.get("supplier_name") or invoice_data.get("shipper") or ""
+    pl_exp_name  = pl_d.get("supplier_name") or pl_d.get("shipper") or inv_exp_name
+    bl_exp_name  = bl_data.get("shipper") or ""
+    exp_name_match, exp_name_sim = _fuzzy_match(inv_exp_name, bl_exp_name)
+    matrix.append({
+        "check_code": "CHK_HDR_EXPORTER_NAME",
+        "title_ar": "اسم المصدر (Exporter / Shipper Name)",
+        "title_en": "Exporter / Supplier Name",
+        "system_value": sys_exp_name or "—",
+        "packing_list_value": pl_exp_name or "—",
+        "invoice_value": inv_exp_name or "—",
+        "bl_value": bl_exp_name or "—",
+        "status": "PASS" if (not inv_exp_name or not bl_exp_name or exp_name_match) else "WARNING",
+        "match_status": "MATCH" if (not inv_exp_name or not bl_exp_name or exp_name_match) else "MISMATCH_MINOR",
+        "severity": "NONE" if (not inv_exp_name or not bl_exp_name or exp_name_match) else "WARNING",
+        "disagreeing_sources": None if (not inv_exp_name or not bl_exp_name or exp_name_match) else ["Invoice", "B/L"],
+        "details_ar": f"اسم المصدر متطابق بنسبة {int(exp_name_sim * 100)}%" if exp_name_match else "يجب التحقق من توافق اسم المصدر في الفاتورة والبوليصة.",
+    })
+
+    # 11.b  Importer Name (اسم المستورد)
+    sys_imp_name = sys_d.get("importer_name") or sys_d.get("consignee") or ""
+    inv_imp_name = invoice_data.get("importer_name") or invoice_data.get("consignee") or ""
+    pl_imp_name  = pl_d.get("importer_name") or pl_d.get("consignee") or inv_imp_name
+    bl_imp_name  = bl_data.get("consignee") or ""
+    imp_name_match, imp_name_sim = _fuzzy_match(inv_imp_name, bl_imp_name)
+    matrix.append({
+        "check_code": "CHK_HDR_IMPORTER_NAME",
+        "title_ar": "اسم المستورد (Importer / Consignee Name)",
+        "title_en": "Importer / Consignee Name",
+        "system_value": sys_imp_name or "—",
+        "packing_list_value": pl_imp_name or "—",
+        "invoice_value": inv_imp_name or "—",
+        "bl_value": bl_imp_name or "—",
+        "status": "PASS" if (not inv_imp_name or not bl_imp_name or imp_name_match) else "WARNING",
+        "match_status": "MATCH" if (not inv_imp_name or not bl_imp_name or imp_name_match) else "MISMATCH_MINOR",
+        "severity": "NONE" if (not inv_imp_name or not bl_imp_name or imp_name_match) else "WARNING",
+        "disagreeing_sources": None if (not inv_imp_name or not bl_imp_name or imp_name_match) else ["Invoice", "B/L"],
+        "details_ar": f"اسم المستورد متطابق بنسبة {int(imp_name_sim * 100)}%" if imp_name_match else "يجب التحقق من توافق اسم المستورد/المرسل إليه في المستندات.",
+    })
+
+    # 11.c  Invoice Number (رقم الفاتورة)
+    sys_inv_no = sys_d.get("invoice_number") or sys_d.get("final_invoice_number") or sys_d.get("po_number") or ""
+    inv_inv_no = invoice_data.get("invoice_number") or ""
+    pl_inv_no  = pl_d.get("invoice_number") or inv_inv_no
+    bl_inv_no  = bl_data.get("invoice_number") or ""
+    inv_no_match = bool(inv_inv_no and bl_inv_no and inv_inv_no == bl_inv_no) if (inv_inv_no and bl_inv_no) else True
+    matrix.append({
+        "check_code": "CHK_HDR_INVOICE_NO",
+        "title_ar": "رقم الفاتورة التجارية (Commercial Invoice No.)",
+        "title_en": "Commercial Invoice Number",
+        "system_value": sys_inv_no or "—",
+        "packing_list_value": pl_inv_no or "—",
+        "invoice_value": inv_inv_no or "—",
+        "bl_value": bl_inv_no or "—",
+        "status": "PASS" if inv_no_match else "WARNING",
+        "match_status": "MATCH" if inv_no_match else "MISMATCH_MINOR",
+        "severity": "NONE" if inv_no_match else "WARNING",
+        "disagreeing_sources": None if inv_no_match else ["Invoice", "B/L"],
+        "details_ar": "رقم الفاتورة موجود ومتطابق." if inv_no_match else "يجب التحقق من رقم الفاتورة المذكور في البوليصة يطابق الفاتورة التجارية.",
+    })
+
+    # 11.d  Invoice Date (تاريخ الفاتورة)
+    inv_inv_date = invoice_data.get("invoice_date") or ""
+    pl_inv_date  = pl_d.get("packing_date") or inv_inv_date
+    bl_inv_date  = bl_data.get("issue_date") or bl_data.get("etd") or ""
+    sys_inv_date = sys_d.get("po_date") or sys_d.get("created_at") or ""
+    matrix.append({
+        "check_code": "CHK_HDR_INVOICE_DATE",
+        "title_ar": "تاريخ الفاتورة (Invoice Date)",
+        "title_en": "Invoice Date",
+        "system_value": sys_inv_date or "—",
+        "packing_list_value": pl_inv_date or "—",
+        "invoice_value": inv_inv_date or "—",
+        "bl_value": bl_inv_date or "—",
+        "status": "PASS" if inv_inv_date else "EXTRACTION_FAILED",
+        "match_status": "MATCH" if inv_inv_date else "EXTRACTION_FAILED",
+        "severity": "NONE" if inv_inv_date else "WARNING",
+        "disagreeing_sources": None,
+        "details_ar": f"تاريخ الفاتورة: {inv_inv_date}." if inv_inv_date else "⚠️ لم يتم استخراج تاريخ الفاتورة من المستندات.",
+    })
+
+    # 11.e  Exporter Registration Number (Registration #)
+    sys_exp_reg = sys_d.get("exporter_registration_no") or sys_d.get("shipper_reg_id") or ""
+    inv_exp_reg = invoice_data.get("exporter_registration_no") or invoice_data.get("shipper_reg_id") or ""
+    pl_exp_reg  = pl_d.get("exporter_registration_no") or inv_exp_reg
+    bl_exp_reg  = bl_data.get("shipper_reg_id") or bl_data.get("exporter_registration_no") or ""
+    exp_reg_match = bool((not inv_exp_reg or not bl_exp_reg) or (inv_exp_reg == bl_exp_reg))
+    matrix.append({
+        "check_code": "CHK_HDR_EXP_REG",
+        "title_ar": "رقم تسجيل المصدر الأجنبي (Exporter Registration #)",
+        "title_en": "Exporter Registration Number",
+        "system_value": sys_exp_reg or "—",
+        "packing_list_value": pl_exp_reg or "—",
+        "invoice_value": inv_exp_reg or "—",
+        "bl_value": bl_exp_reg or "—",
+        "status": "PASS" if exp_reg_match else "WARNING",
+        "match_status": "MATCH" if exp_reg_match else "MISMATCH_MINOR",
+        "severity": "NONE" if exp_reg_match else "WARNING",
+        "disagreeing_sources": None if exp_reg_match else ["Invoice", "B/L"],
+        "details_ar": "رقم تسجيل المصدر متطابق أو غير مدرج للمقارنة." if exp_reg_match else "رقم تسجيل المصدر مختلف بين الفاتورة والبوليصة.",
+    })
+
+    # 11.f  Egypt Tax Code / Importer Tax ID (Egypt Tax Code)
+    # Already covered in Check #2 (CHK_IMPORTER_TAX_ID) — add a header-section alias row for visibility
+    sys_eg_tax = sys_d.get("importer_tax_id") or sys_d.get("vat_id") or ""
+    inv_eg_tax = invoice_data.get("importer_tax_id") or ""
+    pl_eg_tax  = pl_d.get("importer_tax_id") or inv_eg_tax
+    bl_eg_tax  = bl_data.get("importer_tax_id") or bl_data.get("consignee_tax_id") or ""
+    eg_tax_match = bool((not inv_eg_tax or not bl_eg_tax) or (inv_eg_tax == bl_eg_tax))
+    matrix.append({
+        "check_code": "CHK_HDR_EGYPT_TAX_CODE",
+        "title_ar": "الرقم الضريبي المصري للمستورد (Egypt Tax Code)",
+        "title_en": "Egypt Tax Code (Importer Tax ID)",
+        "system_value": sys_eg_tax or "—",
+        "packing_list_value": pl_eg_tax or "—",
+        "invoice_value": inv_eg_tax or "—",
+        "bl_value": bl_eg_tax or "—",
+        "status": "PASS" if eg_tax_match else "CRITICAL",
+        "match_status": "MATCH" if eg_tax_match else "MISMATCH_CRITICAL",
+        "severity": "NONE" if eg_tax_match else "BLOCKING",
+        "disagreeing_sources": None if eg_tax_match else ["Invoice", "B/L"],
+        "details_ar": "الرقم الضريبي المصري للمستورد متطابق بين المستندات." if eg_tax_match else "❌ تعارض الرقم الضريبي المصري يتسبب في تأخير التخليص الجمركي.",
+    })
+
+    # 11.g  ACID Number (ACID #)
+    sys_hdr_acid = _clean_acid(sys_d.get("acid_number"))
+    inv_hdr_acid = _clean_acid(invoice_data.get("acid_number"))
+    pl_hdr_acid  = _clean_acid(pl_d.get("acid_number")) or inv_hdr_acid
+    bl_hdr_acid  = _clean_acid(bl_data.get("acid_number"))
+    hdr_acid_match = bool((not inv_hdr_acid or not bl_hdr_acid) or (inv_hdr_acid == bl_hdr_acid))
+    matrix.append({
+        "check_code": "CHK_HDR_ACID",
+        "title_ar": "رقم القيد الجمركي المسبق ACID (ACID #)",
+        "title_en": "ACID Number (Pre-Customs Registration)",
+        "system_value": sys_hdr_acid or "—",
+        "packing_list_value": pl_hdr_acid or "—",
+        "invoice_value": inv_hdr_acid or "—",
+        "bl_value": bl_hdr_acid or "—",
+        "status": "PASS" if hdr_acid_match else "CRITICAL",
+        "match_status": "MATCH" if hdr_acid_match else "MISMATCH_CRITICAL",
+        "severity": "NONE" if hdr_acid_match else "BLOCKING",
+        "disagreeing_sources": None if hdr_acid_match else ["Invoice", "B/L"],
+        "details_ar": "رقم ACID مطابق تماماً في جميع المستندات." if hdr_acid_match else "❌ رقم ACID غير متطابق — ضروري لربط شحنتك بنظام نافذة الجمارك.",
+    })
+
+    # 11.h  Purchase Order Number & Date (Purchase Order # / Date)
+    sys_po_no   = sys_d.get("po_number") or ""
+    inv_po_no   = invoice_data.get("purchase_order") or invoice_data.get("po_number") or ""
+    pl_po_no    = pl_d.get("purchase_order") or pl_d.get("po_number") or inv_po_no
+    bl_po_no    = bl_data.get("purchase_order") or ""
+    sys_po_date = sys_d.get("po_date") or ""
+    inv_po_date = invoice_data.get("purchase_order_date") or invoice_data.get("po_date") or ""
+    po_no_match = bool((not inv_po_no or not sys_po_no) or (inv_po_no == sys_po_no))
+    matrix.append({
+        "check_code": "CHK_HDR_PO",
+        "title_ar": "رقم وتاريخ أمر الشراء (Purchase Order # & Date)",
+        "title_en": "Purchase Order Number & Date",
+        "system_value": f"PO: {sys_po_no or '—'} | Date: {sys_po_date or '—'}",
+        "packing_list_value": pl_po_no or "—",
+        "invoice_value": f"PO: {inv_po_no or '—'} | Date: {inv_po_date or '—'}",
+        "bl_value": bl_po_no or "—",
+        "status": "PASS" if po_no_match else "WARNING",
+        "match_status": "MATCH" if po_no_match else "MISMATCH_MINOR",
+        "severity": "NONE" if po_no_match else "WARNING",
+        "disagreeing_sources": None if po_no_match else ["System", "Invoice"],
+        "details_ar": "رقم أمر الشراء متطابق مع بيانات السستم." if po_no_match else "رقم أمر الشراء في الفاتورة يختلف عن السستم — يجب المراجعة.",
+    })
+
+    # 11.i  Origin Port & Destination Port (Origin / Destination Port)
+    sys_orig_port = sys_d.get("loading_port") or sys_d.get("port_of_loading") or ""
+    sys_dest_port = sys_d.get("discharge_port") or sys_d.get("port_of_discharge") or ""
+    inv_orig_port = invoice_data.get("loading_port") or invoice_data.get("origin_port") or ""
+    inv_dest_port = invoice_data.get("discharge_port") or invoice_data.get("destination_port") or ""
+    pl_orig_port  = pl_d.get("loading_port") or inv_orig_port
+    pl_dest_port  = pl_d.get("discharge_port") or inv_dest_port
+    bl_orig_port  = bl_data.get("loading_port") or bl_data.get("pol") or ""
+    bl_dest_port  = bl_data.get("discharge_port") or bl_data.get("pod") or ""
+    orig_match = _ports_match(inv_orig_port, bl_orig_port)
+    dest_match = _ports_match(inv_dest_port, bl_dest_port)
+    ports_hdr_ok = orig_match and dest_match
+    matrix.append({
+        "check_code": "CHK_HDR_PORTS",
+        "title_ar": "ميناء الشحن والوجهة (Origin Port & Destination Port)",
+        "title_en": "Origin Port & Destination Port",
+        "system_value": f"POL: {sys_orig_port or '—'} | POD: {sys_dest_port or '—'}",
+        "packing_list_value": f"POL: {pl_orig_port or '—'} | POD: {pl_dest_port or '—'}",
+        "invoice_value": f"POL: {inv_orig_port or '—'} | POD: {inv_dest_port or '—'}",
+        "bl_value": f"POL: {bl_orig_port or '—'} | POD: {bl_dest_port or '—'}",
+        "status": "PASS" if ports_hdr_ok else "WARNING",
+        "match_status": "MATCH" if ports_hdr_ok else "MISMATCH_MINOR",
+        "severity": "NONE" if ports_hdr_ok else "WARNING",
+        "disagreeing_sources": None if ports_hdr_ok else ["Invoice", "B/L"],
+        "details_ar": "موانئ الشحن والوجهة متطابقة بين الفاتورة والبوليصة." if ports_hdr_ok else "يجب مراجعة موانئ الشحن والتفريغ للتطابق مع نموذج 4 ونافذة.",
+    })
+
+    # 11.j  Currency (Currency)
+    sys_hdr_curr = str(sys_d.get("currency") or "").upper()
+    inv_hdr_curr = str(invoice_data.get("currency") or "").upper()
+    pl_hdr_curr  = str(pl_d.get("currency") or inv_hdr_curr).upper()
+    bl_hdr_curr  = ""
+    hdr_curr_match = bool((not inv_hdr_curr or not sys_hdr_curr) or (inv_hdr_curr == sys_hdr_curr))
+    matrix.append({
+        "check_code": "CHK_HDR_CURRENCY",
+        "title_ar": "عملة الفاتورة والمعاملة (Currency)",
+        "title_en": "Transaction Currency",
+        "system_value": sys_hdr_curr or "—",
+        "packing_list_value": pl_hdr_curr or "—",
+        "invoice_value": inv_hdr_curr or "—",
+        "bl_value": bl_hdr_curr or "حسب البوليصة",
+        "status": "PASS" if hdr_curr_match else "WARNING",
+        "match_status": "MATCH" if hdr_curr_match else "MISMATCH_MINOR",
+        "severity": "NONE" if hdr_curr_match else "WARNING",
+        "disagreeing_sources": None if hdr_curr_match else ["System", "Invoice"],
+        "details_ar": f"عملة الفاتورة {inv_hdr_curr} متطابقة مع السستم." if hdr_curr_match else f"⚠️ اختلاف في عملة الفاتورة: الفاتورة ({inv_hdr_curr}) vs السستم ({sys_hdr_curr}).",
+    })
+
+    # 11.k  Inco Term (Inco Term)
+    sys_hdr_inco = str(sys_d.get("incoterms") or sys_d.get("incoterm_code") or "").upper()
+    inv_hdr_inco = str(invoice_data.get("incoterms") or invoice_data.get("incoterm") or "").upper()
+    pl_hdr_inco  = str(pl_d.get("incoterms") or pl_d.get("incoterm") or inv_hdr_inco).upper()
+    bl_hdr_freight = str(bl_data.get("freight_payment_term") or bl_data.get("freight_terms") or "").upper()
+    hdr_inco_match = bool((not inv_hdr_inco or not sys_hdr_inco) or (inv_hdr_inco == sys_hdr_inco))
+    matrix.append({
+        "check_code": "CHK_HDR_INCOTERM",
+        "title_ar": "شرط التسليم التجاري (Inco Term)",
+        "title_en": "Inco Term (Trade Terms)",
+        "system_value": sys_hdr_inco or "—",
+        "packing_list_value": pl_hdr_inco or "—",
+        "invoice_value": inv_hdr_inco or "—",
+        "bl_value": bl_hdr_freight or "—",
+        "status": "PASS" if hdr_inco_match else "WARNING",
+        "match_status": "MATCH" if hdr_inco_match else "MISMATCH_MINOR",
+        "severity": "NONE" if hdr_inco_match else "WARNING",
+        "disagreeing_sources": None if hdr_inco_match else ["System", "Invoice"],
+        "details_ar": f"شرط التسليم {inv_hdr_inco} متوافق." if hdr_inco_match else f"⚠️ اختلاف شرط التسليم: الفاتورة ({inv_hdr_inco}) vs السستم ({sys_hdr_inco}).",
+    })
+
     # ─── Overall Verdict & Score ──────────────────────────────────────────────
     total_checks = len(matrix)
     passed_checks = sum(1 for m in matrix if m["status"] == "PASS")

@@ -400,7 +400,7 @@ class ExtractionRequest(BaseModel):
     يحدد mode الاستخراج ومنطق تجميع البنود.
     """
     mode: ExtractionMode = "all_consolidated"
-    grouping_mode: GroupingMode = "by_hs_code"
+    grouping_mode: GroupingMode = "by_price_group"
     invoice_filter: Optional[str] = None  # رقم فاتورة محدد لو عايز تستخرج فاتورة واحدة بعينها
     notes: Optional[str] = None
 
@@ -428,7 +428,7 @@ class CustomsInvoiceTrackCreate(BaseModel):
     """
     import_file_id: int
     extraction_mode: ExtractionMode = "all_consolidated"
-    grouping_mode: GroupingMode = "by_hs_code"
+    grouping_mode: GroupingMode = "by_price_group"
     invoice_filter: Optional[str] = None
     notes: Optional[str] = None
 
@@ -545,7 +545,7 @@ class DualExtractionRequest(BaseModel):
     """
     # ---- الفاتورة التجارية الجمركية ----
     invoice_mode: ExtractionMode = "all_consolidated"
-    invoice_grouping: GroupingMode = "by_hs_code"
+    invoice_grouping: GroupingMode = "by_price_group"
     invoice_filter: Optional[str] = None
 
     # ---- قائمة التعبئة الجمركية ----
@@ -587,7 +587,7 @@ class DualCustomsTrackCreate(BaseModel):
     import_file_id: int
     # فاتورة
     invoice_mode: ExtractionMode = "all_consolidated"
-    invoice_grouping: GroupingMode = "by_hs_code"
+    invoice_grouping: GroupingMode = "by_price_group"
     invoice_filter: Optional[str] = None
     # باكينج ليست
     packing_list_mode: PackingListMode = "all_consolidated"
