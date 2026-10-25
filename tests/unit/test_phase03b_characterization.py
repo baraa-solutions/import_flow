@@ -298,7 +298,7 @@ def test_cross_checker_acid_mismatch_golden():
     assert acid["severity"] == "BLOCKING"
     assert res["critical_errors"][0] == "عدم تطابق رقم القيد الجمركي المسبق (ACID) بين الفاتورة والبوليصة"
     assert res["verdict"] == "CRITICAL_MISMATCH"
-    assert len(res["audit_matrix"]) == 10
+    assert len(res["audit_matrix"]) == 21
 
 
 def test_cross_checker_weight_at_tolerance_edge():
