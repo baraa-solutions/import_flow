@@ -1579,6 +1579,9 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'CURRENCY_BASE_EXISTS': {
     'note': 'A base currency ({base_currency}) already exists; cannot set a second base currency.',
   },
+  'PORT_TERMINAL_RATE_EXISTS': {
+    'note': 'A port storage rate already exists for terminal {terminal_code}, {container_size} container, effective {effective_date}. Edit the existing rate or choose another effective date.',
+  },
   'CT_CUSTOMS_RATE_MISSING': {
     'note': 'No customs exchange rate registered for currency \'{currency}\' on date {on_date}.',
   },

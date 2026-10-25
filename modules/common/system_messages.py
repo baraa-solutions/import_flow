@@ -1251,6 +1251,9 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "CURRENCY_BASE_EXISTS": {
         "note": "A base currency ({base_currency}) already exists; cannot set a second base currency.",
     },
+    "PORT_TERMINAL_RATE_EXISTS": {
+        "note": "A port storage rate already exists for terminal {terminal_code}, {container_size} container, effective {effective_date}. Edit the existing rate or choose another effective date.",
+    },
     "FA_BUDGET_LOCKED": {
         "note": "An approved or superseded budget ({budget_code}, {status}) cannot be changed: sync it to create a new revision.",
     },
