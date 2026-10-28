@@ -88,3 +88,4 @@ from modules.inspection_appeals.model import InspectionAppeal
 from modules.custody_release.model import CustodyReleaseDossier
 from modules.reexport_protocol.model import ReexportDossier
 from modules.container_deposit.model import ContainerDepositLedger
+from modules.master_items.model import MasterItem, ItemSupplierCatalog, ItemPriceHistory

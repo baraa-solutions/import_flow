@@ -124,6 +124,8 @@ class POLineItem(Base):
 
     purchase_order = relationship("PurchaseOrder", back_populates="line_items")
     tariff = relationship("CustomsTariff", foreign_keys=[tariff_id])
+    master_item_id = Column(Integer, ForeignKey("master_items.item_id"), nullable=True)
+    master_item = relationship("MasterItem", foreign_keys=[master_item_id])
 
 
 class PackingListItem(Base):
@@ -167,6 +169,8 @@ class PackingListItem(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     purchase_order = relationship("PurchaseOrder", back_populates="packing_list_items")
+    master_item_id = Column(Integer, ForeignKey("master_items.item_id"), nullable=True)
+    master_item = relationship("MasterItem", foreign_keys=[master_item_id])
 
 
 # ==================================================

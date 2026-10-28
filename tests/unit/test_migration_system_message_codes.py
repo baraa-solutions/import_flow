@@ -23,14 +23,14 @@ from utils import db_safety
 PREVIOUS = "c7d8e9f0a1b2"
 
 # The new head revision (stage notes & attachments)
-HEAD = "d8e9f0a1b2c3"
+HEAD = "e1a2b3c4d5e6"
 
 # This migration adds NO columns to existing tables — only creates new tables
 NEW_COLUMNS = {}
 NEW_INDEXES = {}
 
 # Tables created by d8e9f0a1b2c3
-NEW_TABLES = ["stage_notes", "stage_note_attachments"]
+NEW_TABLES = ["stage_notes", "stage_note_attachments", "master_items", "item_supplier_catalog", "item_price_history"]
 
 # Columns/indexes added by earlier migrations (still present at PREVIOUS — kept for reference)
 LEGACY_COLUMNS = {
@@ -99,6 +99,9 @@ def _legacy_db(db_file: Path, stamp: str = None) -> None:
             conn.execute(f'DROP INDEX IF EXISTS "{index}"')
         # Drop the tables that d8e9f0a1b2c3 would create — simulate pre-migration state
         # (drop attachments first due to FK dependency)
+        conn.execute('DROP TABLE IF EXISTS "item_price_history"')
+        conn.execute('DROP TABLE IF EXISTS "item_supplier_catalog"')
+        conn.execute('DROP TABLE IF EXISTS "master_items"')
         conn.execute('DROP TABLE IF EXISTS "stage_note_attachments"')
         conn.execute('DROP TABLE IF EXISTS "stage_notes"')
         conn.execute(
