@@ -11,6 +11,7 @@ from modules.incoterms.model import Incoterm
 from modules.currencies.model import Currency
 from modules.customs_tariff.model import CustomsTariff
 from modules.import_files.model import ImportFile
+from modules.master_items.model import MasterItem  # noqa: F401
 from modules.common.system_parameters import SystemParameter  # noqa: F401  (registers system_parameters on Base.metadata)
 
 

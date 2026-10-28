@@ -690,6 +690,8 @@ class PurchaseOrderService:
                 logger.info("PO number %s was taken concurrently; retrying (%s/%s)", number, attempt, PO_NUMBER_ATTEMPTS)
                 continue
             self.db.refresh(po)
+            from modules.master_items.service import MasterItemService
+            MasterItemService.sync_po_items(self.db, po)
             return po
         raise AssertionError("unreachable")  # pragma: no cover
 
@@ -871,6 +873,8 @@ class PurchaseOrderService:
         if po.import_file_id:
             self._link_import_file(po)
         self._commit(po)
+        from modules.master_items.service import MasterItemService
+        MasterItemService.sync_po_items(self.db, po)
         return self._to_response(po)
 
     def _measurements_changed(

@@ -301,6 +301,165 @@ class MasterItemService:
         )
 
     # ==================================================
+    # Automated Hooks (PO & Landed Cost Settlement)
+    # ==================================================
+
+    @classmethod
+    def sync_po_items(cls, db: Session, po: Any) -> None:
+        """
+        Hook called on PO creation/update to auto-link items, update supplier quotes,
+        and record historical purchase price.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            curr = "USD"
+            if hasattr(po, "currency") and po.currency:
+                curr = getattr(po.currency, "currency_code", "USD") or "USD"
+            elif getattr(po, "currency_id", None):
+                from modules.currencies.model import Currency
+                c_row = db.query(Currency).filter(Currency.currency_id == po.currency_id).first()
+                if c_row:
+                    curr = c_row.currency_code or "USD"
+
+            rate = float(getattr(po, "exchange_rate", 1.0) or 1.0)
+            po_date_str = str(po.order_date.date()) if getattr(po, "order_date", None) else None
+
+            for line in getattr(po, "line_items", []) or []:
+                raw_code = (getattr(line, "item_code", "") or "").strip()
+                item = None
+                if getattr(line, "master_item_id", None):
+                    item = MasterItemRepository.get_by_id(db, line.master_item_id)
+                elif raw_code:
+                    item = MasterItemRepository.get_by_code(db, raw_code)
+                    if item:
+                        line.master_item_id = item.item_id
+
+                if not item:
+                    continue
+
+                price_fx = float(getattr(line, "unit_price", 0.0) or 0.0)
+                qty = float(getattr(line, "quantity", 0.0) or 0.0)
+
+                # 1. Update or create ItemSupplierCatalog link
+                if getattr(po, "supplier_id", None):
+                    cat_link = db.query(ItemSupplierCatalog).filter(
+                        ItemSupplierCatalog.item_id == item.item_id,
+                        ItemSupplierCatalog.supplier_id == po.supplier_id,
+                        ItemSupplierCatalog.is_active == True,
+                    ).first()
+
+                    if not cat_link:
+                        cat_link = ItemSupplierCatalog(
+                            item_id=item.item_id,
+                            supplier_id=po.supplier_id,
+                            supplier_item_code=raw_code,
+                            supplier_description=getattr(line, "description_en", None) or item.description_en,
+                            last_confirmed_price=price_fx,
+                            last_confirmed_currency=curr,
+                            last_confirmed_date=po_date_str,
+                            last_po_id=po.po_id,
+                            is_preferred_supplier=True,
+                        )
+                        db.add(cat_link)
+                    else:
+                        cat_link.last_confirmed_price = price_fx
+                        cat_link.last_confirmed_currency = curr
+                        cat_link.last_confirmed_date = po_date_str
+                        cat_link.last_po_id = po.po_id
+
+                # 2. Record or update ItemPriceHistory
+                hist = db.query(ItemPriceHistory).filter(
+                    ItemPriceHistory.item_id == item.item_id,
+                    ItemPriceHistory.po_id == po.po_id,
+                ).first()
+
+                if not hist:
+                    hist = ItemPriceHistory(
+                        item_id=item.item_id,
+                        supplier_id=getattr(po, "supplier_id", None),
+                        po_id=po.po_id,
+                        import_file_id=getattr(po, "import_file_id", None),
+                        unit_price_fx=price_fx,
+                        currency=curr,
+                        exchange_rate=rate,
+                        unit_price_egp=round(price_fx * rate, 4),
+                        quantity=qty,
+                        po_date=po_date_str,
+                    )
+                    db.add(hist)
+                else:
+                    hist.unit_price_fx = price_fx
+                    hist.currency = curr
+                    hist.exchange_rate = rate
+                    hist.unit_price_egp = round(price_fx * rate, 4)
+                    hist.quantity = qty
+                    hist.po_date = po_date_str
+
+            db.flush()
+        except Exception as e:
+            logger.warning("[master_items] sync_po_items best-effort failed: %s", e)
+
+    @classmethod
+    def update_landed_costs_from_settlement(
+        cls,
+        db: Session,
+        import_file_id: int,
+        item_landed_costs: List[dict],
+    ) -> None:
+        """
+        Hook called upon Actual Landed Cost approval to update item_price_history
+        with real clearance/landed cost unit prices and markups.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            for itm in item_landed_costs or []:
+                raw_code = (itm.get("item_code") or "").strip()
+                if not raw_code:
+                    continue
+
+                item = MasterItemRepository.get_by_code(db, raw_code)
+                if not item:
+                    continue
+
+                unit_landed = float(itm.get("unit_landed_cost_egp") or itm.get("actual_unit_landed_cost_egp") or 0.0)
+                markup_factor = float(itm.get("markup_factor") or itm.get("actual_markup_factor") or 1.0)
+                markup_pct = round((markup_factor - 1.0) * 100.0, 2) if markup_factor >= 1.0 else 0.0
+
+                # Find price history record for this file and item
+                hist_records = db.query(ItemPriceHistory).filter(
+                    ItemPriceHistory.item_id == item.item_id,
+                    ItemPriceHistory.import_file_id == import_file_id,
+                ).all()
+
+                if hist_records:
+                    for h in hist_records:
+                        h.landed_cost_egp = round(unit_landed, 2)
+                        h.landed_cost_markup = markup_pct
+                else:
+                    # If not created via PO yet, create a new history record
+                    fob_egp = float(itm.get("fob_unit_egp") or 0.0)
+                    hist = ItemPriceHistory(
+                        item_id=item.item_id,
+                        import_file_id=import_file_id,
+                        unit_price_fx=fob_egp,
+                        currency="EGP",
+                        exchange_rate=1.0,
+                        unit_price_egp=fob_egp,
+                        landed_cost_egp=round(unit_landed, 2),
+                        landed_cost_markup=markup_pct,
+                        quantity=float(itm.get("qty") or 0.0),
+                    )
+                    db.add(hist)
+
+            db.flush()
+        except Exception as e:
+            logger.warning("[master_items] update_landed_costs_from_settlement best-effort failed: %s", e)
+
+    # ==================================================
     # Private Helpers
     # ==================================================
 

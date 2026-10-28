@@ -300,3 +300,164 @@ def test_price_history_and_trend_analytics(db_session):
     assert trends.average_landed_cost_egp == pytest.approx(686.0, 0.1)
     assert trends.average_markup_percent == pytest.approx(24.67, 0.1)
     assert len(trends.history) == 3
+
+
+
+def test_hook_sync_po_items_records_history_and_catalog(db_session):
+    item = MasterItemService.create_item(
+        db_session,
+        MasterItemCreate(
+            item_code="HOOK-ITEM-01",
+            description_ar="صنف لاختبار الـ Hook التلقائي",
+            description_en="Hook Test Item 01",
+        ),
+    )
+
+    from modules.currencies.model import Currency
+    currency = Currency(
+        currency_id=301,
+        currency_code="USD",
+        currency_name="US Dollar",
+        currency_symbol="$",
+        is_active=True,
+    )
+    db_session.add(currency)
+
+    from modules.projects.model import Project
+    project = Project(
+        project_id=401,
+        project_code="PRJ-HOOK-01",
+        project_name="Test Project",
+        project_owner="Ahmed",
+        company_id=501,
+        supplier_id=201,
+        incoterm_id=601,
+        import_type="Direct Commercial",
+        priority="Medium",
+        shipment_category="FCL Container",
+        allow_multi_shipment=True,
+        allow_multi_company=True,
+        status="Open",
+        budget_currency="USD",
+        is_active=True,
+    )
+    db_session.add(project)
+
+    from modules.import_companies.model import ImportCompany
+    from datetime import date, timedelta
+    company = ImportCompany(
+        company_id=501,
+        importer_name="Test Company",
+        address="Cairo",
+        country="Egypt",
+        importer_id="IMP-100200",
+        importer_id_expiry=date.today() + timedelta(days=120),
+        vat_id="VAT-998877",
+        vat_id_expiry=date.today() + timedelta(days=90),
+        registration_number="REG-554433",
+        registration_expiry=date.today() + timedelta(days=60),
+        is_active=True,
+    )
+    db_session.add(company)
+
+    from modules.incoterms.model import Incoterm
+    incoterm = Incoterm(
+        incoterm_id=601,
+        incoterm_code="FOB",
+        incoterm_name="Free On Board",
+        is_active=True,
+    )
+    db_session.add(incoterm)
+
+    po = PurchaseOrder(
+        po_id=701,
+        po_number="PO-HOOK-2026-001",
+        project_id=401,
+        company_id=501,
+        supplier_id=201,
+        incoterm_id=601,
+        currency_id=301,
+        exchange_rate=50.0,
+    )
+    line = POLineItem(
+        po_id=701,
+        item_code="HOOK-ITEM-01",
+        description_ar="صنف لاختبار الـ Hook التلقائي",
+        description_en="Hook Test Item 01",
+        quantity=50.0,
+        unit_price=25.0,
+        total_price=1250.0,
+    )
+    po.line_items = [line]
+    db_session.add(po)
+    db_session.commit()
+
+    # Trigger Hook
+    MasterItemService.sync_po_items(db_session, po)
+
+    # Verify ItemSupplierCatalog was auto-created
+    catalog = db_session.query(ItemSupplierCatalog).filter(
+        ItemSupplierCatalog.item_id == item.item_id,
+        ItemSupplierCatalog.supplier_id == 201,
+    ).first()
+    assert catalog is not None
+    assert catalog.last_confirmed_price == 25.0
+    assert catalog.last_confirmed_currency == "USD"
+    assert catalog.last_po_id == 701
+
+    # Verify ItemPriceHistory was auto-created
+    hist = db_session.query(ItemPriceHistory).filter(
+        ItemPriceHistory.item_id == item.item_id,
+        ItemPriceHistory.po_id == 701,
+    ).first()
+    assert hist is not None
+    assert hist.unit_price_fx == 25.0
+    assert hist.unit_price_egp == 1250.0
+    assert hist.quantity == 50.0
+
+
+def test_hook_update_landed_costs_from_settlement(db_session):
+    item = MasterItemService.create_item(
+        db_session,
+        MasterItemCreate(
+            item_code="SETTLE-ITEM-01",
+            description_ar="صنف تسوية مالية",
+        ),
+    )
+
+    # Initial price history before settlement
+    MasterItemService.record_price_history(
+        db_session,
+        ItemPriceHistoryCreate(
+            item_id=item.item_id,
+            import_file_id=888,
+            unit_price_fx=30.0,
+            currency="USD",
+            exchange_rate=50.0,
+            unit_price_egp=1500.0,
+            quantity=100.0,
+        ),
+    )
+
+    # Settle landed costs
+    settlement_items = [
+        {
+            "item_code": "SETTLE-ITEM-01",
+            "unit_landed_cost_egp": 2175.0,
+            "actual_markup_factor": 1.45,
+            "qty": 100.0,
+        }
+    ]
+
+    MasterItemService.update_landed_costs_from_settlement(
+        db_session, import_file_id=888, item_landed_costs=settlement_items
+    )
+
+    # Verify landed cost and markup were updated
+    hist = db_session.query(ItemPriceHistory).filter(
+        ItemPriceHistory.item_id == item.item_id,
+        ItemPriceHistory.import_file_id == 888,
+    ).first()
+    assert hist is not None
+    assert hist.landed_cost_egp == 2175.0
+    assert hist.landed_cost_markup == 45.0

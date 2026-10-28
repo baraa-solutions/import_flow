@@ -3228,6 +3228,10 @@ def approve_actual_landed_cost_service(
         settlement.updated_at = now_utc
         settlement.updated_by = actor
 
+    # Auto-sync Landed Costs into Item Price History
+    from modules.master_items.service import MasterItemService
+    MasterItemService.update_landed_costs_from_settlement(db, imp.import_file_id, items_json)
+
     # 2. Update ImportFile
     imp.financial_settlement_status = "COST_ALLOCATED"
     imp.actual_landed_cost_total_egp = calc.actual_total_landed_cost_egp
