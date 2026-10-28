@@ -246,6 +246,9 @@ class VesselTrackingService:
             new_milestone = "In Port / Berthed"
             nav_status = "Moored"
             progress_pct = 100.0
+            if not tracking.actual_arrival:
+                now_utc = datetime.now(timezone.utc)
+                return self.confirm_vessel_port_arrival(import_file_id, actual_arrival_date=now_utc, user="Simulation")
         else:
             # Interpolate towards POD
             fraction = dist_traveled / max(current_dist, 1.0)
@@ -395,17 +398,77 @@ class VesselTrackingService:
             clr.updated_at = now
             clr.updated_by = user
 
-        # 5. Sync DemurrageTracking (discharge_date starts container free time countdown)
+        # 5. Sync or Auto-Provision DemurrageTracking (discharge_date starts container free time countdown)
         dem = self.db.query(DemurrageTracking).filter(
             DemurrageTracking.import_file_id == import_file_id,
             DemurrageTracking.is_active == True,
         ).first()
+
+        from modules.demurrage_detention import service as dd_service
+        from modules.demurrage_detention.schemas import DemurrageTrackingCreate, ContainerItemInput
+
+        arr_date = naive_arrival.date() if naive_arrival else datetime.now(timezone.utc).date()
         if dem:
-            dem.discharge_date = naive_arrival.date() if naive_arrival else datetime.now(timezone.utc).date()
-            if dem.status in ("Pending", "Not Started", None, "Free Time Active"):
-                dem.status = "Free Time Active"
+            dem.discharge_date = arr_date
+            if "Auto-synced with Vessel Port Arrival" not in (dem.notes or ""):
+                dem.notes = ((dem.notes + " | ") if dem.notes else "") + f"Auto-synced with Vessel Port Arrival: {arr_date}"
+            try:
+                tariff = dd_service._tracking_tariff(self.db, dem)
+                rate = dem.exchange_rate or dd_service._resolve_exchange_rate(self.db, dem.currency or "USD", arr_date)
+                dem.exchange_rate = rate
+                containers, dem_fx, det_fx, stor_egp = dd_service._recalculate_containers(
+                    dem, tariff, rate, dem.gate_out_date, dem.empty_return_date
+                )
+                dd_service._apply_totals(dem, containers, dem_fx, det_fx, stor_egp, rate)
+                dem.status = dd_service._incurred_status(dem_fx, det_fx)
+            except Exception:
+                if dem.status in ("Pending", "Not Started", None, "Free Time Active"):
+                    dem.status = "Free Time Active"
             dem.updated_at = now
             dem.updated_by = user
+        else:
+            # Auto-provision DemurrageTracking if missing
+            try:
+                booking = self.db.query(ShipmentBooking).filter(
+                    ShipmentBooking.import_file_id == import_file_id,
+                    ShipmentBooking.is_active == True,
+                ).first()
+                carrier_name = (
+                    (booking.shipping_line_name if booking and booking.shipping_line_name else None)
+                    or (tracking.vessel.shipping_line_name if tracking.vessel else None)
+                    or "Ocean Carrier"
+                )
+                bl_no = (booking.bill_of_lading_no if booking and booking.bill_of_lading_no else None) or tracking.tracking_code
+                port_name = tracking.pod_port_name or (booking.pod_name if booking else None) or "Alexandria"
+
+                containers_payload = []
+                if booking and booking.containers_data and isinstance(booking.containers_data, list):
+                    for idx, c in enumerate(booking.containers_data):
+                        c_no = c.get("container_no") if isinstance(c, dict) else None
+                        c_type = c.get("container_type") if isinstance(c, dict) else "40ft High Cube"
+                        containers_payload.append(ContainerItemInput(container_no=c_no or f"CONT-{import_file_id}-{idx+1}", container_type=c_type or "40ft High Cube"))
+                if not containers_payload:
+                    containers_payload = [ContainerItemInput(container_no=f"CONT-{import_file_id}-01", container_type="40ft High Cube")]
+
+                rate = 50.0
+                try:
+                    rate = dd_service._resolve_exchange_rate(self.db, "USD", arr_date)
+                except Exception:
+                    rate = 50.0
+
+                req_create = DemurrageTrackingCreate(
+                    import_file_id=import_file_id,
+                    carrier_name=carrier_name,
+                    bill_of_lading_no=bl_no,
+                    port_name=port_name,
+                    discharge_date=arr_date,
+                    exchange_rate=rate,
+                    containers=containers_payload,
+                    notes=f"Auto-created on vessel port arrival: {arr_date}",
+                )
+                dem = dd_service.create_demurrage_tracking_service(self.db, req_create, user=user)
+            except Exception:
+                pass
 
         # 6. Primary Commit for Core Business Data
         self.db.commit()
@@ -476,6 +539,17 @@ class VesselTrackingService:
 
     # ── Overview Radar for All Shipments ────────────────────────────────────
 
+    def sync_vessel_demurrage_clock(self, import_file_id: int, user: str = "System") -> ShipmentTrackingResponse:
+        tracking = self.repo.get_tracking_by_file_id(import_file_id)
+        if not tracking:
+            raise ValueError(f"No active vessel tracking session found for import file #{import_file_id}")
+        arr_date = tracking.actual_arrival or datetime.now(timezone.utc)
+        return self.confirm_vessel_port_arrival(
+            import_file_id=import_file_id,
+            actual_arrival_date=arr_date,
+            user=user,
+        )
+
     def get_live_radar_overview(self) -> LiveRadarOverviewResponse:
         trackings = self.repo.get_all_active_trackings()
         responses = [self._build_tracking_response(t) for t in trackings]
@@ -500,6 +574,17 @@ class VesselTrackingService:
     def _build_tracking_response(self, tracking: ShipmentVesselTracking) -> ShipmentTrackingResponse:
         vessel = self.repo.get_vessel_by_id(tracking.vessel_id)
         latest_pos = self.repo.get_latest_position(tracking.vessel_id)
+
+        dem = self.db.query(DemurrageTracking).filter(
+            DemurrageTracking.import_file_id == tracking.import_file_id,
+            DemurrageTracking.is_active == True,
+        ).first()
+
+        dem_id = dem.tracking_id if dem else None
+        dem_code = dem.tracking_code if dem else None
+        dem_status = dem.status if dem else None
+        dem_discharge = dem.discharge_date.strftime("%Y-%m-%d") if dem and dem.discharge_date else None
+        dem_started = bool(dem and dem.discharge_date and dem.status in ("Free Time Active", "Demurrage Incurred", "Detention Incurred", "Demurrage & Detention Incurred"))
 
         return ShipmentTrackingResponse(
             tracking_id=tracking.tracking_id,
@@ -536,4 +621,9 @@ class VesselTrackingService:
             current_nav_status=latest_pos.nav_status if latest_pos else None,
             current_zone=latest_pos.current_zone if latest_pos else None,
             distance_remaining_nm=latest_pos.distance_remaining_nm if latest_pos else None,
+            demurrage_tracking_id=dem_id,
+            demurrage_tracking_code=dem_code,
+            demurrage_status=dem_status,
+            demurrage_discharge_date=dem_discharge,
+            demurrage_clock_started=dem_started,
         )

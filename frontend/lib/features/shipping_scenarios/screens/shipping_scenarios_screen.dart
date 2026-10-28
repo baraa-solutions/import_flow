@@ -1288,6 +1288,7 @@ Best regards,
     // Linked PO packing list metrics
     double totalCargoCbm = 0.0;
     double totalCargoWeightKg = 0.0;
+    double totalFloorAreaM2 = 0.0;
     int linkedPlCount = 0;
     bool hasNonStackableItems = false;
     bool hasExplicitPackingList = false;
@@ -1314,6 +1315,9 @@ Best regards,
         for (var pl in po.packingListItems) {
           totalCargoCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
           totalCargoWeightKg += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
+          final lM = pl.lengthCm > 0 ? pl.lengthCm / 100.0 : 0.0;
+          final wM = pl.widthCm > 0 ? pl.widthCm / 100.0 : 0.0;
+          totalFloorAreaM2 += ContainerRequirementEngine.calculateFloorAreaM2(lengthM: lM, widthM: wM, quantity: pl.qtyPkg.toInt());
           if (!pl.isStackable) hasNonStackableItems = true;
         }
       }
@@ -1328,6 +1332,17 @@ Best regards,
     final dualRec = ContainerRequirementEngine.calculateBoth(
       totalCbm: totalCargoCbm,
       totalWeightKg: totalCargoWeightKg,
+    );
+
+    final totalLdm = ContainerRequirementEngine.calculateLdm(floorAreaM2: totalFloorAreaM2);
+    final lclChargeableCbm = ContainerRequirementEngine.calculateLclChargeableCbm(
+      physicalCbm: totalCargoCbm,
+      floorAreaM2: totalFloorAreaM2,
+      isStackable: _isStackable && !hasNonStackableItems,
+    );
+    final oceanRevenueTon = ContainerRequirementEngine.calculateOceanRevenueTon(
+      chargeableCbm: lclChargeableCbm,
+      totalGrossWeightKg: totalCargoWeightKg,
     );
 
     return Form(
@@ -1686,7 +1701,7 @@ Best regards,
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                       ),
                                       Text(
-                                        '${totalCargoCbm.toStringAsFixed(3)} m³ | ${totalCargoWeightKg.toStringAsFixed(0)} kg (${filteredPOs.length} POs | $linkedPlCount items)',
+                                        '${totalCargoCbm.toStringAsFixed(3)} m³ | ${totalCargoWeightKg.toStringAsFixed(0)} kg | ${totalFloorAreaM2.toStringAsFixed(2)} m² | ${totalLdm.toStringAsFixed(2)} LDM | ${oceanRevenueTon.toStringAsFixed(2)} RT (${filteredPOs.length} POs | $linkedPlCount items)',
                                         style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
                                       ),
                                     ],
@@ -1707,7 +1722,7 @@ Best regards,
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 11,
-                                          color: hasNonStackableItems ? AppTheme.wcagOrange : AppTheme.wcagEmerald,
+                                          color: hasNonStackableItems ? AppTheme.wcagOrange : AppTheme.wcagEmerald, ), ), ), const SizedBox(height: 6), Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [ if (totalFloorAreaM2 > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.cobaltBorder)), child: Text('📐 ${totalFloorAreaM2.toStringAsFixed(2)} m² | ${totalLdm.toStringAsFixed(2)} LDM', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt))), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppTheme.emeraldLight, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.emeraldBorder)), child: Text('🌊 ${oceanRevenueTon.toStringAsFixed(2)} RT (Revenue Ton W/M)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.wcagEmerald))), if (lclChargeableCbm > totalCargoCbm) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppTheme.orangeLight, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.orange)), child: Text('⚠️ Billed CBM: ${lclChargeableCbm.toStringAsFixed(2)} m³ (+${(lclChargeableCbm - totalCargoCbm).toStringAsFixed(2)} m³)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.wcagOrange))), ]), if (false) Container(child: Text('', style: TextStyle(
                                         ),
                                       ),
                                     ),

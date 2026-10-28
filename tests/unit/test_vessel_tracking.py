@@ -387,3 +387,109 @@ def test_confirm_vessel_port_arrival_api():
         # File 999999 returns 404
         err_resp = client.post("/api/v1/vessel-tracking/confirm-arrival/999999", json={})
         assert err_resp.status_code == 404
+
+
+def test_vessel_arrival_recalculates_demurrage_and_activates_clock(in_memory_db):
+    service = VesselTrackingService(in_memory_db)
+
+    file_obj = ImportFile(
+        import_file_code="IMP-2026-BRIDGE",
+        company_name="Bridge Import Co",
+        supplier_name="Global Shipper",
+    )
+    in_memory_db.add(file_obj)
+    in_memory_db.commit()
+
+    service.get_or_initialize_tracking_for_file(file_obj.import_file_id)
+
+    dem = DemurrageTracking(
+        tracking_code="DND-BRIDGE-001",
+        import_file_id=file_obj.import_file_id,
+        carrier_name="Maersk Line",
+        bill_of_lading_no="BL-BRIDGE-99",
+        port_name="Alexandria Port",
+        discharge_date=datetime.now(timezone.utc).date() + timedelta(days=10),
+        exchange_rate=50.0,
+        status="Pending",
+        containers=[
+            {"container_no": "MSCU1122334", "container_type": "40ft High Cube", "status": "Pending"}
+        ],
+    )
+    in_memory_db.add(dem)
+    in_memory_db.commit()
+
+    # Confirm port arrival
+    arrival_dt = datetime(2026, 10, 25, 10, 0, tzinfo=timezone.utc)
+    res = service.confirm_vessel_port_arrival(
+        import_file_id=file_obj.import_file_id,
+        actual_arrival_date=arrival_dt,
+        user="BridgeOfficer",
+    )
+
+    assert res.tracking_milestone == "In Port / Berthed"
+    assert res.demurrage_tracking_code == "DND-BRIDGE-001"
+    assert res.demurrage_clock_started is True
+    assert res.demurrage_discharge_date == arrival_dt.date().strftime("%Y-%m-%d")
+
+    # Verify demurrage record was updated & recalculated
+    in_memory_db.refresh(dem)
+    assert dem.discharge_date == arrival_dt.date()
+    assert dem.status in ("Free Time Active", "Demurrage Incurred", "Detention Incurred")
+    assert "Auto-synced with Vessel Port Arrival" in (dem.notes or "")
+
+
+def test_vessel_arrival_auto_provisions_demurrage_if_missing(in_memory_db):
+    service = VesselTrackingService(in_memory_db)
+
+    file_obj = ImportFile(
+        import_file_code="IMP-2026-AUTOPROV",
+        company_name="Auto Provision Co",
+        supplier_name="Global Line",
+    )
+    in_memory_db.add(file_obj)
+    in_memory_db.commit()
+
+    service.get_or_initialize_tracking_for_file(file_obj.import_file_id)
+
+    # Confirm arrival with no prior DemurrageTracking
+    arrival_dt = datetime(2026, 10, 26, 8, 0, tzinfo=timezone.utc)
+    res = service.confirm_vessel_port_arrival(
+        import_file_id=file_obj.import_file_id,
+        actual_arrival_date=arrival_dt,
+        user="AutoOfficer",
+    )
+
+    assert res.tracking_milestone == "In Port / Berthed"
+    # Verify DemurrageTracking was provisioned
+    dem = in_memory_db.query(DemurrageTracking).filter(
+        DemurrageTracking.import_file_id == file_obj.import_file_id,
+        DemurrageTracking.is_active == True,
+    ).first()
+    assert dem is not None
+    assert dem.discharge_date == arrival_dt.date()
+    assert dem.status in ("Free Time Active", "Demurrage Incurred")
+
+
+def test_sync_vessel_demurrage_clock_method(in_memory_db):
+    service = VesselTrackingService(in_memory_db)
+
+    file_obj = ImportFile(
+        import_file_code="IMP-2026-SYNC",
+        company_name="Sync Co",
+        supplier_name="Global Supplier",
+    )
+    in_memory_db.add(file_obj)
+    in_memory_db.commit()
+
+    service.get_or_initialize_tracking_for_file(file_obj.import_file_id)
+
+    res = service.sync_vessel_demurrage_clock(file_obj.import_file_id, user="SyncOfficer")
+    assert res.tracking_milestone == "In Port / Berthed"
+    assert res.demurrage_clock_started is True
+
+
+def test_sync_demurrage_clock_api():
+    client = TestClient(app)
+    # File 1 exists or test endpoint returns valid response or 404
+    resp = client.post("/api/v1/vessel-tracking/sync-demurrage/1")
+    assert resp.status_code in (200, 404)

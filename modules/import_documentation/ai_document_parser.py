@@ -621,6 +621,12 @@ def _extract_notify_party_entity(text: str, spatial_boxes: Optional[dict] = None
         if lines:
             return "\n".join(lines[:3])
 
+    m_same_line = re.search(r'(?:NOTIFY\s+PARTIES?|NOTIFY\s+PARTY|3\.Notify\s+party)[:\s]+([^\n\r]+)', text, re.IGNORECASE)
+    if m_same_line:
+        cand = m_same_line.group(1).strip()
+        if len(cand) >= 3 and not cand.startswith("(") and "Clause" not in cand:
+            return cand
+
     m_not = re.search(r'(?:NOTIFY\s+PARTIES\s*:?|NOTIFY\s+PARTY\s*:?|3\.Notify\s+party\s*:?)[ \t]*[^\n\r]*\r?\n([\s\S]*?)(?:VESSEL|PORT OF LOADING|PORT OF DISCHARGE|ACID|CONTAINER|DESCRIPTION|PARTICULARS|\Z)', text, re.IGNORECASE)
     if m_not:
         lines = _clean_company_entity_lines(m_not.group(1).splitlines(), r'NOTIFY\s+PARTIES\s*:?')
@@ -849,6 +855,16 @@ def _heuristic_multi_carrier_extractor(raw_text: str, spatial_boxes: Optional[di
         m_desc = re.search(r'CONTAINING\s*\n*([^\n\r]+)', raw_text, re.IGNORECASE)
     if m_desc:
         parsed["goods_description"] = m_desc.group(1).strip()
+
+    # 11.B HS Code & Shipment Type (FCL vs LCL/CFS)
+    m_hs = re.search(r'(?:HS\s*CODE|TARIFF\s*CODE|COMMODITY\s*CODE|H\.S\.\s*CODE)[:\s]*([0-9.]{4,12})', raw_text, re.IGNORECASE)
+    if m_hs:
+        parsed["hs_code"] = m_hs.group(1).replace('.', '').strip()
+
+    if re.search(r'\b(?:LCL|LCL/LCL|CFS|CFS/CFS|LESS\s+THAN\s+CONTAINER)\b', raw_text, re.IGNORECASE):
+        parsed["shipment_type"] = "LCL"
+    elif re.search(r'\b(?:FCL|FCL/FCL|CY/CY|FULL\s+CONTAINER)\b', raw_text, re.IGNORECASE) or "40HC" in raw_text or "20DC" in raw_text:
+        parsed["shipment_type"] = "FCL"
 
     # 12. Containers & Seals
     c_matches = re.findall(r'\b([A-Z]{3}[UJZ]\d{7}|[A-Z]{4}\d{7})\b', raw_text)
@@ -1224,6 +1240,12 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
     m_orig = re.search(r'(?:بلد\s*المنشأ|المنشأ|Country\s+of\s+Origin|Origin)[:\s]+([^\n\r,.(]+)', raw_text, re.IGNORECASE)
     if m_orig:
         parsed["origin_country"] = m_orig.group(1).strip()
+    m_inv_hs = re.search(r'(?:HS\s*CODE|TARIFF\s*CODE|COMMODITY\s*CODE|H\.S\.\s*CODE|البند\s*الجمركي|كود\s*التعريفة)[:\s]*([0-9.]{4,12})', raw_text, re.IGNORECASE)
+    if m_inv_hs:
+        parsed["hs_code"] = m_inv_hs.group(1).replace('.', '').strip()
+    m_inv_not = re.search(r'(?:NOTIFY\s+PARTIES?|NOTIFY\s+PARTY|NOTIFY)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    if m_inv_not:
+        parsed["notify_party"] = m_inv_not.group(1).strip()
 
     m_pkg_pal = re.search(r'(\d+)\s*(?:boxes|cartons|pkgs)\s*/\s*(\d+)\s*(?:pallets?|pallet\(s\))', raw_text, re.IGNORECASE)
     if m_pkg_pal:
@@ -1589,6 +1611,12 @@ def extract_packing_list_data(raw_text: str) -> dict:
         m_cbm = re.search(r'(?:MEASUREMENT|TOTAL\s+CBM|VOLUME|CBM)[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
         if m_cbm:
             parsed["total_cbm"] = _parse_flexible_number(m_cbm.group(1))
+    m_pl_hs = re.search(r'(?:HS\s*CODE|TARIFF\s*CODE|COMMODITY\s*CODE|H\.S\.\s*CODE)[:\s]*([0-9.]{4,12})', raw_text, re.IGNORECASE)
+    if m_pl_hs:
+        parsed["hs_code"] = m_pl_hs.group(1).replace('.', '').strip()
+    m_pl_not = re.search(r'(?:NOTIFY\s+PARTIES?|NOTIFY\s+PARTY|NOTIFY)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    if m_pl_not:
+        parsed["notify_party"] = m_pl_not.group(1).strip()
 
 
     # 6. Extract Packing Items Table (Description, Qty, Dims L x W x H mm, Net kg, Gross kg, Package Count & Type)
@@ -2270,6 +2298,52 @@ def _identity_check(
     return "MATCH", ratio, coded_text("details", match_code), []
 
 
+def validate_iso_container_number(cntr_no: str) -> Dict[str, Any]:
+    """
+    Validates container number according to ISO 6346 check digit algorithm
+    and detects provisional/dummy container numbers (e.g. AAAA0000001, TEMP..., DUMMY...).
+    """
+    if not cntr_no or not isinstance(cntr_no, str):
+        return {"is_valid_iso": False, "is_provisional_dummy": True, "dummy_reason": "EMPTY"}
+
+    clean = re.sub(r'[\s/-]', '', cntr_no.strip()).upper()
+
+    # Detect provisional or dummy patterns
+    if any(clean.startswith(p) for p in ("DUMM", "TEMP", "TEST", "XXXX", "ZZZZ", "NONE", "TBA", "PROV")):
+        return {"is_valid_iso": False, "is_provisional_dummy": True, "dummy_reason": "PROVISIONAL_PREFIX"}
+
+    if re.match(r'^[A-Z]{4}0{5,}\d$', clean) or re.match(r'^([A-Z0-9])\1{9,}$', clean):
+        return {"is_valid_iso": False, "is_provisional_dummy": True, "dummy_reason": "DUMMY_SEQUENCE"}
+
+    if len(clean) != 11 or not re.match(r'^[A-Z]{4}\d{7}$', clean):
+        return {"is_valid_iso": False, "is_provisional_dummy": False, "dummy_reason": "INVALID_FORMAT"}
+
+    char_map = {
+        'A': 10, 'B': 12, 'C': 13, 'D': 14, 'E': 15, 'F': 16, 'G': 17, 'H': 18, 'I': 19, 'J': 20,
+        'K': 21, 'L': 23, 'M': 24, 'N': 25, 'O': 26, 'P': 27, 'Q': 28, 'R': 29, 'S': 30, 'T': 31,
+        'U': 32, 'V': 34, 'W': 35, 'X': 36, 'Y': 37, 'Z': 38
+    }
+
+    total = 0
+    for i in range(10):
+        ch = clean[i]
+        val = char_map[ch] if ch in char_map else int(ch)
+        total += val * (2 ** i)
+
+    rem = total % 11
+    calc_digit = rem if rem != 10 else 0
+    declared_digit = int(clean[10])
+    is_valid = (calc_digit == declared_digit)
+
+    return {
+        "is_valid_iso": is_valid,
+        "is_provisional_dummy": False,
+        "dummy_reason": None if is_valid else "CHECK_DIGIT_MISMATCH",
+        "calculated_check_digit": calc_digit,
+        "declared_check_digit": declared_digit,
+    }
+
+
 def match_invoice_with_bl(
     invoice_data: dict,
     bl_data: dict,
@@ -2403,34 +2477,139 @@ def match_invoice_with_bl(
         **csg_details,
     }))
 
-    # 5. Container Numbers - Critical
-    sys_cntrs = {c["container_no"] for c in sys_d.get("containers", []) if c.get("container_no")}
-    inv_cntrs = {c["container_no"] for c in invoice_data.get("containers", []) if c.get("container_no")}
-    pl_cntrs = {c["container_no"] for c in pl_d.get("containers", []) if c.get("container_no")} or inv_cntrs
-    bl_cntrs = {c["container_no"] for c in bl_data.get("containers", []) if c.get("container_no")}
-    cntr_matched = bool(inv_cntrs and bl_cntrs and inv_cntrs == bl_cntrs)
-    if not cntr_matched and (inv_cntrs and bl_cntrs):
+    # 4.B Notify Party - Critical / Warning
+    sys_not = sys_d.get("notify_party") or sys_csg
+    inv_not = invoice_data.get("notify_party") or inv_csg
+    pl_not = pl_d.get("notify_party") or pl_csg or inv_not
+    bl_not = bl_data.get("notify_party")
+
+    if not bl_not and not inv_not:
+        not_status = "EXTRACTION_FAILED"
+        not_details = coded_text("details", "DOC_IBL_NOTIFY_NOT_EXTRACTED")
+        not_severity = "WARNING"
+        has_warning = True
+        disagreeing_not = None
+    elif bl_not and any(w in bl_not.upper() for w in ("PLEASE ADVISE", "TO BE ADVISED", "TBA", "???", "PENDING")):
+        not_status = "MISMATCH_CRITICAL"
+        not_details = coded_text("details", "DOC_IBL_NOTIFY_PENDING_WARNING")
+        not_severity = "BLOCKING"
         has_critical = True
+        disagreeing_not = ["B/L"]
+    elif bl_not and "SAME AS CONSIGNEE" in bl_not.upper():
+        not_status = "MATCH"
+        not_details = coded_text("details", "DOC_IBL_NOTIFY_MATCH")
+        not_severity = "NONE"
+        disagreeing_not = None
+    else:
+        matched_not, not_ratio = _fuzzy_match_strings(inv_not or bl_csg or "", bl_not or "")
+        if matched_not or not_ratio >= 0.70:
+            not_status = "MATCH"
+            not_details = coded_text("details", "DOC_IBL_NOTIFY_MATCH")
+            not_severity = "NONE"
+            disagreeing_not = None
+        else:
+            not_status = "MISMATCH_MINOR"
+            not_details = coded_text("details", "DOC_IBL_NOTIFY_MISMATCH")
+            not_severity = "WARNING"
+            has_warning = True
+            disagreeing_not = ["Invoice", "B/L"]
+
+    matrix.append(finalize_structured_values({
+        "item_code": "CHK_NOTIFY_PARTY",
+        "field_name_ar": "الطرف المخطر (Notify Party)",
+        "field_name_en": "Notify Party Details",
+        "system_value": sys_not or Placeholder("NOT_SET"),
+        "packing_list_value": pl_not or Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": inv_not or Placeholder("NOT_IN_INVOICE"),
+        "bl_value": bl_not or Placeholder("NOT_IN_BL"),
+        "match_status": not_status,
+        "severity": not_severity,
+        **coded_text("tolerance", "DOC_TOL_SIMILARITY", match_pct=100.0 if not_status == "MATCH" else 70.0),
+        "disagreeing_sources": disagreeing_not,
+        **not_details,
+    }))
+
+    # 5. Container Numbers - Critical
+    def _extract_cntr_nos(cntr_list):
+        result = set()
+        for c in cntr_list or []:
+            if isinstance(c, dict):
+                c_no = c.get("container_no") or c.get("number")
+                if c_no:
+                    result.add(str(c_no).strip().upper())
+            elif isinstance(c, str) and c.strip():
+                result.add(c.strip().upper())
+        return result
+
+    sys_cntrs = _extract_cntr_nos(sys_d.get("containers"))
+    inv_cntrs = _extract_cntr_nos(invoice_data.get("containers"))
+    pl_cntrs = _extract_cntr_nos(pl_d.get("containers")) or inv_cntrs
+    bl_cntrs = _extract_cntr_nos(bl_data.get("containers"))
+    cntr_matched = bool(inv_cntrs and bl_cntrs and inv_cntrs == bl_cntrs)
+
+    dummy_found = None
+    iso_invalid_found = None
+    for c_no in (bl_cntrs or inv_cntrs):
+        c_val = validate_iso_container_number(c_no)
+        if c_val["is_provisional_dummy"]:
+            dummy_found = c_no
+            break
+        elif not c_val["is_valid_iso"] and not iso_invalid_found:
+            iso_invalid_found = c_no
+
+    if dummy_found:
+        has_critical = True
+        cntr_status = "MISMATCH_CRITICAL"
+        cntr_severity = "BLOCKING"
+        cntr_details = coded_text("details", "DOC_IBL_CONTAINERS_DUMMY", container_no=dummy_found)
+    elif not cntr_matched and (inv_cntrs and bl_cntrs):
+        has_critical = True
+        cntr_status = "MISMATCH_CRITICAL"
+        cntr_severity = "BLOCKING"
+        cntr_details = coded_text("details", "DOC_IBL_CONTAINERS_MISMATCH")
+    elif iso_invalid_found:
+        has_warning = True
+        cntr_status = "MISMATCH_MINOR"
+        cntr_severity = "WARNING"
+        cntr_details = coded_text("details", "DOC_IBL_CONTAINERS_ISO_INVALID", container_no=iso_invalid_found)
+    elif cntr_matched:
+        cntr_status = "MATCH"
+        cntr_severity = "NONE"
+        cntr_details = coded_text("details", "DOC_IBL_CONTAINERS_MATCH")
+    else:
+        cntr_status = "MISMATCH_MINOR"
+        cntr_severity = "WARNING"
+        cntr_details = coded_text("details", "DOC_IBL_CONTAINERS_MISMATCH")
+
     matrix.append(finalize_structured_values({
         "item_code": "CHK_CONTAINERS",
-        "field_name_ar": "أرقام الحاويات (Container Numbers)",
-        "field_name_en": "Container Number(s)",
+        "field_name_ar": "أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)",
+        "field_name_en": "Container Number(s) & Type",
         "system_value": ", ".join(sys_cntrs) if sys_cntrs else Placeholder("NOT_SET"),
         "packing_list_value": ", ".join(pl_cntrs) if pl_cntrs else Placeholder("NOT_IN_PACKING_LIST"),
         "invoice_value": ", ".join(inv_cntrs) if inv_cntrs else Placeholder("NOT_IN_INVOICE"),
-        "bl_value": ", ".join(bl_cntrs) if bl_cntrs else Placeholder("NOT_IN_BL"),
-        "match_status": "MATCH" if cntr_matched else ("MISMATCH_CRITICAL" if (inv_cntrs and bl_cntrs) else "MISMATCH_MINOR"),
-        "severity": "NONE" if cntr_matched else ("BLOCKING" if (inv_cntrs and bl_cntrs) else "WARNING"),
-        **coded_text("tolerance", "DOC_TOL_CONTAINERS_EXACT"),
+        "bl_value": f"{bl_data.get('shipment_type', '')} {', '.join(bl_cntrs)}".strip() if bl_cntrs else Placeholder("NOT_IN_BL"),
+        "match_status": cntr_status,
+        "severity": cntr_severity,
+        **coded_text("tolerance", "DOC_TOL_ISO_CONTAINER"),
         "disagreeing_sources": ["Invoice", "B/L"] if not cntr_matched and (inv_cntrs and bl_cntrs) else None,
-        **coded_text("details", "DOC_IBL_CONTAINERS_MATCH" if cntr_matched else "DOC_IBL_CONTAINERS_MISMATCH"),
+        **cntr_details,
     }))
 
     # 6. Seal Numbers - Warning
-    sys_seals = {c["seal_no"] for c in sys_d.get("containers", []) if c.get("seal_no")}
-    inv_seals = {c["seal_no"] for c in invoice_data.get("containers", []) if c.get("seal_no")}
-    pl_seals = {c["seal_no"] for c in pl_d.get("containers", []) if c.get("seal_no")} or inv_seals
-    bl_seals = {c["seal_no"] for c in bl_data.get("containers", []) if c.get("seal_no")}
+    def _extract_seal_nos(cntr_list):
+        result = set()
+        for c in cntr_list or []:
+            if isinstance(c, dict):
+                s_no = c.get("seal_no") or c.get("seal")
+                if s_no:
+                    result.add(str(s_no).strip().upper())
+        return result
+
+    sys_seals = _extract_seal_nos(sys_d.get("containers"))
+    inv_seals = _extract_seal_nos(invoice_data.get("containers"))
+    pl_seals = _extract_seal_nos(pl_d.get("containers")) or inv_seals
+    bl_seals = _extract_seal_nos(bl_data.get("containers"))
     seal_matched = bool(inv_seals and bl_seals and inv_seals == bl_seals)
     if not seal_matched and (inv_seals and bl_seals):
         has_warning = True
@@ -2539,6 +2718,140 @@ def match_invoice_with_bl(
         **coded_text("tolerance", "DOC_TOL_TERMS_COHERENCE"),
         "disagreeing_sources": None,
         **inco_details,
+    }))
+
+    # 11. Harmonized System (HS) Code - Critical
+    sys_hs = sys_d.get("hs_code")
+    inv_hs = invoice_data.get("hs_code")
+    pl_hs = pl_d.get("hs_code") or inv_hs
+    bl_hs = bl_data.get("hs_code")
+
+    inv_hs_clean = re.sub(r'\D', '', str(inv_hs or ''))
+    bl_hs_clean = re.sub(r'\D', '', str(bl_hs or ''))
+    sys_hs_clean = re.sub(r'\D', '', str(sys_hs or ''))
+
+    if not inv_hs_clean and not bl_hs_clean:
+        hs_status = "EXTRACTION_FAILED"
+        hs_severity = "WARNING"
+        hs_details = coded_text("details", "DOC_IBL_HS_NOT_EXTRACTED")
+        has_warning = True
+        disagreeing_hs = None
+    elif inv_hs_clean and bl_hs_clean:
+        if inv_hs_clean[:6] == bl_hs_clean[:6]:
+            hs_status = "MATCH"
+            hs_severity = "NONE"
+            hs_details = coded_text("details", "DOC_IBL_HS_MATCH")
+            disagreeing_hs = None
+        else:
+            hs_status = "MISMATCH_CRITICAL"
+            hs_severity = "BLOCKING"
+            hs_details = coded_text("details", "DOC_IBL_HS_MISMATCH", invoice_hs=inv_hs or "", bl_hs=bl_hs or "")
+            has_critical = True
+            disagreeing_hs = ["Invoice", "B/L"]
+    else:
+        active_clean = inv_hs_clean or bl_hs_clean
+        if sys_hs_clean and active_clean and sys_hs_clean[:6] == active_clean[:6]:
+            hs_status = "MATCH"
+            hs_severity = "NONE"
+            hs_details = coded_text("details", "DOC_IBL_HS_MATCH")
+            disagreeing_hs = None
+        else:
+            hs_status = "MISMATCH_MINOR"
+            hs_severity = "WARNING"
+            hs_details = coded_text("details", "DOC_IBL_HS_NOT_EXTRACTED")
+            has_warning = True
+            disagreeing_hs = None
+
+    matrix.append(finalize_structured_values({
+        "item_code": "CHK_HS_CODE",
+        "field_name_ar": "كود البند الجمركي (HS Code)",
+        "field_name_en": "Harmonized System (HS) Code",
+        "system_value": sys_hs or Placeholder("NOT_SET"),
+        "packing_list_value": pl_hs or Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": inv_hs or Placeholder("NOT_IN_INVOICE"),
+        "bl_value": bl_hs or Placeholder("NOT_IN_BL"),
+        "match_status": hs_status,
+        "severity": hs_severity,
+        **coded_text("tolerance", "DOC_TOL_HS_CODE"),
+        "disagreeing_sources": disagreeing_hs,
+        **hs_details,
+    }))
+
+    # 12. Currency Consistency - Critical
+    sys_curr = sys_d.get("currency") or sys_d.get("estimated_cost_currency")
+    inv_curr = invoice_data.get("currency") or "USD"
+    bl_curr = bl_data.get("freight_currency") or inv_curr
+    pl_curr = pl_d.get("currency") or inv_curr
+
+    curr_mismatch = bool(sys_curr and inv_curr and sys_curr.upper() != inv_curr.upper())
+    if curr_mismatch:
+        curr_status = "MISMATCH_CRITICAL"
+        curr_severity = "BLOCKING"
+        curr_details = coded_text("details", "DOC_IBL_CURRENCY_MISMATCH", invoice_currency=inv_curr, system_currency=sys_curr)
+        has_critical = True
+        disagreeing_curr = ["System", "Invoice"]
+    else:
+        curr_status = "MATCH"
+        curr_severity = "NONE"
+        curr_details = coded_text("details", "DOC_IBL_CURRENCY_MATCH", currency=inv_curr)
+        disagreeing_curr = None
+
+    matrix.append(finalize_structured_values({
+        "item_code": "CHK_CURRENCY",
+        "field_name_ar": "توحيد العملة (Declared Currency)",
+        "field_name_en": "Declared Currency",
+        "system_value": sys_curr or Placeholder("NOT_SET"),
+        "packing_list_value": pl_curr,
+        "invoice_value": inv_curr,
+        "bl_value": bl_curr,
+        "match_status": curr_status,
+        "severity": curr_severity,
+        **coded_text("tolerance", "DOC_TOL_CURRENCY"),
+        "disagreeing_sources": disagreeing_curr,
+        **curr_details,
+    }))
+
+    # 13. Arithmetic Precision & Line Items Recalculation - Warning
+    inv_items = invoice_data.get("items") or []
+    inv_total = float(invoice_data.get("total_amount") or 0.0)
+    inv_currency = invoice_data.get("currency") or "USD"
+
+    if inv_items and inv_total > 0:
+        calc_total = sum(
+            float(it.get("total_price") or it.get("amount") or (float(it.get("quantity") or 0.0) * float(it.get("unit_price") or 0.0)))
+            for it in inv_items
+        )
+        arith_diff = abs(calc_total - inv_total)
+        if arith_diff <= 0.05:
+            arith_status = "MATCH"
+            arith_severity = "NONE"
+            arith_details = coded_text("details", "DOC_IBL_ARITHMETIC_MATCH", total_amount=inv_total, currency=inv_currency)
+            disagreeing_arith = None
+        else:
+            arith_status = "MISMATCH_MINOR"
+            arith_severity = "WARNING"
+            arith_details = coded_text("details", "DOC_IBL_ARITHMETIC_MISMATCH", calculated_amount=round(calc_total, 2), total_amount=round(inv_total, 2))
+            has_warning = True
+            disagreeing_arith = ["Invoice"]
+    else:
+        arith_status = "MATCH"
+        arith_severity = "NONE"
+        arith_details = coded_text("details", "DOC_IBL_ARITHMETIC_MATCH", total_amount=inv_total, currency=inv_currency)
+        disagreeing_arith = None
+
+    matrix.append(finalize_structured_values({
+        "item_code": "CHK_ARITHMETIC",
+        "field_name_ar": "التدقيق الحسابي للفاتورة (Arithmetic Precision)",
+        "field_name_en": "Invoice Arithmetic Recalculation",
+        "system_value": f"{inv_total:.2f} {inv_currency}" if inv_total > 0 else Placeholder("NOT_SET"),
+        "packing_list_value": Placeholder("NOT_IN_PACKING_LIST"),
+        "invoice_value": f"{inv_total:.2f} {inv_currency}" if inv_total > 0 else Placeholder("NOT_SPECIFIED"),
+        "bl_value": Placeholder("NOT_IN_BL"),
+        "match_status": arith_status,
+        "severity": arith_severity,
+        **coded_text("tolerance", "DOC_TOL_ARITHMETIC"),
+        "disagreeing_sources": disagreeing_arith,
+        **arith_details,
     }))
 
     # Overall Match Status

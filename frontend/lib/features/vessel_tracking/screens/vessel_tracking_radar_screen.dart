@@ -858,13 +858,50 @@ class _VesselTrackingRadarScreenState
                       ],
                     ),
                   ),
+                  if (s.demurrageClockStarted)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF8E1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFFA000)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.timer_outlined,
+                              size: 16, color: Color(0xFFE65100)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'عداد الغرامات نشط: ${s.demurrageStatus ?? "فترات السماح سارية"} (${s.demurrageDischargeDate ?? ""})',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFE65100),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFE65100),
+                      side: const BorderSide(color: Color(0xFFFFA000)),
+                    ),
+                    icon: const Icon(Icons.speed, size: 16),
+                    label: const Text('رادار الغرامات (TR-02)'),
+                    onPressed: () {
+                      ref.read(navigationIndexProvider.notifier).state = 44;
+                    },
+                  ),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.flatCobalt,
                       foregroundColor: Colors.white,
                     ),
                     icon: const Icon(Icons.assignment_turned_in, size: 16),
-                    label: const Text('الانتقال للتخليص الجمركي وإذن التسليم'),
+                    label: const Text('التخليص الجمركي وإذن التسليم'),
                     onPressed: () {
                       ref.read(navigationIndexProvider.notifier).state = 27;
                     },

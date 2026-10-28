@@ -19,6 +19,7 @@ import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/cbm_calculator_model.dart';
 import '../providers/cbm_calculator_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/helpers/copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/localization/stored_text.dart';
 import '../../container_loader/widgets/container_loader_tab.dart';
@@ -85,6 +86,60 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     );
   }
 
+  void _onPackageTypeSelected(int idx, String? v) {
+    if (v == null || idx < 0 || idx >= _quickItems.length) return;
+    final item = _quickItems[idx];
+    double newLen = item.length;
+    double newWid = item.width;
+    String newUnit = item.unit;
+    if (v == 'Euro Pallet (120x80)') {
+      newLen = kEuroPalletLengthCm;
+      newWid = kEuroPalletWidthCm;
+      newUnit = 'cm';
+    } else if (v == 'Standard Pallet (120x100)') {
+      newLen = kStandardPalletLengthCm;
+      newWid = kStandardPalletWidthCm;
+      newUnit = 'cm';
+    }
+    setState(() {
+      _quickItems[idx] = CBMItemModel(
+        packageType: v,
+        quantity: item.quantity,
+        length: newLen,
+        width: newWid,
+        height: item.height,
+        unit: newUnit,
+        grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+        isStackable: item.isStackable,
+      );
+    });
+  }
+
+  /*
+      newLen = kStandardPalletLengthCm;
+      newWid = kStandardPalletWidthCm;
+      newUnit = 'cm';
+    }
+    setState(() {
+      _quickItems[idx] = CBMItemModel(
+        packageType: v,
+        quantity: item.quantity,
+        length: newLen,
+        width: newWid,
+        height: item.height,
+        unit: newUnit,
+        grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+        isStackable: item.isStackable,
+      );
+    });
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  */
   @override
   void initState() {
     super.initState();
@@ -365,6 +420,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     double totalCbm = 0.0;
     double totalGrossWt = 0.0;
     double totalVolumetricWt = 0.0;
+    double totalFloorAreaM2 = 0.0;
 
     for (var item in _quickItems) {
       final lM = item.lengthM;
@@ -373,6 +429,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       final cbm = item.quantity * lM * wM * hM;
       final volWt = item.quantity * lM * wM * hM * kAirVolumetricKgPerCbm;
       final gross = item.quantity * item.grossWeightPerUnitKg;
+      final floor = item.quantity * lM * wM;
+      totalFloorAreaM2 += floor;
 
       totalCbm += cbm;
       totalVolumetricWt += volWt;
@@ -380,6 +438,16 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     }
 
     final chargeableWt = totalGrossWt > totalVolumetricWt ? totalGrossWt : totalVolumetricWt;
+    final totalLdm = ContainerRequirementEngine.calculateLdm(floorAreaM2: totalFloorAreaM2);
+    final totalChargeableCbm = ContainerRequirementEngine.calculateLclChargeableCbm(
+      physicalCbm: totalCbm,
+      floorAreaM2: totalFloorAreaM2,
+      isStackable: _isStackable,
+    );
+    final totalRevenueTon = ContainerRequirementEngine.calculateOceanRevenueTon(
+      chargeableCbm: totalChargeableCbm,
+      totalGrossWeightKg: totalGrossWt,
+    );
 
     final dualRec = ContainerRequirementEngine.calculateBoth(totalCbm: totalCbm, totalWeightKg: totalGrossWt);
     final containerRec = _isStackable ? dualRec.stackableResult : dualRec.nonStackableResult;
@@ -490,7 +558,50 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final cards = [
-                      _buildResultCardItem(l.totalCbmVolumeMetric, '${totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar, AppTheme.orange),
+                      _buildResultCardItem(
+                        l.totalCbmVolumeMetric,
+                        '${totalCbm.toStringAsFixed(4)} m³',
+                        Icons.view_in_ar,
+                        AppTheme.orange,
+                        subtitle: '${isArabic ? "المساحة الأرضية" : "Floor Area"}: ${totalFloorAreaM2.toStringAsFixed(2)} m²',
+                      ),
+                      if (_quickShipmentMode == 'sea') ...[
+                        _buildResultCardItem(
+                          isArabic ? 'طن الإيراد (Revenue Ton)' : 'Revenue Ton (W/M)',
+                          '${totalRevenueTon.toStringAsFixed(3)} RT',
+                          Icons.waves,
+                          AppTheme.cobalt,
+                          subtitle: totalRevenueTon > totalChargeableCbm
+                              ? (isArabic ? 'محاسبة بالوزن الفعلي' : 'Billed by gross weight')
+                              : (isArabic ? 'محاسبة بالحجم التكعيبي' : 'Billed by volume'),
+                        ),
+                        if (!_isStackable && totalChargeableCbm > totalCbm)
+                          _buildResultCardItem(
+                            isArabic ? 'الحجم المحاسبي (فراغ ضائع)' : 'Billed CBM (Loss of Height)',
+                            '${totalChargeableCbm.toStringAsFixed(3)} m³',
+                            Icons.vertical_align_top,
+                            AppTheme.wcagOrange,
+                            subtitle: '+${(totalChargeableCbm - totalCbm).toStringAsFixed(3)} m³ ${isArabic ? "فراغ رأسي محتسب" : "lost height penalty"}',
+                          ),
+                        _buildResultCardItem(l.grossWeightMetric, '${totalGrossWt.toStringAsFixed(1)} KG', Icons.scale, AppTheme.emerald,
+                            subtitle: '${(totalGrossWt / 1000.0).toStringAsFixed(3)} ${isArabic ? "طن متري" : "Metric Ton"}'),
+                      ] else if (_quickShipmentMode == 'road') ...[
+                        _buildResultCardItem(
+                          isArabic ? 'أمتار التحميل (LDM)' : 'Loading Meters (LDM)',
+                          '${totalLdm.toStringAsFixed(2)} LDM',
+                          Icons.local_shipping,
+                          AppTheme.emerald,
+                          subtitle: '${(totalLdm / kStandardTrailerMaxLdm * 100).toStringAsFixed(1)}% ${isArabic ? "من تريلا 13.6م" : "of 13.6m trailer"}',
+                        ),
+                        _buildResultCardItem(
+                          isArabic ? 'المساحة الأرضية' : 'Floor Footprint',
+                          '${totalFloorAreaM2.toStringAsFixed(2)} m²',
+                          Icons.square_foot,
+                          AppTheme.cobalt,
+                          subtitle: isArabic ? 'عرض التريلا القياسي 2.40م' : 'Based on 2.40m trailer width',
+                        ),
+                        _buildResultCardItem(l.grossWeightMetric, '${totalGrossWt.toStringAsFixed(1)} KG', Icons.scale, AppTheme.orange),
+                      ],
                       if (_quickShipmentMode == 'air') ...[
                         _buildResultCardItem(l.airChargeableWtMetric, '${chargeableWt.toStringAsFixed(2)} KG', Icons.airplanemode_active, AppTheme.cobalt,
                             subtitle: '${l.volumetricWeight}: ${totalVolumetricWt.toStringAsFixed(2)} kg'),
@@ -703,6 +814,18 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 ),
                                 onSelected: (_) => setState(() => _quickShipmentMode = 'sea'),
                               ),
+                              const SizedBox(width: 4),
+                              ChoiceChip(
+                                label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'شحن بري (Road/LDM)' : 'Road Freight (LDM)'),
+                                selected: _quickShipmentMode == 'road',
+                                selectedColor: AppTheme.wcagOrange,
+                                labelStyle: TextStyle(
+                                  color: _quickShipmentMode == 'road' ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                                onSelected: (_) => setState(() => _quickShipmentMode = 'road'),
+                              ),
                             ],
                           ),
                         ),
@@ -756,6 +879,14 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                           icon: Icons.content_copy,
                           variant: AppButtonVariant.secondary,
                           onPressed: () => _copyQuickItemsAsTsv(context),
+                        ),
+                        AppButton(
+                          label: Directionality.of(context) == TextDirection.rtl || Localizations.localeOf(context).languageCode == 'ar'
+                                ? 'نسخ التقرير الفني'
+                                : 'Copy Study Report',
+                          icon: Icons.assignment_outlined,
+                          variant: AppButtonVariant.primary,
+                          onPressed: () => _copyTechnicalFreightSummary(context),
                         ),
                       ],
                     ),
@@ -849,7 +980,17 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                     value: item.packageType,
                                     labelText: l.packageTypeCol,
                                     searchHintText: l.packageTypeCol,
-                                    items: ['Carton', 'Pallet', 'Wooden Crate', 'Drum', 'Bag', 'Loose Box']
+                                    items: ['Carton', 'Euro Pallet (120x80)', 'Standard Pallet (120x100)', 'Custom Pallet', 'Wooden Crate', 'Drum', 'Bag', 'Loose Box']
+                                        .map((t) => SearchableDropdownItem<String>(value: t, label: t))
+                                        .toList(),
+                                    onChanged: (v) => _onPackageTypeSelected(idx, v),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 95,
+                                  child: SearchableDropdownField<String>(
+                                    /*
                                         .map((t) => SearchableDropdownItem<String>(value: t, label: t))
                                         .toList(),
                                     onChanged: (v) {
@@ -875,7 +1016,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 SizedBox(
                                   width: 95,
                                   child: SearchableDropdownField<String>(
-                                    key: ValueKey('cbm_unit_${idx}_$_activeSessionId'),
+                                    */ key: ValueKey('cbm_unit_${idx}_$_activeSessionId'),
                                     value: item.unit,
                                     labelText: l.unitCol,
                                     searchHintText: l.unitCol,
@@ -2245,6 +2386,102 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       headers,
       rows,
       customMessage: context.l10n.cbmPackagesTableCopiedToClipboard,
+    );
+  }
+
+  void _copyTechnicalFreightSummary(BuildContext context) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    double totalCbm = 0.0;
+    double totalGrossWt = 0.0;
+    double totalVolumetricWt = 0.0;
+    double totalFloorAreaM2 = 0.0;
+    double totalFloorAreaM2 = 0.0;
+    int totalPackagesCount = 0;
+
+    for (var item in _quickItems) {
+      final lM = item.lengthM;
+      final wM = item.widthM;
+      final hM = item.heightM;
+      final cbm = item.quantity * lM * wM * hM;
+      final volWt = item.quantity * lM * wM * hM * kAirVolumetricKgPerCbm;
+      final gross = item.quantity * item.grossWeightPerUnitKg;
+      final floor = item.quantity * lM * wM;
+      totalFloorAreaM2 += floor;
+      final floorArea = ContainerRequirementEngine.calculateFloorAreaM2(lengthM: lM, widthM: wM, quantity: item.quantity);
+
+      totalCbm += cbm;
+      totalVolumetricWt += volWt;
+      totalGrossWt += gross;
+      totalFloorAreaM2 += floorArea;
+      totalPackagesCount += item.quantity;
+    }
+
+    final totalLdm = ContainerRequirementEngine.calculateLdm(floorAreaM2: totalFloorAreaM2);
+    final totalChargeableCbm = ContainerRequirementEngine.calculateLclChargeableCbm(
+      physicalCbm: totalCbm,
+      floorAreaM2: totalFloorAreaM2,
+      isStackable: _isStackable,
+    );
+    final totalRevenueTon = ContainerRequirementEngine.calculateOceanRevenueTon(
+      chargeableCbm: totalChargeableCbm,
+      totalGrossWeightKg: totalGrossWt,
+    );
+    final airChargeableWt = totalGrossWt > totalVolumetricWt ? totalGrossWt : totalVolumetricWt;
+    final dualRec = ContainerRequirementEngine.calculateBoth(totalCbm: totalCbm, totalWeightKg: totalGrossWt);
+    final containerRec = _isStackable ? dualRec.stackableResult : dualRec.nonStackableResult;
+
+    final buffer = StringBuffer();
+    if (isArabic) {
+      buffer.writeln('### تقرير دراسة قياسات وحسابات الشحن (Freight & CBM Study)');
+      buffer.writeln('---');
+      buffer.writeln('#### 1. ملخص القياسات والأوزان (Summary Metrics):');
+      buffer.writeln('* **إجمالي الطرود:** $totalPackagesCount طرد (${_quickItems.length} بنود)');
+      buffer.writeln('* **المساحة الأرضية المشغولة:** ${totalFloorAreaM2.toStringAsFixed(2)} م² (Floor Footprint)');
+      buffer.writeln('* **الحجم الفعلي الصافي:** ${totalCbm.toStringAsFixed(4)} م³ (Physical CBM)');
+      buffer.writeln('* **إجمالي الوزن القائم:** ${totalGrossWt.toStringAsFixed(1)} كجم (${(totalGrossWt / 1000.0).toStringAsFixed(3)} طن متري)');
+      buffer.writeln('* **قابلية الرص:** ${_isStackable ? "قابل للرص (Stackable)" : "غير قابل للرص أرضي فقط (Non-Stackable)"}');
+      buffer.writeln('');
+      buffer.writeln('#### 2. الحسابات المحاسبية حسب وسيلة الشحن:');
+      buffer.writeln('* **الشحن البحري LCL (طن الإيراد W/M):** ${totalRevenueTon.toStringAsFixed(3)} RT');
+      if (!_isStackable) {
+        buffer.writeln('* **الحجم المحاسبي البحري (Loss of Height @ 2.20m):** ${totalChargeableCbm.toStringAsFixed(3)} م³ (فرق فراغ رأسي: +${(totalChargeableCbm - totalCbm).toStringAsFixed(3)} م³)');
+      }
+      buffer.writeln('* **الشحن الجوي (Air Chargeable Weight):** ${airChargeableWt.toStringAsFixed(1)} كجم (الوزن الحجمي: ${totalVolumetricWt.toStringAsFixed(1)} كجم)');
+      buffer.writeln('* **الشحن البري (Loading Meters - LDM):** ${totalLdm.toStringAsFixed(2)} LDM (من أصل 13.6 LDM للتريلا القياسية)');
+      buffer.writeln('');
+      buffer.writeln('#### 3. التوصية التشغيلية للمعدات والحاويات:');
+      buffer.writeln('* **الوسيلة المقترحة:** ${dualRec.modeRecommendation.recommendedModeAr}');
+      buffer.writeln('* **المعدات والحاويات:** ${containerRec.recommendationSummary}');
+    } else {
+      buffer.writeln('### Freight & CBM Study Technical Report');
+      buffer.writeln('---');
+      buffer.writeln('#### 1. Cargo Summary Metrics:');
+      buffer.writeln('* **Total Packages:** $totalPackagesCount units (${_quickItems.length} line items)');
+      buffer.writeln('* **Floor Footprint:** ${totalFloorAreaM2.toStringAsFixed(2)} m²');
+      buffer.writeln('* **Physical Volume:** ${totalCbm.toStringAsFixed(4)} CBM');
+      buffer.writeln('* **Total Gross Weight:** ${totalGrossWt.toStringAsFixed(1)} kg (${(totalGrossWt / 1000.0).toStringAsFixed(3)} Metric Tons)');
+      buffer.writeln('* **Stackability:** ${_isStackable ? "Stackable" : "Non-Stackable (Floor only)"}');
+      buffer.writeln('');
+      buffer.writeln('#### 2. Freight Mode Chargeable Metrics:');
+      buffer.writeln('* **Ocean LCL Revenue Ton (W/M applied):** ${totalRevenueTon.toStringAsFixed(3)} RT');
+      if (!_isStackable) {
+        buffer.writeln('* **Ocean LCL Billed CBM (Loss of Height @ 2.20m):** ${totalChargeableCbm.toStringAsFixed(3)} CBM (+${(totalChargeableCbm - totalCbm).toStringAsFixed(3)} CBM lost clearance)');
+      }
+      buffer.writeln('* **Air Chargeable Weight:** ${airChargeableWt.toStringAsFixed(1)} kg (Volumetric Wt: ${totalVolumetricWt.toStringAsFixed(1)} kg)');
+      buffer.writeln('* **Road Freight (LDM):** ${totalLdm.toStringAsFixed(2)} LDM (out of 13.6m standard trailer)');
+      buffer.writeln('');
+      buffer.writeln('#### 3. Equipment & Container Allocation:');
+      buffer.writeln('* **Recommended Mode:** ${dualRec.modeRecommendation.recommendedMode}');
+      buffer.writeln('* **Container Spec:** ${containerRec.recommendationSummaryEn}');
+    }
+
+    CopyHelper.copy(context, buffer.toString()); (
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isArabic ? 'تم نسخ التقرير الفني للشحنة بنجاح' : 'Freight study summary copied to clipboard'),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
     );
   }
 }

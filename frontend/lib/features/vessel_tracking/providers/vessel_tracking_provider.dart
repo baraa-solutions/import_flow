@@ -102,5 +102,25 @@ class VesselTrackingRadarNotifier
     }
     return null;
   }
+
+  Future<ShipmentTrackingModel?> syncDemurrageClock({
+    required int importFileId,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.vesselTracking}/sync-demurrage/$importFileId',
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final updated = ShipmentTrackingModel.fromJson(
+            response.data as Map<String, dynamic>);
+        await fetchRadarOverview();
+        return updated;
+      }
+    } catch (_) {
+      rethrow;
+    }
+    return null;
+  }
 }
 
