@@ -3205,6 +3205,11 @@ abstract class AppLocalizations {
   String get cargoShippingNonStackable;
   String cargoShippingAutoRecommendation(int count, String code, String spaceUtil, String weightUtil);
   String get cargoShippingContainersHeader;
+  String cargoShippingBookingMatchRequired(int registered, int expected);
+  String get cargoShippingBookingLimitReached;
+  String cargoShippingBookingStatusBadge(String bookingCode, String summary);
+  String get cargoShippingBookingStatusMatch;
+  String get cargoShippingBookingStatusMismatch;
   String get cargoShippingAddContainerType;
   String get cargoShippingContainerType;
   String get cargoShippingQty;
@@ -10647,7 +10652,135 @@ abstract class AppLocalizations {
   String get fbkActionCancel;
   String get fbkPrintPdfTitle;
   String get fbkSavePdfBtn;
-  // === end review phase08_10 keys ===
+  
+  // === Master Items & Catalog Integration (MD-ITEM-001) ===
+  String get masterItemsCatalog;
+  String get masterItemsCatalogSubtitle;
+  String get itemPriceTrendsRadar;
+  String get itemPriceTrendsSubtitle;
+  String get masterItemSearchHint;
+  String get masterItemSelectPlaceholder;
+  String get masterItemNoResults;
+  String get masterItemAutoFilled;
+  String get masterItemHsCode;
+  String get masterItemDefaultUom;
+  String get masterItemCbm;
+  String get masterItemGrossWeight;
+  String get masterItemNetWeight;
+  String get masterItemLinked;
+  String get masterItemCustomManual;
+  String get poLineItemDialogTitleAdd;
+  String get poLineItemDialogTitleEdit;
+  String get poAddFromCatalog;
+  String get poEditLineItemWithCatalog;
+  String get poLineItemCatalogAutoFillHint;
+
+    // ── Operational Pillars Advanced Widgets ───────────────────────────────────
+  String get cargoXPreAcidHeader;
+  String get cargoXPreAcidSubtitle;
+  String get cargoXPlatformIdLabel;
+  String get cargoXExporterStatusLabel;
+  String get cargoXStatusVerified;
+  String get cargoXStatusPending;
+  String get cargoXStatusNotRegistered;
+  String get cargoXChecklistBlockchainActive;
+  String get cargoXChecklistAccountAuthorized;
+  String get cargoXChecklistEnvelopeReady;
+  String get cargoXVerifyAccountBtn;
+  String get cargoXCopyIdTooltip;
+  String get cargoXIdCopiedSuccess;
+  String get cargoXUnverifiedWarning;
+
+  String get shelfLifeEosHeader;
+  String get shelfLifeEosSubtitle;
+  String get shelfLifeSubjectCheckbox;
+  String get shelfLifeEosSpecLabel;
+  String get shelfLifeProductionDateLabel;
+  String get shelfLifeExpiryDateLabel;
+  String get shelfLifeBatchNumberLabel;
+  String get shelfLifeRemainingRatioLabel;
+  String get shelfLifeCompliantBadge;
+  String get shelfLifeCriticalWarningBadge;
+  String get shelfLifeArabicLabelCheckbox;
+  String get shelfLifeEosCertStatusLabel;
+  String get shelfLifeCopyBatchTooltip;
+  String get shelfLifeBatchCopiedSuccess;
+  String get shelfLifeEtaArrivalHint;
+
+  String get testingLabsTrackHeader;
+  String get testingLabsTrackSubtitle;
+  String get testingLabAssignedLabel;
+  String get testingLabSamplingRecordLabel;
+  String get testingLabSamplingDateLabel;
+  String get testingLabSamplesCountLabel;
+  String get testingLabFeesLabel;
+  String get testingLabResultStatusLabel;
+  String get testingLabResultConforming;
+  String get testingLabResultPending;
+  String get testingLabResultNonConforming;
+  String get testingLabUnderBondReleaseCheck;
+  String get testingLabCertificateNoLabel;
+  String get testingLabCopyRecordTooltip;
+  String get testingLabRecordCopiedSuccess;
+
+  String get hazardousMaterialsHeader;
+  String get hazardousMaterialsSubtitle;
+  String get hazardousSubjectCheckbox;
+  String get hazardousUnNumberLabel;
+  String get hazardousImdgClassLabel;
+  String get hazardousPackingGroupLabel;
+  String get hazardousFlashPointLabel;
+  String get hazardousMsdsStatusLabel;
+  String get hazardousCivilProtectionLabel;
+  String get hazardousPortHandlingLabel;
+  String get hazardousHandlingDirectDischarge;
+  String get hazardousHandlingHazardousYard;
+  String get hazardousEmergencyPhoneLabel;
+  String get hazardousCopyUnTooltip;
+  String get hazardousUnCopiedSuccess;
+  String get hazardousHighRiskWarning;
+
+  // ── Session 4: Governance & Enterprise Registry ────────────────────────────
+  String get makerCheckerDialogTitle;
+  String get makerCheckerDialogSubtitle;
+  String get makerSectionTitle;
+  String get makerAssessedByLabel;
+  String get makerRiskLevelLabel;
+  String get makerOverallStatusLabel;
+  String get makerDateLabel;
+  String get checkerSectionTitle;
+  String get checkerReviewerNameLabel;
+  String get checkerDecisionLabel;
+  String get checkerDecisionApprove;
+  String get checkerDecisionOverride;
+  String get checkerDecisionReject;
+  String get checkerNotesLabel;
+  String get checkerNotesHint;
+  String get checkerOverrideReasonLabel;
+  String get checkerOverrideReasonHint;
+  String get checkerApproveBtn;
+  String get checkerCancelBtn;
+  String get checkerStatusApprovedBadge;
+  String get checkerStatusPendingBadge;
+  String get checkerStatusOverriddenBadge;
+  String get checkerSuccessSnack;
+  String get checkerErrorSnack;
+
+  // Enterprise Table Columns
+  String get colAssessmentCode;
+  String get colHsCodeAndCommodity;
+  String get colShipmentValue;
+  String get colCompliancePillars;
+  String get colRiskLevel;
+  String get colStatus;
+  String get colGovernance;
+  String get colActions;
+  String get copyAssessmentCodeTooltip;
+  String get copyAcidNumberTooltip;
+  String get governanceActionTooltip;
+  String get advancedOperationalPillarsAccordionTitle;
+
+// === end review phase08_10 keys ===
 }
 
 

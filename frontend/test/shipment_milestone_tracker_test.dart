@@ -112,5 +112,54 @@ void main() {
       expect(find.text('P4'), findsOneWidget);
       expect(find.text('Shipment Booking'), findsOneWidget);
     });
+
+    testWidgets('Mini Quick-Facts Bar displays volume, gross weight, and carrier correctly', (tester) async {
+      final file = createMockImportFile();
+
+      await tester.pumpWidget(createTestWidget(importFile: file, locale: const Locale('ar')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('66.39 m³'), findsOneWidget);
+      expect(find.textContaining('10,510 كجم'), findsOneWidget);
+      expect(find.text('Wan Hai'), findsOneWidget);
+    });
+
+    testWidgets('Knowledge Gate alert displays for acoustic cargo and can be acknowledged', (tester) async {
+      final file = createMockImportFile(
+        customFileNumber: 'PET Acoustic Panels Stock',
+      );
+
+      bool acknowledged = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ar'),
+          home: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: Scaffold(
+              body: ShipmentMilestoneTracker(
+                importFile: file,
+                onKnowledgeGateAcknowledged: () {
+                  acknowledged = true;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('بوابة المعرفة والإنذار التشغيلي (Knowledge Gate)'), findsOneWidget);
+      expect(find.textContaining('ميناء الوصول يجب أن يكون الإسكندرية حصراً'), findsOneWidget);
+      expect(find.textContaining('شهادة المنشأ'), findsWidgets);
+
+      // Tap acknowledge button
+      final ackBtn = find.text('إقرار واطلاع قبل المتابعة (Acknowledge)');
+      expect(ackBtn, findsOneWidget);
+      await tester.tap(ackBtn);
+      await tester.pumpAndSettle();
+
+      expect(acknowledged, isTrue);
+      expect(find.textContaining('تم الإقرار والالتزام باشتراطات ميناء الإسكندرية وشهادة المنشأ'), findsOneWidget);
+    });
   });
 }

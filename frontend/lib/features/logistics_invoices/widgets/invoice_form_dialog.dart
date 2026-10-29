@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import '../models/logistics_invoice_models.dart';
 import '../providers/logistics_invoices_provider.dart';
 import '../repositories/logistics_invoices_repository.dart';
@@ -140,13 +140,21 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('CBE Exchange Rate updated: $rate EGP')),
+          AppTheme.snackBar(
+            context,
+            'CBE Exchange Rate updated: $rate EGP',
+            severity: AppSeverity.info,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to fetch CBE rate: $e'), backgroundColor: Colors.red),
+          AppTheme.snackBar(
+            context,
+            'Failed to fetch CBE rate: $e',
+            severity: AppSeverity.danger,
+          ),
         );
       }
     }
@@ -225,8 +233,15 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
   Future<void> _saveInvoice() async {
     if (!_formKey.currentState!.validate()) return;
     if (_lines.isEmpty) {
+      final isArabic = Localizations.localeOf(context).languageCode == 'ar';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invoice must contain at least one line item!'), backgroundColor: Colors.red),
+        AppTheme.snackBar(
+          context,
+          isArabic
+              ? 'يجب أن تحتوي الفاتورة على بند واحد على الأقل!'
+              : 'Invoice must contain at least one line item!',
+          severity: AppSeverity.danger,
+        ),
       );
       return;
     }
@@ -264,15 +279,26 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
 
       ref.invalidate(logisticsInvoicesListProvider);
       if (mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invoice saved successfully!'), backgroundColor: Colors.green),
+          AppTheme.snackBar(
+            context,
+            isArabic
+                ? 'تم حفظ الفاتورة بنجاح!'
+                : 'Invoice saved successfully!',
+            severity: AppSeverity.success,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save invoice: $e'), backgroundColor: Colors.red),
+          AppTheme.snackBar(
+            context,
+            'Failed to save invoice: $e',
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {
@@ -303,7 +329,8 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 1050,
         height: 750,
         padding: const EdgeInsets.all(20),
@@ -543,11 +570,7 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                               if (_isPrefilling)
                                 const Padding(
                                   padding: EdgeInsets.symmetric(horizontal: 8),
-                                  child: SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  ),
+                                  child: AppLoadingState.inline(),
                                 ),
                               TextButton.icon(
                                 icon: const Icon(Icons.refresh, size: 14),
@@ -599,6 +622,7 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -838,9 +862,9 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
           ),
         ],
       ),
-    ),
-  );
-}
+      ),
+    );
+  }
 
   Widget _summaryRow(String label, String value, {bool isBold = false, Color? color}) {
     return Padding(

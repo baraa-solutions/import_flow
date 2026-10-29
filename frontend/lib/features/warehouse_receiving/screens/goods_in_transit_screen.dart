@@ -55,53 +55,72 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
 
     final chosen = await showDialog<bool>(
       context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(l.wrPickFileForBookingTitle),
-          content: SizedBox(
-            width: 450,
-            child: Form(
-              key: formKey,
-              child: SearchableDropdownField<int>(
-                key: const Key('gitPickFileForInlandField'),
-                value: selectedFileId,
-                labelText: l.settlementPickFileField,
-                items: eligibleFiles.map((f) {
-                  final label = f.companyName.isNotEmpty
-                      ? '${f.primaryNameWithCode} - ${f.companyName}'
-                      : f.primaryNameWithCode;
-                  return SearchableDropdownItem<int>(
-                    value: f.importFileId,
-                    label: label,
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  setDialogState(() {
-                    selectedFileId = val;
-                  });
-                },
-                validator: (v) =>
-                    v == null ? l.financialSettlementImportFileValidator : null,
+      builder: (dialogCtx) => SelectionArea(
+        child: StatefulBuilder(
+          builder: (context, setDialogState) => Dialog(
+            backgroundColor: AppTheme.isDark(context) ? AppTheme.darkCardBackground : AppTheme.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 450),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.wrPickFileForBookingTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    Form(
+                      key: formKey,
+                      child: SearchableDropdownField<int>(
+                        key: const Key('gitPickFileForInlandField'),
+                        value: selectedFileId,
+                        labelText: l.settlementPickFileField,
+                        items: eligibleFiles.map((f) {
+                          final label = f.companyName.isNotEmpty
+                              ? '${f.primaryNameWithCode} - ${f.companyName}'
+                              : f.primaryNameWithCode;
+                          return SearchableDropdownItem<int>(
+                            value: f.importFileId,
+                            label: label,
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setDialogState(() {
+                            selectedFileId = val;
+                          });
+                        },
+                        validator: (v) =>
+                            v == null ? l.financialSettlementImportFileValidator : null,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        AppButton(
+                          label: l.cancel,
+                          variant: AppButtonVariant.secondary,
+                          onPressed: () => Navigator.of(dialogCtx).pop(false),
+                        ),
+                        const SizedBox(width: 8),
+                        AppButton(
+                          key: const Key('gitPickFileForInlandContinueBtn'),
+                          label: l.settlementPickFileContinue,
+                          variant: AppButtonVariant.primary,
+                          onPressed: () {
+                            if (formKey.currentState?.validate() ?? false) {
+                              Navigator.of(dialogCtx).pop(true);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          actions: [
-            AppButton(
-              label: l.cancel,
-              variant: AppButtonVariant.secondary,
-              onPressed: () => Navigator.of(dialogCtx).pop(false),
-            ),
-            AppButton(
-              key: const Key('gitPickFileForInlandContinueBtn'),
-              label: l.settlementPickFileContinue,
-              variant: AppButtonVariant.primary,
-              onPressed: () {
-                if (formKey.currentState?.validate() ?? false) {
-                  Navigator.of(dialogCtx).pop(true);
-                }
-              },
-            ),
-          ],
         ),
       ),
     );

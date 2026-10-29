@@ -1,10 +1,10 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/domain_enum_labels.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -240,7 +240,7 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
 
   void _toast(String text, Color color) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text), backgroundColor: color));
+    ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, text));
   }
 
   Future<void> _submitBooking() async {

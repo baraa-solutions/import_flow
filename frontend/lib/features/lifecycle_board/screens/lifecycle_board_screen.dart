@@ -4,11 +4,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/app_shimmer_skeleton.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/critical_alert_banner.dart';
-import '../../../core/widgets/page_header.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../demurrage_detention/screens/demurrage_detention_screen.dart';
 import '../../import_documentation/screens/central_docs_archive_screen.dart';
 import '../../import_documentation/screens/customs_declaration46_screen.dart';
@@ -24,7 +20,7 @@ import '../services/lifecycle_board_export_service.dart';
 import '../widgets/step_action_dialog.dart';
 import '../widgets/shipment_timeline_dossier_dialog.dart';
 
-import 'package:frontend/core/widgets/ltr_text.dart';
+
 class LifecycleBoardScreen extends ConsumerStatefulWidget {
   const LifecycleBoardScreen({super.key});
 
@@ -141,10 +137,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     child: SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white70,
-                      ),
+                      child: AppLoadingState.inline(),
                     ),
                   )
                 : ref.watch(refreshCountdownProvider).when(
@@ -787,447 +780,420 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
   Widget _buildRadarDataTable(List<LiveLogisticsTrackingItemModel> items, AppLocalizations l10n, List<ImportFileModel> allImportFiles) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Scrollbar(
-          controller: _radarVerticalScrollController,
-          thumbVisibility: true,
-          child: SingleChildScrollView(
-            controller: _radarVerticalScrollController,
-            scrollDirection: Axis.vertical,
-            child: SingleChildScrollView(
-              controller: _radarHorizontalScrollController,
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: DataTable(
-                    headingRowHeight: 38,
-                    dataRowMinHeight: 48,
-                    dataRowMaxHeight: 56,
-                    headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal.withValues(alpha: 0.04)),
-                    columnSpacing: 16,
-                    horizontalMargin: 12,
-                    columns: [
-                      DataColumn(label: Text(l10n.operationalTsvHeaderShipmentName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colVesselAndBl, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colEtaCountdown, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colDemurrageRisk, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colSampleTesting, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colDocReadiness, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colQuickActions, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+    final isAr = Directionality.of(context) == TextDirection.rtl;
+
+    return EnterpriseDataTable<LiveLogisticsTrackingItemModel>(
+      storageKey: 'lifecycle_board_radar_table',
+      data: items,
+      rowHeight: 64,
+      onRowTap: (item) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ImportFilesScreen(
+              initialSearchQuery: item.importFileCode,
+              highlightedFileId: item.importFileId,
+            ),
+          ),
+        );
+      },
+      columns: [
+        EnterpriseColumn<LiveLogisticsTrackingItemModel>(
+          id: 'shipmentName',
+          title: l10n.operationalTsvHeaderShipmentName,
+          width: 250,
+          exportValue: (item) => DisplayNameResolver.resolveShipmentTitleByCode(item.importFileCode, shipments: allImportFiles, isArabic: isAr, includeCodeSecondary: true),
+          searchValue: (item) => '${item.importFileCode} ${item.companyName} ${item.supplierName}',
+          cellBuilder: (context, item, index) {
+            final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(item.importFileCode, shipments: allImportFiles, isArabic: isAr);
+            final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(item.importFileCode, shipments: allImportFiles, isArabic: isAr, includeCodeSecondary: true);
+            final demurrageSummary = item.accumulatedDemurrageFx > 0
+                ? l10n.demurrageFeesFormatted(item.accumulatedDemurrageFx.toStringAsFixed(0), item.accumulatedDemurrageEgp.toStringAsFixed(0))
+                : (item.freeDaysTotal != null ? l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal) : '-');
+            final rowSummary = '$shipmentTitle | ${item.companyName} -> ${item.supplierName} | ${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"}) | ${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${l10n.colEtaPrefix}: ${item.eta ?? "-"} | $demurrageSummary | ${item.sampleTestStatus} | ${item.docReadinessPercent.toStringAsFixed(0)}%';
+
+            return CopyableTableCell(
+              value: shipmentTitle,
+              rowSummary: rowSummary,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    shipmentName,
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      InkWell(
+                        onTap: () => CopyHelper.copy(context, item.importFileCode),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppTheme.darkBorder : AppTheme.charcoal,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              LtrText(
+                                item.importFileCode,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
+                              ),
+                              const SizedBox(width: 3),
+                              const Icon(Icons.copy, size: 9, color: Colors.white70),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.open_in_new, size: 11, color: AppTheme.cobalt),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${item.shipmentMode} | ${item.incotermCode}',
+                        style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
+                      ),
                     ],
-                    rows: items.map((item) {
-                      Color riskColor = AppTheme.emerald;
-                      if (item.demurrageRiskLevel == 'Critical') {
-                        riskColor = AppTheme.crimson;
-                      } else if (item.demurrageRiskLevel == 'High' || item.demurrageRiskLevel == 'Medium') {
-                        riskColor = AppTheme.orange;
-                      } else if (item.demurrageRiskLevel == 'Unknown') {
-                        riskColor = isDark ? AppTheme.darkTextSecondary : AppTheme.textCaption;
-                      }
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${item.companyName} → ${item.supplierName}',
+                    style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        EnterpriseColumn<LiveLogisticsTrackingItemModel>(
+          id: 'vesselAndBl',
+          title: l10n.colVesselAndBl,
+          width: 200,
+          exportValue: (item) => '${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"}) - ${item.blNumber ?? l10n.colCarrierUnderPrep}',
+          searchValue: (item) => '${item.carrierName} ${item.vesselName} ${item.blNumber}',
+          cellBuilder: (context, item, index) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.directions_boat_outlined, size: 12, color: AppTheme.cobalt),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"})',
+                      style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${item.polName ?? "-"} → ${item.podName ?? "-"}',
+                  style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
+                ),
+              ],
+            );
+          },
+        ),
+        EnterpriseColumn<LiveLogisticsTrackingItemModel>(
+          id: 'etaCountdown',
+          title: l10n.colEtaCountdown,
+          width: 160,
+          exportValue: (item) => '${l10n.colEtaPrefix}: ${item.eta ?? "-"} (${item.arrivalStatus})',
+          cellBuilder: (context, item, index) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (item.etaCountdownDays != null && item.etaCountdownDays! > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.sailing, size: 11, color: AppTheme.cobalt),
+                        const SizedBox(width: 4),
+                        Text(
+                          l10n.daysRemainingToEta(item.etaCountdownDays),
+                          style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (item.etaCountdownDays != null && item.etaCountdownDays! <= 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8E44AD).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: const Color(0xFF8E44AD).withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.anchor, size: 11, color: Color(0xFF8E44AD)),
+                        const SizedBox(width: 4),
+                        Text(
+                          l10n.daysInPort(item.etaCountdownDays!.abs()),
+                          style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Color(0xFF8E44AD)),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Text(item.arrivalStatus, style: TextStyle(fontSize: 11.0, color: Colors.grey.shade700)),
+                const SizedBox(height: 2),
+                Text(
+                  '${l10n.colEtaPrefix}: ${item.eta ?? "-"}',
+                  style: TextStyle(fontSize: 11.0, color: Colors.grey.shade500),
+                ),
+              ],
+            );
+          },
+        ),
+        EnterpriseColumn<LiveLogisticsTrackingItemModel>(
+          id: 'demurrageRisk',
+          title: l10n.colDemurrageRisk,
+          width: 170,
+          exportValue: (item) => item.accumulatedDemurrageFx > 0
+              ? l10n.demurrageFeesFormatted(item.accumulatedDemurrageFx.toStringAsFixed(0), item.accumulatedDemurrageEgp.toStringAsFixed(0))
+              : (item.freeDaysTotal != null ? l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal) : '-'),
+          cellBuilder: (context, item, index) {
+            Color riskColor = AppTheme.emerald;
+            if (item.demurrageRiskLevel == 'Critical') {
+              riskColor = AppTheme.crimson;
+            } else if (item.demurrageRiskLevel == 'High' || item.demurrageRiskLevel == 'Medium') {
+              riskColor = AppTheme.orange;
+            } else if (item.demurrageRiskLevel == 'Unknown') {
+              riskColor = isDark ? AppTheme.darkTextSecondary : AppTheme.textCaption;
+            }
 
-                      Color sampleColor = isDark ? AppTheme.darkTextSecondary : AppTheme.textCaption;
-                      if (item.sampleTestStatus == 'Under Testing') {
-                        sampleColor = AppTheme.orange;
-                      } else if (item.sampleTestStatus == 'Approved') {
-                        sampleColor = AppTheme.emerald;
-                      } else if (item.sampleTestStatus == 'Rejected') {
-                        sampleColor = AppTheme.crimson;
-                      }
-
-                      Color docColor = AppTheme.emerald;
-                      if (item.docReadinessPercent < 50.0) {
-                        docColor = AppTheme.crimson;
-                      } else if (item.docReadinessPercent < 80.0) {
-                        docColor = AppTheme.orange;
-                      }
-
-                      final isAr = Directionality.of(context) == TextDirection.rtl;
-                      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(item.importFileCode, shipments: allImportFiles, isArabic: isAr);
-                      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(item.importFileCode, shipments: allImportFiles, isArabic: isAr, includeCodeSecondary: true);
-
-                      final demurrageSummary = item.accumulatedDemurrageFx > 0
-                          ? l10n.demurrageIncurredBadge
-                          : (item.freeDaysRemaining != null ? l10n.freeDaysRemainingBadge(item.freeDaysRemaining) : '-');
-                      final rowSummary = '$shipmentTitle | ${item.companyName} -> ${item.supplierName} | ${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"}) | ${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${l10n.colEtaPrefix}: ${item.eta ?? "-"} | $demurrageSummary | ${item.sampleTestStatus} | ${item.docReadinessPercent.toStringAsFixed(0)}%';
-
-                      return DataRow(
-                        // CL-005: الضغط على الصف ينتقل لشاشة ملف الاستيراد المقابل
-                        onSelectChanged: (selected) {
-                          if (selected == true) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ImportFilesScreen(
-                                  initialSearchQuery: item.importFileCode,
-                                  highlightedFileId: item.importFileId,
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                        cells: [
-                          // 1. Shipment Name & Code & Importer / Supplier — مع أيقونة التنقل
-                          DataCell(
-                            CopyableTableCell(
-                              value: shipmentTitle,
-                              rowSummary: rowSummary,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    shipmentName,
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      InkWell(
-                                        onTap: () => CopyHelper.copy(context, item.importFileCode),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                          decoration: BoxDecoration(
-                                            color: isDark ? AppTheme.darkBorder : AppTheme.charcoal,
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              LtrText(
-                                                item.importFileCode,
-                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
-                                              ),
-                                              const SizedBox(width: 3),
-                                              const Icon(Icons.copy, size: 9, color: Colors.white70),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      // CL-005: أيقونة التنقل للتفاصيل
-                                      const Icon(Icons.open_in_new, size: 11, color: AppTheme.cobalt),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${item.shipmentMode} | ${item.incotermCode}',
-                                        style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${item.companyName} → ${item.supplierName}',
-                                    style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal, fontWeight: FontWeight.w500),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // 2. Vessel, Carrier & B/L
-                          DataCell(
-                            CopyableTableCell(
-                              value: '${item.carrierName ?? l10n.colCarrierUnderPrep} - ${item.blNumber ?? l10n.colCarrierUnderPrep}',
-                              rowSummary: rowSummary,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.directions_boat_outlined, size: 12, color: AppTheme.cobalt),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"})',
-                                        style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${item.polName ?? "-"} → ${item.podName ?? "-"}',
-                                    style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // 3. ETA Countdown & Port Status
-                          DataCell(
-                            CopyableTableCell(
-                              value: '${l10n.colEtaPrefix}: ${item.eta ?? "-"} (${item.arrivalStatus})',
-                              rowSummary: rowSummary,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  if (item.etaCountdownDays != null && item.etaCountdownDays! > 0)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.sailing, size: 11, color: AppTheme.cobalt),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            l10n.daysRemainingToEta(item.etaCountdownDays),
-                                            style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  else if (item.etaCountdownDays != null && item.etaCountdownDays! <= 0)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF8E44AD).withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: const Color(0xFF8E44AD).withValues(alpha: 0.3)),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.anchor, size: 11, color: Color(0xFF8E44AD)),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            l10n.daysInPort(item.etaCountdownDays!.abs()),
-                                            style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Color(0xFF8E44AD)),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  else
-                                    Text(item.arrivalStatus, style: TextStyle(fontSize: 11.0, color: Colors.grey.shade700)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${l10n.colEtaPrefix}: ${item.eta ?? "-"}',
-                                    style: TextStyle(fontSize: 11.0, color: Colors.grey.shade500),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // 4. Demurrage & Free Time Radar
-                          DataCell(
-                            CopyableTableCell(
-                              value: item.accumulatedDemurrageFx > 0
-                                  ? l10n.demurrageFeesFormatted(item.accumulatedDemurrageFx.toStringAsFixed(0), item.accumulatedDemurrageEgp.toStringAsFixed(0))
-                                  : (item.freeDaysTotal != null ? l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal) : '-'),
-                              rowSummary: rowSummary,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: riskColor.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(color: riskColor.withValues(alpha: 0.4)),
-                                        ),
-                                        child: Text(
-                                          item.accumulatedDemurrageFx > 0
-                                              ? l10n.demurrageIncurredBadge
-                                              : (item.freeDaysRemaining != null ? l10n.freeDaysRemainingBadge(item.freeDaysRemaining) : '-'),
-                                          style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: riskColor),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        item.demurrageRiskLevel == 'Critical'
-                                            ? Icons.error
-                                            : (item.demurrageRiskLevel == 'Low'
-                                                ? Icons.check_circle
-                                                : (item.demurrageRiskLevel == 'Unknown' ? Icons.help_outline : Icons.warning_amber)),
-                                        size: 13,
-                                        color: riskColor,
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    item.accumulatedDemurrageFx > 0
-                                        ? l10n.demurrageFeesFormatted(item.accumulatedDemurrageFx.toStringAsFixed(0), item.accumulatedDemurrageEgp.toStringAsFixed(0))
-                                        : (item.freeDaysTotal != null ? l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal) : '-'),
-                                    style: TextStyle(
-                                      fontSize: 11.0,
-                                      fontWeight: item.accumulatedDemurrageFx > 0 ? FontWeight.bold : FontWeight.normal,
-                                      color: item.accumulatedDemurrageFx > 0 ? AppTheme.crimson : Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // 5. Regulatory Testing & Samples
-                          DataCell(
-                            CopyableTableCell(
-                              value: item.sampleTestStatus,
-                              rowSummary: rowSummary,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: sampleColor.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: sampleColor.withValues(alpha: 0.3)),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.biotech, size: 11, color: sampleColor),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          item.sampleTestStatus,
-                                          style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: sampleColor),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    item.labReceiptNumber != null ? '${item.regulatoryAgency ?? "GOEIC"} | ${item.labReceiptNumber}' : (item.regulatoryAgency ?? "-"),
-                                    style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // 6. Document Readiness & Completeness %
-                          DataCell(
-                            CopyableTableCell(
-                              value: '${item.docReadinessPercent.toStringAsFixed(0)}%',
-                              rowSummary: rowSummary,
-                              child: Tooltip(
-                                message: item.missingDocuments.isEmpty
-                                    ? l10n.allDocsCompleted
-                                    : '${l10n.missingDocsTooltip}${item.missingDocuments.join(", ")}',
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          '${item.docReadinessPercent.toStringAsFixed(0)}%',
-                                          style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: docColor),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '(${item.verifiedDocumentsCount}/${item.totalRequiredDocuments})',
-                                          style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 3),
-                                    SizedBox(
-                                      width: 80,
-                                      height: 5,
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(3),
-                                        child: LinearProgressIndicator(
-                                          value: item.docReadinessPercent / 100.0,
-                                          backgroundColor: Colors.grey.shade200,
-                                          valueColor: AlwaysStoppedAnimation<Color>(docColor),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // 7. Quick Action Launchers
-                          DataCell(
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.timer_outlined, size: 16, color: AppTheme.cobalt),
-                                  tooltip: l10n.btnDemurrageSimulator,
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (ctx) => const DemurrageDetentionScreen()),
-                                    );
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.science_outlined, size: 16, color: AppTheme.orange),
-                                  tooltip: l10n.btnRegulatorySamples,
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (ctx) => const ImportRequirementsScreen()),
-                                    );
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.fact_check_outlined, size: 16, color: Color(0xFF8E44AD)),
-                                  tooltip: l10n.btnCustoms46,
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (ctx) => const CustomsDeclaration46Screen()),
-                                    );
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.folder_shared_outlined, size: 16, color: AppTheme.charcoal),
-                                  tooltip: l10n.btnCentralArchive,
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (ctx) => const CentralDocsArchiveScreen()),
-                                    );
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.timeline_rounded, size: 16, color: AppTheme.cobalt),
-                                  tooltip: isAr ? 'سجل المسار الزمني (25 مرحلة)' : 'Master Timeline Dossier (25 Stages)',
-                                  onPressed: () {
-                                    ShipmentTimelineDossierDialog.show(
-                                      context,
-                                      importFileId: item.importFileId,
-                                      importFileCode: item.importFileCode,
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: riskColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: riskColor.withValues(alpha: 0.4)),
+                      ),
+                      child: Text(
+                        item.accumulatedDemurrageFx > 0
+                            ? l10n.demurrageIncurredBadge
+                            : (item.freeDaysRemaining != null ? l10n.freeDaysRemainingBadge(item.freeDaysRemaining) : '-'),
+                        style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: riskColor),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      item.demurrageRiskLevel == 'Critical'
+                          ? Icons.error
+                          : (item.demurrageRiskLevel == 'Low'
+                              ? Icons.check_circle
+                              : (item.demurrageRiskLevel == 'Unknown' ? Icons.help_outline : Icons.warning_amber)),
+                      size: 13,
+                      color: riskColor,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.accumulatedDemurrageFx > 0
+                      ? l10n.demurrageFeesFormatted(item.accumulatedDemurrageFx.toStringAsFixed(0), item.accumulatedDemurrageEgp.toStringAsFixed(0))
+                      : (item.freeDaysTotal != null ? l10n.freeDaysConsumed(item.usedFreeDays, item.freeDaysTotal) : '-'),
+                  style: TextStyle(
+                    fontSize: 11.0,
+                    fontWeight: item.accumulatedDemurrageFx > 0 ? FontWeight.bold : FontWeight.normal,
+                    color: item.accumulatedDemurrageFx > 0 ? AppTheme.crimson : Colors.grey.shade600,
                   ),
                 ),
+              ],
+            );
+          },
+        ),
+        EnterpriseColumn<LiveLogisticsTrackingItemModel>(
+          id: 'sampleTesting',
+          title: l10n.colSampleTesting,
+          width: 150,
+          exportValue: (item) => item.sampleTestStatus,
+          cellBuilder: (context, item, index) {
+            Color sampleColor = isDark ? AppTheme.darkTextSecondary : AppTheme.textCaption;
+            if (item.sampleTestStatus == 'Under Testing') {
+              sampleColor = AppTheme.orange;
+            } else if (item.sampleTestStatus == 'Approved') {
+              sampleColor = AppTheme.emerald;
+            } else if (item.sampleTestStatus == 'Rejected') {
+              sampleColor = AppTheme.crimson;
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: sampleColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: sampleColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.biotech, size: 11, color: sampleColor),
+                      const SizedBox(width: 3),
+                      Text(
+                        item.sampleTestStatus,
+                        style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: sampleColor),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.labReceiptNumber != null ? '${item.regulatoryAgency ?? "GOEIC"} | ${item.labReceiptNumber}' : (item.regulatoryAgency ?? "-"),
+                  style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            );
+          },
+        ),
+        EnterpriseColumn<LiveLogisticsTrackingItemModel>(
+          id: 'docReadiness',
+          title: l10n.colDocReadiness,
+          width: 140,
+          exportValue: (item) => '${item.docReadinessPercent.toStringAsFixed(0)}%',
+          cellBuilder: (context, item, index) {
+            Color docColor = AppTheme.emerald;
+            if (item.docReadinessPercent < 50.0) {
+              docColor = AppTheme.crimson;
+            } else if (item.docReadinessPercent < 80.0) {
+              docColor = AppTheme.orange;
+            }
+
+            return Tooltip(
+              message: item.missingDocuments.isEmpty
+                  ? l10n.allDocsCompleted
+                  : '${l10n.missingDocsTooltip}${item.missingDocuments.join(", ")}',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '${item.docReadinessPercent.toStringAsFixed(0)}%',
+                        style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: docColor),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '(${item.verifiedDocumentsCount}/${item.totalRequiredDocuments})',
+                        style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  SizedBox(
+                    width: 80,
+                    height: 5,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: item.docReadinessPercent / 100.0,
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: AlwaysStoppedAnimation<Color>(docColor),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          );
-        },
-      );
-    }
+            );
+          },
+        ),
+        EnterpriseColumn<LiveLogisticsTrackingItemModel>(
+          id: 'quickActions',
+          title: l10n.colQuickActions,
+          width: 180,
+          isSortable: false,
+          isSearchable: false,
+          cellBuilder: (context, item, index) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.timer_outlined, size: 16, color: AppTheme.cobalt),
+                  tooltip: l10n.btnDemurrageSimulator,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (ctx) => const DemurrageDetentionScreen()),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.science_outlined, size: 16, color: AppTheme.orange),
+                  tooltip: l10n.btnRegulatorySamples,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (ctx) => const ImportRequirementsScreen()),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.fact_check_outlined, size: 16, color: Color(0xFF8E44AD)),
+                  tooltip: l10n.btnCustoms46,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (ctx) => const CustomsDeclaration46Screen()),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.folder_shared_outlined, size: 16, color: AppTheme.charcoal),
+                  tooltip: l10n.btnCentralArchive,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (ctx) => const CentralDocsArchiveScreen()),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.timeline_rounded, size: 16, color: AppTheme.cobalt),
+                  tooltip: isAr ? 'سجل المسار الزمني (25 مرحلة)' : 'Master Timeline Dossier (25 Stages)',
+                  onPressed: () {
+                    ShipmentTimelineDossierDialog.show(
+                      context,
+                      importFileId: item.importFileId,
+                      importFileCode: item.importFileCode,
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
 
   // --- Phase Top Card (Compact Upper 1/3) ------------------------------------
 
@@ -1569,307 +1535,284 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   Widget _buildShipmentsTable(List<ShipmentStageCardModel> shipments, List<PhaseSummaryModel> phases, List<ImportFileModel> allImportFiles) {
     final l10n = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Scrollbar(
-          controller: _verticalScrollController,
-          thumbVisibility: true,
-          child: SingleChildScrollView(
-            controller: _verticalScrollController,
-            scrollDirection: Axis.vertical,
-            child: SingleChildScrollView(
-              controller: _horizontalScrollController,
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: DataTable(
-                    headingRowHeight: 34,
-                    dataRowMinHeight: 44,
-                    dataRowMaxHeight: 52,
-                    headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.charcoal.withValues(alpha: 0.04)),
-                    columnSpacing: 14,
-                    horizontalMargin: 10,
-                    columns: [
-                      DataColumn(label: Text(l10n.operationalTsvHeaderShipmentName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colPreviousStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colCurrentStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colNextStep, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colImportCompany, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colForeignSupplier, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colPurchaseOrder, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colModeAndIncoterm, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colEstimatedValue, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colNotesAndActivities, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      DataColumn(label: Text(l10n.colActionsAndAdvance, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
+    return EnterpriseDataTable<ShipmentStageCardModel>(
+      storageKey: 'lifecycle_board_shipments_table',
+      data: shipments,
+      rowHeight: 60,
+      columns: [
+        EnterpriseColumn<ShipmentStageCardModel>(
+          id: 'shipmentName',
+          title: l10n.operationalTsvHeaderShipmentName,
+          width: 240,
+          exportValue: (s) => DisplayNameResolver.resolveShipmentTitleByCode(s.importFileCode, shipments: allImportFiles, isArabic: isAr, includeCodeSecondary: true),
+          searchValue: (s) => '${s.importFileCode} ${s.companyName} ${s.supplierName}',
+          cellBuilder: (context, s, index) {
+            final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(s.importFileCode, shipments: allImportFiles, isArabic: isAr);
+            final isOnHold = s.status == 'On-Hold';
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  shipmentName,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () => CopyHelper.copy(context, s.importFileCode),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.darkBorder : AppTheme.charcoal,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            LtrText(
+                              s.importFileCode,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.copy_rounded, size: 9, color: Colors.white70),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (isOnHold) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppTheme.crimson,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          l10n.onHoldStatusTag,
+                          style: const TextStyle(color: Colors.white, fontSize: 11.0, fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     ],
-                    rows: shipments.map((s) {
-                      final phaseStr = _stepPhases[s.stepCode] ?? '1';
-                      final phaseId = int.tryParse(phaseStr) ?? 1;
-                      final p = phases.firstWhere((ph) => ph.phaseId == phaseId, orElse: () => phases[0]);
-                      final stepColor = _parseColor(p.colorHex);
-                      final isOnHold = s.status == 'On-Hold';
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+        EnterpriseColumn<ShipmentStageCardModel>(
+          id: 'previousStep',
+          title: l10n.colPreviousStep,
+          width: 140,
+          exportValue: (s) => s.previousStepCode != null ? DisplayNameResolver.resolveStepName(s.previousStepCode!, isArabic: isAr) : '-',
+          cellBuilder: (context, s, index) {
+            final cleanPrevStep = s.previousStepCode != null ? DisplayNameResolver.resolveStepName(s.previousStepCode!, isArabic: isAr) : '-';
+            return Text(
+              cleanPrevStep,
+              style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            );
+          },
+        ),
+        EnterpriseColumn<ShipmentStageCardModel>(
+          id: 'currentStep',
+          title: l10n.colCurrentStep,
+          width: 160,
+          exportValue: (s) => DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr),
+          cellBuilder: (context, s, index) {
+            final phaseStr = _stepPhases[s.stepCode] ?? '1';
+            final phaseId = int.tryParse(phaseStr) ?? 1;
+            final p = phases.firstWhere((ph) => ph.phaseId == phaseId, orElse: () => phases[0]);
+            final stepColor = _parseColor(p.colorHex);
+            final isOnHold = s.status == 'On-Hold';
+            final cleanCurStep = DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr);
 
-                      final isAr = Directionality.of(context) == TextDirection.rtl;
-                      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(s.importFileCode, shipments: allImportFiles, isArabic: isAr);
-                      final shipmentTitle = DisplayNameResolver.resolveShipmentTitleByCode(s.importFileCode, shipments: allImportFiles, isArabic: isAr, includeCodeSecondary: true);
-                      final cleanCurStep = DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr);
-                      final cleanPrevStep = s.previousStepCode != null ? DisplayNameResolver.resolveStepName(s.previousStepCode!, isArabic: isAr) : '-';
-                      final cleanNextStep = s.nextStepCode != null ? DisplayNameResolver.resolveStepName(s.nextStepCode!, isArabic: isAr) : '-';
-                      final estCostStr = s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : '—';
-                      final estCurrStr = s.estimatedCostCurrency ?? '';
-                      final rowSummary = '$shipmentTitle | ${s.companyName} | ${s.supplierName} | $cleanCurStep | ${s.shipmentMode ?? "-"} - ${s.incotermCode ?? "-"} | $estCostStr $estCurrStr${isOnHold ? " (${l10n.onHoldStatusTag})" : ""}';
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: isOnHold ? AppTheme.crimson.withValues(alpha: 0.12) : stepColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: isOnHold ? AppTheme.crimson : stepColor, width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(isOnHold ? Icons.pause_circle_outline : Icons.play_circle_fill, size: 11, color: isOnHold ? AppTheme.crimson : stepColor),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      cleanCurStep,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11.0,
+                        color: isOnHold ? AppTheme.crimson : stepColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        EnterpriseColumn<ShipmentStageCardModel>(
+          id: 'nextStep',
+          title: l10n.colNextStep,
+          width: 140,
+          exportValue: (s) => s.nextStepCode != null ? DisplayNameResolver.resolveStepName(s.nextStepCode!, isArabic: isAr) : '-',
+          cellBuilder: (context, s, index) {
+            final cleanNextStep = s.nextStepCode != null ? DisplayNameResolver.resolveStepName(s.nextStepCode!, isArabic: isAr) : '-';
+            return Text(
+              cleanNextStep,
+              style: const TextStyle(fontSize: 11.0, color: AppTheme.cobalt, fontWeight: FontWeight.w500),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            );
+          },
+        ),
+        EnterpriseColumn<ShipmentStageCardModel>(
+          id: 'importCompany',
+          title: l10n.colImportCompany,
+          width: 150,
+          exportValue: (s) => s.companyName,
+          cellBuilder: (context, s, index) => Text(
+            s.companyName,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : null),
+          ),
+        ),
+        EnterpriseColumn<ShipmentStageCardModel>(
+          id: 'foreignSupplier',
+          title: l10n.colForeignSupplier,
+          width: 150,
+          exportValue: (s) => s.supplierName,
+          cellBuilder: (context, s, index) => Text(
+            s.supplierName,
+            style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800),
+          ),
+        ),
+        EnterpriseColumn<ShipmentStageCardModel>(
+          id: 'purchaseOrder',
+          title: l10n.colPurchaseOrder,
+          width: 130,
+          exportValue: (s) => s.poNumber ?? l10n.notSpecifiedOption,
+          cellBuilder: (context, s, index) => Text(
+            s.poNumber ?? l10n.notSpecifiedOption,
+            style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : null),
+          ),
+        ),
+        EnterpriseColumn<ShipmentStageCardModel>(
+          id: 'modeAndIncoterm',
+          title: l10n.colModeAndIncoterm,
+          width: 130,
+          exportValue: (s) => '${s.shipmentMode ?? "-"} | ${s.incotermCode ?? "-"}',
+          cellBuilder: (context, s, index) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkSurface : Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '${s.shipmentMode ?? "-"} | ${s.incotermCode ?? "-"}',
+              style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800),
+            ),
+          ),
+        ),
+        EnterpriseColumn<ShipmentStageCardModel>(
+          id: 'estimatedValue',
+          title: l10n.colEstimatedValue,
+          width: 130,
+          isNumeric: true,
+          exportValue: (s) => s.estimatedCost != null ? '${s.estimatedCost!.toStringAsFixed(0)} ${s.estimatedCostCurrency ?? ""}'.trim() : '—',
+          cellBuilder: (context, s, index) => Text(
+            s.estimatedCost != null ? '${s.estimatedCost!.toStringAsFixed(0)} ${s.estimatedCostCurrency ?? ""}'.trim() : '—',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: s.estimatedCost != null ? AppTheme.emerald : (isDark ? AppTheme.darkTextSecondary : AppTheme.textCaption),
+              fontSize: 11,
+            ),
+          ),
+        ),
+        EnterpriseColumn<ShipmentStageCardModel>(
+          id: 'notesAndActivities',
+          title: l10n.colNotesAndActivities,
+          width: 180,
+          exportValue: (s) => s.localizedNotes(l10n) ?? l10n.notesUnderFollowupFallback,
+          cellBuilder: (context, s, index) => Text(
+            s.localizedNotes(l10n) ?? l10n.notesUnderFollowupFallback,
+            style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        EnterpriseColumn<ShipmentStageCardModel>(
+          id: 'actionsAndAdvance',
+          title: l10n.colActionsAndAdvance,
+          width: 160,
+          isSortable: false,
+          isSearchable: false,
+          cellBuilder: (context, s, index) {
+            final phaseStr = _stepPhases[s.stepCode] ?? '1';
+            final phaseId = int.tryParse(phaseStr) ?? 1;
+            final p = phases.firstWhere((ph) => ph.phaseId == phaseId, orElse: () => phases[0]);
+            final stepColor = _parseColor(p.colorHex);
 
-                      return DataRow(
-                        cells: [
-                          DataCell(
-                            CopyableTableCell(
-                              value: shipmentTitle,
-                              rowSummary: rowSummary,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    shipmentName,
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      InkWell(
-                                        onTap: () => CopyHelper.copy(context, s.importFileCode),
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                          decoration: BoxDecoration(
-                                            color: isDark ? AppTheme.darkBorder : AppTheme.charcoal,
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              LtrText(
-                                                s.importFileCode,
-                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
-                                              ),
-                                              const SizedBox(width: 3),
-                                              const Icon(Icons.copy_rounded, size: 9, color: Colors.white70),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      if (isOnHold) ...[
-                                        const SizedBox(width: 4),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.crimson,
-                                            borderRadius: BorderRadius.circular(3),
-                                          ),
-                                          child: Text(
-                                            l10n.onHoldStatusTag,
-                                            style: const TextStyle(color: Colors.white, fontSize: 11.0, fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: cleanPrevStep,
-                              rowSummary: rowSummary,
-                              child: Text(
-                                cleanPrevStep,
-                                style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade500),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: cleanCurStep,
-                              rowSummary: rowSummary,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: isOnHold ? AppTheme.crimson.withValues(alpha: 0.12) : stepColor.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: isOnHold ? AppTheme.crimson : stepColor, width: 1),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(isOnHold ? Icons.pause_circle_outline : Icons.play_circle_fill, size: 11, color: isOnHold ? AppTheme.crimson : stepColor),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        cleanCurStep,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11.0,
-                                          color: isOnHold ? AppTheme.crimson : stepColor,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: cleanNextStep,
-                              rowSummary: rowSummary,
-                              child: Text(
-                                cleanNextStep,
-                                style: const TextStyle(fontSize: 11.0, color: AppTheme.cobalt, fontWeight: FontWeight.w500),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: s.companyName,
-                              rowSummary: rowSummary,
-                              child: Text(s.companyName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : null)),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: s.supplierName,
-                              rowSummary: rowSummary,
-                              child: Text(s.supplierName, style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800)),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: s.poNumber ?? l10n.notSpecifiedOption,
-                              rowSummary: rowSummary,
-                              child: Text(s.poNumber ?? l10n.notSpecifiedOption, style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextPrimary : null)),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: '${s.shipmentMode ?? "-"} | ${s.incotermCode ?? "-"}',
-                              rowSummary: rowSummary,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: isDark ? AppTheme.darkSurface : Colors.grey.shade200,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '${s.shipmentMode ?? "-"} | ${s.incotermCode ?? "-"}',
-                                  style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade800),
-                                ),
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: s.estimatedCost != null
-                                  ? '${s.estimatedCost!.toStringAsFixed(0)} ${s.estimatedCostCurrency ?? ""}'.trim()
-                                  : '—',
-                              rowSummary: rowSummary,
-                              child: Text(
-                                s.estimatedCost != null
-                                    ? '${s.estimatedCost!.toStringAsFixed(0)} ${s.estimatedCostCurrency ?? ""}'.trim()
-                                    : '—',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: s.estimatedCost != null
-                                      ? AppTheme.emerald
-                                      : (isDark ? AppTheme.darkTextSecondary : AppTheme.textCaption),
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: s.localizedNotes(l10n) ?? l10n.notesUnderFollowupFallback,
-                              rowSummary: rowSummary,
-                              child: Container(
-                                constraints: const BoxConstraints(maxWidth: 200),
-                                child: Text(
-                                  s.localizedNotes(l10n) ?? l10n.notesUnderFollowupFallback,
-                                  style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.timeline_rounded, size: 16, color: AppTheme.cobalt),
-                                  tooltip: isAr ? 'سجل المسار الزمني (25 مرحلة)' : 'Master Timeline Dossier (25 Stages)',
-                                  onPressed: () {
-                                    final matchedFile = allImportFiles
-                                        .where((f) => f.importFileCode == s.importFileCode)
-                                        .firstOrNull;
-                                    if (matchedFile != null) {
-                                      ShipmentTimelineDossierDialog.show(
-                                        context,
-                                        importFileId: matchedFile.importFileId,
-                                        importFileCode: s.importFileCode,
-                                      );
-                                    }
-                                  },
-                                ),
-                                const SizedBox(width: 4),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: stepColor,
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      barrierDismissible: false,
-                                      builder: (ctx) => StepActionDialog(
-                                        shipment: s,
-                                        allPhases: phases,
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.play_circle_outline, size: 13, color: Colors.white),
-                                  label: Text(
-                                    l10n.executeAndAdvanceStepBtn,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.timeline_rounded, size: 16, color: AppTheme.cobalt),
+                  tooltip: isAr ? 'سجل المسار الزمني (25 مرحلة)' : 'Master Timeline Dossier (25 Stages)',
+                  onPressed: () {
+                    final matchedFile = allImportFiles
+                        .where((f) => f.importFileCode == s.importFileCode)
+                        .firstOrNull;
+                    if (matchedFile != null) {
+                      ShipmentTimelineDossierDialog.show(
+                        context,
+                        importFileId: matchedFile.importFileId,
+                        importFileCode: s.importFileCode,
                       );
-                    }).toList(),
+                    }
+                  },
+                ),
+                const SizedBox(width: 4),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: stepColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                  ),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => StepActionDialog(
+                        shipment: s,
+                        allPhases: phases,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.play_circle_outline, size: 13, color: Colors.white),
+                  label: Text(
+                    l10n.executeAndAdvanceStepBtn,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
                   ),
                 ),
-              ),
-            ),
-          );
-        },
-      );
-    }
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
 
   Widget _buildEmptyState() {
     final l10n = context.l10n;

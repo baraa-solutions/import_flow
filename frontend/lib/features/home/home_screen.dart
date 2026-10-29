@@ -1,3 +1,4 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +16,6 @@ import '../../core/localization/locale_provider.dart';
 import '../../core/providers/navigation_provider.dart';
 import '../../core/providers/focus_mode_provider.dart';
 import '../../core/providers/workspace_tabs_provider.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/theme/density_provider.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/widgets/unified_top_bar.dart';
@@ -92,6 +92,8 @@ import '../expense_catalog/screens/expense_catalog_screen.dart';
 import '../formal_letters/screens/formal_letters_screen.dart';
 import '../custody_release/screens/custody_release_screen.dart';
 import '../smart_document_upload/screens/smart_document_upload_hub_screen.dart';
+import '../master_items/screens/master_items_screen.dart';
+import '../master_items/screens/item_price_trends_screen.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -258,6 +260,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 75: AI Document Extraction & Sessions Audit Hub
         SmartDocumentUploadHubScreen(),
+
+        // 76: Central Master Items Catalog & Multi-Supplier Directory
+        MasterItemsScreen(),
+
+        // 77: Item Historical Price Trends & Landed Cost Radar
+        ItemPriceTrendsScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -271,12 +279,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         await windowManager.setFullScreen(!isFull);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(!isFull ? l10n.fullscreenEnabledToast : l10n.fullscreenDisabledToast),
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-              width: 320,
-            ),
+            AppTheme.snackBar(context, !isFull ? l10n.fullscreenEnabledToast : l10n.fullscreenDisabledToast),
           );
         }
       } catch (_) {}
@@ -917,6 +920,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildMenuItem(Icons.domain_outlined, 'Import Companies', 'الشركات المستوردة', 32, selectedIndex),
                   _buildMenuItem(Icons.business_outlined, 'Foreign Suppliers', 'دليل الموردين الأجانب', 33, selectedIndex),
+                  _buildMenuItem(Icons.category_outlined, 'Master Items Catalog', 'كاتالوج الأصناف والسلع', 76, selectedIndex),
+                  _buildMenuItem(Icons.trending_up_outlined, 'Item Price Trends Radar', 'رادار اتجاه الأسعار ومقارنة الصفقات', 77, selectedIndex),
                   _buildMenuItem(Icons.account_balance_outlined, 'Partners & Banks', 'الشركاء والبنوك ومقدمو الخدمات', 34, selectedIndex),
                   _buildMenuItem(Icons.assignment_outlined, 'Projects & Cost Centers', 'المشاريع ومراكز التكلفة', 31, selectedIndex),
                   _buildMenuItem(Icons.location_on_outlined, 'Ports & Locations', 'الموانئ والمنافذ الجمركية', 37, selectedIndex),
@@ -985,7 +990,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 initiallyExpanded: false,
                 children: [
                   _buildMenuItem(Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 25, selectedIndex),
-                  _buildMenuItem(Icons.radar_outlined, 'Live Vessel Tracking Radar', 'رادار التتبع الحي لخطوط الملاحة والسفن', 71, selectedIndex),
                   _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping & Tracking', 'حركة وتتبع الشحن وتوزيع الحاويات', 26, selectedIndex),
                   _buildMenuItem(Icons.shield_outlined, 'Cargo Insurance', 'شهادات ووثائق التأمين على البضائع', 65, selectedIndex),
                   _buildMenuItem(Icons.fact_check_outlined, '1. PO & Packing Reconciliation', '1. مطابقة الفاتورة والباكينج مع أمر الشراء', 21, selectedIndex),
@@ -1077,6 +1081,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.dashboard_customize_outlined, 'Operational Dashboard', 'لوحة التحكم ومؤشرات الأداء', 0, selectedIndex),
                   _buildMenuItem(Icons.view_kanban_outlined, 'Lifecycle Operations Board', 'لوحة تتبع ومراحل الشحنات التفاعلية', 48, selectedIndex),
                   _buildMenuItem(Icons.summarize_outlined, 'Master Shipment Report', 'تقرير الشحنة الشامل المدمج', 47, selectedIndex),
+                  _buildMenuItem(Icons.radar_outlined, 'SOON - Live Vessel Tracking Radar', 'SOON - رادار التتبع الحي لخطوط الملاحة والسفن', 71, selectedIndex),
                   _buildMenuItem(Icons.assessment_outlined, 'Dynamic Report Builder', 'مُنشئ التقارير المخصصة', 41, selectedIndex),
                   _buildMenuItem(Icons.published_with_changes_outlined, 'Quick Update Engine', 'محرك التحديث السريع', 42, selectedIndex),
                   _buildMenuItem(Icons.task_alt_outlined, 'Smart Tasks & Alerts', 'المهام والتنبيهات الذكية', 40, selectedIndex),

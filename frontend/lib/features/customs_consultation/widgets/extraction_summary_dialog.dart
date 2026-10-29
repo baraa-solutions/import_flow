@@ -91,8 +91,9 @@ class ExtractionSummaryDialog extends StatelessWidget {
     final dialogWidth = (mediaQuery.size.width * 0.75).clamp(600.0, 850.0);
     final dialogHeight = (mediaQuery.size.height * 0.82).clamp(420.0, 680.0);
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return SelectionArea(
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Container(
         width: dialogWidth,
@@ -403,7 +404,8 @@ class ExtractionSummaryDialog extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildKpiCard({

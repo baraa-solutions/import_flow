@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/localization/app_localizations.dart';
 
 void showPartnerScorecardDialog(BuildContext context, WidgetRef ref, {
@@ -110,7 +111,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                             const SizedBox(height: 12),
                             Text(_error!, style: const TextStyle(color: AppTheme.crimson)),
                             const SizedBox(height: 12),
-                            ElevatedButton(onPressed: _fetchScorecard, child: Text(l10n.retryConnectionBtn)),
+                            AppButton(label: l10n.retryConnectionBtn, variant: AppButtonVariant.primary, onPressed: _fetchScorecard),
                           ],
                         ),
                       ),

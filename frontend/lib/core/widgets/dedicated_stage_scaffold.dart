@@ -5,6 +5,7 @@ import '../services/display_name_resolver.dart';
 import '../theme/app_theme.dart';
 import '../theme/density_provider.dart';
 import 'back_to_dashboard_button.dart';
+import 'unsaved_changes_guard.dart';
 import 'shipment_stage_lifecycle_control.dart';
 
 /// A dedicated, full-width scaffold for independent operational stages in ImportFlow ERP.
@@ -23,6 +24,9 @@ class DedicatedStageScaffold extends ConsumerWidget {
   final int? selectedImportFileId;
   final bool showStageLifecycleControls;
   final VoidCallback? onShipmentStatusChanged;
+  final bool isDirty;
+  final VoidCallback? onSave;
+  final VoidCallback? onDiscard;
 
   const DedicatedStageScaffold({
     super.key,
@@ -37,13 +41,16 @@ class DedicatedStageScaffold extends ConsumerWidget {
     this.selectedImportFileId,
     this.showStageLifecycleControls = true,
     this.onShipmentStatusChanged,
+    this.isDirty = false,
+    this.onSave,
+    this.onDiscard,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final density = ref.watch(displayDensityProvider);
 
-    return Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: Colors.grey.shade100,
       body: Column(
         children: [
@@ -266,6 +273,16 @@ class DedicatedStageScaffold extends ConsumerWidget {
         ],
       ),
     );
+
+    if (isDirty) {
+      return UnsavedChangesGuard(
+        isDirty: isDirty,
+        onSave: onSave,
+        onDiscard: onDiscard,
+        child: scaffold,
+      );
+    }
+    return scaffold;
   }
 }
 

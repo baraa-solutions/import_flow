@@ -1,6 +1,6 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../models/guide_entry_model.dart';
 import '../providers/experience_guide_provider.dart';
@@ -132,10 +132,7 @@ class _AutonomousEvidenceTrailDialogState
         setState(() => _isProcessingAction = false);
         if (res != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ تم اعتماد النمط بنجاح كمرجعية مؤسسية ثابتة'),
-              backgroundColor: AppTheme.emerald,
-            ),
+            AppTheme.snackBar(context, '✅ تم اعتماد النمط بنجاح كمرجعية مؤسسية ثابتة', severity: AppSeverity.success),
           );
           widget.onStateChanged?.call();
           _loadProvenance();
@@ -145,10 +142,7 @@ class _AutonomousEvidenceTrailDialogState
       if (mounted) {
         setState(() => _isProcessingAction = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ حدث خطأ أثناء الاعتماد: $e'),
-            backgroundColor: AppTheme.crimson,
-          ),
+          AppTheme.snackBar(context, '❌ حدث خطأ أثناء الاعتماد: $e', severity: AppSeverity.danger),
         );
       }
     }
@@ -218,10 +212,7 @@ class _AutonomousEvidenceTrailDialogState
         setState(() => _isProcessingAction = false);
         if (res != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تم استبعاد الاستنتاج وحجبه من الظهور التشغيلي'),
-              backgroundColor: AppTheme.charcoal,
-            ),
+            AppTheme.snackBar(context, 'تم استبعاد الاستنتاج وحجبه من الظهور التشغيلي'),
           );
           widget.onStateChanged?.call();
           _loadProvenance();
@@ -231,10 +222,7 @@ class _AutonomousEvidenceTrailDialogState
       if (mounted) {
         setState(() => _isProcessingAction = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ حدث خطأ أثناء الاستبعاد: $e'),
-            backgroundColor: AppTheme.crimson,
-          ),
+          AppTheme.snackBar(context, '❌ حدث خطأ أثناء الاستبعاد: $e', severity: AppSeverity.danger),
         );
       }
     }

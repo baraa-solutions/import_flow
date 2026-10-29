@@ -1,3 +1,4 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,12 +8,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
-import '../../../core/widgets/extraction_progress_dialog.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
-import '../../../core/widgets/table_row_clone_helper.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../utils/customs_expense_group_helper.dart';
 import 'quick_expense_coding_dialog.dart';
@@ -96,9 +93,7 @@ void showPriceListFormDialog(
 }) {
   final l = context.l10n;
   if (brokersList.isEmpty && existingPriceList == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l.noBrokersRegistered), backgroundColor: AppTheme.orange),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.noBrokersRegistered, severity: AppSeverity.warning));
     return;
   }
 
@@ -689,20 +684,13 @@ void showPriceListFormDialog(
               });
 
               if (ctx.mounted) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(
-                    content: Text('✨ تم استخراج وتصنيف بنود المقايسة وتعبئة النموذج بنجاح!'),
-                    backgroundColor: AppTheme.emerald,
-                  ),
-                );
+                ScaffoldMessenger.of(ctx).showSnackBar(AppTheme.snackBar(ctx, 'تم استخراج وتصنيف بنود المقايسة وتعبئة النموذج بنجاح', severity: AppSeverity.success));
               }
             }
           } catch (e) {
             if (ctx.mounted) {
               try { Navigator.of(ctx, rootNavigator: true).pop(); } catch (_) {}
-              ScaffoldMessenger.of(ctx).showSnackBar(
-                SnackBar(content: Text('خطأ أثناء الاستخراج: ${ApiErrorText.of(ctx.l10n, e)}'), backgroundColor: AppTheme.crimson),
-              );
+              ScaffoldMessenger.of(ctx).showSnackBar(AppTheme.snackBar(ctx, 'خطأ أثناء الاستخراج: ${ApiErrorText.of(ctx.l10n, e)}', severity: AppSeverity.danger));
             }
           }
         }
@@ -1189,19 +1177,11 @@ void showPriceListFormDialog(
 
                                     if (c.mounted) Navigator.pop(c);
                                     if (ctx.mounted) {
-                                      ScaffoldMessenger.of(ctx).showSnackBar(
-                                        SnackBar(
-                                          content: Text(l.itemCodedSuccessfullyToast(alias, code)),
-                                          backgroundColor: AppTheme.emerald,
-                                          duration: const Duration(seconds: 3),
-                                        ),
-                                      );
+                                      ScaffoldMessenger.of(ctx).showSnackBar(AppTheme.snackBar(ctx, l.itemCodedSuccessfullyToast(alias, code), severity: AppSeverity.success, duration: const Duration(seconds: 3)));
                                     }
                                   } catch (e) {
                                     if (c.mounted) {
-                                      ScaffoldMessenger.of(c).showSnackBar(
-                                        SnackBar(content: Text('❌ ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
-                                      );
+                                      ScaffoldMessenger.of(c).showSnackBar(AppTheme.snackBar(c, ApiErrorText.of(context.l10n, e), severity: AppSeverity.danger));
                                     }
                                   }
                                 }
@@ -1213,9 +1193,7 @@ void showPriceListFormDialog(
 
                                 if (finalCode.isEmpty) {
                                   if (c.mounted) {
-                                    ScaffoldMessenger.of(c).showSnackBar(
-                                      SnackBar(content: Text(l.selectReferenceCodeRequired), backgroundColor: AppTheme.crimson),
-                                    );
+                                    ScaffoldMessenger.of(c).showSnackBar(AppTheme.snackBar(c, l.selectReferenceCodeRequired, severity: AppSeverity.danger));
                                   }
                                   setInnerState(() => isSubmitting = false);
                                   return;
@@ -1275,13 +1253,7 @@ void showPriceListFormDialog(
 
                                   if (c.mounted) Navigator.pop(c);
                                   if (ctx.mounted) {
-                                    ScaffoldMessenger.of(ctx).showSnackBar(
-                                      SnackBar(
-                                        content: Text(l.itemRegisteredInCatalogToast(finalCode)),
-                                        backgroundColor: AppTheme.emerald,
-                                        duration: const Duration(seconds: 3),
-                                      ),
-                                    );
+                                    ScaffoldMessenger.of(ctx).showSnackBar(AppTheme.snackBar(ctx, l.itemRegisteredInCatalogToast(finalCode), severity: AppSeverity.success, duration: const Duration(seconds: 3)));
                                   }
                                 } catch (e) {
                                   String errStr = e.toString();
@@ -1292,9 +1264,7 @@ void showPriceListFormDialog(
                                     }
                                   }
                                   if (c.mounted) {
-                                    ScaffoldMessenger.of(c).showSnackBar(
-                                      SnackBar(content: Text('❌ $errStr'), backgroundColor: AppTheme.crimson),
-                                    );
+                                    ScaffoldMessenger.of(c).showSnackBar(AppTheme.snackBar(c, errStr, severity: AppSeverity.danger));
                                   }
                                 }
                               }
@@ -1456,13 +1426,7 @@ void showPriceListFormDialog(
             activeRowIndex = realIdx + 1;
           });
           if (ctx.mounted) {
-            ScaffoldMessenger.of(ctx).showSnackBar(
-              SnackBar(
-                content: Text(context.l10n.ccRowClonedSuccessfullyCtrlD),
-                backgroundColor: AppTheme.cobalt,
-                duration: const Duration(seconds: 2),
-              ),
-            );
+            ScaffoldMessenger.of(ctx).showSnackBar(AppTheme.snackBar(ctx, context.l10n.ccRowClonedSuccessfullyCtrlD, severity: AppSeverity.info, duration: const Duration(seconds: 2)));
           }
         }
 
@@ -1767,9 +1731,7 @@ void showPriceListFormDialog(
                                               }
                                             }
                                           });
-                                          ScaffoldMessenger.of(ctx).showSnackBar(
-                                            SnackBar(content: Text('⚡ ${l.standardRatesFilledToast}'), backgroundColor: AppTheme.cobalt),
-                                          );
+                                          ScaffoldMessenger.of(ctx).showSnackBar(AppTheme.snackBar(ctx, l.standardRatesFilledToast, severity: AppSeverity.info));
                                         },
                                       ),
                                       const SizedBox(width: 6),
@@ -2645,14 +2607,7 @@ void showPriceListFormDialog(
                               ref.invalidate(brokerPriceListsProvider);
 
                               if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(isEditing ? '✅ ${l.priceListUpdatedSuccess}' : '✅ ${l.priceListCreatedSuccess}'),
-                                    backgroundColor: AppTheme.emerald,
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: const Duration(seconds: 4),
-                                  ),
-                                );
+                                ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, isEditing ? l.priceListUpdatedSuccess : l.priceListCreatedSuccess, severity: AppSeverity.success, duration: const Duration(seconds: 4)));
                               }
                             } catch (e) {
                               String errorMsg = e.toString();

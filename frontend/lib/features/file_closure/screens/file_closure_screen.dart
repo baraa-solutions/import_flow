@@ -7,12 +7,7 @@ import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
-import '../../../core/widgets/metric_card.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
-import '../../../core/widgets/reopen_shipment_dialog.dart';
-import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/file_closure_model.dart';
@@ -23,7 +18,6 @@ import '../widgets/file_closure_form_dialog.dart';
 import '../../warehouse_receiving/widgets/ops_ui_kit.dart';
 import '../widgets/search_and_clone_file_closure_dialog.dart';
 import '../../../core/localization/api_error_text.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 
 class FileClosureScreen extends ConsumerStatefulWidget {
   const FileClosureScreen({super.key});
@@ -205,7 +199,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
     final l10n = context.l10n;
     if (records.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.fileClosureEmptyRecords), backgroundColor: AppTheme.orange),
+        AppTheme.snackBar(context, l10n.fileClosureEmptyRecords, severity: AppSeverity.warning),
       );
       return;
     }
@@ -258,7 +252,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
     final l10n = context.l10n;
     if (records.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.fileClosureEmptyRecords), backgroundColor: AppTheme.orange),
+        AppTheme.snackBar(context, l10n.fileClosureEmptyRecords, severity: AppSeverity.warning),
       );
       return;
     }
@@ -312,7 +306,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
     final l10n = context.l10n;
     if (records.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.fileClosureEmptyRecords), backgroundColor: AppTheme.orange),
+        AppTheme.snackBar(context, l10n.fileClosureEmptyRecords, severity: AppSeverity.warning),
       );
       return;
     }
@@ -431,22 +425,10 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
 
   Future<void> _deleteClosure(ImportFileClosureModel r) async {
     final l10n = context.l10n;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(l10n.fileClosureDeleteTitle),
-        content: Text(l10n.fileClosureDeleteMessage),
-        actionsPadding: const EdgeInsetsDirectional.fromSTEB(20, 4, 20, 16),
-        actions: [
-          AppButton(label: l10n.cancel, variant: AppButtonVariant.secondary, onPressed: () => Navigator.pop(c, false)),
-          AppButton(
-            label: l10n.delete,
-            variant: AppButtonVariant.danger,
-            icon: Icons.delete_outline,
-            onPressed: () => Navigator.pop(c, true),
-          ),
-        ],
-      ),
+    final confirm = await AppConfirmDialog.showDelete(
+      context,
+      title: l10n.fileClosureDeleteTitle,
+      message: l10n.fileClosureDeleteMessage,
     );
     if (confirm == true && mounted) {
       final messenger = ScaffoldMessenger.of(context);
@@ -454,9 +436,11 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
         await ref.read(fileClosureProvider.notifier).softDeleteClosure(r.closureId);
       } catch (e) {
         // e.g. 409: a Closed record cannot be deleted, reopen the file first.
-        messenger.showSnackBar(
-          SnackBar(content: Text(ApiErrorText.of(l10n, e)), backgroundColor: AppTheme.crimson),
-        );
+        if (mounted) {
+          messenger.showSnackBar(
+            AppTheme.snackBar(context, ApiErrorText.of(l10n, e), severity: AppSeverity.danger),
+          );
+        }
       }
     }
   }
@@ -721,7 +705,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                           onView: () => _showCertificate(r, matchingFile),
                           onEdit: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.fileClosureEditSnack(r.closureCode)), backgroundColor: AppTheme.orange),
+                              AppTheme.snackBar(context, context.l10n.fileClosureEditSnack(r.closureCode), severity: AppSeverity.warning),
                             );
                           },
                           onPrint: () => _copySingleCertificateSummary(r, matchingFile),

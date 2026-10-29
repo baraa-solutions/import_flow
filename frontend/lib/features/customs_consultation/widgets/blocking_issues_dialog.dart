@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/widgets.dart';
 
 void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemModel> checklist, Function(List<CustomsChecklistItemModel>) onUpdate) {
   final l = context.l10n;
@@ -14,7 +13,8 @@ void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemMod
     builder: (ctx) {
       return StatefulBuilder(
         builder: (context, setModalState) {
-          return AlertDialog(
+          return SelectionArea(
+            child: AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: const BorderSide(color: AppTheme.crimson, width: 1.5),
@@ -204,7 +204,8 @@ void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemMod
                 onPressed: () => Navigator.of(ctx).pop(),
               ),
             ],
-          );
+          ),
+        );
         },
       );
     },

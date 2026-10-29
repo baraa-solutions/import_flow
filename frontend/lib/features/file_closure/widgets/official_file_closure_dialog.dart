@@ -1,9 +1,9 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -184,7 +184,7 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
     final messenger = ScaffoldMessenger.of(context);
     if (_precheck != null && !_precheck!.canClose) {
       messenger.showSnackBar(
-        SnackBar(content: Text(l10n.closureCannotCloseSnack), backgroundColor: AppTheme.flatCrimson),
+        AppTheme.snackBar(context, l10n.closureCannotCloseSnack),
       );
       return;
     }
@@ -211,17 +211,13 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
         _isSubmitting = false;
       });
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(l10n.closureOfficialSuccess(certificate.importFileCode, certificate.closureCode)),
-          backgroundColor: AppTheme.flatEmerald,
-          duration: const Duration(seconds: 4),
-        ),
+        AppTheme.snackBar(context, l10n.closureOfficialSuccess(certificate.importFileCode, certificate.closureCode)),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       messenger.showSnackBar(
-        SnackBar(content: Text(ApiErrorText.of(l10n, e)), backgroundColor: AppTheme.flatCrimson),
+        AppTheme.snackBar(context, ApiErrorText.of(l10n, e)),
       );
     }
   }

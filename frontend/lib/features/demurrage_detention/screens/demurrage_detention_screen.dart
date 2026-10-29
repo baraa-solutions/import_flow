@@ -1,3 +1,4 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/api_error_text.dart';
@@ -6,13 +7,6 @@ import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/adaptive_tab_scaffold.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/metric_card.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../models/demurrage_model.dart';
 import '../providers/demurrage_provider.dart';
@@ -841,74 +835,43 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             const SizedBox(height: 16),
             _subHeader(l10n.operationalMilestonesHeader),
             const SizedBox(height: 8),
-            _milestoneTile(
-              icon: Icons.date_range,
-              color: AppTheme.cobalt,
-              title: l10n.vesselDischargeDateMilestone,
-              value: _formatDate(_simDischargeDate),
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _simDischargeDate,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2030),
-                );
+            AppDatePickerField(
+              label: l10n.vesselDischargeDateMilestone,
+              value: _simDischargeDate,
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2030),
+              allowClear: false,
+              onChanged: (picked) {
                 if (picked != null) {
                   setState(() => _simDischargeDate = picked);
                   _runQuickSimulation();
                 }
               },
             ),
-            const SizedBox(height: 8),
-            _milestoneTile(
-              icon: Icons.output_rounded,
-              color: AppTheme.orange,
-              title: l10n.portGateOutDateMilestone,
-              value: _simGateOutDate != null ? _formatDate(_simGateOutDate!) : null,
-              placeholder: l10n.notGatedOutCalculatedToday,
-              onClear: _simGateOutDate == null
-                  ? null
-                  : () {
-                      setState(() => _simGateOutDate = null);
-                      _runQuickSimulation();
-                    },
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _simGateOutDate ?? _simDischargeDate,
-                  firstDate: _simDischargeDate,
-                  lastDate: DateTime(2030),
-                );
-                if (picked != null) {
-                  setState(() => _simGateOutDate = picked);
-                  _runQuickSimulation();
-                }
+            const SizedBox(height: 12),
+            AppDatePickerField(
+              label: l10n.portGateOutDateMilestone,
+              value: _simGateOutDate,
+              hint: l10n.notGatedOutCalculatedToday,
+              firstDate: _simDischargeDate,
+              lastDate: DateTime(2030),
+              allowClear: true,
+              onChanged: (picked) {
+                setState(() => _simGateOutDate = picked);
+                _runQuickSimulation();
               },
             ),
-            const SizedBox(height: 8),
-            _milestoneTile(
-              icon: Icons.keyboard_return_rounded,
-              color: AppTheme.emerald,
-              title: l10n.emptyReturnToDepotMilestone,
-              value: _simEmptyReturnDate != null ? _formatDate(_simEmptyReturnDate!) : null,
-              placeholder: l10n.notReturnedYet,
-              onClear: _simEmptyReturnDate == null
-                  ? null
-                  : () {
-                      setState(() => _simEmptyReturnDate = null);
-                      _runQuickSimulation();
-                    },
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _simEmptyReturnDate ?? (_simGateOutDate ?? _simDischargeDate),
-                  firstDate: _simGateOutDate ?? _simDischargeDate,
-                  lastDate: DateTime(2030),
-                );
-                if (picked != null) {
-                  setState(() => _simEmptyReturnDate = picked);
-                  _runQuickSimulation();
-                }
+            const SizedBox(height: 12),
+            AppDatePickerField(
+              label: l10n.emptyReturnToDepotMilestone,
+              value: _simEmptyReturnDate,
+              hint: l10n.notReturnedYet,
+              firstDate: _simGateOutDate ?? _simDischargeDate,
+              lastDate: DateTime(2030),
+              allowClear: true,
+              onChanged: (picked) {
+                setState(() => _simEmptyReturnDate = picked);
+                _runQuickSimulation();
               },
             ),
             const SizedBox(height: 16),
@@ -935,37 +898,6 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
           color: AppTheme.textPrimaryOf(context),
         ),
       );
-
-  Widget _milestoneTile({
-    required IconData icon,
-    required Color color,
-    required String title,
-    required VoidCallback onTap,
-    String? value,
-    String? placeholder,
-    VoidCallback? onClear,
-  }) {
-    return Material(
-      color: AppTheme.surfaceOf(context),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        side: BorderSide(color: AppTheme.borderOf(context)),
-      ),
-      child: ListTile(
-        dense: true,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
-        leading: Icon(icon, color: color),
-        title: Text(title, style: const TextStyle(fontSize: 13)),
-        subtitle: value != null
-            ? Text(value, style: const TextStyle(fontWeight: FontWeight.bold))
-            : Text(placeholder ?? '', style: TextStyle(color: AppTheme.textSecondaryOf(context))),
-        trailing: onClear != null
-            ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: onClear)
-            : const Icon(Icons.edit, size: 18),
-        onTap: onTap,
-      ),
-    );
-  }
 
   // ===========================================================================
   // TAB 3: CARRIER TARIFF POLICIES

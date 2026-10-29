@@ -1,8 +1,8 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -112,17 +112,14 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
         final l = context.l10n;
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.taskToEdit != null ? l.smartTaskSuccessUpdated : l.smartTaskSuccessCreated),
-            backgroundColor: AppTheme.emerald,
-          ),
+          AppTheme.snackBar(context, widget.taskToEdit != null ? l.smartTaskSuccessUpdated : l.smartTaskSuccessCreated, severity: AppSeverity.success),
         );
       }
     } catch (e) {
       if (mounted) {
         final l = context.l10n;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.smartTaskSubmitError(e.toString())), backgroundColor: AppTheme.crimson),
+          AppTheme.snackBar(context, l.smartTaskSubmitError(e.toString()), severity: AppSeverity.danger),
         );
       }
     } finally {

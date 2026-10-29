@@ -1,3 +1,5 @@
+import 'package:frontend/core/theme/app_theme.dart';
+import '../../../core/helpers/table_copy_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,14 +7,9 @@ import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/system_messages/coded_item_text.dart';
 import '../../../core/localization/app_localizations_ar.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import 'idoc_ui_b.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/smart_upload_button.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
@@ -21,7 +18,6 @@ import '../services/coo_export_service.dart';
 import 'extraction_match_status_chip.dart';
 import 'search_and_clone_coo_dialog.dart';
 import 'visual_draft_coo_sheet.dart';
-import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 
 class COOReviewTab extends ConsumerStatefulWidget {
@@ -204,12 +200,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
               if (_selectedImportFileId != null) {
                 _loadSnapshot(_selectedImportFileId!);
               }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(context.l10n.cloneCooSuccess),
-                  backgroundColor: AppTheme.emerald,
-                ),
-              );
+              ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cloneCooSuccess, severity: AppSeverity.success));
             },
           ),
         ),
@@ -324,9 +315,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
 
   Future<void> _generateOfficialDraft() async {
     if (_selectedImportFileId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cooSelectFileFirstForComparison), backgroundColor: AppTheme.crimson),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cooSelectFileFirstForComparison, severity: AppSeverity.danger));
       return;
     }
 
@@ -398,18 +387,14 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                   _rawTextCtrl.text = preview;
                   _activeStep = 1;
                 });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(context.l10n.cooDraftFilledSuccess), backgroundColor: AppTheme.emerald),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cooDraftFilledSuccess, severity: AppSeverity.success));
               }, variant: AppButtonVariant.success, icon: Icons.check)),
           ],
         ),
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.cooGenerateDraftError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cooGenerateDraftError(ApiErrorText.of(context.l10n, e)), severity: AppSeverity.danger));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -419,9 +404,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
   Future<void> _extractFromOcrText() async {
     final rawText = _rawTextCtrl.text.trim();
     if (rawText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cooPasteTextOrUploadWarning), backgroundColor: AppTheme.orange),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cooPasteTextOrUploadWarning, severity: AppSeverity.warning));
       return;
     }
 
@@ -449,20 +432,14 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
 
       if (mounted) {
         if (warnings.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(warnings.join('\n')), backgroundColor: AppTheme.orange, duration: const Duration(seconds: 4)),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, warnings.join('\n'), severity: AppSeverity.warning));
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.cooAiExtractSuccess), backgroundColor: AppTheme.emerald),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cooAiExtractSuccess, severity: AppSeverity.success));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.cooExtractError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cooExtractError(ApiErrorText.of(context.l10n, e)), severity: AppSeverity.danger));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -471,9 +448,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
 
   Future<void> _runComparison() async {
     if (_selectedImportFileId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cooSelectFileFirstForComparison), backgroundColor: AppTheme.crimson),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cooSelectFileFirstForComparison, severity: AppSeverity.danger));
       return;
     }
 
@@ -502,9 +477,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.cooComparisonError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cooComparisonError(ApiErrorText.of(context.l10n, e)), severity: AppSeverity.danger));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -513,12 +486,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
 
   Future<void> _saveReview({bool isDraft = false}) async {
     if (_comparisonResult == null || _selectedImportFileId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.cooSelectFileFirstForComparison),
-          backgroundColor: AppTheme.orange,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cooSelectFileFirstForComparison, severity: AppSeverity.warning));
       return;
     }
 
@@ -528,11 +496,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
 
     if (!isDraft && (hasDisc || hasCritical) && reason.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.cooMustProvideJustificationSnackbar),
-          backgroundColor: AppTheme.orange,
-          duration: const Duration(seconds: 5),
-        ),
+        AppTheme.snackBar(context, context.l10n.cooMustProvideJustificationSnackbar, severity: AppSeverity.warning),
       );
       return;
     }
@@ -598,18 +562,13 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
             ? '${context.l10n.idocBCooSavedDraft} 💾'
             : '${context.l10n.idocBCooCertified} ✅';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: isDraft ? AppTheme.cobalt : AppTheme.emerald,
-          ),
+          AppTheme.snackBar(context, msg, severity: AppSeverity.success),
         );
         setState(() => _activeStep = 3);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.cooSaveError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cooSaveError(ApiErrorText.of(context.l10n, e)), severity: AppSeverity.danger));
       }
     } finally {
       if (mounted) {
@@ -1458,9 +1417,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                             exemptionNotes: _activeExemptionNotes,
                           );
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(context.l10n.cooExportingPdfReportSnackbar)),
-                          );
+                          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cooExportingPdfReportSnackbar, severity: AppSeverity.info));
                         }
                       }, variant: AppButtonVariant.secondary, icon: Icons.picture_as_pdf)),
                     const SizedBox(width: 8),
@@ -1641,8 +1598,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
           return true;
         }).toList();
 
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-
+        
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1852,150 +1808,158 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
                         ),
                       )
                     else
-                      SelectionArea(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkSurface : AppTheme.surfaceAlt),
-                            columns: [
-                              DataColumn(label: Text(context.l10n.cooRegistryColActions)),
-                              DataColumn(label: Text(context.l10n.idocBSessionTypeCol, style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text(context.l10n.cooRegistryColCode)),
-                              DataColumn(label: Text(context.l10n.cooRegistryColType)),
-                              DataColumn(label: Text(context.l10n.cooRegistryColNumber)),
-                              DataColumn(label: Text(context.l10n.cooRegistryColExporter)),
-                              DataColumn(label: Text(context.l10n.cooRegistryColStatus)),
-                              DataColumn(label: Text(context.l10n.cooRegistryColDate)),
-                            ],
-                            rows: filteredReviews.map((r) {
+                      EnterpriseDataTable<CertificateOfOriginReviewModel>(
+                        data: filteredReviews,
+                        storageKey: 'coo_reviews_registry_table',
+                        columns: [
+                          EnterpriseColumn<CertificateOfOriginReviewModel>(
+                            id: 'actions',
+                            title: context.l10n.cooRegistryColActions,
+                            width: 220,
+                            isSortable: false,
+                            isSearchable: false,
+                            cellBuilder: (context, r, index) {
                               final expName = r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—';
                               final isDraft = r.isDraft;
-                              final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
-                              final rowSummary = '${isDraft ? context.l10n.idocBSessionDraft : context.l10n.idocBSessionCertified}\t${r.cooReviewCode}\t${r.certificateType}\t${r.certificateNumber}\t$expName\t${r.status}\t$dateStr';
-
-                              return DataRow(cells: [
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // 0. Clone (استنساخ)
-                                      IconButton(
-                                        key: Key('cloneCooRowBtn_${r.cooReviewId}'),
-                                        icon: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt, size: 18),
-                                        tooltip: context.l10n.cloneCooRecordTooltip,
-                                        onPressed: () => _cloneCOOReview(r),
-                                      ),
-                                      // 1. Load into Stepper / Edit (استعادة وتحميل)
-                                      IconButton(
-                                        icon: const Icon(Icons.play_circle_outline, color: AppTheme.cobalt, size: 18),
-                                        tooltip: context.l10n.idocBCooRestoreTooltip,
-                                        onPressed: () => _loadSessionIntoEditor(r),
-                                      ),
-                                      // 2. View Details (مشاهدة)
-                                      IconButton(
-                                        icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
-                                        tooltip: context.l10n.cooViewDetailsTooltip,
-                                        onPressed: () => _showCOOReviewDetailsDialog(r),
-                                      ),
-                                      // 3. Download PDF (تنزيل PDF)
-                                      IconButton(
-                                        icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 18),
-                                        tooltip: context.l10n.cooDownloadPdfTooltip,
-                                        onPressed: () async {
-                                          final tData = {
-                                            'certificate_number': r.certificateNumber,
-                                            'box_1_exporter': expName,
-                                            'box_2_consignee': r.draftInputData?['importer_name'] ?? r.draftInputData?['box_2_consignee'] ?? '—',
-                                            'country_of_origin': r.draftInputData?['country_of_origin'] ?? '—',
-                                            'box_4_country_of_destination': r.draftInputData?['destination_country'] ?? r.draftInputData?['box_4_country_of_destination'] ?? '—',
-                                            'box_10_invoice_number_and_date': r.draftInputData?['invoice_number'] ?? r.draftInputData?['box_10_invoice_number_and_date'] ?? '—',
-                                          };
-                                          final rowFiles = ref.read(importFilesProvider).valueOrNull ?? [];
-                                          final rowAcid = rowFiles.where((f) => f.importFileId == r.importFileId).firstOrNull?.acidNumber ?? '';
-                                          if (showCooExportBlockedIfAny(context, CooExportService.missingExportField(tData, rowAcid))) return;
-                                          await CooExportService.printOrSavePdf(
-                                            templateData: tData,
-                                            certificateType: r.certificateType,
-                                            acidNumber: rowAcid,
-                                          );
-                                        },
-                                      ),
-                                      // 4. Delete Draft (حذف المسودة)
-                                      if (isDraft)
-                                        IconButton(
-                                          icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
-                                          tooltip: context.l10n.idocBCooDeleteDraftTooltip,
-                                          onPressed: () => _deleteCOODraftSession(r),
-                                        ),
-                                    ],
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    key: Key('cloneCooRowBtn_${r.cooReviewId}'),
+                                    icon: const Icon(Icons.copy_all, color: AppTheme.wcagCobalt, size: 18),
+                                    tooltip: context.l10n.cloneCooRecordTooltip,
+                                    onPressed: () => _cloneCOOReview(r),
                                   ),
-                                ),
-                                // Session Type Badge
-                                DataCell(
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: isDraft ? AppTheme.orange.withValues(alpha: 0.12) : AppTheme.emerald.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: isDraft ? AppTheme.orange : AppTheme.emerald),
+                                  IconButton(
+                                    icon: const Icon(Icons.play_circle_outline, color: AppTheme.cobalt, size: 18),
+                                    tooltip: context.l10n.idocBCooRestoreTooltip,
+                                    onPressed: () => _loadSessionIntoEditor(r),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
+                                    tooltip: context.l10n.cooViewDetailsTooltip,
+                                    onPressed: () => _showCOOReviewDetailsDialog(r),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 18),
+                                    tooltip: context.l10n.cooDownloadPdfTooltip,
+                                    onPressed: () async {
+                                      final tData = {
+                                        'certificate_number': r.certificateNumber,
+                                        'box_1_exporter': expName,
+                                        'box_2_consignee': r.draftInputData?['importer_name'] ?? r.draftInputData?['box_2_consignee'] ?? '—',
+                                        'country_of_origin': r.draftInputData?['country_of_origin'] ?? '—',
+                                        'box_4_country_of_destination': r.draftInputData?['destination_country'] ?? r.draftInputData?['box_4_country_of_destination'] ?? '—',
+                                        'box_10_invoice_number_and_date': r.draftInputData?['invoice_number'] ?? r.draftInputData?['box_10_invoice_number_and_date'] ?? '—',
+                                      };
+                                      final rowFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+                                      final rowAcid = rowFiles.where((f) => f.importFileId == r.importFileId).firstOrNull?.acidNumber ?? '';
+                                      if (showCooExportBlockedIfAny(context, CooExportService.missingExportField(tData, rowAcid))) return;
+                                      await CooExportService.printOrSavePdf(
+                                        templateData: tData,
+                                        certificateType: r.certificateType,
+                                        acidNumber: rowAcid,
+                                      );
+                                    },
+                                  ),
+                                  if (isDraft)
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
+                                      tooltip: context.l10n.idocBCooDeleteDraftTooltip,
+                                      onPressed: () => _deleteCOODraftSession(r),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(isDraft ? Icons.edit_document : Icons.verified_rounded, size: 13, color: isDraft ? AppTheme.orange : AppTheme.emerald),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          isDraft ? context.l10n.idocBSessionDraft : context.l10n.idocBSessionCertified,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            color: isDraft ? AppTheme.orange : AppTheme.emerald,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                DataCell(CopyableTableCell(
-                                  value: r.cooReviewCode,
-                                  rowSummary: rowSummary,
-                                  child: Text(r.cooReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                )),
-                                DataCell(CopyableTableCell(
-                                  value: r.certificateType,
-                                  rowSummary: rowSummary,
-                                  child: Text(r.certificateType),
-                                )),
-                                DataCell(CopyableTableCell(
-                                  value: r.certificateNumber,
-                                  rowSummary: rowSummary,
-                                  child: Text(r.certificateNumber),
-                                )),
-                                DataCell(CopyableTableCell(
-                                  value: expName,
-                                  rowSummary: rowSummary,
-                                  child: Text(expName),
-                                )),
-                                DataCell(CopyableTableCell(
-                                  value: r.status,
-                                  rowSummary: rowSummary,
-                                  child: Chip(
-                                    label: Text(r.status, style: const TextStyle(color: AppTheme.white, fontSize: 11)),
-                                    backgroundColor: r.status == 'Verified' || r.status == 'Approved'
-                                        ? AppTheme.emerald
-                                        : (isDraft ? AppTheme.orange : AppTheme.cobalt),
-                                  ),
-                                )),
-                                DataCell(CopyableTableCell(
-                                  value: dateStr,
-                                  rowSummary: rowSummary,
-                                  child: Text(dateStr),
-                                )),
-                              ]);
-                            }).toList(),
+                                ],
+                              );
+                            },
                           ),
-                        ),
-                      ),
+                          EnterpriseColumn<CertificateOfOriginReviewModel>(
+                            id: 'session_type',
+                            title: context.l10n.idocBSessionTypeCol,
+                            width: 120,
+                            isSortable: true,
+                            searchValue: (r) => r.isDraft ? context.l10n.idocBSessionDraft : context.l10n.idocBSessionCertified,
+                            exportValue: (r) => r.isDraft ? context.l10n.idocBSessionDraft : context.l10n.idocBSessionCertified,
+                            cellBuilder: (context, r, index) {
+                              final isDraft = r.isDraft;
+                              return AppStatusBadge(
+                                label: isDraft ? context.l10n.idocBSessionDraft : context.l10n.idocBSessionCertified,
+                                severity: isDraft ? AppSeverity.warning : AppSeverity.success,
+                                size: AppStatusBadgeSize.small,
+                              );
+                            },
+                          ),
+                          EnterpriseColumn<CertificateOfOriginReviewModel>(
+                            id: 'code',
+                            title: context.l10n.cooRegistryColCode,
+                            width: 130,
+                            isSortable: true,
+                            searchValue: (r) => r.cooReviewCode,
+                            exportValue: (r) => r.cooReviewCode,
+                            cellBuilder: (context, r, index) => Text(
+                              r.cooReviewCode,
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                            ),
+                          ),
+                          EnterpriseColumn<CertificateOfOriginReviewModel>(
+                            id: 'type',
+                            title: context.l10n.cooRegistryColType,
+                            width: 140,
+                            isSortable: true,
+                            searchValue: (r) => r.certificateType,
+                            exportValue: (r) => r.certificateType,
+                            cellBuilder: (context, r, index) => Text(r.certificateType),
+                          ),
+                          EnterpriseColumn<CertificateOfOriginReviewModel>(
+                            id: 'number',
+                            title: context.l10n.cooRegistryColNumber,
+                            width: 140,
+                            isSortable: true,
+                            searchValue: (r) => r.certificateNumber,
+                            exportValue: (r) => r.certificateNumber,
+                            cellBuilder: (context, r, index) => Text(r.certificateNumber),
+                          ),
+                          EnterpriseColumn<CertificateOfOriginReviewModel>(
+                            id: 'exporter',
+                            title: context.l10n.cooRegistryColExporter,
+                            width: 160,
+                            isSortable: true,
+                            searchValue: (r) => (r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—').toString(),
+                            exportValue: (r) => (r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—').toString(),
+                            cellBuilder: (context, r, index) {
+                              final expName = (r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—').toString();
+                              return Text(expName);
+                            },
+                          ),
+                          EnterpriseColumn<CertificateOfOriginReviewModel>(
+                            id: 'status',
+                            title: context.l10n.cooRegistryColStatus,
+                            width: 120,
+                            isSortable: true,
+                            searchValue: (r) => r.status,
+                            exportValue: (r) => r.status,
+                            cellBuilder: (context, r, index) {
+                              final isVerified = r.status == 'Verified' || r.status == 'Approved';
+                              return AppStatusBadge(
+                                label: r.status,
+                                severity: isVerified ? AppSeverity.success : (r.isDraft ? AppSeverity.warning : AppSeverity.info),
+                                size: AppStatusBadgeSize.small,
+                              );
+                            },
+                          ),
+                          EnterpriseColumn<CertificateOfOriginReviewModel>(
+                            id: 'date',
+                            title: context.l10n.cooRegistryColDate,
+                            width: 120,
+                            isSortable: true,
+                            searchValue: (r) => r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt,
+                            exportValue: (r) => r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt,
+                            cellBuilder: (context, r, index) {
+                              final dateStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
+                              return Text(dateStr);
+                            },
+                          ),
+                        ],
+                      )
                   ],
                 ),
               ),
@@ -2080,35 +2044,21 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
       }
       _activeStep = 1; // Jump to editor/smart input
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.idocBCooRestored(session.cooReviewCode))),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.idocBCooRestored(session.cooReviewCode), severity: AppSeverity.info));
   }
 
   Future<void> _deleteCOODraftSession(CertificateOfOriginReviewModel session) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.delete_forever, color: AppTheme.crimson),
-            const SizedBox(width: 8),
-            Expanded(child: Text(context.l10n.idocBCooDeleteTitle)),
-          ],
-        ),
-        content: Text(context.l10n.idocBCooDeleteConfirm(session.cooReviewCode)),
-        actions: [
-          IdocBUi.fit(AppButton(label: context.l10n.cancel, onPressed: () => Navigator.pop(ctx, false), variant: AppButtonVariant.secondary)),
-          IdocBUi.fit(AppButton(label: context.l10n.idocBConfirmDelete, onPressed: () => Navigator.pop(ctx, true), variant: AppButtonVariant.danger)),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.showDelete(
+      context,
+      title: context.l10n.idocBCooDeleteTitle,
+      message: context.l10n.idocBCooDeleteConfirm(session.cooReviewCode),
     );
     if (confirmed == true) {
       await ref.read(cooReviewsProvider.notifier).deleteCOOReview(session.cooReviewId);
       ref.invalidate(importFilesProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.idocBCooDeleted), backgroundColor: AppTheme.crimson),
+          AppTheme.snackBar(context, context.l10n.idocBCooDeleted, severity: AppSeverity.success),
         );
       }
     }

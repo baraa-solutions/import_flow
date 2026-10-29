@@ -68,17 +68,19 @@ class AppStatusBadge extends StatelessWidget {
       'ACTIVE', 'APPROVED', 'COMPLETED', 'DONE', 'MATCH', 'PAID',
       'RELEASED', 'CLEARED', 'DELIVERED', 'RECEIVED', 'VALID', 'CONFIRMED',
       'YES', 'TRUE', 'PASS', 'SUCCESS', 'ACCEPTED', 'VERIFIED', 'COLLECTED',
-      'SETTLED', 'REGISTERED', 'FINALIZED', 'OPEN',
+      'SETTLED', 'REGISTERED', 'FINALIZED', 'OPEN', 'FULLY_VERIFIED',
     };
     const warningKeys = {
       'PENDING', 'IN_PROGRESS', 'PROCESSING', 'PARTIAL', 'WARNING', 'DRAFT',
       'HOLD', 'REVIEW', 'ON_HOLD', 'WAITING', 'SCHEDULED', 'SUBMITTED',
       'UNDER_REVIEW', 'AMENDED', 'UNDER_INSPECTION', 'SAMPLE_TAKEN',
+      'PARTIALLY_RECEIVED', 'IN TRANSIT', 'IN_TRANSIT',
     };
     const dangerKeys = {
       'REJECTED', 'CANCELLED', 'EXPIRED', 'OVERDUE', 'FAILED', 'ERROR',
       'INACTIVE', 'DELETED', 'CLOSED', 'NO', 'FALSE', 'MISMATCH',
       'BLOCKED', 'SUSPENDED', 'DEACTIVATED', 'LOST', 'DAMAGED',
+      'CRITICAL_MISMATCH', 'REJECTED_NEEDS_MODIFICATION', 'DISCREPANT', 'DISCREPANCY',
     };
 
     if (successKeys.contains(upper)) return AppSeverity.success;

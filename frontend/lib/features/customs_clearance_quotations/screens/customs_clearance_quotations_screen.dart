@@ -1,3 +1,4 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,12 +6,6 @@ import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/ltr_text.dart';
-import '../../../core/widgets/metric_card.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../customs_consultation/widgets/price_list_form_dialog.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -521,77 +516,173 @@ class _CustomsClearanceQuotationsScreenState
   }
 
   Widget _priceListTable(List<ClearancePriceListItemModel> items, AppLocalizations l10n) {
-    DataColumn col(String label, {bool numeric = false}) => DataColumn(
-          numeric: numeric,
-          label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-        );
-
-    return Container(
-      decoration: AppTheme.cardDecorationOf(context),
-      clipBehavior: Clip.antiAlias,
-      child: SingleChildScrollView(
-        child: SizedBox(
-          width: double.infinity,
-          child: DataTable(
-            headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
-            columns: [
-              col(l10n.clearanceQuotesColPriceDelete),
-              col(l10n.clearanceQuotesColBroker),
-              col(l10n.clearanceQuotesColPricePort),
-              col(l10n.clearanceQuotesColPriceServiceType),
-              col(l10n.clearanceQuotesColPriceContainerType),
-              col(l10n.clearanceQuotesColPriceStandardRate, numeric: true),
-              col(l10n.clearanceQuotesColPriceNotes),
-            ],
-            rows: items.map((item) {
-              final category =
-                  DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory);
-              final price = '${CcFormat.money(item.unitPrice)} ${item.currency}';
-              final rowSummary =
-                  '${item.providerName} | ${item.portName} | $category | ${item.containerType} | ${item.unitPrice.toStringAsFixed(2)} ${item.currency}';
-
-              DataCell cell(String value, Widget child) =>
-                  DataCell(CopyableTableCell(value: value, rowSummary: rowSummary, child: child));
-
-              return DataRow(cells: [
-                DataCell(Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
-                      tooltip: l10n.copy,
-                      onPressed: () => CopyHelper.copy(context, rowSummary),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
-                      tooltip: l10n.delete,
-                      onPressed: () =>
-                          ref.read(clearancePriceListProvider.notifier).deletePriceItem(item.priceItemId),
-                    ),
-                  ],
-                )),
-                cell(item.providerName,
-                    Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold))),
-                cell(item.portName, Text(item.portName)),
-                cell(category, Text(category)),
-                cell(item.containerType, Text(item.containerType)),
-                cell(
-                  price,
-                  LtrText(
-                    price,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.successForeground,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
+    return EnterpriseDataTable<ClearancePriceListItemModel>(
+      storageKey: 'clearance_price_list_table',
+      data: items,
+      columns: [
+        EnterpriseColumn<ClearancePriceListItemModel>(
+          id: 'actions',
+          title: l10n.clearanceQuotesColPriceDelete,
+          width: 80,
+          isSortable: false,
+          isSearchable: false,
+          isLocked: true,
+          cellBuilder: (context, item, _) {
+            final category =
+                DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory);
+            final rowSummary =
+                '${item.providerName} | ${item.portName} | $category | ${item.containerType} | ${item.unitPrice.toStringAsFixed(2)} ${item.currency}';
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                  tooltip: l10n.copy,
+                  onPressed: () => CopyHelper.copy(context, rowSummary),
                 ),
-                cell(item.notes ?? '-', Text(item.notes ?? '-')),
-              ]);
-            }).toList(),
-          ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
+                  tooltip: l10n.delete,
+                  onPressed: () async {
+                    final confirmed = await AppConfirmDialog.showDelete(
+                      context,
+                      entityName: item.providerName,
+                    );
+                    if (confirmed) {
+                      await ref.read(clearancePriceListProvider.notifier).deletePriceItem(item.priceItemId);
+                    }
+                  },
+                ),
+              ],
+            );
+          },
         ),
-      ),
+        EnterpriseColumn<ClearancePriceListItemModel>(
+          id: 'provider_name',
+          title: l10n.clearanceQuotesColBroker,
+          isSortable: true,
+          isSearchable: true,
+          searchValue: (item) => item.providerName,
+          exportValue: (item) => item.providerName,
+          cellBuilder: (context, item, _) {
+            final category =
+                DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory);
+            final rowSummary =
+                '${item.providerName} | ${item.portName} | $category | ${item.containerType} | ${item.unitPrice.toStringAsFixed(2)} ${item.currency}';
+            return CopyableTableCell(
+              value: item.providerName,
+              rowSummary: rowSummary,
+              child: Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold)),
+            );
+          },
+        ),
+        EnterpriseColumn<ClearancePriceListItemModel>(
+          id: 'port_name',
+          title: l10n.clearanceQuotesColPricePort,
+          isSortable: true,
+          isSearchable: true,
+          searchValue: (item) => item.portName,
+          exportValue: (item) => item.portName,
+          cellBuilder: (context, item, _) {
+            final category =
+                DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory);
+            final rowSummary =
+                '${item.providerName} | ${item.portName} | $category | ${item.containerType} | ${item.unitPrice.toStringAsFixed(2)} ${item.currency}';
+            return CopyableTableCell(
+              value: item.portName,
+              rowSummary: rowSummary,
+              child: Text(item.portName),
+            );
+          },
+        ),
+        EnterpriseColumn<ClearancePriceListItemModel>(
+          id: 'service_category',
+          title: l10n.clearanceQuotesColPriceServiceType,
+          isSortable: true,
+          isSearchable: true,
+          searchValue: (item) =>
+              DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory),
+          exportValue: (item) =>
+              DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory),
+          cellBuilder: (context, item, _) {
+            final category =
+                DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory);
+            final rowSummary =
+                '${item.providerName} | ${item.portName} | $category | ${item.containerType} | ${item.unitPrice.toStringAsFixed(2)} ${item.currency}';
+            return CopyableTableCell(
+              value: category,
+              rowSummary: rowSummary,
+              child: Text(category),
+            );
+          },
+        ),
+        EnterpriseColumn<ClearancePriceListItemModel>(
+          id: 'container_type',
+          title: l10n.clearanceQuotesColPriceContainerType,
+          isSortable: true,
+          isSearchable: true,
+          searchValue: (item) => item.containerType,
+          exportValue: (item) => item.containerType,
+          cellBuilder: (context, item, _) {
+            final category =
+                DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory);
+            final rowSummary =
+                '${item.providerName} | ${item.portName} | $category | ${item.containerType} | ${item.unitPrice.toStringAsFixed(2)} ${item.currency}';
+            return CopyableTableCell(
+              value: item.containerType,
+              rowSummary: rowSummary,
+              child: Text(item.containerType),
+            );
+          },
+        ),
+        EnterpriseColumn<ClearancePriceListItemModel>(
+          id: 'unit_price',
+          title: l10n.clearanceQuotesColPriceStandardRate,
+          isSortable: true,
+          isNumeric: true,
+          searchValue: (item) => '${item.unitPrice} ${item.currency}',
+          exportValue: (item) => '${item.unitPrice} ${item.currency}',
+          cellBuilder: (context, item, _) {
+            final category =
+                DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory);
+            final price = '${CcFormat.money(item.unitPrice)} ${item.currency}';
+            final rowSummary =
+                '${item.providerName} | ${item.portName} | $category | ${item.containerType} | ${item.unitPrice.toStringAsFixed(2)} ${item.currency}';
+            return CopyableTableCell(
+              value: price,
+              rowSummary: rowSummary,
+              child: LtrText(
+                price,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.successForeground,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            );
+          },
+        ),
+        EnterpriseColumn<ClearancePriceListItemModel>(
+          id: 'notes',
+          title: l10n.clearanceQuotesColPriceNotes,
+          isSortable: false,
+          isSearchable: true,
+          searchValue: (item) => item.notes ?? '',
+          exportValue: (item) => item.notes ?? '',
+          cellBuilder: (context, item, _) {
+            final category =
+                DomainEnums.label(l10n, DomainEnumType.clearanceServiceCategory, item.serviceCategory);
+            final notes = item.notes ?? '-';
+            final rowSummary =
+                '${item.providerName} | ${item.portName} | $category | ${item.containerType} | ${item.unitPrice.toStringAsFixed(2)} ${item.currency}';
+            return CopyableTableCell(
+              value: notes,
+              rowSummary: rowSummary,
+              child: Text(notes),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -613,61 +704,74 @@ class _CustomsClearanceQuotationsScreenState
                 return StatefulBuilder(
                   builder: (ctx, setPickerState) {
                     final l = ctx.l10n;
-                    return AlertDialog(
+                    return Dialog(
+                      backgroundColor: AppTheme.surfaceOf(ctx),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusXl)),
-                      title: Row(
-                        children: [
-                          const Icon(Icons.link_rounded, color: AppTheme.cobalt),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              l.isArabic ? 'ربط عرض السعر المستخرج بطلب أسعار' : 'Link Extracted Quote to RFQ',
+                      child: SelectionArea(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 520),
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.link_rounded, color: AppTheme.cobalt),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        l.isArabic ? 'ربط عرض السعر المستخرج بطلب أسعار' : 'Link Extracted Quote to RFQ',
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  l.isArabic
+                                      ? 'اختر طلب عرض الأسعار المستهدف لإضافة هذا العرض إليه:'
+                                      : 'Select the target RFQ to attach this quotation to:',
+                                  style: TextStyle(color: AppTheme.textSecondaryOf(ctx), fontSize: 13),
+                                ),
+                                const SizedBox(height: 16),
+                                SearchableDropdownField<int>(
+                                  value: selected,
+                                  labelText: l.isArabic ? 'طلب عرض السعر (RFQ)' : 'Target RFQ',
+                                  searchHintText: l.searchPlaceholder,
+                                  items: activeRfqs
+                                      .map((r) => SearchableDropdownItem<int>(
+                                            value: r.rfqId,
+                                            label: '${r.rfqCode} - ${r.title}',
+                                          ))
+                                      .toList(),
+                                  onChanged: (val) => setPickerState(() => selected = val),
+                                ),
+                                const SizedBox(height: 24),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    AppButton(
+                                      label: l.cancel,
+                                      variant: AppButtonVariant.secondary,
+                                      size: AppButtonSize.small,
+                                      onPressed: () => Navigator.pop(ctx, null),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    AppButton(
+                                      label: l.confirm,
+                                      variant: AppButtonVariant.primary,
+                                      size: AppButtonSize.small,
+                                      onPressed: selected != null ? () => Navigator.pop(ctx, selected) : null,
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                      content: SizedBox(
-                        width: (MediaQuery.of(ctx).size.width - 48).clamp(320.0, 520.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              l.isArabic
-                                  ? 'اختر طلب عرض الأسعار المستهدف لإضافة هذا العرض إليه:'
-                                  : 'Select the target RFQ to attach this quotation to:',
-                              style: TextStyle(color: AppTheme.textSecondaryOf(ctx), fontSize: 13),
-                            ),
-                            const SizedBox(height: 16),
-                            SearchableDropdownField<int>(
-                              value: selected,
-                              labelText: l.isArabic ? 'طلب عرض السعر (RFQ)' : 'Target RFQ',
-                              searchHintText: l.searchPlaceholder,
-                              items: activeRfqs
-                                  .map((r) => SearchableDropdownItem<int>(
-                                        value: r.rfqId,
-                                        label: '${r.rfqCode} - ${r.title}',
-                                      ))
-                                  .toList(),
-                              onChanged: (val) => setPickerState(() => selected = val),
-                            ),
-                          ],
                         ),
                       ),
-                      actions: [
-                        AppButton(
-                          label: l.cancel,
-                          variant: AppButtonVariant.secondary,
-                          size: AppButtonSize.small,
-                          onPressed: () => Navigator.pop(ctx, null),
-                        ),
-                        AppButton(
-                          label: l.confirm,
-                          variant: AppButtonVariant.primary,
-                          size: AppButtonSize.small,
-                          onPressed: selected != null ? () => Navigator.pop(ctx, selected) : null,
-                        ),
-                      ],
                     );
                   },
                 );

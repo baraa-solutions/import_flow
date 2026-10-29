@@ -6,6 +6,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/metric_card.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/invoices_aggregation_model.dart';
@@ -118,10 +119,10 @@ class _FinalSettlementInvoicesDialogState
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res.message),
-            backgroundColor: AppTheme.emerald,
-            behavior: SnackBarBehavior.floating,
+          AppTheme.snackBar(
+            context,
+            res.message,
+            severity: AppSeverity.success,
           ),
         );
         Navigator.of(context).pop(true);
@@ -132,10 +133,10 @@ class _FinalSettlementInvoicesDialogState
           _isSubmitting = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ApiErrorText.of(context.l10n, e)),
-            backgroundColor: AppTheme.crimson,
-            behavior: SnackBarBehavior.floating,
+          AppTheme.snackBar(
+            context,
+            ApiErrorText.of(context.l10n, e),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -459,10 +460,29 @@ class _FinalSettlementInvoicesDialogState
                           inv.invoiceNo,
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                         ),
-                        if (inv.paymentReference != null)
-                          Text(
-                            inv.paymentReference!,
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                        if (inv.paymentReference != null && inv.paymentReference!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: InkWell(
+                              onTap: () => CopyHelper.copy(context, inv.paymentReference!),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.tag, size: 11, color: AppTheme.cobalt),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    inv.paymentReference!,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontFamily: 'monospace',
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.cobalt,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                       ],
                     ),

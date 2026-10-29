@@ -1150,14 +1150,7 @@ import '../../../core/widgets/unsaved_changes_guard.dart';
                             ),
                           );
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(tariff == null
-                                  ? l10n.tariffAddedSuccess
-                                  : l10n.tariffUpdatedSuccess),
-                              backgroundColor: AppTheme.emerald,
-                            ),
-                          );
+                          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, tariff == null ? l10n.tariffAddedSuccess : l10n.tariffUpdatedSuccess, severity: AppSeverity.success));
                           Navigator.pop(ctx);
                         }
                       }

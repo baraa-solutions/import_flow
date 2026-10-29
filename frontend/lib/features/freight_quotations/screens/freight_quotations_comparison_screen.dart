@@ -5,13 +5,11 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../services/freight_quotations_export_service.dart';
+import '../widgets/freight_quotations_comparison_table.dart';
 
-import 'package:frontend/core/widgets/ltr_text.dart';
 class FreightQuotationsComparisonScreen extends ConsumerStatefulWidget {
   const FreightQuotationsComparisonScreen({super.key});
 
@@ -23,7 +21,6 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   final Color _charcoal = AppTheme.charcoal;
   final Color _cobalt = AppTheme.cobalt;
   final Color _emerald = AppTheme.emerald;
-  final Color _gold = Colors.amber.shade700;
 
   bool _isLoading = false;
   String? _error;
@@ -97,7 +94,13 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
 
     if (rfqId == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.freightQuoteSelectedSuccess), backgroundColor: AppTheme.emerald));
+        ScaffoldMessenger.of(context).showSnackBar(
+          AppTheme.snackBar(
+            context,
+            l10n.freightQuoteSelectedSuccess,
+            severity: AppSeverity.success,
+          ),
+        );
       }
       return;
     }
@@ -110,12 +113,22 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.freightQuoteAwardedSuccess), backgroundColor: AppTheme.emerald),
+          AppTheme.snackBar(
+            context,
+            l10n.freightQuoteAwardedSuccess,
+            severity: AppSeverity.success,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.freightQuoteAwardError(e.toString())), backgroundColor: AppTheme.crimson));
+        ScaffoldMessenger.of(context).showSnackBar(
+          AppTheme.snackBar(
+            context,
+            l10n.freightQuoteAwardError(e.toString()),
+            severity: AppSeverity.danger,
+          ),
+        );
       }
     }
   }
@@ -129,10 +142,9 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
     final supplierName = selectedFile?.supplierName ?? '';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.freightQuotationsComparisonTitle, style: const TextStyle(color: Colors.white)),
-        backgroundColor: _charcoal,
-        iconTheme: const IconThemeData(color: Colors.white),
+      appBar: PageHeader(
+        icon: Icons.compare_arrows_rounded,
+        title: l10n.freightQuotationsComparisonTitle,
         actions: const [
           BackToDashboardButton(),
           SizedBox(width: 10),
@@ -152,20 +164,43 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
                 const SizedBox(height: 16),
               ],
               if (_isLoading)
-                const Expanded(child: Center(child: CircularProgressIndicator()))
+                const Expanded(child: AppLoadingState())
               else if (_error != null)
-                Expanded(child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))))
+                Expanded(
+                  child: AppErrorState(
+                    error: _error!,
+                    onRetry: _selectedImportFileId != null
+                        ? () => _fetchQuotations(_selectedImportFileId!)
+                        : null,
+                  ),
+                )
               else if (_selectedImportFileId == null)
-                Expanded(child: Center(child: Text(l10n.selectImportFilePrompt, style: const TextStyle(fontSize: 18))))
+                Expanded(
+                  child: AppEmptyState(
+                    icon: Icons.folder_open_outlined,
+                    message: l10n.selectImportFilePrompt,
+                  ),
+                )
               else if (_quotations.isEmpty)
-                Expanded(child: Center(child: Text(l10n.noFreightQuotesForFile, style: const TextStyle(fontSize: 18))))
+                Expanded(
+                  child: AppEmptyState(
+                    icon: Icons.request_quote_outlined,
+                    message: l10n.noFreightQuotesForFile,
+                  ),
+                )
               else
                 Expanded(
                   child: Column(
                     children: [
                       _buildMetricsBar(),
                       const SizedBox(height: 24),
-                      Expanded(child: _buildComparisonColumns()),
+                      Expanded(
+                        child: FreightQuotationsComparisonTable(
+                          quotations: _quotations,
+                          selectedQuotationId: _selectedQuotationId,
+                          onSelectQuotation: _selectQuotation,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -353,183 +388,46 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
     final selectedName = selected.isNotEmpty ? selected.first['provider_name'] : l10n.notSelectedYet;
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _charcoal.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _charcoal.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(10),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildMetric(l10n.metricCheapestQuote, '${cheapest['provider_name']} (${cheapest['total_cost']} ${cheapest['currency_code']})', Icons.attach_money, _emerald),
-          _buildMetric(l10n.metricFastestQuote, '${fastest['provider_name']} (${l10n.transitDaysCount(fastest['transit_days'])})', Icons.speed, _cobalt),
-          _buildMetric(l10n.metricCurrentlySelected, selectedName, Icons.check_circle, _charcoal),
+          Expanded(
+            child: MetricCard(
+              data: MetricCardData(
+                title: l10n.metricCheapestQuote,
+                value: '${cheapest['provider_name']} (${cheapest['total_cost']} ${cheapest['currency_code']})',
+                icon: Icons.attach_money,
+                color: _emerald,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: MetricCard(
+              data: MetricCardData(
+                title: l10n.metricFastestQuote,
+                value: '${fastest['provider_name']} (${l10n.transitDaysCount(fastest['transit_days'])})',
+                icon: Icons.speed,
+                color: _cobalt,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: MetricCard(
+              data: MetricCardData(
+                title: l10n.metricCurrentlySelected,
+                value: selectedName,
+                icon: Icons.check_circle,
+                color: _charcoal,
+              ),
+            ),
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMetric(String label, String value, IconData icon, Color color) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => CopyHelper.copy(context, '$label: $value'),
-      child: Tooltip(
-        message: context.l10n.copyTooltip,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            children: [
-              Icon(icon, color: color, size: 32),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: const TextStyle(color: Colors.grey)),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
-                      const SizedBox(width: 4),
-                      Icon(Icons.copy_rounded, size: 12, color: color.withValues(alpha: 0.6)),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildComparisonColumns() {
-    final l10n = context.l10n;
-    // Determine cheapest id to give it a gold badge
-    int? cheapestId;
-    if (_quotations.isNotEmpty) {
-      var cheapest = _quotations.first;
-      for (var q in _quotations) {
-        if ((q['total_cost'] ?? 0) < (cheapest['total_cost'] ?? 0)) cheapest = q;
-      }
-      cheapestId = cheapest['quotation_id'];
-    }
-
-    return Row(
-      children: _quotations.map((q) {
-        final qId = q['quotation_id'];
-        final isSelected = qId == _selectedQuotationId;
-        final isCheapest = qId == cheapestId;
-        final carrierName = (q['provider_name'] ?? l10n.unknownCarrierFallback).toString();
-
-        return Expanded(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: isSelected ? _emerald : Colors.grey.shade300, width: isSelected ? 3 : 1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isSelected ? _emerald.withValues(alpha: 0.1) : _charcoal.withValues(alpha: 0.05),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-                  ),
-                  child: Column(
-                    children: [
-                      if (isCheapest)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(color: _gold, borderRadius: BorderRadius.circular(12)),
-                          child: Text(l10n.badgeBestPrice, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(6),
-                        onTap: () => CopyHelper.copy(context, carrierName),
-                        child: Tooltip(
-                          message: l10n.copyTooltip,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  carrierName,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              const Icon(Icons.copy_rounded, size: 14, color: AppTheme.flatCobalt),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      _buildDetailRow(l10n.totalFreightCostLabel, '${q['total_cost']} ${q['currency_code']}', bold: true, color: _emerald),
-                      _buildDetailRow(l10n.oceanFreightLabel, '${q['ocean_freight_cost']} ${q['currency_code']}'),
-                      _buildDetailRow(l10n.localChargesLabel, '${q['local_charges_cost']} ${q['currency_code']}'),
-                      const Divider(),
-                      _buildDetailRow(l10n.transitDurationLabel, l10n.transitDaysCount(q['transit_days'] ?? 0)),
-                      _buildDetailRow(l10n.sailingDateLabel, q['sailing_date']?.toString() ?? '-'),
-                      _buildDetailRow(l10n.estimatedArrivalDateLabel, q['estimated_arrival_date']?.toString() ?? '-'),
-                      const Divider(),
-                      if (q['remarks'] != null) ...[
-                        Text(l10n.remarksLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        CopyableTableCell(
-                          value: q['remarks'].toString(),
-                          rowSummary: '${l10n.remarksLabel} ${q['remarks']}',
-                          child: Text(q['remarks'].toString()),
-                        ),
-                      ]
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isSelected ? _emerald : _charcoal,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    onPressed: () => _selectQuotation(qId),
-                    child: Text(isSelected ? l10n.quoteAwardedBtn : l10n.awardQuoteBtn, style: const TextStyle(color: Colors.white, fontSize: 16)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value, {bool bold = false, Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: CopyableTableCell(
-        value: value,
-        rowSummary: '$label: $value',
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(color: Colors.grey)),
-            Text(
-              value,
-              style: TextStyle(
-                fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-                color: color ?? _charcoal,
-                fontSize: bold ? 16 : 14,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

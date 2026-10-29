@@ -1,8 +1,8 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../auth/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/email_settings_model.dart';
@@ -19,10 +19,7 @@ class EmailSettingsDialog extends ConsumerStatefulWidget {
     final user = ProviderScope.containerOf(context, listen: false).read(authProvider).user;
     if (!canAccess(user)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.adminOnlyFeatureMessage),
-          backgroundColor: AppTheme.orange,
-        ),
+        AppTheme.snackBar(context, context.l10n.adminOnlyFeatureMessage, severity: AppSeverity.warning),
       );
       return;
     }
@@ -192,16 +189,13 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
 
     if (mounted && success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم حفظ إعدادات البريد بنجاح'),
-          backgroundColor: AppTheme.emerald,
-        ),
+        AppTheme.snackBar(context, 'تم حفظ إعدادات البريد بنجاح', severity: AppSeverity.success),
       );
     } else if (mounted) {
       final error = ref.read(emailSettingsProvider).error;
       if (error != null && error.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), backgroundColor: AppTheme.crimson),
+          AppTheme.snackBar(context, error, severity: AppSeverity.danger),
         );
       }
     }
@@ -211,10 +205,7 @@ class _EmailSettingsDialogState extends ConsumerState<EmailSettingsDialog> {
     final result = await ref.read(emailSettingsProvider.notifier).fetchInboxNow();
     if (mounted && result != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.message),
-          backgroundColor: result.matchedFilesCount > 0 ? AppTheme.emerald : AppTheme.cobalt,
-        ),
+        AppTheme.snackBar(context, result.message, severity: AppSeverity.success),
       );
       if (result.matchedFilesCount > 0) {
         await EmailSyncReviewDialog.show(context, result: result);

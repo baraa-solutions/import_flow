@@ -77,8 +77,10 @@ class _DraftInspectionReviewScreenState extends ConsumerState<DraftInspectionRev
           onPressed: _refreshData,
         ),
       ],
-      body: InspectionReviewTab(
+      body: SelectionArea(
+        child: InspectionReviewTab(
         initialImportFileId: _selectedImportFileId,
+        ),
       ),
     );
   }

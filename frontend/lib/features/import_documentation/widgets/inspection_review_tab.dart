@@ -1,16 +1,13 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/system_messages/coded_item_text.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import 'idoc_ui_b.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/smart_upload_button.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
@@ -176,9 +173,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   Future<void> _runComparison() async {
     final l10n = context.l10n;
     if (_selectedImportFileId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pleaseSelectFileFirstPrompt), backgroundColor: AppTheme.crimson),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l10n.pleaseSelectFileFirstPrompt, severity: AppSeverity.danger));
       return;
     }
 
@@ -210,9 +205,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.inspectionComparisonError(ApiErrorText.of(l10n, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l10n.inspectionComparisonError(ApiErrorText.of(l10n, e)), severity: AppSeverity.danger));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -226,9 +219,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   void _showAcidMissing() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.idocBExportBlockedAcid), backgroundColor: AppTheme.crimson),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.idocBExportBlockedAcid, severity: AppSeverity.danger));
   }
 
   /// Shows the "ACID missing" SnackBar and returns true when no ACID is available.
@@ -243,9 +234,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     if (_comparisonResult == null || _selectedImportFileId == null) return;
     if (_blockIfAcidMissing()) return;
     if (_certNumberCtrl.text.trim().isEmpty || _authorityCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.idocBInspectionFieldsRequired), backgroundColor: AppTheme.crimson),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l10n.idocBInspectionFieldsRequired, severity: AppSeverity.danger));
       return;
     }
 
@@ -255,11 +244,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
 
     if ((hasDisc || hasCritical) && reason.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('⚠️ ${l10n.overrideReasonMandatoryWarning}'),
-          backgroundColor: AppTheme.orange,
-          duration: const Duration(seconds: 5),
-        ),
+        AppTheme.snackBar(context, '⚠️ ${l10n.overrideReasonMandatoryWarning}', severity: AppSeverity.warning),
       );
       return;
     }
@@ -286,16 +271,12 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
 
       await ref.read(inspectionReviewsProvider.notifier).saveInspectionReview(payload);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✔ ${l10n.saveInspectionReviewSuccess}'), backgroundColor: AppTheme.emerald),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, '✔ ${l10n.saveInspectionReviewSuccess}', severity: AppSeverity.success));
         setState(() => _activeStep = 3);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.saveInspectionReviewError(ApiErrorText.of(l10n, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l10n.saveInspectionReviewError(ApiErrorText.of(l10n, e)), severity: AppSeverity.danger));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -305,9 +286,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   Future<void> _generateOfficialDraft() async {
     final l10n = context.l10n;
     if (_selectedImportFileId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.generateDraftSelectFileFirstPrompt), backgroundColor: AppTheme.crimson),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l10n.generateDraftSelectFileFirstPrompt, severity: AppSeverity.danger));
       return;
     }
 
@@ -379,18 +358,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   if (standards.isNotEmpty) _specCtrl.text = standards.join('\n');
                   _activeStep = 1;
                 });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('✔ ${l10n.inspectionDraftDataAppliedSuccess}'), backgroundColor: AppTheme.emerald),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, '✔ ${l10n.inspectionDraftDataAppliedSuccess}', severity: AppSeverity.success));
               }, variant: AppButtonVariant.success, icon: Icons.check)),
           ],
         ),
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.generateDraftError(ApiErrorText.of(l10n, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l10n.generateDraftError(ApiErrorText.of(l10n, e)), severity: AppSeverity.danger));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -402,7 +377,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     final rawText = _rawTextCtrl.text.trim();
     if (rawText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.pasteRawTextFirstPrompt), backgroundColor: AppTheme.orange),
+        AppTheme.snackBar(context, l10n.pasteRawTextFirstPrompt, severity: AppSeverity.warning),
       );
       return;
     }
@@ -469,31 +444,19 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
       if (mounted) {
         if (warnings.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.inspectionOcrWarningsAlert(warnings.join(', '))),
-              backgroundColor: AppTheme.warningForeground,
-              duration: const Duration(seconds: 4),
-            ),
+            AppTheme.snackBar(context, l10n.inspectionOcrWarningsAlert(warnings.join(', ')), severity: AppSeverity.warning),
           );
         } else if (isDraft) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('⚠️ ${l10n.inspectionDraft48hWarningAlert}'),
-              backgroundColor: AppTheme.orange,
-              duration: const Duration(seconds: 5),
-            ),
+            AppTheme.snackBar(context, '⚠️ ${l10n.inspectionDraft48hWarningAlert}', severity: AppSeverity.warning),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('✔ ${l10n.inspectionExtractionSuccess}'), backgroundColor: AppTheme.emerald),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, '✔ ${l10n.inspectionExtractionSuccess}', severity: AppSeverity.success));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.inspectionComparisonError(ApiErrorText.of(l10n, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l10n.inspectionComparisonError(ApiErrorText.of(l10n, e)), severity: AppSeverity.danger));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -1277,157 +1240,157 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     child: Center(child: Text(l10n.noInspReviewsYet)),
                   )
                 else
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withValues(alpha: 0.06)),
-                      columns: [
-                        DataColumn(label: Text(l10n.colInspActions)),
-                        DataColumn(label: Text(l10n.colInspSessionCode)),
-                        DataColumn(label: Text(l10n.colInspCertType)),
-                        DataColumn(label: Text(l10n.colInspAgency)),
-                        DataColumn(label: Text(l10n.colInspCertNo)),
-                        DataColumn(label: Text(l10n.colInspStatus)),
-                        DataColumn(label: Text(l10n.colInspCreatedAt)),
-                      ],
-                      rows: reviews.map((r) {
-                        final rawTxt = r.rawText ?? r.draftInputData?['raw_text'] ?? '';
-                        final overrideReason = r.notes ?? r.draftInputData?['override_reason'] ?? '';
-                        final createdStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
-                        final rowSummary = '${r.inspectionReviewCode} | ${r.inspectionType} | ${r.inspectionAgency} | ${r.certificateNumber} | ${r.status} | $createdStr';
-
-                        return DataRow(cells: [
-                          DataCell(
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // 0. Copy Row (نسخ بيانات السطر)
-                                IconButton(
-                                  icon: const Icon(Icons.copy, color: AppTheme.cobalt, size: 18),
-                                  tooltip: l10n.copyRow,
-                                  onPressed: () {
-                                    CopyHelper.copy(context, rowSummary, customMessage: l10n.copiedToClipboardGeneric);
-                                  },
-                                ),
-                                // 1. Edit (تعديل)
-                                IconButton(
-                                  icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
-                                  tooltip: l10n.editInspSessionTooltip,
-                                  onPressed: () {
-                                    setState(() {
-                                      _selectedImportFileId = r.importFileId;
-                                      _inspType = r.inspectionType;
-                                      _inspAgency = r.inspectionAgency;
-                                      _certNumberCtrl.text = r.certificateNumber;
-                                      _rawTextCtrl.text = rawTxt;
-                                      _overrideReasonCtrl.text = overrideReason;
-                                      if (r.comparisonMatrix.isNotEmpty) {
-                                        _comparisonResult = {
-                                          'comparison_matrix': r.comparisonMatrix,
-                                          'has_discrepancies': r.hasDiscrepancies,
-                                          'has_critical_mismatch': r.hasCriticalMismatch,
-                                          'system_snapshot_data': r.systemSnapshotData,
-                                          'draft_input_data': r.draftInputData,
-                                        };
-                                      }
-                                      _activeStep = 1;
-                                    });
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(l10n.loadedInspSessionForEdit(r.inspectionReviewCode))),
-                                    );
-                                  },
-                                ),
-                                // 2. View (مشاهدة)
-                                IconButton(
-                                  icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
-                                  tooltip: l10n.viewInspDetailsTooltip,
-                                  onPressed: () => _showInspectionReviewDetailsDialog(r),
-                                ),
-                                // 3. Download PDF (تنزيل PDF)
-                                IconButton(
-                                  icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 18),
-                                  tooltip: l10n.downloadInspPdfTooltip,
-                                  onPressed: () async {
-                                    final rowFiles = ref.read(importFilesProvider).valueOrNull ?? [];
-                                    final rowAcid = (rowFiles.where((f) => f.importFileId == r.importFileId).firstOrNull?.acidNumber ?? '').trim();
-                                    if (rowAcid.isEmpty) {
-                                      _showAcidMissing();
-                                      return;
+                  EnterpriseDataTable<InspectionCertificateReviewModel>(
+                    data: reviews,
+                    storageKey: 'inspection_reviews_registry_table',
+                    columns: [
+                      EnterpriseColumn<InspectionCertificateReviewModel>(
+                        id: 'actions',
+                        title: l10n.colInspActions,
+                        width: 170,
+                        isSortable: false,
+                        isSearchable: false,
+                        cellBuilder: (context, r, index) {
+                          final rawTxt = r.rawText ?? r.draftInputData?['raw_text'] ?? '';
+                          final overrideReason = r.notes ?? r.draftInputData?['override_reason'] ?? '';
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
+                                tooltip: l10n.editInspSessionTooltip,
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedImportFileId = r.importFileId;
+                                    _inspType = r.inspectionType;
+                                    _inspAgency = r.inspectionAgency;
+                                    _certNumberCtrl.text = r.certificateNumber;
+                                    _rawTextCtrl.text = rawTxt;
+                                    _overrideReasonCtrl.text = overrideReason;
+                                    if (r.comparisonMatrix.isNotEmpty) {
+                                      _comparisonResult = {
+                                        'comparison_matrix': r.comparisonMatrix,
+                                        'has_discrepancies': r.hasDiscrepancies,
+                                        'has_critical_mismatch': r.hasCriticalMismatch,
+                                        'system_snapshot_data': r.systemSnapshotData,
+                                        'draft_input_data': r.draftInputData,
+                                      };
                                     }
-                                    final tData = {
-                                      'certificate_number': r.certificateNumber,
-                                      'inspection_agency': r.inspectionAgency,
-                                      'inspection_type': r.inspectionType,
-                                      ...?r.draftInputData,
-                                    };
-                                    await InspectionExportService.printOrSavePdf(
-                                      templateData: tData,
-                                      agency: r.inspectionAgency,
-                                      certType: r.inspectionType,
-                                      acidNumber: rowAcid,
-                                      standards: _activeStandards,
-                                    );
-                                  },
-                                ),
-                                // 4. Delete (حذف)
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
-                                  tooltip: l10n.deleteInspSessionTooltip,
-                                  onPressed: () => _confirmDeleteInspectionReview(r),
-                                ),
-                              ],
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: r.inspectionReviewCode,
-                              rowSummary: rowSummary,
-                              child: Text(r.inspectionReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: r.inspectionType,
-                              rowSummary: rowSummary,
-                              child: Text(r.inspectionType),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: r.inspectionAgency,
-                              rowSummary: rowSummary,
-                              child: Text(r.inspectionAgency),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: r.certificateNumber,
-                              rowSummary: rowSummary,
-                              child: Text(r.certificateNumber),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: r.status,
-                              rowSummary: rowSummary,
-                              child: Chip(
-                                label: Text(r.status, style: const TextStyle(color: AppTheme.white, fontSize: 11)),
-                                backgroundColor: r.status == 'Verified' ? AppTheme.emerald : AppTheme.orange,
+                                    _activeStep = 1;
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    AppTheme.snackBar(context, l10n.loadedInspSessionForEdit(r.inspectionReviewCode), severity: AppSeverity.info),
+                                  );
+                                },
                               ),
-                            ),
-                          ),
-                          DataCell(
-                            CopyableTableCell(
-                              value: createdStr,
-                              rowSummary: rowSummary,
-                              child: Text(createdStr),
-                            ),
-                          ),
-
-                        ]);
-                      }).toList(),
-                    ),
-                  ),
+                              IconButton(
+                                icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
+                                tooltip: l10n.viewInspDetailsTooltip,
+                                onPressed: () => _showInspectionReviewDetailsDialog(r),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 18),
+                                tooltip: l10n.downloadInspPdfTooltip,
+                                onPressed: () async {
+                                  final rowFiles = ref.read(importFilesProvider).valueOrNull ?? [];
+                                  final rowAcid = (rowFiles.where((f) => f.importFileId == r.importFileId).firstOrNull?.acidNumber ?? '').trim();
+                                  if (rowAcid.isEmpty) {
+                                    _showAcidMissing();
+                                    return;
+                                  }
+                                  final tData = {
+                                    'certificate_number': r.certificateNumber,
+                                    'inspection_agency': r.inspectionAgency,
+                                    'inspection_type': r.inspectionType,
+                                    ...?r.draftInputData,
+                                  };
+                                  await InspectionExportService.printOrSavePdf(
+                                    templateData: tData,
+                                    agency: r.inspectionAgency,
+                                    certType: r.inspectionType,
+                                    acidNumber: rowAcid,
+                                    standards: _activeStandards,
+                                  );
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
+                                tooltip: l10n.deleteInspSessionTooltip,
+                                onPressed: () => _confirmDeleteInspectionReview(r),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      EnterpriseColumn<InspectionCertificateReviewModel>(
+                        id: 'session_code',
+                        title: l10n.colInspSessionCode,
+                        width: 130,
+                        isSortable: true,
+                        searchValue: (r) => r.inspectionReviewCode,
+                        exportValue: (r) => r.inspectionReviewCode,
+                        cellBuilder: (context, r, index) => Text(
+                          r.inspectionReviewCode,
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                        ),
+                      ),
+                      EnterpriseColumn<InspectionCertificateReviewModel>(
+                        id: 'cert_type',
+                        title: l10n.colInspCertType,
+                        width: 140,
+                        isSortable: true,
+                        searchValue: (r) => r.inspectionType,
+                        exportValue: (r) => r.inspectionType,
+                        cellBuilder: (context, r, index) => Text(r.inspectionType),
+                      ),
+                      EnterpriseColumn<InspectionCertificateReviewModel>(
+                        id: 'agency',
+                        title: l10n.colInspAgency,
+                        width: 140,
+                        isSortable: true,
+                        searchValue: (r) => r.inspectionAgency,
+                        exportValue: (r) => r.inspectionAgency,
+                        cellBuilder: (context, r, index) => Text(r.inspectionAgency),
+                      ),
+                      EnterpriseColumn<InspectionCertificateReviewModel>(
+                        id: 'cert_no',
+                        title: l10n.colInspCertNo,
+                        width: 140,
+                        isSortable: true,
+                        searchValue: (r) => r.certificateNumber,
+                        exportValue: (r) => r.certificateNumber,
+                        cellBuilder: (context, r, index) => Text(r.certificateNumber),
+                      ),
+                      EnterpriseColumn<InspectionCertificateReviewModel>(
+                        id: 'status',
+                        title: l10n.colInspStatus,
+                        width: 120,
+                        isSortable: true,
+                        searchValue: (r) => r.status,
+                        exportValue: (r) => r.status,
+                        cellBuilder: (context, r, index) {
+                          final isVerified = r.status == 'Verified';
+                          return AppStatusBadge(
+                            label: r.status,
+                            severity: isVerified ? AppSeverity.success : AppSeverity.warning,
+                            size: AppStatusBadgeSize.small,
+                          );
+                        },
+                      ),
+                      EnterpriseColumn<InspectionCertificateReviewModel>(
+                        id: 'created_at',
+                        title: l10n.colInspCreatedAt,
+                        width: 120,
+                        isSortable: true,
+                        searchValue: (r) => r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt,
+                        exportValue: (r) => r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt,
+                        cellBuilder: (context, r, index) {
+                          final createdStr = r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt;
+                          return Text(createdStr);
+                        },
+                      ),
+                    ],
+                  )
               ],
             ),
           ),
@@ -1548,40 +1511,28 @@ ${overrideReason.isNotEmpty ? '${l10n.tileInspOverrideReason}: $overrideReason\n
     );
   }
 
-  void _confirmDeleteInspectionReview(InspectionCertificateReviewModel r) {
+  Future<void> _confirmDeleteInspectionReview(InspectionCertificateReviewModel r) async {
     final l10n = context.l10n;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.warning, color: AppTheme.crimson),
-            const SizedBox(width: 8),
-            Text(l10n.confirmDeleteInspSessionTitle),
-          ],
-        ),
-        content: Text(l10n.confirmDeleteInspSessionContent(r.inspectionReviewCode, r.certificateNumber)),
-        actions: [
-          IdocBUi.fit(AppButton(label: l10n.cancel, onPressed: () => Navigator.of(ctx).pop(), variant: AppButtonVariant.secondary)),
-          IdocBUi.fit(AppButton(label: l10n.delete, onPressed: () async {
-              Navigator.of(ctx).pop();
-              try {
-                await ref.read(inspectionReviewsProvider.notifier).deleteInspectionReview(r.inspectionReviewId);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('✔ ${l10n.inspSessionDeletedSuccess}'), backgroundColor: AppTheme.emerald),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.deleteInspSessionError(ApiErrorText.of(l10n, e))), backgroundColor: AppTheme.crimson),
-                  );
-                }
-              }
-            }, variant: AppButtonVariant.danger)),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.showDelete(
+      context,
+      title: l10n.confirmDeleteInspSessionTitle,
+      message: l10n.confirmDeleteInspSessionContent(r.inspectionReviewCode, r.certificateNumber),
     );
+    if (confirmed == true) {
+      try {
+        await ref.read(inspectionReviewsProvider.notifier).deleteInspectionReview(r.inspectionReviewId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            AppTheme.snackBar(context, '✔ ', severity: AppSeverity.success),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            AppTheme.snackBar(context, l10n.deleteInspSessionError(ApiErrorText.of(l10n, e)), severity: AppSeverity.danger),
+          );
+        }
+      }
+    }
   }
 }

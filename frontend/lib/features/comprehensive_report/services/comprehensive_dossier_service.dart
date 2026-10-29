@@ -9,10 +9,15 @@ final comprehensiveDossierServiceProvider = Provider<ComprehensiveDossierService
   return ComprehensiveDossierService(dio);
 });
 
-final comprehensiveDossierProvider = FutureProvider.autoDispose.family<ComprehensiveShipmentDossierModel, int>((ref, fileId) async {
+final comprehensiveDossierProvider = FutureProvider.family<ComprehensiveShipmentDossierModel, int>((ref, fileId) async {
   final service = ref.watch(comprehensiveDossierServiceProvider);
   return service.fetchComprehensiveDossier(fileId);
 });
+
+/// Helper to force refresh the dossier for a given import file across all screens.
+void invalidateDossier(dynamic ref, int importFileId) {
+  ref.invalidate(comprehensiveDossierProvider(importFileId));
+}
 
 class ComprehensiveDossierService {
   final Dio _dio;

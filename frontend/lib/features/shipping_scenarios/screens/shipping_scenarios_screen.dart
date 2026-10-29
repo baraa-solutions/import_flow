@@ -1,14 +1,15 @@
-import 'dart:math' as math;
-import '../widgets/saved_scenarios_registry_tab.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
 
-import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/container_requirement_engine.dart';
-import '../../../core/widgets/widgets.dart';
+import 'package:frontend/core/localization/api_error_text.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/core/performance/dispose_tracker.dart';
+import 'package:frontend/core/theme/app_theme.dart';
+import 'package:frontend/core/utils/container_requirement_engine.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 
+import '../../currencies/models/currency_model.dart';
+import '../../currencies/providers/currencies_provider.dart';
 import '../../external_service_providers/models/partner_model.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../freight_quotations/widgets/freight_quotations_extractor_dialog.dart';
@@ -20,12 +21,11 @@ import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/shipping_scenario_model.dart';
 import '../providers/shipping_scenarios_provider.dart';
 import '../utils/shipping_scenario_calculator.dart';
-import '../../currencies/models/currency_model.dart';
-import '../../currencies/providers/currencies_provider.dart';
-import '../../../core/localization/app_localizations.dart';
-import '../../../core/performance/dispose_tracker.dart';
-import '../../../core/localization/api_error_text.dart';
-
+import '../widgets/carrier_option_evaluation_tile.dart';
+import '../widgets/freight_ai_extractor_card.dart';
+import '../widgets/saved_scenarios_registry_tab.dart';
+import '../widgets/search_and_clone_study_dialog.dart';
+import '../widgets/shipping_scenario_evaluator_form.dart';
 
 class ShippingScenariosScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -68,26 +68,15 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   bool _isSaving = false;
   bool _isStackable = true;
 
-  // ── Smart AI Extractor State (Text & OCR) ──────────────────────────────
-  bool _isFreightExtractorExpanded = true;
-  final bool _isFreightExtracting = false;
-  final TextEditingController _rawFreightQuoteController = TextEditingController();
-  List<ExtractedQuotationOption> _extractedOptions = [];
-  Map<String, dynamic>? _extractedFreightMetadata;
-  PlatformFile? _pickedFreightFile;
-  String? _extractorError;
-
   // Track expanded quotes in UI
   final Map<int, bool> _expandedQuotes = {};
   bool _hasVisitedTab0 = false;
   bool _hasVisitedTab1 = false;
 
-  
   void _cloneCarrierOption(int idx) {
     if (idx < 0 || idx >= _evalItems.length) return;
     final source = _evalItems[idx];
     final l = context.l10n;
-    // The vessel name is a real-world name and is kept as is on the clone.
     final clonedItem = source.copyWith(
       isRecommended: false,
       isSelected: false,
@@ -97,9 +86,10 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       _expandedQuotes[idx + 1] = true;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l.carrierOptionClonedSuccess),
-        backgroundColor: AppTheme.wcagEmerald,
+      AppTheme.snackBar(
+        context,
+        l.carrierOptionClonedSuccess,
+        severity: AppSeverity.success,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -155,21 +145,23 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                 unlinkPo: true,
                 copyCarrierOptions: copyLineItems,
               );
+              if (!context.mounted) return;
               if (cloned != null) {
                 _loadSessionForEditing(cloned, showLoadedSnackbar: false);
                 messenger.hideCurrentSnackBar();
                 messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(l.cloneStudySuccess(cloned.sessionCode)),
-                    backgroundColor: AppTheme.wcagEmerald,
+                  AppTheme.snackBar(
+                    context,
+                    l.cloneStudySuccess(cloned.sessionCode),
+                    severity: AppSeverity.success,
                   ),
                 );
               } else {
-                // The clone failed: show the (localized) reason instead of staying silent.
                 messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(ApiErrorText.of(l, ref.read(shippingScenariosProvider).error, fallback: l.operationFailed)),
-                    backgroundColor: AppTheme.crimson,
+                  AppTheme.snackBar(
+                    context,
+                    ApiErrorText.of(l, ref.read(shippingScenariosProvider).error, fallback: l.operationFailed),
+                    severity: AppSeverity.danger,
                   ),
                 );
               }
@@ -227,15 +219,29 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     _tabController.animateTo(0);
     if (showLoadedSnackbar) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.sessionLoadedMsg(sess.sessionCode)),
-          backgroundColor: AppTheme.cobalt,
+        AppTheme.snackBar(
+          context,
+          context.l10n.sessionLoadedMsg(sess.sessionCode),
+          severity: AppSeverity.info,
         ),
       );
     }
   }
 
-  void _resetFormForNewStudy() {
+  Future<void> _resetFormForNewStudy() async {
+    final l = context.l10n;
+    if (_evalItems.isNotEmpty) {
+      final confirm = await AppConfirmDialog.show(
+        context,
+        title: l.clearAndStartNew,
+        message: l.confirmActionTitle,
+        confirmLabel: l.confirm,
+        cancelLabel: l.cancel,
+        confirmVariant: AppButtonVariant.warning,
+        icon: Icons.refresh_rounded,
+      );
+      if (!confirm) return;
+    }
     setState(() {
       _hasVisitedTab0 = true;
       _editFormVersion++;
@@ -250,7 +256,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       _selectedPoId = null;
       _selectedProjectId = null;
       _expandedQuotes.clear();
-      _initDefaultItems();
+      _evalItems.clear();
     });
   }
 
@@ -270,7 +276,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     if (widget.initialImportFileId != null) {
       _selectedImportFileId = widget.initialImportFileId;
     }
-    _initDefaultItems();
+    _evalItems.clear();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshData(force: false);
     });
@@ -318,10 +324,6 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     }
   }
 
-  void _initDefaultItems() {
-    _evalItems.clear();
-  }
-
   void _addNewBlankCarrierOption() {
     setState(() {
       _evalItems.add(ShippingScenarioItemModel(
@@ -347,101 +349,14 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
-    _rawFreightQuoteController.dispose();
     super.dispose();
   }
-
-  double? _calculateTotalQuoteValue(ShippingScenarioItemModel item, List<CurrencyModel> currencies) {
-    return ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currencies).total;
-  }
-
-  void _updateItem(int idx, ShippingScenarioItemModel updatedItem, List<CurrencyModel> currencies) {
-    final rawTotal = _calculateTotalQuoteValue(updatedItem, currencies);
-    final totalAmount = rawTotal?.roundToDouble();
-    setState(() {
-      _evalItems[idx] = updatedItem.copyWith(
-        totalQuotationAmount: totalAmount,
-        clearTotalQuotationAmount: totalAmount == null,
-      );
-    });
-  }
-
-  static const String _sampleFreightQuoteText = '''
-Dear Ahmed,
-Please find below our best rates for your shipment:
-
-Route: Shanghai – Alexandria
-Local charges: Approx. USD 880/40HQ
-Ocean freight:
-• WHL: USD 6,700/40HQ  ETD: 28/AUG
-  Transit time: 29 days, DIRECT
-  Free time: 21 days FT
-
-• YML: USD 6,180/40HQ  ETD: 27/AUG
-  Transit time: 48 days, INDIRECT
-  Free time: 21 days FT
-
-• MSC: USD 6,950/40HQ  ETD: 30/AUG
-  Transit time: 27 days, DIRECT
-  Free time: 14 days FT (INCL OWS)
-
-Cancellation fee: \$100/cntr
-Best regards,
-''';
-
-  void _loadSampleFreightQuote() {
-    setState(() {
-      _rawFreightQuoteController.text = _sampleFreightQuoteText.trim();
-      _extractorError = null;
-    });
-  }
-
-  void _openFreightSmartExtractorDialog([String? initialText]) {
-    FreightQuotationsExtractorDialog.show(
-      context,
-      onAddQuotations: (selectedOptions) {
-        final crd = _cargoReadyDate;
-        final partners = ref.read(allPartnersProvider).valueOrNull ?? ref.read(partnersProvider).valueOrNull ?? [];
-        final portsList = ref.read(transportLocationsProvider).valueOrNull ?? [];
-
-        setState(() {
-          for (int i = 0; i < selectedOptions.length; i++) {
-            final opt = selectedOptions[i];
-            final scenario = _mapExtractedOptionToScenarioItem(
-              opt: opt,
-              crd: crd,
-              partners: partners,
-              portsList: portsList,
-              isRecommended: i == 0 && _evalItems.isEmpty,
-            );
-            _evalItems.add(scenario);
-          }
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.freightQuotesAddedMsg(selectedOptions.length)),
-            backgroundColor: AppTheme.emerald,
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _extractFreightFromText() async {
-    _openFreightSmartExtractorDialog(_rawFreightQuoteController.text.trim());
-  }
-
-  Future<void> _extractFreightFromFile() async {
-    _openFreightSmartExtractorDialog();
-  }
-
 
   dynamic _matchPortSmart(String rawPortText, List portsList) {
     if (rawPortText.trim().isEmpty) return null;
     final raw = rawPortText.toLowerCase();
 
-    // 1. Direct UN/LOCODE exact or substring match e.g. "CNNGB", "EGDKH", "EGALX", "EGEDK"
+    // 1. Direct UN/LOCODE exact or substring match
     for (final p in portsList) {
       final unloc = (p.unLocode ?? '').toString().toLowerCase();
       if (unloc.isNotEmpty && (raw.contains(unloc) || unloc.contains(raw))) {
@@ -449,8 +364,7 @@ Best regards,
       }
     }
 
-    // 2. Tokenized word matching (e.g. "ningbo", "dekheila", "alexandria", "shanghai", "sokhna", "damietta", "port said", "cairo")
-    // and Arabic keywords ("نينغبو", "الدخيلة", "الإسكندرية", "السخنة", "دمياط", "بورسعيد", "شنغهاي")
+    // 2. Tokenized word matching
     final portKeywords = [
       'ningbo', 'dekheila', 'dek', 'alexandria', 'alex', 'shanghai', 'sokhna', 'damietta',
       'port said', 'cairo', 'qingdao', 'shenzhen', 'guangzhou', 'xiamen',
@@ -499,7 +413,7 @@ Best regards,
     final notes = opt.notes;
     final curr = opt.currency;
 
-    // 1. Match Shipping Line (الخط الملاحي)
+    // 1. Match Shipping Line
     final shippingLines = partners.where((p) => p.partnerType.contains('Shipping Line') || p.partnerType.contains('Carrier')).toList();
     final matchedLine = shippingLines.where((p) =>
       p.partnerName.toLowerCase().contains(rawCarrier.toLowerCase()) ||
@@ -517,32 +431,30 @@ Best regards,
     ).firstOrNull;
     final effectiveCarrierName = matchedLine != null ? matchedLine.partnerName : rawCarrier;
 
-    // 2. Match Freight Forwarder (وكيل الشحن / الناقل)
+    // 2. Match Freight Forwarder
     final freightForwarders = partners.where((p) => p.partnerType.contains('Freight Forwarder') || p.partnerType.contains('Carrier')).toList();
-    final rawForwarder = opt.forwarderName ?? _extractedFreightMetadata?['forwarder_name']?.toString() ?? '';
+    final rawForwarder = opt.forwarderName ?? '';
     final matchedForwarder = rawForwarder.isNotEmpty
         ? freightForwarders.where((p) =>
             p.partnerName.toLowerCase().contains(rawForwarder.toLowerCase()) ||
             rawForwarder.toLowerCase().contains(p.partnerName.toLowerCase())).firstOrNull
         : null;
 
-    // 3. Match Port of Loading POL (ميناء السفر / التحميل)
-    final rawPol = (opt.originPort ?? _extractedFreightMetadata?['origin_port']?.toString() ?? '').toLowerCase();
+    // 3. Match Port of Loading POL
+    final rawPol = (opt.originPort ?? '').toLowerCase();
     final dynamic matchedPol = _matchPortSmart(rawPol, portsList);
 
-    // 4. Match Port of Discharge POD (ميناء الوصول / التفريغ)
-    final rawPod = (opt.destinationPort ?? _extractedFreightMetadata?['destination_port']?.toString() ?? '').toLowerCase();
+    // 4. Match Port of Discharge POD
+    final rawPod = (opt.destinationPort ?? '').toLowerCase();
     final dynamic matchedPod = _matchPortSmart(rawPod, portsList);
 
-    // 5. Vessel & Voyage (اسم الباخرة ورقم الرحلة)
+    // 5. Vessel & Voyage
     final effectiveVessel = (opt.vesselName != null && opt.vesselName!.isNotEmpty)
         ? opt.vesselName!
-        : (_extractedFreightMetadata?['vessel_name']?.toString() ?? (isDirect ? 'Direct Line Service' : 'Transshipment Service'));
-    final effectiveVoyage = (opt.voyageNumber != null && opt.voyageNumber!.isNotEmpty)
-        ? opt.voyageNumber!
-        : (_extractedFreightMetadata?['voyage_number']?.toString() ?? '');
+        : (isDirect ? 'Direct Line Service' : 'Transshipment Service');
+    final effectiveVoyage = opt.voyageNumber ?? '';
 
-    // 6. Sailing Date ETD & Estimated Arrival ETA (تاريخ الإبحار وتاريخ الوصول)
+    // 6. Sailing Date ETD & Estimated Arrival ETA
     DateTime sDate = crd.add(const Duration(days: 2));
     if (opt.etdDate != null && opt.etdDate!.isNotEmpty) {
       final parsed = DateTime.tryParse(opt.etdDate!);
@@ -558,7 +470,6 @@ Best regards,
     final is40 = cntrType.contains('40');
     final is20 = cntrType.contains('20');
 
-    // Check for additional unmapped expenses / Free Time Extension fees in notes or localCharges
     double extraFeeAmount = (localCharges != null && localCharges > 0) ? localCharges : 0.0;
     if (notes != null && notes.isNotEmpty) {
       final m = RegExp(r'(?:USD|\$|EUR|EGP)\s*([0-9,]+(?:\.\d+)?)', caseSensitive: false).firstMatch(notes);
@@ -608,42 +519,38 @@ Best regards,
     );
   }
 
-  void _addAllExtractedQuotationsToScenarios() {
-    if (_extractedOptions.isEmpty) return;
+  void _handleAddExtractedQuotations(List<ExtractedQuotationOption> selectedOptions) {
+    if (selectedOptions.isEmpty) return;
     final crd = _cargoReadyDate;
     final partners = ref.read(allPartnersProvider).valueOrNull ?? ref.read(partnersProvider).valueOrNull ?? [];
     final portsList = ref.read(transportLocationsProvider).valueOrNull ?? [];
-    final List<ShippingScenarioItemModel> newItems = [];
-
-    for (int i = 0; i < _extractedOptions.length; i++) {
-      final opt = _extractedOptions[i];
-      newItems.add(_mapExtractedOptionToScenarioItem(
-        opt: opt,
-        crd: crd,
-        partners: partners,
-        portsList: portsList,
-        isRecommended: _evalItems.isEmpty && i == 0,
-      ));
-    }
 
     setState(() {
       _editFormVersion++;
-      _evalItems.addAll(newItems);
-      _extractedOptions = [];
-      for (int i = 0; i < _evalItems.length; i++) {
-        _expandedQuotes[i] = true;
+      for (int i = 0; i < selectedOptions.length; i++) {
+        final opt = selectedOptions[i];
+        final scenario = _mapExtractedOptionToScenarioItem(
+          opt: opt,
+          crd: crd,
+          partners: partners,
+          portsList: portsList,
+          isRecommended: i == 0 && _evalItems.isEmpty,
+        );
+        _evalItems.add(scenario);
+        _expandedQuotes[_evalItems.length - 1] = true;
       }
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.extractedAndAddedMsg(newItems.length)),
-        backgroundColor: AppTheme.emerald,
+      AppTheme.snackBar(
+        context,
+        context.l10n.freightQuotesAddedMsg(selectedOptions.length),
+        severity: AppSeverity.success,
       ),
     );
   }
 
-  void _addSingleExtractedQuotationToScenarios(ExtractedQuotationOption opt) {
+  void _handleAddSingleExtractedQuotation(ExtractedQuotationOption opt) {
     final crd = _cargoReadyDate;
     final partners = ref.read(allPartnersProvider).valueOrNull ?? ref.read(partnersProvider).valueOrNull ?? [];
     final portsList = ref.read(transportLocationsProvider).valueOrNull ?? [];
@@ -660,405 +567,13 @@ Best regards,
       _editFormVersion++;
       _evalItems.add(newItem);
       _expandedQuotes[_evalItems.length - 1] = true;
-      _extractedOptions.removeWhere((o) => o.optionId == opt.optionId);
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.freightQuotesAddedMsg(1)),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
-  }
-
-  /// ─── Smart Inline Freight Quotation Extractor Card (SWIFT MT103 Style) ────
-  Widget _buildInlineFreightQuotationsExtractorWidget() {
-    final l = context.l10n;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.charcoal),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header Bar with Cobalt Gradient & Icons
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.cobalt, AppTheme.wcagCobalt],
-                begin: AlignmentDirectional.centerEnd,
-                end: AlignmentDirectional.centerStart,
-              ),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      const Icon(Icons.auto_awesome, color: AppTheme.orange, size: 20),
-                      const SizedBox(width: 6),
-                      const Icon(Icons.bolt, color: AppTheme.white, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          l.freightExtractorTitle,
-                          style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 13),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(_isFreightExtractorExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: AppTheme.white),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  tooltip: _isFreightExtractorExpanded ? l.collapseExtractor : l.expandExtractor,
-                  onPressed: () => setState(() => _isFreightExtractorExpanded = !_isFreightExtractorExpanded),
-                ),
-              ],
-            ),
-          ),
-
-          // Collapsible Body
-          if (_isFreightExtractorExpanded)
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isNarrow = constraints.maxWidth < 650;
-
-                      // Text Area with bottom Action Overlay
-                      final textArea = Stack(
-                        children: [
-                          TextField(
-                            controller: _rawFreightQuoteController,
-                            maxLines: 5,
-                            minLines: 4,
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4),
-                            decoration: InputDecoration(
-                              hintText: 'لصق نص رسالة أو إيميل عرض السعر من الخط الملاحي أو شركة الشحن...\n(مثال: Route: Shanghai - Alexandria | WHL: USD 6700/40HQ | Transit: 29 days, DIRECT | Free time: 21 days FT)',
-                              hintStyle: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 40),
-                            ),
-                          ),
-                          PositionedDirectional(
-                            start: 8,
-                            bottom: 8,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                InkWell(
-                                  onTap: () async {
-                                    final d = await Clipboard.getData(Clipboard.kTextPlain);
-                                    if (d != null && d.text != null && d.text!.isNotEmpty) {
-                                      _rawFreightQuoteController.text = d.text!;
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.cloudWhite,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.paste, size: 12, color: AppTheme.charcoal),
-                                        const SizedBox(width: 4),
-                                        Text(l.pasteQuoteText, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                InkWell(
-                                  onTap: () {
-                                    _rawFreightQuoteController.clear();
-                                    setState(() {
-                                      _extractedOptions = [];
-                                      _extractedFreightMetadata = null;
-                                      _extractorError = null;
-                                    });
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.charcoalSurface,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.clear, size: 12, color: AppTheme.textSecondary),
-                                        const SizedBox(width: 4),
-                                        Text(l.clearField, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                InkWell(
-                                  onTap: _loadSampleFreightQuote,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.orangeLight,
-                                      border: Border.all(color: AppTheme.orange),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.lightbulb_outline, size: 12, color: AppTheme.orange),
-                                        const SizedBox(width: 4),
-                                        Text(l.sampleQuoteBtn, style: const TextStyle(fontSize: 11, color: AppTheme.wcagOrange, fontWeight: FontWeight.bold)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-
-                      // Action Buttons
-                      final actionButtons = Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          AppButton(
-                            label: l.uploadQuoteDocument,
-                            icon: Icons.upload_file,
-                            variant: AppButtonVariant.primary,
-                            size: AppButtonSize.small,
-                            onPressed: _isFreightExtracting ? null : _extractFreightFromFile,
-                          ),
-                          const SizedBox(height: 8),
-                          AppButton(
-                            label: l.extractQuotesBtn,
-                            icon: Icons.bolt,
-                            variant: AppButtonVariant.primary,
-                            size: AppButtonSize.small,
-                            isLoading: _isFreightExtracting,
-                            onPressed: _isFreightExtracting ? null : _extractFreightFromText,
-                          ),
-                        ],
-                      );
-
-                      if (isNarrow) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            textArea,
-                            const SizedBox(height: 10),
-                            actionButtons,
-                          ],
-                        );
-                      } else {
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: textArea),
-                            const SizedBox(width: 14),
-                            SizedBox(width: 220, child: actionButtons),
-                          ],
-                        );
-                      }
-                    },
-                  ),
-
-                  // Error Banner
-                  if (_extractorError != null) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.crimsonLight,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppTheme.crimsonBorder),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline, color: AppTheme.crimson, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(_extractorError!, style: const TextStyle(color: AppTheme.crimson, fontSize: 11))),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                  // Extracted Options Live Results Card
-                  if (_extractedOptions.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.emeraldLight,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.emeraldBorder),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  l.extractedQuotesBanner(_extractedOptions.length),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-                                ),
-                              ),
-                              AppButton(
-                                label: l.addAllQuotes(_extractedOptions.length),
-                                icon: Icons.add_task,
-                                variant: AppButtonVariant.success,
-                                size: AppButtonSize.small,
-                                onPressed: _addAllExtractedQuotationsToScenarios,
-                              ),
-                            ],
-                          ),
-                          if (_pickedFreightFile != null || _extractedFreightMetadata != null) ...[
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: [
-                                if (_pickedFreightFile != null)
-                                  Chip(
-                                    avatar: const Icon(Icons.attach_file, size: 14, color: AppTheme.cobalt),
-                                    label: Text('${l.attachedFileChip}: ${_pickedFreightFile!.name}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-                                    backgroundColor: AppTheme.white,
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                if (_extractedFreightMetadata?['origin_port'] != null)
-                                  Chip(
-                                    avatar: const Icon(Icons.flight_takeoff, size: 14, color: AppTheme.cobalt),
-                                    label: Text('${l.originPortChip}: ${_extractedFreightMetadata!['origin_port']}', style: const TextStyle(fontSize: 10.5)),
-                                    backgroundColor: AppTheme.white,
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                if (_extractedFreightMetadata?['destination_port'] != null)
-                                  Chip(
-                                    avatar: const Icon(Icons.flight_land, size: 14, color: AppTheme.emerald),
-                                    label: Text('${l.destinationPortChip}: ${_extractedFreightMetadata!['destination_port']}', style: const TextStyle(fontSize: 10.5)),
-                                    backgroundColor: AppTheme.white,
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                if (_extractedFreightMetadata?['local_charges'] != null)
-                                  Chip(
-                                    avatar: const Icon(Icons.monetization_on, size: 14, color: AppTheme.orange),
-                                    label: Text('${l.localExpensesChip}: \$${_extractedFreightMetadata!['local_charges']}', style: const TextStyle(fontSize: 10.5)),
-                                    backgroundColor: AppTheme.white,
-                                    padding: EdgeInsets.zero,
-                                  ),
-                              ],
-                            ),
-                          ],
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _extractedOptions.map((opt) {
-                              return Container(
-                                width: 340,
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppTheme.cloudWhite),
-                                  boxShadow: [
-                                    BoxShadow(color: AppTheme.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2)),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            '${opt.carrierName} (${opt.containerType})',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: opt.isDirect ? AppTheme.emeraldLight : AppTheme.orangeLight,
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: opt.isDirect ? AppTheme.emeraldBorder : AppTheme.orange),
-                                          ),
-                                          child: Text(
-                                            opt.isDirect ? l.directRoute : l.transitRoute,
-                                            style: TextStyle(fontSize: 10, color: opt.isDirect ? AppTheme.wcagEmerald : AppTheme.wcagOrange, fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const Divider(height: 10),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text('${l.oceanFreightLabel}: \$${opt.oceanFreight.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                                        if (opt.localCharges != null && opt.localCharges! > 0)
-                                          Text('${l.localChargesLabel}: \$${opt.localCharges!.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                                        Text('${l.totalLabel}: \$${opt.totalEstimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text('⏱️ ${l.transitDaysLabel}: ${opt.transitDays ?? "-"}', style: const TextStyle(fontSize: 10.5, color: AppTheme.charcoal)),
-                                        Text('⏳ ${l.freeTimeDaysLabel}: ${opt.freeTimeDays ?? 14}', style: const TextStyle(fontSize: 10.5, color: AppTheme.charcoal)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: AppButton(
-                                        label: l.addThisQuoteBtn,
-                                        icon: Icons.add,
-                                        variant: AppButtonVariant.secondary,
-                                        size: AppButtonSize.small,
-                                        onPressed: () => _addSingleExtractedQuotationToScenarios(opt),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-        ],
+      AppTheme.snackBar(
+        context,
+        context.l10n.freightQuotesAddedMsg(1),
+        severity: AppSeverity.success,
       ),
     );
   }
@@ -1096,9 +611,10 @@ Best regards,
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.extractedAndAddedMsg(newItems.length)),
-        backgroundColor: AppTheme.emerald,
+      AppTheme.snackBar(
+        context,
+        context.l10n.extractedAndAddedMsg(newItems.length),
+        severity: AppSeverity.success,
         duration: const Duration(seconds: 4),
       ),
     );
@@ -1141,7 +657,9 @@ Best regards,
     final portsList = portsState.valueOrNull ?? [];
 
     if (widget.isEmbedded) {
-      return _buildEvaluatorTab(state, poList, projectsList, freightForwarders, shippingLines, customsBrokers, portsList, currenciesList);
+      return SelectionArea(
+        child: _buildEvaluatorTab(state, poList, projectsList, freightForwarders, shippingLines, customsBrokers, portsList, currenciesList),
+      );
     }
 
     final tabs = [
@@ -1150,7 +668,6 @@ Best regards,
         titleEn: 'Scenarios Evaluator',
         titleAr: 'دراسة وسيناريوهات الشحن',
       ),
-
       VerticalNavTabItem(
         icon: Icons.history_edu_outlined,
         titleEn: 'Saved Evaluations Log',
@@ -1171,59 +688,60 @@ Best regards,
       ),
     ];
 
-    return VerticalStageScaffold(
-      stageCode: 'STEP_01',
-      titleEn: 'Freight Shipping Scenarios & Carrier Evaluation',
-      titleAr: 'دراسات وسيناريوهات الشحن والمفاضلة',
-      headerIcon: Icons.alt_route_outlined,
-      headerColor: AppTheme.cobalt,
-      tabs: tabs,
-      selectedIndex: _tabController.index,
-      onTabSelected: (index) => setState(() {
-        _tabController.index = index;
-        if (index == 0) _hasVisitedTab0 = true;
-        if (index == 1) _hasVisitedTab1 = true;
-      }),
-      selectedImportFileId: _selectedImportFileId,
-      onShipmentStatusChanged: () => _refreshData(force: true),
-      headerActions: [
-        AppButton(
-          key: const ValueKey('searchAndCloneStudyBtn'),
-          label: l.searchAndCloneStudyBtn,
-          icon: Icons.copy_all_rounded,
-          variant: AppButtonVariant.secondary,
-          size: AppButtonSize.small,
-          onPressed: () => _openSearchAndCloneStudyDialog(context),
-        ),
-        const SizedBox(width: 8),
-        SmartUploadButton(
-          module: SmartUploadModule.freightQuotation,
-          label: '🚀 ${l.extractFreightQuotes}',
-          onDataExtracted: (result) {
-            _applySmartExtractedFreightQuotes(result.extractedFields);
-          },
-        ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: l.liveRefresh,
-          onPressed: () => _refreshData(force: true),
-        ),
-      ],
-      body: IndexedStack(
-        index: _tabController.index,
-        children: [
-          _hasVisitedTab0
-              ? _buildEvaluatorTab(state, poList, projectsList, freightForwarders, shippingLines, customsBrokers, portsList, currenciesList)
-              : const SizedBox.shrink(),
-          _hasVisitedTab1
-              ? _buildHistoryRegistryTab(state, poList, projectsList)
-              : const SizedBox.shrink(),
+    return SelectionArea(
+      child: VerticalStageScaffold(
+        stageCode: 'STEP_01',
+        titleEn: 'Freight Shipping Scenarios & Carrier Evaluation',
+        titleAr: 'دراسات وسيناريوهات الشحن والمفاضلة',
+        headerIcon: Icons.alt_route_outlined,
+        headerColor: AppTheme.cobalt,
+        tabs: tabs,
+        selectedIndex: _tabController.index,
+        onTabSelected: (index) => setState(() {
+          _tabController.index = index;
+          if (index == 0) _hasVisitedTab0 = true;
+          if (index == 1) _hasVisitedTab1 = true;
+        }),
+        selectedImportFileId: _selectedImportFileId,
+        onShipmentStatusChanged: () => _refreshData(force: true),
+        headerActions: [
+          AppButton(
+            key: const ValueKey('searchAndCloneStudyBtn'),
+            label: l.searchAndCloneStudyBtn,
+            icon: Icons.copy_all_rounded,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.small,
+            onPressed: () => _openSearchAndCloneStudyDialog(context),
+          ),
+          const SizedBox(width: 8),
+          SmartUploadButton(
+            module: SmartUploadModule.freightQuotation,
+            label: '🚀 ${l.extractFreightQuotes}',
+            onDataExtracted: (result) {
+              _applySmartExtractedFreightQuotes(result.extractedFields);
+            },
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: AppTheme.white),
+            tooltip: l.liveRefresh,
+            onPressed: () => _refreshData(force: true),
+          ),
         ],
+        body: IndexedStack(
+          index: _tabController.index,
+          children: [
+            _hasVisitedTab0
+                ? _buildEvaluatorTab(state, poList, projectsList, freightForwarders, shippingLines, customsBrokers, portsList, currenciesList)
+                : const SizedBox.shrink(),
+            _hasVisitedTab1
+                ? _buildHistoryRegistryTab(state, poList, projectsList)
+                : const SizedBox.shrink(),
+          ],
+        ),
       ),
     );
   }
-
 
   Widget _buildEvaluatorTab(
     ShippingScenariosState state,
@@ -1238,9 +756,9 @@ Best regards,
     final crd = _cargoReadyDate;
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isArabic = (Localizations.maybeLocaleOf(context)?.languageCode ?? 'ar') == 'ar';
 
     // Calculate Scenario lead times
-
     final calculatedScenarios = _evalItems.asMap().entries.map((entry) {
       final idx = entry.key;
       final item = entry.value;
@@ -1285,66 +803,6 @@ Best regards,
         ? validScenarios.reduce((a, b) => (a['totalDays'] as int) > (b['totalDays'] as int) ? a : b)
         : null;
 
-    // Linked PO packing list metrics
-    double totalCargoCbm = 0.0;
-    double totalCargoWeightKg = 0.0;
-    double totalFloorAreaM2 = 0.0;
-    int linkedPlCount = 0;
-    bool hasNonStackableItems = false;
-    bool hasExplicitPackingList = false;
-
-    List<PurchaseOrderModel> filteredPOs = [];
-    if (_selectedImportFileId != null) {
-      final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
-      final selectedFile = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
-      if (selectedFile != null) {
-        final filePoIds = selectedFile.poIds ?? [];
-        filteredPOs = poList.where((p) =>
-            (p.poId != null && filePoIds.contains(p.poId)) ||
-            (p.importFileId != null && p.importFileId == selectedFile.importFileId) ||
-            (selectedFile.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == selectedFile.importFileCode)).toList();
-      }
-    } else if (_selectedPoId != null) {
-      filteredPOs = poList.where((p) => p.poId == _selectedPoId).toList();
-    }
-
-    for (var po in filteredPOs) {
-      if (po.packingListItems.isNotEmpty) {
-        hasExplicitPackingList = true;
-        linkedPlCount += po.packingListItems.length;
-        for (var pl in po.packingListItems) {
-          totalCargoCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
-          totalCargoWeightKg += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
-          final lM = pl.lengthCm > 0 ? pl.lengthCm / 100.0 : 0.0;
-          final wM = pl.widthCm > 0 ? pl.widthCm / 100.0 : 0.0;
-          totalFloorAreaM2 += ContainerRequirementEngine.calculateFloorAreaM2(lengthM: lM, widthM: wM, quantity: pl.qtyPkg.toInt());
-          if (!pl.isStackable) hasNonStackableItems = true;
-        }
-      }
-    }
-
-    final containerRec = ContainerRequirementEngine.calculate(
-      totalCbm: totalCargoCbm,
-      totalWeightKg: totalCargoWeightKg,
-      isStackable: _isStackable,
-    );
-
-    final dualRec = ContainerRequirementEngine.calculateBoth(
-      totalCbm: totalCargoCbm,
-      totalWeightKg: totalCargoWeightKg,
-    );
-
-    final totalLdm = ContainerRequirementEngine.calculateLdm(floorAreaM2: totalFloorAreaM2);
-    final lclChargeableCbm = ContainerRequirementEngine.calculateLclChargeableCbm(
-      physicalCbm: totalCargoCbm,
-      floorAreaM2: totalFloorAreaM2,
-      isStackable: _isStackable && !hasNonStackableItems,
-    );
-    final oceanRevenueTon = ContainerRequirementEngine.calculateOceanRevenueTon(
-      chargeableCbm: lclChargeableCbm,
-      totalGrossWeightKg: totalCargoWeightKg,
-    );
-
     return Form(
       key: _formKey,
       child: Stack(
@@ -1357,1555 +815,434 @@ Best regards,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (_editingSessionId != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.orangeLight,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.orange),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.edit_note, color: AppTheme.orange, size: 24),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              '⚠️ ${l.activeEditStudyBanner}: $_editingSessionCode (${_title.isNotEmpty ? _title : l.noDataFound}). ${l.activeEditStudyHint}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.wcagOrange, fontSize: 13),
-                            ),
-                          ),
-                          AppButton(
-                            label: l.cancelEditAndStartNew,
-                            icon: Icons.cancel_outlined,
-                            variant: AppButtonVariant.secondary,
-                            size: AppButtonSize.small,
-                            onPressed: () {
-                              _resetFormForNewStudy();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l.cancelEditModeMsg),
-                                  backgroundColor: AppTheme.charcoal,
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  // Top Metrics Cards Responsive Layout
-                  LayoutBuilder(
-                    builder: (context, metricConstraints) {
-                      final card1 = _buildMetricCard(
-                        l.avgWarehouseArrivalMetric,
-                        avgArrivalDate,
-                        Icons.date_range,
-                        AppTheme.wcagEmerald,
-                        subtitle: l.avgDaysFromReadiness(avgTotalDays),
-                      );
-                      final card2 = _buildMetricCard(
-                        l.earliestLineMetric,
-                        earliestItemMap != null ? (earliestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
-                        Icons.speed,
-                        AppTheme.wcagCobalt,
-                        subtitle: earliestItemMap != null ? '${l.estimatedArrivalDateCol}: ${earliestItemMap["expectedWhDate"]}' : null,
-                      );
-                      final card3 = _buildMetricCard(
-                        l.latestLineMetric,
-                        latestItemMap != null ? (latestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
-                        Icons.warning_amber_rounded,
-                        AppTheme.wcagOrange,
-                        subtitle: latestItemMap != null ? '${l.estimatedArrivalDateCol}: ${latestItemMap["expectedWhDate"]}' : null,
-                      );
-                      final card4 = _buildMetricCard(
-                        l.recommendedLineMetric,
-                        recItem != null ? '${recItem.providerName} (${recItem.vesselName})' : l.unassigned,
-                        Icons.stars_rounded,
-                        AppTheme.cobalt,
-                        subtitle: recItemMap != null ? '${l.avgWarehouseArrivalMetric}: ${recItemMap["expectedWhDate"]} (${recItemMap["totalDays"]} d)' : null,
-                      );
-
-                      if (metricConstraints.maxWidth < 600) {
-                        return Column(
-                          children: [
-                            card1,
-                            const SizedBox(height: 8),
-                            card2,
-                            const SizedBox(height: 8),
-                            card3,
-                            const SizedBox(height: 8),
-                            card4,
-                          ],
+                    // Top Metrics Cards Responsive Layout
+                    LayoutBuilder(
+                      builder: (context, metricConstraints) {
+                        final card1 = _buildMetricCard(
+                          l.avgWarehouseArrivalMetric,
+                          avgArrivalDate,
+                          Icons.date_range,
+                          AppTheme.wcagEmerald,
+                          subtitle: l.avgDaysFromReadiness(avgTotalDays),
                         );
-                      } else if (metricConstraints.maxWidth < 1050) {
-                        return Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(child: card1),
-                                const SizedBox(width: 12),
-                                Expanded(child: card2),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(child: card3),
-                                const SizedBox(width: 12),
-                                Expanded(child: card4),
-                              ],
-                            ),
-                          ],
+                        final card2 = _buildMetricCard(
+                          l.earliestLineMetric,
+                          earliestItemMap != null ? (earliestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
+                          Icons.speed,
+                          AppTheme.wcagCobalt,
+                          subtitle: earliestItemMap != null ? '${l.estimatedArrivalDateCol}: ${earliestItemMap["expectedWhDate"]}' : null,
                         );
-                      } else {
-                        return Row(
-                          children: [
-                            Expanded(child: card1),
-                            const SizedBox(width: 12),
-                            Expanded(child: card2),
-                            const SizedBox(width: 12),
-                            Expanded(child: card3),
-                            const SizedBox(width: 12),
-                            Expanded(child: card4),
-                          ],
+                        final card3 = _buildMetricCard(
+                          l.latestLineMetric,
+                          latestItemMap != null ? (latestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
+                          Icons.warning_amber_rounded,
+                          AppTheme.wcagOrange,
+                          subtitle: latestItemMap != null ? '${l.estimatedArrivalDateCol}: ${latestItemMap["expectedWhDate"]}' : null,
                         );
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
+                        final card4 = _buildMetricCard(
+                          l.recommendedLineMetric,
+                          recItem != null ? '${recItem.providerName} (${recItem.vesselName})' : l.unassigned,
+                          Icons.stars_rounded,
+                          AppTheme.cobalt,
+                          subtitle: recItemMap != null ? '${l.avgWarehouseArrivalMetric}: ${recItemMap["expectedWhDate"]} (${recItemMap["totalDays"]} d)' : null,
+                        );
 
-                  // ── Smart AI Freight Quotations Extractor (Text & OCR Box) ──
-                  _buildInlineFreightQuotationsExtractorWidget(),
-
-                  // Study Main Settings Card
-                  Card(
-                    elevation: 2,
-                    color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: LayoutBuilder(
-                        builder: (context, paramConstraints) {
-                          final isNarrowParam = paramConstraints.maxWidth < 768;
-
-                          final titleWidget = TextFormField(
-                            key: ValueKey('title_${_editingSessionId ?? "new"}_$_editFormVersion'),
-                            initialValue: _title,
-                            decoration: InputDecoration(labelText: '${l.studyTitleLabel} *', hintText: l.studyTitleLabel, isDense: true),
-                            validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
-                            onChanged: (v) => _title = v.trim(),
-                          );
-
-                          final crdWidget = InkWell(
-                            onTap: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: _cargoReadyDate,
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2030),
-                              );
-                              if (picked != null) {
-                                setState(() {
-                                  _cargoReadyDate = picked;
-                                });
-                              }
-                            },
-                            child: InputDecorator(
-                              decoration: InputDecoration(labelText: '${l.crdLabel} *', isDense: true),
-                              child: Text(_cargoReadyDate.toString().substring(0, 10), style: const TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                          );
-
-                          final importFileWidget = SearchableDropdownField<int?>(
-                            value: _selectedImportFileId,
-                            labelText: l.linkImportFile,
-                            items: [
-                              SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                              ...(ref.watch(importFilesProvider).valueOrNull ?? []).map((f) => SearchableDropdownItem<int?>(
-                                    value: f.importFileId,
-                                    label: '${f.primaryNameWithCode} - ${f.companyName}',
-                                  )),
-                            ],
-                            onChanged: (v) {
-                              setState(() {
-                                _selectedImportFileId = v;
-                                if (v != null) {
-                                  final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
-                                  final f = importFiles.where((file) => file.importFileId == v).firstOrNull;
-                                  if (f != null) {
-                                    final fCode = f.displayName;
-                                    _title = '[$fCode] ${f.companyName}';
-                                  }
-                                }
-                              });
-                            },
-                          );
-
-                          final poWidget = SearchableDropdownField<int?>(
-                            value: _selectedPoId,
-                            labelText: l.linkPurchaseOrder,
-                            items: [
-                              SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                              ...poList.map((po) => SearchableDropdownItem<int?>(
-                                    value: po.poId,
-                                    label: '${po.displayName} (${po.poNumber}) (${po.supplierName ?? "Supplier"})',
-                                  )),
-                            ],
-                            onChanged: (v) => setState(() => _selectedPoId = v),
-                          );
-
-                          final projectWidget = SearchableDropdownField<int?>(
-                            value: _selectedProjectId,
-                            labelText: l.linkProject,
-                            items: [
-                              SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                              ...projectsList.map((p) => SearchableDropdownItem<int?>(
-                                    value: p.projectId,
-                                    label: '${p.projectCode} - ${p.projectName}',
-                                  )),
-                            ],
-                            onChanged: (v) => setState(() => _selectedProjectId = v),
-                          );
-
-                          final form4Widget = TextFormField(
-                            key: ValueKey('avg_form4_${_editingSessionId ?? "new"}_$_editFormVersion'),
-                            initialValue: _avgForm4Days.toString(),
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(labelText: l.avgForm4DaysLabel, isDense: true, suffixText: 'd'),
-                            onChanged: (v) => _avgForm4Days = int.tryParse(v) ?? 5,
-                          );
-
-                          final clearanceWidget = TextFormField(
-                            key: ValueKey('avg_clearance_${_editingSessionId ?? "new"}_$_editFormVersion'),
-                            initialValue: _avgClearanceDays.toString(),
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(labelText: l.avgClearanceDaysLabel, isDense: true, suffixText: 'd'),
-                            onChanged: (v) => _avgClearanceDays = int.tryParse(v) ?? 7,
-                          );
-
+                        if (metricConstraints.maxWidth < 600) {
                           return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              card1,
+                              const SizedBox(height: 8),
+                              card2,
+                              const SizedBox(height: 8),
+                              card3,
+                              const SizedBox(height: 8),
+                              card4,
+                            ],
+                          );
+                        } else if (metricConstraints.maxWidth < 1050) {
+                          return Column(
                             children: [
                               Row(
                                 children: [
-                                  const Icon(Icons.tune, color: AppTheme.cobalt, size: 18),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      l.studySetupAndParameters,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
+                                  Expanded(child: card1),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: card2),
                                 ],
                               ),
                               const SizedBox(height: 12),
-
-                              // Parameters Row 1
-                              if (isNarrowParam) ...[
-                                titleWidget,
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    Expanded(child: crdWidget),
-                                    const SizedBox(width: 10),
-                                    Expanded(child: importFileWidget),
-                                  ],
-                                ),
-                              ] else ...[
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 2,
-                                      child: titleWidget,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: crdWidget),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: importFileWidget),
-                                  ],
-                                ),
-                              ],
-                              const SizedBox(height: 12),
-
-                              // Parameters Row 2 (Pick-up Address)
-                              TextFormField(
-                                key: ValueKey('pickup_addr_${_editingSessionId ?? "new"}_$_editFormVersion'),
-                                initialValue: _pickUpAddress,
-                                decoration: InputDecoration(
-                                  labelText: l.pickupAddressLabel,
-                                  hintText: 'Factory / Industrial Zone, Origin Country',
-                                  prefixIcon: const Icon(Icons.location_on_outlined, color: AppTheme.cobalt),
-                                  isDense: true,
-                                ),
-                                onChanged: (v) => _pickUpAddress = v.trim(),
-                              ),
-                              const SizedBox(height: 12),
-
-                              // Parameters Row 3 (PO Link & Project Link)
-                              if (isNarrowParam) ...[
-                                Row(
-                                  children: [
-                                    Expanded(child: poWidget),
-                                    const SizedBox(width: 10),
-                                    Expanded(child: projectWidget),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    Expanded(child: form4Widget),
-                                    const SizedBox(width: 10),
-                                    Expanded(child: clearanceWidget),
-                                  ],
-                                ),
-                              ] else ...[
-                                Row(
-                                  children: [
-                                    Expanded(child: poWidget),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: projectWidget),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: form4Widget),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: clearanceWidget),
-                                  ],
-                                ),
-                              ],
-
-                          // Linked Packing List & Container Engine Section
-                          if (_selectedImportFileId != null || _selectedPoId != null) ...[
-                            const SizedBox(height: 14),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cobaltLight.withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppTheme.cobaltBorder),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              Row(
                                 children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '${l.totalShipmentSummary}: ',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                                      ),
-                                      Text(
-                                        '${totalCargoCbm.toStringAsFixed(3)} m³ | ${totalCargoWeightKg.toStringAsFixed(0)} kg | ${totalFloorAreaM2.toStringAsFixed(2)} m² | ${totalLdm.toStringAsFixed(2)} LDM | ${oceanRevenueTon.toStringAsFixed(2)} RT (${filteredPOs.length} POs | $linkedPlCount items)',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
-                                      ),
-                                    ],
-                                  ),
-                                  if (hasExplicitPackingList) ...[
-                                    const SizedBox(height: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: hasNonStackableItems ? AppTheme.orangeLight : AppTheme.emeraldLight,
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: hasNonStackableItems ? AppTheme.orange : AppTheme.emeraldBorder),
-                                      ),
-                                      child: Text(
-                                        hasNonStackableItems
-                                            ? '⚠️ ${l.nonStackableOption}'
-                                            : '✅ ${l.stackableOption}',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                          color: hasNonStackableItems ? AppTheme.wcagOrange : AppTheme.wcagEmerald, ), ), ), const SizedBox(height: 6), Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [ if (totalFloorAreaM2 > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.cobaltBorder)), child: Text('📐 ${totalFloorAreaM2.toStringAsFixed(2)} m² | ${totalLdm.toStringAsFixed(2)} LDM', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt))), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppTheme.emeraldLight, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.emeraldBorder)), child: Text('🌊 ${oceanRevenueTon.toStringAsFixed(2)} RT (Revenue Ton W/M)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.wcagEmerald))), if (lclChargeableCbm > totalCargoCbm) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppTheme.orangeLight, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.orange)), child: Text('⚠️ Billed CBM: ${lclChargeableCbm.toStringAsFixed(2)} m³ (+${(lclChargeableCbm - totalCargoCbm).toStringAsFixed(2)} m³)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.wcagOrange))), ]), if (false) Container(child: Text('', style: TextStyle(
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Text('${l.cargoStackingType}: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
-                                      const SizedBox(width: 8),
-                                      ChoiceChip(
-                                        label: Text('📦 ${l.stackableOption}'),
-                                        selected: _isStackable,
-                                        selectedColor: AppTheme.cobalt,
-                                        labelStyle: TextStyle(color: _isStackable ? AppTheme.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
-                                        onSelected: (val) => setState(() => _isStackable = true),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      ChoiceChip(
-                                        label: Text('🚫 ${l.nonStackableOption}'),
-                                        selected: !_isStackable,
-                                        selectedColor: AppTheme.wcagOrange,
-                                        labelStyle: TextStyle(color: !_isStackable ? AppTheme.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
-                                        onSelected: (val) => setState(() => _isStackable = false),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    crossAxisAlignment: WrapCrossAlignment.center,
-                                    spacing: 8,
-                                    runSpacing: 6,
-                                    children: [
-                                      Text('${l.approvedRecommendation}: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: (_isStackable ? AppTheme.emerald : AppTheme.wcagOrange).withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: _isStackable ? AppTheme.emerald : AppTheme.wcagOrange),
-                                        ),
-                                        child: Text(
-                                          containerRec.recommendationSummary,
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: _isStackable ? AppTheme.emerald : AppTheme.wcagOrange, fontSize: 12),
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(color: AppTheme.cloudWhite, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppTheme.textMuted)),
-                                        child: Text(
-                                          _isStackable
-                                              ? '${l.nonStackableOption}: ${dualRec.nonStackableResult.requiredContainersCount}x ${dualRec.nonStackableResult.recommendedContainerCode}'
-                                              : '${l.stackableOption}: ${dualRec.stackableResult.requiredContainersCount}x ${dualRec.stackableResult.recommendedContainerCode}',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 11),
-                                        ),
-                                      ),
-                                      AppButton(
-                                        label: l.compareContainersMatrix,
-                                        icon: Icons.table_chart,
-                                        variant: AppButtonVariant.secondary,
-                                        size: AppButtonSize.small,
-                                        onPressed: () => _showContainerComparisonDialog(context, dualRec, totalCargoCbm, totalCargoWeightKg),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      AppButton(
-                                        label: l.visualLoadPlanSimulator,
-                                        icon: Icons.view_in_ar,
-                                        variant: AppButtonVariant.success,
-                                        size: AppButtonSize.small,
-                                        onPressed: () => _showVisualLoadPlanDialog(context, filteredPOs, totalCargoCbm, totalCargoWeightKg),
-                                      ),
-                                    ],
-                                  ),
+                                  Expanded(child: card3),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: card4),
                                 ],
                               ),
-                            ),
-                          ],
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
+                            ],
+                          );
+                        } else {
+                          return Row(
+                            children: [
+                              Expanded(child: card1),
+                              const SizedBox(width: 12),
+                              Expanded(child: card2),
+                              const SizedBox(width: 12),
+                              Expanded(child: card3),
+                              const SizedBox(width: 12),
+                              Expanded(child: card4),
+                            ],
+                          );
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
 
-                  // Carrier Options Section Header
-                  LayoutBuilder(
-                    builder: (context, headerConstraints) {
-                      final isNarrowHeader = headerConstraints.maxWidth < 650;
-                      final titleWidget = Text(
-                        l.shippingCarrierOptions,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                        ),
-                      );
-                      final addBtn = AppButton(
-                        label: l.addNewShippingOption,
-                        icon: Icons.add,
-                        variant: AppButtonVariant.primary,
-                        onPressed: _addNewBlankCarrierOption,
-                      );
-                      if (isNarrowHeader) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            titleWidget,
-                            const SizedBox(height: 8),
-                            addBtn,
-                          ],
-                        );
-                      }
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(child: titleWidget),
-                          const SizedBox(width: 8),
-                          addBtn,
-                        ],
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  if (_evalItems.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.directions_boat_outlined,
-                            size: 40,
-                            color: isDark ? AppTheme.darkTextMuted : AppTheme.textMuted,
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            (Localizations.maybeLocaleOf(context)?.languageCode ?? 'ar') == 'ar'
-                                ? 'لا توجد خيارات أو عروض شحن مضافة حتى الآن'
-                                : 'No shipping carrier options added yet',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? AppTheme.darkTextMuted : AppTheme.textMuted,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            (Localizations.maybeLocaleOf(context)?.languageCode ?? 'ar') == 'ar'
-                                ? 'اضغط "+ إضافة خيار شحن جديد" لإضافة خيار شحن فارغ، أو استخرج العروض تلقائياً من المستندات أعلاه'
-                                : 'Click "+ Add New Shipping Option" to add a blank carrier option, or extract quotes above',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? AppTheme.darkTextMuted : AppTheme.textMuted,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          AppButton(
-                            label: l.addNewShippingOption,
-                            icon: Icons.add,
-                            variant: AppButtonVariant.primary,
-                            size: AppButtonSize.small,
-                            onPressed: _addNewBlankCarrierOption,
-                          ),
-                        ],
-                      ),
+                    // Smart AI Freight Quotations Extractor (Sub-component 1)
+                    FreightAiExtractorCard(
+                      onAddQuotations: _handleAddExtractedQuotations,
+                      onAddSingleQuotation: _handleAddSingleExtractedQuotation,
+                      onAddAllQuotations: _handleAddExtractedQuotations,
                     ),
 
-                  // Carrier Option Cards List
-                  ..._evalItems.asMap().entries.map((entry) {
-                    final idx = entry.key;
-                    final item = entry.value;
-                    final calc = calculatedScenarios.firstWhere((c) => c['index'] == idx, orElse: () => {});
+                    // Study Main Settings & Evaluator Parameters Form (Sub-component 2)
+                    ShippingScenarioEvaluatorForm(
+                      title: _title,
+                      onTitleChanged: (val) => setState(() => _title = val),
+                      cargoReadyDate: _cargoReadyDate,
+                      onCargoReadyDateChanged: (val) => setState(() => _cargoReadyDate = val),
+                      selectedImportFileId: _selectedImportFileId,
+                      onImportFileChanged: (val) => setState(() => _selectedImportFileId = val),
+                      pickUpAddress: _pickUpAddress,
+                      onPickUpAddressChanged: (val) => setState(() => _pickUpAddress = val),
+                      selectedPoId: _selectedPoId,
+                      onPoChanged: (val) => setState(() => _selectedPoId = val),
+                      selectedProjectId: _selectedProjectId,
+                      onProjectChanged: (val) => setState(() => _selectedProjectId = val),
+                      avgForm4Days: _avgForm4Days,
+                      onAvgForm4DaysChanged: (val) => setState(() => _avgForm4Days = val),
+                      avgClearanceDays: _avgClearanceDays,
+                      onAvgClearanceDaysChanged: (val) => setState(() => _avgClearanceDays = val),
+                      isStackable: _isStackable,
+                      onStackableChanged: (val) => setState(() => _isStackable = val),
+                      editingSessionId: _editingSessionId,
+                      editingSessionCode: _editingSessionCode,
+                      editFormVersion: _editFormVersion,
+                      onCancelEdit: () {
+                        _resetFormForNewStudy();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          AppTheme.snackBar(
+                            context,
+                            l.cancelEditModeMsg,
+                            severity: AppSeverity.info,
+                          ),
+                        );
+                      },
+                      poList: poList,
+                      projectsList: projectsList,
+                      onShowContainerComparison: (dualRec, cbm, weightKg) =>
+                          _showContainerComparisonDialog(context, dualRec, cbm, weightKg),
+                      onShowVisualLoadPlan: (filteredPos, cbm, weightKg) =>
+                          _showVisualLoadPlanDialog(context, filteredPos, cbm, weightKg),
+                    ),
+                    const SizedBox(height: 20),
 
-                    final isExpanded = _expandedQuotes[idx] ?? false;
-
-                    // Automatically compute containers total count for displays
-                    final currentContainersCount = (item.container40ftApplicable ? item.container40ftQty : 0) + 
-                                                   (item.container20ftApplicable ? item.container20ftQty : 0);
-
-                    return Card(
-                      elevation: 1.5,
-                      color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: item.isRecommended 
-                              ? AppTheme.emerald 
-                              : (item.isExcludedFromAverage ? (isDark ? AppTheme.textStrong : AppTheme.textMuted) : (isDark ? AppTheme.darkBorder : AppTheme.cobaltBorder)), 
-                          width: item.isRecommended ? 2 : 1
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: LayoutBuilder(
-                          builder: (context, cardConstraints) {
-                            final isNarrowCard = cardConstraints.maxWidth < 800;
-
-                            final avatarWidget = CircleAvatar(
-                              radius: 14,
-                              backgroundColor: item.isRecommended ? AppTheme.emerald : AppTheme.cobalt,
-                              child: Text('${idx + 1}', style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                            );
-
-                            final forwarderDropdown = SearchableDropdownField<int?>(
-                              value: item.providerId,
-                              labelText: l.freightForwarderCol,
-                              searchHintText: l.forwarderSearchHint,
-                              items: [
-                                SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                ...freightForwarders.map((p) => SearchableDropdownItem<int?>(
-                                      value: p.providerId,
-                                      label: '${p.partnerName}${p.partnerCode.isNotEmpty ? " (${p.partnerCode})" : ""}',
-                                      searchValue: '${p.partnerName} ${p.partnerCode} ${p.partnerType}',
-                                    )),
-                              ],
-                              onChanged: (val) {
-                                final partner = freightForwarders.where((p) => p.providerId == val).firstOrNull;
-                                _updateItem(idx, item.copyWith(
-                                  providerId: val,
-                                  providerName: partner != null ? partner.partnerName : item.providerName,
-                                ), currenciesList);
-                              },
-                            );
-
-                            final shippingLineDropdown = SearchableDropdownField<String>(
-                              value: shippingLines.any((p) => p.partnerName == item.providerName)
-                                  ? item.providerName
-                                  : (item.providerName.isNotEmpty ? item.providerName : ''),
-                              labelText: '${l.shippingLineCol} *',
-                              searchHintText: l.shippingLineSearchHint,
-                              items: [
-                                SearchableDropdownItem<String>(value: '', label: l.unassigned),
-                                if (item.providerName.isNotEmpty && !shippingLines.any((p) => p.partnerName == item.providerName))
-                                  SearchableDropdownItem<String>(
-                                    value: item.providerName,
-                                    label: '★ ${item.providerName} (${l.suggestedSuffix})',
-                                    searchValue: item.providerName,
-                                  ),
-                                ...shippingLines.map((p) => SearchableDropdownItem<String>(
-                                      value: p.partnerName,
-                                      label: '${p.partnerName}${p.scacCode != null && p.scacCode!.isNotEmpty ? " (${p.scacCode})" : ""}',
-                                      searchValue: '${p.partnerName} ${p.partnerCode} ${p.scacCode ?? ""} ${p.partnerType}',
-                                      subtitle: p.scacCode != null && p.scacCode!.isNotEmpty ? 'SCAC: ${p.scacCode}' : p.partnerCode,
-                                    )),
-                              ],
-                              onChanged: (val) {
-                                if (val != null && val.isNotEmpty) {
-                                  _updateItem(idx, item.copyWith(providerName: val), currenciesList);
-                                }
-                              },
-                            );
-
-                            final addShippingLineBtn = IconButton(
-                              icon: const Icon(Icons.add_business_outlined, color: AppTheme.emerald, size: 20),
-                              tooltip: l.addNewLineTooltip,
-                              onPressed: () => UniversalEntityExtractorDialog.showShippingLineExtractor(
-                                context,
-                                onSaved: () => _refreshData(force: true),
-                              ),
-                            );
-
-                            final vesselField = TextFormField(
-                              key: ValueKey('vessel_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
-                              initialValue: item.vesselName,
-                              decoration: InputDecoration(labelText: '${l.vesselNameCol} *', isDense: true),
-                              validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
-                              onChanged: (v) => _updateItem(idx, item.copyWith(vesselName: v.trim()), currenciesList),
-                            );
-
-                            final voyageField = TextFormField(
-                              key: ValueKey('voyage_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
-                              initialValue: item.voyageNumber ?? '',
-                              decoration: InputDecoration(labelText: l.voyageCol, isDense: true),
-                              onChanged: (v) => _updateItem(idx, item.copyWith(voyageNumber: v.trim()), currenciesList),
-                            );
-
-                            final cloneCarrierBtn = IconButton(
-                              icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
-                              tooltip: l.cloneCarrierOptionTooltip,
-                              onPressed: () => _cloneCarrierOption(idx),
-                            );
-
-                            final deleteCarrierBtn = IconButton(
-                              icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
-                              onPressed: () {
-                                setState(() {
-                                  _evalItems.removeAt(idx);
-                                  _expandedQuotes.remove(idx);
-                                });
-                              },
-                            );
-
-                            final polDropdown = SearchableDropdownField<int?>(
-                              value: item.portOfLoadingId,
-                              labelText: l.portOfLoadingCol,
-                              items: [
-                                SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                ...portsList.map((p) => SearchableDropdownItem<int?>(
-                                      value: p.locationId,
-                                      label: '${p.unLocode} - ${p.locationName} (${p.country})',
-                                    )),
-                              ],
-                              onChanged: (val) {
-                                final selectedPort = portsList.where((p) => p.locationId == val).firstOrNull;
-                                _updateItem(idx, item.copyWith(
-                                  portOfLoadingId: val,
-                                  polName: selectedPort != null ? selectedPort.locationName : item.polName,
-                                ), currenciesList);
-                              },
-                            );
-
-                            final podDropdown = SearchableDropdownField<int?>(
-                              value: item.portOfDischargeId,
-                              labelText: l.portOfDischargeCol,
-                              items: [
-                                SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                ...portsList.map((p) => SearchableDropdownItem<int?>(
-                                      value: p.locationId,
-                                      label: '${p.unLocode} - ${p.locationName} (${p.country})',
-                                    )),
-                              ],
-                              onChanged: (val) {
-                                final selectedPort = portsList.where((p) => p.locationId == val).firstOrNull;
-                                _updateItem(idx, item.copyWith(
-                                  portOfDischargeId: val,
-                                  podName: selectedPort != null ? selectedPort.locationName : item.podName,
-                                ), currenciesList);
-                              },
-                            );
-
-                            final brokerDropdown = SearchableDropdownField<int?>(
-                              value: item.customsBrokerId,
-                              labelText: l.customsBrokerLabel,
-                              items: [
-                                SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                                ...customsBrokers.map((p) => SearchableDropdownItem<int?>(
-                                      value: p.providerId,
-                                      label: p.partnerName,
-                                    )),
-                              ],
-                              onChanged: (val) {
-                                final partner = customsBrokers.where((p) => p.providerId == val).firstOrNull;
-                                final hasClearance = item.clearanceFeePrice > 0;
-                                _updateItem(idx, item.copyWith(
-                                  customsBrokerId: val,
-                                  customsBrokerName: partner?.partnerName,
-                                  clearanceFeeApplicable: val != null ? true : item.clearanceFeeApplicable,
-                                  clearanceFeePrice: (!hasClearance && val != null) ? 2500.0 : item.clearanceFeePrice,
-                                  clearanceFeeCurrency: "EGP",
-                                  inspectionFeeApplicable: val != null ? true : item.inspectionFeeApplicable,
-                                  inspectionFeePrice: (!hasClearance && val != null) ? 3500.0 : item.inspectionFeePrice,
-                                  inspectionFeeCurrency: "EGP",
-                                  inlandTransportFeeApplicable: val != null ? true : item.inlandTransportFeeApplicable,
-                                  inlandTransportFeePrice: (!hasClearance && val != null) ? 14800.0 : item.inlandTransportFeePrice,
-                                  inlandTransportFeeCurrency: "EGP",
-                                  portExpensesApplicable: val != null ? true : item.portExpensesApplicable,
-                                  portExpensesPrice: (!hasClearance && val != null) ? 4750.0 : item.portExpensesPrice,
-                                  portExpensesCurrency: "EGP",
-                                ), currenciesList);
-                              },
-                            );
-
-                            final sailingDatePicker = InkWell(
-                              onTap: () async {
-                                final sDate = DateTime.tryParse(item.sailingDate) ?? DateTime.now();
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: sDate,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2030),
-                                );
-                                if (picked != null) {
-                                  _updateItem(idx, item.copyWith(sailingDate: picked.toString().substring(0, 10)), currenciesList);
-                                }
-                              },
-                              child: InputDecorator(
-                                decoration: InputDecoration(labelText: '${l.sailingDateCol} *', isDense: true),
-                                child: Text(
-                                  item.sailingDate.isNotEmpty ? item.sailingDate : l.unassigned,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: item.sailingDate.isNotEmpty
-                                        ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)
-                                        : (isDark ? AppTheme.darkTextMuted : AppTheme.textMuted),
-                                  ),
-                                ),
-                              ),
-                            );
-
-                            final etaDatePicker = InkWell(
-                              onTap: () async {
-                                final etaDate = DateTime.tryParse(item.estimatedArrivalDate) ?? DateTime.now();
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: etaDate,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2030),
-                                );
-                                if (picked != null) {
-                                  _updateItem(idx, item.copyWith(estimatedArrivalDate: picked.toString().substring(0, 10)), currenciesList);
-                                }
-                              },
-                              child: InputDecorator(
-                                decoration: InputDecoration(labelText: '${l.estimatedArrivalDateCol} *', isDense: true),
-                                child: Text(
-                                  item.estimatedArrivalDate.isNotEmpty ? item.estimatedArrivalDate : l.unassigned,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: item.estimatedArrivalDate.isNotEmpty
-                                        ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)
-                                        : (isDark ? AppTheme.darkTextMuted : AppTheme.textMuted),
-                                  ),
-                                ),
-                              ),
-                            );
-
-                            final delayField = TextFormField(
-                              key: ValueKey('delay_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
-                              initialValue: item.expectedLineDelayDays.toString(),
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(labelText: l.expectedDelayCol, isDense: true),
-                              onChanged: (v) {
-                                final delay = int.tryParse(v) ?? 0;
-                                _updateItem(idx, item.copyWith(expectedLineDelayDays: delay), currenciesList);
-                              },
-                            );
-
-                            final riskDropdown = SearchableDropdownField<String>(
-                              value: item.riskLevel,
-                              labelText: l.riskLevelCol,
-                              items: const [
-                                SearchableDropdownItem(value: 'Low', label: 'Low Risk 🟢'),
-                                SearchableDropdownItem(value: 'Medium', label: 'Medium Risk 🟠'),
-                                SearchableDropdownItem(value: 'High', label: 'High Risk 🔴'),
-                              ],
-                              onChanged: (v) {
-                                if (v != null) {
-                                  _updateItem(idx, item.copyWith(riskLevel: v), currenciesList);
-                                }
-                              },
-                            );
-
-                            final excludedChip = FilterChip(
-                              label: Text(item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, style: TextStyle(fontSize: 11, color: item.isExcludedFromAverage ? AppTheme.crimson : AppTheme.cobalt)),
-                              selected: item.isExcludedFromAverage,
-                              onSelected: (val) {
-                                _updateItem(idx, item.copyWith(isExcludedFromAverage: val), currenciesList);
-                              },
-                            );
-
-                            return Column(
-                              children: [
-                                if (isNarrowCard) ...[
-                                  // Header Row for Narrow Viewports
-                                  Row(
-                                    children: [
-                                      avatarWidget,
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          item.providerName.isNotEmpty ? item.providerName : '${l.carrierOptionHeader} #${idx + 1}',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      cloneCarrierBtn,
-                                      deleteCarrierBtn,
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-
-                                  // Forwarder & Shipping Line
-                                  Row(
-                                    children: [
-                                      Expanded(child: forwarderDropdown),
-                                      const SizedBox(width: 8),
-                                      Expanded(child: shippingLineDropdown),
-                                      addShippingLineBtn,
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-
-                                  // Vessel & Voyage
-                                  Row(
-                                    children: [
-                                      Expanded(flex: 2, child: vesselField),
-                                      const SizedBox(width: 8),
-                                      Expanded(child: voyageField),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-
-                                  // Ports & Broker
-                                  Row(
-                                    children: [
-                                      Expanded(child: polDropdown),
-                                      const SizedBox(width: 8),
-                                      Expanded(child: podDropdown),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  brokerDropdown,
-                                  const SizedBox(height: 10),
-
-                                  // Sailing Date & ETA
-                                  Row(
-                                    children: [
-                                      Expanded(child: sailingDatePicker),
-                                      const SizedBox(width: 8),
-                                      Expanded(child: etaDatePicker),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-
-                                  // Delays, Risk & Average exclusion
-                                  Row(
-                                    children: [
-                                      Expanded(child: delayField),
-                                      const SizedBox(width: 8),
-                                      Expanded(child: riskDropdown),
-                                      const SizedBox(width: 8),
-                                      excludedChip,
-                                    ],
-                                  ),
-                                ] else ...[
-                                  // Full Desktop Layout
-                                  // Row 1: Freight Forwarder, Shipping Line, Vessel & Voyage
-                                  Row(
-                                    children: [
-                                      avatarWidget,
-                                      const SizedBox(width: 10),
-                                      Expanded(flex: 2, child: forwarderDropdown),
-                                      const SizedBox(width: 10),
-                                      Expanded(flex: 2, child: shippingLineDropdown),
-                                      const SizedBox(width: 4),
-                                      addShippingLineBtn,
-                                      const SizedBox(width: 6),
-                                      Expanded(flex: 2, child: vesselField),
-                                      const SizedBox(width: 10),
-                                      Expanded(child: voyageField),
-                                      const SizedBox(width: 4),
-                                      cloneCarrierBtn,
-                                      const SizedBox(width: 4),
-                                      deleteCarrierBtn,
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-
-                                  // Row 2: POL, POD & Customs Broker Selector
-                                  Row(
-                                    children: [
-                                      Expanded(child: polDropdown),
-                                      const SizedBox(width: 12),
-                                      Expanded(child: podDropdown),
-                                      const SizedBox(width: 12),
-                                      Expanded(child: brokerDropdown),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-
-                                  // Row 3: Sailing Date, ETA, Delays & Risk
-                                  Row(
-                                    children: [
-                                      Expanded(child: sailingDatePicker),
-                                      const SizedBox(width: 10),
-                                      Expanded(child: etaDatePicker),
-                                      const SizedBox(width: 10),
-                                      Expanded(child: delayField),
-                                      const SizedBox(width: 10),
-                                      Expanded(child: riskDropdown),
-                                      const SizedBox(width: 10),
-                                      excludedChip,
-                                    ],
-                                  ),
-                                ],
-
-                            // Live Calculation & Expand Quote buttons
-                            if (calc.isNotEmpty) ...[
+                    // Carrier Options Section Header
+                    LayoutBuilder(
+                      builder: (context, headerConstraints) {
+                        final isNarrowHeader = headerConstraints.maxWidth < 650;
+                        final titleWidget = Text(
+                          l.shippingCarrierOptions,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                          ),
+                        );
+                        final addBtn = AppButton(
+                          label: l.addNewShippingOption,
+                          icon: Icons.add,
+                          variant: AppButtonVariant.primary,
+                          onPressed: _addNewBlankCarrierOption,
+                        );
+                        if (isNarrowHeader) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              titleWidget,
                               const SizedBox(height: 8),
-                              Builder(
-                                builder: (context) {
-                                  final hasRealDates = item.sailingDate.isNotEmpty && item.estimatedArrivalDate.isNotEmpty;
-                                  return Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: isDark ? AppTheme.cobaltMedium : AppTheme.cobaltLight,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            hasRealDates
-                                                ? l.polToPodLeadTimeStrip(item.polName ?? '-', item.podName ?? '-', calc["vesselLeadTime"] as int, calc["totalDays"] as int)
-                                                : ((Localizations.maybeLocaleOf(context)?.languageCode ?? 'ar') == 'ar'
-                                                    ? 'يرجى تحديد تواريخ الإبحار والوصول لاحتساب مدد الشحن'
-                                                    : 'Select sailing & arrival dates to calculate transit lead times'),
-                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Row(
-                                            children: [
-                                              AppButton(
-                                                label: isExpanded 
-                                                      ? l.hideQuote 
-                                                      : (item.totalQuotationAmount != null
-                                                          ? '${l.quoteDetails} [${item.totalQuotationAmount!.toStringAsFixed(0)} ${item.quotationCurrency ?? "—"}]'
-                                                          : '${l.quoteDetails} [—]'),
-                                                icon: isExpanded ? Icons.expand_less : Icons.expand_more,
-                                                variant: AppButtonVariant.secondary,
-                                                size: AppButtonSize.small,
-                                                onPressed: () => setState(() => _expandedQuotes[idx] = !isExpanded),
-                                              ),
-                                              if (item.totalQuotationAmount == null) ...[
-                                                const SizedBox(width: 6),
-                                                Builder(
-                                                  builder: (context) {
-                                                    final missing = ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currenciesList).missingCurrencies;
-                                                    final missingStr = missing.isNotEmpty ? missing.join(', ') : (item.quotationCurrency ?? '—');
-                                                    return Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                                      decoration: BoxDecoration(
-                                                        color: AppTheme.wcagOrange.withValues(alpha: 0.15),
-                                                        borderRadius: BorderRadius.circular(4),
-                                                        border: Border.all(color: AppTheme.wcagOrange, width: 0.8),
-                                                      ),
-                                                      child: Text(
-                                                        l.rateMissingWarning(missingStr),
-                                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                              ],
-                                              if (hasRealDates) ...[
-                                                const SizedBox(width: 10),
-                                                Text('${l.avgWarehouseArrivalMetric}: ${calc["expectedWhDate"]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
-                                              ],
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+                              addBtn,
                             ],
-
-                            // Expandable Quotation Cost Form Section (BP-008 Integration)
-                            if (isExpanded) ...[
-                              const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: isDark ? AppTheme.darkInputBackground : AppTheme.charcoalSurface,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.request_quote, color: AppTheme.cobalt, size: 18),
-                                        const SizedBox(width: 6),
-                                        Text(l.quoteDetails, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
-                                      ],
-                                    ),
-                                    const Divider(height: 16),
-                                    
-                                    // Row A: Free time & Main Quote Currency
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextFormField(
-                                            key: ValueKey('freetime_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
-                                            initialValue: item.freeTimeDays.toString(),
-                                            keyboardType: TextInputType.number,
-                                            decoration: InputDecoration(labelText: l.freeTimeDaysCol, isDense: true, suffixText: 'd'),
-                                            onChanged: (v) {
-                                              final ft = int.tryParse(v) ?? 14;
-                                              _updateItem(idx, item.copyWith(freeTimeDays: ft), currenciesList);
-                                            },
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: SearchableDropdownField<String>(
-                                            value: currenciesList.any((c) => c.currencyCode == item.quotationCurrency) ? item.quotationCurrency : (currenciesList.isNotEmpty ? currenciesList.first.currencyCode : 'USD'),
-                                            labelText: l.quoteCurrencyCol,
-                                            items: currenciesList.map((c) => SearchableDropdownItem(
-                                                  value: c.currencyCode,
-                                                  label: '${c.currencyCode} - ${c.currencySymbol}',
-                                                )).toList(),
-                                            onChanged: (v) {
-                                              if (v != null) {
-                                                _updateItem(idx, item.copyWith(quotationCurrency: v), currenciesList);
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-
-                                    // Table/Grid of Cost Items (Redesigned: inputs always visible, toggles at the right side)
-                                    _buildCostRow(
-                                      rowKey: 'container40ft_$idx',
-                                      title: '1. ${l.container40ftItem}',
-                                      applicable: item.container40ftApplicable,
-                                      price: item.container40ftPrice,
-                                      currency: item.container40ftCurrency,
-                                      qty: item.container40ftQty.toDouble(),
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(container40ftApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(container40ftPrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(container40ftCurrency: v), currenciesList),
-                                      onQtyChanged: (v) => _updateItem(idx, item.copyWith(container40ftQty: v.toInt()), currenciesList),
-                                      showQty: true,
-                                      isIntegerQty: true,
-                                      currenciesList: currenciesList,
-                                    ),
-                                    _buildCostRow(
-                                      rowKey: 'container20ft_$idx',
-                                      title: '2. ${l.container20ftItem}',
-                                      applicable: item.container20ftApplicable,
-                                      price: item.container20ftPrice,
-                                      currency: item.container20ftCurrency,
-                                      qty: item.container20ftQty.toDouble(),
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(container20ftApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(container20ftPrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(container20ftCurrency: v), currenciesList),
-                                      onQtyChanged: (v) => _updateItem(idx, item.copyWith(container20ftQty: v.toInt()), currenciesList),
-                                      showQty: true,
-                                      isIntegerQty: true,
-                                      currenciesList: currenciesList,
-                                    ),
-                                    _buildCostRow(
-                                      rowKey: 'lclCbm_$idx',
-                                      title: '3. ${l.lclCbmItem}',
-                                      applicable: item.lclCbmApplicable,
-                                      price: item.lclCbmPrice,
-                                      currency: item.lclCbmCurrency,
-                                      qty: item.lclCbmQty,
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(lclCbmApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(lclCbmPrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(lclCbmCurrency: v), currenciesList),
-                                      onQtyChanged: (v) => _updateItem(idx, item.copyWith(lclCbmQty: v), currenciesList),
-                                      showQty: true,
-                                      isIntegerQty: false,
-                                      currenciesList: currenciesList,
-                                    ),
-                                    
-                                    // Total containers label
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                                      child: Text(
-                                        l.totalContainersCount(currentContainersCount, item.container40ftApplicable ? item.container40ftQty : 0, item.container20ftApplicable ? item.container20ftQty : 0),
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.wcagCobalt),
-                                      ),
-                                    ),
-
-                                    _buildCostRow(
-                                      rowKey: 'expressCourier_$idx',
-                                      title: '4. ${l.expressCourierItem}',
-                                      applicable: item.expressCourierApplicable,
-                                      price: item.expressCourierPrice,
-                                      currency: item.expressCourierCurrency,
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(expressCourierApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(expressCourierPrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(expressCourierCurrency: v), currenciesList),
-                                      currenciesList: currenciesList,
-                                    ),
-                                    _buildCostRow(
-                                      rowKey: 'eurAtr_$idx',
-                                      title: '5. ${l.eurAtrItem}',
-                                      applicable: item.eurAtrApplicable,
-                                      price: item.eurAtrPrice,
-                                      currency: item.eurAtrCurrency,
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(eurAtrApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(eurAtrPrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(eurAtrCurrency: v), currenciesList),
-                                      currenciesList: currenciesList,
-                                    ),
-                                    _buildCostRow(
-                                      rowKey: 'solasVgm_$idx',
-                                      title: '6. ${l.solasVgmItem}',
-                                      applicable: item.solasVgmApplicable,
-                                      price: item.solasVgmPrice,
-                                      currency: item.solasVgmCurrency,
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(solasVgmApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(solasVgmPrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(solasVgmCurrency: v), currenciesList),
-                                      currenciesList: currenciesList,
-                                    ),
-                                    _buildCostRow(
-                                      rowKey: 'vgmNotification_$idx',
-                                      title: '7. ${l.vgmNotificationItem}',
-                                      applicable: item.vgmNotificationApplicable,
-                                      price: item.vgmNotificationPrice,
-                                      currency: item.vgmNotificationCurrency,
-                                      qty: currentContainersCount.toDouble(),
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(vgmNotificationApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(vgmNotificationPrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(vgmNotificationCurrency: v), currenciesList),
-                                      showQty: true,
-                                      qtyReadOnly: true,
-                                      currenciesList: currenciesList,
-                                    ),
-                                    _buildCostRow(
-                                      rowKey: 'telexRelease_$idx',
-                                      title: '8. ${l.telexReleaseItem}',
-                                      applicable: item.telexReleaseApplicable,
-                                      price: item.telexReleasePrice,
-                                      currency: item.telexReleaseCurrency,
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(telexReleaseApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(telexReleasePrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(telexReleaseCurrency: v), currenciesList),
-                                      currenciesList: currenciesList,
-                                    ),
-                                    _buildCostRow(
-                                      rowKey: 'insurance_$idx',
-                                      title: '9. ${l.insuranceItem}',
-                                      applicable: item.insuranceApplicable,
-                                      price: item.insurancePrice,
-                                      currency: item.insuranceCurrency,
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(insuranceApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(insurancePrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(insuranceCurrency: v), currenciesList),
-                                      currenciesList: currenciesList,
-                                    ),
-
-                                    _buildCostRow(
-                                      rowKey: 'bookingCancellation_$idx',
-                                      title: '10. ${l.bookingCancellationItem}',
-                                      applicable: item.bookingCancellationApplicable,
-                                      price: item.bookingCancellationPrice,
-                                      currency: item.bookingCancellationCurrency,
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(bookingCancellationApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(bookingCancellationPrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(bookingCancellationCurrency: v), currenciesList),
-                                      currenciesList: currenciesList,
-                                    ),
-
-                                    // New Cost Rows
-                                    _buildCostRow(
-                                      rowKey: 'ics2FilingFee_$idx',
-                                      title: '11. ${l.ics2FilingFeeItem}',
-                                      applicable: item.ics2FilingFeeApplicable,
-                                      price: item.ics2FilingFeePrice,
-                                      currency: item.ics2FilingFeeCurrency,
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(ics2FilingFeeApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(ics2FilingFeePrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(ics2FilingFeeCurrency: v), currenciesList),
-                                      currenciesList: currenciesList,
-                                    ),
-                                    _buildCostRow(
-                                      rowKey: 'documentFees_$idx',
-                                      title: '12. ${l.documentFeesItem}',
-                                      applicable: item.documentFeesApplicable,
-                                      price: item.documentFeesPrice,
-                                      currency: item.documentFeesCurrency,
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(documentFeesApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(documentFeesPrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(documentFeesCurrency: v), currenciesList),
-                                      currenciesList: currenciesList,
-                                    ),
-                                    _buildCostRow(
-                                      rowKey: 'waiverLetterFee_$idx',
-                                      title: '13. ${l.waiverLetterFeeItem}',
-                                      applicable: item.waiverLetterFeeApplicable,
-                                      price: item.waiverLetterFeePrice,
-                                      currency: item.waiverLetterFeeCurrency,
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(waiverLetterFeeApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(waiverLetterFeePrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(waiverLetterFeeCurrency: v), currenciesList),
-                                      currenciesList: currenciesList,
-                                    ),
-                                    _buildCostRow(
-                                      rowKey: 'othersFee_$idx',
-                                      title: '14. ${l.othersFeeItem}',
-                                      applicable: item.othersFeeApplicable,
-                                      price: item.othersFeePrice,
-                                      currency: item.othersFeeCurrency,
-                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(othersFeeApplicable: v), currenciesList),
-                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(othersFeePrice: v), currenciesList),
-                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(othersFeeCurrency: v), currenciesList),
-                                      currenciesList: currenciesList,
-                                    ),
-                                     _buildCostRow(
-                                       rowKey: 'dthc_$idx',
-                                       title: '15. ${l.dthcItem}',
-                                       applicable: item.dthcApplicable,
-                                       price: item.dthcPrice,
-                                       currency: item.dthcCurrency,
-                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(dthcApplicable: v), currenciesList),
-                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(dthcPrice: v), currenciesList),
-                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(dthcCurrency: v), currenciesList),
-                                       currenciesList: currenciesList,
-                                     ),
-                                     _buildCostRow(
-                                       rowKey: 'storagePerWeek_$idx',
-                                       title: '16. ${l.storagePerWeekItem}',
-                                       applicable: item.storagePerWeekApplicable,
-                                       price: item.storagePerWeekPrice,
-                                       currency: item.storagePerWeekCurrency,
-                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(storagePerWeekApplicable: v), currenciesList),
-                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(storagePerWeekPrice: v), currenciesList),
-                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(storagePerWeekCurrency: v), currenciesList),
-                                       currenciesList: currenciesList,
-                                     ),
-                                     _buildCostRow(
-                                       rowKey: 'extraDayStorage_$idx',
-                                       title: '17. ${l.extraDayStorageItem}',
-                                       applicable: item.extraDayStorageApplicable,
-                                       price: item.extraDayStoragePrice,
-                                       currency: item.extraDayStorageCurrency,
-                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(extraDayStorageApplicable: v), currenciesList),
-                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(extraDayStoragePrice: v), currenciesList),
-                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(extraDayStorageCurrency: v), currenciesList),
-                                       currenciesList: currenciesList,
-                                     ),
-                                     _buildCostRow(
-                                       rowKey: 'clearanceFee_$idx',
-                                       title: '18. ${l.clearanceBrokerFeeItem}',
-                                       applicable: item.clearanceFeeApplicable,
-                                       price: item.clearanceFeePrice,
-                                       currency: item.clearanceFeeCurrency,
-                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(clearanceFeeApplicable: v), currenciesList),
-                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(clearanceFeePrice: v), currenciesList),
-                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(clearanceFeeCurrency: v), currenciesList),
-                                       currenciesList: currenciesList,
-                                     ),
-                                     _buildCostRow(
-                                       rowKey: 'inspectionFee_$idx',
-                                       title: '19. ${l.inspectionFeeItem}',
-                                       applicable: item.inspectionFeeApplicable,
-                                       price: item.inspectionFeePrice,
-                                       currency: item.inspectionFeeCurrency,
-                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(inspectionFeeApplicable: v), currenciesList),
-                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(inspectionFeePrice: v), currenciesList),
-                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(inspectionFeeCurrency: v), currenciesList),
-                                       currenciesList: currenciesList,
-                                     ),
-                                     _buildCostRow(
-                                       rowKey: 'inlandTransport_$idx',
-                                       title: '20. ${l.inlandTransportFeeItem}',
-                                       applicable: item.inlandTransportFeeApplicable,
-                                       price: item.inlandTransportFeePrice,
-                                       currency: item.inlandTransportFeeCurrency,
-                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(inlandTransportFeeApplicable: v), currenciesList),
-                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(inlandTransportFeePrice: v), currenciesList),
-                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(inlandTransportFeeCurrency: v), currenciesList),
-                                       currenciesList: currenciesList,
-                                     ),
-                                     _buildCostRow(
-                                       rowKey: 'portExpenses_$idx',
-                                       title: '21. ${l.portClearanceExpensesItem}',
-                                       applicable: item.portExpensesApplicable,
-                                       price: item.portExpensesPrice,
-                                       currency: item.portExpensesCurrency,
-                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(portExpensesApplicable: v), currenciesList),
-                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(portExpensesPrice: v), currenciesList),
-                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(portExpensesCurrency: v), currenciesList),
-                                       currenciesList: currenciesList,
-                                     ),
-                                    
-                                    const Divider(height: 16),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            '${l.totalQuoteValue}:',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                                          ),
-                                          if (item.totalQuotationAmount != null)
-                                            Text(
-                                              '${item.totalQuotationAmount!.toStringAsFixed(0)} ${item.quotationCurrency ?? "—"}',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt),
-                                            )
-                                          else
-                                            Builder(
-                                              builder: (context) {
-                                                final missing = ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currenciesList).missingCurrencies;
-                                                final missingStr = missing.isNotEmpty ? missing.join(', ') : (item.quotationCurrency ?? '—');
-                                                return Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: AppTheme.wcagOrange.withValues(alpha: 0.15),
-                                                        borderRadius: BorderRadius.circular(4),
-                                                        border: Border.all(color: AppTheme.wcagOrange, width: 0.8),
-                                                      ),
-                                                      child: Text(
-                                                        l.rateMissingWarning(missingStr),
-                                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.wcagOrange),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    const Text(
-                                                      '—',
-                                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.wcagOrange),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                          );
+                        }
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(child: titleWidget),
+                            const SizedBox(width: 8),
+                            addBtn,
                           ],
                         );
                       },
                     ),
-                  ),
-                );
-              }),
-                  const SizedBox(height: 20),
 
-                  // Comparison Summary Table
-                  Card(
-                    elevation: 2,
-                    color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(l.sideBySideComparison, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                          const SizedBox(height: 10),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: DataTable(
-                              headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.darkScaffoldBackground : AppTheme.charcoal),
-                              headingTextStyle: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 12),
-                              columns: [
-                                const DataColumn(label: Text('#')),
-                                DataColumn(label: Text(l.shippingLineCol)),
-                                DataColumn(label: Text(l.totalQuoteValue)),
-                                DataColumn(label: Text(l.avgWarehouseArrivalMetric)),
-                                DataColumn(label: Text(l.avgTransitMetric)),
-                                DataColumn(label: Text(l.customsBrokerLabel)),
-                                DataColumn(label: Text('${l.portOfLoadingCol} / ${l.portOfDischargeCol}')),
-                                DataColumn(label: Text(l.vesselNameCol)),
-                                DataColumn(label: Text(l.sailingDateCol)),
-                                DataColumn(label: Text(l.estimatedArrivalDateCol)),
-                                DataColumn(label: Text(l.avgTransitMetric)),
-                                DataColumn(label: Text(l.freeTimeDaysCol)),
-                                DataColumn(label: Text(l.expectedDelayCol)),
-                                DataColumn(label: Text(l.riskLevelCol)),
-                                DataColumn(label: Text(l.statusCol)),
-                              ],
-                              rows: calculatedScenarios.map((c) {
-                                final idx = c['index'] as int;
-                                final item = c['item'] as ShippingScenarioItemModel;
-                                final totalStr = item.totalQuotationAmount != null
-                                    ? '${item.totalQuotationAmount!.toStringAsFixed(0)} ${item.quotationCurrency ?? ""}'
-                                    : '—';
-                                final rowSummary = '${item.providerName} | $totalStr | WH: ${c["expectedWhDate"]} (${c["totalDays"]}d) | ${item.polName ?? "-"} ➔ ${item.podName ?? "-"} | ${item.vesselName}';
-                                return DataRow(
-                                  cells: [
-                                    DataCell(CopyableTableCell(value: '${idx + 1}', rowSummary: rowSummary, child: Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold)))),
-                                    DataCell(CopyableTableCell(value: item.providerName, rowSummary: rowSummary, child: Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
-                                    DataCell(CopyableTableCell(
-                                      value: totalStr,
-                                      rowSummary: rowSummary,
-                                      child: item.totalQuotationAmount != null
-                                          ? Text(totalStr, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson))
-                                          : Builder(
-                                              builder: (context) {
-                                                final missing = ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currenciesList).missingCurrencies;
-                                                final missingStr = missing.isNotEmpty ? missing.join(', ') : (item.quotationCurrency ?? '—');
-                                                return Tooltip(
-                                                  message: l.rateMissingWarning(missingStr),
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: AppTheme.wcagOrange.withValues(alpha: 0.15),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                      border: Border.all(color: AppTheme.wcagOrange, width: 0.8),
-                                                    ),
-                                                    child: const Row(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        Icon(Icons.warning_amber_rounded, size: 12, color: AppTheme.wcagOrange),
-                                                        SizedBox(width: 4),
-                                                        Text('—', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.wcagOrange)),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                    )),
-                                    DataCell(CopyableTableCell(value: '${c["expectedWhDate"]}', rowSummary: rowSummary, child: Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)))),
-                                    DataCell(CopyableTableCell(value: '${c["totalDays"]} d', rowSummary: rowSummary, child: Text('${c["totalDays"]} d', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
-                                    DataCell(CopyableTableCell(
-                                      value: '${item.customsBrokerName ?? "-"} (${item.clearanceFeeCurrency})',
-                                      rowSummary: rowSummary,
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(item.customsBrokerName ?? '-', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                          if (item.clearanceFeePrice > 0 || item.inlandTransportFeePrice > 0)
-                                            Text(
-                                              l.clearanceCostSummary(((item.clearanceFeeApplicable ? item.clearanceFeePrice : 0) + (item.inspectionFeeApplicable ? item.inspectionFeePrice : 0) + (item.inlandTransportFeeApplicable ? item.inlandTransportFeePrice : 0) + (item.portExpensesApplicable ? item.portExpensesPrice : 0)).toStringAsFixed(0), item.clearanceFeeCurrency ?? ''),
-                                              style: const TextStyle(fontSize: 10, color: AppTheme.wcagEmerald, fontWeight: FontWeight.bold),
-                                            ),
-                                        ],
-                                      ),
-                                    )),
-                                    DataCell(CopyableTableCell(value: '${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', rowSummary: rowSummary, child: Row(mainAxisSize: MainAxisSize.min, children: [Text(item.polName ?? '-', style: const TextStyle(fontSize: 11)), const SizedBox(width: 4), const DirectionalIcon(Icons.arrow_forward, size: 12), const SizedBox(width: 4), Text(item.podName ?? '-', style: const TextStyle(fontSize: 11))]))),
-                                    DataCell(CopyableTableCell(value: '${item.vesselName} (${item.voyageNumber ?? "-"})', rowSummary: rowSummary, child: Text('${item.vesselName} (${item.voyageNumber ?? "-"})'))),
-                                    DataCell(CopyableTableCell(value: item.sailingDate, rowSummary: rowSummary, child: Text(item.sailingDate))),
-                                    DataCell(CopyableTableCell(value: item.estimatedArrivalDate, rowSummary: rowSummary, child: Text(item.estimatedArrivalDate))),
-                                    DataCell(CopyableTableCell(value: '${c["vesselLeadTime"]} d', rowSummary: rowSummary, child: Text('${c["vesselLeadTime"]} d'))),
-                                    DataCell(CopyableTableCell(value: '${item.freeTimeDays} d', rowSummary: rowSummary, child: Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)))),
-                                    DataCell(CopyableTableCell(value: '${item.expectedLineDelayDays} d', rowSummary: rowSummary, child: Text('${item.expectedLineDelayDays} d'))),
-                                    DataCell(CopyableTableCell(
-                                      value: item.riskLevel,
-                                      rowSummary: rowSummary,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: item.riskLevel == 'High' ? AppTheme.crimsonBorder : item.riskLevel == 'Medium' ? AppTheme.orangeLight : AppTheme.emeraldBorder,
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(item.riskLevel, style: TextStyle(color: item.riskLevel == 'High' ? AppTheme.crimson : item.riskLevel == 'Medium' ? AppTheme.wcagOrange : AppTheme.wcagEmerald, fontWeight: FontWeight.bold, fontSize: 11)),
-                                      ),
-                                    )),
-                                    DataCell(CopyableTableCell(value: item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, rowSummary: rowSummary, child: Text(item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg, style: TextStyle(color: item.isExcludedFromAverage ? AppTheme.crimson : AppTheme.cobalt, fontSize: 11)))),
-                                  ],
-                                );
-                              }).toList(),
+                    const SizedBox(height: 12),
+
+                    if (_evalItems.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.directions_boat_outlined,
+                              size: 40,
+                              color: isDark ? AppTheme.darkTextMuted : AppTheme.textMuted,
                             ),
+                            const SizedBox(height: 10),
+                            Text(
+                              isArabic
+                                  ? 'لا توجد خيارات أو عروض شحن مضافة حتى الآن'
+                                  : 'No shipping carrier options added yet',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppTheme.darkTextMuted : AppTheme.textMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              isArabic
+                                  ? 'اضغط "+ إضافة خيار شحن جديد" لإضافة خيار شحن فارغ، أو استخرج العروض تلقائياً من المستندات أعلاه'
+                                  : 'Click "+ Add New Shipping Option" to add a blank carrier option, or extract quotes above',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppTheme.darkTextMuted : AppTheme.textMuted,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            AppButton(
+                              label: l.addNewShippingOption,
+                              icon: Icons.add,
+                              variant: AppButtonVariant.primary,
+                              size: AppButtonSize.small,
+                              onPressed: _addNewBlankCarrierOption,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Carrier Option Cards List (Sub-component 3)
+                    ..._evalItems.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final item = entry.value;
+                      final calc = calculatedScenarios.firstWhere((c) => c['index'] == idx, orElse: () => {});
+
+                      return CarrierOptionEvaluationTile(
+                        key: ValueKey('carrier_tile_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
+                        index: idx,
+                        item: item,
+                        calculation: calc,
+                        isExpanded: _expandedQuotes[idx] ?? false,
+                        onToggleExpanded: () => setState(() => _expandedQuotes[idx] = !(_expandedQuotes[idx] ?? false)),
+                        onUpdateItem: (updated) => setState(() => _evalItems[idx] = updated),
+                        onClone: () => _cloneCarrierOption(idx),
+                        onDelete: () async {
+                          final confirm = await AppConfirmDialog.showDelete(
+                            context,
+                            entityName: item.providerName,
+                            title: l.confirmDelete,
+                            message: '${l.confirmDelete} (${item.providerName})؟',
+                          );
+                          if (confirm) {
+                            setState(() {
+                              _evalItems.removeAt(idx);
+                              _expandedQuotes.remove(idx);
+                            });
+                          }
+                        },
+                        freightForwarders: freightForwarders,
+                        shippingLines: shippingLines,
+                        customsBrokers: customsBrokers,
+                        portsList: portsList,
+                        currenciesList: currenciesList,
+                        editingSessionId: _editingSessionId,
+                        editFormVersion: _editFormVersion,
+                        onRefreshData: () => _refreshData(force: true),
+                      );
+                    }),
+                    const SizedBox(height: 20),
+
+                    // Comparison Summary Enterprise Table
+                    SizedBox(
+                      height: 380,
+                      child: EnterpriseDataTable<Map<String, dynamic>>(
+                        data: calculatedScenarios,
+                        title: l.sideBySideComparison,
+                        storageKey: 'shipping_scenarios_comparison_table',
+                        enableExport: true,
+                        exportFileName: 'Shipping_Scenarios_Comparison',
+                        columns: [
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'index',
+                            title: '#',
+                            width: 50,
+                            cellBuilder: (ctx, c, i) => Text('${(c['index'] as int) + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            searchValue: (c) => '${(c['index'] as int) + 1}',
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'provider_name',
+                            title: l.shippingLineCol,
+                            width: 140,
+                            cellBuilder: (ctx, c, i) {
+                              final item = c['item'] as ShippingScenarioItemModel;
+                              return Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt));
+                            },
+                            searchValue: (c) => (c['item'] as ShippingScenarioItemModel).providerName,
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'total_quote',
+                            title: l.totalQuoteValue,
+                            width: 130,
+                            isNumeric: true,
+                            cellBuilder: (ctx, c, i) {
+                              final item = c['item'] as ShippingScenarioItemModel;
+                              final totalStr = item.totalQuotationAmount != null
+                                  ? '${item.totalQuotationAmount!.toStringAsFixed(0)} ${item.quotationCurrency ?? ""}'
+                                  : '—';
+                              return item.totalQuotationAmount != null
+                                  ? Text(totalStr, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson))
+                                  : Tooltip(
+                                      message: l.rateMissingWarning(item.quotationCurrency ?? '—'),
+                                      child: const Text('—', style: TextStyle(color: AppTheme.wcagOrange, fontWeight: FontWeight.bold)),
+                                    );
+                            },
+                            searchValue: (c) => (c['item'] as ShippingScenarioItemModel).totalQuotationAmount?.toString() ?? '',
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'expected_wh_date',
+                            title: l.whDateCol,
+                            width: 110,
+                            cellBuilder: (ctx, c, i) => Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                            searchValue: (c) => '${c["expectedWhDate"]}',
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'total_days',
+                            title: l.avgTransitMetric,
+                            width: 90,
+                            isNumeric: true,
+                            cellBuilder: (ctx, c, i) => Text('${c["totalDays"]} d', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                            searchValue: (c) => '${c["totalDays"]}',
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'customs_broker',
+                            title: l.customsBrokerLabel,
+                            width: 140,
+                            cellBuilder: (ctx, c, i) {
+                              final item = c['item'] as ShippingScenarioItemModel;
+                              return Text(item.customsBrokerName ?? '-', style: const TextStyle(fontWeight: FontWeight.w600));
+                            },
+                            searchValue: (c) => (c['item'] as ShippingScenarioItemModel).customsBrokerName ?? '',
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'route',
+                            title: '${l.portOfLoadingCol} / ${l.portOfDischargeCol}',
+                            width: 150,
+                            cellBuilder: (ctx, c, i) {
+                              final item = c['item'] as ShippingScenarioItemModel;
+                              return Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11));
+                            },
+                            searchValue: (c) {
+                              final item = c['item'] as ShippingScenarioItemModel;
+                              return '${item.polName} ${item.podName}';
+                            },
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'vessel',
+                            title: l.vesselNameCol,
+                            width: 130,
+                            cellBuilder: (ctx, c, i) {
+                              final item = c['item'] as ShippingScenarioItemModel;
+                              return Text('${item.vesselName} (${item.voyageNumber ?? "-"})');
+                            },
+                            searchValue: (c) => (c['item'] as ShippingScenarioItemModel).vesselName,
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'sailing_date',
+                            title: l.sailingDateCol,
+                            width: 105,
+                            cellBuilder: (ctx, c, i) => Text((c['item'] as ShippingScenarioItemModel).sailingDate),
+                            searchValue: (c) => (c['item'] as ShippingScenarioItemModel).sailingDate,
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'eta_date',
+                            title: l.estimatedArrivalDateCol,
+                            width: 105,
+                            cellBuilder: (ctx, c, i) => Text((c['item'] as ShippingScenarioItemModel).estimatedArrivalDate),
+                            searchValue: (c) => (c['item'] as ShippingScenarioItemModel).estimatedArrivalDate,
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'free_time',
+                            title: l.freeTimeDaysCol,
+                            width: 90,
+                            isNumeric: true,
+                            cellBuilder: (ctx, c, i) {
+                              final item = c['item'] as ShippingScenarioItemModel;
+                              return Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt));
+                            },
+                            searchValue: (c) => (c['item'] as ShippingScenarioItemModel).freeTimeDays.toString(),
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'risk_level',
+                            title: l.riskLevelCol,
+                            width: 100,
+                            cellBuilder: (ctx, c, i) {
+                              final item = c['item'] as ShippingScenarioItemModel;
+                              return AppStatusBadge(
+                                label: item.riskLevel,
+                                severity: item.riskLevel == 'High'
+                                    ? AppSeverity.danger
+                                    : item.riskLevel == 'Medium'
+                                        ? AppSeverity.warning
+                                        : AppSeverity.success,
+                              );
+                            },
+                            searchValue: (c) => (c['item'] as ShippingScenarioItemModel).riskLevel,
+                          ),
+                          EnterpriseColumn<Map<String, dynamic>>(
+                            id: 'status',
+                            title: l.statusCol,
+                            width: 120,
+                            cellBuilder: (ctx, c, i) {
+                              final item = c['item'] as ShippingScenarioItemModel;
+                              return Text(
+                                item.isExcludedFromAverage ? l.excludedFromAvg : l.includedInAvg,
+                                style: TextStyle(
+                                  color: item.isExcludedFromAverage ? AppTheme.crimson : AppTheme.cobalt,
+                                  fontSize: 11,
+                                ),
+                              );
+                            },
+                            searchValue: (c) => (c['item'] as ShippingScenarioItemModel).isExcludedFromAverage ? 'Excluded' : 'Included',
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
 
-          // Bottom Fixed Action Bar with 3 Standard ERP Action Buttons (WCAG AA & Dark Mode)
+          // Bottom Fixed Action Bar
           PositionedDirectional(
             start: 0,
             end: 0,
@@ -2915,7 +1252,13 @@ Best regards,
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
                 border: Border(top: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite)),
-                boxShadow: [BoxShadow(color: isDark ? Colors.black26 : AppTheme.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, -2))],
+                boxShadow: [
+                  BoxShadow(
+                    color: isDark ? AppTheme.black.withValues(alpha: 0.26) : AppTheme.black.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -2983,197 +1326,6 @@ Best regards,
     );
   }
 
-  Widget _buildCostRow({
-    required String rowKey,
-    required String title,
-    required bool applicable,
-    required double price,
-    required String? currency,
-    double qty = 1.0,
-    required ValueChanged<bool> onApplicableChanged,
-    required ValueChanged<double> onPriceChanged,
-    required ValueChanged<String> onCurrencyChanged,
-    ValueChanged<double>? onQtyChanged,
-    bool showQty = false,
-    bool qtyReadOnly = false,
-    bool isIntegerQty = true,
-    required List<CurrencyModel> currenciesList,
-  }) {
-    final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return LayoutBuilder(
-      builder: (context, costConstraints) {
-        final isNarrow = costConstraints.maxWidth < 650;
-
-        final priceField = TextFormField(
-          key: ValueKey('price_${rowKey}_${_editingSessionId ?? "new"}_$_editFormVersion'),
-          initialValue: price == 0.0 ? '' : price.toString(),
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(labelText: l.itemPriceCol, isDense: true),
-          onChanged: (v) {
-            final p = double.tryParse(v) ?? 0.0;
-            onPriceChanged(p);
-          },
-        );
-
-        final currencyField = SearchableDropdownField<String>(
-          // No invented currency: an unknown or missing code stays unselected until the user picks one.
-          value: currenciesList.any((c) => c.currencyCode == currency) ? currency : null,
-          labelText: l.currency,
-          items: currenciesList.map((c) => SearchableDropdownItem(
-                value: c.currencyCode,
-                label: '${c.currencyCode} (${c.currencySymbol})',
-              )).toList(),
-          onChanged: (v) {
-            if (v != null) {
-              onCurrencyChanged(v);
-            }
-          },
-        );
-
-        final qtyField = showQty
-            ? TextFormField(
-                key: qtyReadOnly
-                    ? ValueKey('readonly_qty_${rowKey}_$qty')
-                    : ValueKey('qty_${rowKey}_${_editingSessionId ?? "new"}_$_editFormVersion'),
-                readOnly: qtyReadOnly,
-                initialValue: qty == 0.0 ? '' : (isIntegerQty ? qty.toInt().toString() : qty.toString()),
-                keyboardType: TextInputType.numberWithOptions(decimal: !isIntegerQty),
-                decoration: InputDecoration(labelText: l.quantity, isDense: true),
-                onChanged: qtyReadOnly
-                    ? null
-                    : (v) {
-                        final q = double.tryParse(v) ?? 0.0;
-                        if (onQtyChanged != null) {
-                          onQtyChanged(q);
-                        }
-                      },
-              )
-            : null;
-
-        final switchWidget = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Switch(
-              value: applicable,
-              activeThumbColor: AppTheme.cobalt,
-              onChanged: onApplicableChanged,
-            ),
-            Text(
-              applicable ? l.applicable : l.notApplicable,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: applicable ? AppTheme.emerald : AppTheme.crimson,
-              ),
-            ),
-          ],
-        );
-
-        final totalDisplay = Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            color: applicable 
-                ? (AppTheme.emeraldLight)
-                : (AppTheme.crimsonLight),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: applicable 
-                  ? (isDark ? AppTheme.emerald : AppTheme.emeraldBorder)
-                  : (isDark ? AppTheme.crimson : AppTheme.crimsonBorder),
-            ),
-          ),
-          child: Text(
-            applicable 
-                ? '${(price * qty).toStringAsFixed(0)} ${currency ?? ''}'.trim()
-                : '0.0 ${currency ?? ''}'.trim(),
-            style: TextStyle(
-              fontWeight: FontWeight.bold, 
-              fontSize: 11, 
-              color: applicable ? AppTheme.emerald : AppTheme.crimson,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        );
-
-        if (isNarrow) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    switchWidget,
-                    const SizedBox(width: 8),
-                    totalDisplay,
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(flex: 2, child: priceField),
-                    const SizedBox(width: 8),
-                    Expanded(flex: 2, child: currencyField),
-                    if (showQty && qtyField != null) ...[
-                      const SizedBox(width: 8),
-                      Expanded(flex: 2, child: qtyField),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(flex: 2, child: priceField),
-              const SizedBox(width: 8),
-              Expanded(flex: 2, child: currencyField),
-              if (showQty && qtyField != null) ...[
-                const SizedBox(width: 8),
-                Expanded(flex: 2, child: qtyField),
-              ],
-              const SizedBox(width: 12),
-              switchWidget,
-              const SizedBox(width: 12),
-              Expanded(flex: 2, child: totalDisplay),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildMetricCard(String title, String val, IconData icon, Color color, {String? subtitle}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
@@ -3182,7 +1334,13 @@ Best regards,
         color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.3)),
-        boxShadow: [BoxShadow(color: isDark ? Colors.black26 : AppTheme.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? AppTheme.black.withValues(alpha: 0.26) : AppTheme.black.withValues(alpha: 0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3191,14 +1349,32 @@ Best regards,
             children: [
               Icon(icon, color: color, size: 20),
               const SizedBox(width: 6),
-              Expanded(child: Text(title, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),
           CopyableText(val, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
-            CopyableText(subtitle, style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+            CopyableText(
+              subtitle,
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                fontWeight: FontWeight.bold,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ],
       ),
@@ -3208,23 +1384,26 @@ Best regards,
   Future<void> _saveEvaluationSession(BuildContext context, List<CurrencyModel> currenciesList) async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.completeRequiredDataMsg),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          context.l10n.completeRequiredDataMsg,
+          severity: AppSeverity.danger,
           duration: const Duration(seconds: 3),
         ),
       );
       return;
     }
 
+    final isArabic = (Localizations.maybeLocaleOf(context)?.languageCode ?? 'ar') == 'ar';
+
     if (_evalItems.isEmpty) {
-      final isArabic = (Localizations.maybeLocaleOf(context)?.languageCode ?? 'ar') == 'ar';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isArabic
+        AppTheme.snackBar(
+          context,
+          isArabic
               ? 'يرجى إضافة خيار شحن واحد على الأقل لحفظ دراسة السيناريوهات'
-              : 'Please add at least one shipping carrier option to save the study'),
-          backgroundColor: AppTheme.crimson,
+              : 'Please add at least one shipping carrier option to save the study',
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -3236,9 +1415,10 @@ Best regards,
       final item = _evalItems[i];
       if (item.providerName.isEmpty || item.providerName == 'Select Line') {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.shippingLineRequiredMsg(i + 1)),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.shippingLineRequiredMsg(i + 1),
+            severity: AppSeverity.danger,
           ),
         );
         return;
@@ -3249,33 +1429,34 @@ Best regards,
 
       if (sDate == null || etaDate == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.datesRequiredMsg(i + 1, item.providerName)),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.datesRequiredMsg(i + 1, item.providerName),
+            severity: AppSeverity.danger,
           ),
         );
         return;
       }
 
-      // Check date constraints: sailing date must be on or after CRD
       final crdDateOnly = DateTime(_cargoReadyDate.year, _cargoReadyDate.month, _cargoReadyDate.day);
       final sailingDateOnly = DateTime(sDate.year, sDate.month, sDate.day);
       if (sailingDateOnly.isBefore(crdDateOnly)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.sailingBeforeCrdError(i + 1, item.providerName, item.sailingDate, crdDateOnly.toString().substring(0, 10))),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.sailingBeforeCrdError(i + 1, item.providerName, item.sailingDate, crdDateOnly.toString().substring(0, 10)),
+            severity: AppSeverity.danger,
           ),
         );
         return;
       }
 
-      // Check date constraints: ETA must be after sailing date
       if (!etaDate.isAfter(sDate)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.etaAfterSailingError(i + 1, item.providerName, item.estimatedArrivalDate, item.sailingDate)),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.etaAfterSailingError(i + 1, item.providerName, item.estimatedArrivalDate, item.sailingDate),
+            severity: AppSeverity.danger,
           ),
         );
         return;
@@ -3283,21 +1464,22 @@ Best regards,
 
       if (item.expectedLineDelayDays < 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.negativeDaysError(i + 1, item.providerName)),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.negativeDaysError(i + 1, item.providerName),
+            severity: AppSeverity.danger,
           ),
         );
         return;
       }
 
-      // Check duplicates (same Freight Forwarder, Shipping Line, Vessel, and Sailing Date)
       final key = '${item.providerId}_${item.providerName.trim().toLowerCase()}_${item.vesselName.trim().toLowerCase()}_${item.sailingDate}';
       if (seen.contains(key)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.duplicateQuoteError(i + 1, item.providerName)),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.duplicateQuoteError(i + 1, item.providerName),
+            severity: AppSeverity.danger,
           ),
         );
         return;
@@ -3308,9 +1490,10 @@ Best regards,
         final missing = ShippingScenarioCalculator.calculateTotalQuoteValue(item: item, currencies: currenciesList).missingCurrencies;
         final missingStr = missing.isNotEmpty ? missing.join(', ') : (item.quotationCurrency ?? '—');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.scenarioSaveRateMissingError(i + 1, item.providerName, missingStr)),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.scenarioSaveRateMissingError(i + 1, item.providerName, missingStr),
+            severity: AppSeverity.danger,
           ),
         );
         return;
@@ -3344,7 +1527,6 @@ Best regards,
       if (oldSession != null) {
         final List<FieldChangeItem> changes = [];
 
-        // 1. General & Header Data
         if (FieldChangeItem.isDifferent(oldSession.title, titleToSave)) {
           changes.add(FieldChangeItem(
             section: 'البيانات العامة للدراسة',
@@ -3410,7 +1592,6 @@ Best regards,
           ));
         }
 
-        // 2. Shipping Options / Quotation Items
         if (oldSession.items.length != _evalItems.length) {
           changes.add(FieldChangeItem(
             section: 'عروض أسعار الشحن المقارنة',
@@ -3489,7 +1670,7 @@ Best regards,
           if (!context.mounted) return;
           final confirmed = await showChangeDiffConfirmationDialog(
             context,
-            title: 'مراجعة وتأكيد تعديلات دراسة وعروض الشحن',
+            title: isArabic ? 'مراجعة وتأكيد تعديلات دراسة وعروض الشحن' : 'Review and Confirm Shipping Study Edits',
             itemReference: oldSession.sessionCode.isNotEmpty ? oldSession.sessionCode : titleToSave,
             changes: changes,
           );
@@ -3533,7 +1714,6 @@ Best regards,
     setState(() => _isSaving = false);
 
     if (ok && context.mounted) {
-      // Find the newly saved study from provider state
       final freshState = ref.read(shippingScenariosProvider);
       final savedSess = freshState.sessions.firstWhere(
         (s) => s.title == titleToSave || s.sessionCode == _editingSessionCode,
@@ -3550,13 +1730,10 @@ Best regards,
 
       _resetFormForNewStudy();
       _tabController.animateTo(1);
-
-      // Instantly pop up the detailed Arabic/English results summary dialog per user instructions
       _showSaveSuccessReportDialog(context, savedSess);
     } else if (!ok && context.mounted) {
       final failure = ref.read(shippingScenariosProvider).error;
       if (ApiErrorText.code(failure) == ApiErrorCode.scenarioSessionExists) {
-        // A study for this import file already exists: readable message + open it.
         final l = context.l10n;
         final existingId = ApiErrorText.detail(failure)?['session_id'];
         final existingCode = ApiErrorText.detail(failure)?['session_code'];
@@ -3718,7 +1895,6 @@ Best regards,
     );
   }
 
-
   void _showContainerComparisonDialog(
     BuildContext context,
     ContainerDualRecommendationResult dualRec,
@@ -3793,491 +1969,11 @@ Best regards,
   }
 
   void _showVisualLoadPlanDialog(BuildContext context, List<PurchaseOrderModel> pos, double totalCbm, double totalWeight) {
-    final List<CargoItem> baseCargoItems = [];
-    int itemCounter = 1;
-
-    for (final po in pos) {
-      final hasPalletPlan = po.palletPlanItems.isNotEmpty && po.palletPlanItems.any((p) => p.palletCount > 0);
-      final hasSinglePallet = po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0;
-
-      if (hasPalletPlan) {
-        final double totalGross = po.packingListItems.fold<double>(
-          0.0,
-          (sum, p) => sum + (p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)),
-        );
-        final int totalPallets = po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount);
-        final double defaultPalletWeight = totalPallets > 0 && totalGross > 0 ? (totalGross / totalPallets) : 137.5;
-
-        for (final pLine in po.palletPlanItems) {
-          final pL = pLine.lengthCm > 0 ? pLine.lengthCm : 120.0;
-          final pW = pLine.widthCm > 0 ? pLine.widthCm : 80.0;
-          final pH = pLine.heightCm > 0 ? pLine.heightCm : 150.0;
-          final pWt = pLine.grossWeightPerPalletKg > 0 ? pLine.grossWeightPerPalletKg : defaultPalletWeight;
-
-          for (int i = 0; i < pLine.palletCount; i++) {
-            baseCargoItems.add(CargoItem(
-              itemId: 'PLT-$itemCounter',
-              length: pL,
-              width: pW,
-              height: pH,
-              weight: pWt,
-              isStackable: pLine.isStackable,
-              rotate: true,
-              packageType: pLine.palletType,
-              description: 'بالتة #$itemCounter (${pLine.palletType})${pLine.isStackable ? "" : " [Floor Only]"}',
-            ));
-            itemCounter++;
-          }
-        }
-      } else if (hasSinglePallet) {
-        final double pWt = po.totalGrossWeightKg > 0 ? (po.totalGrossWeightKg / po.palletCount) : 137.5;
-        for (int i = 0; i < po.palletCount; i++) {
-          baseCargoItems.add(CargoItem(
-            itemId: 'PLT-$itemCounter',
-            length: po.palletLengthCm,
-            width: po.palletWidthCm,
-            height: po.palletHeightCm,
-            weight: pWt,
-            isStackable: po.isPalletStackable,
-            rotate: true,
-            packageType: po.palletType,
-            description: 'بالتة #$itemCounter (${po.palletType})${po.isPalletStackable ? "" : " [Floor Only]"}',
-          ));
-          itemCounter++;
-        }
-      } else if (po.packingListItems.isNotEmpty) {
-        for (final pl in po.packingListItems) {
-          for (int q = 0; q < pl.qtyPkg.toInt(); q++) {
-            double lCm = pl.lengthCm;
-            double wCm = pl.widthCm;
-            double hCm = pl.heightCm;
-            if (pl.unit == 'mm') {
-              lCm /= 10;
-              wCm /= 10;
-              hCm /= 10;
-            } else if (pl.unit == 'm') {
-              lCm *= 100;
-              wCm *= 100;
-              hCm *= 100;
-            }
-
-            baseCargoItems.add(CargoItem(
-              itemId: '$itemCounter',
-              length: lCm > 0 ? lCm : 100.0,
-              width: wCm > 0 ? wCm : 80.0,
-              height: hCm > 0 ? hCm : 60.0,
-              weight: pl.grossWeightUnitKg > 0 ? pl.grossWeightUnitKg : (pl.totalGrossWeightKg / (pl.qtyPkg > 0 ? pl.qtyPkg : 1)),
-              rotate: true,
-              isStackable: pl.isStackable,
-              packageType: pl.packageType,
-            ));
-            itemCounter++;
-          }
-        }
-      }
-    }
-
-    if (baseCargoItems.isEmpty && totalCbm > 0) {
-      final double targetCbm = totalCbm;
-      final double targetWeight = totalWeight > 0 ? totalWeight : 1000.0;
-      final int numPallets = (targetCbm / 2.0).ceil().clamp(1, 50);
-      final double perPalletCbm = targetCbm / numPallets;
-      final double perPalletWeight = targetWeight / numPallets;
-
-      double palletHeightCm = (perPalletCbm * 1000000.0) / 12000.0;
-      if (palletHeightCm > 260) palletHeightCm = 260;
-
-      for (int i = 0; i < numPallets; i++) {
-        baseCargoItems.add(CargoItem(
-          itemId: 'PLT-$itemCounter',
-          length: 120,
-          width: 100,
-          height: palletHeightCm.clamp(30.0, 260.0),
-          weight: perPalletWeight,
-          rotate: true,
-          isStackable: true,
-          packageType: 'Pallet',
-        ));
-        itemCounter++;
-      }
-    }
-
-    if (baseCargoItems.isEmpty) {
-      baseCargoItems.add(CargoItem(
-        itemId: '1',
-        length: 120,
-        width: 80,
-        height: 100,
-        weight: totalWeight > 0 ? totalWeight : 500.0,
-        rotate: true,
-        isStackable: true,
-      ));
-    }
-
-    // Default active view mode: null = Actual/Mixed, true = All Stackable, false = All Non-Stackable
-    bool? activeStackingMode = baseCargoItems.any((i) => !i.isStackable) ? null : true;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            // Compute plan dynamically based on the selected mode
-            final plan = ContainerRequirementEngine.planShipment(
-              baseCargoItems,
-              forceStackable: activeStackingMode,
-            );
-
-            // Compute summary metrics for active plan
-            final totalPkgs = baseCargoItems.length;
-            final stackableInActive = activeStackingMode == true
-                ? totalPkgs
-                : (activeStackingMode == false ? 0 : baseCargoItems.where((c) => c.isStackable).length);
-            final nonStackableInActive = totalPkgs - stackableInActive;
-
-            final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
-            final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
-            final l = dialogCtx.l10n;
-
-            // Determine container fleet text (e.g. 2 x 40HC or 2 x 40HC + 1 x 20GP)
-            final Map<String, int> containerCounts = {};
-            for (final p in plan) {
-              if (p.containerCode != 'FAILED') {
-                containerCounts[p.containerCode] = (containerCounts[p.containerCode] ?? 0) + 1;
-              }
-            }
-            final fleetSummaryText = containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
-
-            return AlertDialog(
-              title: Row(
-                children: [
-                  const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      l.visualLoadPlanTitle,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.cobalt),
-                    ),
-                    child: Text(
-                      l.requiredFleetLabel(fleetSummaryText, plan.length),
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                    ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 980,
-                height: 640,
-                child: Column(
-                  children: [
-                    // 1. Scenario / Stacking Mode Switcher (All 3 required states)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.charcoalSurface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.cloudWhite),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            l.selectStackingScenarioLabel,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-                          ),
-                          Row(
-                            children: [
-                              ChoiceChip(
-                                label: Text(l.allStackableOption),
-                                selected: activeStackingMode == true,
-                                selectedColor: AppTheme.emerald,
-                                labelStyle: TextStyle(
-                                  color: activeStackingMode == true ? AppTheme.white : AppTheme.charcoal,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) setDialogState(() => activeStackingMode = true);
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              ChoiceChip(
-                                label: Text(l.allNonStackableOption),
-                                selected: activeStackingMode == false,
-                                selectedColor: AppTheme.wcagOrange,
-                                labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? AppTheme.white : AppTheme.charcoal,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) setDialogState(() => activeStackingMode = false);
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              ChoiceChip(
-                                label: Text(l.mixedStackingOption),
-                                selected: activeStackingMode == null,
-                                selectedColor: AppTheme.cobalt,
-                                labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? AppTheme.white : AppTheme.charcoal,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) setDialogState(() => activeStackingMode = null);
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // 2. Metrics Strip
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.charcoal.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppTheme.cloudWhite),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              _buildLoadMetricPill(l.totalPackagesMetricLabel, '$totalPkgs', AppTheme.cobalt),
-                              const SizedBox(width: 8),
-                              _buildLoadMetricPill(l.totalWeightMetricLabel, '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
-                              const SizedBox(width: 8),
-                              _buildLoadMetricPill(l.totalVolumeMetricLabel, '${totalPlanVolume.toStringAsFixed(3)} m³', AppTheme.wcagOrange),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              _buildLoadMetricPill(l.stackableMetricLabel, '$stackableInActive', AppTheme.wcagEmerald),
-                              const SizedBox(width: 8),
-                              _buildLoadMetricPill(l.nonStackableMetricLabel, '$nonStackableInActive', AppTheme.crimson),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // 3. Table summary of container loads
-                    Table(
-                      border: TableBorder.all(color: AppTheme.cloudWhite),
-                      columnWidths: const {
-                        0: FlexColumnWidth(1.2),
-                        1: FlexColumnWidth(1.8),
-                        2: FlexColumnWidth(1.2),
-                        3: FlexColumnWidth(1.2),
-                        4: FlexColumnWidth(2.4),
-                      },
-                      children: [
-                        TableRow(
-                          decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
-                          children: [
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.itemsAndPackagesCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.loadedWeightCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.safetyDistributionCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          ],
-                        ),
-                        ...plan.asMap().entries.map((entry) {
-                          final idx = entry.key + 1;
-                          final res = entry.value;
-                          final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
-
-                          String statusText = '';
-                          if (res.containerCode == 'FAILED') {
-                            statusText = l.loadingFailedStatus(res.unplacedItems.map((u) => u.itemId).join(', '));
-                          } else {
-                            final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
-                            if (nonStackInThis > 0) {
-                              statusText = l.nonStackableFloorCount(nonStackInThis);
-                            } else {
-                              statusText = l.multiLayerCompliant((res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1));
-                            }
-                          }
-
-                          final double spaceUtil = res.spec.internalVolumeCbm > 0 ? (res.totalVolume / res.spec.internalVolumeCbm) * 100 : 0.0;
-
-                          return TableRow(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: CopyableText(
-                                  res.containerCode == 'FAILED' ? l.failedStackLabel : '$idx: ${res.spec.code}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: CopyableText(placedIds.isEmpty ? '-' : placedIds, style: const TextStyle(fontSize: 11)),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: CopyableText(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11)),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: CopyableText('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange)),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: CopyableText(
-                                  statusText,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: res.containerCode == 'FAILED'
-                                        ? AppTheme.crimson
-                                        : (res.placedItems.any((p) => !p.item.isStackable) ? AppTheme.wcagOrange : AppTheme.wcagEmerald),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    // 4. Tab view or list for visual container layout drawings
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: plan.length,
-                        itemBuilder: (ctx, pIdx) {
-                          final res = plan[pIdx];
-                          if (res.containerCode == 'FAILED') {
-                            return Container(
-                              padding: const EdgeInsets.all(16),
-                              margin: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: AppTheme.crimsonLight, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.crimsonBorder)),
-                              child: CopyableText(
-                                l.itemsExceedCapacity(res.unplacedItems.map((u) => u.itemId).join(', ')),
-                                style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold),
-                              ),
-                            );
-                          }
-
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            elevation: 3,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      CopyableText(
-                                        l.containerLayoutTitle(pIdx + 1, res.spec.name, res.spec.code),
-                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                      ),
-                                      Row(
-                                        children: [
-                                          Text(l.woodenFloorPalletsLabel, style: const TextStyle(fontSize: 10, color: AppTheme.wcagOrange, fontWeight: FontWeight.bold)),
-                                          const SizedBox(width: 10),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4)),
-                                            child: CopyableText(
-                                              l.internalDimsLabel(res.spec.internalLength.toStringAsFixed(0), res.spec.internalWidth.toStringAsFixed(0), res.spec.internalHeight.toStringAsFixed(0)),
-                                              style: const TextStyle(fontSize: 10, color: AppTheme.cobalt),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-
-                                  // Side View (Left Wall Removed) - High Fidelity Realistic Container
-                                  Container(
-                                    height: 190,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.charcoal,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: CustomPaint(
-                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
-                                      child: Container(),
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 10),
-
-                                  // Top View (Roof Removed)
-                                  Container(
-                                    height: 140,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.charcoal,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: CustomPaint(
-                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
-                                      child: Container(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                AppButton(
-                  label: l.closePlanBtn,
-                  icon: Icons.close,
-                  variant: AppButtonVariant.secondary,
-                  size: AppButtonSize.small,
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  static Widget _buildLoadMetricPill(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 4),
-          Text(value, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
-        ],
-      ),
+    CargoLoadPlannerDialog.showFromPurchaseOrders(
+      context,
+      pos: pos,
+      totalCbm: totalCbm,
+      totalWeight: totalWeight,
     );
   }
 
@@ -4285,228 +1981,6 @@ Best regards,
     return SavedScenariosRegistryTab(
       onEditSession: _loadSessionForEditing,
       onSwitchToEvaluator: () => _tabController.animateTo(0),
-    );
-  }
-}
-
-// ==================================================
-// Dedicated Search & Clone Dialog for Shipping Scenarios (UX-CLONE-012)
-// ==================================================
-class SearchAndCloneStudyDialog extends StatefulWidget {
-  final List<ShippingEvaluationModel> sessions;
-  final ValueChanged<ShippingEvaluationModel> onSelectStudy;
-
-  const SearchAndCloneStudyDialog({
-    super.key,
-    required this.sessions,
-    required this.onSelectStudy,
-  });
-
-  @override
-  State<SearchAndCloneStudyDialog> createState() => _SearchAndCloneStudyDialogState();
-}
-
-class _SearchAndCloneStudyDialogState extends State<SearchAndCloneStudyDialog> {
-  final TextEditingController _queryController = TextEditingController();
-  late List<ShippingEvaluationModel> _filteredStudies;
-
-  @override
-  void initState() {
-    super.initState();
-    _filteredStudies = widget.sessions;
-    _queryController.addListener(_onSearchChanged);
-  }
-
-  @override
-  void dispose() {
-    _queryController.removeListener(_onSearchChanged);
-    _queryController.dispose();
-    super.dispose();
-  }
-
-  void _onSearchChanged() {
-    final query = _queryController.text.trim().toLowerCase();
-    setState(() {
-      if (query.isEmpty) {
-        _filteredStudies = widget.sessions;
-      } else {
-        _filteredStudies = widget.sessions.where((s) {
-          final code = s.sessionCode.toLowerCase();
-          final title = (s.title ?? '').toLowerCase();
-          final imp = (s.importFileCode ?? '').toLowerCase();
-          final po = (s.poNumber ?? '').toLowerCase();
-          final prj = (s.projectName ?? '').toLowerCase();
-          final rec = (s.recommendedScenarioProvider ?? '').toLowerCase();
-          return code.contains(query) ||
-              title.contains(query) ||
-              imp.contains(query) ||
-              po.contains(query) ||
-              prj.contains(query) ||
-              rec.contains(query);
-        }).toList();
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-      child: SelectionArea(
-        child: Container(
-          width: math.min(720.0, screenWidth - 32),
-          height: math.min(600.0, screenHeight - 64),
-          padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l.searchAndCloneStudyDialogTitle,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        l.searchAndCloneStudySubtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Search input
-            TextField(
-              controller: _queryController,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: l.searchByStudyCodeOrTitleHint,
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _queryController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () => _queryController.clear(),
-                      )
-                    : null,
-                isDense: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Results list
-            Expanded(
-              child: _filteredStudies.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.inventory_2_outlined, size: 48, color: AppTheme.textMuted),
-                          const SizedBox(height: 12),
-                          Text(
-                            l.noMatchingStudiesFound,
-                            style: TextStyle(
-                              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.separated(
-                      itemCount: _filteredStudies.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final study = _filteredStudies[index];
-                        return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          leading: CircleAvatar(
-                            backgroundColor: AppTheme.cobalt.withValues(alpha: 0.15),
-                            child: const Icon(Icons.alt_route, color: AppTheme.cobalt, size: 20),
-                          ),
-                          title: Row(
-                            children: [
-                              Text(
-                                study.sessionCode,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
-                              ),
-                              if (study.title != null && study.title!.isNotEmpty) ...[
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    study.title!,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: [
-                                Text('${l.crdLabel}: ${study.cargoReadyDate}', style: const TextStyle(fontSize: 11)),
-                                Text('• ${study.items.length} ${l.shippingCarrierOptions}', style: const TextStyle(fontSize: 11)),
-                                if (study.recommendedScenarioProvider != null)
-                                  Text('• 🏆 ${study.recommendedScenarioProvider}', style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
-                                if (study.importFileCode != null)
-                                  Text('• 📁 ${study.importFileCode}', style: const TextStyle(fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                          trailing: AppButton(
-                            label: l.cloneRowTooltip,
-                            icon: Icons.copy_rounded,
-                            variant: AppButtonVariant.primary,
-                            size: AppButtonSize.small,
-                            onPressed: () => widget.onSelectStudy(study),
-                          ),
-                          onTap: () => widget.onSelectStudy(study),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-      ),
     );
   }
 }

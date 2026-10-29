@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../providers/production_sync_provider.dart';
 import '../services/local_process_sync_service.dart';
 import '../services/production_sync_export_service.dart';
@@ -86,37 +86,13 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
 
   Future<void> _confirmAndRestoreBackup(LocalBackupEntry b) async {
     final l = context.l10n;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.history_rounded, color: AppTheme.orange),
-            const SizedBox(width: 8),
-            Text(l.prodSyncConfirmRestoreTitleDialog, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l.prodSyncConfirmRestoreMsgDialog(b.filename)),
-            const SizedBox(height: 10),
-            Text(
-              l.prodSyncConfirmRestoreSafeNotice,
-              style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.prodSyncCancelAction)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l.prodSyncRestoreNowAction),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l.prodSyncConfirmRestoreTitleDialog,
+      message: '${l.prodSyncConfirmRestoreMsgDialog(b.filename)}\n\n${l.prodSyncConfirmRestoreSafeNotice}',
+      confirmLabel: l.prodSyncRestoreNowAction,
+      confirmVariant: AppButtonVariant.warning,
+      icon: Icons.history_rounded,
     );
 
     if (confirmed == true) {
@@ -153,17 +129,19 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
       if (mounted) {
         if (code == 0) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l.prodSyncActionSuccess(actionName)),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              l.prodSyncActionSuccess(actionName),
+              severity: AppSeverity.success,
               duration: const Duration(seconds: 3),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l.prodSyncActionFailed(actionName)),
-              backgroundColor: AppTheme.crimson,
+            AppTheme.snackBar(
+              context,
+              l.prodSyncActionFailed(actionName),
+              severity: AppSeverity.danger,
               duration: const Duration(seconds: 4),
             ),
           );
@@ -379,7 +357,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                   padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
                 ),
                 icon: _isRunning && _currentAction == l.prodSyncCompareTablesBtn
-                    ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const AppLoadingState.inline()
                     : const Icon(Icons.compare_arrows_rounded, size: 17),
                 label: Text(
                   l.prodSyncCompareTablesBtn,

@@ -131,9 +131,10 @@ class _VisualContainerLoadPlannerDialogState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${l.containerExportError}$e'),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            '${l.containerExportError}$e',
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -239,9 +240,10 @@ class _VisualContainerLoadPlannerDialogState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${l.containerExportError}$e'),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            '${l.containerExportError}$e',
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -438,9 +440,10 @@ class _VisualContainerLoadPlannerDialogState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${l.containerExportError}$e'),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            '${l.containerExportError}$e',
+            severity: AppSeverity.danger,
           ),
         );
       }

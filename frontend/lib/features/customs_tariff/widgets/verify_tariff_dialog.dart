@@ -262,20 +262,10 @@ import '../providers/customs_tariff_provider.dart';
                       setState(() => isLoading = false);
                       if (context.mounted) {
                         if (error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Text(l10n.verificationFailedSnack(error)),
-                                backgroundColor: AppTheme.crimson),
-                          );
+                          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l10n.verificationFailedSnack(error), severity: AppSeverity.danger));
                         } else {
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                  l10n.tariffVerifiedSuccess(tariff.hsCode)),
-                              backgroundColor: AppTheme.emerald,
-                            ),
-                          );
+                          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l10n.tariffVerifiedSuccess(tariff.hsCode), severity: AppSeverity.success));
                         }
                       }
                     },

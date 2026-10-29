@@ -147,15 +147,15 @@ void main() {
       // Verify Sections
       expect(find.text('بيانات المطالبة الجمركية بنظام نافذة MTS'), findsOneWidget);
       expect(find.text('تفصيل بنود الرسوم والضرائب الجمركية (HS Code Duty Breakdown)'), findsOneWidget);
-      expect(find.text('مطابقة الرسوم الفعلية مع التقديرية (Variance Analysis)'), findsOneWidget);
+      expect(find.text('مطابقة الرسوم الفعلية مع التقديرية'), findsOneWidget);
 
       // Verify Duty Item Labels
-      expect(find.text('ضريبة الوارد الجمركية (Import Duty) *'), findsOneWidget);
-      expect(find.text('ضريبة القيمة المضافة (VAT) *'), findsOneWidget);
-      expect(find.text('ضريبة الجدول (Schedule Tax)'), findsOneWidget);
-      expect(find.text('رسم التنمية (Development Fee)'), findsOneWidget);
+      expect(find.text('ضريبة الوارد الجمركية *'), findsOneWidget);
+      expect(find.text('ضريبة القيمة المضافة *'), findsOneWidget);
+      expect(find.text('ضريبة الجدول'), findsOneWidget);
+      expect(find.text('رسم التنمية'), findsOneWidget);
       expect(find.text('رسوم الخدمات الجمركية وأ.ت.ص'), findsOneWidget);
-      expect(find.text('أرباح تجارية وصناعية (WHT)'), findsOneWidget);
+      expect(find.text('ضريبة الخصم والإضافة'), findsOneWidget);
       expect(find.text('رسوم التحاليل والمعامل'), findsOneWidget);
 
       // Verify Variance Card Content

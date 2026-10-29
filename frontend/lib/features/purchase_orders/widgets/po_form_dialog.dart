@@ -1,3 +1,4 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,6 @@ import '../../../core/constants/cargo_constants.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/domain_enum_labels.dart';
-import '../../../core/theme/app_theme.dart';
 
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
@@ -48,6 +48,7 @@ import '../../experience_guide/models/guide_entry_model.dart';
 import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
 import '../../../core/widgets/table_row_clone_helper.dart';
+import 'po_line_item_dialog.dart';
 
 
 import 'package:frontend/core/widgets/ltr_text.dart';
@@ -168,9 +169,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       _dialogItems.insert(index + 1, duplicated);
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.poInvoiceLineItemClonedSuccessfully),
-        backgroundColor: AppTheme.emerald,
+      AppTheme.snackBar(
+        context,
+        context.l10n.poInvoiceLineItemClonedSuccessfully,
+        severity: AppSeverity.success,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -194,9 +196,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       _dialogPackingItems.insert(index + 1, duplicated);
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.poPackingListItemClonedSuccessfully),
-        backgroundColor: AppTheme.emerald,
+      AppTheme.snackBar(
+        context,
+        context.l10n.poPackingListItemClonedSuccessfully,
+        severity: AppSeverity.success,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -428,9 +431,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (kept.isNotEmpty) {
       final codes = kept.map((i) => i.itemCode ?? '#${i.itemId}').join(', ');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.poExtractionKeptAllocatedLines(codes)),
-          backgroundColor: AppTheme.orange,
+        AppTheme.snackBar(
+          context,
+          context.l10n.poExtractionKeptAllocatedLines(codes),
+          severity: AppSeverity.warning,
           duration: const Duration(seconds: 10),
         ),
       );
@@ -565,10 +569,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     _carryRowIdsAfterExtraction('all');
     final docNum = ext['po_number'] ?? ext['proforma_invoice_number'] ?? '';
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تم استخلاص وتغذية بيانات الفاتورة المبدئية ($docNum) وقائمة التعبئة بنجاح'),
-        backgroundColor: AppTheme.emerald,
-      ),
+      AppTheme.snackBar(context, 'تم استخلاص وتغذية بيانات الفاتورة المبدئية ($docNum) وقائمة التعبئة بنجاح', severity: AppSeverity.success),
     );
   }
 
@@ -1758,9 +1759,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     onDataExtracted: (result) {
                                       _applyExtractedFieldsToState(result.extractedFields, targetTab: 'invoice');
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('تمت قراءة واستخراج بيانات الفاتورة المبدئية وبنود الشراء بنجاح!'),
-                                          backgroundColor: AppTheme.emerald,
+                                        AppTheme.snackBar(
+                                          context,
+                                          'تمت قراءة واستخراج بيانات الفاتورة المبدئية وبنود الشراء بنجاح!',
+                                          severity: AppSeverity.success,
                                         ),
                                       );
                                     },
@@ -2163,6 +2165,27 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       const SizedBox(width: 8),
                                     ],
                                     AppButton(
+                                      label: l.poAddFromCatalog,
+                                      icon: Icons.auto_awesome_rounded,
+                                      variant: AppButtonVariant.primary,
+                                      size: AppButtonSize.small,
+                                      onPressed: () async {
+                                        final newItem = await POLineItemDialog.show(
+                                          context,
+                                          tariffs: tariffs,
+                                          currencies: currencies,
+                                          defaultCurrencyId: _selectedCurrencyId,
+                                          defaultCountryOfOrigin: _selectedCountryOfOrigin,
+                                        );
+                                        if (newItem != null) {
+                                          setState(() {
+                                            _dialogItems.add(newItem);
+                                          });
+                                        }
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    AppButton(
                                       label: 'Add Item',
                                       icon: Icons.add,
                                       variant: AppButtonVariant.secondary,
@@ -2293,6 +2316,25 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                               },
                                             ),
                                           ),
+                                           IconButton(
+                                             icon: const Icon(Icons.edit_note_rounded, color: AppTheme.cobalt, size: 22),
+                                             tooltip: l.poEditLineItemWithCatalog,
+                                             onPressed: () async {
+                                               final updated = await POLineItemDialog.show(
+                                                 context,
+                                                 initialItem: item,
+                                                 tariffs: tariffs,
+                                                 currencies: currencies,
+                                                 defaultCurrencyId: _selectedCurrencyId,
+                                                 defaultCountryOfOrigin: _selectedCountryOfOrigin,
+                                               );
+                                               if (updated != null) {
+                                                 setState(() {
+                                                   _dialogItems[idx] = updated;
+                                                 });
+                                               }
+                                             },
+                                           ),
                                            IconButton(
                                              icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
                                              tooltip: Localizations.localeOf(context).languageCode == 'ar' ? 'تكرار / استنساخ البند (Ctrl + D)' : 'Clone Line Item (Ctrl + D)',
@@ -2498,9 +2540,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     onDataExtracted: (result) {
                                       _applyExtractedFieldsToState(result.extractedFields, targetTab: 'packing');
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('تمت قراءة واستخراج بيانات كشف التعبئة والوزن (Packing List) بنجاح!'),
-                                          backgroundColor: AppTheme.emerald,
+                                        AppTheme.snackBar(
+                                          context,
+                                          'تمت قراءة واستخراج بيانات كشف التعبئة والوزن (Packing List) بنجاح!',
+                                          severity: AppSeverity.success,
                                         ),
                                       );
                                     },
@@ -2949,9 +2992,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           }
                                         });
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(l.autoFillSuccessNotice(_dialogPackingItems.length)),
-                                            backgroundColor: AppTheme.emerald,
+                                          AppTheme.snackBar(
+                                            context,
+                                            l.autoFillSuccessNotice(_dialogPackingItems.length),
+                                            severity: AppSeverity.success,
                                             duration: const Duration(seconds: 2),
                                           ),
                                         );
@@ -3425,6 +3469,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   }
 
   Future<void> _submitForm(BuildContext context) async {
+    final l10n = context.l10n;
     // validate() first so every missing required field shows its red error text.
     final fieldsValid = _formKey.currentState!.validate();
 
@@ -3435,9 +3480,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         _selectedCurrencyId == null ||
         _selectedPaymentTerms == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('الرجاء التأكد من اختيار كافة الحقول الإلزامية (المشروع، الشركة المستوردة، المورد، الـ Incoterm والعملة).'),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          'الرجاء التأكد من اختيار كافة الحقول الإلزامية (المشروع، الشركة المستوردة، المورد، الـ Incoterm والعملة).',
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -3445,9 +3491,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     if (!fieldsValid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('الرجاء استكمال الحقول الإلزامية (الوصف العربي، HS Code، كود البند) بجميع التبويبات.'),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          'الرجاء استكمال الحقول الإلزامية (الوصف العربي، HS Code، كود البند) بجميع التبويبات.',
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -3455,9 +3502,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     if (_dialogItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('الرجاء إضافة بند استيرادي واحد على الأقل في أمر الشراء.'),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          'الرجاء إضافة بند استيرادي واحد على الأقل في أمر الشراء.',
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -3537,19 +3585,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       if (createError != null) {
         setState(() => _isSubmitting = false);
         messenger.showSnackBar(
-          SnackBar(
-            content: Text('${context.l10n.poCreateErrorPrefix}:\n${ApiErrorText.of(context.l10n, createError)}'),
-            backgroundColor: AppTheme.crimson,
-          ),
+          AppTheme.snackBar(context, '${l10n.poCreateErrorPrefix}:\n${ApiErrorText.of(l10n, createError)}', severity: AppSeverity.danger),
         );
       } else {
         await PODraftManager.clearDraft(widget.po?.poId);
         _isDirty = false;
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('تم إنشاء وحفظ أمر الشراء بنجاح!'),
-            backgroundColor: AppTheme.emerald,
-          ),
+          AppTheme.snackBar(context, 'تم إنشاء وحفظ أمر الشراء بنجاح!', severity: AppSeverity.success),
         );
         if (context.mounted) Navigator.pop(context);
       }
@@ -3669,8 +3711,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         changes.add(FieldChangeItem(
           section: 'بيانات الفاتورة المبدئية والترويسة',
           fieldName: 'حالة أمر الشراء',
-          oldValue: oldPO.statusLabel(context.l10n),
-          newValue: DomainEnums.label(context.l10n, DomainEnumType.poStatus, _selectedStatus),
+          oldValue: oldPO.statusLabel(l10n),
+          newValue: DomainEnums.label(l10n, DomainEnumType.poStatus, _selectedStatus),
         ));
       }
 
@@ -3851,10 +3893,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           if (mounted && context.mounted) {
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('تم إلغاء المسودة وإعادة تحميل أحدث نسخة من أمر الشراء بنجاح.'),
-                backgroundColor: AppTheme.cobalt,
-              ),
+              AppTheme.snackBar(context, 'تم إلغاء المسودة وإعادة تحميل أحدث نسخة من أمر الشراء بنجاح.'),
             );
           }
         }
@@ -3864,19 +3903,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       if (!result.isSuccess) {
         setState(() => _isSubmitting = false);
         messenger.showSnackBar(
-          SnackBar(
-            content: Text('${context.l10n.poUpdateErrorPrefix}:\n${ApiErrorText.of(context.l10n, result.error)}'),
-            backgroundColor: AppTheme.crimson,
-          ),
+          AppTheme.snackBar(context, '${context.l10n.poUpdateErrorPrefix}:\n${ApiErrorText.of(context.l10n, result.error)}', severity: AppSeverity.danger),
         );
       } else {
         await PODraftManager.clearDraft(widget.po?.poId);
         _isDirty = false;
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('تم حفظ التعديلات بنجاح!'),
-            backgroundColor: AppTheme.emerald,
-          ),
+          AppTheme.snackBar(context, 'تم حفظ التعديلات بنجاح!', severity: AppSeverity.success),
         );
         if (context.mounted) Navigator.pop(context);
       }
@@ -3903,9 +3936,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (rate == null || rate <= 0) {
       _formKey.currentState?.validate();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.poExchangeRateRequired),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          context.l10n.poExchangeRateRequired,
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -4003,7 +4037,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     if (cargoItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى إدخال أصناف قائمة التعبئة أو البالتات أولاً للمحاكاة')),
+        AppTheme.snackBar(
+          context,
+          'يرجى إدخال أصناف قائمة التعبئة أو البالتات أولاً للمحاكاة',
+          severity: AppSeverity.warning,
+        ),
       );
       return;
     }

@@ -3084,6 +3084,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get cargoShippingNonStackable => 'Non-Stackable';
   @override String cargoShippingAutoRecommendation(int count, String code, String spaceUtil, String weightUtil) => 'Auto Container Recommendation: $count x $code (Space Util: $spaceUtil% | Payload Util: $weightUtil%)';
   @override String get cargoShippingContainersHeader => 'Allocated Containers, Seal Numbers & VGM:';
+  @override String cargoShippingBookingMatchRequired(int registered, int expected) => 'Cannot save: Registered containers count ($registered) must match booking containers count ($expected).';
+  @override String get cargoShippingBookingLimitReached => 'Maximum number of containers allocated in the booking has been reached';
+  @override String cargoShippingBookingStatusBadge(String bookingCode, String summary) => 'Booking Containers ($bookingCode): $summary';
+  @override String get cargoShippingBookingStatusMatch => 'Matches Booking';
+  @override String get cargoShippingBookingStatusMismatch => 'Booking Mismatch';
   @override String get cargoShippingAddContainerType => 'Add Container Type';
   @override String get cargoShippingContainerType => 'Container Type';
   @override String get cargoShippingQty => 'Qty';
@@ -8671,19 +8676,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dynColEcoArrivalWarehouse => 'Arrival Warehouse';
   @override
-  String get dynColEcoSara => 'المسئول عن المشروع';
+  String get dynColEcoSara => 'Project Lead';
   @override
-  String get dynColEcoMaro => 'مالك المشروع';
+  String get dynColEcoMaro => 'Project Owner';
   @override
   String get dynColEcoReadyToPickUp => 'Ready to Pick Up Date';
   @override
   String get dynColEcoLatestUpdate => 'Latest Update for Pending Shipment';
   @override
-  String get dynColEcoSwiftDate => 'تاريخ السويفت (Swift Date)';
+  String get dynColEcoSwiftDate => 'SWIFT Date';
   @override
-  String get dynColEcoSwiftAmount => 'قيمة السويفت (Swift Amount)';
+  String get dynColEcoSwiftAmount => 'SWIFT Amount';
   @override
-  String get dynColEcoShippingCompany => 'شركة الشحن (Shipping Co)';
+  String get dynColEcoShippingCompany => 'Shipping Carrier';
   @override
   String get dynColEcoAcid => 'ACID';
   @override
@@ -13377,7 +13382,135 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get fbkActionCancel => 'Cancel Booking';
   @override String get fbkPrintPdfTitle => 'Freight Booking Document';
   @override String get fbkSavePdfBtn => 'Save PDF';
-  // === end review phase08_10 keys ===
+  
+  // === Master Items & Catalog Integration (MD-ITEM-001) ===
+  @override String get masterItemsCatalog => 'Master Items Catalog';
+  @override String get masterItemsCatalogSubtitle => 'Manage standardized items, dimensions, and supplier parts';
+  @override String get itemPriceTrendsRadar => 'Item Price Trends Radar';
+  @override String get itemPriceTrendsSubtitle => 'Analyze purchase prices and landed cost trends across deals';
+  @override String get masterItemSearchHint => 'Search by item code or Arabic/English description...';
+  @override String get masterItemSelectPlaceholder => 'Select item from catalog or enter code...';
+  @override String get masterItemNoResults => 'No matching items found in catalog';
+  @override String get masterItemAutoFilled => 'Item details auto-filled from master catalog';
+  @override String get masterItemHsCode => 'Customs Tariff HS Code';
+  @override String get masterItemDefaultUom => 'Default Unit of Measure';
+  @override String get masterItemCbm => 'Default CBM per Unit';
+  @override String get masterItemGrossWeight => 'Gross Weight per Unit (KG)';
+  @override String get masterItemNetWeight => 'Net Weight per Unit (KG)';
+  @override String get masterItemLinked => 'Linked to Master Catalog';
+  @override String get masterItemCustomManual => 'Manual Custom Entry';
+  @override String get poLineItemDialogTitleAdd => 'Add Line Item to Purchase Order';
+  @override String get poLineItemDialogTitleEdit => 'Edit Purchase Order Line Item';
+  @override String get poAddFromCatalog => 'Add Item from Catalog';
+  @override String get poEditLineItemWithCatalog => 'Edit Line Item with Catalog';
+  @override String get poLineItemCatalogAutoFillHint => 'Select an item from the catalog to auto-fill tariff, weights, and CBM';
+
+    // ── Operational Pillars Advanced Widgets ───────────────────────────────────
+  @override String get cargoXPreAcidHeader => 'CargoX Pre-ACID Verification';
+  @override String get cargoXPreAcidSubtitle => 'Verify exporter blockchain registration before issuing Nafeza ACI to prevent customs rejection';
+  @override String get cargoXPlatformIdLabel => 'CargoX Platform ID';
+  @override String get cargoXExporterStatusLabel => 'Foreign Exporter Status';
+  @override String get cargoXStatusVerified => 'Verified on Blockchain';
+  @override String get cargoXStatusPending => 'Pending Verification';
+  @override String get cargoXStatusNotRegistered => 'Not Registered';
+  @override String get cargoXChecklistBlockchainActive => 'Foreign exporter registration is active and verified on blockchain';
+  @override String get cargoXChecklistAccountAuthorized => 'Importer authorization and company link enabled on platform';
+  @override String get cargoXChecklistEnvelopeReady => 'Digital electronic envelope dispatch readiness';
+  @override String get cargoXVerifyAccountBtn => 'Verify Account Now';
+  @override String get cargoXCopyIdTooltip => 'Copy CargoX Platform ID';
+  @override String get cargoXIdCopiedSuccess => 'CargoX Platform ID copied successfully';
+  @override String get cargoXUnverifiedWarning => 'Critical Compliance Warning: Foreign exporter is unregistered or unverified. Issuing an ACI number now will cause customs rejection and port detention.';
+
+  @override String get shelfLifeEosHeader => 'Shelf Life & Egyptian Standards Inspection';
+  @override String get shelfLifeEosSubtitle => 'Conditional verification of remaining shelf life, EOS specifications, and Arabic packaging labels';
+  @override String get shelfLifeSubjectCheckbox => 'Item is subject to shelf life and Egyptian standard specifications';
+  @override String get shelfLifeEosSpecLabel => 'Egyptian Standard Specification Number';
+  @override String get shelfLifeProductionDateLabel => 'Production Date';
+  @override String get shelfLifeExpiryDateLabel => 'Expiration Date';
+  @override String get shelfLifeBatchNumberLabel => 'Batch Number and Packing Date';
+  @override String get shelfLifeRemainingRatioLabel => 'Remaining Shelf Life at Port Arrival';
+  @override String get shelfLifeCompliantBadge => 'Complies with Legal Shelf Life';
+  @override String get shelfLifeCriticalWarningBadge => 'Critical Risk: Remaining shelf life below legal threshold';
+  @override String get shelfLifeArabicLabelCheckbox => 'Mandatory Arabic label and product data verified on packaging';
+  @override String get shelfLifeEosCertStatusLabel => 'Standard Specification Compliance Status';
+  @override String get shelfLifeCopyBatchTooltip => 'Copy Batch Number';
+  @override String get shelfLifeBatchCopiedSuccess => 'Batch number copied successfully';
+  @override String get shelfLifeEtaArrivalHint => 'Estimated Port Arrival Date';
+
+  @override String get testingLabsTrackHeader => 'Testing Laboratories & Regulatory Track';
+  @override String get testingLabsTrackSubtitle => 'Manage sample drawing, laboratory test results, and under-bond quarantine release';
+  @override String get testingLabAssignedLabel => 'Assigned Regulatory Laboratory';
+  @override String get testingLabSamplingRecordLabel => 'Sample Drawing Protocol Number';
+  @override String get testingLabSamplingDateLabel => 'Sampling Date';
+  @override String get testingLabSamplesCountLabel => 'Number of Samples Drawn';
+  @override String get testingLabFeesLabel => 'Laboratory Testing Fees';
+  @override String get testingLabResultStatusLabel => 'Laboratory Test Result';
+  @override String get testingLabResultConforming => 'Conforming with Standards';
+  @override String get testingLabResultPending => 'Pending Laboratory Analysis';
+  @override String get testingLabResultNonConforming => 'Non-Conforming with Standards';
+  @override String get testingLabUnderBondReleaseCheck => 'Temporary under-bond release to importer warehouse pending lab results';
+  @override String get testingLabCertificateNoLabel => 'Laboratory Inspection Certificate Number';
+  @override String get testingLabCopyRecordTooltip => 'Copy Sample Protocol Number';
+  @override String get testingLabRecordCopiedSuccess => 'Sample protocol number copied successfully';
+
+  @override String get hazardousMaterialsHeader => 'Hazardous Materials & Maritime Classification';
+  @override String get hazardousMaterialsSubtitle => 'Compliance with IMO regulations, civil protection fire approvals, and port handling';
+  @override String get hazardousSubjectCheckbox => 'Shipment contains dangerous or hazardous classified cargo';
+  @override String get hazardousUnNumberLabel => 'UN Dangerous Goods Number';
+  @override String get hazardousImdgClassLabel => 'Maritime Hazard Class';
+  @override String get hazardousPackingGroupLabel => 'Packaging Group';
+  @override String get hazardousFlashPointLabel => 'Flash Point Celsius';
+  @override String get hazardousMsdsStatusLabel => 'Material Safety Data Sheet Status';
+  @override String get hazardousCivilProtectionLabel => 'Civil Protection Safety Approval Number';
+  @override String get hazardousPortHandlingLabel => 'Port Handling and Discharge Mode';
+  @override String get hazardousHandlingDirectDischarge => 'Direct Discharge to Trucks';
+  @override String get hazardousHandlingHazardousYard => 'Port Dangerous Goods Yard Storage';
+  @override String get hazardousEmergencyPhoneLabel => '24/7 Emergency Response Telephone';
+  @override String get hazardousCopyUnTooltip => 'Copy UN Number';
+  @override String get hazardousUnCopiedSuccess => 'UN number copied successfully';
+  @override String get hazardousHighRiskWarning => 'Security & Logistics Alert: Dangerous goods require port security and civil protection clearance 48 hours prior to vessel arrival, and face expedited demurrage.';
+
+  // ── Session 4: Governance & Enterprise Registry ────────────────────────────
+  @override String get makerCheckerDialogTitle => 'Governance & Dual Control';
+  @override String get makerCheckerDialogSubtitle => 'Review and evaluate import requirements and apply regulatory approval or executive override';
+  @override String get makerSectionTitle => 'Maker & Assessment Indicators';
+  @override String get makerAssessedByLabel => 'Assessed By';
+  @override String get makerRiskLevelLabel => 'Operational Risk Level';
+  @override String get makerOverallStatusLabel => 'Overall Operational Status';
+  @override String get makerDateLabel => 'Assessment Date';
+  @override String get checkerSectionTitle => 'Checker Decision & Administrative Governance';
+  @override String get checkerReviewerNameLabel => 'Reviewer Name';
+  @override String get checkerDecisionLabel => 'Review Decision';
+  @override String get checkerDecisionApprove => 'Approved & Cleared for Sailing';
+  @override String get checkerDecisionOverride => 'Executive Override Approved';
+  @override String get checkerDecisionReject => 'Rejected / Returned for Revision';
+  @override String get checkerNotesLabel => 'Reviewer Directives & Notes';
+  @override String get checkerNotesHint => 'Enter regulatory notes or instructions if any...';
+  @override String get checkerOverrideReasonLabel => 'Mandatory Executive Override Justification';
+  @override String get checkerOverrideReasonHint => 'Enter legal basis or ministerial exceptional waiver...';
+  @override String get checkerApproveBtn => 'Confirm & Save Governance Decision';
+  @override String get checkerCancelBtn => 'Cancel';
+  @override String get checkerStatusApprovedBadge => 'Governance Approved';
+  @override String get checkerStatusPendingBadge => 'Pending Approval';
+  @override String get checkerStatusOverriddenBadge => 'Executive Override';
+  @override String get checkerSuccessSnack => 'Governance decision saved successfully';
+  @override String get checkerErrorSnack => 'Error occurred while saving governance decision';
+
+  // Enterprise Table Columns
+  @override String get colAssessmentCode => 'Assessment Code';
+  @override String get colHsCodeAndCommodity => 'HS Code & Commodity';
+  @override String get colShipmentValue => 'Shipment Value';
+  @override String get colCompliancePillars => 'Compliance Pillars';
+  @override String get colRiskLevel => 'Risk Level';
+  @override String get colStatus => 'Status';
+  @override String get colGovernance => 'Governance';
+  @override String get colActions => 'Actions';
+  @override String get copyAssessmentCodeTooltip => 'Copy Assessment Code';
+  @override String get copyAcidNumberTooltip => 'Copy ACID Number';
+  @override String get governanceActionTooltip => 'Governance & Dual Control';
+  @override String get advancedOperationalPillarsAccordionTitle => 'Advanced Operational Pillars';
+
+// === end review phase08_10 keys ===
 }
 
 

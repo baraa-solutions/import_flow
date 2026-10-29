@@ -5,10 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/error_details_dialog.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
@@ -814,42 +811,54 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     showDialog(
       context: context,
       builder: (ctx) => SelectionArea(
-        child: AlertDialog(
-          title: Text(context.l10n.cargoxAddDocDialogTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-          content: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: typeCtrl, decoration: InputDecoration(labelText: context.l10n.cargoxDocTypeField, border: const OutlineInputBorder())),
-                const SizedBox(height: 10),
-                TextField(controller: numCtrl, decoration: InputDecoration(labelText: context.l10n.cargoxDocNumberField, border: const OutlineInputBorder())),
-                const SizedBox(height: 10),
-                TextField(controller: nameCtrl, decoration: InputDecoration(labelText: context.l10n.cargoxDocFileNameField, border: const OutlineInputBorder())),
-              ],
+        child: Dialog(
+          backgroundColor: AppTheme.isDark(ctx) ? AppTheme.darkCardBackground : AppTheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(context.l10n.cargoxAddDocDialogTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  TextField(controller: typeCtrl, decoration: InputDecoration(labelText: context.l10n.cargoxDocTypeField, border: const OutlineInputBorder())),
+                  const SizedBox(height: 10),
+                  TextField(controller: numCtrl, decoration: InputDecoration(labelText: context.l10n.cargoxDocNumberField, border: const OutlineInputBorder())),
+                  const SizedBox(height: 10),
+                  TextField(controller: nameCtrl, decoration: InputDecoration(labelText: context.l10n.cargoxDocFileNameField, border: const OutlineInputBorder())),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.cancel)),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                        onPressed: () {
+                          if (typeCtrl.text.trim().isEmpty || nameCtrl.text.trim().isEmpty) return;
+                          setState(() {
+                            _attachedDocs.add({
+                              'doc_type': typeCtrl.text.trim(),
+                              'doc_number': numCtrl.text.trim(),
+                              'file_name': nameCtrl.text.trim(),
+                              'file_size_kb': 250.0,
+                              'is_mandatory': false,
+                              'verified_against_acid': true,
+                            });
+                          });
+                          Navigator.pop(ctx);
+                        },
+                        child: Text(context.l10n.cargoxAddDocSubmitBtn, style: const TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.cancel)),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-              onPressed: () {
-                if (typeCtrl.text.trim().isEmpty || nameCtrl.text.trim().isEmpty) return;
-                setState(() {
-                  _attachedDocs.add({
-                    'doc_type': typeCtrl.text.trim(),
-                    'doc_number': numCtrl.text.trim(),
-                    'file_name': nameCtrl.text.trim(),
-                    'file_size_kb': 250.0,
-                    'is_mandatory': false,
-                    'verified_against_acid': true,
-                  });
-                });
-                Navigator.pop(ctx);
-              },
-              child: Text(context.l10n.cargoxAddDocSubmitBtn, style: const TextStyle(color: Colors.white)),
-            ),
-          ],
         ),
       ),
     );
@@ -859,7 +868,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     if (!isDraft && !_envelopeFormKey.currentState!.validate()) return;
     if (!isDraft && _attachedDocs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cargoxAtLeastOneDocError), backgroundColor: AppTheme.orange),
+        AppTheme.snackBar(context, context.l10n.cargoxAtLeastOneDocError, severity: AppSeverity.warning),
       );
       return;
     }
@@ -888,13 +897,12 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
       final created = await ref.read(cargoxEnvelopesProvider.notifier).createEnvelope(payload);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+          AppTheme.snackBar(
+            context,
               isDraft
                   ? 'تم حفظ مسودة المظروف بنجاح (${created.envelopeCode})'
                   : context.l10n.cargoxEnvelopeCreatedSuccess(created.envelopeCode),
-            ),
-            backgroundColor: isDraft ? AppTheme.cobalt : AppTheme.emerald,
+            severity: isDraft ? AppSeverity.info : AppSeverity.success,
           ),
         );
         setState(() => _selectedSubTab = 1);
@@ -994,7 +1002,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                               await CargoXExportService.saveEnvelopesTsvToFile(context: context, envelopes: filtered, shipments: importFiles);
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(context.l10n.cargoxCopiedTsvSuccess)),
+                                AppTheme.snackBar(context, context.l10n.cargoxCopiedTsvSuccess, severity: AppSeverity.success),
                               );
                             },
                     ),
@@ -1009,7 +1017,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                               await CargoXExportService.saveEnvelopesCsvToFile(context: context, envelopes: filtered, shipments: importFiles);
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(context.l10n.cargoxCopiedExcelSuccess)),
+                                AppTheme.snackBar(context, context.l10n.cargoxCopiedExcelSuccess, severity: AppSeverity.success),
                               );
                             },
                     ),
@@ -1024,7 +1032,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                               await CargoXExportService.printOrSaveEnvelopesPdf(context: context, envelopes: filtered, shipments: importFiles);
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(context.l10n.cargoxExportPdfDialogTitle)),
+                                AppTheme.snackBar(context, context.l10n.cargoxExportPdfDialogTitle, severity: AppSeverity.info),
                               );
                             },
                     ),
@@ -1213,7 +1221,22 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                       },
                     ),
                     const SizedBox(width: 4),
-                    _buildStatusBadge(env.status),
+                    AppStatusBadge(
+                      label: switch (env.status) {
+                        'ACCEPTED_BY_CUSTOMS' => context.l10n.cargoxFilterAccepted,
+                        'UPLOADED_BY_SUPPLIER' => context.l10n.cargoxFilterUploaded,
+                        'SEALED_AND_TRANSFERRED' => context.l10n.cargoxFilterAccepted,
+                        'DRAFT' => context.l10n.cargoxFilterDraft,
+                        _ => env.status,
+                      },
+                      severity: switch (env.status) {
+                        'ACCEPTED_BY_CUSTOMS' => AppSeverity.success,
+                        'UPLOADED_BY_SUPPLIER' => AppSeverity.info,
+                        'SEALED_AND_TRANSFERRED' => AppSeverity.info,
+                        'DRAFT' => AppSeverity.warning,
+                        _ => AppSeverity.info,
+                      },
+                    ),
                   ],
                 ),
               ],
@@ -1324,29 +1347,6 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    Color bg = Colors.grey;
-    String label = status;
-    if (status == 'ACCEPTED_BY_CUSTOMS') {
-      bg = AppTheme.emerald;
-      label = context.l10n.cargoxFilterAccepted;
-    } else if (status == 'UPLOADED_BY_SUPPLIER') {
-      bg = AppTheme.cobalt;
-      label = context.l10n.cargoxFilterUploaded;
-    } else if (status == 'SEALED_AND_TRANSFERRED') {
-      bg = Colors.purple;
-      label = context.l10n.cargoxFilterAccepted;
-    } else if (status == 'DRAFT') {
-      bg = Colors.orange;
-      label = context.l10n.cargoxFilterDraft;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6), border: Border.all(color: bg.withValues(alpha: 0.3))),
-      child: Text(label, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
-    );
-  }
 
   Future<void> _runAcidVerification(int envelopeId) async {
     try {
@@ -1355,36 +1355,46 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
         showDialog(
           context: context,
           builder: (ctx) => SelectionArea(
-            child: AlertDialog(
-              title: Row(
-                children: [
-                  Icon(report.allMatched ? Icons.verified : Icons.warning_amber, color: report.allMatched ? AppTheme.emerald : Colors.red),
-                  const SizedBox(width: 8),
-                  Text(context.l10n.cargoxAcidReportDialogTitle(report.envelopeCode), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              content: SizedBox(
-                width: 500,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(context.l10n.cargoxTargetAcidLabel(report.targetAcidNumber), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    const SizedBox(height: 4),
-                    Text(context.l10n.cargoxMatchRatioLabel(report.verifiedCount, report.totalDocuments), style: const TextStyle(fontSize: 12)),
-                    const Divider(),
-                    ...report.items.map((item) => ListTile(
-                          dense: true,
-                          leading: Icon(item.isMatched ? Icons.check_circle : Icons.cancel, color: item.isMatched ? Colors.green : Colors.red, size: 18),
-                          title: Text(item.docType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          subtitle: Text(item.notes ?? '', style: const TextStyle(fontSize: 11)),
-                        )),
-                  ],
+            child: Dialog(
+              backgroundColor: AppTheme.isDark(ctx) ? AppTheme.darkCardBackground : AppTheme.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(report.allMatched ? Icons.verified : Icons.warning_amber, color: report.allMatched ? AppTheme.emerald : Colors.red),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(context.l10n.cargoxAcidReportDialogTitle(report.envelopeCode), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(context.l10n.cargoxTargetAcidLabel(report.targetAcidNumber), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      const SizedBox(height: 4),
+                      Text(context.l10n.cargoxMatchRatioLabel(report.verifiedCount, report.totalDocuments), style: const TextStyle(fontSize: 12)),
+                      const Divider(),
+                      ...report.items.map((item) => ListTile(
+                            dense: true,
+                            leading: Icon(item.isMatched ? Icons.check_circle : Icons.cancel, color: item.isMatched ? Colors.green : Colors.red, size: 18),
+                            title: Text(item.docType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            subtitle: Text(item.notes ?? '', style: const TextStyle(fontSize: 11)),
+                          )),
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.close)),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.close)),
-              ],
             ),
           ),
         );
@@ -1397,29 +1407,13 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
   }
 
   Future<void> _sealAndTransfer(CargoXEnvelopeModel env) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => SelectionArea(
-        child: AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.security, color: AppTheme.cobalt),
-              const SizedBox(width: 8),
-              Text(context.l10n.cargoxConfirmSealTransferTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Text(context.l10n.cargoxConfirmSealTransferContent(env.envelopeCode)),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(context.l10n.cancel)),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
-              icon: const Icon(Icons.send, size: 16, color: Colors.white),
-              label: Text(context.l10n.cargoxConfirmTransferBtn, style: const TextStyle(color: Colors.white)),
-              onPressed: () => Navigator.pop(ctx, true),
-            ),
-          ],
-        ),
-      ),
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: context.l10n.cargoxConfirmSealTransferTitle,
+      message: context.l10n.cargoxConfirmSealTransferContent(env.envelopeCode),
+      confirmLabel: context.l10n.cargoxConfirmTransferBtn,
+      confirmVariant: AppButtonVariant.primary,
+      icon: Icons.security,
     );
 
     if (confirm != true) return;
@@ -1432,9 +1426,10 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.cargoxSealSuccessSnackbar(res['message'], res['customs_confirmation_receipt'])),
-            backgroundColor: AppTheme.emerald,
+          AppTheme.snackBar(
+            context,
+            context.l10n.cargoxSealSuccessSnackbar(res['message'], res['customs_confirmation_receipt']),
+            severity: AppSeverity.success,
           ),
         );
       }
@@ -1470,14 +1465,14 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
   // ── TAB 2: ACI DIGITAL MANIFEST VIEWER ───────────────────────────────────────
   Widget _buildDigitalManifestViewerTab(List<CargoXEnvelopeModel> envelopes) {
     if (_isLoadingManifest) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState();
     }
 
     if (_activeDigitalManifest == null && envelopes.isNotEmpty) {
       if (!_isLoadingManifest) {
         Future.microtask(() => _viewManifest(envelopes.first));
       }
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState();
     }
 
     if (_activeDigitalManifest == null) {

@@ -1,6 +1,6 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_theme.dart';
 import '../models/guide_entry_model.dart';
 import '../providers/experience_guide_provider.dart';
 import 'add_guide_entry_dialog.dart';
@@ -92,11 +92,7 @@ class _ExperienceGuideAlertBannerState extends ConsumerState<ExperienceGuideAler
         _upvotedIds.add(entryId);
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('شكراً لمشاركتك! تم تسجيل تصويتك في بنك المعرفة.'),
-          duration: Duration(seconds: 2),
-          backgroundColor: AppTheme.flatEmerald,
-        ),
+        AppTheme.snackBar(context, 'شكراً لمشاركتك! تم تسجيل تصويتك في بنك المعرفة.'),
       );
     }
   }

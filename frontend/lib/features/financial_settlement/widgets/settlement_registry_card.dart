@@ -4,13 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/buttons/icon_action_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/ltr_text.dart';
-import '../../../core/widgets/metric_card.dart';
-import '../../../core/widgets/recalculate_button.dart';
-import '../../../core/widgets/row_actions_pill.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../models/financial_settlement_model.dart';
 import '../providers/financial_settlement_provider.dart';
 import 'settlement_ui.dart';
@@ -331,34 +325,20 @@ class SettlementRegistryCard extends ConsumerWidget {
           onEdit: () {
             notifier.recalculateSettlement(r.settlementId);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(l10n.financialSettlementRecalculateSuccessSnack(r.settlementCode)),
-                backgroundColor: AppTheme.cobalt,
+              AppTheme.snackBar(
+                context,
+                l10n.financialSettlementRecalculateSuccessSnack(r.settlementCode),
+                severity: AppSeverity.info,
               ),
             );
           },
           onPrint: onCopyBreakdown,
           onDelete: () async {
-            final confirm = await showDialog<bool>(
-              context: context,
-              builder: (c) => AlertDialog(
-                title: Text(l10n.financialSettlementDeleteTitle),
-                content: Text(l10n.financialSettlementDeleteMessage),
-                actions: [
-                  SettlementFit(child: AppButton(
-                    label: l10n.cancel,
-                    variant: AppButtonVariant.secondary,
-                    size: AppButtonSize.small,
-                    onPressed: () => Navigator.pop(c, false),
-                  )),
-                  SettlementFit(child: AppButton(
-                    label: l10n.delete,
-                    variant: AppButtonVariant.danger,
-                    size: AppButtonSize.small,
-                    onPressed: () => Navigator.pop(c, true),
-                  )),
-                ],
-              ),
+            final confirm = await AppConfirmDialog.showDelete(
+              context,
+              title: l10n.financialSettlementDeleteTitle,
+              message: l10n.financialSettlementDeleteMessage,
+              entityName: r.settlementCode,
             );
             if (confirm == true) {
               notifier.softDeleteSettlement(r.settlementId);

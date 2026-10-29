@@ -1,11 +1,7 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/app_status_badge.dart';
-import '../../../core/widgets/app_search_field.dart';
-import '../../../core/widgets/custom_text_field.dart';
 import '../models/customs_abandonment_model.dart';
 import '../services/customs_abandonment_service.dart';
 
@@ -276,8 +272,7 @@ ${draft.formalBodyAr}
 وتفضلوا بقبول فائق الاحترام والتقدير،،،
 ${draft.importerName}
 ''';
-                Clipboard.setData(ClipboardData(text: fullText));
-                AppTheme.snackBar(ctx, 'تم نسخ مسودة الخطاب بالكامل إلى الحافظة', severity: AppSeverity.success);
+                CopyHelper.copy(ctx, fullText, customMessage: 'تم نسخ مسودة الخطاب بالكامل إلى الحافظة');
               },
             ),
           ],
@@ -334,7 +329,8 @@ ${draft.importerName}
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       backgroundColor: Colors.transparent,
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 1100,
         height: 750,
         decoration: BoxDecoration(
@@ -467,9 +463,9 @@ ${draft.importerName}
             // Content Table
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppLoadingState()
                   : _errorMessage != null
-                      ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)))
+                      ? AppErrorState(message: _errorMessage!, onRetry: _loadData)
                       : _records.isEmpty
                           ? const Center(
                               child: Column(
@@ -606,8 +602,9 @@ ${draft.importerName}
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildMetricChip(String label, String value, Color color) {
     return Container(

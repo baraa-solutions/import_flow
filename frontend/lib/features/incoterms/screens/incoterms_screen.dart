@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/services/master_data_export_service.dart';
 import '../../../core/helpers/master_data_action_helper.dart';
 import '../../../core/widgets/widgets.dart';
 import '../models/incoterm_model.dart';
 import '../providers/incoterms_provider.dart';
+import '../widgets/incoterm_edit_dialog.dart';
+import '../widgets/incoterms_data_table.dart';
 
 class IncotermsScreen extends ConsumerStatefulWidget {
   const IncotermsScreen({super.key});
@@ -64,6 +65,7 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkScaffoldBackground : AppTheme.cloudWhite,
       appBar: PageHeader(
+        icon: Icons.handshake_outlined,
         title: l10n.incotermsScreenTitle,
         subtitle: l10n.incotermsScreenSubtitle,
         actions: const [
@@ -80,35 +82,19 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
               ActionToolbar(
                 primaryActions: [
                   if (_tabController.index == 0)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        minimumSize: Size(0, density.buttonHeight),
-                        padding: density.buttonPadding,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      ),
-                      icon: Icon(Icons.add, size: density.buttonIconSize),
-                      label: Text(
-                        l10n.addIncotermBtn,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
-                      ),
-                      onPressed: () => _IncotermsTab.showIncotermDialog(context, ref),
+                    AppButton(
+                      label: l10n.addIncotermBtn,
+                      variant: AppButtonVariant.primary,
+                      size: AppButtonSize.small,
+                      icon: Icons.add,
+                      onPressed: () => IncotermEditDialog.show(context),
                     )
                   else if (_tabController.index == 1)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        minimumSize: Size(0, density.buttonHeight),
-                        padding: density.buttonPadding,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      ),
-                      icon: Icon(Icons.add, size: density.buttonIconSize),
-                      label: Text(
-                        l10n.addCostItemBtn,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: density.buttonFontSize),
-                      ),
+                    AppButton(
+                      label: l10n.addCostItemBtn,
+                      variant: AppButtonVariant.primary,
+                      size: AppButtonSize.small,
+                      icon: Icons.add,
                       onPressed: () => _CostItemsTab.showCostItemDialog(context, ref),
                     ),
                 ],
@@ -131,7 +117,7 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
                   },
                   onCopyTsv: () {
                     if (_tabController.index == 0) {
-                      _IncotermsTab.copyIncotermsTsv(context, incotermsAsync.value ?? []);
+                      IncotermsDataTable.copyIncotermsTsv(context, incotermsAsync.value ?? []);
                     } else if (_tabController.index == 1) {
                       _CostItemsTab.copyCostItemsTsv(context, costItemsAsync.value ?? []);
                     }
@@ -217,7 +203,7 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
                     ),
                     onPressed: () {
                       if (_tabController.index == 0) {
-                        _IncotermsTab.copyIncotermsTsv(context, incotermsAsync.value ?? []);
+                        IncotermsDataTable.copyIncotermsTsv(context, incotermsAsync.value ?? []);
                       } else if (_tabController.index == 1) {
                         _CostItemsTab.copyCostItemsTsv(context, costItemsAsync.value ?? []);
                       }
@@ -290,472 +276,10 @@ class _IncotermsTab extends ConsumerWidget {
             message: l10n.noIncotermsFound,
           );
         }
-        return _buildIncotermTable(context, ref, filtered);
+        return IncotermsDataTable(incoterms: filtered);
       },
     );
   }
-
-  static void copyIncotermsTsv(BuildContext context, List<IncotermModel> incoterms) {
-    final l10n = context.l10n;
-    final headers = [
-      l10n.incotermsTsvHeaderCode,
-      l10n.incotermsTsvHeaderName,
-      l10n.incotermsTsvHeaderVersion,
-      l10n.incotermsTsvHeaderDescription,
-      l10n.incotermsTsvHeaderStatus,
-    ];
-    final rows = incoterms.map((i) => [
-      i.incotermCode,
-      i.incotermName,
-      i.version,
-      i.description ?? '',
-      i.isActive ? l10n.statusActive : l10n.statusInactive,
-    ]);
-    final tsv = [
-      headers.join('\t'),
-      ...rows.map((r) => r.map((c) => c.toString().replaceAll('\t', ' ').replaceAll('\n', ' ')).join('\t')),
-    ].join('\n');
-    CopyHelper.copy(context, tsv, customMessage: l10n.incotermsExportTsvSuccess);
-  }
-
-  String _buildIncotermSummary(BuildContext context, WidgetRef ref, IncotermModel i) {
-    final l10n = context.l10n;
-    final matrix = ref.read(responsibilityMatrixProvider).value ?? [];
-    final responsibilities = matrix.where((r) => r.incotermId == i.incotermId || r.incotermCode == i.incotermCode).toList();
-
-    final b = StringBuffer();
-    b.writeln('📋 ${l10n.incotermsScreenTitle}');
-    b.writeln('${l10n.incotermCodeBadgeLabel}${i.incotermCode}');
-    b.writeln('${l10n.incotermNameCol}: ${i.incotermName}');
-    b.writeln('${l10n.incotermVersionCol}: ${i.version}');
-    b.writeln('${l10n.incotermStatusCol}: ${i.isActive ? l10n.statusActive : l10n.statusInactive}');
-    if (i.description != null && i.description!.isNotEmpty) {
-      b.writeln('${l10n.incotermDescriptionLabel}: ${i.description}');
-    }
-    if (responsibilities.isNotEmpty) {
-      b.writeln('\n${l10n.incotermResponsibilitiesSectionTitle}');
-      for (final r in responsibilities) {
-        final party = r.responsibleParty == 'Importer'
-            ? l10n.partyBuyerImporter
-            : (r.responsibleParty == 'Exporter' ? l10n.partySellerExporter : l10n.partyShared);
-        final inc = r.includedInIncoterm ? l10n.includedInPriceYes : l10n.includedInPriceNo;
-        b.writeln('• ${r.costItemName}: $party ($inc)');
-      }
-    }
-    return b.toString().trim();
-  }
-
-  String _buildIncotermRowSummary(AppLocalizations l10n, IncotermModel i) {
-    return '${i.incotermCode}\t${i.incotermName}\t${i.version}\t${i.description ?? ""}\t${i.isActive ? l10n.statusActive : l10n.statusInactive}';
-  }
-
-  Widget _buildIncotermTable(
-      BuildContext context, WidgetRef ref, List<IncotermModel> incoterms) {
-    final l10n = context.l10n;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceOf(context),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderOf(context)),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: MediaQuery.of(context).size.width > 1100
-                    ? MediaQuery.of(context).size.width - 300
-                    : 980,
-              ),
-              child: Table(
-                columnWidths: const {
-                  0: FixedColumnWidth(190),
-                  1: FixedColumnWidth(110),
-                  2: FlexColumnWidth(2),
-                  3: FixedColumnWidth(120),
-                  4: FixedColumnWidth(85),
-                },
-                children: [
-                  TableRow(
-                    decoration: const BoxDecoration(color: AppTheme.charcoal),
-                    children: [
-                      l10n.incotermActionsCol,
-                      l10n.incotermCodeCol,
-                      l10n.incotermNameCol,
-                      l10n.incotermVersionCol,
-                      l10n.incotermStatusCol,
-                    ]
-                        .map((h) => Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              child: Text(h,
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13)),
-                            ))
-                        .toList(),
-                  ),
-                  ...incoterms.asMap().entries.map((entry) {
-                    final i = entry.value;
-                    final isEven = entry.key % 2 == 0;
-                    return TableRow(
-                      decoration: BoxDecoration(
-                        color: isEven
-                            ? AppTheme.surfaceOf(context)
-                            : (AppTheme.isDark(context)
-                                ? AppTheme.darkSurface
-                                : Colors.grey.shade50),
-                      ),
-                      children: [
-                        _cell(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Tooltip(
-                                message: l10n.incotermCopySummaryBtn,
-                                child: InkWell(
-                                  onTap: () => CopyHelper.copy(
-                                    context,
-                                    _buildIncotermSummary(context, ref, i),
-                                    customMessage: l10n.incotermCopySummarySuccess,
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 7, vertical: 5),
-                                    margin: const EdgeInsetsDirectional.only(end: 6),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.emerald.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                          color: AppTheme.emerald.withValues(alpha: 0.3)),
-                                    ),
-                                    child: const Icon(
-                                      Icons.copy_all_rounded,
-                                      size: 15,
-                                      color: AppTheme.emerald,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              RowActionsPill(
-                                onView: () => showIncotermDialog(context, ref, incoterm: i),
-                                onEdit: () => showIncotermDialog(context, ref, incoterm: i),
-                                onPrint: () {
-                                  final matrix = ref.read(responsibilityMatrixProvider).value ?? [];
-                                  MasterDataExportService.printOrSaveIncotermPdf(i, matrix);
-                                },
-                                printTooltip: l10n.exportIncotermsPdfBtn,
-                                onDelete: () async {
-                                  final confirm = await AppConfirmDialog.showToggleActive(
-                                    context,
-                                    isCurrentlyActive: i.isActive,
-                                    message: i.isActive
-                                        ? l10n.confirmDeactivateIncoterm(i.incotermCode)
-                                        : l10n.confirmActivateIncoterm(i.incotermCode),
-                                  );
-                                  if (confirm == true) {
-                                    await ref
-                                        .read(incotermsProvider.notifier)
-                                        .toggleActive(i.incotermId, i.isActive);
-                                  }
-                                },
-                                deleteTooltip: i.isActive
-                                    ? l10n.deactivateIncotermTooltip
-                                    : l10n.activateIncotermTooltip,
-                              ),
-                            ],
-                          ),
-                        ),
-                        _cell(
-                          child: CopyableTableCell(
-                            value: i.incotermCode,
-                            rowSummary: _buildIncotermRowSummary(l10n, i),
-                            child: Tooltip(
-                              message: l10n.incotermsCopyFieldTooltip,
-                              child: InkWell(
-                                onTap: () => CopyHelper.copy(context, i.incotermCode),
-                                borderRadius: BorderRadius.circular(6),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.cobalt.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        i.incotermCode,
-                                        style: const TextStyle(
-                                            color: AppTheme.cobalt,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Icon(Icons.copy_rounded,
-                                          size: 12, color: AppTheme.cobalt),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        _cell(
-                          child: CopyableTableCell(
-                            value: '${i.incotermName}${i.description != null ? " - ${i.description}" : ""}',
-                            rowSummary: _buildIncotermRowSummary(l10n, i),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(i.incotermName,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.charcoal)),
-                                if (i.description != null)
-                                  Text(i.description!,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600)),
-                              ],
-                            ),
-                          ),
-                        ),
-                        _cell(
-                          child: CopyableTableCell(
-                            value: i.version,
-                            rowSummary: _buildIncotermRowSummary(l10n, i),
-                            child: Text(i.version,
-                                style: const TextStyle(fontSize: 13)),
-                          ),
-                        ),
-                        _cell(
-                          child: CopyableTableCell(
-                            value: i.isActive ? l10n.statusActive : l10n.statusInactive,
-                            rowSummary: _buildIncotermRowSummary(l10n, i),
-                            child: AppStatusBadge(
-                              label: i.isActive ? l10n.statusActive : l10n.statusInactive,
-                              severity: i.isActive ? AppSeverity.success : AppSeverity.danger,
-                              size: AppStatusBadgeSize.small,
-                            ),
-                          ),
-                        ),
-
-                      ],
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  static void showIncotermDialog(BuildContext context, WidgetRef ref,
-      {IncotermModel? incoterm}) {
-    final l10n = context.l10n;
-    final codeCtrl =
-        TextEditingController(text: incoterm?.incotermCode ?? '');
-    final nameCtrl =
-        TextEditingController(text: incoterm?.incotermName ?? '');
-    final versionCtrl =
-        TextEditingController(text: incoterm?.version ?? 'Incoterms 2020');
-    final descCtrl =
-        TextEditingController(text: incoterm?.description ?? '');
-    final formKey = GlobalKey<FormState>();
-    bool isLoading = false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(incoterm == null
-              ? l10n.addIncotermDialogTitle
-              : l10n.editIncotermDialogTitle),
-          content: SelectionArea(
-            child: Form(
-              key: formKey,
-              child: SizedBox(
-                width: 440,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: codeCtrl,
-                      decoration: InputDecoration(
-                        labelText: l10n.incotermCodeLabel,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.copy_rounded,
-                              size: 16, color: AppTheme.cobalt),
-                          tooltip: l10n.incotermsCopyFieldTooltip,
-                          onPressed: () =>
-                              CopyHelper.copy(context, codeCtrl.text),
-                        ),
-                      ),
-                      textCapitalization: TextCapitalization.characters,
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? l10n.requiredField
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: nameCtrl,
-                      decoration: InputDecoration(
-                        labelText: l10n.incotermFullNameLabel,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.copy_rounded,
-                              size: 16, color: AppTheme.cobalt),
-                          tooltip: l10n.incotermsCopyFieldTooltip,
-                          onPressed: () =>
-                              CopyHelper.copy(context, nameCtrl.text),
-                        ),
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? l10n.requiredField
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: versionCtrl,
-                      decoration: InputDecoration(
-                        labelText: l10n.incotermVersionLabel,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.copy_rounded,
-                              size: 16, color: AppTheme.cobalt),
-                          tooltip: l10n.incotermsCopyFieldTooltip,
-                          onPressed: () =>
-                              CopyHelper.copy(context, versionCtrl.text),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: descCtrl,
-                      decoration: InputDecoration(
-                        labelText: l10n.incotermDescriptionLabel,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.copy_rounded,
-                              size: 16, color: AppTheme.cobalt),
-                          tooltip: l10n.incotermsCopyFieldTooltip,
-                          onPressed: () =>
-                              CopyHelper.copy(context, descCtrl.text),
-                        ),
-                      ),
-                      maxLines: 2,
-                    ),
-                    if (incoterm != null) ...[
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.picture_as_pdf, size: 15),
-                            label: Text(l10n.exportIncotermsPdfBtn,
-                                style: const TextStyle(fontSize: 12)),
-                            style: OutlinedButton.styleFrom(
-                                visualDensity: VisualDensity.compact),
-                            onPressed: () {
-                              final matrix =
-                                  ref.read(responsibilityMatrixProvider).value ??
-                                      [];
-                              MasterDataExportService.printOrSaveIncotermPdf(
-                                  incoterm, matrix);
-                            },
-                          ),
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.description, size: 15),
-                            label: Text(l10n.exportIncotermsExcelBtn,
-                                style: const TextStyle(fontSize: 12)),
-                            style: OutlinedButton.styleFrom(
-                                visualDensity: VisualDensity.compact),
-                            onPressed: () {
-                              final matrix =
-                                  ref.read(responsibilityMatrixProvider).value ??
-                                      [];
-                              MasterDataExportService.exportIncotermToExcel(
-                                  context, incoterm, matrix);
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(l10n.cancel)),
-            ElevatedButton(
-              onPressed: isLoading
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      setDialogState(() => isLoading = true);
-                      final data = {
-                        'incoterm_code': codeCtrl.text.trim().toUpperCase(),
-                        'incoterm_name': nameCtrl.text.trim(),
-                        'version': versionCtrl.text.trim(),
-                        'description': descCtrl.text.trim().isEmpty
-                            ? null
-                            : descCtrl.text.trim(),
-                      };
-                      String? error;
-                      if (incoterm == null) {
-                        error = await ref
-                            .read(incotermsProvider.notifier)
-                            .createIncoterm(data);
-                      } else {
-                        error = await ref
-                            .read(incotermsProvider.notifier)
-                            .updateIncoterm(incoterm.incotermId, data);
-                      }
-                      setDialogState(() => isLoading = false);
-                      if (ctx.mounted) {
-                        if (error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            AppTheme.snackBar(context, error, severity: AppSeverity.danger),
-                          );
-                        } else {
-                          Navigator.pop(ctx);
-                        }
-                      }
-                    },
-              child: isLoading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : Text(incoterm == null ? l10n.addIncotermBtn : l10n.save),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _cell({required Widget child}) => TableRowInkWell(
-        onTap: () {},
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Align(alignment: AlignmentDirectional.centerStart, child: child),
-        ),
-      );
 }
 
 // ==================================================
@@ -1178,51 +702,49 @@ class _CostItemsTab extends ConsumerWidget {
             ),
           ),
           actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(l10n.cancel)),
-            ElevatedButton(
-              onPressed: isLoading
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      setDialogState(() => isLoading = true);
-                      final data = {
-                        'cost_item_code': codeCtrl.text.trim().toUpperCase(),
-                        'cost_item_name': nameCtrl.text.trim(),
-                        'cost_category': selectedCategory,
-                        'description': descCtrl.text.trim().isEmpty
-                            ? null
-                            : descCtrl.text.trim(),
-                      };
-                      String? error;
-                      if (item == null) {
-                        error = await ref
-                            .read(costItemsProvider.notifier)
-                            .createCostItem(data);
-                      } else {
-                        error = await ref
-                            .read(costItemsProvider.notifier)
-                            .updateCostItem(item.costItemId, data);
-                      }
-                      setDialogState(() => isLoading = false);
-                      if (ctx.mounted) {
-                        if (error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            AppTheme.snackBar(context, error, severity: AppSeverity.danger),
-                          );
-                        } else {
-                          Navigator.pop(ctx);
-                        }
-                      }
-                    },
-              child: isLoading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : Text(item == null ? l10n.addCostItemBtn : l10n.save),
+            AppButton(
+              label: l10n.cancel,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
+              onPressed: isLoading ? null : () => Navigator.pop(ctx),
+            ),
+            AppButton(
+              label: item == null ? l10n.addCostItemBtn : l10n.save,
+              variant: AppButtonVariant.primary,
+              size: AppButtonSize.small,
+              isLoading: isLoading,
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                setDialogState(() => isLoading = true);
+                final data = {
+                  'cost_item_code': codeCtrl.text.trim().toUpperCase(),
+                  'cost_item_name': nameCtrl.text.trim(),
+                  'cost_category': selectedCategory,
+                  'description': descCtrl.text.trim().isEmpty
+                      ? null
+                      : descCtrl.text.trim(),
+                };
+                String? error;
+                if (item == null) {
+                  error = await ref
+                      .read(costItemsProvider.notifier)
+                      .createCostItem(data);
+                } else {
+                  error = await ref
+                      .read(costItemsProvider.notifier)
+                      .updateCostItem(item.costItemId, data);
+                }
+                setDialogState(() => isLoading = false);
+                if (ctx.mounted) {
+                  if (error != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      AppTheme.snackBar(context, error, severity: AppSeverity.danger),
+                    );
+                  } else {
+                    Navigator.pop(ctx);
+                  }
+                }
+              },
             ),
           ],
         ),
@@ -1759,49 +1281,46 @@ class _ResponsibilityMatrixTabState
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(l10n.cancel),
+            AppButton(
+              label: l10n.cancel,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
+              onPressed: isLoading ? null : () => Navigator.pop(ctx),
             ),
-            ElevatedButton(
-              onPressed: isLoading
-                  ? null
-                  : () async {
-                      setDialogState(() => isLoading = true);
-                      final data = {
-                        'responsible_party': selectedParty,
-                        'included_in_incoterm': isIncluded,
-                        'notes': notesCtrl.text.trim().isEmpty
-                            ? null
-                            : notesCtrl.text.trim(),
-                      };
+            AppButton(
+              label: l10n.saveChanges,
+              variant: AppButtonVariant.primary,
+              size: AppButtonSize.small,
+              isLoading: isLoading,
+              onPressed: () async {
+                setDialogState(() => isLoading = true);
+                final data = {
+                  'responsible_party': selectedParty,
+                  'included_in_incoterm': isIncluded,
+                  'notes': notesCtrl.text.trim().isEmpty
+                      ? null
+                      : notesCtrl.text.trim(),
+                };
 
-                      final error = await ref
-                          .read(responsibilityMatrixProvider.notifier)
-                          .updateResponsibility(r.responsibilityId, data);
-                      ref.read(responsibilityMatrixProvider.notifier).fetchAll();
+                final error = await ref
+                    .read(responsibilityMatrixProvider.notifier)
+                    .updateResponsibility(r.responsibilityId, data);
+                ref.read(responsibilityMatrixProvider.notifier).fetchAll();
 
-                      setDialogState(() => isLoading = false);
-                      if (ctx.mounted) {
-                        if (error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            AppTheme.snackBar(context, error, severity: AppSeverity.danger),
-                          );
-                        } else {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            AppTheme.snackBar(context, l10n.updatedSuccessfully, severity: AppSeverity.success),
-                          );
-                        }
-                      }
-                    },
-              child: isLoading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : Text(l10n.saveChanges),
+                setDialogState(() => isLoading = false);
+                if (ctx.mounted) {
+                  if (error != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      AppTheme.snackBar(context, error, severity: AppSeverity.danger),
+                    );
+                  } else {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      AppTheme.snackBar(context, l10n.updatedSuccessfully, severity: AppSeverity.success),
+                    );
+                  }
+                }
+              },
             ),
           ],
         ),

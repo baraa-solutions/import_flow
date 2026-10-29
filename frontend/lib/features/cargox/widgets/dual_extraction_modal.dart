@@ -81,9 +81,10 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
         Navigator.of(context).pop();
         widget.onTrackCreated();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.dualExtractionTrackCreatedSuccess),
-            backgroundColor: AppTheme.emerald,
+          AppTheme.snackBar(
+            context,
+            context.l10n.dualExtractionTrackCreatedSuccess,
+            severity: AppSeverity.success,
           ),
         );
       }

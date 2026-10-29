@@ -5,12 +5,10 @@ import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/import_documentation_provider.dart';
 import '../services/central_docs_archive_export_service.dart';
-import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/widgets.dart';
 import '../widgets/idoc_ui.dart';
 
 class CentralDocsArchiveScreen extends ConsumerStatefulWidget {
@@ -93,23 +91,9 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
 
     return Scaffold(
       backgroundColor: AppTheme.cloudWhite,
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.inventory_2_outlined, color: AppTheme.white),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Text(
-                l10n.centralDocsArchiveTitle,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.white),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppTheme.charcoal,
-        elevation: 2,
+      appBar: PageHeader(
+        icon: Icons.inventory_2_outlined,
+        title: l10n.centralDocsArchiveTitle,
         actions: [
           IconButton(
             tooltip: l10n.closeAndReturn,

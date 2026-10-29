@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/models/stage_note_model.dart';
 import 'package:frontend/core/services/stage_notes_service.dart';
 import 'package:frontend/core/widgets/stage_notes_card.dart';
-import 'package:frontend/core/localization/app_localizations.dart';
 
 import 'package:dio/dio.dart';
 

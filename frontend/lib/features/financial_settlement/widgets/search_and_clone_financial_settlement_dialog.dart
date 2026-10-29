@@ -3,8 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/financial_settlement_model.dart';
 import 'settlement_ui.dart';
@@ -172,7 +171,21 @@ class _SearchAndCloneFinancialSettlementDialogState
                                             ),
                                           ),
                                         ),
-                                        _buildStatusBadge(context, rec.status),
+                                        AppStatusBadge(
+                                          label: switch (rec.status.toUpperCase()) {
+                                            'CALCULATED' => l.financialSettlementStatusCalculated,
+                                            'APPROVED' => l.financialSettlementStatusApproved,
+                                            'DRAFT' => l.financialSettlementStatusDraft,
+                                            _ => rec.status,
+                                          },
+                                          severity: switch (rec.status.toUpperCase()) {
+                                            'CALCULATED' => AppSeverity.success,
+                                            'APPROVED' => AppSeverity.info,
+                                            'DRAFT' => AppSeverity.warning,
+                                            _ => AppSeverity.info,
+                                          },
+                                          size: AppStatusBadgeSize.small,
+                                        ),
                                         Text(
                                           l.financialSettlementAccountantLabel(rec.accountantName),
                                           style: const TextStyle(fontSize: 12, color: AppTheme.textStrong),
@@ -271,6 +284,4 @@ class _SearchAndCloneFinancialSettlementDialogState
     );
   }
 
-  Widget _buildStatusBadge(BuildContext context, String status) =>
-      settlementStatusChip(context, status, dense: true);
 }

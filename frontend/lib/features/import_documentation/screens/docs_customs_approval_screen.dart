@@ -118,9 +118,11 @@ class _DocsCustomsApprovalScreenState extends ConsumerState<DocsCustomsApprovalS
               onPressed: _refreshData,
             ),
           ],
-          body: CustomsDocumentApprovalTab(
+          body: SelectionArea(
+            child: CustomsDocumentApprovalTab(
             key: _tabKey,
             initialImportFileId: _selectedImportFileId,
+            ),
           ),
         ),
       ),

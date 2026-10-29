@@ -304,7 +304,7 @@ void main() {
       await tester.tap(courierTabFinder);
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('رقم البوليصة (AWB)'), findsOneWidget);
+      expect(find.textContaining('رقم بوليصة الشحن الجوي'), findsOneWidget);
     });
   });
 }

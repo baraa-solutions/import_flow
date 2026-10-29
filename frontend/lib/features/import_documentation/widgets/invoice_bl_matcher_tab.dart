@@ -1,3 +1,4 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:dio/dio.dart';
@@ -13,7 +14,6 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/system_messages/coded_item_text.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/buttons/app_button.dart';
@@ -30,11 +30,13 @@ import 'idoc_ui.dart';
 class InvoiceBLMatcherTab extends ConsumerStatefulWidget {
   final int? selectedImportFileId;
   final Function(int)? onImportFileChanged;
+  final ValueChanged<bool>? onDirtyChanged;
 
   const InvoiceBLMatcherTab({
     super.key,
     this.selectedImportFileId,
     this.onImportFileChanged,
+    this.onDirtyChanged,
   });
 
   @override
@@ -124,9 +126,16 @@ Gross Cargo Weight: 20,030.000 kgs.
 Total Items: 31 Total: 20,030.000 kgs.
 ''';
 
+  void _onTextChanged() {
+    widget.onDirtyChanged?.call(true);
+  }
+
   @override
   void initState() {
     super.initState();
+    _invoiceTextCtrl.addListener(_onTextChanged);
+    _blTextCtrl.addListener(_onTextChanged);
+    _packingTextCtrl.addListener(_onTextChanged);
     _activeFileId = widget.selectedImportFileId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!ref.read(importFilesProvider).isLoading) {
@@ -156,6 +165,9 @@ Total Items: 31 Total: 20,030.000 kgs.
   @override
   void dispose() {
     _cancelToken.cancel();
+    _invoiceTextCtrl.removeListener(_onTextChanged);
+    _blTextCtrl.removeListener(_onTextChanged);
+    _packingTextCtrl.removeListener(_onTextChanged);
     _invoiceTextCtrl.dispose();
     _blTextCtrl.dispose();
     _packingTextCtrl.dispose();
@@ -209,22 +221,14 @@ Total Items: 31 Total: 20,030.000 kgs.
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l.invoiceBlMatcherFilesSelectedSuccess(count, result.files.map((f) => f.name).join(", "))),
-              backgroundColor: AppTheme.emerald,
-              behavior: SnackBarBehavior.floating,
-            ),
+            AppTheme.snackBar(context, l.invoiceBlMatcherFilesSelectedSuccess(count, result.files.map((f) => f.name).join(", ")), severity: AppSeverity.success),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.invoiceBlMatcherFileReadError(e)),
-            backgroundColor: AppTheme.crimson,
-            behavior: SnackBarBehavior.floating,
-          ),
+          AppTheme.snackBar(context, context.l10n.invoiceBlMatcherFileReadError(e), severity: AppSeverity.danger),
         );
       }
     }
@@ -244,11 +248,7 @@ Total Items: 31 Total: 20,030.000 kgs.
     });
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.invoiceBlMatcherSampleLoadedSuccess),
-          backgroundColor: AppTheme.cobalt,
-          behavior: SnackBarBehavior.floating,
-        ),
+        AppTheme.snackBar(context, context.l10n.invoiceBlMatcherSampleLoadedSuccess),
       );
     }
   }
@@ -279,11 +279,7 @@ Total Items: 31 Total: 20,030.000 kgs.
     if (!hasInvContent && !hasBlContent && !hasPlContent) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.invoiceBlMatcherValidationRequired),
-            backgroundColor: AppTheme.orange,
-            behavior: SnackBarBehavior.floating,
-          ),
+          AppTheme.snackBar(context, context.l10n.invoiceBlMatcherValidationRequired, severity: AppSeverity.warning),
         );
       }
       return;
@@ -363,11 +359,7 @@ Total Items: 31 Total: 20,030.000 kgs.
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.invoiceBlMatcherMatchCompletedSuccess(data['match_score_percentage'])),
-              backgroundColor: data['is_safe_for_certification'] == true ? AppTheme.emerald : AppTheme.orange,
-              behavior: SnackBarBehavior.floating,
-            ),
+            AppTheme.snackBar(context, context.l10n.invoiceBlMatcherMatchCompletedSuccess(data['match_score_percentage']), severity: AppSeverity.success),
           );
         }
       } else {
@@ -483,6 +475,7 @@ Total Items: 31 Total: 20,030.000 kgs.
       );
 
       final createdSession = await ref.read(invoiceBLMatchSessionsProvider.notifier).createSession(payload);
+      widget.onDirtyChanged?.call(false);
       ref.invalidate(importFilesProvider);
       ref.invalidate(docsCustomsApprovalProvider);
       ref.invalidate(centralArchiveProvider);
@@ -977,6 +970,7 @@ Total Items: 31 Total: 20,030.000 kgs.
               _packingFileBytes = null;
               _showPackingList = false;
               _matchResult = null;
+              widget.onDirtyChanged?.call(false);
             });
           },
         )),
@@ -2712,11 +2706,7 @@ Total Items: 31 Total: 20,030.000 kgs.
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.idocASessionRestoredInspection(session.sessionCode)),
-        backgroundColor: AppTheme.cobalt,
-        behavior: SnackBarBehavior.floating,
-      ),
+      AppTheme.snackBar(context, context.l10n.idocASessionRestoredInspection(session.sessionCode)),
     );
   }
 
@@ -2755,11 +2745,7 @@ Total Items: 31 Total: 20,030.000 kgs.
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.idocASessionDataClonedAsDraft(session.sessionCode)),
-        backgroundColor: AppTheme.cobalt,
-        behavior: SnackBarBehavior.floating,
-      ),
+      AppTheme.snackBar(context, context.l10n.idocASessionDataClonedAsDraft(session.sessionCode)),
     );
   }
 
@@ -2789,7 +2775,7 @@ Total Items: 31 Total: 20,030.000 kgs.
       await ref.read(invoiceBLMatchSessionsProvider.notifier).deleteSession(session.sessionId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.idocADraftDeletedSuccessfully), backgroundColor: AppTheme.emerald),
+          AppTheme.snackBar(context, context.l10n.idocADraftDeletedSuccessfully, severity: AppSeverity.success),
         );
       }
     } catch (e) {

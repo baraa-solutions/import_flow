@@ -333,7 +333,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: AppLoadingState.inline(),
                     )
                   : Icon(isEdit ? Icons.save_outlined : Icons.person_add_outlined, size: 18),
               label: Text(isEdit ? l.usersMgmtBtnSave : l.usersMgmtBtnCreate),
@@ -399,7 +399,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+      builder: (_) => const AppLoadingState(),
     );
 
     final userPerms = await ref.read(rbacProvider.notifier).fetchUserPermissions(user.userId);
@@ -777,8 +777,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
+                                  child: AppLoadingState.inline(),
                                 )
                               : const Icon(Icons.save_rounded, size: 16),
                           label: Text(l.usersMgmtPermSaveBtn),

@@ -308,8 +308,8 @@ void main() {
 
       // 4. Verify Logistics details container & inputs
       expect(find.text('بيانات النقل وموانئ الشحن لطلب النولون'), findsOneWidget);
-      expect(find.text('ميناء الشحن (POL)'), findsOneWidget);
-      expect(find.text('ميناء الوصول والتفريغ (POD)'), findsOneWidget);
+      expect(find.text('ميناء الشحن'), findsOneWidget);
+      expect(find.text('ميناء الوصول والتفريغ'), findsOneWidget);
 
       // 5. Verify Save / Draft Action Buttons
       expect(find.text('حفظ مؤقت'), findsOneWidget);

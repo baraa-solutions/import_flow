@@ -1,10 +1,11 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/app_status_badge.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
@@ -133,7 +134,7 @@ class _OriginalDocumentsCollectionTabState
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.errorFetchingArchiveData(ApiErrorText.of(l, e))), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(context, l.errorFetchingArchiveData(ApiErrorText.of(l, e)), severity: AppSeverity.danger),
       );
     }
   }
@@ -181,7 +182,7 @@ class _OriginalDocumentsCollectionTabState
     final l = context.l10n;
     if (_selectedImportFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.selectImportFileFirstWarning), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(context, l.selectImportFileFirstWarning, severity: AppSeverity.danger),
       );
       return;
     }
@@ -190,11 +191,7 @@ class _OriginalDocumentsCollectionTabState
       final unverified = _documents.where((d) => !d.isVerified && d.isRequired == 'Yes').toList();
       if (unverified.isNotEmpty && _overrideReasonController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l.unverifiedMandatoryDocsWarning),
-            backgroundColor: AppTheme.orange,
-            duration: const Duration(seconds: 4),
-          ),
+          AppTheme.snackBar(context, l.unverifiedMandatoryDocsWarning, severity: AppSeverity.warning),
         );
         return;
       }
@@ -228,16 +225,13 @@ class _OriginalDocumentsCollectionTabState
       ref.invalidate(allCouriersProvider);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l.sessionSavedSuccess(saved.collectionCode)),
-          backgroundColor: AppTheme.emerald,
-        ),
+        AppTheme.snackBar(context, l.sessionSavedSuccess(saved.collectionCode), severity: AppSeverity.success),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.sessionSaveError(ApiErrorText.of(l, e))), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(context, l.sessionSaveError(ApiErrorText.of(l, e)), severity: AppSeverity.danger),
       );
     }
   }
@@ -1116,39 +1110,9 @@ class _OriginalDocumentsCollectionTabState
   }
 
   Widget _buildStatusBadge(String status, AppLocalizations l) {
-    Color bg = AppTheme.surfaceAltOf(context);
-    Color fg = AppTheme.textSecondaryOf(context);
-    switch (status) {
-      case 'Verified':
-      case 'FULLY_VERIFIED':
-        bg = AppTheme.severityBackgroundOf(context, AppSeverity.success);
-        fg = AppTheme.severityForegroundOf(context, AppSeverity.success);
-        break;
-      case 'Received':
-      case 'FULLY_RECEIVED':
-        bg = AppTheme.severityBackgroundOf(context, AppSeverity.info);
-        fg = AppTheme.severityForegroundOf(context, AppSeverity.info);
-        break;
-      case 'In Transit':
-      case 'PARTIALLY_RECEIVED':
-        bg = AppTheme.severityBackgroundOf(context, AppSeverity.warning);
-        fg = AppTheme.severityForegroundOf(context, AppSeverity.warning);
-        break;
-      case 'Discrepant':
-        bg = AppTheme.severityBackgroundOf(context, AppSeverity.danger);
-        fg = AppTheme.severityForegroundOf(context, AppSeverity.danger);
-        break;
-      case 'DRAFT':
-      case 'Pending':
-      default:
-        bg = AppTheme.surfaceAltOf(context);
-        fg = AppTheme.textSecondaryOf(context);
-        break;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
-      child: Text(_getStatusLabel(status, l), style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold)),
+    return AppStatusBadge.fromStatus(
+      status: status,
+      label: _getStatusLabel(status, l),
     );
   }
 
@@ -1661,17 +1625,14 @@ class _OriginalDocumentsCollectionTabState
                             }
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l.courierReceiptRecordedSuccess),
-                                  backgroundColor: AppTheme.emerald,
-                                ),
+                                AppTheme.snackBar(context, l.courierReceiptRecordedSuccess, severity: AppSeverity.success),
                               );
                             }
                           } catch (e) {
                             setModalState(() => isSubmitting = false);
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('${l.errorPrefix}: ${ApiErrorText.of(l, e)}'), backgroundColor: AppTheme.crimson),
+                                AppTheme.snackBar(context, '${l.errorPrefix}: ${ApiErrorText.of(l, e)}', severity: AppSeverity.danger),
                               );
                             }
                           }

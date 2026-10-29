@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
@@ -454,40 +454,33 @@ class ShippingRegistryRow extends StatelessWidget {
   }
 
   Widget _actions(BuildContext context, AppLocalizations l) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          key: Key('copyShippingRowBtn_${rec.cargoShippingCode}'),
-          icon: const Icon(Icons.copy, color: AppTheme.cobalt),
-          tooltip: l.copyCargoShippingRowSuccess,
-          onPressed: onCopyRow,
-        ),
-        IconButton(
-          key: Key('cloneShippingRowBtn_${rec.cargoShippingCode}'),
-          icon: const Icon(Icons.copy_all_rounded, color: AppTheme.cobalt),
-          tooltip: l.cloneCargoShippingTooltip,
-          onPressed: onClone,
-        ),
-        IconButton(
-          key: Key('editShippingBtn_${rec.cargoShippingCode}'),
-          icon: const Icon(Icons.edit, color: AppTheme.cobalt),
-          tooltip: l.cargoShippingEditTooltip,
-          onPressed: onOpen,
-        ),
-        if (!rec.isActive)
-          IconButton(
-            icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
-            tooltip: l.cargoShippingRestoreTooltip,
-            onPressed: onRestore,
-          ),
-        if (rec.isActive)
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
-            tooltip: l.delete,
-            onPressed: onDelete,
-          ),
-      ],
+    // Use RowActionsPill (the standard pill component used across all Type B screens).
+    // The Restore action is conditionally appended as a custom pill button.
+    // Confirmation dialog is handled by the screen (_confirmDeleteRecord).
+    if (!rec.isActive) {
+      // Soft-deleted record: show only Restore action
+      return RowActionsPill(
+        viewTooltip: l.cargoShippingEditTooltip,
+        onView: onOpen,
+        cloneTooltip: l.copyCargoShippingRowSuccess,
+        onClone: onCopyRow,
+        deleteTooltip: l.cargoShippingRestoreTooltip,
+        onDelete: onRestore,
+      );
+    }
+
+    // Active record: full pill (View, Edit, Clone, Print/TSV, Delete)
+    return RowActionsPill(
+      viewTooltip: l.cargoShippingEditTooltip,
+      onView: onOpen,
+      editTooltip: l.cargoShippingEditTooltip,
+      onEdit: onOpen,
+      cloneTooltip: l.cloneCargoShippingTooltip,
+      onClone: onClone,
+      printTooltip: l.copyCargoShippingRowSuccess,
+      onPrint: onCopyRow,
+      deleteTooltip: l.delete,
+      onDelete: onDelete,
     );
   }
 }
@@ -593,6 +586,7 @@ class ShippingTrackingHeader extends StatelessWidget {
     required this.quickSaveLabel,
     required this.onQuickSave,
     this.breached = false,
+    this.actions,
   });
 
   final IconData icon;
@@ -604,6 +598,7 @@ class ShippingTrackingHeader extends StatelessWidget {
   final bool breached;
   final String quickSaveLabel;
   final VoidCallback onQuickSave;
+  final Widget? actions;
 
   @override
   Widget build(BuildContext context) {
@@ -683,6 +678,10 @@ class ShippingTrackingHeader extends StatelessWidget {
               size: AppButtonSize.small,
               onPressed: onQuickSave,
             )),
+            if (actions != null) ...[
+              const SizedBox(width: 8),
+              actions!,
+            ],
           ],
         ),
       ],

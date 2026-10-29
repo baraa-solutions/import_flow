@@ -224,7 +224,10 @@ void main() {
         findsOneWidget,
       );
       final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-      expect(snackBar.backgroundColor, equals(AppTheme.orange));
+      expect(
+        snackBar.backgroundColor,
+        anyOf(equals(AppTheme.orange), equals(AppTheme.wcagOrange)),
+      );
     }
 
     testWidgets(

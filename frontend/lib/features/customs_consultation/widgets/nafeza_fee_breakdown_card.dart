@@ -1,3 +1,4 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
@@ -5,8 +6,6 @@ import '../models/customs_consultation_model.dart';
 import '../services/customs_export_service.dart';
 import 'package:printing/printing.dart';
 import '../services/customs_consultation_pdf_service.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/localization/api_error_text.dart';
 
 class NafezaFeeBreakdownCard extends StatelessWidget {
@@ -151,15 +150,11 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                               brokerQuoteItems: brokerQuoteItems,
                             );
                             if (savedFile != null && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('✅ $savedFile'), backgroundColor: AppTheme.emerald),
-                              );
+                              ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, savedFile, severity: AppSeverity.success));
                             }
                           } catch (e) {
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('❌ ${ApiErrorText.of(context.l10n, e)}'), backgroundColor: AppTheme.crimson),
-                              );
+                              ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, ApiErrorText.of(context.l10n, e), severity: AppSeverity.danger));
                             }
                           }
                         },

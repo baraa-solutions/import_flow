@@ -4,22 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/metric_card.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../widgets/financial_ui.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../services/financial_export_service.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
 import '../widgets/swift_extraction_review_widget.dart';
 
 import 'package:flutter/services.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/services/display_name_resolver.dart';
-
-import 'package:frontend/core/widgets/ltr_text.dart';
 
 const String kSampleSwiftMT103 =
     '''{1:F01ARAIECXXXXX.SN...ISN.}{2:I103CITIUS33XXXXN}{3:{108:xxxxx}}{4:
@@ -243,9 +238,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
       if (fileBytes == null || fileBytes.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(l10n.swiftFileReadErrorSnack),
-                backgroundColor: AppTheme.orange),
+            AppTheme.snackBar(context, l10n.swiftFileReadErrorSnack, severity: AppSeverity.warning),
           );
         }
         return;
@@ -291,21 +284,19 @@ ${l10n.swiftVariancesMetric}: $varianceCount
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                l10n.swiftExtractSuccessSnack(filename,
-                    _detectedFileType ?? l10n.swiftDocumentDefaultType),
-              ),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              l10n.swiftExtractSuccessSnack(filename,
+                  _detectedFileType ?? l10n.swiftDocumentDefaultType),
+              severity: AppSeverity.success,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                l10n.swiftExtractErrorSnack(res['error']?.toString() ?? ''),
-              ),
-              backgroundColor: AppTheme.crimson,
+            AppTheme.snackBar(
+              context,
+              l10n.swiftExtractErrorSnack(res['error']?.toString() ?? ''),
+              severity: AppSeverity.danger,
             ),
           );
         }
@@ -313,9 +304,10 @@ ${l10n.swiftVariancesMetric}: $varianceCount
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.swiftExtractErrorSnack(ApiError.message(e))),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            l10n.swiftExtractErrorSnack(ApiError.message(e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -329,9 +321,10 @@ ${l10n.swiftVariancesMetric}: $varianceCount
     final text = _rawSwiftTextController.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.swiftEmptyInputErrorSnack),
-          backgroundColor: AppTheme.orange,
+        AppTheme.snackBar(
+          context,
+          l10n.swiftEmptyInputErrorSnack,
+          severity: AppSeverity.warning,
         ),
       );
       return;
@@ -365,18 +358,18 @@ ${l10n.swiftVariancesMetric}: $varianceCount
             }
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.swiftParseSuccessSnack),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              l10n.swiftParseSuccessSnack,
+              severity: AppSeverity.success,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                l10n.swiftParseErrorSnack(res['error']?.toString() ?? ''),
-              ),
-              backgroundColor: AppTheme.crimson,
+            AppTheme.snackBar(
+              context,
+              l10n.swiftParseErrorSnack(res['error']?.toString() ?? ''),
+              severity: AppSeverity.danger,
             ),
           );
         }
@@ -384,9 +377,10 @@ ${l10n.swiftVariancesMetric}: $varianceCount
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.swiftConnectionErrorSnack(ApiError.message(e))),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            l10n.swiftConnectionErrorSnack(ApiError.message(e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -431,11 +425,10 @@ ${l10n.swiftVariancesMetric}: $varianceCount
     if (missingFields.isNotEmpty) {
       messenger.clearSnackBars();
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            l10n.swiftReconcileMissingFields(missingFields.join(', ')),
-          ),
-          backgroundColor: AppTheme.orange,
+        AppTheme.snackBar(
+          context,
+          l10n.swiftReconcileMissingFields(missingFields.join(', ')),
+          severity: AppSeverity.warning,
         ),
       );
       return;
@@ -447,9 +440,10 @@ ${l10n.swiftVariancesMetric}: $varianceCount
             _currentBatch!.matchedPaymentId == pay.paymentId)) {
       messenger.clearSnackBars();
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(l10n.swiftBatchNotConfirmed),
-          backgroundColor: AppTheme.orange,
+        AppTheme.snackBar(
+          context,
+          l10n.swiftBatchNotConfirmed,
+          severity: AppSeverity.warning,
         ),
       );
       return;
@@ -489,11 +483,10 @@ ${l10n.swiftVariancesMetric}: $varianceCount
 
       if (mounted && updated != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              l10n.swiftReconcileSuccessSnack(swiftRef!, updated.paymentCode),
-            ),
-            backgroundColor: AppTheme.emerald,
+          AppTheme.snackBar(
+            context,
+            l10n.swiftReconcileSuccessSnack(swiftRef!, updated.paymentCode),
+            severity: AppSeverity.success,
             duration: const Duration(seconds: 4),
           ),
         );
@@ -501,9 +494,10 @@ ${l10n.swiftVariancesMetric}: $varianceCount
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.swiftReconcileErrorSnack(ApiError.message(e))),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            l10n.swiftReconcileErrorSnack(ApiError.message(e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -877,54 +871,21 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                             children: [
                               // SWIFT Receipt Date
                               Expanded(
-                                child: FormField<DateTime>(
-                                  key: ValueKey(receiptDate),
-                                  initialValue: receiptDate,
+                                child: AppDatePickerField(
+                                  key: const Key('swiftReceiptDateField'),
+                                  label: l10n.swiftReceiptDateLabel,
+                                  value: receiptDate,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                  isRequired: true,
                                   validator: (v) =>
                                       (receiptDate == null && v == null)
                                           ? l10n.requiredField
                                           : null,
-                                  builder: (fieldState) {
-                                    return InkWell(
-                                      key: const Key('swiftReceiptDateField'),
-                                      onTap: () async {
-                                        final picked = await showDatePicker(
-                                          context: context,
-                                          initialDate: receiptDate ?? DateTime.now(),
-                                          firstDate: DateTime(2020),
-                                          lastDate: DateTime(2030),
-                                        );
-                                        if (picked != null) {
-                                          setDialogState(() {
-                                            receiptDate = picked;
-                                            fieldState.didChange(picked);
-                                          });
-                                        }
-                                      },
-                                      child: InputDecorator(
-                                        decoration: InputDecoration(
-                                          labelText: l10n.swiftReceiptDateLabel,
-                                          border: const OutlineInputBorder(),
-                                          errorText: fieldState.errorText,
-                                          prefixIcon: const Icon(
-                                              Icons.calendar_today,
-                                              color: AppTheme.cobalt),
-                                        ),
-                                        child: Text(
-                                          receiptDate != null
-                                              ? receiptDate!.toString().substring(0, 10)
-                                              : '',
-                                          style: TextStyle(
-                                            fontWeight: receiptDate != null
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                            color: receiptDate != null
-                                                ? AppTheme.charcoal
-                                                : AppTheme.textMuted,
-                                          ),
-                                        ),
-                                      ),
-                                    );
+                                  onChanged: (picked) {
+                                    setDialogState(() {
+                                      receiptDate = picked;
+                                    });
                                   },
                                 ),
                               ),
@@ -1248,23 +1209,23 @@ ${l10n.swiftVariancesMetric}: $varianceCount
 
                         if (mounted && updated != null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                l10n.swiftReconcileSuccessSnack(
-                                    updated.swiftReferenceNo ?? '',
-                                    updated.paymentCode),
-                              ),
-                              backgroundColor: AppTheme.emerald,
+                            AppTheme.snackBar(
+                              context,
+                              l10n.swiftReconcileSuccessSnack(
+                                  updated.swiftReferenceNo ?? '',
+                                  updated.paymentCode),
+                              severity: AppSeverity.success,
                             ),
                           );
                         }
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(l10n.swiftReconcileErrorSnack(
-                                  ApiError.message(e))),
-                              backgroundColor: AppTheme.crimson,
+                            AppTheme.snackBar(
+                              context,
+                              l10n.swiftReconcileErrorSnack(
+                                  ApiError.message(e)),
+                              severity: AppSeverity.danger,
                             ),
                           );
                         }
@@ -2542,7 +2503,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
 
     final content = SelectionArea(
       child: _isProcessing
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingState()
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -2756,66 +2717,68 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                             ],
                           ),
                         ),
-                        if (filtered.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Center(
-                              child: Text(
-                                l10n.swiftNoMatchingPayments,
-                                style:
-                                    const TextStyle(color: AppTheme.textMuted),
-                              ),
+                        EnterpriseDataTable<PaymentRequestModel>(
+                          storageKey: 'swift_reconciliation_table',
+                          data: filtered,
+                          minWidth: 1400,
+                          rowHeight: 68,
+                          isScrollable: false,
+                          showHeaderToolbar: false,
+                          showPagination: true,
+                          initialPageSize: 25,
+                          emptyMessage: l10n.swiftNoMatchingPayments,
+                          columns: [
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'actions',
+                              title: l10n.swiftColActions,
+                              width: 320,
+                              isSortable: false,
+                              isSearchable: false,
+                              cellBuilder: (ctx, pay, _) {
+                                final isReconciled = pay.swiftReferenceNo != null &&
+                                    pay.swiftReferenceNo!.isNotEmpty;
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    FinancialUi.fit(AppButton(
+                                      label: isReconciled
+                                          ? l10n.swiftEditBtn
+                                          : l10n.swiftRegisterBtn,
+                                      variant: AppButtonVariant.primary,
+                                      size: AppButtonSize.small,
+                                      icon: isReconciled
+                                          ? Icons.edit
+                                          : Icons.account_balance,
+                                      onPressed: () =>
+                                          _showSwiftReconciliationDialog(pay),
+                                    )),
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      icon: const Icon(Icons.visibility,
+                                          color: AppTheme.charcoal, size: 18),
+                                      tooltip: l10n.swiftDetailsBtn,
+                                      onPressed: () =>
+                                          _showSwiftDetailsDialog(pay),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.copy,
+                                          color: AppTheme.cobalt, size: 16),
+                                      tooltip: l10n.swiftCopyDossierBtn,
+                                      onPressed: () =>
+                                          _copyPaymentDossier(pay),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
-                          )
-                        else
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: DataTable(
-                              headingRowColor: WidgetStateProperty.all(
-                                  AppTheme.charcoalSurface),
-                              columns: [
-                                DataColumn(
-                                    label: Text(l10n.swiftColActions,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold))),
-                                DataColumn(
-                                    label: Text(l10n.swiftColPaymentCode,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold))),
-                                DataColumn(
-                                    label: Text(l10n.swiftColBeneficiaryBank,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold))),
-                                DataColumn(
-                                    label: Text(l10n.swiftColRequestDate,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold))),
-                                DataColumn(
-                                    label: Text(l10n.swiftColSwiftDate,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold))),
-                                DataColumn(
-                                    label: Text(l10n.swiftColProcessingTime,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold))),
-                                DataColumn(
-                                    label: Text(l10n.swiftColRequestedAmount,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold))),
-                                DataColumn(
-                                    label: Text(l10n.swiftColTransferredAmount,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold))),
-                                DataColumn(
-                                    label: Text(l10n.swiftColVarianceStatus,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold))),
-                                DataColumn(
-                                    label: Text(l10n.swiftColSwiftRef,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold))),
-                              ],
-                              rows: filtered.map((pay) {
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'payment_code',
+                              title: l10n.swiftColPaymentCode,
+                              width: 210,
+                              searchValue: (pay) =>
+                                  '${pay.paymentCode} ${pay.importFileCode ?? ""}',
+                              exportValue: (pay) => pay.paymentCode,
+                              cellBuilder: (ctx, pay, _) {
                                 final allFiles = ref
                                         .watch(importFilesProvider)
                                         .valueOrNull ??
@@ -2823,347 +2786,285 @@ ${l10n.swiftVariancesMetric}: $varianceCount
                                 final isAr = Localizations.localeOf(context)
                                         .languageCode ==
                                     'ar';
-                                final isReconciled =
-                                    pay.swiftReferenceNo != null &&
-                                        pay.swiftReferenceNo!.isNotEmpty;
                                 final shipName = DisplayNameResolver
                                     .resolveShipmentNameByCode(
                                         pay.importFileCode,
                                         shipments: allFiles,
                                         isArabic: isAr);
-                                final shipTitle = DisplayNameResolver
-                                    .resolveShipmentTitleByCode(
-                                        pay.importFileCode,
-                                        shipments: allFiles,
-                                        isArabic: isAr);
-                                final rowSummary =
-                                    '${pay.paymentCode} | $shipTitle | ${pay.beneficiaryName ?? pay.supplierName} | ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode} | ${pay.swiftReferenceNo ?? l10n.swiftPendingSwiftBadge}';
-                                return DataRow(
-                                  cells: [
-                                    DataCell(
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          FinancialUi.fit(AppButton(
-                                            label: isReconciled
-                                                ? l10n.swiftEditBtn
-                                                : l10n.swiftRegisterBtn,
-                                            variant: AppButtonVariant.primary,
-                                            size: AppButtonSize.small,
-                                            icon: isReconciled
-                                                ? Icons.edit
-                                                : Icons.account_balance,
-                                            onPressed: () =>
-                                                _showSwiftReconciliationDialog(
-                                                    pay),
-                                          )),
-                                          const SizedBox(width: 6),
-                                          IconButton(
-                                            icon: const Icon(Icons.visibility,
-                                                color: AppTheme.charcoal,
-                                                size: 18),
-                                            tooltip: l10n.swiftDetailsBtn,
-                                            onPressed: () =>
-                                                _showSwiftDetailsDialog(pay),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.copy,
-                                                color: AppTheme.cobalt,
-                                                size: 16),
-                                            tooltip: l10n.swiftCopyDossierBtn,
-                                            onPressed: () =>
-                                                _copyPaymentDossier(pay),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    DataCell(
-                                      CopyableTableCell(
-                                        value:
-                                            '${pay.paymentCode}${pay.importFileCode != null ? " / $shipTitle" : ""}',
-                                        rowSummary: rowSummary,
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                LtrText(pay.paymentCode,
-                                                    style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color:
-                                                            AppTheme.cobalt)),
-                                                const SizedBox(width: 4),
-                                                _buildCopyBadge(pay.paymentCode,
-                                                    tooltip: l10n.swiftCopyBtn),
-                                              ],
-                                            ),
-                                            if (pay.importFileCode != null)
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                    top: 2),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Text(
-                                                      shipName,
-                                                      style: const TextStyle(
-                                                          fontSize: 11,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: AppTheme
-                                                              .charcoal),
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Container(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                          horizontal: 4,
-                                                          vertical: 1),
-                                                      decoration: BoxDecoration(
-                                                        color: AppTheme.charcoal
-                                                            .withValues(alpha: 0.08),
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(4),
-                                                      ),
-                                                      child: Text(
-                                                        pay.importFileCode!,
-                                                        style: const TextStyle(
-                                                            fontSize: 9,
-                                                            color: AppTheme
-                                                                .textStrong,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w600),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 2),
-                                                    _buildCopyBadge(
-                                                        pay.importFileCode!,
-                                                        tooltip:
-                                                            l10n.swiftCopyBtn),
-                                                  ],
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      CopyableTableCell(
-                                        value:
-                                            '${pay.beneficiaryName ?? pay.supplierName} - ${pay.bankName ?? l10n.swiftUnspecifiedBank}',
-                                        rowSummary: rowSummary,
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                                pay.beneficiaryName ??
-                                                    pay.supplierName,
-                                                style: const TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 12)),
-                                            Text(
-                                                pay.bankName ??
-                                                    l10n.swiftUnspecifiedBank,
-                                                style: const TextStyle(
-                                                    fontSize: 11,
-                                                    color: AppTheme
-                                                        .textSecondary)),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      CopyableTableCell(
-                                        value: pay.requestDate.isNotEmpty
-                                            ? pay.requestDate
-                                            : '-',
-                                        rowSummary: rowSummary,
-                                        child: Text(pay.requestDate.isNotEmpty
-                                            ? pay.requestDate
-                                            : '-'),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      CopyableTableCell(
-                                        value: pay.swiftReceiptDate ??
-                                            l10n.swiftPendingSwiftBadge,
-                                        rowSummary: rowSummary,
-                                        child: Text(
-                                          pay.swiftReceiptDate ??
-                                              l10n.swiftPendingSwiftBadge,
-                                          style: TextStyle(
-                                            fontWeight: isReconciled
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                            color: isReconciled
-                                                ? AppTheme.charcoal
-                                                : AppTheme.textMuted,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      CopyableTableCell(
-                                        value: pay.swiftProcessingDays != null
-                                            ? l10n.swiftDaysCount(pay
-                                                .swiftProcessingDays
-                                                .toString())
-                                            : l10n.swiftProcessingPending,
-                                        rowSummary: rowSummary,
-                                        child: pay.swiftProcessingDays != null
-                                            ? Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 3),
-                                                decoration: BoxDecoration(
-                                                  color: pay.swiftProcessingDays! <=
-                                                          3
-                                                      ? AppTheme.emeraldLight
-                                                      : (pay.swiftProcessingDays! <=
-                                                              7
-                                                          ? AppTheme.orangeLight
-                                                          : AppTheme
-                                                              .crimsonLight),
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                  border: Border.all(
-                                                    color: pay.swiftProcessingDays! <=
-                                                            3
-                                                        ? AppTheme.emeraldBorder
-                                                        : (pay.swiftProcessingDays! <=
-                                                                7
-                                                            ? AppTheme.orange
-                                                            : AppTheme
-                                                                .crimsonBorder),
-                                                  ),
-                                                ),
-                                                child: Text(
-                                                  '⚡ ${l10n.swiftDaysCount(pay.swiftProcessingDays.toString())}',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: pay.swiftProcessingDays! <=
-                                                            3
-                                                        ? AppTheme.wcagEmerald
-                                                        : (pay.swiftProcessingDays! <=
-                                                                7
-                                                            ? AppTheme
-                                                                .wcagOrange
-                                                            : AppTheme.crimson),
-                                                  ),
-                                                ),
-                                              )
-                                            : Text(l10n.swiftProcessingPending,
-                                                style: const TextStyle(
-                                                    color: AppTheme.textMuted,
-                                                    fontSize: 11)),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      CopyableTableCell(
-                                        value:
-                                            '${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}',
-                                        rowSummary: rowSummary,
-                                        child: Text(
-                                            '${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}',
+                                return Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        LtrText(pay.paymentCode,
                                             style: const TextStyle(
-                                                fontWeight: FontWeight.w600)),
-                                      ),
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.cobalt)),
+                                        const SizedBox(width: 4),
+                                        _buildCopyBadge(pay.paymentCode,
+                                            tooltip: l10n.swiftCopyBtn),
+                                      ],
                                     ),
-                                    DataCell(
-                                      CopyableTableCell(
-                                        value: pay.swiftTransferredAmount !=
-                                                null
-                                            ? '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}'
-                                            : '-',
-                                        rowSummary: rowSummary,
-                                        child: pay.swiftTransferredAmount !=
-                                                null
-                                            ? Text(
-                                                '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}',
+                                    if (pay.importFileCode != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              shipName,
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppTheme.charcoal),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.charcoal
+                                                    .withValues(alpha: 0.08),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                pay.importFileCode!,
                                                 style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: AppTheme.emerald),
-                                              )
-                                            : const Text('-',
-                                                style: TextStyle(
-                                                    color: AppTheme.textMuted)),
+                                                    fontSize: 9,
+                                                    color: AppTheme.textStrong,
+                                                    fontWeight:
+                                                        FontWeight.w600),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 2),
+                                            _buildCopyBadge(pay.importFileCode!,
+                                                tooltip: l10n.swiftCopyBtn),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    DataCell(
-                                      CopyableTableCell(
-                                        value:
-                                            '${pay.swiftVarianceStatus ?? "-"} ${pay.swiftVarianceAmount != null ? pay.swiftVarianceAmount!.toStringAsFixed(2) : ""}',
-                                        rowSummary: rowSummary,
-                                        child: _buildVarianceBadge(
-                                            pay.swiftVarianceStatus,
-                                            pay.swiftVarianceAmount,
-                                            pay.currencyCode),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      CopyableTableCell(
-                                        value: pay.swiftReferenceNo ??
-                                            l10n.swiftUnregistered,
-                                        rowSummary: rowSummary,
-                                        child: pay.swiftReferenceNo != null &&
-                                                pay.swiftReferenceNo!.isNotEmpty
-                                            ? Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 3),
-                                                    decoration: BoxDecoration(
-                                                        color: AppTheme
-                                                            .cobaltLight,
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(4),
-                                                        border: Border.all(
-                                                            color: AppTheme
-                                                                .cobaltBorder)),
-                                                    child: Text(
-                                                        pay.swiftReferenceNo!,
-                                                        style: const TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            color:
-                                                                AppTheme.cobalt,
-                                                            fontSize: 11)),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  _buildCopyBadge(
-                                                      pay.swiftReferenceNo!,
-                                                      tooltip:
-                                                          l10n.swiftCopyBtn),
-                                                ],
-                                              )
-                                            : Text(l10n.swiftUnregistered,
-                                                style: const TextStyle(
-                                                    color: AppTheme.textMuted,
-                                                    fontSize: 11)),
-                                      ),
-                                    ),
                                   ],
                                 );
-                              }).toList(),
+                              },
                             ),
-                          ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'beneficiary',
+                              title: l10n.swiftColBeneficiaryBank,
+                              width: 180,
+                              searchValue: (pay) =>
+                                  '${pay.beneficiaryName ?? pay.supplierName} ${pay.bankName ?? ""}',
+                              exportValue: (pay) =>
+                                  '${pay.beneficiaryName ?? pay.supplierName} - ${pay.bankName ?? ""}',
+                              cellBuilder: (ctx, pay, _) => Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                      pay.beneficiaryName ??
+                                          pay.supplierName,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12)),
+                                  Text(
+                                      pay.bankName ??
+                                          l10n.swiftUnspecifiedBank,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondary)),
+                                ],
+                              ),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'request_date',
+                              title: l10n.swiftColRequestDate,
+                              width: 115,
+                              isNumeric: true,
+                              searchValue: (pay) => pay.requestDate,
+                              exportValue: (pay) => pay.requestDate,
+                              cellBuilder: (ctx, pay, _) => Text(
+                                  pay.requestDate.isNotEmpty
+                                      ? pay.requestDate
+                                      : '-'),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'swift_date',
+                              title: l10n.swiftColSwiftDate,
+                              width: 115,
+                              isNumeric: true,
+                              searchValue: (pay) => pay.swiftReceiptDate ?? '',
+                              exportValue: (pay) =>
+                                  pay.swiftReceiptDate ?? '-',
+                              cellBuilder: (ctx, pay, _) {
+                                final isReconciled =
+                                    pay.swiftReferenceNo != null &&
+                                        pay.swiftReferenceNo!.isNotEmpty;
+                                return Text(
+                                  pay.swiftReceiptDate ??
+                                      l10n.swiftPendingSwiftBadge,
+                                  style: TextStyle(
+                                    fontWeight: isReconciled
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isReconciled
+                                        ? AppTheme.charcoal
+                                        : AppTheme.textMuted,
+                                  ),
+                                );
+                              },
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'processing_time',
+                              title: l10n.swiftColProcessingTime,
+                              width: 130,
+                              cellBuilder: (ctx, pay, _) {
+                                if (pay.swiftProcessingDays == null) {
+                                  return Text(l10n.swiftProcessingPending,
+                                      style: const TextStyle(
+                                          color: AppTheme.textMuted,
+                                          fontSize: 11));
+                                }
+                                final days = pay.swiftProcessingDays!;
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: days <= 3
+                                        ? AppTheme.emeraldLight
+                                        : (days <= 7
+                                            ? AppTheme.orangeLight
+                                            : AppTheme.crimsonLight),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: days <= 3
+                                          ? AppTheme.emeraldBorder
+                                          : (days <= 7
+                                              ? AppTheme.orange
+                                              : AppTheme.crimsonBorder),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '⚡ ${l10n.swiftDaysCount(days.toString())}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: days <= 3
+                                          ? AppTheme.wcagEmerald
+                                          : (days <= 7
+                                              ? AppTheme.wcagOrange
+                                              : AppTheme.crimson),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'requested_amount',
+                              title: l10n.swiftColRequestedAmount,
+                              width: 135,
+                              isNumeric: true,
+                              searchValue: (pay) =>
+                                  '${pay.requestedAmount} ${pay.currencyCode}',
+                              exportValue: (pay) =>
+                                  '${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}',
+                              cellBuilder: (ctx, pay, _) => Text(
+                                '${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'transferred_amount',
+                              title: l10n.swiftColTransferredAmount,
+                              width: 135,
+                              isNumeric: true,
+                              searchValue: (pay) =>
+                                  pay.swiftTransferredAmount?.toString() ?? '',
+                              exportValue: (pay) => pay.swiftTransferredAmount !=
+                                      null
+                                  ? '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}'
+                                  : '-',
+                              cellBuilder: (ctx, pay, _) =>
+                                  pay.swiftTransferredAmount != null
+                                      ? Text(
+                                          '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.emerald),
+                                        )
+                                      : const Text('-',
+                                          style: TextStyle(
+                                              color: AppTheme.textMuted)),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'variance_status',
+                              title: l10n.swiftColVarianceStatus,
+                              width: 130,
+                              searchValue: (pay) =>
+                                  pay.swiftVarianceStatus ?? '',
+                              exportValue: (pay) =>
+                                  '${pay.swiftVarianceStatus ?? "-"} ${pay.swiftVarianceAmount != null ? pay.swiftVarianceAmount!.toStringAsFixed(2) : ""}',
+                              cellBuilder: (ctx, pay, _) =>
+                                  _buildVarianceBadge(
+                                pay.swiftVarianceStatus,
+                                pay.swiftVarianceAmount,
+                                pay.currencyCode,
+                              ),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'swift_ref',
+                              title: l10n.swiftColSwiftRef,
+                              width: 150,
+                              searchValue: (pay) =>
+                                  pay.swiftReferenceNo ?? '',
+                              exportValue: (pay) =>
+                                  pay.swiftReferenceNo ?? '-',
+                              cellBuilder: (ctx, pay, _) {
+                                if (pay.swiftReferenceNo != null &&
+                                    pay.swiftReferenceNo!.isNotEmpty) {
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.cobaltLight,
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          border: Border.all(
+                                              color: AppTheme.cobaltBorder),
+                                        ),
+                                        child: Text(
+                                          pay.swiftReferenceNo!,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                            color: AppTheme.cobalt,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      _buildCopyBadge(pay.swiftReferenceNo!,
+                                          tooltip: l10n.swiftCopyBtn),
+                                    ],
+                                  );
+                                }
+                                return Text(l10n.swiftUnregistered,
+                                    style: const TextStyle(
+                                        color: AppTheme.textMuted,
+                                        fontSize: 11));
+                              },
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -3181,18 +3082,9 @@ ${l10n.swiftVariancesMetric}: $varianceCount
 
     return Scaffold(
       backgroundColor: AppTheme.charcoalSurface,
-      appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
-        title: Row(
-          children: [
-            const Icon(Icons.account_balance, color: AppTheme.cobalt),
-            const SizedBox(width: 10),
-            Text(
-              l10n.swiftScreenTitle,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ],
-        ),
+      appBar: PageHeader(
+        icon: Icons.account_balance,
+        title: l10n.swiftScreenTitle,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -3204,7 +3096,7 @@ ${l10n.swiftVariancesMetric}: $varianceCount
           ),
         ],
       ),
-      body: content,
+      body: SelectionArea(child: content),
     );
   }
 

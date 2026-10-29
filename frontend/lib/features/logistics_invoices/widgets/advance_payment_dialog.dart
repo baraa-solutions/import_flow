@@ -81,15 +81,26 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
       ref.invalidate(clearanceAdvancesListProvider);
 
       if (mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Clearance advance payment recorded successfully!'), backgroundColor: Colors.green),
+          AppTheme.snackBar(
+            context,
+            isArabic
+                ? 'تم تسجيل دفعة العهدة الجمركية بنجاح!'
+                : 'Clearance advance payment recorded successfully!',
+            severity: AppSeverity.success,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          AppTheme.snackBar(
+            context,
+            'Error: $e',
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {
@@ -104,7 +115,8 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 580,
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -276,6 +288,7 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

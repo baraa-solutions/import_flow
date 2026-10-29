@@ -9,15 +9,7 @@ import '../../../core/services/file_save_helper.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/ltr_text.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
-import '../../../core/widgets/metric_card.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/cc_dialog_shell.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../customs_consultation/models/customs_consultation_model.dart';
@@ -496,126 +488,168 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
   }
 
   Widget _buildLogsTable(AppLocalizations l, List<ShipmentUpdateLogModel> logs) {
-    TextStyle head() => const TextStyle(fontWeight: FontWeight.bold);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowColor: const WidgetStatePropertyAll(AppTheme.charcoalSurface),
-        columns: [
-          DataColumn(label: Text(l.shipmentUpdateColActions, style: head())),
-          DataColumn(label: Text(l.shipmentUpdateColCode, style: head())),
-          DataColumn(label: Text(l.shipmentUpdateColDate, style: head())),
-          DataColumn(label: Text(l.shipmentUpdateColType, style: head())),
-          DataColumn(label: Text(l.shipmentUpdateColTargetStage, style: head())),
-          DataColumn(label: Text(l.shipmentUpdateColNotes, style: head())),
-          DataColumn(label: Text(l.shipmentUpdateColCostAdjustment, style: head())),
-          DataColumn(label: Text(l.shipmentUpdateColAssignedUser, style: head())),
-        ],
-        rows: logs.map((log) => _buildLogRow(l, log)).toList(),
-      ),
-    );
-  }
-
-  DataRow _buildLogRow(AppLocalizations l, ShipmentUpdateLogModel log) {
-    final isCostAdj = log.updateCategory == 'Phase Cost Adjustment';
-    final rowSummary = _buildRowSummary(log);
-    final categoryLabel = _getCategoryLabel(l, log.updateCategory);
-    final costText =
-        '${log.adjustedCostItem ?? l.shipmentUpdateCostLabel}: ${log.previousCost} -> ${log.newCost} ${l.shipmentUpdateCostCurrencyUsd}';
-
-    return DataRow(
-      cells: [
-        DataCell(
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RowActionsPill(
-                onView: () => _showLogViewDialog(l, log),
-                onEdit: () {
-                  ShipmentUpdateDialog.show(
-                    context,
-                    initialFileId: log.importFileId,
-                    initialTargetPhase: log.targetPhase,
-                    defaultCategory: log.updateCategory,
-                  );
-                },
-                onPrint: () => MasterDataExportService.printOrSaveShipmentUpdateSlipPdf(log, isAr: _isAr),
-                onDelete: () => _confirmDelete(l, log),
-                viewTooltip: l.shipmentUpdateActionViewTooltip,
-                editTooltip: l.shipmentUpdateActionEditTooltip,
-                printTooltip: l.shipmentUpdateActionPrintTooltip,
-                deleteTooltip: l.shipmentUpdateActionDeleteTooltip,
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
-                tooltip: l.shipmentUpdateCopySummaryBtn,
-                onPressed: () => CopyHelper.copy(
-                  context,
-                  rowSummary,
-                  customMessage: l.shipmentUpdateCopySummarySuccess,
+    return EnterpriseDataTable<ShipmentUpdateLogModel>(
+      storageKey: 'shipment_updates_logs_table',
+      data: logs,
+      rowHeight: 52,
+      emptyMessage: l.shipmentUpdateLogsEmptyMessage,
+      columns: [
+        EnterpriseColumn<ShipmentUpdateLogModel>(
+          id: 'actions',
+          title: l.shipmentUpdateColActions,
+          width: 170,
+          isSortable: false,
+          isSearchable: false,
+          cellBuilder: (context, log, index) {
+            final rowSummary = _buildRowSummary(log);
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RowActionsPill(
+                  onView: () => _showLogViewDialog(l, log),
+                  onEdit: () {
+                    ShipmentUpdateDialog.show(
+                      context,
+                      initialFileId: log.importFileId,
+                      initialTargetPhase: log.targetPhase,
+                      defaultCategory: log.updateCategory,
+                    );
+                  },
+                  onPrint: () => MasterDataExportService.printOrSaveShipmentUpdateSlipPdf(log, isAr: _isAr),
+                  onDelete: () => _confirmDelete(l, log),
+                  viewTooltip: l.shipmentUpdateActionViewTooltip,
+                  editTooltip: l.shipmentUpdateActionEditTooltip,
+                  printTooltip: l.shipmentUpdateActionPrintTooltip,
+                  deleteTooltip: l.shipmentUpdateActionDeleteTooltip,
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+                  tooltip: l.shipmentUpdateCopySummaryBtn,
+                  onPressed: () => CopyHelper.copy(
+                    context,
+                    rowSummary,
+                    customMessage: l.shipmentUpdateCopySummarySuccess,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
-        DataCell(
-          CopyableTableCell(
-            value: log.updateCode,
-            rowSummary: rowSummary,
-            child: SuCodeBadge(code: log.updateCode, copiedMessage: l.shipmentUpdateCodeBadgeLabel, fontSize: 12),
-          ),
+        EnterpriseColumn<ShipmentUpdateLogModel>(
+          id: 'code',
+          title: l.shipmentUpdateColCode,
+          width: 130,
+          exportValue: (log) => log.updateCode,
+          searchValue: (log) => log.updateCode,
+          cellBuilder: (context, log, index) {
+            final rowSummary = _buildRowSummary(log);
+            return CopyableTableCell(
+              value: log.updateCode,
+              rowSummary: rowSummary,
+              child: SuCodeBadge(code: log.updateCode, copiedMessage: l.shipmentUpdateCodeBadgeLabel, fontSize: 12),
+            );
+          },
         ),
-        DataCell(
-          CopyableTableCell(
-            value: log.logDate,
-            rowSummary: rowSummary,
-            child: LtrText(log.logDate),
-          ),
+        EnterpriseColumn<ShipmentUpdateLogModel>(
+          id: 'date',
+          title: l.shipmentUpdateColDate,
+          width: 120,
+          exportValue: (log) => log.logDate,
+          searchValue: (log) => log.logDate,
+          cellBuilder: (context, log, index) {
+            final rowSummary = _buildRowSummary(log);
+            return CopyableTableCell(
+              value: log.logDate,
+              rowSummary: rowSummary,
+              child: LtrText(log.logDate),
+            );
+          },
         ),
-        DataCell(
-          CopyableTableCell(
-            value: categoryLabel,
-            rowSummary: rowSummary,
-            child: CcStatusChip(label: categoryLabel, severity: SuUi.categorySeverity(log.updateCategory)),
-          ),
+        EnterpriseColumn<ShipmentUpdateLogModel>(
+          id: 'type',
+          title: l.shipmentUpdateColType,
+          width: 160,
+          exportValue: (log) => _getCategoryLabel(l, log.updateCategory),
+          searchValue: (log) => _getCategoryLabel(l, log.updateCategory),
+          cellBuilder: (context, log, index) {
+            final categoryLabel = _getCategoryLabel(l, log.updateCategory);
+            final rowSummary = _buildRowSummary(log);
+            return CopyableTableCell(
+              value: categoryLabel,
+              rowSummary: rowSummary,
+              child: CcStatusChip(label: categoryLabel, severity: SuUi.categorySeverity(log.updateCategory)),
+            );
+          },
         ),
-        DataCell(
-          CopyableTableCell(
-            value: _getPhaseName(l, log.targetPhase),
-            rowSummary: rowSummary,
-            child: Text(_getPhaseName(l, log.targetPhase), style: const TextStyle(fontWeight: FontWeight.bold)),
-          ),
+        EnterpriseColumn<ShipmentUpdateLogModel>(
+          id: 'targetStage',
+          title: l.shipmentUpdateColTargetStage,
+          width: 140,
+          exportValue: (log) => _getPhaseName(l, log.targetPhase),
+          searchValue: (log) => _getPhaseName(l, log.targetPhase),
+          cellBuilder: (context, log, index) {
+            final rowSummary = _buildRowSummary(log);
+            return CopyableTableCell(
+              value: _getPhaseName(l, log.targetPhase),
+              rowSummary: rowSummary,
+              child: Text(_getPhaseName(l, log.targetPhase), style: const TextStyle(fontWeight: FontWeight.bold)),
+            );
+          },
         ),
-        DataCell(
-          CopyableTableCell(
-            value: log.note,
-            rowSummary: rowSummary,
-            child: SizedBox(
-              width: 320,
+        EnterpriseColumn<ShipmentUpdateLogModel>(
+          id: 'notes',
+          title: l.shipmentUpdateColNotes,
+          flex: 2,
+          exportValue: (log) => log.note,
+          searchValue: (log) => log.note,
+          cellBuilder: (context, log, index) {
+            final rowSummary = _buildRowSummary(log);
+            return CopyableTableCell(
+              value: log.note,
+              rowSummary: rowSummary,
               child: Text(log.note, style: const TextStyle(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-            ),
-          ),
+            );
+          },
         ),
-        DataCell(
-          CopyableTableCell(
-            value: isCostAdj ? costText : '-',
-            rowSummary: rowSummary,
-            child: isCostAdj
-                ? Text(
-                    costText,
-                    textDirection: TextDirection.ltr,
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 11),
-                  )
-                : const Text('-'),
-          ),
+        EnterpriseColumn<ShipmentUpdateLogModel>(
+          id: 'costAdjustment',
+          title: l.shipmentUpdateColCostAdjustment,
+          width: 160,
+          exportValue: (log) => log.updateCategory == 'Phase Cost Adjustment'
+              ? '${log.adjustedCostItem ?? l.shipmentUpdateCostLabel}: ${log.previousCost} -> ${log.newCost} ${l.shipmentUpdateCostCurrencyUsd}'
+              : '-',
+          cellBuilder: (context, log, index) {
+            final isCostAdj = log.updateCategory == 'Phase Cost Adjustment';
+            final costText = '${log.adjustedCostItem ?? l.shipmentUpdateCostLabel}: ${log.previousCost} -> ${log.newCost} ${l.shipmentUpdateCostCurrencyUsd}';
+            final rowSummary = _buildRowSummary(log);
+            return CopyableTableCell(
+              value: isCostAdj ? costText : '-',
+              rowSummary: rowSummary,
+              child: isCostAdj
+                  ? Text(
+                      costText,
+                      textDirection: TextDirection.ltr,
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 11),
+                    )
+                  : const Text('-'),
+            );
+          },
         ),
-        DataCell(
-          CopyableTableCell(
-            value: log.assignedUser,
-            rowSummary: rowSummary,
-            child: Text(log.assignedUser),
-          ),
+        EnterpriseColumn<ShipmentUpdateLogModel>(
+          id: 'assignedUser',
+          title: l.shipmentUpdateColAssignedUser,
+          width: 130,
+          exportValue: (log) => log.assignedUser,
+          searchValue: (log) => log.assignedUser,
+          cellBuilder: (context, log, index) {
+            final rowSummary = _buildRowSummary(log);
+            return CopyableTableCell(
+              value: log.assignedUser,
+              rowSummary: rowSummary,
+              child: Text(log.assignedUser),
+            );
+          },
         ),
       ],
     );
@@ -661,27 +695,10 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
   }
 
   Future<void> _confirmDelete(AppLocalizations l, ShipmentUpdateLogModel log) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (c) => SelectionArea(
-        child: AlertDialog(
-          title: Text(l.shipmentUpdateDeleteConfirmTitle),
-          content: Text(l.shipmentUpdateDeleteConfirmMsg(log.updateCode)),
-          actions: [
-            AppButton(
-              label: l.shipmentUpdateDeleteCancelBtn,
-              variant: AppButtonVariant.secondary,
-              onPressed: () => Navigator.pop(c, false),
-            ),
-            AppButton(
-              label: l.shipmentUpdateDeleteConfirmBtn,
-              icon: Icons.delete_outline,
-              variant: AppButtonVariant.danger,
-              onPressed: () => Navigator.pop(c, true),
-            ),
-          ],
-        ),
-      ),
+    final confirm = await AppConfirmDialog.showDelete(
+      context,
+      title: l.shipmentUpdateDeleteConfirmTitle,
+      message: l.shipmentUpdateDeleteConfirmMsg(log.updateCode),
     );
     if (confirm != true) return;
     try {

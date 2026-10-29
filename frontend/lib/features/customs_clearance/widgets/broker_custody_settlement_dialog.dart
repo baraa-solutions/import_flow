@@ -76,264 +76,64 @@ class _BrokerCustodySettlementDialogState extends ConsumerState<BrokerCustodySet
   }
 
   void _showNewAdvanceDialog() {
-    final fileIdController = TextEditingController(text: widget.initialImportFileId?.toString() ?? '');
-    final brokerIdController = TextEditingController(text: '1');
-    final brokerNameController = TextEditingController();
-    final amountController = TextEditingController();
-    final dateController = TextEditingController(text: DateTime.now().toIso8601String().split('T').first);
-    String paymentMethod = 'BANK_TRANSFER';
-    final notesController = TextEditingController();
-
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (dlgCtx, setDlgState) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.payments_outlined, color: AppTheme.cobalt),
-              SizedBox(width: 8),
-              Text('صرف عهدة مالية جديدة للمخلص الجمركي'),
-            ],
-          ),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CustomTextField(
-                          label: 'معرف الملف الاستيرادي (ID)',
-                          controller: fileIdController,
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: CustomTextField(
-                          label: 'معرف المخلص (Broker ID)',
-                          controller: brokerIdController,
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  CustomTextField(
-                    label: 'اسم المخلص الجمركي / المكتب',
-                    controller: brokerNameController,
-                    hint: 'مكتب الإسكندرية للخدمات الجمركية',
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CustomTextField(
-                          label: 'مبلغ العهدة المصروفة (ج.م EGP)',
-                          controller: amountController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: CustomTextField(
-                          label: 'تاريخ الصرف (YYYY-MM-DD)',
-                          controller: dateController,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('طريقة الصرف:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      const SizedBox(height: 4),
-                      DropdownButtonFormField<String>(
-                        initialValue: paymentMethod,
-                        items: const [
-                          DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('تحويل بنكي (Bank Transfer)')),
-                          DropdownMenuItem(value: 'CHECK', child: Text('شيك مصرفي (Check)')),
-                          DropdownMenuItem(value: 'CASH', child: Text('نقدي من الخزينة (Cash)')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) setDlgState(() => paymentMethod = v);
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  CustomTextField(
-                    label: 'ملاحظات الصرف والغرض من العهدة',
-                    controller: notesController,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
-            AppButton(
-              label: 'صرف وقيد العهدة',
-              variant: AppButtonVariant.primary,
-              onPressed: () async {
-                final fid = int.tryParse(fileIdController.text.trim());
-                final bid = int.tryParse(brokerIdController.text.trim()) ?? 1;
-                final amt = double.tryParse(amountController.text.trim());
-                if (fid == null || amt == null || brokerNameController.text.trim().isEmpty) {
-                  AppTheme.snackBar(ctx, 'يرجى استيفاء الحقول الإلزامية ومبلغ العهدة', severity: AppSeverity.warning);
-                  return;
-                }
-                Navigator.of(ctx).pop();
-                try {
-                  final service = ref.read(brokerCustodyServiceProvider);
-                  await service.createAdvance(
-                    importFileId: fid,
-                    brokerId: bid,
-                    brokerName: brokerNameController.text.trim(),
-                    advanceAmount: amt,
-                    disbursementDate: dateController.text.trim(),
-                    paymentMethod: paymentMethod,
-                    notes: notesController.text.trim().isNotEmpty ? notesController.text.trim() : null,
-                  );
-                  if (!mounted) return;
-                  AppTheme.snackBar(context, 'تم صرف وقيد عهدة المخلص بنجاح', severity: AppSeverity.success);
-                  _loadData();
-                } catch (e) {
-                  if (!mounted) return;
-                  AppTheme.snackBar(context, 'فشل في قيد العهدة: $e', severity: AppSeverity.danger);
-                }
-              },
-            ),
-          ],
-        ),
+      builder: (ctx) => _NewBrokerCustodyAdvanceDialog(
+        initialImportFileId: widget.initialImportFileId,
+        onSubmit: ({
+          required int importFileId,
+          required int brokerId,
+          required String brokerName,
+          required double advanceAmount,
+          required String disbursementDate,
+          required String paymentMethod,
+          String? notes,
+        }) async {
+          final service = ref.read(brokerCustodyServiceProvider);
+          await service.createAdvance(
+            importFileId: importFileId,
+            brokerId: brokerId,
+            brokerName: brokerName,
+            advanceAmount: advanceAmount,
+            disbursementDate: disbursementDate,
+            paymentMethod: paymentMethod,
+            notes: notes,
+          );
+          if (!mounted) return;
+          AppTheme.snackBar(context, 'تم صرف وقيد عهدة المخلص بنجاح', severity: AppSeverity.success);
+          _loadData();
+        },
       ),
     );
   }
 
   void _showAddExpenseDialog(BrokerCustodyAdvanceModel advance) {
-    String category = 'OFFICIAL_DUTIES_TAXES';
-    final amountController = TextEditingController();
-    bool isEInvoice = false;
-    final uuidController = TextEditingController();
-    final refController = TextEditingController();
-    final notesController = TextEditingController();
-
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (dlgCtx, setDlgState) => AlertDialog(
-          title: Text('إضافة بند مصروف للعهدة — ${advance.advanceCode}'),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('بند وتصنيف المصروف:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<String>(
-                    initialValue: category,
-                    items: const [
-                      DropdownMenuItem(value: 'OFFICIAL_DUTIES_TAXES', child: Text('ضرائب ورسوم جمركية رسمية (معفية من الخصم)')),
-                      DropdownMenuItem(value: 'PORT_AUTHORITY_FEES', child: Text('رسوم وأرضيات هيئة الميناء')),
-                      DropdownMenuItem(value: 'LAB_TESTING_FEES', child: Text('رسوم فحص معملي وسحب عينات')),
-                      DropdownMenuItem(value: 'HANDLING_AND_PORTERAGE', child: Text('عتالة ومصروفات مناولة وتعتيق')),
-                      DropdownMenuItem(value: 'INSPECTION_TRANSPORT', child: Text('انتقالات لجان الكشف والمعاينة')),
-                      DropdownMenuItem(value: 'SUNDRY_PETTY_CASH', child: Text('نثريات ومصروفات متنوعة')),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setDlgState(() => category = v);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CustomTextField(
-                          label: 'المبلغ الإجمالي (ج.م EGP)',
-                          controller: amountController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: CustomTextField(
-                          label: 'رقم الإيصال أو المستند',
-                          controller: refController,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  CheckboxListTile(
-                    title: const Text('معتمد بفاتورة إلكترونية ضريبية رسمية', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
-                    value: isEInvoice,
-                    onChanged: (v) => setDlgState(() => isEInvoice = v ?? false),
-                  ),
-                  if (isEInvoice) ...[
-                    const SizedBox(height: 8),
-                    CustomTextField(
-                      label: 'الرقم التعريفي الموحد للفاتورة الإلكترونية (UUID)',
-                      controller: uuidController,
-                      hint: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(6)),
-                    child: const Text(
-                      'ملاحظة ضريبية: يتم تلقائياً خصم 1% ضريبة خصم وتحصيل (نموذج 41) على الأتعاب والمصروفات غير السيادية طبقاً للقانون المصري.',
-                      style: TextStyle(fontSize: 11, color: AppTheme.charcoal),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  CustomTextField(
-                    label: 'ملاحظات وتفاصيل إضافية',
-                    controller: notesController,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
-            AppButton(
-              label: 'حفظ واحتساب البند',
-              variant: AppButtonVariant.primary,
-              onPressed: () async {
-                final amt = double.tryParse(amountController.text.trim());
-                if (amt == null || amt <= 0) {
-                  AppTheme.snackBar(ctx, 'يرجى إدخال مبلغ صحيح', severity: AppSeverity.warning);
-                  return;
-                }
-                Navigator.of(ctx).pop();
-                try {
-                  final service = ref.read(brokerCustodyServiceProvider);
-                  await service.addExpenseItem(
-                    advance.advanceId,
-                    expenseCategory: category,
-                    amount: amt,
-                    isEInvoiceBacked: isEInvoice,
-                    eInvoiceUuid: uuidController.text.trim().isNotEmpty ? uuidController.text.trim() : null,
-                    receiptReference: refController.text.trim().isNotEmpty ? refController.text.trim() : null,
-                    notes: notesController.text.trim().isNotEmpty ? notesController.text.trim() : null,
-                  );
-                  if (!mounted) return;
-                  AppTheme.snackBar(context, 'تمت إضافة بند المصروف وحساب ضريبة الخصم 1% بنجاح', severity: AppSeverity.success);
-                  _loadData();
-                } catch (e) {
-                  if (!mounted) return;
-                  AppTheme.snackBar(context, 'فشل في حفظ المصروف: $e', severity: AppSeverity.danger);
-                }
-              },
-            ),
-          ],
-        ),
+      builder: (ctx) => _AddBrokerCustodyExpenseDialog(
+        advance: advance,
+        onSubmit: ({
+          required String expenseCategory,
+          required double amount,
+          required bool isEInvoiceBacked,
+          String? eInvoiceUuid,
+          String? receiptReference,
+          String? notes,
+        }) async {
+          final service = ref.read(brokerCustodyServiceProvider);
+          await service.addExpenseItem(
+            advance.advanceId,
+            expenseCategory: expenseCategory,
+            amount: amount,
+            isEInvoiceBacked: isEInvoiceBacked,
+            eInvoiceUuid: eInvoiceUuid,
+            receiptReference: receiptReference,
+            notes: notes,
+          );
+          if (!mounted) return;
+          AppTheme.snackBar(context, 'تمت إضافة بند المصروف وحساب ضريبة الخصم 1% بنجاح', severity: AppSeverity.success);
+          _loadData();
+        },
       ),
     );
   }
@@ -646,6 +446,337 @@ class _BrokerCustodySettlementDialogState extends ConsumerState<BrokerCustodySet
           ],
         ),
       ),
+    );
+  }
+}
+
+class _NewBrokerCustodyAdvanceDialog extends StatefulWidget {
+  final int? initialImportFileId;
+  final Future<void> Function({
+    required int importFileId,
+    required int brokerId,
+    required String brokerName,
+    required double advanceAmount,
+    required String disbursementDate,
+    required String paymentMethod,
+    String? notes,
+  }) onSubmit;
+
+  const _NewBrokerCustodyAdvanceDialog({
+    required this.initialImportFileId,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_NewBrokerCustodyAdvanceDialog> createState() => _NewBrokerCustodyAdvanceDialogState();
+}
+
+class _NewBrokerCustodyAdvanceDialogState extends State<_NewBrokerCustodyAdvanceDialog> {
+  late final TextEditingController _fileIdController;
+  late final TextEditingController _brokerIdController;
+  late final TextEditingController _brokerNameController;
+  late final TextEditingController _amountController;
+  late final TextEditingController _dateController;
+  late final TextEditingController _notesController;
+  String _paymentMethod = 'BANK_TRANSFER';
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fileIdController = TextEditingController(text: widget.initialImportFileId?.toString() ?? '');
+    _brokerIdController = TextEditingController(text: '1');
+    _brokerNameController = TextEditingController();
+    _amountController = TextEditingController();
+    _dateController = TextEditingController(text: DateTime.now().toIso8601String().split('T').first);
+    _notesController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _fileIdController.dispose();
+    _brokerIdController.dispose();
+    _brokerNameController.dispose();
+    _amountController.dispose();
+    _dateController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final fid = int.tryParse(_fileIdController.text.trim());
+    final bid = int.tryParse(_brokerIdController.text.trim()) ?? 1;
+    final amt = double.tryParse(_amountController.text.trim());
+    if (fid == null || amt == null || _brokerNameController.text.trim().isEmpty) {
+      AppTheme.snackBar(context, 'يرجى استيفاء الحقول الإلزامية ومبلغ العهدة', severity: AppSeverity.warning);
+      return;
+    }
+    setState(() => _isSubmitting = true);
+    Navigator.of(context).pop();
+    await widget.onSubmit(
+      importFileId: fid,
+      brokerId: bid,
+      brokerName: _brokerNameController.text.trim(),
+      advanceAmount: amt,
+      disbursementDate: _dateController.text.trim(),
+      paymentMethod: _paymentMethod,
+      notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.payments_outlined, color: AppTheme.cobalt),
+          SizedBox(width: 8),
+          Text('صرف عهدة مالية جديدة للمخلص الجمركي'),
+        ],
+      ),
+      content: SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomTextField(
+                      label: 'معرف الملف الاستيرادي (ID)',
+                      controller: _fileIdController,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: CustomTextField(
+                      label: 'معرف المخلص (Broker ID)',
+                      controller: _brokerIdController,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              CustomTextField(
+                label: 'اسم المخلص الجمركي / المكتب',
+                controller: _brokerNameController,
+                hint: 'مكتب الإسكندرية للخدمات الجمركية',
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomTextField(
+                      label: 'مبلغ العهدة المصروفة (ج.م EGP)',
+                      controller: _amountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: CustomTextField(
+                      label: 'تاريخ الصرف (YYYY-MM-DD)',
+                      controller: _dateController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('طريقة الصرف:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                    initialValue: _paymentMethod,
+                    items: const [
+                      DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('تحويل بنكي (Bank Transfer)')),
+                      DropdownMenuItem(value: 'CHECK', child: Text('شيك مصرفي (Check)')),
+                      DropdownMenuItem(value: 'CASH', child: Text('نقدي من الخزينة (Cash)')),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) setState(() => _paymentMethod = v);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              CustomTextField(
+                label: 'ملاحظات الصرف والغرض من العهدة',
+                controller: _notesController,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(), child: const Text('إلغاء')),
+        AppButton(
+          label: 'صرف وقيد العهدة',
+          variant: AppButtonVariant.primary,
+          isLoading: _isSubmitting,
+          onPressed: _isSubmitting ? null : _submit,
+        ),
+      ],
+    );
+  }
+}
+
+class _AddBrokerCustodyExpenseDialog extends StatefulWidget {
+  final BrokerCustodyAdvanceModel advance;
+  final Future<void> Function({
+    required String expenseCategory,
+    required double amount,
+    required bool isEInvoiceBacked,
+    String? eInvoiceUuid,
+    String? receiptReference,
+    String? notes,
+  }) onSubmit;
+
+  const _AddBrokerCustodyExpenseDialog({
+    required this.advance,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_AddBrokerCustodyExpenseDialog> createState() => _AddBrokerCustodyExpenseDialogState();
+}
+
+class _AddBrokerCustodyExpenseDialogState extends State<_AddBrokerCustodyExpenseDialog> {
+  String _category = 'OFFICIAL_DUTIES_TAXES';
+  late final TextEditingController _amountController;
+  bool _isEInvoice = false;
+  late final TextEditingController _uuidController;
+  late final TextEditingController _refController;
+  late final TextEditingController _notesController;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController();
+    _uuidController = TextEditingController();
+    _refController = TextEditingController();
+    _notesController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _uuidController.dispose();
+    _refController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final amt = double.tryParse(_amountController.text.trim());
+    if (amt == null || amt <= 0) {
+      AppTheme.snackBar(context, 'يرجى إدخال مبلغ صحيح', severity: AppSeverity.warning);
+      return;
+    }
+    setState(() => _isSubmitting = true);
+    Navigator.of(context).pop();
+    await widget.onSubmit(
+      expenseCategory: _category,
+      amount: amt,
+      isEInvoiceBacked: _isEInvoice,
+      eInvoiceUuid: _uuidController.text.trim().isNotEmpty ? _uuidController.text.trim() : null,
+      receiptReference: _refController.text.trim().isNotEmpty ? _refController.text.trim() : null,
+      notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('إضافة بند مصروف للعهدة — ${widget.advance.advanceCode}'),
+      content: SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('بند وتصنيف المصروف:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              const SizedBox(height: 4),
+              DropdownButtonFormField<String>(
+                initialValue: _category,
+                items: const [
+                  DropdownMenuItem(value: 'OFFICIAL_DUTIES_TAXES', child: Text('ضرائب ورسوم جمركية رسمية (معفية من الخصم)')),
+                  DropdownMenuItem(value: 'PORT_AUTHORITY_FEES', child: Text('رسوم وأرضيات هيئة الميناء')),
+                  DropdownMenuItem(value: 'LAB_TESTING_FEES', child: Text('رسوم فحص معملي وسحب عينات')),
+                  DropdownMenuItem(value: 'HANDLING_AND_PORTERAGE', child: Text('عتالة ومصروفات مناولة وتعتيق')),
+                  DropdownMenuItem(value: 'INSPECTION_TRANSPORT', child: Text('انتقالات لجان الكشف والمعاينة')),
+                  DropdownMenuItem(value: 'SUNDRY_PETTY_CASH', child: Text('نثريات ومصروفات متنوعة')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _category = v);
+                },
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomTextField(
+                      label: 'المبلغ الإجمالي (ج.م EGP)',
+                      controller: _amountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: CustomTextField(
+                      label: 'رقم الإيصال أو المستند',
+                      controller: _refController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              CheckboxListTile(
+                title: const Text('معتمد بفاتورة إلكترونية ضريبية رسمية', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                value: _isEInvoice,
+                onChanged: (v) => setState(() => _isEInvoice = v ?? false),
+              ),
+              if (_isEInvoice) ...[
+                const SizedBox(height: 8),
+                CustomTextField(
+                  label: 'الرقم التعريفي الموحد للفاتورة الإلكترونية (UUID)',
+                  controller: _uuidController,
+                  hint: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+                ),
+              ],
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(6)),
+                child: const Text(
+                  'ملاحظة ضريبية: يتم تلقائياً خصم 1% ضريبة خصم وتحصيل (نموذج 41) على الأتعاب والمصروفات غير السيادية طبقاً للقانون المصري.',
+                  style: TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                ),
+              ),
+              const SizedBox(height: 10),
+              CustomTextField(
+                label: 'ملاحظات وتفاصيل إضافية',
+                controller: _notesController,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(), child: const Text('إلغاء')),
+        AppButton(
+          label: 'حفظ واحتساب البند',
+          variant: AppButtonVariant.primary,
+          isLoading: _isSubmitting,
+          onPressed: _isSubmitting ? null : _submit,
+        ),
+      ],
     );
   }
 }

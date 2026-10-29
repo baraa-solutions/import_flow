@@ -3,6 +3,8 @@ import '../../../core/localization/domain_enum_labels.dart';
 import '../../projects/models/project_model.dart';
 import '../../purchase_orders/models/purchase_order_model.dart';
 import '../widgets/saved_cbm_registry_tab.dart';
+import '../widgets/container_comparison_dialog.dart';
+import '../widgets/save_cbm_calc_dialog.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,7 +21,6 @@ import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/cbm_calculator_model.dart';
 import '../providers/cbm_calculator_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
-import '../../../core/helpers/copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../../../core/localization/stored_text.dart';
 import '../../container_loader/widgets/container_loader_tab.dart';
@@ -78,9 +79,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       _lastFocusedItemIndex = idx + 1;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.cargoItemClonedSuccess),
-        backgroundColor: AppTheme.emerald,
+      AppTheme.snackBar(
+        context,
+        context.l10n.cargoItemClonedSuccess,
+        severity: AppSeverity.success,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -189,7 +191,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       );
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.newBlankSession)),
+      AppTheme.snackBar(
+        context,
+        context.l10n.newBlankSession,
+        severity: AppSeverity.info,
+      ),
     );
   }
 
@@ -252,16 +258,21 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     final ok = await ref.read(cbmCalculatorProvider.notifier).updateCalculation(_activeSessionId!, payload);
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${l.saveChangesInSession} [$_activeSessionCode]'),
-          backgroundColor: AppTheme.emerald,
+        AppTheme.snackBar(
+          context,
+          '${l.saveChangesInSession} [$_activeSessionCode]',
+          severity: AppSeverity.success,
         ),
       );
       ref.read(cbmCalculatorProvider.notifier).fetchCalculations();
     } else if (mounted) {
       final err = ref.read(cbmCalculatorProvider).errorText(l);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          err,
+          severity: AppSeverity.danger,
+        ),
       );
     }
   }
@@ -788,8 +799,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             color: isDark ? AppTheme.darkElevatedSurface : AppTheme.cloudWhite,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                          child: Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
                             children: [
                               ChoiceChip(
                                 label: Text(l.airFreightMode),
@@ -802,7 +814,6 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 ),
                                 onSelected: (_) => setState(() => _quickShipmentMode = 'air'),
                               ),
-                              const SizedBox(width: 4),
                               ChoiceChip(
                                 label: Text(l.seaFreightMode),
                                 selected: _quickShipmentMode == 'sea',
@@ -814,7 +825,6 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 ),
                                 onSelected: (_) => setState(() => _quickShipmentMode = 'sea'),
                               ),
-                              const SizedBox(width: 4),
                               ChoiceChip(
                                 label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'شحن بري (Road/LDM)' : 'Road Freight (LDM)'),
                                 selected: _quickShipmentMode == 'road',
@@ -1319,200 +1329,20 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   // ---------------------------------------------------------------------------
 
   void _showSaveCalcDialog(BuildContext context, List<CBMItemModel> items) {
-    final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final formKey = GlobalKey<FormState>();
-    final isEditing = _activeSessionId != null;
-    final titleCtrl = TextEditingController(text: isEditing ? (_activeSessionTitle ?? storedText.calculationSessionTitle) : storedText.calculationSessionTitle);
-    final notesCtrl = TextEditingController(text: isEditing ? (_activeSessionNotes ?? '') : '');
-    int? selectedImportFileId = isEditing ? _activeSessionImportFileId : null;
-    final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
-
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-          title: Row(
-            children: [
-              Icon(isEditing ? Icons.edit_document : Icons.save_outlined, color: isEditing ? AppTheme.wcagOrange : AppTheme.emerald),
-              const SizedBox(width: 8),
-              Text(
-                isEditing ? '${l.saveChangesInSession} [$_activeSessionCode]' : l.saveCalculationSession,
-                style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 520,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (isEditing)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.wcagOrange.withValues(alpha: 0.2) : AppTheme.orangeLight,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppTheme.wcagOrange),
-                      ),
-                      child: Text(
-                        l.activeEditSessionHint,
-                        style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.wcagOrange),
-                      ),
-                    ),
-                  SearchableDropdownField<int?>(
-                    value: selectedImportFileId,
-                    labelText: l.importFileIdLabel,
-                    searchHintText: l.importFileIdLabel,
-                    items: [
-                      SearchableDropdownItem<int?>(
-                        value: null,
-                        label: '-- ${l.allStatuses} --',
-                      ),
-                      ...importFiles.map((f) => SearchableDropdownItem<int?>(
-                            value: f.importFileId,
-                            label: '${f.primaryNameWithCode} - ${f.companyName}',
-                            subtitle: f.companyName,
-                          )),
-                    ],
-                    onChanged: (v) => setDialogState(() => selectedImportFileId = v),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: titleCtrl,
-                    decoration: InputDecoration(labelText: '${l.calculationSessionTitle} *'),
-                    validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: notesCtrl,
-                    maxLines: 2,
-                    decoration: InputDecoration(labelText: l.notesAndCargoRemarks),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            AppButton(
-              label: l.cancel,
-              variant: AppButtonVariant.secondary,
-              size: AppButtonSize.small,
-              onPressed: () => Navigator.pop(dialogCtx),
-            ),
-            if (isEditing) ...[
-              AppButton(
-                label: l.saveAsNewSession,
-                icon: Icons.copy,
-                variant: AppButtonVariant.primary,
-                onPressed: () async {
-                  if (formKey.currentState!.validate()) {
-                    final calc = CBMCalculationModel(
-                      calcCode: '',
-                      importFileId: selectedImportFileId,
-                      title: titleCtrl.text.trim(),
-                      notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                      isStackable: _isStackable,
-                      shipmentMode: _quickShipmentMode.toUpperCase(),
-                      items: items,
-                    );
-                    final ok = await ref.read(cbmCalculatorProvider.notifier).createCalculation(calc);
-                    if (ok && context.mounted) {
-                      Navigator.pop(dialogCtx);
-                      _clearActiveSession();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(l.operationSuccessful)),
-                      );
-                      _tabController.animateTo(1);
-                    } else if (context.mounted) {
-                      final err = ref.read(cbmCalculatorProvider).errorText(l);
-                      ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                        SnackBar(content: Text(err), backgroundColor: AppTheme.crimson),
-                      );
-                    }
-                  }
-                },
-              ),
-              const SizedBox(width: 6),
-              AppButton(
-                label: '${l.saveChangesInSession} [$_activeSessionCode]',
-                icon: Icons.check,
-                variant: AppButtonVariant.success,
-                onPressed: () async {
-                  if (formKey.currentState!.validate()) {
-                    final payload = {
-                      'title': titleCtrl.text.trim(),
-                      'import_file_id': selectedImportFileId,
-                      'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                      'is_stackable': _isStackable,
-                      'shipment_mode': _quickShipmentMode.toUpperCase(),
-                      'items': items.map((i) => i.toCreateJson()).toList(),
-                    };
-                    final ok = await ref.read(cbmCalculatorProvider.notifier).updateCalculation(_activeSessionId!, payload);
-                    if (ok && context.mounted) {
-                      Navigator.pop(dialogCtx);
-                      setState(() {
-                        _activeSessionTitle = titleCtrl.text.trim();
-                        _activeSessionNotes = notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim();
-                        _activeSessionImportFileId = selectedImportFileId;
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${l.saveChangesInSession} [$_activeSessionCode]'),
-                          backgroundColor: AppTheme.emerald,
-                        ),
-                      );
-                      _tabController.animateTo(1);
-                    } else if (context.mounted) {
-                      final err = ref.read(cbmCalculatorProvider).errorText(l);
-                      ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                        SnackBar(content: Text(err), backgroundColor: AppTheme.crimson),
-                      );
-                    }
-                  }
-                },
-              ),
-            ] else ...[
-              AppButton(
-                label: l.saveChanges,
-                icon: Icons.save,
-                variant: AppButtonVariant.success,
-                onPressed: () async {
-                  if (formKey.currentState!.validate()) {
-                    final calc = CBMCalculationModel(
-                      calcCode: '',
-                      importFileId: selectedImportFileId,
-                      title: titleCtrl.text.trim(),
-                      notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                      isStackable: _isStackable,
-                      shipmentMode: _quickShipmentMode.toUpperCase(),
-                      items: items,
-                    );
-                    final ok = await ref.read(cbmCalculatorProvider.notifier).createCalculation(calc);
-                    if (ok && context.mounted) {
-                      Navigator.pop(dialogCtx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(l.operationSuccessful)),
-                      );
-                      _tabController.animateTo(1);
-                    } else if (context.mounted) {
-                      final err = ref.read(cbmCalculatorProvider).errorText(l);
-                      ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                        SnackBar(content: Text(err), backgroundColor: AppTheme.crimson),
-                      );
-                    }
-                  }
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
+    SaveCbmCalcDialog.show(
+      context,
+      items: items,
+      isStackable: _isStackable,
+      quickShipmentMode: _quickShipmentMode,
+      activeSessionId: _activeSessionId,
+      activeSessionCode: _activeSessionCode,
+      activeSessionTitle: _activeSessionTitle,
+      activeSessionNotes: _activeSessionNotes,
+      activeSessionImportFileId: _activeSessionImportFileId,
+      onClearActiveSession: _clearActiveSession,
+      onSavedSuccess: () {
+        _tabController.animateTo(1);
+      },
     );
   }
 
@@ -1521,694 +1351,16 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   // ---------------------------------------------------------------------------
 
   void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
-    final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showDialog(
-      context: context,
-      builder: (context) {
-        return DefaultTabController(
-          length: 2,
-          child: AlertDialog(
-            backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-            title: Row(
-              children: [
-                const Icon(Icons.inventory_2, color: AppTheme.cobalt),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(l.containerOptionsAnalysis, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                      Text('${l.totalShipmentSummary}: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: 750,
-              height: 480,
-              child: Column(
-                children: [
-                  Container(
-                    color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
-                    child: TabBar(
-                      indicatorColor: AppTheme.cobalt,
-                      labelColor: AppTheme.white,
-                      unselectedLabelColor: Colors.white70,
-                      tabs: [
-                        Tab(icon: const Icon(Icons.layers), text: l.stackableOption),
-                        Tab(icon: const Icon(Icons.view_array), text: l.nonStackableOption),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildComparisonTable(context, dualRec.stackableResult),
-                        _buildComparisonTable(context, dualRec.nonStackableResult),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              AppButton(
-                label: l.close,
-                variant: AppButtonVariant.secondary,
-                size: AppButtonSize.small,
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        );
-      },
+    ContainerComparisonDialog.show(
+      context,
+      dualRec: dualRec,
+      totalCbm: totalCbm,
+      totalWeightKg: totalWeightKg,
     );
   }
-
-  Widget _buildComparisonTable(BuildContext context, ContainerRecommendationResult rec) {
-    final l = context.l10n;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: rec.isStackable ? AppTheme.emerald.withValues(alpha: 0.1) : AppTheme.orange.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: rec.isStackable ? AppTheme.emerald : AppTheme.wcagOrange),
-            ),
-            child: Text(
-              '${l.approvedRecommendation}: ${isArabic ? rec.recommendationSummary : rec.recommendationSummaryEn}',
-              style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : (isDark ? AppTheme.orange : AppTheme.wcagOrange)),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Table(
-            border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-            columnWidths: const {
-              0: FlexColumnWidth(2.0),
-              1: FlexColumnWidth(1.2),
-              2: FlexColumnWidth(1.5),
-              3: FlexColumnWidth(1.5),
-              4: FlexColumnWidth(1.5),
-            },
-            children: [
-              TableRow(
-                decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.08)),
-                children: [
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.containerSpecCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.requiredCountCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.spaceUtilizationCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.weightUtilizationCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.recommendationCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                ],
-              ),
-              ...rec.comparisonDetails.map((detail) {
-                final spec = detail['spec'] as ContainerSpec;
-                final int count = detail['reqCount'] as int;
-                final double volUtil = detail['spaceUtil'] as double;
-                final double weightUtil = detail['payloadUtil'] as double;
-                final isBest = spec.code == rec.recommendedContainerCode;
-                final rowSummary = '${spec.name} | $count x ${spec.code} | Vol: ${volUtil.toStringAsFixed(1)}% | Wt: ${weightUtil.toStringAsFixed(1)}%';
-
-                return TableRow(
-                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withValues(alpha: isDark ? 0.2 : 0.12)) : null,
-                  children: [
-                    CopyableTableCell(
-                      value: '${spec.name} (${spec.internalVolumeCbm} CBM | ${spec.maxPayloadKg} kg)',
-                      rowSummary: rowSummary,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                            Text('${l.totalCbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | Max: ${spec.maxPayloadKg} kg', style: TextStyle(fontSize: 10, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    CopyableTableCell(
-                      value: '$count x ${spec.code}',
-                      rowSummary: rowSummary,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text('$count x ${spec.code}', style: TextStyle(fontWeight: FontWeight.bold, color: isBest ? AppTheme.emerald : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal))),
-                      ),
-                    ),
-                    CopyableTableCell(
-                      value: '${volUtil.toStringAsFixed(1)}%',
-                      rowSummary: rowSummary,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text('${volUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: volUtil > 90 ? AppTheme.emerald : AppTheme.orange)),
-                      ),
-                    ),
-                    CopyableTableCell(
-                      value: '${weightUtil.toStringAsFixed(1)}%',
-                      rowSummary: rowSummary,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text('${weightUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: weightUtil > 90 ? AppTheme.emerald : AppTheme.orange)),
-                      ),
-                    ),
-                    CopyableTableCell(
-                      value: isBest ? l.bestOptionBadge : l.viableAlternative,
-                      rowSummary: rowSummary,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: isBest
-                            ? Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(4)),
-                                child: Text(l.bestOptionBadge, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 10)),
-                              )
-                            : Text(l.viableAlternative, style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-                      ),
-                    ),
-                  ],
-                );
-              }),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
 
   void _showVisualLoadPlanDialog(BuildContext context, List<CBMItemModel> quickItems) {
-    // 1. Convert CBMItemModel list to CargoItem list with individual stackability
-    final List<CargoItem> cargoItems = [];
-    int itemCounter = 1;
-
-    for (final item in quickItems) {
-      for (int q = 0; q < item.quantity; q++) {
-        // Convert dimension to cm based on the unit
-        double lCm = item.length;
-        double wCm = item.width;
-        double hCm = item.height;
-        if (item.unit == 'mm') {
-          lCm /= 10;
-          wCm /= 10;
-          hCm /= 10;
-        } else if (item.unit == 'm') {
-          lCm *= 100;
-          wCm *= 100;
-          hCm *= 100;
-        }
-
-        // Convert weight to kg based on unit
-        final double weightKg = item.grossWeightPerUnitKg;
-
-        cargoItems.add(CargoItem(
-          itemId: '$itemCounter',
-          length: lCm,
-          width: wCm,
-          height: hCm,
-          weight: weightKg,
-          rotate: true,
-          isStackable: item.isStackable,
-          packageType: item.packageType,
-        ));
-        itemCounter++;
-      }
-    }
-
-    final l = context.l10n;
-    if (cargoItems.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(l.cbmCalculatorTitle),
-          content: Text(l.noDataFound),
-          actions: [
-            AppButton(
-              label: l.ok,
-              variant: AppButtonVariant.secondary,
-              size: AppButtonSize.small,
-              onPressed: () => Navigator.pop(ctx),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
-    // Default active view mode: null = Actual/Mixed, true = All Stackable, false = All Non-Stackable
-    bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
-    CargoOrientationPreference activeOrientationMode = CargoOrientationPreference.smartHybrid;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            // Compute plan dynamically based on the selected mode & orientation preference
-            final plan = ContainerRequirementEngine.planShipment(
-              cargoItems,
-              forceStackable: activeStackingMode,
-              forceOrientation: activeOrientationMode,
-            );
-
-            // Compute summary metrics for active plan
-            final totalPkgs = cargoItems.length;
-            final stackableInActive = activeStackingMode == true
-                ? totalPkgs
-                : (activeStackingMode == false ? 0 : cargoItems.where((c) => c.isStackable).length);
-            final nonStackableInActive = totalPkgs - stackableInActive;
-
-            final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
-            final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
-
-            // Determine container fleet text (e.g. 1 x 40HC or 1 x 40HC + 1 x 40GP)
-            final Map<String, int> containerCounts = {};
-            for (final p in plan) {
-              if (p.containerCode != 'FAILED') {
-                containerCounts[p.containerCode] = (containerCounts[p.containerCode] ?? 0) + 1;
-              }
-            }
-            final fleetSummaryText = containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
-
-            final isDark = Theme.of(context).brightness == Brightness.dark;
-            return AlertDialog(
-              backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-              title: Row(
-                children: [
-                  const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      l.visualLoadPlanSimulator,
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.cobalt),
-                    ),
-                    child: Text(
-                      '${l.requiredFleet}: $fleetSummaryText (${plan.length})',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                    ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: math.min(1050.0, MediaQuery.of(context).size.width * 0.95),
-                height: math.min(680.0, MediaQuery.of(context).size.height * 0.85),
-                child: Column(
-                  children: [
-                    // 1. Scenario & Orientation Mode Switcher
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-                      ),
-                      child: Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 12,
-                        runSpacing: 8,
-                        children: [
-                          Text(
-                            l.chooseStackingScenario,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                          ),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: [
-                              ChoiceChip(
-                                label: Text(l.smartHybridOption),
-                                selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false,
-                                selectedColor: AppTheme.emerald,
-                                labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) {
-                                    setDialogState(() {
-                                      activeOrientationMode = CargoOrientationPreference.smartHybrid;
-                                      activeStackingMode = true;
-                                    });
-                                  }
-                                },
-                              ),
-                              ChoiceChip(
-                                label: Text(l.flatOnlyOption),
-                                selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false,
-                                selectedColor: AppTheme.wcagCobalt,
-                                labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) {
-                                    setDialogState(() {
-                                      activeOrientationMode = CargoOrientationPreference.flatOnly;
-                                      activeStackingMode = true;
-                                    });
-                                  }
-                                },
-                              ),
-                              ChoiceChip(
-                                label: Text(l.allNonStackableOption),
-                                selected: activeStackingMode == false,
-                                selectedColor: AppTheme.wcagOrange,
-                                labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) {
-                                    setDialogState(() {
-                                      activeStackingMode = false;
-                                    });
-                                  }
-                                },
-                              ),
-                              ChoiceChip(
-                                label: Text(l.mixedStackingOption),
-                                selected: activeStackingMode == null,
-                                selectedColor: AppTheme.cobalt,
-                                labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) setDialogState(() => activeStackingMode = null);
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // 2. Metrics Strip
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              _buildMetricPill(l.qtyCol, '$totalPkgs', AppTheme.cobalt),
-                              const SizedBox(width: 8),
-                              _buildMetricPill(l.grossWeightMetric, '${totalPlanWeight.toStringAsFixed(0)} kg', isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                              const SizedBox(width: 8),
-                              _buildMetricPill(l.totalCbmVolumeMetric, '${totalPlanVolume.toStringAsFixed(3)} m³', AppTheme.wcagOrange),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              _buildMetricPill(l.stackableOption, '$stackableInActive', AppTheme.wcagEmerald),
-                              const SizedBox(width: 8),
-                              _buildMetricPill(l.nonStackableOption, '$nonStackableInActive', AppTheme.crimson),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // 2. Table summary of container loads
-                    Table(
-                      border: TableBorder.all(color: AppTheme.cloudWhite),
-                      columnWidths: const {
-                        0: FlexColumnWidth(1.2),
-                        1: FlexColumnWidth(1.8),
-                        2: FlexColumnWidth(1.2),
-                        3: FlexColumnWidth(1.2),
-                        4: FlexColumnWidth(2.4),
-                      },
-                      children: [
-                        TableRow(
-                          decoration: BoxDecoration(color: AppTheme.charcoal.withValues(alpha: 0.08)),
-                          children: [
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerSpecCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.packageTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.grossWeightMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.cargoStackingInstructions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          ],
-                        ),
-                        ...plan.asMap().entries.map((entry) {
-                          final idx = entry.key + 1;
-                          final res = entry.value;
-                          final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
-                          final totalPlacedCount = res.placedItems.length;
-
-                          final double volSpaceUtil = res.spec.internalVolumeCbm > 0 ? (res.totalVolume / res.spec.internalVolumeCbm) * 100 : 0.0;
-                          final double floorAreaM2 = res.placedItems.fold(0.0, (s, p) => s + p.item.floorAreaM2);
-                          final double specFloorAreaM2 = (res.spec.internalLength * res.spec.internalWidth) / 10000;
-                          final double floorUtil = specFloorAreaM2 > 0 ? (floorAreaM2 / specFloorAreaM2) * 100 : 0.0;
-
-                          final bool hasNonStackable = res.placedItems.any((p) => !p.item.isStackable);
-                          final double displaySpaceUtil = hasNonStackable ? math.max(volSpaceUtil, floorUtil) : volSpaceUtil;
-
-                          String statusText = '';
-                          if (res.containerCode == 'FAILED' || !res.fits) {
-                            statusText = res.failureReason ?? l.operationFailed;
-                          } else {
-                            final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
-                            if (nonStackInThis > 0) {
-                              statusText = '${l.nonStackableOption} ($nonStackInThis) - ${floorUtil.toStringAsFixed(1)}%';
-                            } else {
-                              statusText = '${l.stackableOption} ($totalPlacedCount)';
-                            }
-                          }
-
-                          final containerLabel = res.containerCode == 'FAILED' ? l.operationFailed : '$idx: ${res.spec.code}';
-                          final pkgsLabel = placedIds.isEmpty ? '-' : '$placedIds ($totalPlacedCount)';
-                          final wtLabel = res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg';
-                          final rowSummary = '$containerLabel | $pkgsLabel | $wtLabel | ${displaySpaceUtil.toStringAsFixed(1)}% | $statusText';
-
-                          return TableRow(
-                            children: [
-                              CopyableTableCell(
-                                value: containerLabel,
-                                rowSummary: rowSummary,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(6.0),
-                                  child: Text(
-                                    containerLabel,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
-                                  ),
-                                ),
-                              ),
-                              CopyableTableCell(
-                                value: pkgsLabel,
-                                rowSummary: rowSummary,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(6.0),
-                                  child: Text(pkgsLabel, style: const TextStyle(fontSize: 11)),
-                                ),
-                              ),
-                              CopyableTableCell(
-                                value: wtLabel,
-                                rowSummary: rowSummary,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(6.0),
-                                  child: Text(wtLabel, style: const TextStyle(fontSize: 11)),
-                                ),
-                              ),
-                              CopyableTableCell(
-                                value: '${displaySpaceUtil.toStringAsFixed(1)}%',
-                                rowSummary: rowSummary,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(6.0),
-                                  child: Text(
-                                    '${displaySpaceUtil.toStringAsFixed(1)}%',
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange),
-                                  ),
-                                ),
-                              ),
-                              CopyableTableCell(
-                                value: statusText,
-                                rowSummary: rowSummary,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(6.0),
-                                  child: Text(
-                                    statusText,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: statusText.contains(l.operationFailed)
-                                          ? AppTheme.crimson
-                                          : AppTheme.wcagEmerald,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    // 3. Tab view or list for visual container layout drawings
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: plan.length,
-                        itemBuilder: (ctx, pIdx) {
-                          final res = plan[pIdx];
-                          if (res.containerCode == 'FAILED') {
-                            return Container(
-                              padding: const EdgeInsets.all(16),
-                              margin: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: AppTheme.crimsonLight, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.crimsonBorder)),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.error_outline_rounded, color: AppTheme.crimson, size: 28),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          res.failureReason ?? 'FAILED',
-                                          style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
-                                        ),
-                                        if (res.unplacedItems.isNotEmpty) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '# ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
-                                            style: const TextStyle(color: AppTheme.crimson, fontSize: 11),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            elevation: 3,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        '${l.containerPlanTitle} #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
-                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                      ),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4)),
-                                            child: Text('${l.internalDimensions}: ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-
-                                  // Side View (Left Wall Removed) - Matches the Reference Image!
-                                  Container(
-                                    height: 190,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.charcoal,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: CustomPaint(
-                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
-                                      child: Container(),
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 10),
-
-                                  // Top View (Roof Removed)
-                                  Container(
-                                    height: 140,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.charcoal,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: CustomPaint(
-                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
-                                      child: Container(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                AppButton(
-                  label: l.closePlan,
-                  icon: Icons.close,
-                  variant: AppButtonVariant.secondary,
-                  size: AppButtonSize.small,
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  static Widget _buildMetricPill(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 4),
-          Text(value, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
+    CargoLoadPlannerDialog.showFromCbmItems(context, items: quickItems);
   }
 
   Widget _buildSavedRegistryTab(
@@ -2226,7 +1378,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   Future<void> _exportQuickItemsToExcel(BuildContext context) async {
     if (_quickItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cbmNoPackageLinesToExport), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          context.l10n.cbmNoPackageLinesToExport,
+          severity: AppSeverity.danger,
+        ),
       );
       return;
     }
@@ -2282,7 +1438,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   Future<void> _exportQuickItemsToPdf(BuildContext context) async {
     if (_quickItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cbmNoPackageLinesToExport), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          context.l10n.cbmNoPackageLinesToExport,
+          severity: AppSeverity.danger,
+        ),
       );
       return;
     }
@@ -2337,7 +1497,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   void _copyQuickItemsAsTsv(BuildContext context) {
     if (_quickItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cbmNoPackageLinesToCopy), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          context.l10n.cbmNoPackageLinesToCopy,
+          severity: AppSeverity.danger,
+        ),
       );
       return;
     }
@@ -2395,7 +1559,6 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     double totalGrossWt = 0.0;
     double totalVolumetricWt = 0.0;
     double totalFloorAreaM2 = 0.0;
-    double totalFloorAreaM2 = 0.0;
     int totalPackagesCount = 0;
 
     for (var item in _quickItems) {
@@ -2432,22 +1595,22 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
     final buffer = StringBuffer();
     if (isArabic) {
-      buffer.writeln('### تقرير دراسة قياسات وحسابات الشحن (Freight & CBM Study)');
+      buffer.writeln('### تقرير دراسة قياسات وحسابات الشحن');
       buffer.writeln('---');
-      buffer.writeln('#### 1. ملخص القياسات والأوزان (Summary Metrics):');
+      buffer.writeln('#### 1. ملخص القياسات والأوزان:');
       buffer.writeln('* **إجمالي الطرود:** $totalPackagesCount طرد (${_quickItems.length} بنود)');
-      buffer.writeln('* **المساحة الأرضية المشغولة:** ${totalFloorAreaM2.toStringAsFixed(2)} م² (Floor Footprint)');
-      buffer.writeln('* **الحجم الفعلي الصافي:** ${totalCbm.toStringAsFixed(4)} م³ (Physical CBM)');
+      buffer.writeln('* **المساحة الأرضية المشغولة:** ${totalFloorAreaM2.toStringAsFixed(2)} م²');
+      buffer.writeln('* **الحجم الفعلي الصافي:** ${totalCbm.toStringAsFixed(4)} م³');
       buffer.writeln('* **إجمالي الوزن القائم:** ${totalGrossWt.toStringAsFixed(1)} كجم (${(totalGrossWt / 1000.0).toStringAsFixed(3)} طن متري)');
-      buffer.writeln('* **قابلية الرص:** ${_isStackable ? "قابل للرص (Stackable)" : "غير قابل للرص أرضي فقط (Non-Stackable)"}');
+      buffer.writeln('* **قابلية الرص:** ${_isStackable ? "قابل للرص" : "غير قابل للرص أرضي فقط"}');
       buffer.writeln('');
       buffer.writeln('#### 2. الحسابات المحاسبية حسب وسيلة الشحن:');
-      buffer.writeln('* **الشحن البحري LCL (طن الإيراد W/M):** ${totalRevenueTon.toStringAsFixed(3)} RT');
+      buffer.writeln('* **الشحن البحري LCL (طن الإيراد):** ${totalRevenueTon.toStringAsFixed(3)} RT');
       if (!_isStackable) {
-        buffer.writeln('* **الحجم المحاسبي البحري (Loss of Height @ 2.20m):** ${totalChargeableCbm.toStringAsFixed(3)} م³ (فرق فراغ رأسي: +${(totalChargeableCbm - totalCbm).toStringAsFixed(3)} م³)');
+        buffer.writeln('* **الحجم المحاسبي البحري (فاقد الارتفاع):** ${totalChargeableCbm.toStringAsFixed(3)} م³ (فرق فراغ رأسي: +${(totalChargeableCbm - totalCbm).toStringAsFixed(3)} م³)');
       }
-      buffer.writeln('* **الشحن الجوي (Air Chargeable Weight):** ${airChargeableWt.toStringAsFixed(1)} كجم (الوزن الحجمي: ${totalVolumetricWt.toStringAsFixed(1)} كجم)');
-      buffer.writeln('* **الشحن البري (Loading Meters - LDM):** ${totalLdm.toStringAsFixed(2)} LDM (من أصل 13.6 LDM للتريلا القياسية)');
+      buffer.writeln('* **الشحن الجوي (الوزن المحاسبي الخاضع للرسوم):** ${airChargeableWt.toStringAsFixed(1)} كجم (الوزن الحجمي: ${totalVolumetricWt.toStringAsFixed(1)} كجم)');
+      buffer.writeln('* **الشحن البري (أمتار التحميل):** ${totalLdm.toStringAsFixed(2)} LDM (من أصل 13.6 LDM للتريلا القياسية)');
       buffer.writeln('');
       buffer.writeln('#### 3. التوصية التشغيلية للمعدات والحاويات:');
       buffer.writeln('* **الوسيلة المقترحة:** ${dualRec.modeRecommendation.recommendedModeAr}');
@@ -2475,13 +1638,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       buffer.writeln('* **Container Spec:** ${containerRec.recommendationSummaryEn}');
     }
 
-    CopyHelper.copy(context, buffer.toString()); (
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isArabic ? 'تم نسخ التقرير الفني للشحنة بنجاح' : 'Freight study summary copied to clipboard'),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
-    );
+    CopyHelper.copy(context, buffer.toString());
+    AppTheme.snackBar(context, isArabic ? 'تم نسخ التقرير الفني للشحنة بنجاح' : 'Freight study summary copied to clipboard', severity: AppSeverity.success);
   }
 }

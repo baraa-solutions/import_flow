@@ -112,9 +112,11 @@ class _DraftCOOReviewScreenState extends ConsumerState<DraftCOOReviewScreen> {
               onPressed: _refreshData,
             ),
           ],
-          body: COOReviewTab(
+          body: SelectionArea(
+            child: COOReviewTab(
             key: _tabKey,
             initialImportFileId: _selectedImportFileId,
+            ),
           ),
         ),
       ),

@@ -1,6 +1,6 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../services/coo_export_service.dart';
@@ -21,7 +21,7 @@ String cooExportBlockedMessage(AppLocalizations l10n, String field) {
 bool showCooExportBlockedIfAny(BuildContext context, String? field) {
   if (field == null) return false;
   ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(cooExportBlockedMessage(context.l10n, field)), backgroundColor: AppTheme.crimson),
+    AppTheme.snackBar(context, cooExportBlockedMessage(context.l10n, field), severity: AppSeverity.danger),
   );
   return true;
 }
@@ -335,11 +335,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                     );
                     if (path != null && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(context.l10n.cooExcelSavedSuccess(path)),
-                          backgroundColor: AppTheme.emerald,
-                          duration: const Duration(seconds: 4),
-                        ),
+                        AppTheme.snackBar(context, context.l10n.cooExcelSavedSuccess(path), severity: AppSeverity.success),
                       );
                     } else {
                       // Fallback copy to clipboard if cancelled or web

@@ -1,11 +1,9 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/adaptive_tab_scaffold.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
 
@@ -815,7 +813,7 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
       future: ref.read(customsTariffProvider.notifier).fetchTariffHistory(tariff.hsCode),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppTheme.cobalt));
+          return const AppLoadingState.section();
         }
 
         final data = snapshot.data;
@@ -1368,20 +1366,14 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
       future: ref.read(customsTariffProvider.notifier).fetchAgreements(tariff.hsCode),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppTheme.cobalt));
+          return const AppLoadingState.section();
         }
 
         final agreements = snapshot.data ?? [];
         if (agreements.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.policy_outlined, size: 40, color: Colors.grey.shade400),
-                const SizedBox(height: 8),
-                Text(l.hsNoAgreementsFound),
-              ],
-            ),
+          return AppEmptyState(
+            icon: Icons.policy_outlined,
+            message: l.hsNoAgreementsFound,
           );
         }
 
@@ -1665,19 +1657,12 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                ),
-                icon: _isCalculating
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.calculate, size: 18),
-                label: Text(l.hsCalculateDutyBtn),
-                onPressed: _isCalculating ? null : () => _calculateDuty(tariff),
+              AppButton(
+                label: l.hsCalculateDutyBtn,
+                icon: Icons.calculate,
+                isLoading: _isCalculating,
+                variant: AppButtonVariant.primary,
+                onPressed: () => _calculateDuty(tariff),
               ),
             ],
           ),

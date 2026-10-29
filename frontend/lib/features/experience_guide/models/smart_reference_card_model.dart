@@ -1,4 +1,5 @@
 import 'guide_entry_model.dart';
+import '../../comprehensive_report/models/comprehensive_dossier_model.dart';
 
 class SmartReferenceCardModel {
   final int importFileId;
@@ -35,6 +36,97 @@ class SmartReferenceCardModel {
       documentStatus: (json['document_status'] as Map<String, dynamic>?) ?? {},
       matchedGuideEntries: rawEntries.map((e) => GuideEntryModel.fromJson(e as Map<String, dynamic>)).toList(),
       costSummary: (json['cost_summary'] as Map<String, dynamic>?) ?? {},
+    );
+  }
+
+  factory SmartReferenceCardModel.fromDossier(ComprehensiveShipmentDossierModel dossier) {
+    final carrier = (dossier.smartReferenceCard?['route_summary']?['shipping_line'] as String?) ??
+        (dossier.containers.isNotEmpty ? (dossier.containers.first['carrier_name']?.toString() ?? '') : '');
+    final isReady = dossier.closureReadiness['is_ready_for_closure'] ?? (dossier.progressPercent >= 100.0);
+
+    if (dossier.smartReferenceCard != null && dossier.smartReferenceCard!.isNotEmpty) {
+      final base = SmartReferenceCardModel.fromJson(dossier.smartReferenceCard!);
+      return SmartReferenceCardModel(
+        importFileId: base.importFileId != 0 ? base.importFileId : dossier.importFileId,
+        importFileCode: base.importFileCode.isNotEmpty ? base.importFileCode : dossier.importFileCode,
+        customFileNumber: base.customFileNumber ?? dossier.customFileNumber,
+        productSummary: {
+          ...base.productSummary,
+          if (!base.productSummary.containsKey('total_cbm') || base.totalCbm == 0)
+            'total_cbm': dossier.totalCbm,
+          if (!base.productSummary.containsKey('total_gross_weight_kg') || base.totalGrossWeightKg == 0)
+            'total_gross_weight_kg': dossier.grossWeightKg,
+          if (!base.productSummary.containsKey('total_net_weight_kg') || base.totalNetWeightKg == 0)
+            'total_net_weight_kg': dossier.netWeightKg ?? 0.0,
+          if (!base.productSummary.containsKey('packages_count') || base.packagesCount == 0)
+            'packages_count': dossier.totalPackages,
+        },
+        routeSummary: {
+          ...base.routeSummary,
+          if (base.originPort == 'غير محدد' && dossier.portOfLoading != null)
+            'origin_port': dossier.portOfLoading,
+          if (dossier.portOfDischarge != null)
+            'destination_port': dossier.portOfDischarge,
+          if (base.carrier.isEmpty && carrier.isNotEmpty)
+            'shipping_line': carrier,
+        },
+        criticalDates: {
+          ...base.criticalDates,
+          if (!base.criticalDates.containsKey('target_free_days'))
+            'target_free_days': dossier.targetFreeDays,
+        },
+        documentStatus: {
+          ...base.documentStatus,
+          if (dossier.acidNumber != null) 'acid_number': dossier.acidNumber,
+          if (dossier.form4No != null) 'form4_no': dossier.form4No,
+        },
+        matchedGuideEntries: base.matchedGuideEntries,
+        costSummary: {
+          ...base.costSummary,
+          if (dossier.actualLandedCostTotalEgp > 0)
+            'actual_invoiced_cost': dossier.actualLandedCostTotalEgp,
+          if (dossier.actualLandedCostVarianceEgp != 0)
+            'variance_amount': dossier.actualLandedCostVarianceEgp,
+          if (dossier.actualLandedCostVariancePct != 0)
+            'variance_percentage': dossier.actualLandedCostVariancePct,
+        },
+      );
+    }
+    return SmartReferenceCardModel(
+      importFileId: dossier.importFileId,
+      importFileCode: dossier.importFileCode,
+      customFileNumber: dossier.customFileNumber,
+      productSummary: {
+        'hs_code': '',
+        'product_category': dossier.commodity ?? '',
+        'total_cbm': dossier.totalCbm,
+        'total_gross_weight_kg': dossier.grossWeightKg,
+        'total_net_weight_kg': dossier.netWeightKg ?? 0.0,
+        'packages_count': dossier.totalPackages,
+      },
+      routeSummary: {
+        'origin_port': dossier.portOfLoading ?? 'Shanghai Port',
+        'destination_port': dossier.portOfDischarge ?? 'ميناء الإسكندرية / الدخيلة',
+        'shipping_line': carrier,
+        'incoterm_code': dossier.incotermCode,
+        'shipment_mode': dossier.shipmentMode,
+      },
+      criticalDates: {
+        'target_free_days': dossier.targetFreeDays,
+        'free_time_status': '${dossier.targetFreeDays} يوماً فترة سماح للحاويات',
+      },
+      documentStatus: {
+        'is_complete': isReady,
+        'acid_number': dossier.acidNumber,
+        'form4_no': dossier.form4No,
+      },
+      matchedGuideEntries: const [],
+      costSummary: {
+        'actual_invoiced_cost': dossier.actualLandedCostTotalEgp,
+        'variance_amount': dossier.actualLandedCostVarianceEgp,
+        'variance_percentage': dossier.actualLandedCostVariancePct,
+        'currency': 'EGP',
+      },
     );
   }
 

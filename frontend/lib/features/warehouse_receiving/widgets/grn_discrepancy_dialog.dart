@@ -72,6 +72,7 @@ class _GrnDiscrepancyReportDialogState
       nav.pop();
       messenger.showSnackBar(successBar);
     } catch (e) {
+      if (!mounted) return;
       messenger.showSnackBar(AppTheme.snackBar(
           context, ApiErrorText.of(l10n, e),
           severity: AppSeverity.danger));

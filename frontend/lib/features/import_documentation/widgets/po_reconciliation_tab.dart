@@ -1,3 +1,4 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -13,10 +14,8 @@ import '../../../core/localization/stored_text.dart';
 import '../../../core/localization/system_messages/coded_item_text.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/display_name_resolver.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -25,14 +24,10 @@ import '../models/po_reconciliation_session_model.dart';
 import '../providers/import_documentation_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
 import 'search_and_clone_po_reconciliation_dialog.dart';
 import '../utils/po_reconciliation_payload_builder.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 import '../../purchase_orders/utils/po_packing_matcher.dart';
-import '../../../core/widgets/table_row_clone_helper.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/metric_card.dart';
 import 'idoc_ui.dart';
 import '../../purchase_orders/models/purchase_order_model.dart' as po_models;
 
@@ -250,11 +245,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       _packingFileBytes = null;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.poRecSampleLoadedSuccess),
-        backgroundColor: AppTheme.textSecondaryOf(context),
-        duration: const Duration(seconds: 2),
-      ),
+      AppTheme.snackBar(context, context.l10n.poRecSampleLoadedSuccess),
     );
   }
 
@@ -289,19 +280,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l.poRecFileSelected(file.name, (file.size / 1024).toStringAsFixed(1))),
-              backgroundColor: AppTheme.cobalt,
-              duration: const Duration(seconds: 2),
-            ),
+            AppTheme.snackBar(context, l.poRecFileSelected(file.name, (file.size / 1024).toStringAsFixed(1))),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.poRecFilePickFailed(e.toString())), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.poRecFilePickFailed(e.toString()), severity: AppSeverity.info));
       }
     }
   }
@@ -490,11 +475,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l.poRecServerSuccessNotice),
-              backgroundColor: AppTheme.emerald,
-              duration: const Duration(seconds: 3),
-            ),
+            AppTheme.snackBar(context, l.poRecServerSuccessNotice, severity: AppSeverity.success),
           );
         }
       }
@@ -507,11 +488,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l.poRecFallbackSuccessNotice),
-            backgroundColor: AppTheme.emerald,
-            duration: const Duration(seconds: 3),
-          ),
+          AppTheme.snackBar(context, l.poRecFallbackSuccessNotice, severity: AppSeverity.success),
         );
       }
     } finally {
@@ -886,12 +863,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       }
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.poRecApplyExtractedSuccess),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.poRecApplyExtractedSuccess, severity: AppSeverity.info));
   }
 
   @override
@@ -1003,9 +975,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final l = context.l10n;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.poRecSaveSessionSelectFileWarning), backgroundColor: AppTheme.crimson),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.poRecSaveSessionSelectFileWarning, severity: AppSeverity.info));
       return;
     }
 
@@ -1130,9 +1100,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.poRecSaveSessionError(ApiErrorText.of(l, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.poRecSaveSessionError(ApiErrorText.of(l, e)), severity: AppSeverity.info));
       }
     } finally {
       if (mounted) setState(() => _isSavingSession = false);
@@ -1181,9 +1149,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.poRecSaveSessionError(ApiErrorText.of(l, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.poRecSaveSessionError(ApiErrorText.of(l, e)), severity: AppSeverity.info));
       }
     } finally {
       if (mounted) setState(() => _isSavingSession = false);
@@ -1194,9 +1160,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final l = context.l10n;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.poRecSelectFileRequired), backgroundColor: AppTheme.crimson),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.poRecSelectFileRequired, severity: AppSeverity.info));
       return;
     }
 
@@ -1270,18 +1234,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               .join(' | ');
           successMsg = '$successMsg ($curBreakdown)';
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(successMsg),
-            backgroundColor: AppTheme.emerald,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, successMsg, severity: AppSeverity.info));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.poRecCertificationError(ApiErrorText.of(l, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.poRecCertificationError(ApiErrorText.of(l, e)), severity: AppSeverity.info));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -1586,12 +1543,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       );
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l.poRecSessionLoadedInEditor(session.sessionCode)),
-        backgroundColor: AppTheme.cobalt,
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.poRecSessionLoadedInEditor(session.sessionCode), severity: AppSeverity.info));
   }
 
   void openSearchAndCloneDialog() {
@@ -1694,12 +1646,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       );
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l.clonePoReconSuccess),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.clonePoReconSuccess, severity: AppSeverity.info));
   }
 
   void _cloneInvoiceItem(POReconciliationItemModel item) {
@@ -1716,11 +1663,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       }
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.idocAItemClonedSuccessfully(item.itemCode)),
-        backgroundColor: AppTheme.emerald,
-        duration: const Duration(seconds: 2),
-      ),
+      AppTheme.snackBar(context, context.l10n.idocAItemClonedSuccessfully(item.itemCode), severity: AppSeverity.success),
     );
   }
 
@@ -1738,11 +1681,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       }
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.idocAPackageClonedSuccessfully(item.itemCode)),
-        backgroundColor: AppTheme.emerald,
-        duration: const Duration(seconds: 2),
-      ),
+      AppTheme.snackBar(context, context.l10n.idocAPackageClonedSuccessfully(item.itemCode), severity: AppSeverity.success),
     );
   }
 
@@ -2972,7 +2911,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     bool isDark,
   ) {
     final l = context.l10n;
-    final density = ref.watch(displayDensityProvider);
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     // Apply filters
     var filtered = allSessions.where((s) {
@@ -3245,260 +3183,236 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   ),
                 ),
               )
-            : Card(
-                elevation: 2,
-                color: AppTheme.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(color: AppTheme.borderOf(context)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      dataRowMinHeight: density.tableRowHeight - 4,
-                      dataRowMaxHeight: density.tableRowHeight + 6,
-                      headingRowHeight: density.tableHeadingHeight,
-                      columnSpacing: density.byDensity<double>(18, 14, 10),
-                      horizontalMargin: density.byDensity<double>(16, 12, 8),
-                      headingRowColor: WidgetStateProperty.all(isDark ? AppTheme.white.withValues(alpha: 0.06) : AppTheme.charcoal.withValues(alpha: 0.04)),
-                      columns: [
-                        DataColumn(label: Text(l.poRecHistoryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(l.poRecHistoryColIndex, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(l.poRecHistoryColSessionCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(l.poRecHistoryColImportFileImporter, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(l.poRecHistoryColInvoicePacking, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(l.poRecHistoryColTotalValue, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(l.poRecHistoryColPackagesWeight, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(l.poRecHistoryColCbm, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(l.poRecHistoryColStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(l.poRecHistoryColSavedDate, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      ],
-                      rows: filtered.asMap().entries.map((entry) {
-                        final idx = entry.key + 1;
-                        final sess = entry.value;
-
-                        final rawFileCode = sess.importFileCode ?? 'IMP-${sess.importFileId}';
-                        final shipmentTitle = rawFileCode.isNotEmpty
-                            ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isAr)
-                            : (sess.importerName ?? '—');
-                        final importFileSummary = rawFileCode.isNotEmpty && rawFileCode != shipmentTitle
-                            ? '$shipmentTitle ($rawFileCode) - ${sess.importerName ?? ""}'
-                            : '$shipmentTitle - ${sess.importerName ?? ""}';
-                        final invPlSummary = '${sess.finalInvoiceNumber ?? ""} | ${sess.finalPackingListNumber ?? ""}';
-                        final totalValSummary = '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}';
-                        final pkgGrossSummary = '${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit} | ${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit}';
-                        final cbmSummary = '${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}';
-                        final dateStr = (sess.createdAt != null && sess.createdAt!.length >= 10) ? sess.createdAt!.substring(0, 10) : '—';
-                        final localizedStatus = _getLocalizedSessionStatus(context, sess.overallStatus);
-
-                        final rowSummary = [
-                          '$idx',
-                          sess.sessionCode,
-                          importFileSummary,
-                          invPlSummary,
-                          totalValSummary,
-                          pkgGrossSummary,
-                          cbmSummary,
-                          localizedStatus,
-                          dateStr,
-                        ].join('\t');
-
-                        return DataRow(
-                          cells: [
-                                // 10. Actions
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // View Details Modal
-                                      IconButton(
-                                        icon: const Icon(Icons.visibility_rounded, size: 18, color: AppTheme.cobalt),
-                                        tooltip: l.poRecHistoryViewDetailsTooltip,
-                                        onPressed: () => _showSessionDetailsModal(context, sess),
-                                      ),
-                                      // Load into Editor
-                                      IconButton(
-                                        icon: const Icon(Icons.edit_note_rounded, size: 20, color: AppTheme.emerald),
-                                        tooltip: l.poRecHistoryLoadIntoEditorTooltip,
-                                        onPressed: () => _loadSessionIntoEditor(sess),
-                                      ),
-                                      // Clone Session
-                                      IconButton(
-                                        key: Key('cloneSessionRowBtn_${sess.sessionId}'),
-                                        icon: const Icon(Icons.copy_all_rounded, size: 18, color: AppTheme.cobalt),
-                                        tooltip: l.clonePoReconRecordTooltip,
-                                        onPressed: () => _cloneSession(sess),
-                                      ),
-                                      // Copy / Print Report
-                                      IconButton(
-                                        icon: Icon(Icons.print_rounded, size: 18, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
-                                        tooltip: l.poRecHistoryPrintTooltip,
-                                        onPressed: () => _showPrintReportDialog(context, sess),
-                                      ),
-                                      // Delete Session
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.crimson),
-                                        tooltip: l.poRecHistoryDeleteTooltip,
-                                        onPressed: () => _confirmDeleteSession(context, sess),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            // 1. Index
-                            DataCell(CopyableTableCell(value: '$idx', rowSummary: rowSummary, child: Text('$idx', style: const TextStyle(fontWeight: FontWeight.bold)))),
-
-                            // 2. Session Code
-                            DataCell(
-                              CopyableTableCell(value: sess.sessionCode, rowSummary: rowSummary, child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.4)),
-                                      ),
-                                      child: Text(
-                                        sess.sessionCode,
-                                        style: const TextStyle(
-                                          color: AppTheme.cobalt,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      icon: const Icon(Icons.copy_rounded, size: 14, color: AppTheme.textMuted),
-                                      tooltip: l.poRecHistoryCopyCodeTooltip,
-                                      onPressed: () {
-                                        CopyHelper.copy(context, sess.sessionCode, customMessage: l.poRecHistoryCodeCopiedNotice);
-                                      },
-                                    ),
-                                  ],
-                                )),
+            : EnterpriseDataTable<POReconciliationSessionModel>(
+                data: filtered,
+                storageKey: 'po_reconciliation_sessions_table',
+                columns: [
+                  EnterpriseColumn<POReconciliationSessionModel>(
+                    id: 'actions',
+                    title: l.poRecHistoryColActions,
+                    width: 245,
+                    isSortable: false,
+                    isSearchable: false,
+                    cellBuilder: (context, sess, index) {
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.visibility_rounded, size: 18, color: AppTheme.cobalt),
+                            tooltip: l.poRecHistoryViewDetailsTooltip,
+                            onPressed: () => _showSessionDetailsModal(context, sess),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit_note_rounded, size: 20, color: AppTheme.emerald),
+                            tooltip: l.poRecHistoryLoadIntoEditorTooltip,
+                            onPressed: () => _loadSessionIntoEditor(sess),
+                          ),
+                          IconButton(
+                            key: Key('cloneSessionRowBtn_${sess.sessionId}'),
+                            icon: const Icon(Icons.copy_all_rounded, size: 18, color: AppTheme.cobalt),
+                            tooltip: l.clonePoReconRecordTooltip,
+                            onPressed: () => _cloneSession(sess),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.print_rounded, size: 18, color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal),
+                            tooltip: l.poRecHistoryPrintTooltip,
+                            onPressed: () => _showPrintReportDialog(context, sess),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.crimson),
+                            tooltip: l.poRecHistoryDeleteTooltip,
+                            onPressed: () => _confirmDeleteSession(context, sess),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  EnterpriseColumn<POReconciliationSessionModel>(
+                    id: 'index',
+                    title: l.poRecHistoryColIndex,
+                    width: 60,
+                    isSortable: false,
+                    searchValue: (sess) => '${filtered.indexOf(sess) + 1}',
+                    cellBuilder: (context, sess, index) => Text('${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  EnterpriseColumn<POReconciliationSessionModel>(
+                    id: 'session_code',
+                    title: l.poRecHistoryColSessionCode,
+                    width: 215,
+                    isSortable: true,
+                    searchValue: (sess) => sess.sessionCode,
+                    exportValue: (sess) => sess.sessionCode,
+                    cellBuilder: (context, sess, index) {
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cobalt.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.4)),
                             ),
-
-                            // 3. Import File & Importer
-                            DataCell(
-                              CopyableTableCell(
-                                value: importFileSummary,
-                                rowSummary: rowSummary,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      shipmentTitle,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (rawFileCode.isNotEmpty) ...[
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.cobalt.withValues(alpha: 0.08),
-                                              borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
-                                            ),
-                                            child: Text(
-                                              rawFileCode,
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.cobalt,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                        ],
-                                        Flexible(
-                                          child: Text(
-                                            sess.importerName ?? '—',
-                                            style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                            child: Text(
+                              sess.sessionCode,
+                              style: const TextStyle(
+                                color: AppTheme.cobalt,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
                               ),
                             ),
-
-                            // 4. Final Invoice & Packing List
-                            DataCell(
-                              CopyableTableCell(value: invPlSummary, rowSummary: rowSummary, child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      '${l.poRecInvoicePrefix} ${sess.finalInvoiceNumber ?? "—"}',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                    ),
-                                    Text(
-                                      '${l.poRecPackingPrefix} ${sess.finalPackingListNumber ?? "—"}',
-                                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
-                                    ),
-                                  ],
-                                )),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 14, color: AppTheme.cobalt),
+                            tooltip: l.copy,
+                            onPressed: () => CopyHelper.copy(
+                              context,
+                              sess.sessionCode,
+                              
                             ),
-
-                            // 5. Total Value
-                            DataCell(
-                              CopyableTableCell(value: totalValSummary, rowSummary: rowSummary, child: Text(
-                                  totalValSummary,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13),
-                                )),
-                            ),
-
-                            // 6. Packages & Weights
-                            DataCell(
-                              CopyableTableCell(value: pkgGrossSummary, rowSummary: rowSummary, child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text('${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontSize: 12)),
-                                    Text('${l.poRecGrossPrefix} ${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit}', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
-                                  ],
-                                )),
-                            ),
-
-                            // 7. Total CBM
-                            DataCell(
-                              CopyableTableCell(value: cbmSummary, rowSummary: rowSummary, child: Text(
-                                  cbmSummary,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                )),
-                            ),
-
-                            // 8. Overall Status Badge
-                            DataCell(
-                              CopyableTableCell(value: localizedStatus, rowSummary: rowSummary, child: _buildSessionStatusBadge(sess.overallStatus)),
-                            ),
-
-                            // 9. Saved Date
-                            DataCell(
-                              CopyableTableCell(value: dateStr, rowSummary: rowSummary, child: Text(
-                                  dateStr,
-                                  style: const TextStyle(fontSize: 12),
-                                )),
-                            ),
-
-
-                              ],
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
+                  EnterpriseColumn<POReconciliationSessionModel>(
+                    id: 'import_file',
+                    title: l.poRecHistoryColImportFileImporter,
+                    width: 180,
+                    isSortable: true,
+                    searchValue: (sess) {
+                      final rawFileCode = sess.importFileCode ?? 'IMP-${sess.importFileId}';
+                      final shipmentTitle = rawFileCode.isNotEmpty
+                          ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isAr)
+                          : (sess.importerName ?? '—');
+                      return '$shipmentTitle $rawFileCode ${sess.importerName ?? ""}';
+                    },
+                    exportValue: (sess) {
+                      final rawFileCode = sess.importFileCode ?? 'IMP-${sess.importFileId}';
+                      final shipmentTitle = rawFileCode.isNotEmpty
+                          ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isAr)
+                          : (sess.importerName ?? '—');
+                      return '$shipmentTitle ($rawFileCode) - ${sess.importerName ?? ""}';
+                    },
+                    cellBuilder: (context, sess, index) {
+                      final rawFileCode = sess.importFileCode ?? 'IMP-${sess.importFileId}';
+                      final shipmentTitle = rawFileCode.isNotEmpty
+                          ? DisplayNameResolver.resolveShipmentTitleByCode(rawFileCode, shipments: importFiles, isArabic: isAr)
+                          : (sess.importerName ?? '—');
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            shipmentTitle,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                            ),
+                          ),
+                          if (rawFileCode.isNotEmpty && rawFileCode != shipmentTitle)
+                            Text(
+                              rawFileCode,
+                              style: const TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.w600),
+                            ),
+                          if (sess.importerName != null && sess.importerName!.isNotEmpty)
+                            Text(
+                              sess.importerName!,
+                              style: TextStyle(fontSize: 10.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                  EnterpriseColumn<POReconciliationSessionModel>(
+                    id: 'invoice_packing',
+                    title: l.poRecHistoryColInvoicePacking,
+                    width: 150,
+                    isSortable: true,
+                    searchValue: (sess) => '${sess.finalInvoiceNumber ?? ""} ${sess.finalPackingListNumber ?? ""}',
+                    exportValue: (sess) => '${sess.finalInvoiceNumber ?? ""} | ${sess.finalPackingListNumber ?? ""}',
+                    cellBuilder: (context, sess, index) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'INV: ${sess.finalInvoiceNumber ?? "—"}',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'PL: ${sess.finalPackingListNumber ?? "—"}',
+                            style: TextStyle(fontSize: 10.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  EnterpriseColumn<POReconciliationSessionModel>(
+                    id: 'total_value',
+                    title: l.poRecHistoryColTotalValue,
+                    width: 130,
+                    isSortable: true,
+                    searchValue: (sess) => '${sess.totalInvoiceAmount} ${sess.currency}',
+                    exportValue: (sess) => '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}',
+                    cellBuilder: (context, sess, index) {
+                      return Text(
+                        '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                      );
+                    },
+                  ),
+                  EnterpriseColumn<POReconciliationSessionModel>(
+                    id: 'packages_weight',
+                    title: l.poRecHistoryColPackagesWeight,
+                    width: 140,
+                    isSortable: true,
+                    searchValue: (sess) => '${sess.totalPackages} ${sess.totalGrossWeightKg}',
+                    exportValue: (sess) => '${sess.totalPackages.toStringAsFixed(0)} | ${_formatWeight(sess.totalGrossWeightKg)} kg',
+                    cellBuilder: (context, sess, index) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text('${_formatWeight(sess.totalGrossWeightKg)} ${l.poRecKgUnit}', style: TextStyle(fontSize: 10.5, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted)),
+                        ],
+                      );
+                    },
+                  ),
+                  EnterpriseColumn<POReconciliationSessionModel>(
+                    id: 'cbm',
+                    title: l.poRecHistoryColCbm,
+                    width: 100,
+                    isSortable: true,
+                    searchValue: (sess) => '${sess.totalCbm}',
+                    exportValue: (sess) => '${sess.totalCbm.toStringAsFixed(3)} m³',
+                    cellBuilder: (context, sess, index) => Text('${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                  EnterpriseColumn<POReconciliationSessionModel>(
+                    id: 'status',
+                    title: l.poRecHistoryColStatus,
+                    width: 120,
+                    isSortable: true,
+                    searchValue: (sess) => _getLocalizedSessionStatus(context, sess.overallStatus),
+                    exportValue: (sess) => _getLocalizedSessionStatus(context, sess.overallStatus),
+                    cellBuilder: (context, sess, index) => _buildSessionStatusBadge(sess.overallStatus),
+                  ),
+                  EnterpriseColumn<POReconciliationSessionModel>(
+                    id: 'saved_date',
+                    title: l.poRecHistoryColSavedDate,
+                    width: 110,
+                    isSortable: true,
+                    searchValue: (sess) => sess.createdAt ?? '',
+                    exportValue: (sess) => (sess.createdAt != null && sess.createdAt!.length >= 10) ? sess.createdAt!.substring(0, 10) : '—',
+                    cellBuilder: (context, sess, index) {
+                      final dateStr = (sess.createdAt != null && sess.createdAt!.length >= 10) ? sess.createdAt!.substring(0, 10) : '—';
+                      return Text(dateStr, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted));
+                    },
+                  ),
+                ],
+              ),
       ],
     );
   }
@@ -4018,12 +3932,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
     if (confirm == true && sess.sessionId != null) {
       await ref.read(poReconciliationSessionsProvider.notifier).deleteSession(sess.sessionId!);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(l.poRecHistoryDeletedSuccess(sess.sessionCode)),
-          backgroundColor: AppTheme.crimson,
-        ),
-      );
+      if (context.mounted) messenger.showSnackBar(AppTheme.snackBar(context, l.poRecHistoryDeletedSuccess(sess.sessionCode), severity: AppSeverity.success));
     }
   }
 

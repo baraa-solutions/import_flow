@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
 
@@ -89,20 +88,20 @@ class _SwiftExtractionReviewWidgetState
           _initControllers();
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.faSwiftFieldUpdated),
-            backgroundColor: AppTheme.emerald,
-            duration: const Duration(seconds: 1),
+          AppTheme.snackBar(
+            context,
+            context.l10n.faSwiftFieldUpdated,
+            severity: AppSeverity.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(context.l10n.faSwiftFieldSaveFailed(ApiError.message(e))),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.faSwiftFieldSaveFailed(ApiError.message(e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -126,20 +125,20 @@ class _SwiftExtractionReviewWidgetState
           _initControllers();
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.faSwiftFieldReExtracted),
-            backgroundColor: AppTheme.cobalt,
-            duration: const Duration(seconds: 1),
+          AppTheme.snackBar(
+            context,
+            context.l10n.faSwiftFieldReExtracted,
+            severity: AppSeverity.info,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(context.l10n.faSwiftReExtractFailed(ApiError.message(e))),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.faSwiftReExtractFailed(ApiError.message(e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -151,11 +150,10 @@ class _SwiftExtractionReviewWidgetState
   Future<void> _confirmReview() async {
     if (!_batch.allMandatoryValid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'لا يمكن الاعتماد: الحقول الإلزامية غير مكتملة (${_batch.missingMandatoryFields.join("، ")})',
-          ),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          'لا يمكن الاعتماد: الحقول الإلزامية غير مكتملة (${_batch.missingMandatoryFields.join("، ")})',
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -172,9 +170,10 @@ class _SwiftExtractionReviewWidgetState
         if (mounted) {
           setState(() => _batch = confirmedBatch);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.faSwiftConfirmedOpened),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              context.l10n.faSwiftConfirmedOpened,
+              severity: AppSeverity.success,
             ),
           );
           widget.onBatchConfirmed(confirmedBatch);
@@ -183,10 +182,10 @@ class _SwiftExtractionReviewWidgetState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(context.l10n.faSwiftConfirmFailed(ApiError.message(e))),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.faSwiftConfirmFailed(ApiError.message(e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -765,13 +764,7 @@ class _SwiftExtractionReviewWidgetState
                                       suffixIcon: isLoading
                                           ? const Padding(
                                               padding: EdgeInsets.all(8.0),
-                                              child: SizedBox(
-                                                width: 12,
-                                                height: 12,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                        strokeWidth: 2),
-                                              ),
+                                              child: AppLoadingState.inline(),
                                             )
                                           : IconButton(
                                               icon: const Icon(Icons.check,

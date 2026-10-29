@@ -1,8 +1,8 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_error.dart';
-import '../../../core/theme/app_theme.dart';
 
 /// User-facing text for an update API error.
 ///
@@ -19,11 +19,7 @@ void showUpdateSnackBar(BuildContext context, String message, {bool isError = fa
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
   messenger.showSnackBar(
-    SnackBar(
-      content: Text(message),
-      backgroundColor: isError ? AppTheme.crimson : AppTheme.emerald,
-      behavior: SnackBarBehavior.floating,
-    ),
+    AppTheme.snackBar(context, message, severity: AppSeverity.danger),
   );
 }
 

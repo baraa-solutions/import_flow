@@ -648,9 +648,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
         );
         if (cloned != null && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l.cloneCbmSuccess(cloned.calcCode)),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              l.cloneCbmSuccess(cloned.calcCode),
+              severity: AppSeverity.success,
             ),
           );
         }
@@ -1276,7 +1277,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 if (ok && context.mounted) {
                   Navigator.pop(dialogCtx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l.cbmMetadataSavedSuccess)),
+                    AppTheme.snackBar(
+                      context,
+                      l.cbmMetadataSavedSuccess,
+                      severity: AppSeverity.success,
+                    ),
                   );
                 }
               }
@@ -1496,9 +1501,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   void _triggerReportPrint(BuildContext context, CBMCalculationModel calc) {
     final l = context.l10n;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l.cbmSendingReportToScreen(calc.calcCode)),
-        backgroundColor: AppTheme.cobalt,
+      AppTheme.snackBar(
+        context,
+        l.cbmSendingReportToScreen(calc.calcCode),
+        severity: AppSeverity.info,
       ),
     );
   }
@@ -1573,7 +1579,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 if (ok && context.mounted) {
                   Navigator.pop(dialogCtx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l.cbmLinkSavedSuccess)),
+                    AppTheme.snackBar(
+                      context,
+                      l.cbmLinkSavedSuccess,
+                      severity: AppSeverity.success,
+                    ),
                   );
                 }
               },
@@ -1749,496 +1759,17 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   }
 
   void _showVisualLoadPlanDialog(BuildContext context, List<CBMItemModel> quickItems) {
-    final l = context.l10n;
-    // 1. Convert CBMItemModel list to CargoItem list with individual stackability
-    final List<CargoItem> cargoItems = [];
-    int itemCounter = 1;
-
-    for (final item in quickItems) {
-      for (int q = 0; q < item.quantity; q++) {
-        // Convert dimension to cm based on the unit
-        double lCm = item.length;
-        double wCm = item.width;
-        double hCm = item.height;
-        if (item.unit == 'mm') {
-          lCm /= 10;
-          wCm /= 10;
-          hCm /= 10;
-        } else if (item.unit == 'm') {
-          lCm *= 100;
-          wCm *= 100;
-          hCm *= 100;
-        }
-
-        // Convert weight to kg based on unit
-        final double weightKg = item.grossWeightPerUnitKg;
-
-        cargoItems.add(CargoItem(
-          itemId: '$itemCounter',
-          length: lCm,
-          width: wCm,
-          height: hCm,
-          weight: weightKg,
-          rotate: true,
-          isStackable: item.isStackable,
-          packageType: item.packageType,
-        ));
-        itemCounter++;
-      }
-    }
-
-    if (cargoItems.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(l.warning),
-          content: Text(l.noDataFound),
-          actions: [
-            AppButton(
-              label: l.ok,
-              variant: AppButtonVariant.secondary,
-              size: AppButtonSize.small,
-              onPressed: () => Navigator.pop(ctx),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
-    // Default active view mode: null = Actual/Mixed, true = All Stackable, false = All Non-Stackable
-    bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
-    CargoOrientationPreference activeOrientationMode = CargoOrientationPreference.smartHybrid;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            // Compute plan dynamically based on the selected mode & orientation preference
-            final plan = ContainerRequirementEngine.planShipment(
-              cargoItems,
-              forceStackable: activeStackingMode,
-              forceOrientation: activeOrientationMode,
-            );
-
-            // Compute summary metrics for active plan
-            final totalPkgs = cargoItems.length;
-            final stackableInActive = activeStackingMode == true
-                ? totalPkgs
-                : (activeStackingMode == false ? 0 : cargoItems.where((c) => c.isStackable).length);
-            final nonStackableInActive = totalPkgs - stackableInActive;
-
-            final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
-            final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
-
-            // Determine container fleet text (e.g. 1 x 40HC or 1 x 40HC + 1 x 40GP)
-            final Map<String, int> containerCounts = {};
-            for (final p in plan) {
-              if (p.containerCode != 'FAILED') {
-                containerCounts[p.containerCode] = (containerCounts[p.containerCode] ?? 0) + 1;
-              }
-            }
-            final fleetSummaryText = containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
-
-            return AlertDialog(
-              backgroundColor: isDark ? AppTheme.darkCardBackground : null,
-              title: Row(
-                children: [
-                  const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      l.cbmVisualPlannerTitle,
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.cobalt),
-                    ),
-                    child: Text(
-                      '${l.requiredFleet}: $fleetSummaryText (${plan.length})',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                    ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: math.min(1050.0, MediaQuery.of(context).size.width * 0.95),
-                height: math.min(680.0, MediaQuery.of(context).size.height * 0.85),
-                child: Column(
-                  children: [
-                    // 1. Scenario & Orientation Mode Switcher
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-                      ),
-                      child: Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 12,
-                        runSpacing: 8,
-                        children: [
-                          Text(
-                            l.chooseStackingScenario,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                          ),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: [
-                              ChoiceChip(
-                                label: Text(l.smartHybridOption),
-                                selected: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false,
-                                selectedColor: AppTheme.emerald,
-                                labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.smartHybrid && activeStackingMode != false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) {
-                                    setDialogState(() {
-                                      activeOrientationMode = CargoOrientationPreference.smartHybrid;
-                                      activeStackingMode = true;
-                                    });
-                                  }
-                                },
-                              ),
-                              ChoiceChip(
-                                label: Text(l.flatOnlyOption),
-                                selected: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false,
-                                selectedColor: AppTheme.wcagCobalt,
-                                labelStyle: TextStyle(
-                                  color: activeOrientationMode == CargoOrientationPreference.flatOnly && activeStackingMode != false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) {
-                                    setDialogState(() {
-                                      activeOrientationMode = CargoOrientationPreference.flatOnly;
-                                      activeStackingMode = true;
-                                    });
-                                  }
-                                },
-                              ),
-                              ChoiceChip(
-                                label: Text(l.allNonStackableOption),
-                                selected: activeStackingMode == false,
-                                selectedColor: AppTheme.wcagOrange,
-                                labelStyle: TextStyle(
-                                  color: activeStackingMode == false ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) {
-                                    setDialogState(() {
-                                      activeStackingMode = false;
-                                    });
-                                  }
-                                },
-                              ),
-                              ChoiceChip(
-                                label: Text(l.mixedStackingOption),
-                                selected: activeStackingMode == null,
-                                selectedColor: AppTheme.cobalt,
-                                labelStyle: TextStyle(
-                                  color: activeStackingMode == null ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                                onSelected: (val) {
-                                  if (val) setDialogState(() => activeStackingMode = null);
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // 2. Metrics Strip
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              _buildMetricPill(l.packageMeasurementsTitle, '$totalPkgs', AppTheme.cobalt),
-                              const SizedBox(width: 8),
-                              _buildMetricPill(l.totalGrossWeightRegistryMetric, '${totalPlanWeight.toStringAsFixed(0)} kg', isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                              const SizedBox(width: 8),
-                              _buildMetricPill(l.totalCbmVolumeMetric, '${totalPlanVolume.toStringAsFixed(3)} m³', AppTheme.wcagOrange),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              _buildMetricPill(l.stackableOption, '$stackableInActive', AppTheme.wcagEmerald),
-                              const SizedBox(width: 8),
-                              _buildMetricPill(l.nonStackableOption, '$nonStackableInActive', AppTheme.crimson),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // 2. Table summary of container loads
-                    Table(
-                      border: TableBorder.all(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-                      columnWidths: const {
-                        0: FlexColumnWidth(1.2),
-                        1: FlexColumnWidth(1.8),
-                        2: FlexColumnWidth(1.2),
-                        3: FlexColumnWidth(1.2),
-                        4: FlexColumnWidth(2.4),
-                      },
-                      children: [
-                        TableRow(
-                          decoration: BoxDecoration(color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.08)),
-                          children: [
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerSpecCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.packageTypeCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.grossWtPerUnitCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationCol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.cbmFloorAreaUtilization, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null))),
-                          ],
-                        ),
-                        ...plan.asMap().entries.map((entry) {
-                          final idx = entry.key + 1;
-                          final res = entry.value;
-                          final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
-                          final totalPlacedCount = res.placedItems.length;
-
-                          final double volSpaceUtil = res.spec.internalVolumeCbm > 0 ? (res.totalVolume / res.spec.internalVolumeCbm) * 100 : 0.0;
-                          final double floorAreaM2 = res.placedItems.fold(0.0, (s, p) => s + p.item.floorAreaM2);
-                          final double specFloorAreaM2 = (res.spec.internalLength * res.spec.internalWidth) / 10000;
-                          final double floorUtil = specFloorAreaM2 > 0 ? (floorAreaM2 / specFloorAreaM2) * 100 : 0.0;
-
-                          final bool hasNonStackable = res.placedItems.any((p) => !p.item.isStackable);
-                          final double displaySpaceUtil = hasNonStackable ? math.max(volSpaceUtil, floorUtil) : volSpaceUtil;
-
-                          String statusText = '';
-                          if (res.containerCode == 'FAILED' || !res.fits) {
-                            statusText = res.failureReason ?? l.operationFailed;
-                          } else {
-                            final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
-                            if (nonStackInThis > 0) {
-                              statusText = '${l.nonStackableOption}: $nonStackInThis (${floorUtil.toStringAsFixed(1)}%)';
-                            } else {
-                              statusText = '${l.stackableOption} ($totalPlacedCount)';
-                            }
-                          }
-
-                          return TableRow(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  res.containerCode == 'FAILED' ? l.operationFailed : '$idx: ${res.spec.code}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  placedIds.isEmpty ? '-' : '$placedIds ($totalPlacedCount)',
-                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : null)),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  '${displaySpaceUtil.toStringAsFixed(1)}%',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(6.0),
-                                child: Text(
-                                  statusText,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: (res.containerCode == 'FAILED' || !res.fits)
-                                        ? AppTheme.crimson
-                                        : (hasNonStackable ? AppTheme.wcagOrange : AppTheme.wcagEmerald),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    // 3. Tab view or list for visual container layout drawings
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: plan.length,
-                        itemBuilder: (ctx, pIdx) {
-                          final res = plan[pIdx];
-                          if (res.containerCode == 'FAILED') {
-                            return Container(
-                              padding: const EdgeInsets.all(16),
-                              margin: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: AppTheme.crimsonLight, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppTheme.crimsonBorder)),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.error_outline_rounded, color: AppTheme.crimson, size: 28),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          res.failureReason ?? l.operationFailed,
-                                          style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
-                                        ),
-                                        if (res.unplacedItems.isNotEmpty) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '${l.packageMeasurementsTitle}: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
-                                            style: const TextStyle(color: AppTheme.crimson, fontSize: 11),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            elevation: 3,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        '#${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
-                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                                      ),
-                                      Row(
-                                        children: [
-                                          Text(l.cbmWoodenPalletsFloor, style: const TextStyle(fontSize: 10, color: AppTheme.wcagOrange, fontWeight: FontWeight.bold)),
-                                          const SizedBox(width: 10),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4)),
-                                            child: Text('${l.cbmInternalDimensionsLabel} ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-
-                                  // Side View (Left Wall Removed) - Matches the Reference Image!
-                                  Container(
-                                    height: 190,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.charcoal,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: CustomPaint(
-                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
-                                      child: Container(),
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 10),
-
-                                  // Top View (Roof Removed)
-                                  Container(
-                                    height: 140,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.charcoal,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: CustomPaint(
-                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
-                                      child: Container(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                AppButton(
-                  label: l.closePlan,
-                  icon: Icons.close,
-                  variant: AppButtonVariant.secondary,
-                  size: AppButtonSize.small,
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  static Widget _buildMetricPill(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 4),
-          Text(value, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
+    CargoLoadPlannerDialog.showFromCbmItems(context, items: quickItems);
   }
 
   Future<void> _exportCbmListToExcel(BuildContext context, List<CBMCalculationModel> calcs) async {
     if (calcs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cbmNoCalculationsToExport), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          context.l10n.cbmNoCalculationsToExport,
+          severity: AppSeverity.danger,
+        ),
       );
       return;
     }
@@ -2281,7 +1812,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   Future<void> _exportCbmListToPdf(BuildContext context, List<CBMCalculationModel> calcs) async {
     if (calcs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cbmNoCalculationsToExport), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          context.l10n.cbmNoCalculationsToExport,
+          severity: AppSeverity.danger,
+        ),
       );
       return;
     }
@@ -2330,7 +1865,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   void _copyCbmTableAsTsv(BuildContext context, List<CBMCalculationModel> calcs) {
     if (calcs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.cbmNoCalculationsToCopy), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          context.l10n.cbmNoCalculationsToCopy,
+          severity: AppSeverity.danger,
+        ),
       );
       return;
     }

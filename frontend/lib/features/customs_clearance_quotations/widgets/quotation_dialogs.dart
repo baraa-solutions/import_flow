@@ -1,3 +1,4 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,9 +6,6 @@ import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../external_service_providers/models/partner_model.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -643,49 +641,34 @@ Future<void> showAddPriceItemDialog(BuildContext context, WidgetRef ref) async {
 Future<void> confirmAwardQuotation(BuildContext context, WidgetRef ref, int rfqId, int quotationId) async {
   final l10n = context.l10n;
   final messenger = ScaffoldMessenger.of(context);
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
-      title: Row(
-        children: [
-          const Icon(Icons.verified_rounded, color: AppTheme.emerald),
-          const SizedBox(width: 8),
-          Expanded(child: Text(l10n.clearanceQuotesConfirmAwardTitle)),
-        ],
-      ),
-      content: Text(l10n.clearanceQuotesConfirmAwardContent),
-      actions: [
-        AppButton(
-          label: l10n.cancel,
-          variant: AppButtonVariant.secondary,
-          size: AppButtonSize.small,
-          onPressed: () => Navigator.pop(ctx, false),
-        ),
-        AppButton(
-          label: l10n.clearanceQuotesConfirmAwardBtn,
-          variant: AppButtonVariant.success,
-          size: AppButtonSize.small,
-          onPressed: () => Navigator.pop(ctx, true),
-        ),
-      ],
-    ),
+  final confirm = await AppConfirmDialog.show(
+    context,
+    title: l10n.clearanceQuotesConfirmAwardTitle,
+    message: l10n.clearanceQuotesConfirmAwardContent,
+    confirmLabel: l10n.clearanceQuotesConfirmAwardBtn,
+    cancelLabel: l10n.cancel,
+    confirmVariant: AppButtonVariant.success,
+    icon: Icons.verified_rounded,
   );
 
   if (confirm != true) return;
   try {
     await ref.read(customsClearanceQuotationsProvider.notifier).awardQuotation(rfqId, quotationId);
+    if (!context.mounted) return;
     messenger.showSnackBar(
-      SnackBar(
-        content: Text(l10n.clearanceQuotesAwardSuccessSnackbar),
-        backgroundColor: AppTheme.emerald,
+      AppTheme.snackBar(
+        context,
+        l10n.clearanceQuotesAwardSuccessSnackbar,
+        severity: AppSeverity.success,
       ),
     );
   } catch (e) {
+    if (!context.mounted) return;
     messenger.showSnackBar(
-      SnackBar(
-        content: Text('${l10n.errorPrefix}: ${ApiErrorText.of(l10n, e)}'),
-        backgroundColor: AppTheme.crimson,
+      AppTheme.snackBar(
+        context,
+        '${l10n.errorPrefix}: ${ApiErrorText.of(l10n, e)}',
+        severity: AppSeverity.danger,
       ),
     );
   }
@@ -695,43 +678,22 @@ Future<void> confirmAwardQuotation(BuildContext context, WidgetRef ref, int rfqI
 Future<void> confirmDeleteQuotation(BuildContext context, WidgetRef ref, int quotationId) async {
   final l10n = context.l10n;
   final messenger = ScaffoldMessenger.of(context);
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
-      title: Row(
-        children: [
-          const Icon(Icons.delete_outline, color: AppTheme.crimson),
-          const SizedBox(width: 8),
-          Expanded(child: Text(l10n.clearanceQuotesConfirmDeleteQuoteTitle)),
-        ],
-      ),
-      content: Text(l10n.clearanceQuotesConfirmDeleteQuoteContent),
-      actions: [
-        AppButton(
-          label: l10n.cancel,
-          variant: AppButtonVariant.secondary,
-          size: AppButtonSize.small,
-          onPressed: () => Navigator.pop(ctx, false),
-        ),
-        AppButton(
-          label: l10n.delete,
-          variant: AppButtonVariant.danger,
-          size: AppButtonSize.small,
-          onPressed: () => Navigator.pop(ctx, true),
-        ),
-      ],
-    ),
+  final confirm = await AppConfirmDialog.showDelete(
+    context,
+    title: l10n.clearanceQuotesConfirmDeleteQuoteTitle,
+    message: l10n.clearanceQuotesConfirmDeleteQuoteContent,
   );
 
   if (confirm != true) return;
   try {
     await ref.read(customsClearanceQuotationsProvider.notifier).deleteQuotation(quotationId);
   } catch (e) {
+    if (!context.mounted) return;
     messenger.showSnackBar(
-      SnackBar(
-        content: Text('${l10n.errorPrefix}: ${ApiErrorText.of(l10n, e)}'),
-        backgroundColor: AppTheme.crimson,
+      AppTheme.snackBar(
+        context,
+        '${l10n.errorPrefix}: ${ApiErrorText.of(l10n, e)}',
+        severity: AppSeverity.danger,
       ),
     );
   }

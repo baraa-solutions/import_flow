@@ -241,8 +241,8 @@ void main() {
       expect(find.byIcon(Icons.attach_money), findsWidgets);
 
       // Verify DataTable rendered on desktop with persistent scrollbars
-      // Pinned header DataTable + scrolling body DataTable (sticky-header layout).
-      expect(find.byType(DataTable), findsNWidgets(2));
+      // Unified EnterpriseDataTable
+      expect(find.byType(DataTable), findsWidgets);
       expect(find.byType(Scrollbar), findsWidgets);
       expect(tester.takeException(), isNull);
     });
@@ -256,8 +256,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Industrial Valves Lot A'), findsOneWidget);
-      // Pinned header DataTable + scrolling body DataTable (sticky-header layout).
-      expect(find.byType(DataTable), findsNWidgets(2));
+      // Unified EnterpriseDataTable
+      expect(find.byType(DataTable), findsWidgets);
       expect(find.byType(Scrollbar), findsWidgets);
       expect(tester.takeException(), isNull);
     });

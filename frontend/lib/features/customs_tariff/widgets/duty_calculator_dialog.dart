@@ -1254,17 +1254,7 @@ import '../../currencies/providers/currencies_provider.dart';
                                           'import_file_id': initialImportFileId,
                                         });
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              backgroundColor: AppTheme.emerald,
-                                              content: Text(
-                                                isArabic
-                                                    ? '✅ مهمة إلزامية: تم تسجيل مهمة في قائمة مهام الشحنة لاستيفاء شروط ومستندات إعفاء البند [$hsCodeStr]'
-                                                    : '✅ Mandatory task created in shipment checklist for HS [$hsCodeStr] exemption conditions',
-                                              ),
-                                              duration: const Duration(seconds: 4),
-                                            ),
-                                          );
+                                          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, isArabic ? 'مهمة إلزامية: تم تسجيل مهمة في قائمة مهام الشحنة لاستيفاء شروط ومستندات إعفاء البند [$hsCodeStr]' : 'Mandatory task created in shipment checklist for HS [$hsCodeStr] exemption conditions', severity: AppSeverity.success, duration: const Duration(seconds: 4)));
                                         }
                                       } catch (_) {}
                                     }
@@ -1915,15 +1905,7 @@ import '../../currencies/providers/currencies_provider.dart';
                               );
 
                               if (savedPath != null && ctx.mounted) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                        isArabic
-                                            ? 'تم حفظ البيان بصيغة PDF بنجاح:\n$savedPath'
-                                            : 'Statement saved as PDF successfully:\n$savedPath'),
-                                    backgroundColor: AppTheme.emerald,
-                                  ),
-                                );
+                                ScaffoldMessenger.of(ctx).showSnackBar(AppTheme.snackBar(ctx, isArabic ? 'تم حفظ البيان بصيغة PDF بنجاح:\n$savedPath' : 'Statement saved as PDF successfully:\n$savedPath', severity: AppSeverity.success));
                               }
                             },
                           ),

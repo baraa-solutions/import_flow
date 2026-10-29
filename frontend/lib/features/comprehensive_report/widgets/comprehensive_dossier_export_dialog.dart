@@ -1,7 +1,7 @@
+import 'package:frontend/core/theme/app_theme.dart';
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/comprehensive_dossier_model.dart';
@@ -127,11 +127,7 @@ class _ComprehensiveDossierExportDialogState
       if (mounted) {
         navigator.pop(true);
         messenger.showSnackBar(
-          SnackBar(
-            content: Text(resp.message),
-            backgroundColor: AppTheme.flatEmerald,
-            duration: const Duration(seconds: 4),
-          ),
+          AppTheme.snackBar(context, resp.message),
         );
       }
     } catch (e) {
@@ -142,10 +138,7 @@ class _ComprehensiveDossierExportDialogState
         final l10n = AppLocalizations.of(context);
         final msg = ApiErrorText.of(l10n, e, fallback: 'خطأ أثناء تأكيد التصدير: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: AppTheme.flatCrimson,
-          ),
+          AppTheme.snackBar(context, msg),
         );
       }
     }

@@ -1,32 +1,17 @@
-import '../widgets/broker_quote_details_card.dart';
-import '../widgets/blocking_issues_dialog.dart';
-import '../widgets/broker_price_lists_tab.dart';
-import '../widgets/saved_consultations_tab.dart';
-import '../widgets/nafeza_fee_breakdown_card.dart';
-import '../widgets/consultation_details_dialog.dart';
-import '../widgets/post_save_status_dialog.dart';
-import '../widgets/consultation_metric_badge.dart';
-import '../widgets/add_checklist_item_dialog.dart';
-import '../widgets/add_custom_expense_dialog.dart';
-import '../widgets/recalculation_variance_comparison_card.dart';
-import '../widgets/tariff_missing_widgets.dart';
+import '../widgets/widgets.dart';
+export '../widgets/widgets.dart';
 import '../utils/customs_estimate_payload_builder.dart';
 import 'dart:async';
 import '../../../core/localization/api_error_text.dart';
-import '../../../core/widgets/existing_record_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/widgets/change_diff_dialog.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/error_details_dialog.dart';
-import '../../../core/widgets/vertical_stage_scaffold.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
+import '../../customs_clearance_quotations/models/customs_clearance_quotation_model.dart';
+import '../../customs_clearance_quotations/providers/customs_clearance_quotations_provider.dart';
 import '../../customs_clearance_quotations/screens/customs_clearance_quotations_screen.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -40,15 +25,10 @@ import '../providers/customs_consultation_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../services/customs_export_service.dart';
 import '../services/customs_consultation_pdf_service.dart';
-import '../widgets/search_and_clone_consultation_dialog.dart';
-export '../widgets/search_and_clone_consultation_dialog.dart';
 import '../utils/customs_consultation_payload_builder.dart';
 import '../../financial_approval/providers/financial_approval_provider.dart';
-import '../../../core/widgets/table_row_clone_helper.dart';
 import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/localization/stored_text.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-
 class CustomsConsultationScreen extends ConsumerStatefulWidget {
   final int initialIndex;
   final bool isTaxReviewMode;
@@ -116,6 +96,17 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   String _brokerExpenseCategoryFilter = 'All';
 
   bool _isSaving = false;
+  bool _isDirty = false;
+
+  void _setDirty([bool dirty = true]) {
+    if (_isDirty != dirty && mounted) {
+      setState(() => _isDirty = dirty);
+    }
+  }
+
+  void _markDirtyListener() {
+    if (!_isDirty) _setDirty(true);
+  }
 
   // History Tab Filter State
 
@@ -140,6 +131,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     _freightExchangeRateController.addListener(_triggerDutyEstimateDebounced);
     _freightEgpController.addListener(_triggerDutyEstimateDebounced);
     _insuranceEgpController.addListener(_triggerDutyEstimateDebounced);
+    _titleController.addListener(_markDirtyListener);
+    _notesController.addListener(_markDirtyListener);
+    _estimatedDutiesController.addListener(_markDirtyListener);
+    _exchangeRateController.addListener(_markDirtyListener);
+    _preliminaryRateController.addListener(_markDirtyListener);
+    _freightForeignController.addListener(_markDirtyListener);
+    _freightExchangeRateController.addListener(_markDirtyListener);
+    _freightEgpController.addListener(_markDirtyListener);
+    _insuranceEgpController.addListener(_markDirtyListener);
     _initializeDefaultChecklist();
     Future.microtask(() {
       if (!ref.read(customsConsultationsProvider).isLoading) {
@@ -205,6 +205,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     _freightExchangeRateController.removeListener(_triggerDutyEstimateDebounced);
     _freightEgpController.removeListener(_triggerDutyEstimateDebounced);
     _insuranceEgpController.removeListener(_triggerDutyEstimateDebounced);
+    _titleController.removeListener(_markDirtyListener);
+    _notesController.removeListener(_markDirtyListener);
+    _estimatedDutiesController.removeListener(_markDirtyListener);
+    _exchangeRateController.removeListener(_markDirtyListener);
+    _preliminaryRateController.removeListener(_markDirtyListener);
+    _freightForeignController.removeListener(_markDirtyListener);
+    _freightExchangeRateController.removeListener(_markDirtyListener);
+    _freightEgpController.removeListener(_markDirtyListener);
+    _insuranceEgpController.removeListener(_markDirtyListener);
     _tabController.dispose();
     _titleController.dispose();
     _notesController.dispose();
@@ -507,16 +516,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.l10n.freightAutoFetchedDetailsToast(
-              highestQuotation.toStringAsFixed(2),
-              highestCurrency,
-              rate.toStringAsFixed(4),
-              freightEgp.toStringAsFixed(2),
-            ),
+        AppTheme.snackBar(
+          context,
+          context.l10n.freightAutoFetchedDetailsToast(
+            highestQuotation.toStringAsFixed(2),
+            highestCurrency,
+            rate.toStringAsFixed(4),
+            freightEgp.toStringAsFixed(2),
           ),
-          backgroundColor: AppTheme.cobalt,
+          severity: AppSeverity.info,
           duration: const Duration(seconds: 5),
         ),
       );
@@ -528,9 +536,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     if (calcLines.isEmpty) {
       if (!silent && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.noPoItemsFoundForFileToast),
-            backgroundColor: AppTheme.orange,
+          AppTheme.snackBar(
+            context,
+            context.l10n.noPoItemsFoundForFileToast,
+            severity: AppSeverity.warning,
           ),
         );
       }
@@ -664,11 +673,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     if (!silent && mounted) {
       final l = context.l10n;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '✅ ${l.hsRequirementsSyncedToast(calcLines.length, addedCount)}',
-          ),
-          backgroundColor: AppTheme.emerald,
+        AppTheme.snackBar(
+          context,
+          l.hsRequirementsSyncedToast(calcLines.length, addedCount),
+          severity: AppSeverity.success,
         ),
       );
     }
@@ -678,9 +686,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final l = context.l10n;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('⚠️ ${l.selectImportFileFirstToast}'),
-          backgroundColor: AppTheme.orange,
+        AppTheme.snackBar(
+          context,
+          l.selectImportFileFirstToast,
+          severity: AppSeverity.warning,
         ),
       );
       return;
@@ -711,21 +720,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: AppTheme.white),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    res.isReconciled
-                        ? '✅ (${res.finalInvoiceNumber ?? ""})'
-                        : 'ℹ️',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: res.isReconciled ? AppTheme.emerald : AppTheme.cobalt,
+          AppTheme.snackBar(
+            context,
+            res.isReconciled
+                ? '(${res.finalInvoiceNumber ?? ""})'
+                : '—',
+            severity: res.isReconciled ? AppSeverity.success : AppSeverity.info,
             duration: const Duration(seconds: 4),
           ),
         );
@@ -733,9 +733,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ ${ApiErrorText.of(context.l10n, e)}'),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            ApiErrorText.of(context.l10n, e),
+            severity: AppSeverity.danger,
             duration: const Duration(seconds: 8),
           ),
         );
@@ -754,13 +755,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          context.l10n.recalculatedTaxesAppliedToast(
-            _recalculationResult!.finalTotalTaxesEgp.toStringAsFixed(2),
-          ),
+      AppTheme.snackBar(
+        context,
+        context.l10n.recalculatedTaxesAppliedToast(
+          _recalculationResult!.finalTotalTaxesEgp.toStringAsFixed(2),
         ),
-        backgroundColor: AppTheme.emerald,
+        severity: AppSeverity.success,
         duration: const Duration(seconds: 4),
       ),
     );
@@ -970,9 +970,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           _isEstimatingDuty = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ApiErrorText.of(context.l10n, e)),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            ApiErrorText.of(context.l10n, e),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -1167,6 +1168,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     } else {
       _triggerDutyEstimateDebounced();
     }
+    _setDirty(false);
   }
 
 
@@ -1330,9 +1332,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✔ ${l.brokerQuoteExtractedToast(extracted['broker_name'] ?? l.defaultCustomsBrokerName)}'),
-        backgroundColor: AppTheme.emerald,
+      AppTheme.snackBar(
+        context,
+        l.brokerQuoteExtractedToast(extracted['broker_name'] ?? l.defaultCustomsBrokerName),
+        severity: AppSeverity.success,
       ),
     );
   }
@@ -1372,7 +1375,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     );
     if (savedFile != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('✅ $savedFile'), backgroundColor: AppTheme.emerald),
+        AppTheme.snackBar(
+          context,
+          savedFile,
+          severity: AppSeverity.success,
+        ),
       );
     }
   }
@@ -1437,9 +1444,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final double? fxRate = double.tryParse(_exchangeRateController.text.trim());
     if (fxRate == null || fxRate <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l.customsFxRateRequired),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          l.customsFxRateRequired,
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -1447,9 +1455,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
     if (_isEstimatingDuty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚠️ يرجى الانتظار حتى انتهاء حساب الرسوم الجمركية من محرك الجمارك.'),
-          backgroundColor: AppTheme.wcagOrange,
+        AppTheme.snackBar(
+          context,
+          'يرجى الانتظار حتى انتهاء حساب الرسوم الجمركية من محرك الجمارك.',
+          severity: AppSeverity.warning,
         ),
       );
       return;
@@ -1458,9 +1467,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final rawCalcLines = _calculateCustomsLines();
     if (rawCalcLines.any((l) => l.isTariffMissing)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l.customsMissingTariffBlockSave),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          l.customsMissingTariffBlockSave,
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -1469,9 +1479,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     if ((_selectedImportFileId != null || _selectedPoId != null) &&
         (_engineGrandTotal == null || _currentEstimateCacheKey == null || rawCalcLines.any((l) => !l.isCalculated))) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚠️ لم يتم حساب تقدير الرسوم الجمركية بعد بواسطة محرك الجمارك.'),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          'لم يتم حساب تقدير الرسوم الجمركية بعد بواسطة محرك الجمارك.',
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -1492,9 +1503,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     if (!widget.isTaxReviewMode && _selectedBrokerId == null) {
       _formKey.currentState?.validate();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('⚠️ ${l.customsBrokerFieldIssue}'),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          l.customsBrokerFieldIssue,
+          severity: AppSeverity.danger,
         ),
       );
       validationErrors.add(ValidationIssueItem(
@@ -1618,15 +1630,16 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
             .updateConsultation(_editingConsultationId!, payload);
         if (mounted && updated != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  '✅ ${l.customsStudyUpdatedSuccess} (${updated.consultationCode})'),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              '${l.customsStudyUpdatedSuccess} (${updated.consultationCode})',
+              severity: AppSeverity.success,
             ),
           );
           setState(() {
             _editingConsultationId = null;
             _editingConsultationCode = null;
+            _isDirty = false;
           });
           _tabController.animateTo(1);
           // Show post-save checklist status summary
@@ -1640,12 +1653,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
             .createConsultation(payload);
         if (mounted && created != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  '✅ ${l.customsStudySavedSuccess} (${created.consultationCode})'),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              '${l.customsStudySavedSuccess} (${created.consultationCode})',
+              severity: AppSeverity.success,
             ),
           );
+          _setDirty(false);
           _tabController.animateTo(1);
           // Show post-save checklist status summary
           Future.delayed(const Duration(milliseconds: 400), () {
@@ -1663,15 +1677,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           Future.delayed(const Duration(milliseconds: 1200), () {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Row(
-                    children: [
-                      const Icon(Icons.warning_amber_rounded, color: AppTheme.white),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(warningMsg, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    ],
-                  ),
-                  backgroundColor: AppTheme.orange,
+                AppTheme.snackBar(
+                  context,
+                  warningMsg,
+                  severity: AppSeverity.warning,
                   duration: const Duration(seconds: 8),
                   action: SnackBarAction(
                     label: context.l10n.ccOK,
@@ -1725,7 +1734,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   Widget build(BuildContext context) {
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final egpLabel = context.l10n.financialSettlementCurrencyEgp;
     final consultationsState = ref.watch(customsConsultationsProvider);
     final consultationsList = consultationsState.valueOrNull ?? [];
@@ -1840,6 +1848,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
     return VerticalStageScaffold(
       stageCode: widget.isTaxReviewMode ? 'PHASE-1: STEP_02-TAX' : 'PHASE-1: STEP_02',
+      isDirty: _isDirty,
+      onDiscard: () => _setDirty(false),
       titleEn: widget.isTaxReviewMode
           ? 'Customs Duty Review & Tax Calculation Workspace'
           : 'Customs Broker Consultation & Inspection Workspace',
@@ -1925,6 +1935,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         color: blockingCount > 0 ? AppTheme.crimson : AppTheme.emerald,
                         onTap: () => showBlockingIssuesDialog(context, _checklist, (val) => setState(() { _checklist.clear(); _checklist.addAll(val); })),
                       ),
+                      // Broker Quotations Comparison Button (Clearance Mode Only)
+                      if (!widget.isTaxReviewMode)
+                        AppButton(
+                          label: l.clearanceQuotesScreenTitle,
+                          icon: Icons.compare_arrows_rounded,
+                          variant: AppButtonVariant.secondary,
+                          size: AppButtonSize.small,
+                          onPressed: _openBrokerQuotationComparisonDialog,
+                        ),
                       // Search & Clone Consultation Button (UX-CLONE-011)
                       Tooltip(
                         message: l.searchAndCloneConsultationBtn,
@@ -2165,7 +2184,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 _titleController.text = '${_titleController.text}${TableRowCloneHelper.copySuffix}';
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('📋 ${l.convertedToNewStudyToast}'), backgroundColor: AppTheme.cobalt),
+                                AppTheme.snackBar(
+                                  context,
+                                  l.convertedToNewStudyToast,
+                                  severity: AppSeverity.info,
+                                ),
                               );
                             },
                           ),
@@ -2518,1035 +2541,93 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   ],
 
                   // CUSTOMS CALCULATION ENGINE CARD (MD-008 Customs Engine)
-                  Card(
-                    elevation: 3,
-                    color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final isNarrow = constraints.maxWidth < 750;
-                              final titleWidget = Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.calculate, color: AppTheme.cobalt, size: 22),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          l.customsCalculationEngine,
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                          ),
-                                        ),
-                                        Text(l.customsCalculationEngineSub, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              );
-
-                              final actionButtons = <Widget>[
-                                if (widget.isTaxReviewMode) ...[
-                                  AppButton(
-                                    label: l.fetchReconciledFinalInvoice,
-                                    icon: Icons.flash_on,
-                                    variant: AppButtonVariant.success,
-                                    size: AppButtonSize.small,
-                                    isLoading: _isRecalculating,
-                                    onPressed: _isRecalculating ? null : _fetchReconciledFinalInvoiceAndRecalculate,
-                                  ),
-                                ],
-                                AppButton(
-                                  label: l.syncHsRequirementsToChecklist,
-                                  icon: Icons.sync_alt,
-                                  variant: AppButtonVariant.primary,
-                                  size: AppButtonSize.small,
-                                  onPressed: () => _syncHsRequirementsToChecklist(silent: false),
-                                ),
-                                IconButton(
-                                  icon: Icon(_isCustomsCalculatorExpanded ? Icons.expand_less : Icons.expand_more, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                  tooltip: l.view,
-                                  onPressed: () => setState(() => _isCustomsCalculatorExpanded = !_isCustomsCalculatorExpanded),
-                                ),
-                              ];
-
-                              if (isNarrow) {
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    titleWidget,
-                                    const SizedBox(height: 10),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      crossAxisAlignment: WrapCrossAlignment.center,
-                                      children: actionButtons,
-                                    ),
-                                  ],
-                                );
-                              }
-
-                              return Row(
-                                children: [
-                                  Expanded(child: titleWidget),
-                                  ...actionButtons.map((w) => Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: w)),
-                                ],
-                              );
-                            },
-                          ),
-                          if (_isCustomsCalculatorExpanded) ...[
-                            const Divider(height: 24),
-                            // Row 1: Valuation Currency, Customs Official FX Rate, Study Date
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final isNarrow = constraints.maxWidth < 700;
-                                final currField = SearchableDropdownField<String>(
-                                  value: _customsCurrency,
-                                  labelText: l.invoiceCurrencyLabel,
-                                  items: currenciesList.isNotEmpty
-                                      ? currenciesList
-                                          .map((c) => SearchableDropdownItem<String>(
-                                                value: c.currencyCode,
-                                                label: '${c.currencyCode} - ${c.currencyName}',
-                                              ))
-                                          .toList()
-                                      : const [
-                                          SearchableDropdownItem(value: 'USD', label: 'USD'),
-                                          SearchableDropdownItem(value: 'EUR', label: 'EUR'),
-                                          SearchableDropdownItem(value: 'GBP', label: 'GBP'),
-                                          SearchableDropdownItem(value: 'CNY', label: 'CNY'),
-                                          SearchableDropdownItem(value: 'EGP', label: 'EGP'),
-                                        ],
-                                  onChanged: (v) {
-                                    if (v != null) {
-                                      setState(() {
-                                        _customsCurrency = v;
-                                        _updateExchangeRateForCurrency(v);
-                                      });
-                                    }
-                                  },
-                                );
-                                final fxField = TextFormField(
-                                  controller: _exchangeRateController,
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    labelText: l.customsFxRateLabel,
-                                    border: const OutlineInputBorder(),
-                                    errorText: (double.tryParse(_exchangeRateController.text.trim()) ?? 0.0) <= 0
-                                        ? l.customsFxRateRequired
-                                        : null,
-                                    prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 18),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(Icons.copy, size: 16),
-                                      tooltip: l.copyTooltip,
-                                      onPressed: () {
-                                        if (_exchangeRateController.text.isNotEmpty) {
-                                          CopyHelper.copy(context, _exchangeRateController.text);
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                  onChanged: (_) {
-                                    setState(() {});
-                                    _triggerDutyEstimateDebounced();
-                                  },
-                                );
-                                final dateField = InkWell(
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: _studyDate,
-                                      firstDate: DateTime(2020),
-                                      lastDate: DateTime(2030),
-                                    );
-                                    if (picked != null) {
-                                      setState(() => _studyDate = picked);
-                                      _triggerDutyEstimateDebounced();
-                                    }
-                                  },
-                                  child: InputDecorator(
-                                    decoration: InputDecoration(
-                                      labelText: l.studyDateLabel,
-                                      border: const OutlineInputBorder(),
-                                      prefixIcon: const Icon(Icons.calendar_today, color: AppTheme.cobalt, size: 18),
-                                    ),
-                                    child: Text(
-                                      '${_studyDate.year}-${_studyDate.month.toString().padLeft(2, '0')}-${_studyDate.day.toString().padLeft(2, '0')}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                      ),
-                                    ),
-                                  ),
-                                );
-
-                                if (isNarrow) {
-                                  return Column(
-                                    children: [
-                                      currField,
-                                      const SizedBox(height: 10),
-                                      fxField,
-                                      const SizedBox(height: 10),
-                                      dateField,
-                                    ],
-                                  );
-                                }
-
-                                return Row(
-                                  children: [
-                                    Expanded(flex: 2, child: currField),
-                                    const SizedBox(width: 12),
-                                    Expanded(flex: 2, child: fxField),
-                                    const SizedBox(width: 12),
-                                    Expanded(flex: 2, child: dateField),
-                                  ],
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Row 2: Ocean Freight Data in a dedicated separate row
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isDark ? AppTheme.cobalt.withValues(alpha: 0.12) : AppTheme.cobaltLight.withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: isDark ? AppTheme.cobalt.withValues(alpha: 0.3) : AppTheme.cobaltBorder),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 18),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          l.freightDataHeader,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                          ),
-                                        ),
-                                      ),
-                                      if (_selectedImportFileId != null)
-                                        AppButton(
-                                          label: l.fetchHighestFreightFromStudy,
-                                          icon: Icons.download,
-                                          variant: AppButtonVariant.secondary,
-                                          size: AppButtonSize.small,
-                                          onPressed: () => _autoFetchFreightFromScenarios(_selectedImportFileId!),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final isNarrow = constraints.maxWidth < 700;
-                                      final fAmount = TextFormField(
-                                        controller: _freightForeignController,
-                                        keyboardType: TextInputType.number,
-                                        decoration: InputDecoration(
-                                          labelText: l.foreignFreightAmountLabel,
-                                          border: const OutlineInputBorder(),
-                                          suffixIcon: IconButton(
-                                            icon: const Icon(Icons.copy, size: 16),
-                                            tooltip: l.copyTooltip,
-                                            onPressed: () {
-                                              if (_freightForeignController.text.isNotEmpty) {
-                                                CopyHelper.copy(context, _freightForeignController.text);
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                        onChanged: (_) => setState(() => _recalculateFreightEgp()),
-                                      );
-                                      final fCurr = SearchableDropdownField<String>(
-                                        value: _freightCurrency,
-                                        labelText: l.freightCurrencyLabel,
-                                        items: currenciesList.isNotEmpty
-                                            ? currenciesList
-                                                .map((c) => SearchableDropdownItem<String>(
-                                                      value: c.currencyCode,
-                                                      label: '${c.currencyCode} - ${c.currencyName}',
-                                                    ))
-                                                .toList()
-                                            : const [
-                                                SearchableDropdownItem(value: 'USD', label: 'USD'),
-                                                SearchableDropdownItem(value: 'EUR', label: 'EUR'),
-                                                SearchableDropdownItem(value: 'GBP', label: 'GBP'),
-                                                SearchableDropdownItem(value: 'EGP', label: 'EGP'),
-                                              ],
-                                        onChanged: (v) {
-                                          if (v != null) {
-                                            setState(() {
-                                              _freightCurrency = v;
-                                              _updateFreightExchangeRateForCurrency(v);
-                                            });
-                                          }
-                                        },
-                                      );
-                                      final fFx = TextFormField(
-                                        controller: _freightExchangeRateController,
-                                        keyboardType: TextInputType.number,
-                                        decoration: InputDecoration(
-                                          labelText: l.freightFxRateLabel,
-                                          border: const OutlineInputBorder(),
-                                          prefixIcon: const Icon(Icons.currency_exchange, color: AppTheme.cobalt, size: 16),
-                                          suffixIcon: IconButton(
-                                            icon: const Icon(Icons.copy, size: 16),
-                                            tooltip: l.copyTooltip,
-                                            onPressed: () {
-                                              if (_freightExchangeRateController.text.isNotEmpty) {
-                                                CopyHelper.copy(context, _freightExchangeRateController.text);
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                        onChanged: (_) => setState(() => _recalculateFreightEgp()),
-                                      );
-                                      final fEgp = TextFormField(
-                                        controller: _freightEgpController,
-                                        keyboardType: TextInputType.number,
-                                        decoration: InputDecoration(
-                                          labelText: '${l.freightEgpLabel} ($egpLabel)',
-                                          border: const OutlineInputBorder(),
-                                          prefixIcon: const Icon(Icons.attach_money, color: AppTheme.emerald, size: 18),
-                                          suffixIcon: IconButton(
-                                            icon: const Icon(Icons.copy, size: 16),
-                                            tooltip: l.copyTooltip,
-                                            onPressed: () {
-                                              if (_freightEgpController.text.isNotEmpty) {
-                                                CopyHelper.copy(context, _freightEgpController.text);
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                        onChanged: (_) => setState(() {}),
-                                      );
-
-                                      if (isNarrow) {
-                                        return Column(
-                                          children: [
-                                            fAmount,
-                                            const SizedBox(height: 8),
-                                            fCurr,
-                                            const SizedBox(height: 8),
-                                            fFx,
-                                            const SizedBox(height: 8),
-                                            fEgp,
-                                          ],
-                                        );
-                                      }
-
-                                      return Row(
-                                        children: [
-                                          Expanded(flex: 2, child: fAmount),
-                                          const SizedBox(width: 10),
-                                          Expanded(flex: 2, child: fCurr),
-                                          const SizedBox(width: 10),
-                                          Expanded(flex: 2, child: fFx),
-                                          const SizedBox(width: 10),
-                                          Expanded(flex: 2, child: fEgp),
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Row 3: Marine Insurance calculation (التأمين البحري التقديري 0.5% أو 1.0%)
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isDark ? AppTheme.orange.withValues(alpha: 0.12) : AppTheme.orangeLight.withValues(alpha: 0.4),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: isDark ? AppTheme.orange.withValues(alpha: 0.3) : AppTheme.orange),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.security, color: AppTheme.orange, size: 18),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          l.estimatedCustomsInsuranceRateLabel,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Wrap(
-                                    spacing: 16,
-                                    runSpacing: 10,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
-                                    children: [
-                                      SegmentedButton<String>(
-                                        segments: [
-                                          ButtonSegment(value: '0.5%', label: Text(l.standardCustomsInsuranceRate)),
-                                          const ButtonSegment(value: '1.0%', label: Text('1.0%')),
-                                          ButtonSegment(value: 'Custom', label: Text(l.customInsuranceRate)),
-                                        ],
-                                        selected: {_insuranceOption},
-                                        onSelectionChanged: (set) {
-                                          setState(() {
-                                            _insuranceOption = set.first;
-                                          });
-                                          _triggerDutyEstimateDebounced();
-                                        },
-                                        style: const ButtonStyle(
-                                          visualDensity: VisualDensity.compact,
-                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: 320,
-                                        child: TextFormField(
-                                          controller: _insuranceEgpController,
-                                          readOnly: _insuranceOption != 'Custom',
-                                          keyboardType: TextInputType.number,
-                                          decoration: InputDecoration(
-                                            labelText: '${l.insuranceEgpLabel} ($egpLabel)',
-                                            border: const OutlineInputBorder(),
-                                            filled: _insuranceOption != 'Custom',
-                                            fillColor: _insuranceOption != 'Custom' ? (isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoalSurface) : null,
-                                            helperText: _insuranceOption != 'Custom' ? l.autoCalculatedCandFInsuranceHelper(_insuranceOption) : null,
-                                            suffixIcon: IconButton(
-                                              icon: const Icon(Icons.copy, size: 16),
-                                              tooltip: l.copyTooltip,
-                                              onPressed: () {
-                                                if (_insuranceEgpController.text.isNotEmpty) {
-                                                  CopyHelper.copy(context, _insuranceEgpController.text);
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                          onChanged: (_) => setState(() {}),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Row 4: Highlighted Declared Customs CIF Value Box
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal.withValues(alpha: 0.04),
-                                    AppTheme.emerald.withValues(alpha: isDark ? 0.15 : 0.08),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.4), width: 1.2),
-                              ),
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final isNarrow = constraints.maxWidth < 600;
-                                  final infoCol = Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.verified, color: AppTheme.emerald, size: 18),
-                                          const SizedBox(width: 6),
-                                          Expanded(
-                                            child: Text(
-                                              l.declaredCifBaseLabel,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
-                                                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        l.cifFormulaBreakdown(
-                                          totalFobForeign.toStringAsFixed(2),
-                                          _customsCurrency,
-                                          totalFreightEgp.toStringAsFixed(2),
-                                          totalCandFEgp.toStringAsFixed(2),
-                                          totalInsuranceEgp.toStringAsFixed(2),
-                                        ),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textStrong,
-                                        ),
-                                      ),
-                                    ],
-                                  );
-
-                                  final numbersCol = Column(
-                                    crossAxisAlignment: isNarrow ? CrossAxisAlignment.start : CrossAxisAlignment.end,
-                                    children: [
-                                      CopyableText(
-                                        '${totalCifEgp.toStringAsFixed(2)} $egpLabel',
-                                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                                      ),
-                                      if (exchangeRate != null && exchangeRate > 0)
-                                        CopyableText(
-                                          '≈ ${totalCifForeign.toStringAsFixed(2)} $_customsCurrency',
-                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
-                                        ),
-                                    ],
-                                  );
-
-                                  if (isNarrow) {
-                                    return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        infoCol,
-                                        const SizedBox(height: 10),
-                                        numbersCol,
-                                      ],
-                                    );
-                                  }
-
-                                  return Row(
-                                    children: [
-                                      Expanded(child: infoCol),
-                                      numbersCol,
-                                    ],
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Row 5: Table Header Controls & Toolbar
-                            Wrap(
-                              alignment: WrapAlignment.spaceBetween,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                LayoutBuilder(
-                                  builder: (ctx, constraints) => ConstrainedBox(
-                                    constraints: BoxConstraints(maxWidth: constraints.maxWidth > 40 ? constraints.maxWidth : 320),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.table_chart, color: AppTheme.cobalt, size: 18),
-                                        const SizedBox(width: 8),
-                                        Flexible(
-                                          child: Text(
-                                            l.tariffDetailsTableTitle(
-                                              calcLines.length,
-                                              _groupByHsCode ? l.groupedHsCodeItems : l.detailedItems,
-                                            ),
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
-                                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                FilterChip(
-                                  selected: _groupByHsCode,
-                                  label: Text(
-                                    _groupByHsCode ? l.groupByHsCodeOption : l.detailedItemViewOption,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: _groupByHsCode ? AppTheme.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                    ),
-                                  ),
-                                  selectedColor: AppTheme.cobalt,
-                                  checkmarkColor: AppTheme.white,
-                                  onSelected: (val) {
-                                    setState(() {
-                                      _groupByHsCode = val;
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-
-                            if (_recalculationResult != null) ...[
-                              if (_recalculationResult!.hasDifferentCurrencies) ...[
-                                const SizedBox(height: 16),
-                                SizedBox(
-                                  width: 320,
-                                  child: TextFormField(
-                                    controller: _preliminaryRateController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(
-                                      labelText:
-                                          '${l.ccPreliminaryRateLabel} (${_recalculationResult!.preliminaryCurrency} → EGP)',
-                                      border: const OutlineInputBorder(),
-                                      isDense: true,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 16),
-                              RecalculationVarianceComparisonCard(
-                                recalculationResult: _recalculationResult!,
-                                onApplyNewFees: _applyAndSaveRecalculatedFees,
-                                onClose: () => setState(() => _recalculationResult = null),
-                              ),
-                            ],
-                            const SizedBox(height: 10),
-
-                            // HS Code Line Items Calculation Table
-                            if (hasInvoicesWithoutPoLines) ...[
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.orangeLight,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppTheme.orange),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.warning_amber_rounded, color: AppTheme.wcagOrange),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        l.addPoLinesWithHsToEstimateDuties,
-                                        style: const TextStyle(
-                                          color: AppTheme.wcagOrange,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ] else if (calcLines.isEmpty) ...[
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(8)),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.info_outline, color: AppTheme.cobalt),
-                                    const SizedBox(width: 10),
-                                    Expanded(child: Text(l.noResultsFound, style: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.w600))),
-                                  ],
-                                ),
-                              ),
-                            ] else ...[
-                              TariffMissingBanner(
-                                count: calcLines.where((l) => l.isTariffMissing).length,
-                              ),
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: DataTable(
-                                  columnSpacing: 14,
-                                  headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withValues(alpha: 0.06)),
-                                  headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
-                                  columns: [
-                                    DataColumn(label: Text(l.actionsCol)),
-                                    DataColumn(label: Text(l.customsTariffItemCol)),
-                                    DataColumn(label: Text(l.itemDescriptionAndOriginCol)),
-                                    DataColumn(label: Text(l.quantityAndUnitCol)),
-                                    DataColumn(label: Text(l.valueInCurrencyCol(_customsCurrency))),
-                                    DataColumn(label: Text(l.fobEgpCol)),
-                                    DataColumn(label: Text(l.cifEgpCol)),
-                                    DataColumn(label: Text(l.customsDutyCol)),
-                                    DataColumn(label: Text(l.vatCol)),
-                                    DataColumn(label: Text(l.otherTaxesCol)),
-                                    DataColumn(label: Text(l.totalTaxesAndDutiesCol)),
-                                    DataColumn(label: Text(l.regulatoryRequirementsCol)),
-                                  ],
-                                  rows: calcLines.map((line) {
-                                    final rowSummary = isArabic
-                                        ? '${line.hsCode} | ${line.description} | ${l.quantityAndUnitCol}: ${line.qty.toStringAsFixed(0)} ${line.unit} | ${l.fobEgpCol}: ${line.fobEgp.toStringAsFixed(2)} $egpLabel | ${l.cifEgpCol}: ${line.cifEgp.toStringAsFixed(2)} $egpLabel | ${l.customsDutyCol}: ${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} $egpLabel) | ${l.vatCol}: ${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} $egpLabel) | ${l.totalTaxesAndDutiesCol}: ${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel'
-                                        : '${line.hsCode} | ${line.description} | Qty: ${line.qty.toStringAsFixed(0)} ${line.unit} | FOB: ${line.fobEgp.toStringAsFixed(2)} $egpLabel | CIF: ${line.cifEgp.toStringAsFixed(2)} $egpLabel | Duty: ${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} $egpLabel) | VAT: ${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} $egpLabel) | Total: ${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel';
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                          IconButton(
-                                            icon: const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
-                                            tooltip: l.copyTooltip,
-                                            onPressed: () => CopyHelper.copy(context, rowSummary, customMessage: l.customsTaxCopyRowSuccess),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: line.hsCode,
-                                            rowSummary: rowSummary,
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                  decoration: BoxDecoration(color: AppTheme.cobalt.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                                                  child: Text(line.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                                ),
-                                                if (line.isTariffMissing) ...[
-                                                  const SizedBox(width: 4),
-                                                  const TariffMissingBadge(),
-                                                ],
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: '${line.description}${line.countryOfOrigin != null ? " (${line.countryOfOrigin})" : ""}',
-                                            rowSummary: rowSummary,
-                                            child: SizedBox(
-                                              width: 190,
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Text(line.description, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                                  if (line.countryOfOrigin != null && line.countryOfOrigin!.isNotEmpty)
-                                                    Container(
-                                                      margin: const EdgeInsets.only(top: 2),
-                                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                                      decoration: BoxDecoration(
-                                                        color: AppTheme.cobaltLight,
-                                                        borderRadius: BorderRadius.circular(4),
-                                                        border: Border.all(color: AppTheme.cobaltBorder),
-                                                      ),
-                                                      child: Text(
-                                                        line.countryOfOrigin!,
-                                                        style: const TextStyle(fontSize: 10, color: AppTheme.wcagCobalt, fontWeight: FontWeight.bold),
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: '${line.qty.toStringAsFixed(0)} ${line.unit}',
-                                            rowSummary: rowSummary,
-                                            child: Text('${line.qty.toStringAsFixed(0)} ${line.unit}'),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: '${line.foreignPrice.toStringAsFixed(2)} $_customsCurrency',
-                                            rowSummary: rowSummary,
-                                            child: Text('${line.foreignPrice.toStringAsFixed(2)} $_customsCurrency', style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.cobalt)),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: !line.isCalculated ? '—' : '${line.fobEgp.toStringAsFixed(2)} $egpLabel',
-                                            rowSummary: rowSummary,
-                                            child: Text(!line.isCalculated ? '—' : line.fobEgp.toStringAsFixed(2)),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: !line.isCalculated ? '—' : '${line.cifEgp.toStringAsFixed(2)} $egpLabel',
-                                            rowSummary: rowSummary,
-                                            child: Text(!line.isCalculated ? '—' : line.cifEgp.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: !line.isCalculated
-                                                ? '—'
-                                                : '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)} $egpLabel)',
-                                            rowSummary: rowSummary,
-                                            child: !line.isCalculated
-                                                ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
-                                                : Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: [
-                                                      if (line.hasExemption) ...[
-                                                        Row(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          children: [
-                                                            Text(
-                                                              '${line.baseDutyRate}%',
-                                                              style: const TextStyle(decoration: TextDecoration.lineThrough, color: AppTheme.textMuted, fontSize: 11),
-                                                            ),
-                                                            const SizedBox(width: 4),
-                                                            Text(
-                                                              '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})',
-                                                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        Container(
-                                                          margin: const EdgeInsets.only(top: 2),
-                                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                                          decoration: BoxDecoration(
-                                                            color: AppTheme.emeraldLight,
-                                                            borderRadius: BorderRadius.circular(4),
-                                                            border: Border.all(color: AppTheme.emeraldBorder),
-                                                          ),
-                                                          child: Text(
-                                                            line.appliedAgreementName ?? (context.l10n.ccExemption),
-                                                            style: const TextStyle(fontSize: 9.5, color: AppTheme.wcagEmerald, fontWeight: FontWeight.bold),
-                                                          ),
-                                                        ),
-                                                      ] else ...[
-                                                        Text('${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})'),
-                                                      ],
-                                                    ],
-                                                  ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: !line.isCalculated
-                                                ? '—'
-                                                : '${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)} $egpLabel)',
-                                            rowSummary: rowSummary,
-                                            child: !line.isCalculated
-                                                ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
-                                                : Text('${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)})'),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: !line.isCalculated
-                                                ? '—'
-                                                : '${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} $egpLabel',
-                                            rowSummary: rowSummary,
-                                            child: !line.isCalculated
-                                                ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
-                                                : Text('${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} $egpLabel'),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          CopyableTableCell(
-                                            value: !line.isCalculated
-                                                ? '—'
-                                                : '${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel',
-                                            rowSummary: rowSummary,
-                                            child: !line.isCalculated
-                                                ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
-                                                : Text('${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} $egpLabel', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson)),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          line.isTariffMissing
-                                              ? const TariffMissingBadge()
-                                              : !line.isCalculated
-                                                  ? const Text('—', style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold))
-                                                  : Row(
-                                                  children: [
-                                                    if (line.requiresAcid)
-                                                      Container(
-                                                        margin: const EdgeInsetsDirectional.only(start: 4),
-                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                        decoration: BoxDecoration(color: AppTheme.cobaltBorder, borderRadius: BorderRadius.circular(4)),
-                                                        child: Text(context.l10n.ccACID, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                                      ),
-                                                    if (line.requiresCoo)
-                                                      Container(
-                                                        margin: const EdgeInsetsDirectional.only(start: 4),
-                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                        decoration: BoxDecoration(color: AppTheme.emeraldBorder, borderRadius: BorderRadius.circular(4)),
-                                                        child: Text(context.l10n.ccCOO, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
-                                                      ),
-                                                    if (line.requiresInspection)
-                                                      Container(
-                                                        margin: const EdgeInsetsDirectional.only(start: 4),
-                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                        decoration: BoxDecoration(color: AppTheme.orangeLight, borderRadius: BorderRadius.circular(4)),
-                                                        child: Text(context.l10n.ccGOEIC, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.orange)),
-                                                      ),
-                                                    if (line.regulatoryAuthority != null)
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                                        decoration: BoxDecoration(color: AppTheme.cobaltLight, borderRadius: BorderRadius.circular(4)),
-                                                        child: Text(line.regulatoryAuthority!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                                      ),
-                                                  ],
-                                                ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-
-                              // Exemption & Documentary Requirements Alerts for applicable HS Codes
-                              ...calcLines.where((l) => l.hasExemption || l.priorApprovalNote != null || (l.regulatoryAuthority != null && l.regulatoryAuthority!.isNotEmpty)).map((line) {
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.orange.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.wcagOrange, width: 1.2),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.warning_amber_rounded, color: AppTheme.wcagOrange, size: 18),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              '${context.l10n.ccHSCode}: ${line.hsCode}${line.countryOfOrigin != null ? " - ${line.countryOfOrigin}" : ""}',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.wcagOrange),
-                                            ),
-                                          ),
-                                          if (line.hasExemption)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.emeraldBorder,
-                                                borderRadius: BorderRadius.circular(4),
-                                                border: Border.all(color: AppTheme.wcagEmerald),
-                                              ),
-                                              child: Text(
-                                                line.appliedAgreementName ?? (context.l10n.ccExemption),
-                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.wcagEmerald),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      if (line.exemptionConditionsNote != null) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          line.exemptionConditionsNote!,
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                                        ),
-                                      ],
-                                      if (line.requiredDocument != null) ...[
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          line.requiredDocument!,
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.wcagCobalt),
-                                        ),
-                                      ],
-                                      if (line.priorApprovalNote != null && line.priorApprovalNote!.isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          line.priorApprovalNote!,
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal, height: 1.3),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                );
-                              }),
-                              const SizedBox(height: 16),
-
-                              // Calculation Financial Summary Matrix
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.charcoal.withValues(alpha: 0.04),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
-                                ),
-                                child: Wrap(
-                                  spacing: 16,
-                                  runSpacing: 12,
-                                  alignment: WrapAlignment.spaceBetween,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    ConsultationMetricBadge(
-                                      title: l.fobEgpCol,
-                                      value: '${totalFobForeign.toStringAsFixed(2)} $_customsCurrency\n(${totalFobEgp.toStringAsFixed(2)} $egpLabel)',
-                                      color: AppTheme.charcoal,
-                                    ),
-                                    ConsultationMetricBadge(
-                                      title: l.cifEgpCol,
-                                      value: '${totalCifForeign.toStringAsFixed(2)} $_customsCurrency\n(${totalCifEgp.toStringAsFixed(2)} $egpLabel)',
-                                      color: AppTheme.cobalt,
-                                    ),
-                                    ConsultationMetricBadge(title: l.customsDutyCol, value: '${totalDutyEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.cobalt),
-                                    ConsultationMetricBadge(title: l.vatCol, value: '${totalVatEgp.toStringAsFixed(2)} $egpLabel', color: AppTheme.emerald),
-                                    ConsultationMetricBadge(title: l.totalTaxesAndDutiesCol, value: '${(_engineGrandTotal ?? totalTaxesAndDutiesEgp).toStringAsFixed(2)} $egpLabel', color: AppTheme.crimson),
-                                     if (_isEstimatingDuty)
-                                       const Padding(
-                                         padding: EdgeInsets.symmetric(horizontal: 8),
-                                         child: SizedBox(
-                                           width: 20,
-                                           height: 20,
-                                           child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.cobalt),
-                                         ),
-                                       ),
-                                    AppButton(
-                                      label: l.applyAndLinkFinancialEstimate,
-                                      icon: Icons.done_all,
-                                      variant: AppButtonVariant.success,
-                                      size: AppButtonSize.small,
-                                      onPressed: () {
-                                        final appliedValue = _engineGrandTotal ?? totalTaxesAndDutiesEgp;
-                                        setState(() {
-                                          _estimatedDutiesController.text = appliedValue.toStringAsFixed(2);
-                                        });
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('✅ ${l.applyAndLinkFinancialEstimate}: ${appliedValue.toStringAsFixed(2)} $egpLabel'), backgroundColor: AppTheme.emerald),
-                                        );
-                                      },
-                                    ),
-                              const SizedBox(height: 16),
-
-                              // NAFEZA STATEMENT FEE BREAKDOWN CARD (تفاصيل بنود التحصيل والإقرارات الرسمية)
-                              NafezaFeeBreakdownCard(
-                                calcLines: calcLines,
-                                totalDutyEgp: totalDutyEgp,
-                                totalVatEgp: totalVatEgp,
-                                totalServiceFeeEgp: calcLines.fold(0.0, (s, l) => s + l.customsServiceFeeAmountEgp),
-                                totalScheduleTaxEgp: calcLines.fold(0.0, (s, l) => s + l.scheduleTaxAmountEgp),
-                                totalFreightEgp: totalFreightEgp,
-                                totalInsuranceEgp: totalInsuranceEgp,
-                                exchangeRate: exchangeRate ?? 0.0,
-                                editingConsultationId: _editingConsultationId,
-                                editingConsultationCode: _editingConsultationCode,
-                                selectedBrokerId: _selectedBrokerId,
-                                selectedBrokerName: _selectedBrokerName,
-                                title: _titleController.text.trim(),
-                                checklist: _checklist,
-                                brokerQuoteItems: _brokerQuoteItems,
-                                selectedImportFileId: _selectedImportFileId,
-                                customsCurrency: _customsCurrency,
-                              ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ],
-                      ),
-                    ),
+                  CustomsDutiesCalculatorTab(
+                    isTaxReviewMode: widget.isTaxReviewMode,
+                    customsCurrency: _customsCurrency,
+                    onCustomsCurrencyChanged: (v) {
+                      setState(() {
+                        _customsCurrency = v;
+                        _updateExchangeRateForCurrency(v);
+                      });
+                    },
+                    exchangeRateController: _exchangeRateController,
+                    onExchangeRateChanged: () {
+                      setState(() {});
+                      _triggerDutyEstimateDebounced();
+                    },
+                    studyDate: _studyDate,
+                    onStudyDateChanged: (picked) {
+                      setState(() => _studyDate = picked);
+                      _triggerDutyEstimateDebounced();
+                    },
+                    currenciesList: currenciesList,
+                    freightForeignController: _freightForeignController,
+                    freightCurrency: _freightCurrency,
+                    onFreightCurrencyChanged: (v) {
+                      setState(() {
+                        _freightCurrency = v;
+                        _updateFreightExchangeRateForCurrency(v);
+                      });
+                    },
+                    freightExchangeRateController: _freightExchangeRateController,
+                    freightEgpController: _freightEgpController,
+                    onRecalculateFreightEgp: () => setState(() => _recalculateFreightEgp()),
+                    selectedImportFileId: _selectedImportFileId,
+                    onAutoFetchFreightFromScenarios: _selectedImportFileId != null
+                        ? () => _autoFetchFreightFromScenarios(_selectedImportFileId!)
+                        : null,
+                    insuranceOption: _insuranceOption,
+                    onInsuranceOptionChanged: (opt) {
+                      setState(() => _insuranceOption = opt);
+                      _triggerDutyEstimateDebounced();
+                    },
+                    insuranceEgpController: _insuranceEgpController,
+                    totalFobForeign: totalFobForeign,
+                    totalFobEgp: totalFobEgp,
+                    totalCandFEgp: totalCandFEgp,
+                    totalFreightEgp: totalFreightEgp,
+                    totalInsuranceEgp: totalInsuranceEgp,
+                    totalCifEgp: totalCifEgp,
+                    totalCifForeign: totalCifForeign,
+                    exchangeRate: exchangeRate,
+                    calcLines: calcLines,
+                    groupByHsCode: _groupByHsCode,
+                    onGroupByHsCodeChanged: (val) => setState(() => _groupByHsCode = val),
+                    recalculationResult: _recalculationResult,
+                    preliminaryRateController: _preliminaryRateController,
+                    onApplyNewFees: _applyAndSaveRecalculatedFees,
+                    onCloseRecalculation: () => setState(() => _recalculationResult = null),
+                    hasInvoicesWithoutPoLines: hasInvoicesWithoutPoLines,
+                    isCustomsCalculatorExpanded: _isCustomsCalculatorExpanded,
+                    onToggleCustomsCalculatorExpanded: () =>
+                        setState(() => _isCustomsCalculatorExpanded = !_isCustomsCalculatorExpanded),
+                    isRecalculating: _isRecalculating,
+                    onFetchReconciledFinalInvoice: _fetchReconciledFinalInvoiceAndRecalculate,
+                    onSyncHsRequirementsToChecklist: () =>
+                        _syncHsRequirementsToChecklist(silent: false),
+                    totalDutyEgp: totalDutyEgp,
+                    totalVatEgp: totalVatEgp,
+                    totalTaxesAndDutiesEgp: totalTaxesAndDutiesEgp,
+                    engineGrandTotal: _engineGrandTotal,
+                    isEstimatingDuty: _isEstimatingDuty,
+                    onApplyAndLinkFinancialEstimate: () {
+                      final appliedValue = _engineGrandTotal ?? totalTaxesAndDutiesEgp;
+                      setState(() {
+                        _estimatedDutiesController.text = appliedValue.toStringAsFixed(2);
+                      });
+                      AppTheme.snackBar(
+                        context,
+                        '\u2705 ${l.applyAndLinkFinancialEstimate}: ${appliedValue.toStringAsFixed(2)} $egpLabel',
+                        severity: AppSeverity.success,
+                      );
+                    },
+                    editingConsultationId: _editingConsultationId,
+                    editingConsultationCode: _editingConsultationCode,
+                    selectedBrokerId: _selectedBrokerId,
+                    selectedBrokerName: _selectedBrokerName,
+                    title: _titleController.text.trim(),
+                    checklist: _checklist,
+                    brokerQuoteItems: _brokerQuoteItems,
                   ),
                   const SizedBox(height: 20),
 
@@ -3869,9 +2950,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       _checklist.insert(index + 1, cloned);
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✨ ${l.checklistItemClonedSuccess}'),
-        backgroundColor: AppTheme.wcagCobalt,
+      AppTheme.snackBar(
+        context,
+        l.checklistItemClonedSuccess,
+        severity: AppSeverity.info,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -3907,6 +2989,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         locale: isArabic ? const Locale('ar') : const Locale('en'),
         child: Directionality(
           textDirection: textDir,
+          child: SelectionArea(
           child: CloneEntityReviewDialog(
             entityType: l.cloneConsultationDialogTitle,
             sourceCode: source.consultationCode,
@@ -3935,12 +3018,14 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                 payload,
               );
               if (cloned != null) {
+                if (!context.mounted) return;
                 _loadConsultationForEdit(cloned);
                 messenger.hideCurrentSnackBar();
                 messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('✨ ${l.cloneConsultationSuccess(cloned.consultationCode)}'),
-                    backgroundColor: AppTheme.wcagEmerald,
+                  AppTheme.snackBar(
+                    context,
+                    l.cloneConsultationSuccess(cloned.consultationCode),
+                    severity: AppSeverity.success,
                   ),
                 );
               }
@@ -3948,7 +3033,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   void _openSearchAndCloneConsultationDialog(BuildContext context, List<CustomsConsultationModel> consultations) {
@@ -3967,6 +3053,120 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
               Navigator.of(dialogCtx).pop();
               _openCloneConsultationReviewDialog(context, consultation);
             },
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  void _openBrokerQuotationComparisonDialog() {
+    final l = context.l10n;
+    final textDir = Directionality.maybeOf(context) ?? TextDirection.rtl;
+    final isArabic = textDir == TextDirection.rtl || Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+    final rfqsState = ref.read(customsClearanceQuotationsProvider);
+    final rfqs = rfqsState.valueOrNull ?? [];
+
+    List<CustomsClearanceQuotationItemModel> comparisonQuotes = [];
+    String? rfqCode;
+    String? rfqTitle;
+
+    if (_selectedImportFileId != null) {
+      final matchingRfqs = rfqs.where((r) => r.importFileId == _selectedImportFileId).toList();
+      if (matchingRfqs.isNotEmpty) {
+        final rfq = matchingRfqs.first;
+        comparisonQuotes = rfq.quotations;
+        rfqCode = rfq.rfqCode;
+        rfqTitle = rfq.title;
+      }
+    }
+
+    if (comparisonQuotes.isEmpty) {
+      for (final rfq in rfqs) {
+        comparisonQuotes.addAll(rfq.quotations);
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AppLocalizationsProvider(
+        locale: isArabic ? const Locale('ar') : const Locale('en'),
+        child: Directionality(
+          textDirection: textDir,
+          child: SelectionArea(
+            child: Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1000, maxHeight: 700),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Expanded(
+                        child: BrokerQuotationComparisonTable(
+                          quotations: comparisonQuotes,
+                          rfqCode: rfqCode,
+                          rfqTitle: rfqTitle,
+                          selectedBrokerId: _selectedBrokerId,
+                          onSelectQuote: (quote) {
+                            setState(() {
+                              _selectedBrokerId = quote.providerId;
+                              _loadBrokerPriceList(quote.providerId);
+                            });
+                            Navigator.of(dialogCtx).pop();
+                            AppTheme.snackBar(
+                              context,
+                              '\u2705 ${l.clearanceQuotesAwardedBannerPrefix}: ${quote.providerName}',
+                              severity: AppSeverity.success,
+                            );
+                          },
+                          onAward: (quotationId) async {
+                            final matchingRfq = rfqs.firstWhere(
+                              (r) => r.quotations.any((q) => q.quotationId == quotationId),
+                              orElse: () => rfqs.first,
+                            );
+                            try {
+                              await ref
+                                  .read(customsClearanceQuotationsProvider.notifier)
+                                  .awardQuotation(matchingRfq.rfqId, quotationId);
+                              if (dialogCtx.mounted) {
+                                Navigator.of(dialogCtx).pop();
+                              }
+                              if (mounted) {
+                                AppTheme.snackBar(
+                                  context,
+                                  '\u2705 ${l.clearanceQuotesStatusAwarded}',
+                                  severity: AppSeverity.success,
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                AppTheme.snackBar(
+                                  context,
+                                  '\u274c ${ApiErrorText.of(context.l10n, e)}',
+                                  severity: AppSeverity.danger,
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: AppButton(
+                          label: l.close,
+                          variant: AppButtonVariant.secondary,
+                          size: AppButtonSize.small,
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

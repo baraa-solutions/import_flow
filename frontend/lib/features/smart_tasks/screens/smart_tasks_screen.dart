@@ -534,9 +534,10 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
     if (mounted) {
       final l = context.l10n;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l.smartTasksBulkCompleteSuccess(pendingSelected.length)),
-          backgroundColor: AppTheme.emerald,
+        AppTheme.snackBar(
+          context,
+          l.smartTasksBulkCompleteSuccess(pendingSelected.length),
+          severity: AppSeverity.success,
         ),
       );
       setState(() => _selectedTasks.clear());

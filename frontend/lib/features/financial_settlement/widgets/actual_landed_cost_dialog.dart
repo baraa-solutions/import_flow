@@ -107,9 +107,10 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
   Future<void> _handleApprove() async {
     if (_approvedByController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.settlementClo02ApproveRequired),
-          backgroundColor: AppTheme.flatCrimson,
+        AppTheme.snackBar(
+          context,
+          context.l10n.settlementClo02ApproveRequired,
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -133,9 +134,10 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res.message),
-            backgroundColor: AppTheme.flatEmerald,
+          AppTheme.snackBar(
+            context,
+            res.message,
+            severity: AppSeverity.success,
           ),
         );
         Navigator.of(context).pop(true);
@@ -146,9 +148,10 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
           _isSubmitting = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ApiErrorText.of(context.l10n, e)),
-            backgroundColor: AppTheme.flatCrimson,
+          AppTheme.snackBar(
+            context,
+            ApiErrorText.of(context.l10n, e),
+            severity: AppSeverity.danger,
           ),
         );
       }

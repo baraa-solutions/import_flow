@@ -3,17 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
-import '../../../core/widgets/concurrency_conflict_dialog.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
-import '../../../core/widgets/error_details_dialog.dart';
-import '../../../core/widgets/vertical_stage_scaffold.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -21,23 +15,19 @@ import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
 import '../services/financial_export_service.dart';
-import '../../../core/widgets/metric_card.dart';
 import '../widgets/financial_ui.dart';
 import '../widgets/saved_budgets_registry_tab.dart';
-import '../widgets/async_action_button.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
-import '../../../core/widgets/table_row_clone_helper.dart';
 import '../widgets/search_and_clone_payment_dialog.dart';
 import '../widgets/search_and_clone_budget_dialog.dart';
+import '../widgets/budget_details_dialog.dart';
+import '../widgets/duplicate_budget_dialog.dart';
+import '../widgets/payment_request_details_dialog.dart';
+import '../widgets/payment_request_form_tab.dart';
+import '../widgets/swift_ocr_extractor_card.dart';
+import '../widgets/consolidated_budget_summary_card.dart';
 import '../../simulation/widgets/what_if_simulator_dialog.dart';
 import 'swift_reconciliation_screen.dart';
 import '../../../core/services/display_name_resolver.dart';
-import '../../../core/widgets/recalculate_button.dart';
-
-import 'package:frontend/core/widgets/ltr_text.dart';
-import '../../../core/widgets/table_row_clone_helper.dart';
-
 class FinancialApprovalScreen extends ConsumerStatefulWidget {
   final int initialIndex;
   final int? initialImportFileId;
@@ -204,9 +194,7 @@ class _FinancialApprovalScreenState
   void _showApiError(Object e) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(ApiError.message(e)),
-          backgroundColor: AppTheme.crimson),
+      AppTheme.snackBar(context, ApiError.message(e), severity: AppSeverity.danger),
     );
   }
 
@@ -230,9 +218,7 @@ class _FinancialApprovalScreenState
   void _warnFxMissing(String currency) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(context.l10n.faFxRateMissing(currency)),
-          backgroundColor: AppTheme.orange),
+      AppTheme.snackBar(context, context.l10n.faFxRateMissing(currency), severity: AppSeverity.warning),
     );
   }
 
@@ -436,54 +422,20 @@ class _FinancialApprovalScreenState
         .firstOrNull;
     if (existing != null) {
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) {
-            return AlertDialog(
-              title: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      color: AppTheme.orange),
-                  const SizedBox(width: 8),
-                  Text(context.l10n.duplicateBudgetTitle),
-                ],
-              ),
-              content: Text(
-                context.l10n.duplicateBudgetMessage(
-                    existing.budgetCode, existing.title),
-              ),
-              actions: [
-                AppButton(
-                  label: context.l10n.cancelSelection,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    setState(() {
-                      _bgtSelectedImportFileId = null;
-                      _bgtPrefillData = null;
-                    });
-                  },
-                ),
-                AppButton(
-                  label: context.l10n.faReviewSyncBudgetLiveCosts,
-                  variant: AppButtonVariant.primary,
-                  icon: Icons.sync,
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _loadBudgetForEditAndCheckSync(existing);
-                  },
-                ),
-                AppButton(
-                  label: context.l10n.viewAndPrintBudget,
-                  variant: AppButtonVariant.success,
-                  icon: Icons.print,
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _showBudgetDetailsDialog(existing);
-                  },
-                ),
-              ],
-            );
+        DuplicateBudgetDialog.show(
+          context,
+          existingBudget: existing,
+          onCancelSelection: () {
+            setState(() {
+              _bgtSelectedImportFileId = null;
+              _bgtPrefillData = null;
+            });
+          },
+          onReviewSyncLiveCosts: () {
+            _loadBudgetForEditAndCheckSync(existing);
+          },
+          onViewAndPrintBudget: () {
+            _showBudgetDetailsDialog(existing);
           },
         );
       }
@@ -621,10 +573,11 @@ class _FinancialApprovalScreenState
             .updatePaymentRequest(_editingPaymentId!, payload);
         if (mounted && updated != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(context.l10n
-                    .paymentRequestUpdatedSuccess(updated.paymentCode)),
-                backgroundColor: AppTheme.emerald),
+            AppTheme.snackBar(
+              context,
+              context.l10n.paymentRequestUpdatedSuccess(updated.paymentCode),
+              severity: AppSeverity.success,
+            ),
           );
           setState(() {
             _editingPaymentId = null;
@@ -642,10 +595,10 @@ class _FinancialApprovalScreenState
               ? ' (${created.smartTaskCode})'
               : '';
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  '${context.l10n.paymentRequestCreatedSuccess(created.paymentCode)}$taskMsg'),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              '${context.l10n.paymentRequestCreatedSuccess(created.paymentCode)}$taskMsg',
+              severity: AppSeverity.success,
             ),
           );
           _showPaymentDetailsDialog(created);
@@ -730,9 +683,10 @@ class _FinancialApprovalScreenState
     });
     _tabController.animateTo(0);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.paymentLoadedForEditMsg(p.paymentCode)),
-        backgroundColor: AppTheme.cobalt,
+      AppTheme.snackBar(
+        context,
+        context.l10n.paymentLoadedForEditMsg(p.paymentCode),
+        severity: AppSeverity.info,
       ),
     );
   }
@@ -768,9 +722,10 @@ class _FinancialApprovalScreenState
     });
     _tabController.animateTo(1);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.budgetLoadedForEditMsg(b.budgetCode)),
-        backgroundColor: AppTheme.cobalt,
+      AppTheme.snackBar(
+        context,
+        context.l10n.budgetLoadedForEditMsg(b.budgetCode),
+        severity: AppSeverity.info,
       ),
     );
     if (b.importFileId != null) {
@@ -843,9 +798,10 @@ class _FinancialApprovalScreenState
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.faPrefilledLiveCosts),
-            backgroundColor: AppTheme.emerald,
+          AppTheme.snackBar(
+            context,
+            context.l10n.faPrefilledLiveCosts,
+            severity: AppSeverity.success,
           ),
         );
       }
@@ -1079,34 +1035,11 @@ class _FinancialApprovalScreenState
   }
 
   Future<void> _confirmDeletePaymentRequest(PaymentRequestModel p) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.warning_rounded, color: AppTheme.orange, size: 22),
-            const SizedBox(width: 8),
-            Text(context.l10n.confirmDeletePaymentTitle,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Text(
-            context.l10n.confirmDeletePaymentMessage(p.paymentCode, p.title)),
-        actions: [
-          AppButton(
-            label: context.l10n.cancel,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pop(ctx, false),
-          ),
-          AppButton(
-            label: context.l10n.delete,
-            variant: AppButtonVariant.danger,
-            icon: Icons.delete,
-            onPressed: () => Navigator.pop(ctx, true),
-          ),
-        ],
-      ),
+    final confirm = await AppConfirmDialog.showDelete(
+      context,
+      title: context.l10n.confirmDeletePaymentTitle,
+      message: context.l10n.confirmDeletePaymentMessage(p.paymentCode, p.title),
+      entityName: '${p.paymentCode} - ${p.title}',
     );
 
     if (confirm == true) {
@@ -1116,18 +1049,21 @@ class _FinancialApprovalScreenState
             .softDeletePaymentRequest(p.paymentId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content:
-                    Text(context.l10n.paymentDeletedSuccess(p.paymentCode)),
-                backgroundColor: AppTheme.emerald),
+            AppTheme.snackBar(
+              context,
+              context.l10n.paymentDeletedSuccess(p.paymentCode),
+              severity: AppSeverity.success,
+            ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(context.l10n.deleteErrorMsg(ApiError.message(e))),
-                backgroundColor: AppTheme.crimson),
+            AppTheme.snackBar(
+              context,
+              context.l10n.deleteErrorMsg(ApiError.message(e)),
+              severity: AppSeverity.danger,
+            ),
           );
         }
       }
@@ -1202,32 +1138,21 @@ class _FinancialApprovalScreenState
                   _loadPaymentRequestForEdit(cloned);
 
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Row(
-                        children: [
-                          const Icon(Icons.auto_awesome,
-                              color: AppTheme.orange, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              l.clonePaymentRequestSuccess(cloned.paymentCode),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      backgroundColor: AppTheme.emerald,
+                    AppTheme.snackBar(
+                      context,
+                      l.clonePaymentRequestSuccess(cloned.paymentCode),
+                      severity: AppSeverity.success,
                     ),
                   );
                 }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text(
-                            l.clonePaymentRequestError(ApiError.message(e))),
-                        backgroundColor: AppTheme.crimson),
+                    AppTheme.snackBar(
+                      context,
+                      l.clonePaymentRequestError(ApiError.message(e)),
+                      severity: AppSeverity.danger,
+                    ),
                   );
                 }
               }
@@ -1310,31 +1235,21 @@ class _FinancialApprovalScreenState
                   _loadBudgetForEdit(cloned);
 
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Row(
-                        children: [
-                          const Icon(Icons.auto_awesome,
-                              color: AppTheme.orange, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              l.cloneBudgetSuccess(cloned.budgetCode),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      backgroundColor: AppTheme.emerald,
+                    AppTheme.snackBar(
+                      context,
+                      l.cloneBudgetSuccess(cloned.budgetCode),
+                      severity: AppSeverity.success,
                     ),
                   );
                 }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text(l.cloneBudgetError(ApiError.message(e))),
-                        backgroundColor: AppTheme.crimson),
+                    AppTheme.snackBar(
+                      context,
+                      l.cloneBudgetError(ApiError.message(e)),
+                      severity: AppSeverity.danger,
+                    ),
                   );
                 }
               }
@@ -1402,177 +1317,12 @@ class _FinancialApprovalScreenState
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l.poAllocationClonedSuccess),
-        backgroundColor: AppTheme.emerald,
+      AppTheme.snackBar(
+        context,
+        l.poAllocationClonedSuccess,
+        severity: AppSeverity.success,
         duration: const Duration(seconds: 2),
       ),
-    );
-  }
-
-  Widget _buildMobileLinkedPOCardsList(AppLocalizations l, bool isDark) {
-    if (_payPrefillData == null || _payPrefillData!.linkedPos.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      children: _payPrefillData!.linkedPos.map((po) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkElevatedSurface : AppTheme.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-                color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CopyableText(
-                          po.displayName,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.cobalt,
-                              fontSize: 13),
-                        ),
-                        if (po.displayName != po.poNumber)
-                          CopyableText(po.poNumber,
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  color: isDark
-                                      ? AppTheme.darkTextSecondary
-                                      : AppTheme.textMuted)),
-                      ],
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppTheme.darkCardBackground
-                              : AppTheme.orangeLight,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                              color: isDark
-                                  ? AppTheme.wcagOrange
-                                  : AppTheme.orange),
-                        ),
-                        child: Text(
-                          po.paymentTerms,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color:
-                                isDark ? AppTheme.orange : AppTheme.wcagOrange,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        icon: const Icon(Icons.copy_rounded,
-                            size: 16, color: AppTheme.cobalt),
-                        tooltip: l.clonePoAllocationTooltip,
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
-                        onPressed: () => _cloneLinkedPoItem(po),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${l.invoiceAmount}:',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: isDark
-                            ? AppTheme.darkTextSecondary
-                            : AppTheme.textStrong),
-                  ),
-                  Text(
-                    '${po.totalAmount.toStringAsFixed(2)} ${po.currency}',
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.emerald),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildAmountField(AppLocalizations l) {
-    return TextFormField(
-      controller: _amountController,
-      keyboardType: TextInputType.number,
-      decoration: InputDecoration(
-          labelText: '${l.requestedAmountLabel} *',
-          border: const OutlineInputBorder()),
-      validator: (v) =>
-          (v == null || double.tryParse(v) == null || double.parse(v) <= 0)
-              ? l.requiredField
-              : null,
-    );
-  }
-
-  Widget _buildCurrencyDropdown(AppLocalizations l) {
-    return SearchableDropdownField<String>(
-      value: _currencyCode,
-      labelText: '${l.currencyCol} *',
-      searchHintText: l.search,
-      items: () {
-        final curList = ref.watch(currenciesProvider).valueOrNull ?? [];
-        final list = curList.isNotEmpty
-            ? curList
-                .map((c) => SearchableDropdownItem<String>(
-                      value: c.currencyCode,
-                      label: '${c.currencyCode} - ${c.currencyName}',
-                    ))
-                .toList()
-            : [
-                const SearchableDropdownItem(value: 'USD', label: 'USD'),
-                const SearchableDropdownItem(value: 'EUR', label: 'EUR'),
-                const SearchableDropdownItem(value: 'EGP', label: 'EGP'),
-                const SearchableDropdownItem(value: 'GBP', label: 'GBP'),
-                const SearchableDropdownItem(value: 'CNY', label: 'CNY'),
-                const SearchableDropdownItem(value: 'SAR', label: 'SAR'),
-                const SearchableDropdownItem(value: 'AED', label: 'AED'),
-              ];
-        if (!list.any((i) => i.value == _currencyCode)) {
-          list.add(SearchableDropdownItem(
-              value: _currencyCode, label: _currencyCode));
-        }
-        return list;
-      }(),
-      onChanged: (val) {
-        if (val != null) {
-          setState(() {
-            _currencyCode = val;
-            final rate = _getExchangeRateForCurrency(val);
-            _exchangeRateController.text = _rateText(rate);
-            if (rate == null) _warnFxMissing(val);
-          });
-        }
-      },
     );
   }
 
@@ -1665,57 +1415,6 @@ class _FinancialApprovalScreenState
           });
         }
       },
-    );
-  }
-
-  Widget _buildExchangeRateField(AppLocalizations l) {
-    return TextFormField(
-      controller: _exchangeRateController,
-      keyboardType: TextInputType.number,
-      validator: _validateExchangeRate,
-      decoration: InputDecoration(
-          labelText: '${l.exchangeRateCol} (EGP) *',
-          border: const OutlineInputBorder()),
-    );
-  }
-
-  Widget _buildRequestDateField(AppLocalizations l) {
-    return InkWell(
-      onTap: () async {
-        final d = await showDatePicker(
-          context: context,
-          initialDate: _requestDate,
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2030),
-        );
-        if (d != null) setState(() => _requestDate = d);
-      },
-      child: InputDecorator(
-        decoration: InputDecoration(
-            labelText: '${l.requestDateLabel} *',
-            border: const OutlineInputBorder()),
-        child: Text(_requestDate.toString().substring(0, 10)),
-      ),
-    );
-  }
-
-  Widget _buildDueDateField(AppLocalizations l) {
-    return InkWell(
-      onTap: () async {
-        final d = await showDatePicker(
-          context: context,
-          initialDate: _dueDate,
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2030),
-        );
-        if (d != null) setState(() => _dueDate = d);
-      },
-      child: InputDecorator(
-        decoration: InputDecoration(
-            labelText: '${l.dueDateLabel} *',
-            border: const OutlineInputBorder()),
-        child: Text(_dueDate.toString().substring(0, 10)),
-      ),
     );
   }
 
@@ -1862,7 +1561,7 @@ class _FinancialApprovalScreenState
           ? l.swiftDataExtractedSuccess(fileName)
           : l.swiftMatchedSuccess;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppTheme.emerald),
+        AppTheme.snackBar(context, msg, severity: AppSeverity.success),
       );
     }
   }
@@ -2104,9 +1803,11 @@ class _FinancialApprovalScreenState
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(context.l10n.swiftTextParseError),
-                backgroundColor: AppTheme.orange),
+            AppTheme.snackBar(
+              context,
+              context.l10n.swiftTextParseError,
+              severity: AppSeverity.warning,
+            ),
           );
         }
       }
@@ -2156,20 +1857,22 @@ class _FinancialApprovalScreenState
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(context.l10n
-                    .swiftFileExtractError(res['error'].toString())),
-                backgroundColor: AppTheme.crimson),
+            AppTheme.snackBar(
+              context,
+              context.l10n.swiftFileExtractError(res['error'].toString()),
+              severity: AppSeverity.danger,
+            ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text(context.l10n.swiftFileExtractError(ApiError.message(e))),
-              backgroundColor: AppTheme.crimson),
+          AppTheme.snackBar(
+            context,
+            context.l10n.swiftFileExtractError(ApiError.message(e)),
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {
@@ -2300,11 +2003,12 @@ class _FinancialApprovalScreenState
     final bgt = await _persistBudget();
     if (bgt != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isUpdate
+        AppTheme.snackBar(
+          context,
+          isUpdate
               ? context.l10n.budgetUpdatedSuccess(bgt.budgetCode)
-              : context.l10n.budgetCreatedSuccess(bgt.budgetCode)),
-          backgroundColor: AppTheme.emerald,
+              : context.l10n.budgetCreatedSuccess(bgt.budgetCode),
+          severity: AppSeverity.success,
         ),
       );
       _showBudgetDetailsDialog(bgt);
@@ -2322,10 +2026,10 @@ class _FinancialApprovalScreenState
       if (mounted && approved != null) {
         setState(() => _lastSavedBudget = approved);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(context.l10n.budgetApprovedSuccess(approved.budgetCode)),
-            backgroundColor: AppTheme.emerald,
+          AppTheme.snackBar(
+            context,
+            context.l10n.budgetApprovedSuccess(approved.budgetCode),
+            severity: AppSeverity.success,
           ),
         );
         _showBudgetDetailsDialog(approved);
@@ -2338,830 +2042,29 @@ class _FinancialApprovalScreenState
   }
 
   void _showPaymentDetailsDialog(PaymentRequestModel pay) {
-    final swiftController =
-        TextEditingController(text: pay.swiftReferenceNo ?? '');
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(context.l10n.paymentRequestDetailsTitle(pay.paymentCode),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16)),
-              FinancialStatusChip(status: pay.status),
-            ],
-          ),
-          content: SizedBox(
-            width: 650,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(pay.title,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.charcoal)),
-                  const SizedBox(height: 6),
-                  Text(
-                      context.l10n.beneficiarySupplierDetails(
-                          pay.beneficiaryName ?? pay.supplierName),
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text(
-                      '${context.l10n.paymentTypeLabel}: ${pay.paymentType} | ${context.l10n.requestDateLabel}: ${pay.requestDate.isNotEmpty ? pay.requestDate : "-"} | ${context.l10n.dueDateLabel}: ${pay.dueDate}'),
-                  const Divider(),
-                  Row(
-                    children: [
-                      _buildMetricBadge(
-                          context.l10n.foreignAmountMetric,
-                          '${pay.requestedAmount} ${pay.currencyCode}',
-                          AppTheme.cobalt),
-                      const SizedBox(width: 10),
-                      _buildMetricBadge(context.l10n.exchangeRateCol,
-                          '${pay.exchangeRate} EGP', AppTheme.orange),
-                      const SizedBox(width: 10),
-                      _buildMetricBadge(
-                          context.l10n.equivalentEgpCol,
-                          '${pay.requestedAmountEgp.toStringAsFixed(2)} EGP',
-                          AppTheme.emerald),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                        color: AppTheme.cobaltLight.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.cobaltBorder)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${context.l10n.beneficiaryBankDetails}:',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.cobalt)),
-                        const SizedBox(height: 4),
-                        Text(
-                            '${context.l10n.bankNameLabel}: ${pay.bankName ?? "-"}'),
-                        Text(
-                            '${context.l10n.swiftCodeLabel}: ${pay.swiftCode ?? "-"}'),
-                        Text(
-                            '${context.l10n.ibanAccountLabel}: ${pay.ibanAccountNo ?? "-"}'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // ── EXPORT & SHARING ACTION TOOLBAR ────────────────────────
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.charcoalSurface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.cloudWhite),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.share_outlined,
-                                size: 16, color: AppTheme.cobalt),
-                            const SizedBox(width: 6),
-                            Text(context.l10n.exportAndShareOptionsTitle,
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.charcoal)),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            // 1. Print / Save PDF
-                            AppButton(
-                              label: context.l10n.printSavePdfBtn,
-                              variant: AppButtonVariant.primary,
-                              size: AppButtonSize.small,
-                              icon: Icons.print,
-                              onPressed: () {
-                                FinancialExportService.printPaymentRequestPdf(
-                                    payment: pay);
-                              },
-                            ),
-                            // 2. Export Excel
-                            AppButton(
-                              label: context.l10n.downloadExcelBtn,
-                              variant: AppButtonVariant.secondary,
-                              size: AppButtonSize.small,
-                              icon: Icons.table_chart,
-                              onPressed: () async {
-                                final path = await FinancialExportService
-                                    .exportSinglePaymentRequestToExcel(
-                                  context: context,
-                                  payment: pay,
-                                );
-                                if (path != null && mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text(context.l10n
-                                            .excelSavedSuccess(path)),
-                                        backgroundColor: AppTheme.emerald),
-                                  );
-                                }
-                              },
-                            ),
-                            // 3. WhatsApp Sharing
-                            AppButton(
-                              label: context.l10n.whatsappShareBtn,
-                              variant: AppButtonVariant.success,
-                              size: AppButtonSize.small,
-                              icon: Icons.chat,
-                              onPressed: () {
-                                _showWhatsAppShareDialog(pay);
-                              },
-                            ),
-                            // 4. Email Sharing
-                            AppButton(
-                              label: context.l10n.emailShareBtn,
-                              variant: AppButtonVariant.warning,
-                              size: AppButtonSize.small,
-                              icon: Icons.email_outlined,
-                              onPressed: () {
-                                _showEmailShareDialog(pay);
-                              },
-                            ),
-                            // 5. Copy Summary
-                            AppButton(
-                              label: context.l10n.copySummaryBtn,
-                              variant: AppButtonVariant.secondary,
-                              size: AppButtonSize.small,
-                              icon: Icons.copy,
-                              onPressed: () {
-                                final text = FinancialExportService
-                                    .generatePaymentWhatsAppText(pay);
-                                CopyHelper.copy(context, text);
-                              },
-                            ),
-                            // 6. SWIFT Smart Reconcile & Auto Match
-                            AppButton(
-                              label: context.l10n.extractAndMatchSwiftBtn,
-                              variant: AppButtonVariant.primary,
-                              size: AppButtonSize.small,
-                              icon: Icons.auto_awesome,
-                              onPressed: () {
-                                Navigator.pop(ctx);
-                                setState(() => _tabController.index = 3);
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  if (pay.status == 'Approved') ...[
-                    const Divider(),
-                    ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: swiftController,
-                      builder: (context, value, _) {
-                        final isEmpty = value.text.trim().isEmpty;
-                        return TextField(
-                          controller: swiftController,
-                          textDirection: TextDirection.ltr,
-                          decoration: InputDecoration(
-                            labelText: context.l10n.swiftReferenceInputLabel,
-                            errorText: isEmpty ? context.l10n.fieldRequired : null,
-                            border: const OutlineInputBorder(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            AppButton(
-              label: context.l10n.close,
-              variant: AppButtonVariant.secondary,
-              onPressed: () => Navigator.pop(context),
-            ),
-            if (pay.status == 'Draft' || pay.status == 'Pending Approval') ...[
-              AsyncActionButton(
-                label: context.l10n.approvePaymentAction,
-                onAction: () async {
-                  final nav = Navigator.of(context);
-                  await ref
-                      .read(paymentRequestsProvider.notifier)
-                      .approvePaymentRequest(pay.paymentId);
-                  nav.pop();
-                },
-              ),
-            ],
-            if (pay.status == 'Approved') ...[
-              ValueListenableBuilder<TextEditingValue>(
-                valueListenable: swiftController,
-                builder: (context, value, _) {
-                  final canPay = value.text.trim().isNotEmpty;
-                  return AsyncActionButton(
-                    label: context.l10n.markAsPaidAction,
-                    variant: AppButtonVariant.success,
-                    enabled: canPay,
-                    onAction: () async {
-                      if (!canPay) return;
-                      final nav = Navigator.of(context);
-                      await ref
-                          .read(paymentRequestsProvider.notifier)
-                          .executePayment(pay.paymentId,
-                              swiftRef: swiftController.text.trim());
-                      nav.pop();
-                    },
-                  );
-                },
-              ),
-            ],
-          ],
-        );
+    PaymentRequestDetailsDialog.show(
+      context,
+      payment: pay,
+      onOpenSwiftReconciliation: () {
+        setState(() {
+          _visitedTabs.add(4);
+          _tabController.index = 4;
+        });
       },
-    );
-  }
-
-  void _showWhatsAppShareDialog(PaymentRequestModel pay) {
-    final text = FinancialExportService.generatePaymentWhatsAppText(pay);
-    final phoneController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.chat, color: AppTheme.emerald),
-            const SizedBox(width: 8),
-            Text(context.l10n.sendPaymentWhatsAppTitle,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: 550,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.whatsAppNumberLabel,
-                    hintText: context.l10n.whatsAppNumberHint,
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.phone_android),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(context.l10n.messagePreviewLabel,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: AppTheme.charcoal)),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cloudWhite,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.cloudWhite),
-                  ),
-                  child: SelectableText(
-                    text,
-                    style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        color: AppTheme.charcoal,
-                        height: 1.4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          AppButton(
-            label: context.l10n.cancel,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          AppButton(
-            label: context.l10n.copySummaryBtn,
-            variant: AppButtonVariant.secondary,
-            icon: Icons.copy,
-            onPressed: () {
-              CopyHelper.copy(ctx, text);
-            },
-          ),
-          AppButton(
-            label: context.l10n.openWhatsAppBtn,
-            variant: AppButtonVariant.success,
-            icon: Icons.open_in_new,
-            onPressed: () {
-              final phone =
-                  phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
-              final encoded = Uri.encodeComponent(text);
-              final url = phone.isNotEmpty
-                  ? 'https://wa.me/$phone?text=$encoded'
-                  : 'https://wa.me/?text=$encoded';
-              FinancialExportService.launchUrlNative(url);
-              Navigator.pop(ctx);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEmailShareDialog(PaymentRequestModel pay) {
-    final subject = FinancialExportService.generatePaymentEmailSubject(pay);
-    final body = FinancialExportService.generatePaymentEmailBody(pay);
-    final toController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.email, color: AppTheme.orange),
-            const SizedBox(width: 8),
-            Text(context.l10n.sendPaymentEmailTitle,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: 600,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: toController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.recipientEmailLabel,
-                    hintText: 'accounting@company.com',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.alternate_email),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.charcoalSurface,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.cloudWhite),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(context.l10n.emailSubjectLabel(subject),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 12)),
-                      const Divider(height: 12),
-                      SelectableText(
-                        body,
-                        style: const TextStyle(fontSize: 11, height: 1.4),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          AppButton(
-            label: context.l10n.cancel,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          AppButton(
-            label: context.l10n.copySummaryBtn,
-            variant: AppButtonVariant.secondary,
-            icon: Icons.copy,
-            onPressed: () {
-              CopyHelper.copy(ctx, 'Subject: $subject\n\n$body');
-            },
-          ),
-          AppButton(
-            label: context.l10n.openEmailClientBtn,
-            variant: AppButtonVariant.primary,
-            icon: Icons.send,
-            onPressed: () {
-              final to = toController.text.trim();
-              final encodedSubject = Uri.encodeComponent(subject);
-              final encodedBody = Uri.encodeComponent(body);
-              final url =
-                  'mailto:$to?subject=$encodedSubject&body=$encodedBody';
-              FinancialExportService.launchUrlNative(url);
-              Navigator.pop(ctx);
-            },
-          ),
-        ],
-      ),
+      onStatusChanged: () {
+        ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
+      },
     );
   }
 
   void _showBudgetDetailsDialog(ImportBudgetModel bgt) {
-    // Created once, so dialog rebuilds do not refetch (or re-show errors).
-    final Future<BudgetPrefillModel?> prefillFuture = bgt.importFileId != null
-        ? _fetchPrefillOrNull(bgt.importFileId!)
-        : Future.value(null);
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return FutureBuilder<BudgetPrefillModel?>(
-          future: prefillFuture,
-          builder: (dialogCtx, snapshot) {
-            final prefill = snapshot.data ??
-                (bgt.importFileId == _bgtPrefillData?.importFileId
-                    ? _bgtPrefillData
-                    : null);
-
-            return AlertDialog(
-              title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(context.l10n.budgetDetailsTitle(bgt.budgetCode),
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16)),
-                  FinancialStatusChip(status: bgt.budgetStatus),
-                ],
-              ),
-              content: SizedBox(
-                width: 700,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(bgt.title,
-                          style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.charcoal)),
-                      const SizedBox(height: 12),
-
-                      // Upstream Variance Alert Banner inside Modal
-                      if (prefill != null) ...[
-                        _buildUpstreamVarianceAlertBanner(
-                            bgt: bgt, prefill: prefill),
-                        const SizedBox(height: 8),
-                      ],
-
-                      // Multi-currency details in modal with live prefill
-                      _buildConsolidatedBudgetSummary(
-                          bgt: bgt, prefill: prefill),
-
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppTheme.charcoalSurface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.cloudWhite),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.share_outlined,
-                                    size: 16, color: AppTheme.cobalt),
-                                const SizedBox(width: 6),
-                                Text(context.l10n.exportAndShareOptionsTitle,
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.charcoal)),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                // 1. Print / Save PDF
-                                AppButton(
-                                  label: context.l10n.printSavePdfBtn,
-                                  variant: AppButtonVariant.primary,
-                                  size: AppButtonSize.small,
-                                  icon: Icons.print,
-                                  onPressed: () {
-                                    FinancialExportService.printOrSaveBudgetPdf(
-                                      budget: bgt,
-                                      prefill: prefill,
-                                    );
-                                  },
-                                ),
-                                // 2. Export Excel
-                                AppButton(
-                                  label: context.l10n.downloadExcelBtn,
-                                  variant: AppButtonVariant.secondary,
-                                  size: AppButtonSize.small,
-                                  icon: Icons.table_chart,
-                                  onPressed: () async {
-                                    final path = await FinancialExportService
-                                        .exportBudgetToExcel(
-                                      context: context,
-                                      budget: bgt,
-                                      prefill: prefill,
-                                    );
-                                    if (path != null && mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                            content: Text(context.l10n
-                                                .excelSavedSuccess(path)),
-                                            backgroundColor: AppTheme.emerald),
-                                      );
-                                    }
-                                  },
-                                ),
-                                // 3. WhatsApp Sharing
-                                AppButton(
-                                  label: context.l10n.whatsappShareBtn,
-                                  variant: AppButtonVariant.success,
-                                  size: AppButtonSize.small,
-                                  icon: Icons.chat,
-                                  onPressed: () {
-                                    _showBudgetWhatsAppShareDialog(
-                                        bgt, prefill);
-                                  },
-                                ),
-                                // 4. Email Sharing
-                                AppButton(
-                                  label: context.l10n.emailShareBtn,
-                                  variant: AppButtonVariant.warning,
-                                  size: AppButtonSize.small,
-                                  icon: Icons.email_outlined,
-                                  onPressed: () {
-                                    _showBudgetEmailShareDialog(bgt, prefill);
-                                  },
-                                ),
-                                // 5. Copy Summary
-                                AppButton(
-                                  label: context.l10n.copySummaryBtn,
-                                  variant: AppButtonVariant.secondary,
-                                  size: AppButtonSize.small,
-                                  icon: Icons.copy,
-                                  onPressed: () {
-                                    final text = FinancialExportService
-                                        .generateBudgetWhatsAppText(
-                                            bgt, prefill);
-                                    CopyHelper.copy(context, text);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                AppButton(
-                  label: context.l10n.close,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-                if (bgt.importFileId != null)
-                  // CRE-001: Centralized recalculation engine — no sync logic in dialog
-                  RecalculateButton(
-                    entityType: 'import_budget',
-                    entityId: bgt.budgetId,
-                    sourcePage: 'BudgetDetailsDialog',
-                    label: context.l10n.faSyncLiveCosts,
-                    onSuccess: (result) {
-                      Navigator.of(ctx).pop();
-                      ref.invalidate(importBudgetsProvider);
-                    },
-                  ),
-                if (bgt.budgetStatus == 'Pending Review' ||
-                    bgt.budgetStatus == 'Draft' ||
-                    bgt.budgetStatus == 'Needs Revalidation') ...[
-                  AsyncActionButton(
-                    label: context.l10n.approveAndCertifyBudget,
-                    variant: AppButtonVariant.success,
-                    onAction: () async {
-                      final nav = Navigator.of(ctx);
-                      await ref
-                          .read(importBudgetsProvider.notifier)
-                          .approveImportBudget(bgt.budgetId);
-                      nav.pop();
-                    },
-                  ),
-                ],
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showBudgetWhatsAppShareDialog(ImportBudgetModel bgt,
-      [BudgetPrefillModel? prefill]) {
-    final text = FinancialExportService.generateBudgetWhatsAppText(
-        bgt, prefill ?? _bgtPrefillData);
-    final phoneController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.chat, color: AppTheme.emerald),
-            const SizedBox(width: 8),
-            Text(context.l10n.sendBudgetWhatsAppTitle,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: 550,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.whatsAppNumberLabel,
-                    hintText: context.l10n.whatsAppNumberHint,
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.phone_android),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(context.l10n.messagePreviewLabel,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: AppTheme.charcoal)),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cloudWhite,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.cloudWhite),
-                  ),
-                  child: SelectableText(
-                    text,
-                    style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        color: AppTheme.charcoal,
-                        height: 1.4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          AppButton(
-            label: context.l10n.cancel,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          AppButton(
-            label: context.l10n.copySummaryBtn,
-            variant: AppButtonVariant.secondary,
-            icon: Icons.copy,
-            onPressed: () {
-              CopyHelper.copy(ctx, text);
-            },
-          ),
-          AppButton(
-            label: context.l10n.openWhatsAppBtn,
-            variant: AppButtonVariant.success,
-            icon: Icons.open_in_new,
-            onPressed: () {
-              final phone =
-                  phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
-              final encoded = Uri.encodeComponent(text);
-              final url = phone.isNotEmpty
-                  ? 'https://wa.me/$phone?text=$encoded'
-                  : 'https://wa.me/?text=$encoded';
-              FinancialExportService.launchUrlNative(url);
-              Navigator.pop(ctx);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showBudgetEmailShareDialog(ImportBudgetModel bgt,
-      [BudgetPrefillModel? prefill]) {
-    final subject = FinancialExportService.generateBudgetEmailSubject(bgt);
-    final body = FinancialExportService.generateBudgetEmailBody(
-        bgt, prefill ?? _bgtPrefillData);
-    final toController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.email, color: AppTheme.orange),
-            const SizedBox(width: 8),
-            Text(context.l10n.sendBudgetEmailTitle,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: 600,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: toController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.recipientEmailLabel,
-                    hintText: 'cfo@company.com',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.alternate_email),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.charcoalSurface,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.cloudWhite),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(context.l10n.emailSubjectLabel(subject),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 12)),
-                      const Divider(height: 12),
-                      SelectableText(
-                        body,
-                        style: const TextStyle(fontSize: 11, height: 1.4),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          AppButton(
-            label: context.l10n.cancel,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          AppButton(
-            label: context.l10n.copySummaryBtn,
-            variant: AppButtonVariant.secondary,
-            icon: Icons.copy,
-            onPressed: () {
-              CopyHelper.copy(ctx, 'Subject: $subject\n\n$body');
-            },
-          ),
-          AppButton(
-            label: context.l10n.openEmailClientBtn,
-            variant: AppButtonVariant.primary,
-            icon: Icons.send,
-            onPressed: () {
-              final to = toController.text.trim();
-              final encodedSubject = Uri.encodeComponent(subject);
-              final encodedBody = Uri.encodeComponent(body);
-              final url =
-                  'mailto:$to?subject=$encodedSubject&body=$encodedBody';
-              FinancialExportService.launchUrlNative(url);
-              Navigator.pop(ctx);
-            },
-          ),
-        ],
-      ),
+    BudgetDetailsDialog.show(
+      context,
+      budget: bgt,
+      prefill: _bgtPrefillData?.importFileId == bgt.importFileId
+          ? _bgtPrefillData
+          : null,
+      onEditBudget: () => _loadBudgetForEdit(bgt),
     );
   }
 
@@ -3169,12 +2072,10 @@ class _FinancialApprovalScreenState
   Widget build(BuildContext context) {
     final l = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final suppliersState = ref.watch(suppliersProvider);
-    final paymentsState = ref.watch(paymentRequestsProvider);
+        final paymentsState = ref.watch(paymentRequestsProvider);
     final budgetsState = ref.watch(importBudgetsProvider);
 
-    final suppliersList = suppliersState.valueOrNull ?? [];
-
+    
     final tabs = [
       const VerticalNavTabItem(
         icon: Icons.payment_outlined,
@@ -3281,1073 +2182,68 @@ class _FinancialApprovalScreenState
           },
         ),
       ],
-      body: IndexedStack(
+      body: SelectionArea(
+        child: IndexedStack(
         index: _tabController.index,
         children: [
           // ── TAB 1: PAYMENT REQUEST FORM (BP-012) ───────────────────────────
           if (_visitedTabs.contains(0))
-            CallbackShortcuts(
-              bindings: {
-                const SingleActivator(LogicalKeyboardKey.keyD, control: true):
-                    () {
-                  _openSearchAndClonePaymentDialog();
-                },
+            PaymentRequestFormTab(
+              formKey: _paymentFormKey,
+              editingPaymentId: _editingPaymentId,
+              editingPaymentCode: _editingPaymentCode,
+              onCancelEdit: () {
+                setState(() {
+                  _editingPaymentId = null;
+                  _editingPaymentCode = null;
+                  _payTitleController.clear();
+                  _supplierNameController.clear();
+                  _amountController.clear();
+                  _bankNameController.clear();
+                  _swiftCodeController.clear();
+                  _ibanController.clear();
+                  _payNotesController.clear();
+                  _payPrefillData = null;
+                  _paySelectedPercentage = null;
+                });
               },
-              child: Focus(
-                autofocus: true,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Form(
-                    key: _paymentFormKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          color: isDark
-                              ? AppTheme.darkCardBackground
-                              : AppTheme.white,
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                final isNarrow = constraints.maxWidth < 700;
-
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (_editingPaymentId != null)
-                                      Container(
-                                        margin:
-                                            const EdgeInsets.only(bottom: 14),
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 14, vertical: 10),
-                                        decoration: BoxDecoration(
-                                          color: isDark
-                                              ? AppTheme.darkCardBackground
-                                              : AppTheme.orangeLight,
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          border: Border.all(
-                                              color: isDark
-                                                  ? AppTheme.wcagOrange
-                                                  : AppTheme.orange),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.edit_note,
-                                                color: AppTheme.orange),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                '${l.activeEditModeBanner}: $_editingPaymentCode',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: isDark
-                                                      ? AppTheme.orange
-                                                      : AppTheme.wcagOrange,
-                                                ),
-                                              ),
-                                            ),
-                                            FinancialUi.fit(AppButton(
-                                              label: l.cancelEdit,
-                                              variant:
-                                                  AppButtonVariant.secondary,
-                                              icon: Icons.close,
-                                              onPressed: () {
-                                                setState(() {
-                                                  _editingPaymentId = null;
-                                                  _editingPaymentCode = null;
-                                                  _editingPaymentVersion = null;
-                                                  _payTitleController.clear();
-                                                  _supplierNameController
-                                                      .clear();
-                                                  _amountController.clear();
-                                                  _payNotesController.clear();
-                                                  _paySelectedImportFileId =
-                                                      null;
-                                                  _payPrefillData = null;
-                                                });
-                                              },
-                                            )),
-                                          ],
-                                        ),
-                                      ),
-
-                                    // Form Header with Responsive Search & Clone Action Button
-                                    Wrap(
-                                      alignment: WrapAlignment.spaceBetween,
-                                      crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                      runSpacing: 8,
-                                      spacing: 12,
-                                      children: [
-                                        ConstrainedBox(
-                                          constraints: BoxConstraints(
-                                            maxWidth: constraints.maxWidth > 400
-                                                ? constraints.maxWidth - 200
-                                                : constraints.maxWidth,
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Flexible(
-                                                child: Text(
-                                                  _editingPaymentId != null
-                                                      ? '${l.editPaymentRequestTitle} ($_editingPaymentCode)'
-                                                      : l.createPaymentRequestTitle,
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: isDark
-                                                        ? AppTheme
-                                                            .darkTextPrimary
-                                                        : AppTheme.charcoal,
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                              if (_isLoadingPayPrefill) ...[
-                                                const SizedBox(width: 10),
-                                                const SizedBox(
-                                                    width: 18,
-                                                    height: 18,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                            strokeWidth: 2)),
-                                              ],
-                                            ],
-                                          ),
-                                        ),
-                                        FinancialUi.fit(AppButton(
-                                          key: const ValueKey(
-                                              'searchAndClonePaymentRequestBtn'),
-                                          label:
-                                              l.searchAndClonePaymentRequestBtn,
-                                          variant: AppButtonVariant.secondary,
-                                          size: AppButtonSize.small,
-                                          icon: Icons.copy_all,
-                                          onPressed:
-                                              _openSearchAndClonePaymentDialog,
-                                        )),
-                                      ],
-                                    ),
-                                    const Divider(),
-                                    const SizedBox(height: 6),
-
-                                    // Smart AI SWIFT MT103 Interactive Extractor & Auto-Fill Box
-                                    _buildPaySwiftExtractorWidget(),
-                                    const SizedBox(height: 12),
-
-                                    // Row 1: Import File & Payment Title
-                                    if (isNarrow)
-                                      Column(
-                                        children: [
-                                          SearchableDropdownField<int?>(
-                                            value: _paySelectedImportFileId,
-                                            labelText: '${l.importFile} *',
-                                            searchHintText: l.search,
-                                            items: [
-                                              SearchableDropdownItem<int?>(
-                                                value: null,
-                                                label: '-- ${l.notLinked} --',
-                                              ),
-                                              ...(ref
-                                                          .watch(
-                                                              importFilesProvider)
-                                                          .valueOrNull ??
-                                                      [])
-                                                  .map((f) =>
-                                                      SearchableDropdownItem<
-                                                          int?>(
-                                                        value: f.importFileId,
-                                                        label:
-                                                            '${f.primaryNameWithCode} - ${f.companyName}',
-                                                        subtitle: f.companyName,
-                                                      )),
-                                            ],
-                                            onChanged: _onPayImportFileSelected,
-                                          ),
-                                          const SizedBox(height: 12),
-                                          TextFormField(
-                                            controller: _payTitleController,
-                                            decoration: InputDecoration(
-                                                labelText:
-                                                    '${l.paymentTitleLabel} *',
-                                                border:
-                                                    const OutlineInputBorder()),
-                                            validator: (v) =>
-                                                (v == null || v.trim().isEmpty)
-                                                    ? l.requiredField
-                                                    : null,
-                                          ),
-                                        ],
-                                      )
-                                    else
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            flex: 2,
-                                            child:
-                                                SearchableDropdownField<int?>(
-                                              value: _paySelectedImportFileId,
-                                              labelText: '${l.importFile} *',
-                                              searchHintText: l.search,
-                                              items: [
-                                                SearchableDropdownItem<int?>(
-                                                  value: null,
-                                                  label: '-- ${l.notLinked} --',
-                                                ),
-                                                ...(ref
-                                                            .watch(
-                                                                importFilesProvider)
-                                                            .valueOrNull ??
-                                                        [])
-                                                    .map((f) =>
-                                                        SearchableDropdownItem<
-                                                            int?>(
-                                                          value: f.importFileId,
-                                                          label:
-                                                              '${f.primaryNameWithCode} - ${f.companyName}',
-                                                          subtitle:
-                                                              f.companyName,
-                                                        )),
-                                              ],
-                                              onChanged:
-                                                  _onPayImportFileSelected,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            flex: 3,
-                                            child: TextFormField(
-                                              controller: _payTitleController,
-                                              decoration: InputDecoration(
-                                                  labelText:
-                                                      '${l.paymentTitleLabel} *',
-                                                  border:
-                                                      const OutlineInputBorder()),
-                                              validator: (v) => (v == null ||
-                                                      v.trim().isEmpty)
-                                                  ? l.requiredField
-                                                  : null,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    const SizedBox(height: 12),
-
-                                    // Row 2: Supplier Master Data, Beneficiary Name, Payment Type
-                                    if (constraints.maxWidth < 750)
-                                      Column(
-                                        children: [
-                                          SearchableDropdownField<int?>(
-                                            value: _selectedSupplierId,
-                                            labelText:
-                                                l.selectSupplierFromMasterData,
-                                            searchHintText: l.search,
-                                            items: suppliersList
-                                                .map((s) =>
-                                                    SearchableDropdownItem<
-                                                        int?>(
-                                                      value: s.supplierId,
-                                                      label: s.companyName,
-                                                      subtitle: s
-                                                          .foreignExporterCountry,
-                                                    ))
-                                                .toList(),
-                                            onChanged: (val) {
-                                              if (val != null) {
-                                                final sup = suppliersList
-                                                    .firstWhere((s) =>
-                                                        s.supplierId == val);
-                                                setState(() {
-                                                  _selectedSupplierId = val;
-                                                  _supplierNameController.text =
-                                                      sup.companyName;
-                                                  if (sup.bankName != null &&
-                                                      sup.bankName!.isNotEmpty) {
-                                                    _bankNameController.text =
-                                                        sup.bankName!;
-                                                  }
-                                                  if (sup.swiftCode != null &&
-                                                      sup.swiftCode!.isNotEmpty) {
-                                                    _swiftCodeController.text =
-                                                        sup.swiftCode!;
-                                                  }
-                                                  if (sup.iban != null &&
-                                                      sup.iban!.isNotEmpty) {
-                                                    _ibanController.text =
-                                                        sup.iban!;
-                                                  } else if (sup
-                                                              .accountNumber !=
-                                                          null &&
-                                                      sup.accountNumber!
-                                                          .isNotEmpty) {
-                                                    _ibanController.text =
-                                                        sup.accountNumber!;
-                                                  }
-                                                });
-                                              }
-                                            },
-                                          ),
-                                          const SizedBox(height: 12),
-                                          TextFormField(
-                                            controller: _supplierNameController,
-                                            decoration: InputDecoration(
-                                                labelText:
-                                                    '${l.beneficiarySupplierLabel} *',
-                                                border:
-                                                    const OutlineInputBorder()),
-                                            validator: (v) =>
-                                                (v == null || v.trim().isEmpty)
-                                                    ? l.requiredField
-                                                    : null,
-                                          ),
-                                          const SizedBox(height: 12),
-                                          SearchableDropdownField<String>(
-                                            key: const ValueKey(
-                                                'payment_type_dropdown'),
-                                            value: _paymentType,
-                                            labelText:
-                                                '${l.paymentTypeLabel} *',
-                                            searchHintText: l.search,
-                                            items:
-                                                FinancialUi.paymentTypeItems(l),
-                                            onChanged: (v) {
-                                              if (v != null) {
-                                                setState(
-                                                    () => _paymentType = v);
-                                              }
-                                            },
-                                          ),
-                                        ],
-                                      )
-                                    else
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            flex: 2,
-                                            child:
-                                                SearchableDropdownField<int?>(
-                                              value: _selectedSupplierId,
-                                              labelText: l
-                                                  .selectSupplierFromMasterData,
-                                              searchHintText: l.search,
-                                              items: suppliersList
-                                                  .map((s) =>
-                                                      SearchableDropdownItem<
-                                                          int?>(
-                                                        value: s.supplierId,
-                                                        label: s.companyName,
-                                                        subtitle: s
-                                                            .foreignExporterCountry,
-                                                      ))
-                                                  .toList(),
-                                              onChanged: (val) {
-                                                if (val != null) {
-                                                  final sup = suppliersList
-                                                      .firstWhere((s) =>
-                                                          s.supplierId == val);
-                                                  setState(() {
-                                                    _selectedSupplierId = val;
-                                                    _supplierNameController
-                                                        .text = sup.companyName;
-                                                    if (sup.bankName != null &&
-                                                        sup.bankName!
-                                                            .isNotEmpty) {
-                                                      _bankNameController.text =
-                                                          sup.bankName!;
-                                                    }
-                                                    if (sup.swiftCode != null &&
-                                                        sup.swiftCode!
-                                                            .isNotEmpty) {
-                                                      _swiftCodeController
-                                                              .text =
-                                                          sup.swiftCode!;
-                                                    }
-                                                    if (sup.iban != null &&
-                                                        sup.iban!.isNotEmpty) {
-                                                      _ibanController.text =
-                                                          sup.iban!;
-                                                    } else if (sup
-                                                                .accountNumber !=
-                                                            null &&
-                                                        sup.accountNumber!
-                                                            .isNotEmpty) {
-                                                      _ibanController.text =
-                                                          sup.accountNumber!;
-                                                    }
-                                                  });
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            flex: 2,
-                                            child: TextFormField(
-                                              controller:
-                                                  _supplierNameController,
-                                              decoration: InputDecoration(
-                                                  labelText:
-                                                      '${l.beneficiarySupplierLabel} *',
-                                                  border:
-                                                      const OutlineInputBorder()),
-                                              validator: (v) => (v == null ||
-                                                      v.trim().isEmpty)
-                                                  ? l.requiredField
-                                                  : null,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            flex: 2,
-                                            child:
-                                                SearchableDropdownField<String>(
-                                              key: const ValueKey(
-                                                  'payment_type_dropdown'),
-                                              value: _paymentType,
-                                              labelText:
-                                                  '${l.paymentTypeLabel} *',
-                                              searchHintText: l.search,
-                                              items:
-                                                  FinancialUi.paymentTypeItems(
-                                                      l),
-                                              onChanged: (v) {
-                                                if (v != null) {
-                                                  setState(
-                                                      () => _paymentType = v);
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    const SizedBox(height: 12),
-
-                                    if (_openSameTypeRequest != null) ...[
-                                      Container(
-                                        margin:
-                                            const EdgeInsets.only(bottom: 12),
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: isDark
-                                              ? AppTheme.darkCardBackground
-                                              : AppTheme.orangeLight,
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          border: Border.all(
-                                              color: AppTheme.wcagOrange,
-                                              width: 1.5),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            const Icon(
-                                                Icons.warning_amber_rounded,
-                                                color: AppTheme.wcagOrange,
-                                                size: 20),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: Text(
-                                                l.faOpenPaymentSameType(
-                                                    _openSameTypeRequest!
-                                                        .paymentCode),
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: isDark
-                                                      ? AppTheme.darkTextPrimary
-                                                      : AppTheme.charcoal,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            AppButton(
-                                              label: l.viewDetails,
-                                              variant:
-                                                  AppButtonVariant.secondary,
-                                              size: AppButtonSize.small,
-                                              onPressed: () =>
-                                                  _showPaymentDetailsDialog(
-                                                      _openSameTypeRequest!),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-
-                                    if (_payPrefillData != null &&
-                                        _payPrefillData!.totalInvoiceAmount >
-                                            0) ...[
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 4,
-                                        crossAxisAlignment:
-                                            WrapCrossAlignment.center,
-                                        children: [
-                                          Text(
-                                            context.l10n.faPercentFromPo(
-                                                _payPrefillData!
-                                                    .totalInvoiceAmount
-                                                    .toStringAsFixed(2),
-                                                _currencyCode),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: isDark
-                                                  ? AppTheme.darkTextSecondary
-                                                  : AppTheme.textStrong,
-                                            ),
-                                          ),
-                                          ...[10.0, 20.0, 30.0, 50.0, 100.0]
-                                              .map((pct) {
-                                            final isSel =
-                                                _paySelectedPercentage == pct;
-                                            return ChoiceChip(
-                                              label: Text(
-                                                  '${pct.toStringAsFixed(0)}%'),
-                                              selected: isSel,
-                                              selectedColor:
-                                                  AppTheme.wcagOrange,
-                                              labelStyle: TextStyle(
-                                                fontSize: 11,
-                                                color: isSel
-                                                    ? AppTheme.white
-                                                    : (isDark
-                                                        ? AppTheme
-                                                            .darkTextPrimary
-                                                        : AppTheme.charcoal),
-                                                fontWeight: isSel
-                                                    ? FontWeight.bold
-                                                    : FontWeight.normal,
-                                              ),
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              onSelected: (_) =>
-                                                  _applyAdvancePercentageToAmount(
-                                                      pct),
-                                            );
-                                          }),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                    ],
-
-                                    // Row 3: Amount, Currency, Exchange Rate, Request Date, Due Date (5 fields responsive)
-                                    if (constraints.maxWidth >= 1100)
-                                      Row(
-                                        children: [
-                                          Expanded(child: _buildAmountField(l)),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                              child: _buildCurrencyDropdown(l)),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                              child:
-                                                  _buildExchangeRateField(l)),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                              child: _buildRequestDateField(l)),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                              child: _buildDueDateField(l)),
-                                        ],
-                                      )
-                                    else if (constraints.maxWidth >= 700)
-                                      Column(
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                  child: _buildAmountField(l)),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                  child: _buildCurrencyDropdown(
-                                                      l)),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                  child:
-                                                      _buildExchangeRateField(
-                                                          l)),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                  child: _buildRequestDateField(
-                                                      l)),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                  child: _buildDueDateField(l)),
-                                            ],
-                                          ),
-                                        ],
-                                      )
-                                    else
-                                      Column(
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                  child: _buildAmountField(l)),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                  child: _buildCurrencyDropdown(
-                                                      l)),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 12),
-                                          _buildExchangeRateField(l),
-                                          const SizedBox(height: 12),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                  child: _buildRequestDateField(
-                                                      l)),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                  child: _buildDueDateField(l)),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    const SizedBox(height: 16),
-
-                                    // Supplier Banking Details Card (WCAG AA)
-                                    Container(
-                                      padding: const EdgeInsets.all(14),
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? AppTheme.darkElevatedSurface
-                                            : AppTheme.cobaltLight
-                                                .withValues(alpha: 0.4),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                            color: isDark
-                                                ? AppTheme.darkBorder
-                                                : AppTheme.cobaltBorder),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '${l.beneficiaryBankDetails}:',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                              color: isDark
-                                                  ? AppTheme.darkTextPrimary
-                                                  : AppTheme.cobalt,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          if (isNarrow)
-                                            Column(
-                                              children: [
-                                                TextFormField(
-                                                  controller:
-                                                      _bankNameController,
-                                                  decoration: InputDecoration(
-                                                      labelText:
-                                                          l.bankNameLabel,
-                                                      border:
-                                                          const OutlineInputBorder()),
-                                                ),
-                                                const SizedBox(height: 10),
-                                                TextFormField(
-                                                  controller:
-                                                      _swiftCodeController,
-                                                  textDirection:
-                                                      TextDirection.ltr,
-                                                  decoration: InputDecoration(
-                                                      labelText:
-                                                          l.swiftCodeLabel,
-                                                      border:
-                                                          const OutlineInputBorder()),
-                                                ),
-                                                const SizedBox(height: 10),
-                                                TextFormField(
-                                                  controller: _ibanController,
-                                                  textDirection:
-                                                      TextDirection.ltr,
-                                                  decoration: InputDecoration(
-                                                      labelText:
-                                                          l.ibanAccountLabel,
-                                                      border:
-                                                          const OutlineInputBorder()),
-                                                ),
-                                              ],
-                                            )
-                                          else
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: TextFormField(
-                                                    controller:
-                                                        _bankNameController,
-                                                    decoration: InputDecoration(
-                                                        labelText:
-                                                            l.bankNameLabel,
-                                                        border:
-                                                            const OutlineInputBorder()),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: TextFormField(
-                                                    controller:
-                                                        _swiftCodeController,
-                                                    textDirection:
-                                                        TextDirection.ltr,
-                                                    decoration: InputDecoration(
-                                                        labelText:
-                                                            l.swiftCodeLabel,
-                                                        border:
-                                                            const OutlineInputBorder()),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: TextFormField(
-                                                    controller: _ibanController,
-                                                    textDirection:
-                                                        TextDirection.ltr,
-                                                    decoration: InputDecoration(
-                                                        labelText:
-                                                            l.ibanAccountLabel,
-                                                        border:
-                                                            const OutlineInputBorder()),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-
-                                    // Linked Purchase Orders Section
-                                    if (_payPrefillData != null &&
-                                        _payPrefillData!
-                                            .linkedPos.isNotEmpty) ...[
-                                      Text(
-                                        '${l.linkedPurchaseOrdersTitle}:',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                          color: isDark
-                                              ? AppTheme.darkTextPrimary
-                                              : AppTheme.charcoal,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      if (constraints.maxWidth < 768)
-                                        _buildMobileLinkedPOCardsList(l, isDark)
-                                      else
-                                        Table(
-                                          border: TableBorder.all(
-                                              color: isDark
-                                                  ? AppTheme.darkBorder
-                                                  : AppTheme.cloudWhite),
-                                          columnWidths: const {
-                                            0: FlexColumnWidth(1.5),
-                                            1: FlexColumnWidth(1.5),
-                                            2: FlexColumnWidth(1.8),
-                                            3: FlexColumnWidth(1.2),
-                                            4: FlexColumnWidth(1.4),
-                                            5: FlexColumnWidth(1.2),
-                                            6: FlexColumnWidth(0.8),
-                                          },
-                                          children: [
-                                            TableRow(
-                                              decoration: BoxDecoration(
-                                                  color: isDark
-                                                      ? AppTheme
-                                                          .darkElevatedSurface
-                                                      : AppTheme.charcoal),
-                                              children: [
-                                                Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    child: Text(l.poNumberCol,
-                                                        style: const TextStyle(
-                                                            color:
-                                                                AppTheme.white,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 12))),
-                                                Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    child: Text(
-                                                        l.projectNameCol,
-                                                        style: const TextStyle(
-                                                            color:
-                                                                AppTheme.white,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 12))),
-                                                Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    child: Text(
-                                                        l.paymentTypeLabel,
-                                                        style: const TextStyle(
-                                                            color:
-                                                                AppTheme.white,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 12))),
-                                                Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    child: Text(l.currencyCol,
-                                                        style: const TextStyle(
-                                                            color:
-                                                                AppTheme.white,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 12))),
-                                                Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    child: Text(l.invoiceAmount,
-                                                        style: const TextStyle(
-                                                            color:
-                                                                AppTheme.white,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 12))),
-                                                Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    child: Text(l.statusCol,
-                                                        style: const TextStyle(
-                                                            color:
-                                                                AppTheme.white,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 12))),
-                                                Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    child: Text(l.actionsCol,
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        style: const TextStyle(
-                                                            color:
-                                                                AppTheme.white,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 12))),
-                                              ],
-                                            ),
-                                            ..._payPrefillData!.linkedPos
-                                                .map((po) {
-                                              return TableRow(
-                                                children: [
-                                                  Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              8),
-                                                      child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            CopyableText(
-                                                                po.displayName,
-                                                                style: const TextStyle(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
-                                                                    color: AppTheme
-                                                                        .cobalt)),
-                                                            if (po.displayName !=
-                                                                po.poNumber)
-                                                              CopyableText(
-                                                                  po.poNumber,
-                                                                  style: TextStyle(
-                                                                      fontSize:
-                                                                          10,
-                                                                      color: isDark
-                                                                          ? AppTheme
-                                                                              .darkTextSecondary
-                                                                          : AppTheme
-                                                                              .textMuted))
-                                                          ])),
-                                                  Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              8),
-                                                      child: CopyableText(
-                                                          po.projectName ??
-                                                              '-')),
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    child: Container(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                          horizontal: 6,
-                                                          vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: isDark
-                                                            ? AppTheme
-                                                                .darkCardBackground
-                                                            : AppTheme
-                                                                .orangeLight,
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(4),
-                                                        border: Border.all(
-                                                            color: isDark
-                                                                ? AppTheme
-                                                                    .wcagOrange
-                                                                : AppTheme
-                                                                    .orange),
-                                                      ),
-                                                      child: CopyableText(
-                                                        po.paymentTerms,
-                                                        style: TextStyle(
-                                                            fontSize: 11,
-                                                            color: isDark
-                                                                ? AppTheme
-                                                                    .orange
-                                                                : AppTheme
-                                                                    .wcagOrange,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .bold),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              8),
-                                                      child: CopyableText(
-                                                          po.currency,
-                                                          style: const TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600))),
-                                                  Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              8),
-                                                      child: CopyableText(
-                                                          '${po.totalAmount.toStringAsFixed(2)} ${po.currency}',
-                                                          style: const TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              color: AppTheme
-                                                                  .emerald))),
-                                                  Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              8),
-                                                      child: CopyableText(
-                                                          po.status,
-                                                          style: const TextStyle(
-                                                              fontSize: 11,
-                                                              color: AppTheme
-                                                                  .cobalt))),
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(4),
-                                                    child: IconButton(
-                                                      icon: const Icon(
-                                                          Icons.copy_rounded,
-                                                          size: 16,
-                                                          color:
-                                                              AppTheme.cobalt),
-                                                      tooltip: l
-                                                          .clonePoAllocationTooltip,
-                                                      onPressed: () =>
-                                                          _cloneLinkedPoItem(
-                                                              po),
-                                                    ),
-                                                  ),
-                                                ],
-                                              );
-                                            }),
-                                          ],
-                                        ),
-                                      const SizedBox(height: 16),
-                                    ],
-
-                                    TextFormField(
-                                      controller: _payNotesController,
-                                      decoration: InputDecoration(
-                                          labelText: l.paymentNotesLabel,
-                                          border: const OutlineInputBorder()),
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Wrap(
-                                      alignment: WrapAlignment.spaceBetween,
-                                      crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                      spacing: 12,
-                                      runSpacing: 10,
-                                      children: [
-                                        if (_editingPaymentId != null)
-                                          FinancialUi.fit(AppButton(
-                                            label: l.cancelEdit,
-                                            variant: AppButtonVariant.secondary,
-                                            icon: Icons.close,
-                                            onPressed: () {
-                                              setState(() {
-                                                _editingPaymentId = null;
-                                                _editingPaymentCode = null;
-                                                _editingPaymentVersion = null;
-                                                _paySelectedImportFileId = null;
-                                                _payPrefillData = null;
-                                                _payTitleController.clear();
-                                                _supplierNameController.clear();
-                                                _amountController.clear();
-                                                _bankNameController.clear();
-                                                _swiftCodeController.clear();
-                                                _ibanController.clear();
-                                                _payNotesController.clear();
-                                              });
-                                            },
-                                          ))
-                                        else
-                                          const SizedBox.shrink(),
-                                        FinancialUi.fit(AppButton(
-                                          label: _editingPaymentId != null
-                                              ? l.savePaymentChangesButton
-                                              : l.issuePaymentRequestButton,
-                                          variant: AppButtonVariant.primary,
-                                          icon: _editingPaymentId != null
-                                              ? Icons.save
-                                              : Icons.send,
-                                          isLoading: _isSavingPayment,
-                                          onPressed: _isSavingPayment
-                                              ? null
-                                              : _savePaymentRequest,
-                                        )),
-                                      ],
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              payTitleController: _payTitleController,
+              supplierNameController: _supplierNameController,
+              amountController: _amountController,
+              exchangeRateController: _exchangeRateController,
+              bankNameController: _bankNameController,
+              swiftCodeController: _swiftCodeController,
+              ibanController: _ibanController,
+              payNotesController: _payNotesController,
+              currencyCode: _currencyCode,
+              onCurrencyChanged: (val) {
+                setState(() => _currencyCode = val);
+              },
+              requestDate: _requestDate,
+              onRequestDateChanged: (val) => setState(() => _requestDate = val),
+              dueDate: _dueDate,
+              onDueDateChanged: (val) => setState(() => _dueDate = val),
+              selectedImportFileId: _paySelectedImportFileId,
+              onImportFileChanged: (val) => _onPayImportFileSelected(val),
+              paymentType: _paymentType,
+              onPaymentTypeChanged: (val) {
+                setState(() => _paymentType = val);
+              },
+              selectedSupplierId: _selectedSupplierId,
+              onSupplierChanged: (val) {
+                setState(() => _selectedSupplierId = val);
+              },
+              payPrefillData: _payPrefillData,
+              isLoadingPayPrefill: _isLoadingPayPrefill,
+              isSavingPayment: _isSavingPayment,
+              onSavePaymentRequest: _savePaymentRequest,
+              onSearchAndClone: _openSearchAndClonePaymentDialog,
+              onCloneLinkedPoItem: (po) => _cloneLinkedPoItem(po),
+              openSameTypeRequest: _openSameTypeRequest,
+              onViewOpenSameTypeRequest: (pay) => _loadPaymentRequestForEdit(pay),
+              selectedPercentage: _paySelectedPercentage,
+              onSelectPercentage: (pct) => _applyAdvancePercentageToAmount(pct),
+              swiftExtractorWidget: _buildPaySwiftExtractorWidget(),
             )
           else
             const SizedBox.shrink(),
@@ -4420,13 +2316,7 @@ class _FinancialApprovalScreenState
                                                     ),
                                                   ),
                                                   if (_isLoadingBgtPrefill)
-                                                    const SizedBox(
-                                                        width: 18,
-                                                        height: 18,
-                                                        child:
-                                                            CircularProgressIndicator(
-                                                                strokeWidth:
-                                                                    2)),
+                                                    const AppLoadingState.inline(),
                                                 ],
                                               ),
                                               const SizedBox(height: 10),
@@ -4468,13 +2358,7 @@ class _FinancialApprovalScreenState
                                                     ),
                                                     if (_isLoadingBgtPrefill) ...[
                                                       const SizedBox(width: 12),
-                                                      const SizedBox(
-                                                          width: 18,
-                                                          height: 18,
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                                  strokeWidth:
-                                                                      2)),
+                                                      const AppLoadingState.inline(),
                                                     ],
                                                   ],
                                                 ),
@@ -5059,9 +2943,6 @@ class _FinancialApprovalScreenState
                                               onPressed: () async {
                                                 final bgt = _lastSavedBudget ??
                                                     _buildTempBudgetModel();
-                                                final messenger =
-                                                    ScaffoldMessenger.of(
-                                                        context);
                                                 final path =
                                                     await FinancialExportService
                                                         .exportBudgetToExcel(
@@ -5070,12 +2951,12 @@ class _FinancialApprovalScreenState
                                                   prefill: _bgtPrefillData,
                                                 );
                                                 if (path != null && mounted) {
-                                                  messenger.showSnackBar(
-                                                    SnackBar(
-                                                        content:
-                                                            Text('✅ $path'),
-                                                        backgroundColor:
-                                                            AppTheme.emerald),
+                                                  ScaffoldMessenger.of(this.context).showSnackBar(
+                                                    AppTheme.snackBar(
+                                                      this.context,
+                                                      '✅ $path',
+                                                      severity: AppSeverity.success,
+                                                    ),
                                                   );
                                                 }
                                               },
@@ -5309,447 +3190,287 @@ class _FinancialApprovalScreenState
                           return matchQ && matchS;
                         }).toList();
 
-                        if (filtered.isEmpty) {
-                          return FinancialStateView.empty(
-                            icon: Icons.receipt_long_outlined,
-                            message: l.noMatchingPayments,
-                          );
-                        }
-
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: AppTheme.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppTheme.cloudWhite),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.black.withValues(alpha: 0.04),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                        return EnterpriseDataTable<PaymentRequestModel>(
+                          storageKey: 'financial_approval_payments_table',
+                          data: filtered,
+                          minWidth: 1250,
+                          isScrollable: false,
+                          showHeaderToolbar: false,
+                          showPagination: true,
+                          initialPageSize: 25,
+                          emptyMessage: l.noMatchingPayments,
+                          columns: [
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'actions',
+                              title: l.actionsCol,
+                              width: 150,
+                              isSortable: false,
+                              isSearchable: false,
+                              cellBuilder: (ctx, p, _) => RowActionsPill(
+                                onView: () => _showPaymentDetailsDialog(p),
+                                onEdit: () => _loadPaymentRequestForEdit(p),
+                                onClone: () => _openClonePaymentReviewDialog(p),
+                                onPrint: () => FinancialExportService
+                                    .printPaymentRequestPdf(payment: p),
+                                onDelete: () =>
+                                    _confirmDeletePaymentRequest(p),
                               ),
-                            ],
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              return SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                      minWidth: constraints.maxWidth),
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.vertical,
-                                    child: DataTable(
-                                      headingRowColor: WidgetStateProperty.all(
-                                          AppTheme.charcoal),
-                                      headingTextStyle: const TextStyle(
-                                          color: AppTheme.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13),
-                                      columns: [
-                                        DataColumn(
-                                          label: Row(
-                                            children: [
-                                              const Icon(Icons.bolt,
-                                                  color: AppTheme.orange,
-                                                  size: 18),
-                                              const SizedBox(width: 6),
-                                              Text(l.actionsCol,
-                                                  style: const TextStyle(
-                                                      color: AppTheme.white,
-                                                      fontWeight:
-                                                          FontWeight.bold)),
-                                            ],
-                                          ),
-                                        ),
-                                        DataColumn(
-                                            label: Text(l.paymentCodeCol,
-                                                style: const TextStyle(
-                                                    color: AppTheme.white,
-                                                    fontWeight:
-                                                        FontWeight.bold))),
-                                        DataColumn(
-                                            label: Text(l.importFile,
-                                                style: const TextStyle(
-                                                    color: AppTheme.white,
-                                                    fontWeight:
-                                                        FontWeight.bold))),
-                                        DataColumn(
-                                            label: Text(
-                                                l.beneficiarySupplierLabel,
-                                                style: const TextStyle(
-                                                    color: AppTheme.white,
-                                                    fontWeight:
-                                                        FontWeight.bold))),
-                                        DataColumn(
-                                            label: Text(l.bankSwiftCol,
-                                                style: const TextStyle(
-                                                    color: AppTheme.white,
-                                                    fontWeight:
-                                                        FontWeight.bold))),
-                                        DataColumn(
-                                            label: Text(l.paymentTypeLabel,
-                                                style: const TextStyle(
-                                                    color: AppTheme.white,
-                                                    fontWeight:
-                                                        FontWeight.bold))),
-                                        DataColumn(
-                                            numeric: true,
-                                            label: Text(l.requestedAmountLabel,
-                                                style: const TextStyle(
-                                                    color: AppTheme.white,
-                                                    fontWeight:
-                                                        FontWeight.bold))),
-                                        DataColumn(
-                                            numeric: true,
-                                            label: Text(l.equivalentEgpCol,
-                                                style: const TextStyle(
-                                                    color: AppTheme.white,
-                                                    fontWeight:
-                                                        FontWeight.bold))),
-                                        DataColumn(
-                                            label: Text(l.requestDueDateCol,
-                                                style: const TextStyle(
-                                                    color: AppTheme.white,
-                                                    fontWeight:
-                                                        FontWeight.bold))),
-                                        DataColumn(
-                                            label: Text(l.statusCol,
-                                                style: const TextStyle(
-                                                    color: AppTheme.white,
-                                                    fontWeight:
-                                                        FontWeight.bold))),
-                                      ],
-                                      rows:
-                                          filtered.asMap().entries.map((entry) {
-                                        final index = entry.key;
-                                        final p = entry.value;
-                                        final isEven = index % 2 == 0;
-                                        final rawFileCode = p.importFileCode ??
-                                            (p.importFileId != null
-                                                ? 'IMP-${p.importFileId}'
-                                                : '');
-                                        final resolvedShipName =
-                                            DisplayNameResolver
-                                                .resolveShipmentNameByCode(
-                                                    rawFileCode,
-                                                    shipments: allFiles,
-                                                    isArabic: isAr);
-                                        final resolvedShipTitle =
-                                            DisplayNameResolver
-                                                .resolveShipmentTitleByCode(
-                                                    rawFileCode,
-                                                    shipments: allFiles,
-                                                    isArabic: isAr);
-                                        final rowSummary = [
-                                          p.paymentCode,
-                                          resolvedShipTitle,
-                                          p.beneficiaryName ?? p.supplierName,
-                                          '${p.bankName ?? "-"} ${p.swiftCode ?? ""}'
-                                              .trim(),
-                                          p.paymentType,
-                                          '${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}',
-                                          '${p.requestedAmountEgp.toStringAsFixed(2)} EGP',
-                                          '${p.requestDate} / ${p.dueDate}',
-                                          p.status,
-                                        ].join('\t');
-
-                                        return DataRow(
-                                          color: WidgetStateProperty.all(isEven
-                                              ? AppTheme.white
-                                              : AppTheme.charcoalSurface),
-                                          cells: [
-                                            DataCell(
-                                              RowActionsPill(
-                                                onView: () =>
-                                                    _showPaymentDetailsDialog(
-                                                        p),
-                                                onEdit: () =>
-                                                    _loadPaymentRequestForEdit(
-                                                        p),
-                                                onClone: () =>
-                                                    _openClonePaymentReviewDialog(
-                                                        p),
-                                                onPrint: () =>
-                                                    FinancialExportService
-                                                        .printPaymentRequestPdf(
-                                                            payment: p),
-                                                onDelete: () =>
-                                                    _confirmDeletePaymentRequest(
-                                                        p),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              CopyableTableCell(
-                                                value: p.paymentCode,
-                                                rowSummary: rowSummary,
-                                                child: Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: AppTheme.cobalt
-                                                        .withValues(alpha: 0.1),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            6),
-                                                    border: Border.all(
-                                                        color: AppTheme.cobalt
-                                                            .withValues(alpha: 0.3)),
-                                                  ),
-                                                  child: LtrText(
-                                                    p.paymentCode,
-                                                    style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: AppTheme.cobalt,
-                                                        fontSize: 12),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              CopyableTableCell(
-                                                value: resolvedShipTitle,
-                                                rowSummary: rowSummary,
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Text(
-                                                      resolvedShipName,
-                                                      style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color:
-                                                              AppTheme.charcoal,
-                                                          fontSize: 12),
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                    if (rawFileCode.isNotEmpty)
-                                                      Container(
-                                                        margin: const EdgeInsets
-                                                            .only(top: 2),
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .symmetric(
-                                                                horizontal: 5,
-                                                                vertical: 1),
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: AppTheme
-                                                              .charcoal
-                                                              .withValues(
-                                                                  alpha: 0.08),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(4),
-                                                        ),
-                                                        child: Text(
-                                                          rawFileCode,
-                                                          style: const TextStyle(
-                                                              fontSize: 10,
-                                                              color: AppTheme
-                                                                  .textStrong,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500),
-                                                        ),
-                                                      ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              CopyableTableCell(
-                                                value:
-                                                    '${p.beneficiaryName ?? p.supplierName} - ${p.title}',
-                                                rowSummary: rowSummary,
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Text(
-                                                        p.beneficiaryName ??
-                                                            p.supplierName,
-                                                        style: const TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 13)),
-                                                    Text(p.title,
-                                                        style: const TextStyle(
-                                                            fontSize: 11,
-                                                            color: AppTheme
-                                                                .textSecondary)),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              CopyableTableCell(
-                                                value:
-                                                    '${p.bankName ?? "-"} ${p.swiftCode ?? ""}'
-                                                        .trim(),
-                                                rowSummary: rowSummary,
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Text(p.bankName ?? '-',
-                                                        style: const TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w500)),
-                                                    if (p.swiftCode != null &&
-                                                        p.swiftCode!.isNotEmpty)
-                                                      Text(
-                                                          'SWIFT: ${p.swiftCode}',
-                                                          style: const TextStyle(
-                                                              fontSize: 10,
-                                                              color: AppTheme
-                                                                  .textStrong)),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              CopyableTableCell(
-                                                value: p.paymentType,
-                                                rowSummary: rowSummary,
-                                                child: Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: AppTheme.orangeLight,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            4),
-                                                    border: Border.all(
-                                                        color: AppTheme.orange),
-                                                  ),
-                                                  child: Text(p.paymentType,
-                                                      style: const TextStyle(
-                                                          fontSize: 11,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: AppTheme
-                                                              .wcagOrange)),
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              CopyableTableCell(
-                                                value:
-                                                    '${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}',
-                                                rowSummary: rowSummary,
-                                                child: Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: AppTheme.cobaltLight,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            6),
-                                                  ),
-                                                  child: LtrText(
-                                                    '${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}',
-                                                    style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color:
-                                                            AppTheme.wcagCobalt,
-                                                        fontSize: 12),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              CopyableTableCell(
-                                                value:
-                                                    '${p.requestedAmountEgp.toStringAsFixed(2)} EGP',
-                                                rowSummary: rowSummary,
-                                                child: Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: isDark
-                                                        ? AppTheme
-                                                            .darkCardBackground
-                                                        : AppTheme.emeraldLight,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            6),
-                                                  ),
-                                                  child: LtrText(
-                                                    '${p.requestedAmountEgp.toStringAsFixed(2)} EGP',
-                                                    style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: AppTheme
-                                                            .wcagEmerald,
-                                                        fontSize: 12),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              CopyableTableCell(
-                                                value:
-                                                    '${p.requestDate} - ${p.dueDate}',
-                                                rowSummary: rowSummary,
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Text(
-                                                        '${l.requestDateLabel}: ${p.requestDate.isNotEmpty ? p.requestDate : "-"}',
-                                                        style: const TextStyle(
-                                                            fontSize: 11)),
-                                                    Text(
-                                                        '${l.dueDateLabel}: ${p.dueDate}',
-                                                        style: const TextStyle(
-                                                            fontSize: 10,
-                                                            color: AppTheme
-                                                                .textStrong)),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              CopyableTableCell(
-                                                value: p.status,
-                                                rowSummary: rowSummary,
-                                                child: FinancialStatusChip(
-                                                    status: p.status),
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      }).toList(),
-                                    ),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'payment_code',
+                              title: l.paymentCodeCol,
+                              width: 130,
+                              searchValue: (p) => p.paymentCode,
+                              exportValue: (p) => p.paymentCode,
+                              cellBuilder: (ctx, p, _) => InkWell(
+                                onTap: () => CopyHelper.copy(
+                                  context,
+                                  p.paymentCode,
+                                  customMessage:
+                                      '${l.paymentCodeCol}: ${p.paymentCode}',
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cobalt
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                        color: AppTheme.cobalt
+                                            .withValues(alpha: 0.3)),
+                                  ),
+                                  child: LtrText(
+                                    p.paymentCode,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.cobalt,
+                                        fontSize: 12),
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'import_file',
+                              title: l.importFile,
+                              width: 170,
+                              searchValue: (p) =>
+                                  '${p.importFileCode ?? ""} ${p.importFileId ?? ""}',
+                              exportValue: (p) => p.importFileCode ?? '',
+                              cellBuilder: (ctx, p, _) {
+                                final rawFileCode = p.importFileCode ??
+                                    (p.importFileId != null
+                                        ? 'IMP-${p.importFileId}'
+                                        : '');
+                                final resolvedShipName = DisplayNameResolver
+                                    .resolveShipmentNameByCode(
+                                        rawFileCode,
+                                        shipments: allFiles,
+                                        isArabic: isAr);
+                                return Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      resolvedShipName,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.charcoal,
+                                          fontSize: 12),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (rawFileCode.isNotEmpty)
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.charcoal
+                                              .withValues(alpha: 0.08),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          rawFileCode,
+                                          style: const TextStyle(
+                                              fontSize: 10,
+                                              color: AppTheme.textStrong,
+                                              fontWeight: FontWeight.w500),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'beneficiary',
+                              title: l.beneficiarySupplierLabel,
+                              width: 180,
+                              searchValue: (p) =>
+                                  '${p.beneficiaryName ?? p.supplierName} ${p.title}',
+                              exportValue: (p) =>
+                                  '${p.beneficiaryName ?? p.supplierName} - ${p.title}',
+                              cellBuilder: (ctx, p, _) => Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    p.beneficiaryName ?? p.supplierName,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13),
+                                  ),
+                                  Text(
+                                    p.title,
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondary),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'bank_swift',
+                              title: l.bankSwiftCol,
+                              width: 150,
+                              searchValue: (p) =>
+                                  '${p.bankName ?? ""} ${p.swiftCode ?? ""}',
+                              exportValue: (p) =>
+                                  '${p.bankName ?? "-"} ${p.swiftCode ?? ""}',
+                              cellBuilder: (ctx, p, _) => Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.center,
+                                children: [
+                                  Text(p.bankName ?? '-',
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500)),
+                                  if (p.swiftCode != null &&
+                                      p.swiftCode!.isNotEmpty)
+                                    Text('SWIFT: ${p.swiftCode}',
+                                        style: const TextStyle(
+                                            fontSize: 10,
+                                            color: AppTheme.textStrong)),
+                                ],
+                              ),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'payment_type',
+                              title: l.paymentTypeLabel,
+                              width: 110,
+                              searchValue: (p) => p.paymentType,
+                              exportValue: (p) => p.paymentType,
+                              cellBuilder: (ctx, p, _) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.orangeLight,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppTheme.orange),
+                                ),
+                                child: Text(p.paymentType,
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.wcagOrange)),
+                              ),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'requested_amount',
+                              title: l.requestedAmountLabel,
+                              width: 135,
+                              isNumeric: true,
+                              searchValue: (p) =>
+                                  '${p.requestedAmount} ${p.currencyCode}',
+                              exportValue: (p) =>
+                                  '${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}',
+                              cellBuilder: (ctx, p, _) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cobaltLight,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: LtrText(
+                                  '${p.requestedAmount.toStringAsFixed(2)} ${p.currencyCode}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.wcagCobalt,
+                                      fontSize: 12),
+                                ),
+                              ),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'equivalent_egp',
+                              title: l.equivalentEgpCol,
+                              width: 135,
+                              isNumeric: true,
+                              searchValue: (p) =>
+                                  '${p.requestedAmountEgp} EGP',
+                              exportValue: (p) =>
+                                  '${p.requestedAmountEgp.toStringAsFixed(2)} EGP',
+                              cellBuilder: (ctx, p, _) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? AppTheme.darkCardBackground
+                                      : AppTheme.emeraldLight,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: LtrText(
+                                  '${p.requestedAmountEgp.toStringAsFixed(2)} EGP',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.wcagEmerald,
+                                      fontSize: 12),
+                                ),
+                              ),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'request_due_date',
+                              title: l.requestDueDateCol,
+                              width: 140,
+                              searchValue: (p) =>
+                                  '${p.requestDate} ${p.dueDate}',
+                              exportValue: (p) =>
+                                  '${p.requestDate} / ${p.dueDate}',
+                              cellBuilder: (ctx, p, _) => Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                      '${l.requestDateLabel}: ${p.requestDate.isNotEmpty ? p.requestDate : "-"}',
+                                      style: const TextStyle(fontSize: 11)),
+                                  Text('${l.dueDateLabel}: ${p.dueDate}',
+                                      style: const TextStyle(
+                                          fontSize: 10,
+                                          color: AppTheme.textStrong)),
+                                ],
+                              ),
+                            ),
+                            EnterpriseColumn<PaymentRequestModel>(
+                              id: 'status',
+                              title: l.statusCol,
+                              width: 110,
+                              searchValue: (p) => p.status,
+                              exportValue: (p) => p.status,
+                              cellBuilder: (ctx, p, _) =>
+                                  FinancialStatusChip(status: p.status),
+                            ),
+                          ],
                         );
                       },
                     ),
@@ -5766,6 +3487,7 @@ class _FinancialApprovalScreenState
           else
             const SizedBox.shrink(),
         ],
+      ),
       ),
     );
   }
@@ -5804,839 +3526,32 @@ class _FinancialApprovalScreenState
 
   Widget _buildConsolidatedBudgetSummary(
       {ImportBudgetModel? bgt, BudgetPrefillModel? prefill}) {
-    final double invForeign;
-    final String invCurr;
-    final double invEgp;
-    final double frtForeign;
-    final String frtCurr;
-    final double frtEgp;
-    final double custEgp;
-    final double clrEgp;
-    final double grandTotalEgp;
-
-    if (bgt != null) {
-      invForeign = bgt.invoiceAmountForeign;
-      invCurr = bgt.invoiceCurrency;
-      invEgp = bgt.invoiceAmountEgp;
-      frtForeign = bgt.freightCostForeign;
-      frtCurr = bgt.freightCurrency;
-      frtEgp = bgt.freightCostEgp;
-      custEgp = bgt.customsDutiesEgp;
-      clrEgp = bgt.clearanceInlandEgp;
-      grandTotalEgp = bgt.totalBudgetEgp;
-    } else {
-      invForeign = double.tryParse(_invoiceForeignController.text) ??
-          (prefill?.totalInvoiceAmount ?? 0);
-      invCurr = _bgtInvoiceCurrency;
-      invEgp = double.tryParse(_invoiceEgpController.text) ??
-          (prefill?.totalInvoiceAmountEgp ?? 0);
-      frtForeign = double.tryParse(_freightForeignController.text) ??
-          (prefill?.estimatedFreightCost ?? 0);
-      frtCurr = _bgtFreightCurrency;
-      frtEgp = double.tryParse(_freightEgpController.text) ??
-          (prefill?.estimatedFreightCostEgp ?? 0);
-      custEgp = double.tryParse(_customsEgpController.text) ??
-          (prefill?.estimatedCustomsDutiesEgp ?? 0);
-      clrEgp = double.tryParse(_clearanceEgpController.text) ??
-          (prefill?.estimatedClearanceFeesEgp ?? 0);
-      grandTotalEgp = invEgp + frtEgp + custEgp + clrEgp;
-    }
-
-    final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.currency_exchange,
-                  color: AppTheme.cobalt, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  l.consolidatedBudgetSummary,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color:
-                        isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Group 1: Foreign Currency Table
-          Text(
-            '1. ${l.estimatedInvoiceValue} & ${l.estimatedFreightCost}:',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              color: isDark ? AppTheme.cobalt : AppTheme.cobalt,
-            ),
-          ),
-          const SizedBox(height: 6),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 550;
-              final table = Table(
-                border: TableBorder.all(
-                    color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-                columnWidths: isNarrow
-                    ? const {
-                        0: FixedColumnWidth(160),
-                        1: FixedColumnWidth(120),
-                        2: FixedColumnWidth(90),
-                        3: FixedColumnWidth(120),
-                      }
-                    : const {
-                        0: FlexColumnWidth(2.0),
-                        1: FlexColumnWidth(1.5),
-                        2: FlexColumnWidth(1.2),
-                        3: FlexColumnWidth(1.5),
-                      },
-                children: [
-                  TableRow(
-                    decoration: const BoxDecoration(color: AppTheme.cobalt),
-                    children: [
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: Text(l.categoryCol,
-                              style: const TextStyle(
-                                  color: AppTheme.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11))),
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: Text(l.amountInCurrencyCol,
-                              style: const TextStyle(
-                                  color: AppTheme.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11))),
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: Text(l.currencyCol,
-                              style: const TextStyle(
-                                  color: AppTheme.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11))),
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: Text(l.equivalentEgpCol,
-                              style: const TextStyle(
-                                  color: AppTheme.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11))),
-                    ],
-                  ),
-                  TableRow(
-                    children: [
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: Text(l.estimatedInvoiceValue,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? AppTheme.darkTextSecondary
-                                      : null))),
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: CopyableText(invForeign.toStringAsFixed(2),
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : null))),
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: CopyableText(invCurr,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : null))),
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: CopyableText(
-                              '${invEgp.toStringAsFixed(2)} EGP',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.emerald,
-                                  fontSize: 12))),
-                    ],
-                  ),
-                  TableRow(
-                    children: [
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: Text(l.estimatedFreightCost,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? AppTheme.darkTextSecondary
-                                      : null))),
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: CopyableText(frtForeign.toStringAsFixed(2),
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : null))),
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: CopyableText(frtCurr,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : null))),
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: CopyableText(
-                              '${frtEgp.toStringAsFixed(2)} EGP',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.emerald,
-                                  fontSize: 12))),
-                    ],
-                  ),
-                  TableRow(
-                    decoration: BoxDecoration(
-                        color: isDark
-                            ? AppTheme.darkElevatedSurface
-                            : AppTheme.charcoalSurface),
-                    children: [
-                      Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: Text(l.totalExpenses,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : null))),
-                      Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: CopyableText(
-                          invCurr.toUpperCase() == frtCurr.toUpperCase()
-                              ? (invForeign + frtForeign).toStringAsFixed(2)
-                              : '${invForeign.toStringAsFixed(2)} ($invCurr)\n+ ${frtForeign.toStringAsFixed(2)} ($frtCurr)',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
-                              color: isDark ? AppTheme.darkTextPrimary : null),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: CopyableText(
-                          invCurr.toUpperCase() == frtCurr.toUpperCase()
-                              ? invCurr
-                              : '-',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
-                              color: isDark ? AppTheme.darkTextPrimary : null),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: CopyableText(
-                          '${(invEgp + frtEgp).toStringAsFixed(2)} EGP',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.emerald,
-                              fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-
-              return isNarrow
-                  ? SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(minWidth: 490),
-                        child: table,
-                      ),
-                    )
-                  : table;
-            },
-          ),
-          const SizedBox(height: 14),
-
-          // Group 2: Local EGP Table
-          Text(
-            '2. ${l.clearanceAndTransportEstimate}:',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              color: isDark ? AppTheme.orange : AppTheme.orange,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Builder(
-            builder: (context) {
-              final brokerName = prefill?.brokerName;
-              final hasBroker = brokerName != null && brokerName.isNotEmpty;
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  final isNarrow = constraints.maxWidth < 550;
-                  final table = Table(
-                    border: TableBorder.all(
-                        color:
-                            isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-                    columnWidths: isNarrow
-                        ? const {
-                            0: FixedColumnWidth(180),
-                            1: FixedColumnWidth(150),
-                            2: FixedColumnWidth(140),
-                          }
-                        : const {
-                            0: FlexColumnWidth(2.0),
-                            1: FlexColumnWidth(1.8),
-                            2: FlexColumnWidth(1.5),
-                          },
-                    children: [
-                      TableRow(
-                        decoration: const BoxDecoration(color: AppTheme.orange),
-                        children: [
-                          Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Text(l.categoryCol,
-                                  style: const TextStyle(
-                                      color: AppTheme.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11))),
-                          Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Text(l.responsiblePartyLabel,
-                                  style: const TextStyle(
-                                      color: AppTheme.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11))),
-                          Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Text(l.equivalentEgpCol,
-                                  style: const TextStyle(
-                                      color: AppTheme.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11))),
-                        ],
-                      ),
-                      TableRow(
-                        children: [
-                          Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Text(l.customsAndVatEstimate,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? AppTheme.darkTextSecondary
-                                          : null))),
-                          Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: CopyableText(l.customsAuthority,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? AppTheme.darkTextSecondary
-                                          : null))),
-                          Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: CopyableText(
-                                  '${custEgp.toStringAsFixed(2)} EGP',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.wcagCobalt,
-                                      fontSize: 12))),
-                        ],
-                      ),
-                      TableRow(
-                        children: [
-                          Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Text(l.clearanceAndTransportEstimate,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? AppTheme.darkTextSecondary
-                                          : null))),
-                          Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: CopyableText(
-                              hasBroker
-                                  ? '${l.customsBrokerLabel} $brokerName'
-                                  : l.customsBrokerLabel,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: hasBroker
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                color: isDark
-                                    ? (hasBroker
-                                        ? AppTheme.orange
-                                        : AppTheme.darkTextSecondary)
-                                    : (hasBroker ? AppTheme.charcoal : null),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: CopyableText(
-                                  '${clrEgp.toStringAsFixed(2)} EGP',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.emerald,
-                                      fontSize: 12))),
-                        ],
-                      ),
-                      TableRow(
-                        decoration: BoxDecoration(
-                            color: isDark
-                                ? AppTheme.darkElevatedSurface
-                                : AppTheme.charcoalSurface),
-                        children: [
-                          Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Text(l.totalExpenses,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? AppTheme.darkTextPrimary
-                                          : null))),
-                          Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Text('-',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? AppTheme.darkTextSecondary
-                                          : null))),
-                          Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: CopyableText(
-                                  '${(custEgp + clrEgp).toStringAsFixed(2)} EGP',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.emerald,
-                                      fontSize: 12))),
-                        ],
-                      ),
-                    ],
-                  );
-
-                  return isNarrow
-                      ? SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(minWidth: 470),
-                            child: table,
-                          ),
-                        )
-                      : table;
-                },
-              );
-            },
-          ),
-          const SizedBox(height: 14),
-
-          // Total Approved Budget Bar
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppTheme.emerald.withValues(alpha: 0.2)
-                  : AppTheme.emerald.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.4)),
-            ),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  '${l.totalBudgetEgp}:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color:
-                        isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                  ),
-                ),
-                CopyableText(
-                  '${grandTotalEgp.toStringAsFixed(2)} EGP',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppTheme.emerald),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return ConsolidatedBudgetSummaryCard(
+      budget: bgt,
+      prefill: prefill,
+      showVarianceAlert: true,
     );
   }
+
 
   Widget _buildPaySwiftExtractorWidget() {
-    final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.cloudWhite),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.cobalt, AppTheme.wcagCobalt],
-                begin: AlignmentDirectional.centerEnd,
-                end: AlignmentDirectional.centerStart,
-              ),
-              borderRadius:
-                  BorderRadius.vertical(top: Radius.circular(9)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.auto_awesome,
-                    color: AppTheme.orange, size: 20),
-                const SizedBox(width: 6),
-                const Icon(Icons.bolt, color: AppTheme.white, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    l.swiftExtractorTitle,
-                    style: const TextStyle(
-                        color: AppTheme.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(
-                      _isPaySwiftExpanded
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      color: AppTheme.white),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  tooltip:
-                      _isPaySwiftExpanded ? l.collapseSidebar : l.actionsCol,
-                  onPressed: () => setState(
-                      () => _isPaySwiftExpanded = !_isPaySwiftExpanded),
-                ),
-              ],
-            ),
-          ),
-
-          // Collapsible Body
-          if (_isPaySwiftExpanded)
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isNarrow = constraints.maxWidth < 650;
-                      final textArea = Stack(
-                        children: [
-                          TextField(
-                            controller: _paySwiftRawTextController,
-                            maxLines: 5,
-                            minLines: 4,
-                            style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 12,
-                                height: 1.4,
-                                color: isDark
-                                    ? AppTheme.darkTextPrimary
-                                    : AppTheme.charcoal),
-                            decoration: InputDecoration(
-                              hintText: l.swiftPasteText,
-                              hintStyle: TextStyle(
-                                  fontSize: 11,
-                                  color: isDark
-                                      ? AppTheme.darkTextSecondary
-                                      : AppTheme.textMuted),
-                              border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8)),
-                              contentPadding:
-                                  const EdgeInsetsDirectional.fromSTEB(
-                                      12, 12, 12, 40),
-                            ),
-                          ),
-                          PositionedDirectional(
-                            start: 8,
-                            bottom: 8,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                InkWell(
-                                  onTap: () async {
-                                    final d = await Clipboard.getData(
-                                        Clipboard.kTextPlain);
-                                    if (d != null &&
-                                        d.text != null &&
-                                        d.text!.isNotEmpty) {
-                                      _paySwiftRawTextController.text = d.text!;
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? AppTheme.darkElevatedSurface
-                                          : AppTheme.cloudWhite,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.paste,
-                                            size: 12, color: AppTheme.charcoal),
-                                        const SizedBox(width: 4),
-                                        Text(l.swiftPasteText,
-                                            style: const TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                InkWell(
-                                  onTap: () {
-                                    _paySwiftRawTextController.clear();
-                                    setState(
-                                        () => _payExtractedSwiftSummary = null);
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? AppTheme.darkElevatedSurface
-                                          : AppTheme.charcoalSurface,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.clear,
-                                            size: 12,
-                                            color: AppTheme.textSecondary),
-                                        const SizedBox(width: 4),
-                                        Text(l.reset,
-                                            style: const TextStyle(
-                                                fontSize: 11,
-                                                color: AppTheme.textSecondary)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-
-                      final actionButtons = Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          FinancialUi.fit(AppButton(
-                            label: l.swiftUploadDocument,
-                            variant: AppButtonVariant.primary,
-                            icon: Icons.upload_file,
-                            onPressed: _isPaySwiftExtracting
-                                ? null
-                                : _autoFillFromSwiftFile,
-                          )),
-                          const SizedBox(height: 8),
-                          FinancialUi.fit(AppButton(
-                            label: l.swiftExecuteReconciliation,
-                            variant: AppButtonVariant.primary,
-                            icon: Icons.bolt,
-                            isLoading: _isPaySwiftExtracting,
-                            onPressed: _isPaySwiftExtracting
-                                ? null
-                                : () {
-                                    final txt =
-                                        _paySwiftRawTextController.text.trim();
-                                    if (txt.isEmpty) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                            content:
-                                                Text('⚠️ ${l.swiftPasteText}'),
-                                            backgroundColor: AppTheme.orange),
-                                      );
-                                      return;
-                                    }
-                                    _autoFillFromSwiftText(txt);
-                                  },
-                          )),
-                        ],
-                      );
-
-                      if (isNarrow) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            textArea,
-                            const SizedBox(height: 10),
-                            actionButtons,
-                          ],
-                        );
-                      } else {
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: textArea),
-                            const SizedBox(width: 14),
-                            SizedBox(width: 200, child: actionButtons),
-                          ],
-                        );
-                      }
-                    },
-                  ),
-
-                  // Extracted Summary Badges (if extracted)
-                  if (_payExtractedSwiftSummary != null) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppTheme.darkCardBackground
-                            : AppTheme.emeraldLight,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                            color: isDark
-                                ? AppTheme.emerald.withValues(alpha: 0.4)
-                                : AppTheme.emeraldBorder),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.check_circle,
-                              color: AppTheme.emerald, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Wrap(
-                              spacing: 12,
-                              runSpacing: 4,
-                              children: [
-                                Text(
-                                    '${l.requestedAmountLabel}: ${_payExtractedSwiftSummary!['amount']} ${_payExtractedSwiftSummary!['currency']}',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal)),
-                                Text(
-                                    '${l.beneficiarySupplierLabel}: ${_payExtractedSwiftSummary!['beneficiary_name'] ?? "-"}',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal)),
-                                Text(
-                                    '${l.paymentCodeCol}: ${_payExtractedSwiftSummary!['transaction_reference'] ?? "-"}',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal)),
-                                Text(
-                                    '${l.swiftCodeLabel}: ${_payExtractedSwiftSummary!['beneficiary_bank_swift'] ?? "-"}',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal)),
-                                Text(
-                                    '${l.ibanAccountLabel}: ${_payExtractedSwiftSummary!['beneficiary_account_or_iban'] ?? "-"}',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-        ],
-      ),
+    return SwiftOcrExtractorCard(
+      rawSwiftTextController: _paySwiftRawTextController,
+      isSmartSectionExpanded: _isPaySwiftExpanded,
+      onToggleExpanded: () =>
+          setState(() => _isPaySwiftExpanded = !_isPaySwiftExpanded),
+      isExtracting: _isPaySwiftExtracting,
+      onPickAndExtractFile: () => _autoFillFromSwiftFile(),
+      onExtractFromText: () => _autoFillFromSwiftText(_paySwiftRawTextController.text),
+      isAutoFillMode: true,
+      autoFillSummary: _payExtractedSwiftSummary,
+      onReset: () {
+        setState(() {
+          _payExtractedSwiftSummary = null;
+          _paySwiftRawTextController.clear();
+        });
+      },
     );
   }
 
-  Widget _buildMetricBadge(String title, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: TextStyle(
-                  fontSize: 10, color: color, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 2),
-          CopyableText(value,
-              style: TextStyle(
-                  fontSize: 14, color: color, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
 }

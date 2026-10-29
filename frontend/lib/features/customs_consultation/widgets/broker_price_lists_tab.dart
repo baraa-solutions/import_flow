@@ -1,3 +1,4 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
@@ -5,15 +6,10 @@ import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../customs_clearance_quotations/screens/customs_clearance_quotations_screen.dart';
 import '../services/clearance_expense_types_export_service.dart';
 import 'price_list_form_dialog.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
-import '../../../core/widgets/table_row_clone_helper.dart';
 import '../../../core/localization/domain_enum_labels.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/localization/api_error_text.dart';
 
 class BrokerPriceListsTab extends ConsumerStatefulWidget {
@@ -284,12 +280,9 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                             if (notes != null) 'notes': notes,
                                           },
                                         );
-                                        sm.showSnackBar(
-                                          SnackBar(
-                                            content: Text(l.clonedSuccessfullyToast(newCode)),
-                                            backgroundColor: AppTheme.emerald,
-                                          ),
-                                        );
+                                        if (mounted) {
+                                          sm.showSnackBar(AppTheme.snackBar(context, l.clonedSuccessfullyToast(newCode), severity: AppSeverity.success));
+                                        }
                                       },
                                     );
                                   },
@@ -927,18 +920,13 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         );
                         ref.invalidate(clearanceExpenseTypesProvider);
                         if (ctx.mounted) Navigator.pop(ctx);
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(l.expenseTypeUpdatedToast),
-                            backgroundColor: AppTheme.emerald,
-                          ),
-                        );
+                        if (mounted) {
+                          messenger.showSnackBar(AppTheme.snackBar(context, l.expenseTypeUpdatedToast, severity: AppSeverity.success));
+                        }
                       } catch (e) {
                         setDlgState(() => isSaving = false);
                         if (ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(l, e)}'), backgroundColor: AppTheme.crimson),
-                          );
+                          ScaffoldMessenger.of(ctx).showSnackBar(AppTheme.snackBar(ctx, ApiErrorText.of(l, e), severity: AppSeverity.danger));
                         }
                       }
                     },
@@ -988,18 +976,13 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         await ref.read(clearanceExpenseTypesProvider.notifier).deleteExpenseType(exp.expenseId);
                         ref.invalidate(clearanceExpenseTypesProvider);
                         if (ctx.mounted) Navigator.pop(ctx);
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(l.expenseTypeDeletedToast),
-                            backgroundColor: AppTheme.crimson,
-                          ),
-                        );
+                        if (mounted) {
+                          messenger.showSnackBar(AppTheme.snackBar(context, l.expenseTypeDeletedToast, severity: AppSeverity.danger));
+                        }
                       } catch (e) {
                         setDlgState(() => isDeleting = false);
                         if (ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(l, e)}'), backgroundColor: AppTheme.crimson),
-                          );
+                          ScaffoldMessenger.of(ctx).showSnackBar(AppTheme.snackBar(ctx, ApiErrorText.of(l, e), severity: AppSeverity.danger));
                         }
                       }
                     },
@@ -1141,9 +1124,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       } catch (e) {
                         setDlgState(() => isSaving = false);
                         if (ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(content: Text('خطأ: ${ApiErrorText.of(l, e)}'), backgroundColor: AppTheme.crimson),
-                          );
+                          ScaffoldMessenger.of(ctx).showSnackBar(AppTheme.snackBar(ctx, ApiErrorText.of(l, e), severity: AppSeverity.danger));
                         }
                       }
                     },

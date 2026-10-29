@@ -379,9 +379,10 @@ Other (21days+USD200/ctnr)
     final selected = _options.where((o) => o.isSelected).toList();
     if (selected.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('يرجى تحديد عرض سعر واحد على الأقل للإضافة.'),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          'يرجى تحديد عرض سعر واحد على الأقل للإضافة.',
+          severity: AppSeverity.danger,
         ),
       );
       return;

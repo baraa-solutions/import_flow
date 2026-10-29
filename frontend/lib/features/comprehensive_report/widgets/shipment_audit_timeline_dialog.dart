@@ -1,5 +1,7 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/app_status_badge.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
@@ -8,7 +10,6 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/services/file_save_helper.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/ltr_text.dart';
 import '../models/shipment_audit_timeline_model.dart';
@@ -105,20 +106,14 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ تم حفظ توجيهات ومحضر اجتماع الشحنة بنجاح في قاعدة البيانات.'),
-            backgroundColor: AppTheme.emerald,
-          ),
+          AppTheme.snackBar(context, '✅ تم حفظ توجيهات ومحضر اجتماع الشحنة بنجاح في قاعدة البيانات.', severity: AppSeverity.success),
         );
       }
     } catch (e) {
       if (mounted) {
         final errText = ApiError.message(e);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ تعذر حفظ التوجيهات: ${errText.isNotEmpty ? errText : e.toString()}'),
-            backgroundColor: AppTheme.wcagCrimson,
-          ),
+          AppTheme.snackBar(context, '❌ تعذر حفظ التوجيهات: ${errText.isNotEmpty ? errText : e.toString()}'),
         );
       }
     } finally {
@@ -190,7 +185,7 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
     }
     Clipboard.setData(ClipboardData(text: sb.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('📋 تم نسخ جدول الـ 36 محطة والملاحظات بالكامل إلى الحافظة!'), backgroundColor: AppTheme.cobalt),
+      AppTheme.snackBar(context, '📋 تم نسخ جدول الـ 36 محطة والملاحظات بالكامل إلى الحافظة!'),
     );
   }
 
@@ -269,7 +264,7 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر إنشاء ملف الطباعة: $e'), backgroundColor: AppTheme.wcagCrimson),
+          AppTheme.snackBar(context, 'تعذر إنشاء ملف الطباعة: $e'),
         );
       }
     }
@@ -933,41 +928,6 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
   }
 
   Widget _buildStatusBadge(String status) {
-    Color bg;
-    Color fg = Colors.white;
-    String label;
-
-    switch (status.toUpperCase()) {
-      case 'COMPLETED':
-        bg = AppTheme.emerald;
-        label = 'منجز';
-        break;
-      case 'IN_PROGRESS':
-        bg = AppTheme.cobalt;
-        label = 'جاري';
-        break;
-      case 'WATCHPOINT':
-        bg = Colors.amber.shade800;
-        label = '🚨 رادار مالي';
-        break;
-      case 'TARGET':
-        bg = Colors.purple.shade700;
-        label = '🎯 هدف';
-        break;
-      case 'OVERDUE':
-        bg = AppTheme.wcagCrimson;
-        label = 'متأخر';
-        break;
-      default:
-        bg = Colors.grey.shade600;
-        label = 'قيد الانتظار';
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
-      child: Text(label, style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.bold)),
-    );
+    return AppStatusBadge.fromStatus(status: status);
   }
 }

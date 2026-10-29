@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../services/file_save_helper.dart';
 import '../../services/table_export_service.dart';
 import '../../theme/app_theme.dart';
 import 'models/enterprise_column.dart';
@@ -54,6 +53,10 @@ class EnterpriseDataTable<T> extends StatefulWidget {
   final double rowHeight;
   final double headerHeight;
   final bool Function(T item, String query)? customFilter;
+  final bool isScrollable;
+  final double? minWidth;
+  final bool showHeaderToolbar;
+  final bool showPagination;
 
   const EnterpriseDataTable({
     super.key,
@@ -80,6 +83,10 @@ class EnterpriseDataTable<T> extends StatefulWidget {
     this.rowHeight = 50,
     this.headerHeight = 44,
     this.customFilter,
+    this.isScrollable = false,
+    this.minWidth,
+    this.showHeaderToolbar = true,
+    this.showPagination = true,
   });
 
   @override
@@ -96,6 +103,13 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
   int _currentPage = 1;
   late int _pageSize;
   Set<T> _internalSelectedItems = {};
+  final ScrollController _verticalScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _verticalScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -459,64 +473,95 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
         // Clip children (header band, pagination) to the rounded corners.
         clipBehavior: Clip.antiAlias,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: widget.isScrollable ? MainAxisSize.max : MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 1. Top Header Toolbar
-            EnterpriseTableHeaderToolbar(
-              title: widget.title,
-              titleLeading: widget.titleLeading,
-              totalCount: totalCount,
-              filteredCount: filteredCount,
-              selectedCount: _internalSelectedItems.length,
-              searchQuery: _searchQuery,
-              onSearchChanged: (val) {
-                setState(() {
-                  _searchQuery = val.trim();
-                  _currentPage = 1;
-                });
-              },
-              onClearSearch: () {
-                setState(() {
-                  _searchQuery = '';
-                  _currentPage = 1;
-                });
-              },
-              onOpenColumnPicker: _openColumnPicker,
-              onExportCSV: widget.enableExport ? _exportToCSV : null,
-              onExportExcel: widget.enableExport ? _exportToExcel : null,
-              onExportPDF: widget.enableExport ? _exportToPdf : null,
-              onCopyToClipboard: widget.enableExport ? _copyToClipboard : null,
-              extraActions: widget.extraActions,
-              bulkActions: widget.bulkActions,
-            ),
+            if (widget.showHeaderToolbar)
+              EnterpriseTableHeaderToolbar(
+                title: widget.title,
+                titleLeading: widget.titleLeading,
+                totalCount: totalCount,
+                filteredCount: filteredCount,
+                selectedCount: _internalSelectedItems.length,
+                searchQuery: _searchQuery,
+                onSearchChanged: (val) {
+                  setState(() {
+                    _searchQuery = val.trim();
+                    _currentPage = 1;
+                  });
+                },
+                onClearSearch: () {
+                  setState(() {
+                    _searchQuery = '';
+                    _currentPage = 1;
+                  });
+                },
+                onOpenColumnPicker: _openColumnPicker,
+                onExportCSV: widget.enableExport ? _exportToCSV : null,
+                onExportExcel: widget.enableExport ? _exportToExcel : null,
+                onExportPDF: widget.enableExport ? _exportToPdf : null,
+                onCopyToClipboard: widget.enableExport ? _copyToClipboard : null,
+                extraActions: widget.extraActions,
+                bulkActions: widget.bulkActions,
+              ),
 
             // 2. Table Body / Shimmer / Empty State
             if (widget.isLoading)
-              EnterpriseTableShimmerSkeleton(
-                rowCount: _pageSize > 0 && _pageSize <= 10 ? _pageSize : 6,
-                columnCount: activeCols.length + (widget.enableSelection ? 1 : 0),
-              )
+              widget.isScrollable
+                  ? Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: EnterpriseTableShimmerSkeleton(
+                          rowCount: _pageSize > 0 && _pageSize <= 10 ? _pageSize : 6,
+                          columnCount: activeCols.length + (widget.enableSelection ? 1 : 0),
+                        ),
+                      ),
+                    )
+                  : EnterpriseTableShimmerSkeleton(
+                      rowCount: _pageSize > 0 && _pageSize <= 10 ? _pageSize : 6,
+                      columnCount: activeCols.length + (widget.enableSelection ? 1 : 0),
+                    )
             else if (filteredCount == 0)
-              _buildEmptyState()
+              widget.isScrollable
+                  ? Expanded(child: _buildEmptyState())
+                  : _buildEmptyState()
             else
-              _buildTable(activeCols, pagedData, isAllSelected),
+              widget.isScrollable
+                  ? Expanded(
+                      child: ScrollbarTheme(
+                        data: ScrollbarThemeData(
+                          thumbVisibility: WidgetStateProperty.all(true),
+                        ),
+                        child: Scrollbar(
+                          controller: _verticalScrollController,
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            controller: _verticalScrollController,
+                            scrollDirection: Axis.vertical,
+                            child: _buildTable(activeCols, pagedData, isAllSelected),
+                          ),
+                        ),
+                      ),
+                    )
+                  : _buildTable(activeCols, pagedData, isAllSelected),
 
             // 3. Bottom Pagination Bar
-            EnterpriseTablePaginationBar(
-              totalCount: filteredCount,
-              currentPage: _currentPage,
-              pageSize: _pageSize,
-              availablePageSizes: widget.availablePageSizes,
-              onPageChanged: (newPage) => setState(() => _currentPage = newPage),
-              onPageSizeChanged: (newSize) {
-                setState(() {
-                  _pageSize = newSize;
-                  _currentPage = 1;
-                });
-                _savePreferences();
-              },
-            ),
+            if (widget.showPagination)
+              EnterpriseTablePaginationBar(
+                totalCount: filteredCount,
+                currentPage: _currentPage,
+                pageSize: _pageSize,
+                availablePageSizes: widget.availablePageSizes,
+                onPageChanged: (newPage) => setState(() => _currentPage = newPage),
+                onPageSizeChanged: (newSize) {
+                  setState(() {
+                    _pageSize = newSize;
+                    _currentPage = 1;
+                  });
+                  _savePreferences();
+                },
+              ),
           ],
         ),
       ),
@@ -585,11 +630,11 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 800),
+        constraints: BoxConstraints(minWidth: widget.minWidth ?? 800),
         child: DataTable(
           headingRowHeight: widget.headerHeight,
           dataRowMinHeight: widget.rowHeight,
-          dataRowMaxHeight: widget.rowHeight + 8,
+          dataRowMaxHeight: widget.rowHeight + 16,
           horizontalMargin: 16,
           columnSpacing: 20,
           dividerThickness: 1,

@@ -102,7 +102,7 @@ void main() {
       expect(lAr.cbmCalculatorSubtitle, equals('احتساب الأحجام CBM، الوزن الجوي المحاسبي، وتوصيات الحاويات ووسيلة الشحن'));
       expect(lAr.quickOperationalCalculatorTab, equals('حاسبة القياسات التشغيلية السريعة'));
       expect(lAr.savedCalculationsRegistryTab, equals('سجل دراسة وحسابات الشحن المحفوظة'));
-      expect(lAr.totalCbmVolumeMetric, equals('إجمالي الحجم (CBM)'));
+      expect(lAr.totalCbmVolumeMetric, equals('إجمالي الحجم بالمتر المكعب'));
       expect(lAr.airChargeableWtMetric, equals('الوزن الجوي المحاسبي'));
       expect(lAr.volumetricWeight, equals('الوزن الحجمي'));
       expect(lAr.recommendedShippingMetric, equals('وسيلة الشحن المقترحة'));
@@ -181,7 +181,7 @@ void main() {
       expect(find.text('حاسبة الأحجام والوزن الجوي'), findsOneWidget);
       expect(find.text('حاسبة القياسات التشغيلية السريعة'), findsOneWidget);
       expect(find.text('سجل دراسة وحسابات الشحن المحفوظة'), findsOneWidget);
-      expect(find.text('إجمالي الحجم (CBM)'), findsOneWidget);
+      expect(find.text('إجمالي الحجم بالمتر المكعب'), findsOneWidget);
       expect(find.text('مقارنة خيارات الحاويات'), findsOneWidget);
       expect(find.text('مخطط ومحاكاة رص الحاويات'), findsOneWidget);
 

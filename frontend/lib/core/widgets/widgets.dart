@@ -40,6 +40,7 @@ export 'metric_card.dart';
 export 'copyable_data_helper.dart';
 export 'table_row_clone_helper.dart';
 export 'container_load_plan_painter.dart';
+export 'cargo_load_planner_dialog.dart';
 
 // ── Form Inputs & Pickers ───────────────────────────────────────────────────
 export 'custom_text_field.dart';

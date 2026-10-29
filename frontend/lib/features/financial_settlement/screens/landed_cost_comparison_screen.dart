@@ -6,12 +6,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/ltr_text.dart';
-import '../../../core/widgets/metric_card.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../services/landed_cost_comparison_export_service.dart';
 import '../widgets/settlement_ui.dart';
@@ -42,7 +37,6 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   double _estimatedCost = 0.0;
   double? _estimatedLandedCostEgp;
   double? _backendLandedVariancePct;
-  double? _backendLandedVarianceEgp;
   Map<String, dynamic>? _settlementRecord;
   CancelToken? _cancelToken;
 
@@ -91,7 +85,6 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         if (importFileRes.data != null) {
           _estimatedCost = (importFileRes.data['estimated_cost'] ?? 0.0).toDouble();
           _backendLandedVariancePct = (importFileRes.data['actual_landed_cost_variance_pct'] as num?)?.toDouble();
-          _backendLandedVarianceEgp = (importFileRes.data['actual_landed_cost_variance_egp'] as num?)?.toDouble();
           if (importFileRes.data['import_file_code'] != null) {
             _selectedImportFileCode = importFileRes.data['import_file_code'].toString();
           }
@@ -104,7 +97,6 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         _estimatedCost = 0.0;
         _estimatedLandedCostEgp = null;
         _backendLandedVariancePct = null;
-        _backendLandedVarianceEgp = null;
         _selectedIncoterm = 'FOB';
       }
 
@@ -117,9 +109,6 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         if (calcRes.data != null) {
           if (calcRes.data['landed_variance_pct'] != null) {
             _backendLandedVariancePct = (calcRes.data['landed_variance_pct'] as num?)?.toDouble();
-          }
-          if (calcRes.data['landed_variance_egp'] != null) {
-            _backendLandedVarianceEgp = (calcRes.data['landed_variance_egp'] as num?)?.toDouble();
           }
           if (calcRes.data['estimated_landed_cost_egp'] != null) {
             _estimatedLandedCostEgp = (calcRes.data['estimated_landed_cost_egp'] as num?)?.toDouble();
@@ -217,39 +206,11 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Text(
-              fileDisplayCode.isNotEmpty ? l10n.landedCostComparisonTitle(fileDisplayCode) : l10n.landedCostComparison,
-              style: const TextStyle(color: AppTheme.white),
-            ),
-            if (fileDisplayCode.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: () => CopyHelper.copy(context, fileDisplayCode, customMessage: l10n.settlementCmpCopiedFileCode),
-                borderRadius: BorderRadius.circular(4),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.copy, size: 13, color: AppTheme.white),
-                      const SizedBox(width: 4),
-                      Text(l10n.copy, style: const TextStyle(color: AppTheme.white, fontSize: 11)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-        backgroundColor: AppTheme.charcoal,
-        iconTheme: const IconThemeData(color: AppTheme.white),
+      appBar: PageHeader(
+        icon: Icons.analytics_outlined,
+        title: fileDisplayCode.isNotEmpty
+            ? l10n.landedCostComparisonTitle(fileDisplayCode)
+            : l10n.landedCostComparison,
         actions: const [
           BackToDashboardButton(),
           SizedBox(width: 10),
@@ -694,155 +655,148 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     );
   }
 
-  Widget _tableFrame(Widget table) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        border: Border.all(color: SettlementTokens.border),
-        borderRadius: BorderRadius.circular(SettlementTokens.radius),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(SettlementTokens.radius),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: table,
-        ),
-      ),
-    );
-  }
-
   Widget _buildExpenseTable() {
     final l10n = context.l10n;
-    final expenses = _settlementRecord?['expense_invoices'] as List? ?? [];
-    return _tableFrame(
-      DataTable(
-        headingRowColor: WidgetStateProperty.all(SettlementTokens.tableHeadFill),
-        columns: [
-          DataColumn(label: settlementHeadCell(l10n.colExpenseCategory)),
-          DataColumn(label: settlementHeadCell(l10n.colExpenseProvider)),
-          DataColumn(label: settlementHeadCell(l10n.colExpenseCurrency)),
-          DataColumn(label: settlementHeadCell(l10n.colExpenseAmountFx), numeric: true),
-          DataColumn(label: settlementHeadCell(l10n.colExpenseExchangeRate), numeric: true),
-          DataColumn(label: settlementHeadCell(l10n.colExpenseAmountEgp), numeric: true),
-        ],
-        rows: expenses.map((e) {
-          final categoryRaw = e['category']?.toString() ?? 'other';
-          final categoryLocalized = (DomainEnums.labelIfKnown(l10n, DomainEnumType.clearanceExpenseCategory, categoryRaw) ?? l10n.expenseCategoryName(categoryRaw));
-          final provider = e['provider_name']?.toString() ?? '-';
-          final cur = e['currency']?.toString() ?? 'EGP';
-          final fx = (e['amount_fx'] ?? 0).toString();
-          final rate = (e['exchange_rate'] ?? 1).toString();
-          final egp = (e['amount_egp'] ?? 0).toString();
+    final expenses = (_settlementRecord?['expense_invoices'] as List? ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
 
-          final rowSummary = '$categoryLocalized | $provider | $fx $cur @ $rate = $egp EGP';
-
-          return DataRow(
-            cells: [
-              DataCell(CopyableTableCell(
-                value: categoryLocalized,
-                rowSummary: rowSummary,
-                child: SettlementStatusChip(
-                  label: categoryLocalized,
-                  color: _getCategoryColor(categoryRaw),
-                  dense: true,
-                ),
-              )),
-              DataCell(CopyableTableCell(
-                value: provider,
-                rowSummary: rowSummary,
-                child: Text(provider),
-              )),
-              DataCell(CopyableTableCell(
-                value: cur,
-                rowSummary: rowSummary,
-                child: Text(cur),
-              )),
-              DataCell(CopyableTableCell(
-                value: fx,
-                rowSummary: rowSummary,
-                child: SettlementMoneyText(fx),
-              )),
-              DataCell(CopyableTableCell(
-                value: rate,
-                rowSummary: rowSummary,
-                child: SettlementMoneyText(rate),
-              )),
-              DataCell(CopyableTableCell(
-                value: egp,
-                rowSummary: rowSummary,
-                child: SettlementMoneyText(egp, style: const TextStyle(fontWeight: FontWeight.bold)),
-              )),
-            ]
-          );
-        }).toList(),
-      ),
+    return EnterpriseDataTable<Map<String, dynamic>>(
+      storageKey: 'LandedCostComparisonExpenses',
+      showHeaderToolbar: false,
+      showPagination: false,
+      initialPageSize: 1000,
+      emptyMessage: l10n.noLandedCostDataRegistered,
+      columns: [
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'category',
+          title: l10n.colExpenseCategory,
+          exportValue: (e) {
+            final categoryRaw = e['category']?.toString() ?? 'other';
+            return DomainEnums.labelIfKnown(l10n, DomainEnumType.clearanceExpenseCategory, categoryRaw) ?? l10n.expenseCategoryName(categoryRaw);
+          },
+          cellBuilder: (ctx, e, _) {
+            final categoryRaw = e['category']?.toString() ?? 'other';
+            final categoryLocalized = DomainEnums.labelIfKnown(l10n, DomainEnumType.clearanceExpenseCategory, categoryRaw) ?? l10n.expenseCategoryName(categoryRaw);
+            return SettlementStatusChip(
+              label: categoryLocalized,
+              color: _getCategoryColor(categoryRaw),
+              dense: true,
+            );
+          },
+        ),
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'provider',
+          title: l10n.colExpenseProvider,
+          exportValue: (e) => e['provider_name']?.toString() ?? '-',
+          cellBuilder: (ctx, e, _) => Text(e['provider_name']?.toString() ?? '-'),
+        ),
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'currency',
+          title: l10n.colExpenseCurrency,
+          exportValue: (e) => e['currency']?.toString() ?? 'EGP',
+          cellBuilder: (ctx, e, _) => Text(e['currency']?.toString() ?? 'EGP'),
+        ),
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'amount_fx',
+          title: l10n.colExpenseAmountFx,
+          isNumeric: true,
+          exportValue: (e) => (e['amount_fx'] ?? 0).toString(),
+          cellBuilder: (ctx, e, _) => SettlementMoneyText((e['amount_fx'] ?? 0).toString()),
+        ),
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'exchange_rate',
+          title: l10n.colExpenseExchangeRate,
+          isNumeric: true,
+          exportValue: (e) => (e['exchange_rate'] ?? 1).toString(),
+          cellBuilder: (ctx, e, _) => SettlementMoneyText((e['exchange_rate'] ?? 1).toString()),
+        ),
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'amount_egp',
+          title: l10n.colExpenseAmountEgp,
+          isNumeric: true,
+          exportValue: (e) => (e['amount_egp'] ?? 0).toString(),
+          cellBuilder: (ctx, e, _) => SettlementMoneyText(
+            (e['amount_egp'] ?? 0).toString(),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+      data: expenses,
     );
   }
 
   Widget _buildItemLandedCostTable() {
     final l10n = context.l10n;
-    final items = _settlementRecord?['item_landed_costs'] as List? ?? [];
-    return _tableFrame(
-      DataTable(
-        headingRowColor: WidgetStateProperty.all(SettlementTokens.tableHeadFill),
-        columns: [
-          DataColumn(label: settlementHeadCell(l10n.colItemCode)),
-          DataColumn(label: settlementHeadCell(l10n.colItemName)),
-          DataColumn(label: settlementHeadCell(l10n.colItemQty), numeric: true),
-          DataColumn(label: settlementHeadCell(l10n.colFobUnitPrice), numeric: true),
-          DataColumn(label: settlementHeadCell(l10n.colLandedUnitPrice), numeric: true),
-          DataColumn(label: settlementHeadCell(l10n.colCostMarkupFactor), numeric: true),
-        ],
-        rows: items.map((e) {
-          final markup = (e['markup_factor'] ?? 1.0).toDouble();
-          final itemCode = e['item_code']?.toString() ?? '-';
-          final itemName = e['item_name']?.toString() ?? '-';
-          final qty = (e['qty'] ?? 0).toString();
-          final fobUnit = ((e['fob_unit_egp'] ?? 0) as num).toStringAsFixed(2);
-          final landedUnit = ((e['unit_landed_cost_egp'] ?? 0) as num).toStringAsFixed(2);
-          final markupText = '${markup.toStringAsFixed(2)}x';
+    final items = (_settlementRecord?['item_landed_costs'] as List? ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
 
-          final rowSummary = '[$itemCode] $itemName | Qty: $qty | FOB: $fobUnit EGP | Landed: $landedUnit EGP | Markup: $markupText';
-
-          return DataRow(
-            cells: [
-              DataCell(CopyableTableCell(
-                value: itemCode,
-                rowSummary: rowSummary,
-                child: LtrText(itemCode, style: const TextStyle(fontWeight: FontWeight.bold)),
-              )),
-              DataCell(CopyableTableCell(
-                value: itemName,
-                rowSummary: rowSummary,
-                child: Text(itemName),
-              )),
-              DataCell(CopyableTableCell(
-                value: qty,
-                rowSummary: rowSummary,
-                child: SettlementMoneyText(qty),
-              )),
-              DataCell(CopyableTableCell(
-                value: fobUnit,
-                rowSummary: rowSummary,
-                child: SettlementMoneyText(_money(double.parse(fobUnit))),
-              )),
-              DataCell(CopyableTableCell(
-                value: landedUnit,
-                rowSummary: rowSummary,
-                child: SettlementMoneyText(
-                  _money(double.parse(landedUnit)),
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                ),
-              )),
-              DataCell(CopyableTableCell(
-                value: markupText,
-                rowSummary: rowSummary,
-                child: SettlementStatusChip(label: markupText, color: AppTheme.charcoal, dense: true),
-              )),
-            ]
-          );
-        }).toList(),
-      ),
+    return EnterpriseDataTable<Map<String, dynamic>>(
+      storageKey: 'LandedCostComparisonItems',
+      showHeaderToolbar: false,
+      showPagination: false,
+      initialPageSize: 1000,
+      emptyMessage: l10n.noLandedCostDataRegistered,
+      columns: [
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'item_code',
+          title: l10n.colItemCode,
+          exportValue: (e) => e['item_code']?.toString() ?? '-',
+          cellBuilder: (ctx, e, _) {
+            final itemCode = e['item_code']?.toString() ?? '-';
+            return LtrText(itemCode, style: const TextStyle(fontWeight: FontWeight.bold));
+          },
+        ),
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'item_name',
+          title: l10n.colItemName,
+          exportValue: (e) => e['item_name']?.toString() ?? '-',
+          cellBuilder: (ctx, e, _) => Text(e['item_name']?.toString() ?? '-'),
+        ),
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'qty',
+          title: l10n.colItemQty,
+          isNumeric: true,
+          exportValue: (e) => (e['qty'] ?? 0).toString(),
+          cellBuilder: (ctx, e, _) => SettlementMoneyText((e['qty'] ?? 0).toString()),
+        ),
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'fob_unit',
+          title: l10n.colFobUnitPrice,
+          isNumeric: true,
+          exportValue: (e) => ((e['fob_unit_egp'] ?? 0) as num).toStringAsFixed(2),
+          cellBuilder: (ctx, e, _) {
+            final fobUnit = ((e['fob_unit_egp'] ?? 0) as num).toStringAsFixed(2);
+            return SettlementMoneyText(_money(double.tryParse(fobUnit) ?? 0));
+          },
+        ),
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'unit_landed_cost',
+          title: l10n.colLandedUnitPrice,
+          isNumeric: true,
+          exportValue: (e) => ((e['unit_landed_cost_egp'] ?? 0) as num).toStringAsFixed(2),
+          cellBuilder: (ctx, e, _) {
+            final landedUnit = ((e['unit_landed_cost_egp'] ?? 0) as num).toStringAsFixed(2);
+            return SettlementMoneyText(
+              _money(double.tryParse(landedUnit) ?? 0),
+              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
+            );
+          },
+        ),
+        EnterpriseColumn<Map<String, dynamic>>(
+          id: 'markup_factor',
+          title: l10n.colCostMarkupFactor,
+          isNumeric: true,
+          exportValue: (e) => '${((e['markup_factor'] ?? 1.0) as num).toDouble().toStringAsFixed(2)}x',
+          cellBuilder: (ctx, e, _) {
+            final markup = ((e['markup_factor'] ?? 1.0) as num).toDouble();
+            final markupText = '${markup.toStringAsFixed(2)}x';
+            return SettlementStatusChip(label: markupText, color: AppTheme.charcoal, dense: true);
+          },
+        ),
+      ],
+      data: items,
     );
   }
 

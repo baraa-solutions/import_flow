@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -14,7 +14,6 @@ import '../../experience_guide/models/guide_entry_model.dart';
 import '../../experience_guide/providers/experience_guide_provider.dart';
 import '../../experience_guide/widgets/experience_guide_alert_banner.dart';
 
-import 'package:frontend/core/widgets/ltr_text.dart';
 
 /// Shows the Foreign Supplier Advance Payment Request Dialog (FN-01)
 Future<PaymentRequestModel?> showSupplierAdvancePaymentDialog(
@@ -174,9 +173,11 @@ class _SupplierAdvancePaymentDialogState
         // Keep the dialog usable with PO/supplier data; show why the prefill failed.
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(ApiError.message(e)),
-                backgroundColor: AppTheme.crimson),
+            AppTheme.snackBar(
+              context,
+              ApiError.message(e),
+              severity: AppSeverity.danger,
+            ),
           );
         }
       }
@@ -236,9 +237,11 @@ class _SupplierAdvancePaymentDialogState
       if (mounted) {
         if (effRate == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(context.l10n.faFxRateMissing(effCurr)),
-                backgroundColor: AppTheme.orange),
+            AppTheme.snackBar(
+              context,
+              context.l10n.faFxRateMissing(effCurr),
+              severity: AppSeverity.warning,
+            ),
           );
         }
         setState(() {
@@ -311,9 +314,10 @@ class _SupplierAdvancePaymentDialogState
     final amount = double.tryParse(_amountController.text.trim()) ?? 0.0;
     if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.faAdvanceAmountInvalid),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          context.l10n.faAdvanceAmountInvalid,
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -322,9 +326,11 @@ class _SupplierAdvancePaymentDialogState
     final rate = double.tryParse(_exchangeRateController.text.trim());
     if (rate == null || rate <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(context.l10n.faFxRateMissing(_currency)),
-            backgroundColor: AppTheme.orange),
+        AppTheme.snackBar(
+          context,
+          context.l10n.faFxRateMissing(_currency),
+          severity: AppSeverity.warning,
+        ),
       );
       return;
     }
@@ -373,13 +379,11 @@ class _SupplierAdvancePaymentDialogState
             : '';
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              context.l10n.faAdvanceIssued(
-                  created?.paymentCode ?? context.l10n.faSuccessWord, taskInfo),
-            ),
-            backgroundColor: AppTheme.emerald,
-            duration: const Duration(seconds: 5),
+          AppTheme.snackBar(
+            context,
+            context.l10n.faAdvanceIssued(
+                created?.paymentCode ?? context.l10n.faSuccessWord, taskInfo),
+            severity: AppSeverity.success,
           ),
         );
       }
@@ -387,10 +391,10 @@ class _SupplierAdvancePaymentDialogState
       if (mounted) {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(context.l10n.faIssuePaymentFailed(ApiError.message(e))),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.faIssuePaymentFailed(ApiError.message(e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -513,15 +517,7 @@ class _SupplierAdvancePaymentDialogState
               if (_isLoadingPrefill)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 40),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        const CircularProgressIndicator(strokeWidth: 2),
-                        const SizedBox(height: 12),
-                        Text(context.l10n.faAdvanceLoadingPo),
-                      ],
-                    ),
-                  ),
+                  child: AppLoadingState(message: context.l10n.faAdvanceLoadingPo),
                 )
               else
                 Expanded(
@@ -929,41 +925,22 @@ class _SupplierAdvancePaymentDialogState
                           const SizedBox(height: 12),
 
                           // Due Date & Notes
-                          Row(
-                            children: [
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: _dueDate,
-                                      firstDate: DateTime.now().subtract(
-                                        const Duration(days: 30),
-                                      ),
-                                      lastDate: DateTime.now().add(
-                                        const Duration(days: 365),
-                                      ),
-                                    );
-                                    if (picked != null) {
-                                      setState(() => _dueDate = picked);
-                                    }
-                                  },
-                                  child: InputDecorator(
-                                    decoration: InputDecoration(
-                                      labelText:
-                                          context.l10n.faRequestedDueDateLabel,
-                                      border: const OutlineInputBorder(),
-                                      prefixIcon:
-                                          const Icon(Icons.calendar_today),
-                                    ),
-                                    child: Text(
-                                      '${_dueDate.year}-${_dueDate.month.toString().padLeft(2, '0')}-${_dueDate.day.toString().padLeft(2, '0')}',
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          AppDatePickerField(
+                            label: context.l10n.faRequestedDueDateLabel,
+                            value: _dueDate,
+                            firstDate: DateTime.now().subtract(
+                              const Duration(days: 30),
+                            ),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 365),
+                            ),
+                            allowClear: false,
+                            isRequired: true,
+                            onChanged: (picked) {
+                              if (picked != null) {
+                                setState(() => _dueDate = picked);
+                              }
+                            },
                           ),
                           const SizedBox(height: 12),
 

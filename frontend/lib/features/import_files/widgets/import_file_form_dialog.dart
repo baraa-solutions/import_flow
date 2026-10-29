@@ -279,11 +279,11 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     final l = context.l10n;
 
     if (_companyName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ ${l.selectCompanyValidation}'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, '❌ ${l.selectCompanyValidation}', severity: AppSeverity.danger));
       return;
     }
     if (_supplierName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ ${l.selectSupplierValidation}'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, '❌ ${l.selectSupplierValidation}', severity: AppSeverity.danger));
       return;
     }
 
@@ -436,12 +436,12 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
 
       if (mounted) {
         _isDirty = false;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ ${l.importFileSavedSuccess}'), backgroundColor: AppTheme.emerald));
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, '✅ ${l.importFileSavedSuccess}', severity: AppSeverity.success));
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, '❌ $e', severity: AppSeverity.danger));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

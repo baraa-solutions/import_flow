@@ -1,7 +1,7 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../../../core/export/widgets/export_language_dialog.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../models/supplier_model.dart';
@@ -537,10 +537,7 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                           final path = await MasterDataExportService.exportSupplierToExcel(context, supplier, lang: lang);
                           if (context.mounted && path != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(l10n.excelSavedSuccess(path)),
-                                backgroundColor: AppTheme.emerald,
-                              ),
+                              AppTheme.snackBar(context, l10n.excelSavedSuccess(path), severity: AppSeverity.success),
                             );
                           }
                         },
@@ -562,10 +559,7 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                           final path = await MasterDataExportService.exportSupplierToCsv(context, supplier, lang: lang);
                           if (context.mounted && path != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(l10n.excelSavedSuccess(path)),
-                                backgroundColor: AppTheme.emerald,
-                              ),
+                              AppTheme.snackBar(context, l10n.excelSavedSuccess(path), severity: AppSeverity.success),
                             );
                           }
                         },

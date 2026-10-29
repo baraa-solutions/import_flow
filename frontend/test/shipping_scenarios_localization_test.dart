@@ -12,7 +12,7 @@ void main() {
       expect(lAr.extractFreightQuotes, equals('استخراج عروض أسعار النولون'));
       expect(lAr.studySetupAndParameters, equals('إعدادات ومعلمات دراسة الشحن'));
       expect(lAr.studyTitleLabel, equals('مسمى دراسة خيارات الشحن'));
-      expect(lAr.crdLabel, equals('تاريخ جاهزية البضاعة (CRD)'));
+      expect(lAr.crdLabel, equals('تاريخ جاهزية البضاعة'));
       expect(lAr.pickupAddressLabel, equals('عنوان الاستلام / المصنع'));
       expect(lAr.avgForm4DaysLabel, equals('أيام نموذج 4 المتوقعة'));
       expect(lAr.avgClearanceDaysLabel, equals('أيام التخليص الجمركي المتوقعة'));

@@ -1,11 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
-import 'package:file_picker/file_picker.dart';
 
-import '../../../core/constants/api_constants.dart';
-import '../../../core/network/api_client.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
@@ -18,6 +13,7 @@ import '../models/freight_quotation_model.dart';
 import '../providers/freight_quotations_provider.dart';
 import '../services/freight_quotations_export_service.dart';
 import '../widgets/freight_quotations_extractor_dialog.dart';
+import '../widgets/freight_ai_extractor_card.dart';
 import '../../../core/providers/navigation_provider.dart';
 import '../widgets/rfq_benchmark_dialog.dart';
 
@@ -55,19 +51,25 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
   final List<FreightQuotationItemModel> _quotations = [];
   bool _isSaving = false;
   bool _isStackable = true;
+  bool _isDirty = false;
 
-  // ── Smart AI Extractor State (Text & OCR) ──────────────────────────────
-  bool _isFreightExtractorExpanded = true;
-  bool _isFreightExtracting = false;
-  final TextEditingController _rawFreightQuoteController = TextEditingController();
-  List<ExtractedQuotationOption> _extractedOptions = [];
-  Map<String, dynamic>? _extractedFreightMetadata;
-  PlatformFile? _pickedFreightFile;
-  String? _extractorError;
+  void _setDirty([bool dirty = true]) {
+    if (_isDirty != dirty && mounted) {
+      setState(() => _isDirty = dirty);
+    }
+  }
 
-  @override
+  void _markDirtyListener() {
+    if (!_isDirty) _setDirty(true);
+  }
+
+@override
   void initState() {
     super.initState();
+    _titleController.addListener(_markDirtyListener);
+    _cbmController.addListener(_markDirtyListener);
+    _weightController.addListener(_markDirtyListener);
+    _notesController.addListener(_markDirtyListener);
     if (widget.initialImportFileId != null) {
       _selectedImportFileId = widget.initialImportFileId;
     }
@@ -218,9 +220,10 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
     });
     if (showSnackbar && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ تم استدعاء ${rfq.quotations.length} عروض أسعار مسجلة مسبقاً لهذا الملف (${rfq.rfqCode}) بنجاح!'),
-          backgroundColor: AppTheme.emerald,
+        AppTheme.snackBar(
+          context,
+          'تم استدعاء ${rfq.quotations.length} عروض أسعار مسجلة مسبقاً لهذا الملف (${rfq.rfqCode}) بنجاح!',
+          severity: AppSeverity.success,
         ),
       );
     }
@@ -228,11 +231,14 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
 
   @override
   void dispose() {
+    _titleController.removeListener(_markDirtyListener);
+    _cbmController.removeListener(_markDirtyListener);
+    _weightController.removeListener(_markDirtyListener);
+    _notesController.removeListener(_markDirtyListener);
     _titleController.dispose();
     _cbmController.dispose();
     _weightController.dispose();
     _notesController.dispose();
-    _rawFreightQuoteController.dispose();
     super.dispose();
   }
 
@@ -242,7 +248,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
       builder: (ctx) {
         final searchCtrl = TextEditingController();
         String query = '';
-        return StatefulBuilder(
+        return SelectionArea(child: StatefulBuilder(
           builder: (ctx, setDialogState) {
             final isArabic = Localizations.localeOf(ctx).languageCode == 'ar';
             final filtered = rfqs.where((r) {
@@ -313,7 +319,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      _buildStatusBadge(rfq.status),
+                                      AppStatusBadge.fromStatus(status: rfq.status),
                                       const Spacer(),
                                       Text('\$${rfq.lowestFreightCost}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
                                     ],
@@ -322,21 +328,17 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      IconButton(
-                                        icon: Icon(Icons.military_tech_outlined, color: Colors.amber.shade800, size: 20),
-                                        tooltip: isArabic ? 'المفاضلة التنافسية وعروض الأسعار' : 'Benchmarking',
-                                        onPressed: () => showRFQBenchmarkDialog(
-                                          context,
-                                          ref,
-                                          rfqId: rfq.rfqId,
-                                          rfqCode: rfq.rfqCode,
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.visibility_outlined, color: AppTheme.cobalt, size: 20),
-                                        tooltip: isArabic ? 'عرض التفاصيل' : 'View details',
-                                        onPressed: () => _showRFQDetailsDialog(rfq),
-                                      ),
+                                       RowActionsPill(
+                                         viewTooltip: isArabic ? 'عرض التفاصيل' : 'View details',
+                                         onView: () => _showRFQDetailsDialog(rfq),
+                                         cloneTooltip: isArabic ? 'المفاضلة التنافسية وعروض الأسعار' : 'Benchmarking',
+                                         onClone: () => showRFQBenchmarkDialog(
+                                           context,
+                                           ref,
+                                           rfqId: rfq.rfqId,
+                                           rfqCode: rfq.rfqCode,
+                                         ),
+                                       ),
                                       const SizedBox(width: 4),
                                       ElevatedButton(
                                         style: ElevatedButton.styleFrom(
@@ -361,6 +363,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                             if (rfq.crdDate.isNotEmpty) {
                                               _crdDate = DateTime.tryParse(rfq.crdDate) ?? _crdDate;
                                             }
+                                            _isDirty = false;
                                           });
                                         },
                                         child: Text(isArabic ? 'تحميل للمقارنة' : 'Load to Compare', style: const TextStyle(color: Colors.white, fontSize: 12)),
@@ -376,13 +379,28 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
               ),
             );
           },
-        );
+        ),
+      );
       },
     );
   }
 
-  void _resetRFQForm() {
+  Future<void> _resetRFQForm() async {
     final isArabic = context.l10n.isArabic;
+    if (_quotations.isNotEmpty || _titleModifiedByUser) {
+      final confirmed = await AppConfirmDialog.show(
+        context,
+        title: isArabic ? 'تأكيد طلب جديد' : 'Confirm New RFQ',
+        message: isArabic
+            ? 'هل أنت متأكد من تفريغ كافة الحقول وعروض الأسعار المضافة للبدء من جديد؟'
+            : 'Are you sure you want to clear all entered data and quotations to start fresh?',
+        confirmLabel: isArabic ? 'تفريغ وبدء جديد' : 'Clear & Start New',
+        cancelLabel: context.l10n.cancel,
+        confirmVariant: AppButtonVariant.warning,
+        icon: Icons.refresh_rounded,
+      );
+      if (!confirmed) return;
+    }
     setState(() {
       _titleController.text = 'New Freight RFQ Request';
       _titleModifiedByUser = false;
@@ -395,14 +413,18 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
       _matchedExistingRFQ = null;
       _quotations.clear();
       _crdDate = DateTime.now().add(const Duration(days: 15));
+      _isDirty = false;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isArabic ? 'تم تفريغ الحقول وبدء طلب عرض سعر جديد' : 'Form reset for new RFQ'),
-        backgroundColor: AppTheme.charcoal,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(
+          context,
+          isArabic ? 'تم تفريغ الحقول وبدء طلب عرض سعر جديد' : 'Form reset for new RFQ',
+          severity: AppSeverity.info,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _addQuotationDialog({
@@ -421,9 +443,10 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
 
     if (carriersList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isArabic ? '⚠️ يرجى إضافة ناقلين بحريين وخطوط ملاحية في دليل الشركاء أولاً' : '⚠️ Please add ocean carriers and shipping lines in Partners Directory first'),
-          backgroundColor: Colors.orange,
+        AppTheme.snackBar(
+          context,
+          isArabic ? 'يرجى إضافة ناقلين بحريين وخطوط ملاحية في دليل الشركاء أولاً' : 'Please add ocean carriers and shipping lines in Partners Directory first',
+          severity: AppSeverity.warning,
         ),
       );
       return;
@@ -468,7 +491,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
             ? sailingDate.add(Duration(days: prefillTransitDays))
             : sailingDate.add(const Duration(days: 24));
 
-        return StatefulBuilder(
+        return SelectionArea(child: StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
               title: Row(
@@ -676,7 +699,8 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
               ],
             );
           },
-        );
+        ),
+      );
       },
     ).then((_) {
       vesselController.dispose();
@@ -689,325 +713,18 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
     });
   }
 
-  /// ─── Freight Quotations Smart Extractor Dialog (Text & OCR) ─────────────
-  void _showFreightExtractorDialog() {
-    FreightQuotationsExtractorDialog.show(
-      context,
-      onAddQuotations: (selectedOptions) {
-        final partners = ref.read(partnersProvider).valueOrNull ?? [];
-        final defaultSailingDate = DateTime.now().add(const Duration(days: 7));
-
-        setState(() {
-          for (final opt in selectedOptions) {
-            int providerId = 0;
-            String providerName = opt.carrierName;
-
-            final matchedPartner = partners.cast<dynamic>().firstWhere(
-              (p) {
-                final name = (p.name ?? '').toString().toLowerCase();
-                final optName = opt.carrierName.toLowerCase();
-                return name.contains(optName) || optName.contains(name);
-              },
-              orElse: () => null,
-            );
-
-            if (matchedPartner != null) {
-              providerId = matchedPartner.id as int? ?? 0;
-              providerName = matchedPartner.name as String? ?? opt.carrierName;
-            }
-
-            final transitDays = opt.transitDays ?? 28;
-            final arrivalDate = defaultSailingDate.add(Duration(days: transitDays));
-
-            _quotations.add(
-              FreightQuotationItemModel(
-                providerId: providerId,
-                providerName: providerName,
-                vesselName: null,
-                voyageNumber: opt.containerType,
-                oceanFreightCost: opt.oceanFreight,
-                localChargesCost: opt.localCharges ?? 0.0,
-                inlandCost: opt.exwCharges ?? 0.0,
-                totalCost: opt.totalEstimatedCost,
-                sailingDate: defaultSailingDate.toString().substring(0, 10),
-                estimatedArrivalDate: arrivalDate.toString().substring(0, 10),
-                transitDays: transitDays,
-                freeDaysAtPod: opt.freeTimeDays ?? 14,
-                remarks: [
-                  if (opt.notes != null && opt.notes!.isNotEmpty) opt.notes,
-                  if (opt.containerType.isNotEmpty) 'نوع الحاوية: ${opt.containerType}',
-                  if (!opt.isDirect) 'خط سير غير مباشر (ترانزيت)',
-                ].join(' | '),
-              ),
-            );
-          }
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ تمت إضافة ${selectedOptions.length} عرض/عروض أسعار بنجاح إلى المقارنة!'),
-            backgroundColor: AppTheme.emerald,
-          ),
-        );
-      },
-    );
-  }
-
-
-  static const String _sampleFreightQuoteText = '''
-Dear Ahmed,
-Please find below our best rates for your shipment:
-
-Route: Shanghai – Alexandria
-Local charges: Approx. USD 880/40HQ
-Ocean freight:
-• WHL: USD 6,700/40HQ  ETD: 28/AUG
-  Transit time: 29 days, DIRECT
-  Free time: 21 days FT
-
-• YML: USD 6,180/40HQ  ETD: 27/AUG
-  Transit time: 48 days, INDIRECT
-  Free time: 21 days FT
-
-• MSC: USD 6,950/40HQ  ETD: 30/AUG
-  Transit time: 27 days, DIRECT
-  Free time: 14 days FT (INCL OWS)
-
-Cancellation fee: \$100/cntr
-Best regards,
-''';
-
-  void _loadSampleFreightQuote() {
-    setState(() {
-      _rawFreightQuoteController.text = _sampleFreightQuoteText.trim();
-      _extractorError = null;
-    });
-  }
-
-  Future<void> _extractFreightFromText() async {
-    final isArabic = context.l10n.isArabic;
-    final text = _rawFreightQuoteController.text.trim();
-    if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isArabic ? '⚠️ يرجى لصق أو كتابة نص رسالة/إيميل عرض السعر أولاً' : '⚠️ Please paste or type shipping quote text first'),
-          backgroundColor: AppTheme.orange,
-        ),
-      );
-      return;
-    }
+  void _addExtractedOptionsToQuotations(List<ExtractedQuotationOption> selectedOptions) {
+    final partners = ref.read(partnersProvider).valueOrNull ?? [];
+    final defaultSailingDate = DateTime.now().add(const Duration(days: 7));
 
     setState(() {
-      _isFreightExtracting = true;
-      _extractorError = null;
-      _extractedOptions = [];
-      _extractedFreightMetadata = null;
-    });
-
-    final progressCtrl = ExtractionProgressController();
-    progressCtrl.update(
-      percent: 0.20,
-      status: isArabic ? 'جاري فحص وتحليل نصوص عروض الأسعار...' : 'Analyzing quotation text...',
-      stepLabel: isArabic ? 'المرحلة 1 من 3: معالجة النصوص' : 'Step 1 of 3: Text Processing',
-      currentStep: 1,
-    );
-
-    ExtractionProgressDialog.show(
-      context: context,
-      title: isArabic ? 'استخراج عروض أسعار الشحن من النص' : 'Extract Freight Quotes from Text',
-      fileName: isArabic ? 'النص المنسوخ (${text.length} حرف)' : 'Pasted Text (${text.length} chars)',
-      controller: progressCtrl,
-    );
-
-    progressCtrl.startAutoAdvance(targetPercent: 0.90, duration: const Duration(seconds: 2));
-
-    try {
-      final dio = ref.read(uploadDioProvider);
-      final response = await dio.post(
-        '${ApiConstants.baseUrl}/smart-upload/parse-text/freight-quotation',
-        data: FormData.fromMap({
-          'raw_text': text,
-          'save_session': false,
-        }),
-        options: Options(
-          contentType: 'multipart/form-data',
-          receiveTimeout: const Duration(seconds: 30),
-        ),
-      );
-
-      progressCtrl.complete();
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-
-      _processExtractedFreightData(response.data);
-    } on DioException catch (e) {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      setState(() => _extractorError = isArabic ? 'خطأ في الاتصال بالخادم: ${e.message}' : 'Server connection error: ${e.message}');
-    } catch (e) {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      setState(() => _extractorError = isArabic ? 'حدث خطأ أثناء الاستخراج: $e' : 'Extraction error: $e');
-    } finally {
-      if (mounted) setState(() => _isFreightExtracting = false);
-    }
-  }
-
-  Future<void> _extractFreightFromFile() async {
-    final isArabic = context.l10n.isArabic;
-    try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'xlsx', 'xls', 'docx', 'doc', 'txt'],
-        withData: true,
-      );
-
-      if (result == null || result.files.isEmpty) return;
-      final file = result.files.first;
-      if (file.bytes == null) return;
-
-      setState(() {
-        _pickedFreightFile = file;
-        _isFreightExtracting = true;
-        _extractorError = null;
-        _extractedOptions = [];
-        _extractedFreightMetadata = null;
-      });
-
-      final fileSizeFormatted = file.size > 1024 * 1024
-          ? '${(file.size / (1024 * 1024)).toStringAsFixed(2)} MB'
-          : '${(file.size / 1024).toStringAsFixed(1)} KB';
-
-      final progressCtrl = ExtractionProgressController();
-      progressCtrl.update(
-        percent: 0.15,
-        status: isArabic ? 'جاري رفع الملف وتهيئة الماسح الضوئي (OCR)...' : 'Uploading file & initializing OCR scanner...',
-        stepLabel: isArabic ? 'المرحلة 1 من 4: رفع الملف' : 'Step 1 of 4: Upload File',
-        currentStep: 1,
-      );
-
-      if (!mounted) return;
-      ExtractionProgressDialog.show(
-        context: context,
-        title: isArabic ? 'استخراج عروض أسعار الشحن بالماسح الضوئي (OCR)' : 'Extract Freight Quotes with OCR Scanner',
-        fileName: file.name,
-        fileSize: fileSizeFormatted,
-        controller: progressCtrl,
-      );
-
-      final dio = ref.read(uploadDioProvider);
-      final multipartFile = MultipartFile.fromBytes(file.bytes!, filename: file.name);
-      final formData = FormData.fromMap({
-        'file': multipartFile,
-        'module_name': 'freight-quotation',
-        'save_session': false,
-      });
-
-      final response = await dio.post(
-        '${ApiConstants.baseUrl}/smart-upload/upload',
-        data: formData,
-        options: Options(receiveTimeout: const Duration(seconds: 60)),
-        onSendProgress: (sent, total) {
-          if (total > 0) {
-            final uploadRatio = sent / total;
-            final p = 0.15 + (uploadRatio * 0.35);
-            progressCtrl.update(
-              percent: p,
-              status: isArabic ? 'جاري رفع الملف (${(uploadRatio * 100).round()}%)...' : 'Uploading (${(uploadRatio * 100).round()}%)...',
-              stepLabel: isArabic ? 'المرحلة 2 من 4: رفع الملف' : 'Step 2 of 4: Upload File',
-              currentStep: 2,
-            );
-            if (uploadRatio >= 0.99) {
-              progressCtrl.startAutoAdvance(targetPercent: 0.92, duration: const Duration(seconds: 5));
-            }
-          }
-        },
-      );
-
-      progressCtrl.complete();
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-
-      _processExtractedFreightData(response.data);
-    } on DioException catch (e) {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      if (mounted) setState(() => _extractorError = isArabic ? 'خطأ في معالجة الملف بالـ OCR: ${e.message}' : 'OCR file processing error: ${e.message}');
-    } catch (e) {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      if (mounted) setState(() => _extractorError = isArabic ? 'حدث خطأ أثناء معالجة المستند: $e' : 'Document processing error: $e');
-    } finally {
-      if (mounted) setState(() => _isFreightExtracting = false);
-    }
-  }
-
-  void _processExtractedFreightData(dynamic data) {
-    if (data == null) return;
-    final isArabic = context.l10n.isArabic;
-    final extracted = (data['extracted_fields'] as Map<String, dynamic>?) ?? {};
-    final rawRateOptions = (extracted['rate_options'] as List<dynamic>?) ?? [];
-
-    final List<ExtractedQuotationOption> parsedList = [];
-
-    if (rawRateOptions.isNotEmpty) {
-      for (int i = 0; i < rawRateOptions.length; i++) {
-        final optMap = rawRateOptions[i] as Map<String, dynamic>;
-        parsedList.add(ExtractedQuotationOption.fromMap(optMap, i + 1));
-      }
-    } else if (extracted['freight_rate'] != null || extracted['ocean_freight'] != null) {
-      parsedList.add(ExtractedQuotationOption.fromMap(extracted, 1));
-    }
-
-    if (data['raw_text'] != null && (data['raw_text'] as String).isNotEmpty) {
-      _rawFreightQuoteController.text = data['raw_text'] as String;
-    }
-
-    // Auto-populate POL / POD if detected
-    if (extracted['origin_port'] != null && (extracted['origin_port'] as String).isNotEmpty) {
-      final originStr = extracted['origin_port'].toString();
-      final ports = ref.read(transportLocationsProvider).value ?? [];
-      final matched = ports.where((p) => p.locationName.toLowerCase().contains(originStr.toLowerCase()) || originStr.toLowerCase().contains(p.locationName.toLowerCase())).firstOrNull;
-      if (matched != null) {
-        _polName = matched.locationName;
-      }
-    }
-    if (extracted['destination_port'] != null && (extracted['destination_port'] as String).isNotEmpty) {
-      final destStr = extracted['destination_port'].toString();
-      final ports = ref.read(transportLocationsProvider).value ?? [];
-      final matched = ports.where((p) => p.locationName.toLowerCase().contains(destStr.toLowerCase()) || destStr.toLowerCase().contains(p.locationName.toLowerCase())).firstOrNull;
-      if (matched != null) {
-        _podName = matched.locationName;
-      }
-    }
-
-    setState(() {
-      _extractedFreightMetadata = extracted;
-      _extractedOptions = parsedList;
-      if (parsedList.isEmpty) {
-        _extractorError = isArabic ? 'لم يتم العثور على أية عروض أسعار صالحة في النص/المستند المدخل. يرجى التحقق من النص.' : 'No valid freight quotations found in input text/file. Please verify the content.';
-      }
-    });
-
-    if (parsedList.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isArabic ? '✨ تم بنجاح استخراج ${parsedList.length} عرض/عروض أسعار! يمكنك مراجعتها وإضافتها فوراً.' : '✨ Successfully extracted ${parsedList.length} quotation(s)! Review and add them to table.'),
-          backgroundColor: AppTheme.emerald,
-        ),
-      );
-    }
-  }
-
-  void _addAllExtractedQuotations() {
-    if (_extractedOptions.isEmpty) return;
-    final isArabic = context.l10n.isArabic;
-    final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).valueOrNull ?? [];
-
-    setState(() {
-      for (final opt in _extractedOptions) {
+      for (final opt in selectedOptions) {
         int providerId = 0;
         String providerName = opt.carrierName;
 
         final matchedPartner = partners.cast<dynamic>().firstWhere(
           (p) {
-            final name = (p.partnerName ?? p.name ?? '').toString().toLowerCase();
+            final name = (p.name ?? '').toString().toLowerCase();
             final optName = opt.carrierName.toLowerCase();
             return name.contains(optName) || optName.contains(name);
           },
@@ -1015,548 +732,51 @@ Best regards,
         );
 
         if (matchedPartner != null) {
-          providerId = matchedPartner.providerId as int? ?? matchedPartner.id as int? ?? 0;
-          providerName = matchedPartner.partnerName as String? ?? matchedPartner.name as String? ?? opt.carrierName;
+          providerId = matchedPartner.id as int? ?? 0;
+          providerName = matchedPartner.name as String? ?? opt.carrierName;
         }
 
         final transitDays = opt.transitDays ?? 28;
-        DateTime sailingDate = DateTime.now().add(const Duration(days: 7));
-        if (opt.etdDate != null && opt.etdDate!.isNotEmpty) {
-          final parsed = DateTime.tryParse(opt.etdDate!);
-          if (parsed != null) sailingDate = parsed;
-        }
-
-        DateTime arrivalDate = sailingDate.add(Duration(days: transitDays));
-        if (opt.etaDate != null && opt.etaDate!.isNotEmpty) {
-          final parsed = DateTime.tryParse(opt.etaDate!);
-          if (parsed != null) arrivalDate = parsed;
-        }
+        final arrivalDate = defaultSailingDate.add(Duration(days: transitDays));
 
         _quotations.add(
           FreightQuotationItemModel(
             providerId: providerId,
             providerName: providerName,
-            vesselName: opt.vesselName,
-            voyageNumber: opt.voyageNumber ?? opt.containerType,
+            vesselName: null,
+            voyageNumber: opt.containerType,
             oceanFreightCost: opt.oceanFreight,
             localChargesCost: opt.localCharges ?? 0.0,
             inlandCost: opt.exwCharges ?? 0.0,
             totalCost: opt.totalEstimatedCost,
-            sailingDate: sailingDate.toString().substring(0, 10),
+            sailingDate: defaultSailingDate.toString().substring(0, 10),
             estimatedArrivalDate: arrivalDate.toString().substring(0, 10),
             transitDays: transitDays,
             freeDaysAtPod: opt.freeTimeDays ?? 14,
             remarks: [
               if (opt.notes != null && opt.notes!.isNotEmpty) opt.notes,
-              if (opt.containerType.isNotEmpty) (isArabic ? 'نوع الحاوية: ${opt.containerType}' : 'Container: ${opt.containerType}'),
-              if (!opt.isDirect) (isArabic ? 'خط سير غير مباشر (ترانزيت)' : 'Transshipment Route'),
+              if (opt.containerType.isNotEmpty) 'نوع الحاوية: ${opt.containerType}',
+              if (!opt.isDirect) 'خط سير غير مباشر (ترانزيت)',
             ].join(' | '),
           ),
         );
       }
-      _extractedOptions = [];
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isArabic ? '🚀 تم نقل وإدراج كافة عروض الأسعار بنجاح إلى جدول المقارنة!' : '🚀 All quotations successfully added to the comparison table!'),
-        backgroundColor: AppTheme.emerald,
+      AppTheme.snackBar(
+        context,
+        'تمت إضافة ${selectedOptions.length} عرض/عروض أسعار بنجاح إلى المقارنة!',
+        severity: AppSeverity.success,
       ),
     );
   }
 
-  void _addSingleExtractedQuotation(ExtractedQuotationOption opt) {
-    final isArabic = context.l10n.isArabic;
-    final partners = ref.read(allPartnersProvider).value ?? ref.read(partnersProvider).valueOrNull ?? [];
-
-    int providerId = 0;
-    String providerName = opt.carrierName;
-
-    final matchedPartner = partners.cast<dynamic>().firstWhere(
-      (p) {
-        final name = (p.partnerName ?? p.name ?? '').toString().toLowerCase();
-        final optName = opt.carrierName.toLowerCase();
-        return name.contains(optName) || optName.contains(name);
-      },
-      orElse: () => null,
-    );
-
-    if (matchedPartner != null) {
-      providerId = matchedPartner.providerId as int? ?? matchedPartner.id as int? ?? 0;
-      providerName = matchedPartner.partnerName as String? ?? matchedPartner.name as String? ?? opt.carrierName;
-    }
-
-    final transitDays = opt.transitDays ?? 28;
-    DateTime sailingDate = DateTime.now().add(const Duration(days: 7));
-    if (opt.etdDate != null && opt.etdDate!.isNotEmpty) {
-      final parsed = DateTime.tryParse(opt.etdDate!);
-      if (parsed != null) sailingDate = parsed;
-    }
-
-    DateTime arrivalDate = sailingDate.add(Duration(days: transitDays));
-    if (opt.etaDate != null && opt.etaDate!.isNotEmpty) {
-      final parsed = DateTime.tryParse(opt.etaDate!);
-      if (parsed != null) arrivalDate = parsed;
-    }
-
-    setState(() {
-      _quotations.add(
-        FreightQuotationItemModel(
-          providerId: providerId,
-          providerName: providerName,
-          vesselName: opt.vesselName,
-          voyageNumber: opt.voyageNumber ?? opt.containerType,
-          oceanFreightCost: opt.oceanFreight,
-          localChargesCost: opt.localCharges ?? 0.0,
-          inlandCost: opt.exwCharges ?? 0.0,
-          totalCost: opt.totalEstimatedCost,
-          sailingDate: sailingDate.toString().substring(0, 10),
-          estimatedArrivalDate: arrivalDate.toString().substring(0, 10),
-          transitDays: transitDays,
-          freeDaysAtPod: opt.freeTimeDays ?? 14,
-          remarks: [
-            if (opt.notes != null && opt.notes!.isNotEmpty) opt.notes,
-            if (opt.containerType.isNotEmpty) (isArabic ? 'نوع الحاوية: ${opt.containerType}' : 'Container: ${opt.containerType}'),
-            if (!opt.isDirect) (isArabic ? 'خط سير غير مباشر (ترانزيت)' : 'Transshipment Route'),
-          ].join(' | '),
-        ),
-      );
-      _extractedOptions.removeWhere((o) => o.optionId == opt.optionId);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isArabic ? '✅ تمت إضافة عرض [${opt.carrierName} - ${opt.containerType}] إلى جدول المقارنة!' : '✅ Quote [${opt.carrierName} - ${opt.containerType}] added to comparison!'),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
-  }
-
-  /// ─── Smart Inline Freight Quotation Extractor Card (SWIFT MT103 Style) ────
-  Widget _buildInlineFreightQuotationsExtractorWidget() {
-    final isArabic = context.l10n.isArabic;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.blueGrey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header Bar with Cobalt Gradient & Icons
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.cobalt, Colors.blue.shade700],
-                begin: AlignmentDirectional.centerEnd,
-                end: AlignmentDirectional.centerStart,
-              ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
-                    const SizedBox(width: 6),
-                    const Icon(Icons.bolt, color: Colors.white, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      isArabic
-                          ? '(Freight Quotation AI) استخراج وقراءة عروض أسعار الشحن والنولون ⚡ ✨'
-                          : '⚡ ✨ Freight Quotation AI Extraction (OCR & Parser)',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: Icon(_isFreightExtractorExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  tooltip: _isFreightExtractorExpanded
-                      ? (isArabic ? 'طي الأداة' : 'Collapse Tool')
-                      : (isArabic ? 'توسيع الأداة' : 'Expand Tool'),
-                  onPressed: () => setState(() => _isFreightExtractorExpanded = !_isFreightExtractorExpanded),
-                ),
-              ],
-            ),
-          ),
-
-          // Collapsible Body
-          if (_isFreightExtractorExpanded)
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isNarrow = constraints.maxWidth < 650;
-
-                      // Text Area with bottom Action Overlay
-                      final textArea = Stack(
-                        children: [
-                          TextField(
-                            controller: _rawFreightQuoteController,
-                            maxLines: 5,
-                            minLines: 4,
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4),
-                            decoration: InputDecoration(
-                              hintText: isArabic
-                                  ? 'لصق نص رسالة أو إيميل عرض السعر من الخط الملاحي أو شركة الشحن...\n(مثال: Route: Shanghai - Alexandria | WHL: USD 6700/40HQ | Transit: 29 days, DIRECT | Free time: 21 days FT)'
-                                  : 'Paste shipping quote text or email from shipping line or freight forwarder...\n(e.g., Route: Shanghai - Alexandria | WHL: USD 6700/40HQ | Transit: 29 days, DIRECT | Free time: 21 days FT)',
-                              hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              contentPadding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 40),
-                            ),
-                          ),
-                          PositionedDirectional(
-                            start: 8,
-                            bottom: 8,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                InkWell(
-                                  onTap: () async {
-                                    final d = await Clipboard.getData(Clipboard.kTextPlain);
-                                    if (d != null && d.text != null && d.text!.isNotEmpty) {
-                                      _rawFreightQuoteController.text = d.text!;
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.paste, size: 12, color: Colors.black87),
-                                        const SizedBox(width: 4),
-                                        Text(isArabic ? 'لصق نص العرض' : 'Paste Quote', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                InkWell(
-                                  onTap: () {
-                                    _rawFreightQuoteController.clear();
-                                    setState(() {
-                                      _extractedOptions = [];
-                                      _extractedFreightMetadata = null;
-                                      _extractorError = null;
-                                    });
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.clear, size: 12, color: Colors.black54),
-                                        const SizedBox(width: 4),
-                                        Text(isArabic ? 'تفريغ' : 'Clear', style: const TextStyle(fontSize: 11, color: Colors.black54)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                InkWell(
-                                  onTap: _loadSampleFreightQuote,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.shade50,
-                                      border: Border.all(color: Colors.amber.shade300),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.lightbulb_outline, size: 12, color: Colors.amber),
-                                        const SizedBox(width: 4),
-                                        Text(isArabic ? 'نموذج تجريبي' : 'Sample Quote', style: const TextStyle(fontSize: 11, color: Colors.brown, fontWeight: FontWeight.bold)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-
-                      // Action Buttons
-                      final actionButtons = Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.purple.shade800,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
-                            label: Text(
-                              isArabic ? 'رفع مستند عرض السعر 📄' : 'Upload Quote Doc 📄',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                            onPressed: _isFreightExtracting ? null : _extractFreightFromFile,
-                          ),
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.cobalt,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: _isFreightExtracting
-                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Icon(Icons.bolt, size: 16, color: Colors.amber),
-                            label: Text(
-                              isArabic ? 'استخراج وتحليل عروض السعر ⚡' : 'Extract & Analyze Quotes ⚡',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                            onPressed: _isFreightExtracting ? null : _extractFreightFromText,
-                          ),
-                        ],
-                      );
-
-                      if (isNarrow) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            textArea,
-                            const SizedBox(height: 10),
-                            actionButtons,
-                          ],
-                        );
-                      } else {
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: textArea),
-                            const SizedBox(width: 14),
-                            SizedBox(width: 220, child: actionButtons),
-                          ],
-                        );
-                      }
-                    },
-                  ),
-
-                  // Error Banner
-                  if (_extractorError != null) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.red.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.red, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(_extractorError!, style: TextStyle(color: Colors.red.shade800, fontSize: 11))),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                  // Extracted Options Live Results Card
-                  if (_extractedOptions.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF86EFAC)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.check_circle_rounded, color: AppTheme.emerald, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  isArabic
-                                      ? 'تم استخراج ${_extractedOptions.length} عرض/عروض أسعار بنجاح! راجع العروض أدناه ثم أضفها لجدول المقارنة:'
-                                      : 'Extracted ${_extractedOptions.length} quotation(s) successfully! Review below and add to table:',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-                                ),
-                              ),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.emerald,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                ),
-                                icon: const Icon(Icons.add_task, size: 14, color: Colors.white),
-                                label: Text(
-                                  isArabic
-                                      ? '🚀 إضافة كافة العروض (${_extractedOptions.length})'
-                                      : '🚀 Add All Quotes (${_extractedOptions.length})',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                                ),
-                                onPressed: _addAllExtractedQuotations,
-                              ),
-                            ],
-                          ),
-                          if (_pickedFreightFile != null || _extractedFreightMetadata != null) ...[
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: [
-                                if (_pickedFreightFile != null)
-                                  Chip(
-                                    avatar: const Icon(Icons.attach_file, size: 14, color: AppTheme.cobalt),
-                                    label: Text('${isArabic ? 'الملف:' : 'File:'} ${_pickedFreightFile!.name}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-                                    backgroundColor: Colors.white,
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                if (_extractedFreightMetadata?['origin_port'] != null)
-                                  Chip(
-                                    avatar: const Icon(Icons.flight_takeoff, size: 14, color: Colors.blue),
-                                    label: Text('${isArabic ? 'ميناء الشحن:' : 'POL:'} ${_extractedFreightMetadata!['origin_port']}', style: const TextStyle(fontSize: 10.5)),
-                                    backgroundColor: Colors.white,
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                if (_extractedFreightMetadata?['destination_port'] != null)
-                                  Chip(
-                                    avatar: const Icon(Icons.flight_land, size: 14, color: Colors.green),
-                                    label: Text('${isArabic ? 'ميناء الوصول:' : 'POD:'} ${_extractedFreightMetadata!['destination_port']}', style: const TextStyle(fontSize: 10.5)),
-                                    backgroundColor: Colors.white,
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                if (_extractedFreightMetadata?['local_charges'] != null)
-                                  Chip(
-                                    avatar: const Icon(Icons.monetization_on, size: 14, color: Colors.orange),
-                                    label: Text('${isArabic ? 'المصاريف المحلية:' : 'Local Charges:'} \$${_extractedFreightMetadata!['local_charges']}', style: const TextStyle(fontSize: 10.5)),
-                                    backgroundColor: Colors.white,
-                                    padding: EdgeInsets.zero,
-                                  ),
-                              ],
-                            ),
-                          ],
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _extractedOptions.map((opt) {
-                              return Container(
-                                width: 340,
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  boxShadow: [
-                                    BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2)),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            '${opt.carrierName} (${opt.containerType})',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: opt.isDirect ? Colors.green.shade50 : Colors.orange.shade50,
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: opt.isDirect ? Colors.green.shade200 : Colors.orange.shade200),
-                                          ),
-                                          child: Text(
-                                            opt.isDirect
-                                                ? (isArabic ? 'مباشر (Direct)' : 'Direct')
-                                                : (isArabic ? 'ترانزيت (Transit)' : 'Transit'),
-                                            style: TextStyle(fontSize: 10, color: opt.isDirect ? Colors.green.shade800 : Colors.orange.shade800, fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const Divider(height: 10),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text('${isArabic ? 'نولون:' : 'Freight:'} \$${opt.oceanFreight.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                                        if (opt.localCharges != null && opt.localCharges! > 0)
-                                          Text('${isArabic ? 'محلي:' : 'Local:'} \$${opt.localCharges!.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: Colors.black54)),
-                                        Text('${isArabic ? 'الإجمالي:' : 'Total:'} \$${opt.totalEstimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text('⏱️ ${isArabic ? 'ترانزيت:' : 'Transit:'} ${opt.transitDays ?? "-"} ${isArabic ? 'يوم' : 'd'}', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
-                                        Text('⏳ ${isArabic ? 'سماح:' : 'Free:'} ${opt.freeTimeDays ?? 14} ${isArabic ? 'يوم FT' : 'd FT'}', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: OutlinedButton.icon(
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: AppTheme.cobalt,
-                                          side: const BorderSide(color: AppTheme.cobalt),
-                                          padding: const EdgeInsets.symmetric(vertical: 6),
-                                        ),
-                                        icon: const Icon(Icons.add, size: 14),
-                                        label: Text(
-                                          isArabic ? '+ إضافة هذا العرض للجدول' : '+ Add this quote to table',
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                        ),
-                                        onPressed: () => _addSingleExtractedQuotation(opt),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-        ],
-      ),
+  /// ─── Freight Quotations Smart Extractor Dialog (Text & OCR) ─────────────
+  void _showFreightExtractorDialog() {
+    FreightQuotationsExtractorDialog.show(
+      context,
+      onAddQuotations: _addExtractedOptionsToQuotations,
     );
   }
 
@@ -1564,7 +784,11 @@ Best regards,
     if (!_formKey.currentState!.validate()) return;
     if (_quotations.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ يرجى إضافة عرض سعر واحد على الأقل للمقارنة'), backgroundColor: Colors.orange),
+        AppTheme.snackBar(
+          context,
+          'يرجى إضافة عرض سعر واحد على الأقل للمقارنة',
+          severity: AppSeverity.warning,
+        ),
       );
       return;
     }
@@ -1589,11 +813,13 @@ Best regards,
 
       final created = await ref.read(freightQuotationsProvider.notifier).createRFQ(payload);
       if (mounted && created != null) {
+        _setDirty(false);
         final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ ${isArabic ? "تم حفظ وتثبيت طلب مقارنة أسعار الشحن! كود الطلب:" : "Freight RFQ saved successfully! Code:"} ${created.rfqCode}'),
-            backgroundColor: AppTheme.emerald,
+          AppTheme.snackBar(
+            context,
+            '${isArabic ? "تم حفظ وتثبيت طلب مقارنة أسعار الشحن! كود الطلب:" : "Freight RFQ saved successfully! Code:"} ${created.rfqCode}',
+            severity: AppSeverity.success,
             action: SnackBarAction(
               label: isArabic ? 'دراسات النولون' : 'Studies',
               textColor: Colors.white,
@@ -1623,7 +849,7 @@ Best regards,
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
+        return SelectionArea(child: AlertDialog(
           title: Row(
             children: [
               const Icon(Icons.directions_boat, color: AppTheme.cobalt),
@@ -1634,7 +860,7 @@ Best regards,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
-              _buildStatusBadge(rfq.status),
+              AppStatusBadge.fromStatus(status: rfq.status),
             ],
           ),
           content: SizedBox(
@@ -1661,13 +887,49 @@ Best regards,
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      _buildMetricBadge(isArabic ? 'أقل نولون شحن' : 'Lowest Freight', '\$${rfq.lowestFreightCost}', Colors.green),
+                      Expanded(
+                        child: MetricCard(
+                          data: MetricCardData(
+                            title: isArabic ? 'أقل نولون شحن' : 'Lowest Freight',
+                            value: '\$${rfq.lowestFreightCost}',
+                            icon: Icons.attach_money,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      _buildMetricBadge(isArabic ? 'متوسط نولون الشحن' : 'Average Freight', '\$${rfq.averageFreightCost}', Colors.blue),
+                      Expanded(
+                        child: MetricCard(
+                          data: MetricCardData(
+                            title: isArabic ? 'متوسط نولون الشحن' : 'Average Freight',
+                            value: '\$${rfq.averageFreightCost}',
+                            icon: Icons.trending_up,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      _buildMetricBadge(isArabic ? 'أسرع ترانزيت' : 'Fastest Transit', '${rfq.fastestTransitDays} ${isArabic ? 'أيام' : 'Days'}', Colors.orange),
+                      Expanded(
+                        child: MetricCard(
+                          data: MetricCardData(
+                            title: isArabic ? 'أسرع ترانزيت' : 'Fastest Transit',
+                            value: '${rfq.fastestTransitDays} ${isArabic ? 'أيام' : 'Days'}',
+                            icon: Icons.speed,
+                            color: Colors.orange,
+                          ),
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      _buildMetricBadge(isArabic ? 'العرض المعتمد' : 'Awarded Carrier', rfq.awardedProviderName ?? (isArabic ? 'لم يعتمد بعد' : 'Not awarded yet'), AppTheme.cobalt),
+                      Expanded(
+                        child: MetricCard(
+                          data: MetricCardData(
+                            title: isArabic ? 'العرض المعتمد' : 'Awarded Carrier',
+                            value: rfq.awardedProviderName ?? (isArabic ? 'لم يعتمد بعد' : 'Not awarded yet'),
+                            icon: Icons.verified,
+                            color: AppTheme.cobalt,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -1738,7 +1000,8 @@ Best regards,
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: Text(isArabic ? 'إغلاق' : 'Close')),
           ],
-        );
+        ),
+      );
       },
     );
   }
@@ -1763,23 +1026,14 @@ Best regards,
       _titleController.text = 'Container Freight Quotation Request for Production Line Equipment';
     }
 
-    return Scaffold(
+    return UnsavedChangesGuard(
+      isDirty: _isDirty,
+      onDiscard: () => setState(() => _isDirty = false),
+      child: Scaffold(
       backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
-        title: Row(
-          children: [
-            const Icon(Icons.request_quote_outlined, color: AppTheme.cobalt),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Text(
-                isArabic ? 'طلب ومقارنة عروض أسعار الشحن والترسية' : 'Freight RFQ & Quotations Comparison',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
+      appBar: PageHeader(
+        icon: Icons.request_quote_outlined,
+        title: isArabic ? 'طلب ومقارنة عروض أسعار الشحن والترسية' : 'Freight RFQ & Quotations Comparison',
         actions: [
           // Quick Action 1: Load Saved RFQ
           TextButton.icon(
@@ -1821,27 +1075,53 @@ Best regards,
                 // Live Metrics Header Bar
                 Row(
                   children: [
-                    _buildMetricBadge(isArabic ? 'أقل سعر شحن متوفر' : 'Lowest Freight Rate', '\$$lowestCost', Colors.green),
-                    const SizedBox(width: 12),
-                    _buildMetricBadge(isArabic ? 'أسرع زمن ترانزيت' : 'Fastest Transit Time', '$fastestTransit ${isArabic ? 'أيام' : 'Days'}', Colors.blue),
-                    const SizedBox(width: 12),
-                    _buildMetricBadge(isArabic ? 'عدد عروض الناقلين' : 'Carrier Quotes Count', '${_quotations.length}', Colors.grey),
-                    const Spacer(),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    Expanded(
+                      child: MetricCard(
+                        data: MetricCardData(
+                          title: isArabic ? 'أقل سعر شحن متوفر' : 'Lowest Freight Rate',
+                          value: '\$$lowestCost',
+                          icon: Icons.attach_money,
+                          color: Colors.green,
+                        ),
                       ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: MetricCard(
+                        data: MetricCardData(
+                          title: isArabic ? 'أسرع زمن ترانزيت' : 'Fastest Transit Time',
+                          value: '$fastestTransit ${isArabic ? 'أيام' : 'Days'}',
+                          icon: Icons.speed,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: MetricCard(
+                        data: MetricCardData(
+                          title: isArabic ? 'عدد عروض الناقلين' : 'Carrier Quotes Count',
+                          value: '${_quotations.length}',
+                          icon: Icons.analytics_outlined,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    AppButton(
+                      label: isArabic ? 'حفظ وتثبيت طلب مقارنة النولون' : 'Save & Pin Freight RFQ',
+                      variant: AppButtonVariant.success,
+                      icon: Icons.save,
+                      isLoading: _isSaving,
                       onPressed: _isSaving ? null : _saveRFQ,
-                      icon: _isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save, color: Colors.white),
-                      label: Text(isArabic ? 'حفظ وتثبيت طلب مقارنة النولون' : 'Save & Pin Freight RFQ', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 18),
 
                 // ── Smart AI Freight Quotations Extractor (Text & OCR Box) ──
-                _buildInlineFreightQuotationsExtractorWidget(),
+                FreightAiExtractorCard(onAddQuotations: _addExtractedOptionsToQuotations),
+const SizedBox(height: 18),
 
                 // RFQ Configuration Header Card
                 Card(
@@ -2325,10 +1605,21 @@ Best regards,
                                          style: const TextStyle(fontSize: 11),
                                        ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.grey, size: 20),
-                                      onPressed: () => setState(() => _quotations.removeAt(index)),
-                                    ),
+                                     RowActionsPill(
+                                       deleteTooltip: isArabic ? 'حذف هذا العرض' : 'Delete quote',
+                                       onDelete: () async {
+                                         final ok = await AppConfirmDialog.showDelete(
+                                           context,
+                                           entityName: q.providerName,
+                                           title: isArabic ? 'حذف عرض السعر' : 'Delete Quotation',
+                                           message: isArabic
+                                               ? 'هل أنت متأكد من حذف عرض سعر ${q.providerName}؟'
+                                               : 'Are you sure you want to delete quotation for ${q.providerName}?',
+                                         );
+                                         if (ok) setState(() => _quotations.removeAt(index));
+                                       },
+                                       confirmDelete: false,
+                                     ),
                                   ],
                                 ),
                               );
@@ -2343,42 +1634,10 @@ Best regards,
             ),
           ),
         ),
-      );
-    }
-
-  Widget _buildMetricBadge(String title, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 2),
-          Text(value, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.bold)),
-        ],
       ),
     );
   }
-
-  Widget _buildStatusBadge(String status) {
-    Color bg = Colors.grey;
-    if (status == 'Awarded') bg = Colors.green;
-    if (status == 'Quotations Received') bg = Colors.blue;
-    if (status == 'RFQ Issued') bg = Colors.orange;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-      child: Text(status, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
-    );
-  }
-
-  void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
+void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
     final isArabic = context.l10n.isArabic;
     showDialog(
       context: context,

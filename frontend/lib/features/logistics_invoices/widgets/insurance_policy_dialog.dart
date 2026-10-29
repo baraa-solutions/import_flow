@@ -133,15 +133,26 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
       ref.invalidate(insurancePoliciesListProvider);
 
       if (mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Marine insurance policy issued successfully!'), backgroundColor: Colors.green),
+          AppTheme.snackBar(
+            context,
+            isArabic
+                ? 'تم إصدار وثيقة التأمين البحري بنجاح!'
+                : 'Marine insurance policy issued successfully!',
+            severity: AppSeverity.success,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save policy: $e'), backgroundColor: Colors.red),
+          AppTheme.snackBar(
+            context,
+            'Failed to save policy: $e',
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {
@@ -159,15 +170,26 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
       ref.invalidate(logisticsInvoicesListProvider);
 
       if (mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invoice generated from policy!'), backgroundColor: Colors.green),
+          AppTheme.snackBar(
+            context,
+            isArabic
+                ? 'تم توليد الفاتورة من الوثيقة بنجاح!'
+                : 'Invoice generated from policy!',
+            severity: AppSeverity.success,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+          AppTheme.snackBar(
+            context,
+            'Failed: $e',
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {
@@ -183,7 +205,8 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 720,
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -397,6 +420,7 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

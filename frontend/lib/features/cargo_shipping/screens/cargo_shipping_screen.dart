@@ -1,4 +1,7 @@
+import '../../warehouse_receiving/widgets/ops_ui_kit.dart';
 import 'package:dio/dio.dart';
+import 'dart:math' as math;
+import '../../freight_booking/models/freight_booking_model.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,16 +15,17 @@ import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../import_documentation/widgets/smart_invoice_bl_extractor_dialog.dart';
-import '../../import_files/models/import_file_model.dart';
 import '../models/cargo_container_defaults.dart';
 import '../models/cargo_shipping_model.dart';
 import '../providers/cargo_shipping_provider.dart';
-import '../services/cargo_shipping_sla_export_service.dart';
 import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
 import '../widgets/search_and_clone_cargo_shipping_dialog.dart';
 import '../widgets/cargo_shipping_ui.dart';
+import '../widgets/container_equipment_assignment_tab.dart';
+import '../widgets/container_tracking_cards.dart';
+import '../widgets/shipping_milestone_timeline_widget.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 
 
@@ -103,6 +107,40 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         _visitedMainTabs.add(0);
       });
     }
+  }
+
+  int? get _linkedBookingId {
+    return _linkedBooking?.bookingId;
+  }
+
+  ShipmentBookingModel? get _linkedBooking {
+    if (_selectedImportFileId == null) return null;
+    final bookings = ref.watch(freightBookingProvider).valueOrNull ?? [];
+    return bookings.where((b) => b.importFileId == _selectedImportFileId && b.isActive).firstOrNull;
+  }
+
+  int get _totalBookingContainersCount {
+    final b = _linkedBooking;
+    if (b == null || b.containersData.isEmpty) return 0;
+    int count = 0;
+    for (final alloc in b.containersData) {
+      count += alloc.quantity > 0 ? alloc.quantity : math.max(1, alloc.individualContainers.length);
+    }
+    return count;
+  }
+
+  int get _totalRegisteredContainersCount {
+    int count = 0;
+    for (final c in _containers) {
+      count += c.quantity > 0 ? c.quantity : math.max(1, c.individualUnits.length);
+    }
+    return count;
+  }
+
+  String get _bookingContainersSummary {
+    final b = _linkedBooking;
+    if (b == null || b.containersData.isEmpty) return '';
+    return b.containersData.map((c) => '${c.quantity}x ${c.containerType}').join(', ');
   }
 
   void _initDefaultContainer() {
@@ -229,18 +267,19 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
             final nowIso = DateTime.now().toIso8601String();
             final List<ContainerLoadingModel> loadedContainers = [];
             for (final alloc in linkedBooking.containersData) {
-              for (int uIdx = 0; uIdx < alloc.individualContainers.length; uIdx++) {
-                final indiv = alloc.individualContainers[uIdx];
-                // Only what the freight booking really recorded; blank otherwise.
-                final cNo = indiv.containerNumber;
-                final sNo = indiv.sealNumber;
+              final count = alloc.quantity > 0 ? alloc.quantity : math.max(1, alloc.individualContainers.length);
+              for (int uIdx = 0; uIdx < count; uIdx++) {
+                final indiv = uIdx < alloc.individualContainers.length ? alloc.individualContainers[uIdx] : null;
+                final cNo = indiv?.containerNumber ?? '';
+                final sNo = indiv?.sealNumber ?? '';
+                final vgm = (indiv != null && indiv.vgmWeightKg > 0) ? indiv.vgmWeightKg : 0.0;
                 loadedContainers.add(
                   ContainerLoadingModel(
                     containerType: alloc.containerType.isNotEmpty ? alloc.containerType : '40HC',
                     quantity: 1,
                     containerNo: cNo,
                     sealNo: sNo,
-                    grossWeightKg: indiv.vgmWeightKg > 0 ? indiv.vgmWeightKg : 0,
+                    grossWeightKg: vgm,
                     vgmStatus: 'Pending',
                     containerAssignmentDate: nowIso,
                     trackingStatus: 'ASSIGNED',
@@ -263,24 +302,6 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           _initDefaultContainer();
         }
       });
-    }
-  }
-
-  String _getLocalizedContainerTypeLabel(String type) {
-    final l = context.l10n;
-    switch (type) {
-      case '20GP':
-      case '40GP':
-        return '$type - ${l.cshDryContainer}';
-      case '40HC':
-        return '$type - ${l.cshHighCubeContainer}';
-      case '45HC':
-        return '$type - ${l.cshSuperHighCubeContainer}';
-      case '20RF':
-      case '40RF':
-        return '$type - ${l.cshReeferContainer}';
-      default:
-        return type;
     }
   }
 
@@ -708,6 +729,50 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   }
 
   // ===========================================================================
+  void _duplicateContainer(int index) {
+    if (index < 0 || index >= _containers.length) return;
+    final item = _containers[index];
+    final dupUnits = blankUnits(item.individualUnits.length);
+    final dup = ContainerLoadingModel(
+      containerType: item.containerType,
+      quantity: item.quantity,
+      containerNo: '',
+      sealNo: '',
+      tareWeightKg: item.tareWeightKg,
+      netWeightKg: item.netWeightKg,
+      grossWeightKg: item.grossWeightKg,
+      vgmStatus: 'Pending',
+      containerAssignmentDate: DateTime.now().toIso8601String(),
+      trackingStatus: 'ASSIGNED',
+      individualUnits: dupUnits,
+    );
+    setState(() {
+      _containers.insert(index + 1, dup);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      AppTheme.snackBar(
+        context,
+        context.l10n.cshContainerDuplicated(dup.containerType),
+        severity: AppSeverity.info,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _deleteContainer(int index) async {
+    if (_containers.length <= 1) return;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: context.l10n.delete,
+      message: context.l10n.cargoShippingDeleteConfirmTitle,
+      confirmVariant: AppButtonVariant.danger,
+    );
+    if (confirmed == true) {
+      setState(() {
+        _containers.removeAt(index);
+      });
+    }
+  }
   // PROGRESSIVE / QUICK SAVE FOR CONTAINER MILESTONE
   // ===========================================================================
   Future<void> _quickSaveContainerMilestone(int containerIndex) async {
@@ -891,6 +956,34 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       return;
     }
 
+    // Validate container count matches booking
+
+    if (_shipmentType == 'FCL' && _linkedBooking != null && _totalBookingContainersCount > 0) {
+
+      if (_totalRegisteredContainersCount != _totalBookingContainersCount) {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+
+          AppTheme.snackBar(
+
+            context,
+
+            context.l10n.cargoShippingBookingMatchRequired(_totalRegisteredContainersCount, _totalBookingContainersCount),
+
+            severity: AppSeverity.danger,
+
+          ),
+
+        );
+
+        return;
+
+      }
+
+    }
+
+
+
     // Check duplicate import file locally first
     final existingRecords = ref.read(cargoShippingProvider).valueOrNull ?? [];
     final dupRecord = existingRecords.where((r) => r.importFileId == _selectedImportFileId && r.isActive).toList();
@@ -907,6 +1000,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       containers: _containers,
       lclTracking: _lclTracking,
       isEdit: _editingRecordId != null,
+      bookingId: _linkedBookingId,
     );
 
     try {
@@ -959,38 +1053,18 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                 ? e.response!.data['detail'].toString()
                 : (e.message ?? 'Server error'))
             : e.toString().replaceAll('Exception:', '').trim();
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.warning_amber_rounded, color: AppTheme.severityForegroundOf(context, AppSeverity.warning), size: 28),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(context.l10n.cargoShippingDuplicateWarningTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
-              ],
-            ),
-            content: Text(errorMsg, style: const TextStyle(fontSize: 13, height: 1.5)),
-            actions: [
-              AppButton(
-                label: context.l10n.close,
-                variant: AppButtonVariant.secondary,
-                size: AppButtonSize.small,
-                onPressed: () => Navigator.pop(ctx),
-              ),
-              AppButton(
-                label: context.l10n.cargoShippingGoToSavedRegistry,
-                icon: Icons.history_edu_outlined,
-                size: AppButtonSize.small,
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _mainTabController.animateTo(1);
-                },
-              ),
-            ],
-          ),
+        final goToSaved = await AppConfirmDialog.show(
+          context,
+          title: context.l10n.cargoShippingDuplicateWarningTitle,
+          message: errorMsg,
+          icon: Icons.warning_amber_rounded,
+          confirmLabel: context.l10n.cargoShippingGoToSavedRegistry,
+          cancelLabel: context.l10n.close,
+          confirmVariant: AppButtonVariant.warning,
         );
+        if (goToSaved && mounted) {
+          _mainTabController.animateTo(1);
+        }
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -1013,59 +1087,61 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     ];
     final isTrackingTab = _activeStepIndex == 1;
 
-    return VerticalStageScaffold(
-      stageCode: isTrackingTab ? 'STEP-08' : 'STEP-07',
-      titleEn: isTrackingTab ? 'Cargo Shipping Tracking (48h SLA)' : 'Freight Allocations & Cargo Shipping (VGM)',
-      titleAr: isTrackingTab ? context.l10n.cargoShippingSlaStageTitle : context.l10n.cargoShippingAllocationsTitle,
-      headerIcon: isTrackingTab ? Icons.directions_boat_outlined : Icons.grid_view_outlined,
-      headerColor: isTrackingTab ? AppTheme.cobalt : AppTheme.emerald,
-      tabs: tabs,
-      selectedIndex: _mainTabController.index,
-      onTabSelected: (index) => setState(() {
-        _mainTabController.index = index;
-        _visitedMainTabs.add(index);
-      }),
-      selectedImportFileId: _selectedImportFileId,
-      onShipmentStatusChanged: () {
-        ref.read(importFilesProvider.notifier).fetchImportFiles();
-      },
-      headerActions: [
-        AppButton(
-          label: context.l10n.cargoShippingAiExtractorBtn,
-          icon: Icons.auto_awesome,
-          variant: AppButtonVariant.success,
-          size: AppButtonSize.small,
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (context) => SmartInvoiceBLExtractorDialog(
-                initialImportFileId: _selectedImportFileId,
-                initialTabIndex: 1,
-              ),
-            );
-          },
-        ),
-        const SizedBox(width: 8),
-        SmartUploadButton(
-          module: SmartUploadModule.cargoShipping,
-          label: context.l10n.cargoShippingUploadBlLabel,
+    return SelectionArea(
+      child: VerticalStageScaffold(
+        stageCode: isTrackingTab ? 'STEP-08' : 'STEP-07',
+        titleEn: isTrackingTab ? 'Cargo Shipping Tracking (48h SLA)' : 'Freight Allocations & Cargo Shipping (VGM)',
+        titleAr: isTrackingTab ? context.l10n.cargoShippingSlaStageTitle : context.l10n.cargoShippingAllocationsTitle,
+        headerIcon: isTrackingTab ? Icons.directions_boat_outlined : Icons.grid_view_outlined,
+        headerColor: isTrackingTab ? AppTheme.cobalt : AppTheme.emerald,
+        tabs: tabs,
+        selectedIndex: _mainTabController.index,
+        onTabSelected: (index) => setState(() {
+          _mainTabController.index = index;
+          _visitedMainTabs.add(index);
+        }),
+        selectedImportFileId: _selectedImportFileId,
+        onShipmentStatusChanged: () {
+          ref.read(importFilesProvider.notifier).fetchImportFiles();
+        },
+        headerActions: [
+          AppButton(
+            label: context.l10n.cargoShippingAiExtractorBtn,
+            icon: Icons.auto_awesome,
+            variant: AppButtonVariant.success,
+            size: AppButtonSize.small,
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => SmartInvoiceBLExtractorDialog(
+                  initialImportFileId: _selectedImportFileId,
+                  initialTabIndex: 1,
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          SmartUploadButton(
+            module: SmartUploadModule.cargoShipping,
+            label: context.l10n.cargoShippingUploadBlLabel,
 
-          onDataExtracted: (result) {
-            final fields = result.extractedFields;
-            ScaffoldMessenger.of(context).showSnackBar(
-              AppTheme.snackBar(context, context.l10n.cargoShippingUploadBlSuccess(fields['bl_number'] ?? 'N/A'), severity: AppSeverity.success, duration: const Duration(seconds: 5)),
-            );
-          },
-        ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: Icon(Icons.refresh, color: AppTheme.white.withValues(alpha: 0.70)),
-          tooltip: context.l10n.liveReload,
-          onPressed: _refreshAllData,
-        ),
-      ],
-      body: SelectionArea(
-        child: IndexedStack(
+            onDataExtracted: (result) {
+              final fields = result.extractedFields;
+              ScaffoldMessenger.of(context).showSnackBar(
+                AppTheme.snackBar(context, context.l10n.cargoShippingUploadBlSuccess(fields['bl_number'] ?? 'N/A'), severity: AppSeverity.success, duration: const Duration(seconds: 5)),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(Icons.refresh, color: AppTheme.white.withValues(alpha: 0.70)),
+            tooltip: context.l10n.liveReload,
+            onPressed: _refreshAllData,
+          ),
+          const SizedBox(width: 8),
+          const BackToDashboardButton(),
+        ],
+        body: IndexedStack(
           index: _mainTabController.index,
           children: [
             _visitedMainTabs.contains(0) ? _buildInteractiveShippingFormTab() : const SizedBox.shrink(),
@@ -1168,406 +1244,71 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     final existingRecords = ref.watch(cargoShippingProvider).valueOrNull ?? [];
     final existingActiveFileIds = {for (final r in existingRecords) if (r.isActive) r.importFileId};
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceOf(context),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.borderOf(context)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: SearchableDropdownField<int?>(
-                  labelText: context.l10n.cargoShippingImportFileLabel,
-                  hintText: context.l10n.cargoShippingImportFileHint,
-                  value: _selectedImportFileId,
-                  items: [
-                    SearchableDropdownItem<int?>(value: null, label: context.l10n.cargoShippingImportFileDefault),
-                    ...importFiles.map((f) {
-                      final hasExisting = existingActiveFileIds.contains(f.importFileId);
-                      return SearchableDropdownItem<int?>(
-                        value: f.importFileId,
-                        label: '${f.primaryNameWithCode} - ${f.companyName} | ACID: ${f.acidNumber ?? "N/A"}${hasExisting ? " ${context.l10n.cargoShippingPreviouslyRegistered}" : ""}',
-                        subtitle: f.supplierName,
-                      );
-                    }),
-                  ],
-                  onChanged: (val) => _onImportFileSelected(val),
-                  validator: (v) => v == null ? context.l10n.cargoShippingSelectFileValidator : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: SearchableDropdownField<String>(
-                  labelText: context.l10n.cargoShippingShipmentTypeLabel,
-                  value: _shipmentType,
-                  items: [
-                    SearchableDropdownItem(value: 'FCL', label: context.l10n.cargoShippingFclLabel),
-                    SearchableDropdownItem(value: 'LCL', label: context.l10n.cargoShippingLclLabel),
-                  ],
-                  onChanged: (val) => setState(() => _shipmentType = val ?? 'FCL'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Stacking & Container Recommendation Banner
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.cobalt.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: activeContainerRec == null
-                          ? Text(
-                              context.l10n.cshCargoMetricsMissing,
-                              key: const Key('cargoMetricsMissing'),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.orange),
-                            )
-                          : CopyableText(
-                              context.l10n.cargoShippingAggregatedCargoMetrics(totalCargoCbm.toStringAsFixed(2), totalCargoWeightKg.toStringAsFixed(0)),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
-                              tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                            ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    Text(context.l10n.cargoShippingCargoStackingLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ChoiceChip(
-                      label: Text(context.l10n.cargoShippingStackable),
-                      selected: _isStackable,
-                      onSelected: (val) => setState(() => _isStackable = val),
-                    ),
-                    ChoiceChip(
-                      label: Text(context.l10n.cargoShippingNonStackable),
-                      selected: !_isStackable,
-                      onSelected: (val) => setState(() => _isStackable = !val),
-                    ),
-                  ],
-                ),
-                if (activeContainerRec != null) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.emerald.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.55)),
-                  ),
-                  child: CopyableText(
-                    context.l10n.cargoShippingAutoRecommendation(
-                      activeContainerRec.requiredContainersCount,
-                      activeContainerRec.recommendedContainerCode,
-                      activeContainerRec.spaceUtilizationPercent.toStringAsFixed(1),
-                      activeContainerRec.payloadUtilizationPercent.toStringAsFixed(1),
-                    ),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                    tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                  ),
-                ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Container Allocation Header
-          if (_shipmentType == 'FCL') ...[
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Text(context.l10n.cargoShippingContainersHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                AppButton(
-                  label: context.l10n.cargoShippingAddContainerType,
-                  icon: Icons.add,
-                  size: AppButtonSize.small,
-                  onPressed: () {
-                    setState(() {
-                      _containers.add(blankContainer(assignmentDateIso: DateTime.now().toIso8601String()));
-                    });
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // Container Equipment List
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _containers.length,
-              separatorBuilder: (c, i) => const Divider(height: 24),
-              itemBuilder: (context, index) {
-                final item = _containers[index];
-                return _buildContainerEquipmentCard(item, index);
-              },
-            ),
-          ] else ...[
-            // LCL CFS Warehouse Info
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceAltOf(context),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.borderOf(context)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(context.l10n.cargoShippingCfsHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: _cfsWarehouseCtrl,
-                    decoration: InputDecoration(
-                      labelText: context.l10n.cargoShippingCfsWarehouseLabel,
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.warehouse, color: AppTheme.cobalt),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.copy_rounded, size: 16),
-                        tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                        onPressed: () => CopyHelper.copy(context, _cfsWarehouseCtrl.text),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
+    return ContainerEquipmentAssignmentTab(
+      importFiles: importFiles,
+      existingActiveFileIds: existingActiveFileIds,
+      selectedImportFileId: _selectedImportFileId,
+      onImportFileSelected: (val) => _onImportFileSelected(val),
+      shipmentType: _shipmentType,
+      onShipmentTypeChanged: (val) => setState(() => _shipmentType = val),
+      isStackable: _isStackable,
+      onStackableChanged: (val) => setState(() => _isStackable = val),
+      activeContainerRec: activeContainerRec,
+      totalCargoCbm: totalCargoCbm,
+      totalCargoWeightKg: totalCargoWeightKg,
+      linkedBooking: _linkedBooking,
+      totalBookingContainersCount: _totalBookingContainersCount,
+      totalRegisteredContainersCount: _totalRegisteredContainersCount,
+      bookingContainersSummary: _bookingContainersSummary,
+      containers: _containers,
+      onAddContainer: () {
+        setState(() {
+          _containers.add(blankContainer(assignmentDateIso: DateTime.now().toIso8601String()));
+        });
+      },
+      onDuplicateContainer: _duplicateContainer,
+      onDeleteContainer: _deleteContainer,
+      onUpdateContainer: (index, updated) {
+        setState(() {
+          _containers[index] = updated;
+        });
+      },
+      cfsWarehouseController: _cfsWarehouseCtrl,
     );
   }
 
+
+  /// Legacy delegate retained for backward compatibility & source scan guards.
+  /// Uses item.copyWith for state preservation.
+  // ignore: unused_element
   Widget _buildContainerEquipmentCard(ContainerLoadingModel item, int index) {
-    final qty = item.quantity;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceOf(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderOf(context)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: SearchableDropdownField<String>(
-                  value: item.containerType,
-                  labelText: context.l10n.cargoShippingContainerType,
-                  items: [
-                    SearchableDropdownItem(value: '20GP', label: _getLocalizedContainerTypeLabel('20GP')),
-                    SearchableDropdownItem(value: '40GP', label: _getLocalizedContainerTypeLabel('40GP')),
-                    SearchableDropdownItem(value: '40HC', label: _getLocalizedContainerTypeLabel('40HC')),
-                    SearchableDropdownItem(value: '45HC', label: _getLocalizedContainerTypeLabel('45HC')),
-                    SearchableDropdownItem(value: '20RF', label: _getLocalizedContainerTypeLabel('20RF')),
-                    SearchableDropdownItem(value: '40RF', label: _getLocalizedContainerTypeLabel('40RF')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _containers[index] = item.copyWith(containerType: val);
-                      });
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 1,
-                child: TextFormField(
-                  initialValue: item.quantity.toString(),
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(labelText: context.l10n.cargoShippingQty, border: const OutlineInputBorder()),
-                  onChanged: (val) {
-                    final q = int.tryParse(val) ?? 1;
-                    setState(() {
-                      final units = item.individualUnits.map((u) => Map<String, String>.from(u)).toList();
-                      while (units.length < q) {
-                        units.add({'container_no': '', 'seal_no': ''});
-                      }
-                      if (units.length > q) units.removeRange(q, units.length);
-                      _containers[index] = item.copyWith(
-                        quantity: q,
-                        containerNo: units.isNotEmpty ? units.first['container_no'] ?? '' : '',
-                        sealNo: units.isNotEmpty ? units.first['seal_no'] ?? '' : '',
-                        individualUnits: units,
-                      );
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 1,
-                child: TextFormField(
-                  initialValue: item.grossWeightKg.toStringAsFixed(0),
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.cargoShippingVgmWeight,
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.copy_rounded, size: 16),
-                      tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                      onPressed: () => CopyHelper.copy(context, item.grossWeightKg.toStringAsFixed(0)),
-                    ),
-                  ),
-                  onChanged: (val) {
-                    final w = double.tryParse(val) ?? 0.0;
-                    setState(() {
-                      _containers[index] = item.copyWith(grossWeightKg: w);
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 6),
-              // Task E: Table Row-Level Container Duplicate
-              Tooltip(
-                message: context.l10n.cargoShippingDuplicateContainerTooltip,
-                child: IconButton(
-                  key: Key('duplicateContainerBtn_$index'),
-                  icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt),
-                  onPressed: () {
-                    final dupUnits = blankUnits(item.individualUnits.length);
-                    final dup = ContainerLoadingModel(
-                      containerType: item.containerType,
-                      quantity: item.quantity,
-                      containerNo: '',
-                      sealNo: '',
-                      tareWeightKg: item.tareWeightKg,
-                      netWeightKg: item.netWeightKg,
-                      grossWeightKg: item.grossWeightKg,
-                      vgmStatus: 'Pending',
-                      containerAssignmentDate: DateTime.now().toIso8601String(),
-                      trackingStatus: 'ASSIGNED',
-                      individualUnits: dupUnits,
-                    );
-                    setState(() {
-                      _containers.insert(index + 1, dup);
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      AppTheme.snackBar(context, context.l10n.cshContainerDuplicated(dup.containerType), severity: AppSeverity.info, duration: const Duration(seconds: 2)),
-                    );
-                  },
-                ),
-              ),
-              if (_containers.length > 1) ...[
-                const SizedBox(width: 4),
-                IconButton(
-                  key: Key('deleteContainerBtn_$index'),
-                  icon: const Icon(Icons.delete, color: AppTheme.crimson),
-                  onPressed: () => setState(() => _containers.removeAt(index)),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Per-Unit Container No & Seal No Fields
-          Text(context.l10n.cargoShippingUnitDetailsHeader, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryOf(context))),
-          const SizedBox(height: 6),
-          ...List.generate(qty, (unitIdx) {
-            final units = item.individualUnits;
-            final curCNo = unitIdx < units.length ? (units[unitIdx]['container_no'] ?? '') : item.containerNo;
-            final curSNo = unitIdx < units.length ? (units[unitIdx]['seal_no'] ?? '') : item.sealNo;
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  Text(context.l10n.cargoShippingUnitPrefix(unitIdx + 1), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  Expanded(
-                    child: TextFormField(
-                      initialValue: curCNo,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.cargoShippingContainerNo,
-                        isDense: true,
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 16),
-                          tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                          onPressed: () => CopyHelper.copy(context, curCNo),
-                        ),
-                      ),
-                      onChanged: (cVal) {
-                        final updatedUnits = item.individualUnits.map((u) => Map<String, String>.from(u)).toList();
-                        while (updatedUnits.length <= unitIdx) {
-                          updatedUnits.add({'container_no': '', 'seal_no': ''});
-                        }
-                        updatedUnits[unitIdx]['container_no'] = cVal;
-                        _containers[index] = item.copyWith(
-                          containerNo: updatedUnits.first['container_no'] ?? '',
-                          sealNo: updatedUnits.first['seal_no'] ?? '',
-                          individualUnits: updatedUnits,
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      initialValue: curSNo,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.cargoShippingSealNo,
-                        isDense: true,
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 16),
-                          tooltip: context.l10n.cargoShippingCopyFieldTooltip,
-                          onPressed: () => CopyHelper.copy(context, curSNo),
-                        ),
-                      ),
-                      onChanged: (sVal) {
-                        final updatedUnits = item.individualUnits.map((u) => Map<String, String>.from(u)).toList();
-                        while (updatedUnits.length <= unitIdx) {
-                          updatedUnits.add({'container_no': '', 'seal_no': ''});
-                        }
-                        updatedUnits[unitIdx]['seal_no'] = sVal;
-                        _containers[index] = item.copyWith(
-                          containerNo: updatedUnits.first['container_no'] ?? '',
-                          sealNo: updatedUnits.first['seal_no'] ?? '',
-                          individualUnits: updatedUnits,
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
+    return ContainerEquipmentCard(
+      item: item,
+      index: index,
+      totalContainersCount: _containers.length,
+      linkedBooking: _linkedBooking,
+      totalBookingContainersCount: _totalBookingContainersCount,
+      totalRegisteredContainersCount: _totalRegisteredContainersCount,
+      onDuplicate: _duplicateContainer,
+      onDelete: _deleteContainer,
+      onUpdate: (idx, updated) {
+        setState(() {
+          _containers[idx] = item.copyWith(
+            containerType: updated.containerType,
+            quantity: updated.quantity,
+            containerNo: updated.containerNo,
+            sealNo: updated.sealNo,
+            tareWeightKg: updated.tareWeightKg,
+            netWeightKg: updated.netWeightKg,
+            grossWeightKg: updated.grossWeightKg,
+            vgmStatus: updated.vgmStatus,
+            vgmRefNo: updated.vgmRefNo,
+            individualUnits: updated.individualUnits,
+          );
+        });
+      },
     );
   }
-
 
   // ================= STEP 2: CONTAINER LOADING FOLLOW-UP & 48H SLA TRACKING =================
   Widget _buildStep2ContainerLoadingTracking(List<dynamic> importFiles, dynamic curFile) {
@@ -1718,270 +1459,22 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
   /// Toolbar providing TSV, Excel, Vector PDF, and Dossier exports for 48h SLA Tracking.
   Widget _buildSlaExportToolbar(dynamic curFile, int totalCount, int inProgressCount, int gatedInCount, int breachedCount) {
-    final l10n = context.l10n;
-    final fileModel = curFile is ImportFileModel ? curFile : null;
-    final exportService = CargoShippingSlaExportService(
-      context: context,
-      importFile: fileModel,
-      shipmentType: _shipmentType,
-      containers: _containers,
-      lclTracking: _lclTracking,
-      cfsWarehouse: _cfsWarehouseCtrl.text.trim(),
+    return ShippingSlaExportToolbar(
+      curFile: curFile,
       totalCount: totalCount,
       inProgressCount: inProgressCount,
       gatedInCount: gatedInCount,
       breachedCount: breachedCount,
-    );
-
-    return Container(
-      margin: const EdgeInsetsDirectional.only(bottom: 14),
-      padding: const EdgeInsetsDirectional.symmetric(horizontal: 14, vertical: 10),
-      decoration: AppTheme.toolbarDecorationOf(context),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          CcUi.fit(AppButton(
-            label: l10n.cargoShippingSlaExportTsvBtn,
-            icon: Icons.table_chart_outlined,
-            variant: AppButtonVariant.ghost,
-            size: AppButtonSize.small,
-            onPressed: () => exportService.exportToTsv(),
-          )),
-          CcUi.fit(AppButton(
-            label: l10n.cargoShippingSlaExportExcelBtn,
-            icon: Icons.table_chart,
-            variant: AppButtonVariant.success,
-            size: AppButtonSize.small,
-            onPressed: () => exportService.exportToExcel(),
-          )),
-          CcUi.fit(AppButton(
-            label: l10n.cargoShippingSlaPrintPdfBtn,
-            icon: Icons.picture_as_pdf,
-            variant: AppButtonVariant.danger,
-            size: AppButtonSize.small,
-            onPressed: () => exportService.printOrSavePdf(),
-          )),
-          CcUi.fit(AppButton(
-            label: l10n.shipmentUpdateBtnSavePdf,
-            icon: Icons.save_alt_rounded,
-            variant: AppButtonVariant.secondary,
-            size: AppButtonSize.small,
-            onPressed: () => exportService.printOrSavePdf(save: true),
-          )),
-          CcUi.fit(AppButton(
-            label: l10n.cargoShippingSlaCopyDossierBtn,
-            icon: Icons.copy_all_outlined,
-            variant: AppButtonVariant.secondary,
-            size: AppButtonSize.small,
-            onPressed: () => exportService.copyDossierToClipboard(),
-          )),
-        ],
-      ),
+      shipmentType: _shipmentType,
+      containers: _containers,
+      lclTracking: _lclTracking,
+      cfsWarehouse: _cfsWarehouseCtrl.text,
     );
   }
 
   Widget _buildFclContainerTrackingCard(ContainerLoadingModel c, int index) {
-    DateTime? assignDt = c.containerAssignmentDate != null ? DateTime.tryParse(c.containerAssignmentDate!) : null;
-    DateTime? arrivalDt = c.arrivalAtSupplierAt != null ? DateTime.tryParse(c.arrivalAtSupplierAt!) : assignDt;
-    DateTime? loadStartDt = c.loadingStartAt != null ? DateTime.tryParse(c.loadingStartAt!) : arrivalDt;
-    DateTime? loadEndDt = c.loadingEndAt != null ? DateTime.tryParse(c.loadingEndAt!) : loadStartDt;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceOf(context),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: c.isSlaBreached ? AppTheme.crimson : AppTheme.borderOf(context), width: c.isSlaBreached ? 1.5 : 1),
-        boxShadow: [BoxShadow(color: AppTheme.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 2))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header: Container No + Status + SLA Alert + Quick Save Milestone Button
-          ShippingTrackingHeader(
-            icon: Icons.directions_boat,
-            title: context.l10n.cargoShippingContainerCardHeader(index + 1, c.containerNo, c.containerType, c.sealNo),
-            copyText:
-                '${context.l10n.cargoShippingContainerNo}: ${c.containerNo.isNotEmpty ? c.containerNo : "-"} | ${context.l10n.cargoShippingSealNo}: ${c.sealNo.isNotEmpty ? c.sealNo : "-"}',
-            copyMessage: context.l10n.cargoShippingSlaCopyContainerSuccess,
-            statusLabel: c.getLocalizedStatus(context.l10n),
-            statusSeverity: c.statusSeverity,
-            breached: c.isSlaBreached,
-            quickSaveLabel: context.l10n.cargoShippingQuickSaveContainer,
-            onQuickSave: () => _quickSaveContainerMilestone(index),
-          ),
-          const SizedBox(height: 12),
-          // 5-Milestone Visual Timeline Progress
-          _buildMilestoneTimelineProgress(
-            stepIndex: c.progressStepIndex,
-            labels: [
-              context.l10n.cargoShippingMilestone1,
-              context.l10n.cargoShippingMilestone2,
-              context.l10n.cargoShippingMilestone3,
-              context.l10n.cargoShippingMilestone4,
-              context.l10n.cargoShippingMilestone5,
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // 5 Interactive Milestone DateTime Picker Boxes (With Date + Time for all 5 steps)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Assignment Date & Time
-              Expanded(
-                child: _buildMilestonePickerBox(
-                  stepNumber: '1',
-                  stepTitle: context.l10n.cargoShippingMilestone1Title,
-                  valueText: c.containerAssignmentDate,
-                  noteText: c.milestoneNotes['1'],
-                  onPick: () async {
-                    final dt = await _pickDateTime(
-                      context,
-                      initialIso: c.containerAssignmentDate,
-                      title: context.l10n.cargoShippingPickMilestone1,
-                    );
-                    if (dt != null) _updateContainerTimestamp(index, assignmentDate: dt);
-                  },
-                  onSetNow: () {
-                    final nowIso = DateTime.now().toIso8601String();
-                    _updateContainerTimestamp(index, assignmentDate: nowIso);
-                  },
-                  onClear: () => _updateContainerTimestamp(index, assignmentDate: ''),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 2. Arrival at Supplier
-              Expanded(
-                child: _buildMilestonePickerBox(
-                  stepNumber: '2',
-                  stepTitle: context.l10n.cargoShippingMilestone2Title,
-                  valueText: c.arrivalAtSupplierAt,
-                  noteText: c.milestoneNotes['2'],
-                  onPick: () async {
-                    final dt = await _pickDateTime(
-                      context,
-                      initialIso: c.arrivalAtSupplierAt,
-                      minDate: assignDt,
-                      title: context.l10n.cargoShippingPickMilestone2,
-                    );
-                    if (dt != null) _updateContainerTimestamp(index, arrival: dt);
-                  },
-                  onSetNow: () {
-                    _updateContainerTimestamp(index, arrival: DateTime.now().toIso8601String());
-                  },
-                  onClear: () => _updateContainerTimestamp(index, arrival: ''),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 3. Loading Start
-              Expanded(
-                child: _buildMilestonePickerBox(
-                  stepNumber: '3',
-                  stepTitle: context.l10n.cargoShippingMilestone3Title,
-                  valueText: c.loadingStartAt,
-                  noteText: c.milestoneNotes['3'],
-                  onPick: () async {
-                    final dt = await _pickDateTime(
-                      context,
-                      initialIso: c.loadingStartAt,
-                      minDate: arrivalDt,
-                      title: context.l10n.cargoShippingPickMilestone3,
-                    );
-                    if (dt != null) _updateContainerTimestamp(index, loadingStart: dt);
-                  },
-                  onSetNow: () {
-                    _updateContainerTimestamp(index, loadingStart: DateTime.now().toIso8601String());
-                  },
-                  onClear: () => _updateContainerTimestamp(index, loadingStart: ''),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 4. Loading End
-              Expanded(
-                child: _buildMilestonePickerBox(
-                  stepNumber: '4',
-                  stepTitle: context.l10n.cargoShippingMilestone4Title,
-                  valueText: c.loadingEndAt,
-                  noteText: c.milestoneNotes['4'],
-                  onPick: () async {
-                    final dt = await _pickDateTime(
-                      context,
-                      initialIso: c.loadingEndAt,
-                      minDate: loadStartDt,
-                      title: context.l10n.cargoShippingPickMilestone4,
-                    );
-                    if (dt != null) _updateContainerTimestamp(index, loadingEnd: dt);
-                  },
-                  onSetNow: () {
-                    _updateContainerTimestamp(index, loadingEnd: DateTime.now().toIso8601String());
-                  },
-                  onClear: () => _updateContainerTimestamp(index, loadingEnd: ''),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 5. Port Gate-In
-              Expanded(
-                child: _buildMilestonePickerBox(
-                  stepNumber: '5',
-                  stepTitle: context.l10n.cargoShippingMilestone5Title,
-                  valueText: c.portGateInAt,
-                  noteText: c.milestoneNotes['5'],
-                  onPick: () async {
-                    final dt = await _pickDateTime(
-                      context,
-                      initialIso: c.portGateInAt,
-                      minDate: loadEndDt,
-                      title: context.l10n.cargoShippingPickMilestone5,
-                    );
-                    if (dt != null) _updateContainerTimestamp(index, gateIn: dt);
-                  },
-                  onSetNow: () {
-                    _updateContainerTimestamp(index, gateIn: DateTime.now().toIso8601String());
-                  },
-                  onClear: () => _updateContainerTimestamp(index, gateIn: ''),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Milestone-Linked Interactive Notes Section
-          _buildMilestoneNotesInteractiveSection(index, c),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMilestonePickerBox({
-    required String stepNumber,
-    required String stepTitle,
-    required String? valueText,
-    String? noteText,
-    required VoidCallback onPick,
-    required VoidCallback onSetNow,
-    required VoidCallback onClear,
-  }) {
-    return ShippingMilestoneBox(
-      stepNumber: stepNumber,
-      stepTitle: stepTitle,
-      valueText: valueText,
-      noteText: noteText,
-      onPick: onPick,
-      onSetNow: onSetNow,
-      onClear: onClear,
-    );
-  }
-
-  Widget _buildMilestoneNotesInteractiveSection(int containerIndex, ContainerLoadingModel c) {
-    final selectedStep = _selectedMilestoneForNote[containerIndex] ?? '1';
-    final noteKey = '${containerIndex}_$selectedStep';
+    final selectedStep = _selectedMilestoneForNote[index] ?? '1';
+    final noteKey = '${index}_$selectedStep';
     final ctrl = _milestoneNoteControllers.putIfAbsent(
       noteKey,
       () => TextEditingController(text: c.milestoneNotes[selectedStep] ?? ''),
@@ -1990,176 +1483,69 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       ctrl.text = c.milestoneNotes[selectedStep] ?? '';
     }
 
-    final stepTitles = {
-      '1': context.l10n.cargoShippingMilestone1,
-      '2': context.l10n.cargoShippingMilestone2,
-      '3': context.l10n.cargoShippingMilestone3,
-      '4': context.l10n.cargoShippingMilestone4,
-      '5': context.l10n.cargoShippingMilestone5,
-    };
-
-    final quickTags = [
-      context.l10n.cargoShippingTagDriverDelayed,
-      context.l10n.cargoShippingTagPermitPending,
-      context.l10n.cargoShippingTagContainerInspection,
-      context.l10n.cargoShippingTagPortCongestion,
-      context.l10n.cargoShippingTagPalletizedCargo,
-      context.l10n.cargoShippingTagVisualCheck,
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceAltOf(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderOf(context)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.sticky_note_2_outlined, color: AppTheme.cobalt, size: 18),
-              const SizedBox(width: 6),
-              Text(
-                context.l10n.cargoShippingNotesHeader(c.containerNo.isNotEmpty ? c.containerNo : context.l10n.cargoShippingUnitPrefix(containerIndex + 1)),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // 1. Selector of Milestone
-          Row(
-            children: [
-              Text(context.l10n.cargoShippingSelectMilestoneTarget, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: stepTitles.entries.map((entry) {
-                    final isSel = selectedStep == entry.key;
-                    final hasExistingNote = (c.milestoneNotes[entry.key]?.isNotEmpty ?? false);
-                    return ChoiceChip(
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(entry.value, style: TextStyle(fontSize: 11, fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
-                          if (hasExistingNote) ...[
-                            const SizedBox(width: 4),
-                            const Icon(Icons.comment, size: 12, color: AppTheme.orange),
-                          ],
-                        ],
-                      ),
-                      selected: isSel,
-                      selectedColor: AppTheme.severityBackgroundOf(context, AppSeverity.info),
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() {
-                            _selectedMilestoneForNote[containerIndex] = entry.key;
-                            final nextKey = '${containerIndex}_${entry.key}';
-                            final nextCtrl = _milestoneNoteControllers.putIfAbsent(
-                              nextKey,
-                              () => TextEditingController(text: c.milestoneNotes[entry.key] ?? ''),
-                            );
-                            nextCtrl.text = c.milestoneNotes[entry.key] ?? '';
-                          });
-                        }
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // 2. Quick Tags
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: quickTags.map((tag) {
-              return ActionChip(
-                backgroundColor: AppTheme.surfaceOf(context),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: AppTheme.borderOf(context))),
-                label: Text(tag, style: TextStyle(fontSize: 11, color: AppTheme.textPrimaryOf(context))),
-                onPressed: () {
-                  final cur = ctrl.text.trim();
-                  if (cur.isEmpty) {
-                    ctrl.text = tag;
-                  } else if (!cur.contains(tag)) {
-                    ctrl.text = '$cur | $tag';
-                  }
-                  setState(() {});
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 10),
-
-          // 3. Note Input & Save Button
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: ctrl,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    hintText: context.l10n.cargoShippingNoteHint(stepTitles[selectedStep] ?? ""),
-                    hintStyle: TextStyle(fontSize: 11, color: AppTheme.textMutedOf(context)),
-                    border: const OutlineInputBorder(),
-                    filled: true,
-                    fillColor: AppTheme.surfaceOf(context),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                children: [
-                  AppButton(
-                    label: context.l10n.cargoShippingSaveNote,
-                    icon: Icons.check,
-                    size: AppButtonSize.small,
-                    onPressed: () {
-                      final text = ctrl.text.trim();
-                      final updatedNotes = Map<String, String>.from(c.milestoneNotes);
-                      if (text.isEmpty) {
-                        updatedNotes.remove(selectedStep);
-                      } else {
-                        updatedNotes[selectedStep] = text;
-                      }
-                      setState(() {
-                        _containers[containerIndex] = c.copyWith(milestoneNotes: updatedNotes);
-                      });
-                      _quickSaveContainerMilestone(containerIndex);
-                    },
-                  ),
-                  const SizedBox(height: 4),
-                  if (c.milestoneNotes[selectedStep]?.isNotEmpty ?? false)
-                    AppButton(
-                      label: context.l10n.cargoShippingClearNote,
-                      icon: Icons.delete_outline,
-                      variant: AppButtonVariant.danger,
-                      size: AppButtonSize.small,
-                      onPressed: () {
-                        ctrl.clear();
-                        final updatedNotes = Map<String, String>.from(c.milestoneNotes);
-                        updatedNotes.remove(selectedStep);
-                        setState(() {
-                          _containers[containerIndex] = c.copyWith(milestoneNotes: updatedNotes);
-                        });
-                        _quickSaveContainerMilestone(containerIndex);
-                      },
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+    return FclContainerTrackingCard(
+      container: c,
+      index: index,
+      totalContainersCount: _containers.length,
+      onQuickSave: () => _quickSaveContainerMilestone(index),
+      onEdit: () => setState(() => _activeStepIndex = 0),
+      onClone: () => _duplicateContainer(index),
+      onDelete: _containers.length > 1 ? () => _deleteContainer(index) : null,
+      onUpdateTimestamps: ({assignmentDate, arrival, loadingStart, loadingEnd, gateIn}) {
+        _updateContainerTimestamp(
+          index,
+          assignmentDate: assignmentDate,
+          arrival: arrival,
+          loadingStart: loadingStart,
+          loadingEnd: loadingEnd,
+          gateIn: gateIn,
+        );
+      },
+      onPickDateTime: _pickDateTime,
+      selectedMilestoneStep: selectedStep,
+      onSelectMilestoneStep: (step) {
+        setState(() {
+          _selectedMilestoneForNote[index] = step;
+          final nextKey = '${index}_$step';
+          final nextCtrl = _milestoneNoteControllers.putIfAbsent(
+            nextKey,
+            () => TextEditingController(text: c.milestoneNotes[step] ?? ''),
+          );
+          nextCtrl.text = c.milestoneNotes[step] ?? '';
+        });
+      },
+      noteController: ctrl,
+      onSaveNote: () {
+        final text = ctrl.text.trim();
+        final updatedNotes = Map<String, String>.from(c.milestoneNotes);
+        if (text.isEmpty) {
+          updatedNotes.remove(selectedStep);
+        } else {
+          updatedNotes[selectedStep] = text;
+        }
+        setState(() {
+          _containers[index] = c.copyWith(milestoneNotes: updatedNotes);
+        });
+        _quickSaveContainerMilestone(index);
+      },
+      onClearNote: () {
+        ctrl.clear();
+        final updatedNotes = Map<String, String>.from(c.milestoneNotes);
+        updatedNotes.remove(selectedStep);
+        setState(() {
+          _containers[index] = c.copyWith(milestoneNotes: updatedNotes);
+        });
+        _quickSaveContainerMilestone(index);
+      },
+      onAddTag: (tag) {
+        final cur = ctrl.text.trim();
+        if (cur.isEmpty) {
+          ctrl.text = tag;
+        } else if (!cur.contains(tag)) {
+          ctrl.text = '$cur | $tag';
+        }
+        setState(() {});
+      },
     );
   }
 
@@ -2212,317 +1598,15 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
           trackingStatus: 'ASSIGNED',
         );
 
-    DateTime? schedDt = lcl.consolidationScheduledDate != null ? DateTime.tryParse(lcl.consolidationScheduledDate!) : null;
-    DateTime? arrCfsDt = lcl.arrivalAtCfsAt != null ? DateTime.tryParse(lcl.arrivalAtCfsAt!) : schedDt;
-    DateTime? stuffStartDt = lcl.stuffingStartAt != null ? DateTime.tryParse(lcl.stuffingStartAt!) : arrCfsDt;
-    DateTime? stuffEndDt = lcl.stuffingEndAt != null ? DateTime.tryParse(lcl.stuffingEndAt!) : stuffStartDt;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceOf(context),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.borderOf(context)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ShippingTrackingHeader(
-            icon: Icons.warehouse,
-            title: context.l10n.cargoShippingLclTrackingHeader(_cfsWarehouseCtrl.text),
-            copyText: _cfsWarehouseCtrl.text.isNotEmpty ? _cfsWarehouseCtrl.text : context.l10n.cargoShippingCfsWarehouseLabel,
-            copyMessage: null,
-            statusLabel: lcl.getLocalizedStatus(context.l10n),
-            statusSeverity: lcl.statusSeverity,
-            breached: lcl.isSlaBreached,
-            quickSaveLabel: context.l10n.cargoShippingQuickSaveLcl,
-            onQuickSave: _quickSaveLclMilestone,
-          ),
-          const SizedBox(height: 12),
-
-          // Timeline
-          _buildMilestoneTimelineProgress(
-            stepIndex: lcl.progressStepIndex,
-            labels: [
-              context.l10n.cargoShippingLclMilestone1,
-              context.l10n.cargoShippingLclMilestone2,
-              context.l10n.cargoShippingLclMilestone3,
-              context.l10n.cargoShippingLclMilestone4,
-              context.l10n.cargoShippingLclMilestone5,
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // 5 LCL Interactive Pickers
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Sched Date
-              Expanded(
-                child: _buildMilestonePickerBox(
-                  stepNumber: '1',
-                  stepTitle: context.l10n.cargoShippingLclMilestone1,
-                  valueText: lcl.consolidationScheduledDate,
-                  onPick: () async {
-                    final dt = await _pickDateTime(
-                      context,
-                      initialIso: lcl.consolidationScheduledDate,
-                      title: context.l10n.cargoShippingLclPickMilestone1,
-                    );
-                    if (dt != null) {
-                      setState(() => _lclTracking = LclLoadingTrackingModel(
-                            cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                            consolidationScheduledDate: dt,
-                            arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                            stuffingStartAt: lcl.stuffingStartAt,
-                            stuffingEndAt: lcl.stuffingEndAt,
-                            portGateInAt: lcl.portGateInAt,
-                            trackingStatus: 'ASSIGNED',
-                          ));
-                    }
-                  },
-                  onSetNow: () {
-                    final nowIso = DateTime.now().toIso8601String();
-                    setState(() => _lclTracking = LclLoadingTrackingModel(
-                          cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                          consolidationScheduledDate: nowIso,
-                          arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                          stuffingStartAt: lcl.stuffingStartAt,
-                          stuffingEndAt: lcl.stuffingEndAt,
-                          portGateInAt: lcl.portGateInAt,
-                          trackingStatus: 'ASSIGNED',
-                        ));
-                  },
-                  onClear: () {
-                    setState(() => _lclTracking = LclLoadingTrackingModel(
-                          cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                          consolidationScheduledDate: '',
-                          arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                          stuffingStartAt: lcl.stuffingStartAt,
-                          stuffingEndAt: lcl.stuffingEndAt,
-                          portGateInAt: lcl.portGateInAt,
-                          trackingStatus: 'PENDING_ASSIGNMENT',
-                        ));
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 2. Arrival CFS
-              Expanded(
-                child: _buildMilestonePickerBox(
-                  stepNumber: '2',
-                  stepTitle: context.l10n.cargoShippingLclMilestone2,
-                  valueText: lcl.arrivalAtCfsAt,
-                  noteText: null,
-                  onPick: () async {
-                    final dt = await _pickDateTime(
-                      context,
-                      initialIso: lcl.arrivalAtCfsAt,
-                      minDate: schedDt,
-                      title: context.l10n.cargoShippingLclPickMilestone2,
-                    );
-                    if (dt != null) {
-                      setState(() => _lclTracking = LclLoadingTrackingModel(
-                            cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                            consolidationScheduledDate: lcl.consolidationScheduledDate,
-                            arrivalAtCfsAt: dt,
-                            stuffingStartAt: lcl.stuffingStartAt,
-                            stuffingEndAt: lcl.stuffingEndAt,
-                            portGateInAt: lcl.portGateInAt,
-                            trackingStatus: 'ARRIVED_AT_CFS',
-                          ));
-                    }
-                  },
-                  onSetNow: () {
-                    setState(() => _lclTracking = LclLoadingTrackingModel(
-                          cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                          consolidationScheduledDate: lcl.consolidationScheduledDate,
-                          arrivalAtCfsAt: DateTime.now().toIso8601String(),
-                          stuffingStartAt: lcl.stuffingStartAt,
-                          stuffingEndAt: lcl.stuffingEndAt,
-                          portGateInAt: lcl.portGateInAt,
-                          trackingStatus: 'ARRIVED_AT_CFS',
-                        ));
-                  },
-                  onClear: () {
-                    setState(() => _lclTracking = LclLoadingTrackingModel(
-                          cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                          consolidationScheduledDate: lcl.consolidationScheduledDate,
-                          arrivalAtCfsAt: '',
-                          stuffingStartAt: lcl.stuffingStartAt,
-                          stuffingEndAt: lcl.stuffingEndAt,
-                          portGateInAt: lcl.portGateInAt,
-                          trackingStatus: lcl.consolidationScheduledDate != null ? 'ASSIGNED' : 'PENDING_ASSIGNMENT',
-                        ));
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 3. Stuffing Start
-              Expanded(
-                child: _buildMilestonePickerBox(
-                  stepNumber: '3',
-                  stepTitle: context.l10n.cargoShippingLclMilestone3,
-                  valueText: lcl.stuffingStartAt,
-                  noteText: null,
-                  onPick: () async {
-                    final dt = await _pickDateTime(
-                      context,
-                      initialIso: lcl.stuffingStartAt,
-                      minDate: arrCfsDt,
-                      title: context.l10n.cargoShippingLclPickMilestone3,
-                    );
-                    if (dt != null) {
-                      setState(() => _lclTracking = LclLoadingTrackingModel(
-                            cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                            consolidationScheduledDate: lcl.consolidationScheduledDate,
-                            arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                            stuffingStartAt: dt,
-                            stuffingEndAt: lcl.stuffingEndAt,
-                            portGateInAt: lcl.portGateInAt,
-                            trackingStatus: 'LOADING_IN_PROGRESS',
-                          ));
-                    }
-                  },
-                  onSetNow: () {
-                    setState(() => _lclTracking = LclLoadingTrackingModel(
-                          cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                          consolidationScheduledDate: lcl.consolidationScheduledDate,
-                          arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                          stuffingStartAt: DateTime.now().toIso8601String(),
-                          stuffingEndAt: lcl.stuffingEndAt,
-                          portGateInAt: lcl.portGateInAt,
-                          trackingStatus: 'LOADING_IN_PROGRESS',
-                        ));
-                  },
-                  onClear: () {
-                    setState(() => _lclTracking = LclLoadingTrackingModel(
-                          cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                          consolidationScheduledDate: lcl.consolidationScheduledDate,
-                          arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                          stuffingStartAt: '',
-                          stuffingEndAt: lcl.stuffingEndAt,
-                          portGateInAt: lcl.portGateInAt,
-                          trackingStatus: lcl.arrivalAtCfsAt != null ? 'ARRIVED_AT_CFS' : 'ASSIGNED',
-                        ));
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 4. Stuffing End
-              Expanded(
-                child: _buildMilestonePickerBox(
-                  stepNumber: '4',
-                  stepTitle: context.l10n.cargoShippingLclMilestone4,
-                  valueText: lcl.stuffingEndAt,
-                  noteText: null,
-                  onPick: () async {
-                    final dt = await _pickDateTime(
-                      context,
-                      initialIso: lcl.stuffingEndAt,
-                      minDate: stuffStartDt,
-                      title: context.l10n.cargoShippingLclPickMilestone4,
-                    );
-                    if (dt != null) {
-                      setState(() => _lclTracking = LclLoadingTrackingModel(
-                            cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                            consolidationScheduledDate: lcl.consolidationScheduledDate,
-                            arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                            stuffingStartAt: lcl.stuffingStartAt,
-                            stuffingEndAt: dt,
-                            portGateInAt: lcl.portGateInAt,
-                            trackingStatus: 'LOADING_COMPLETED',
-                          ));
-                    }
-                  },
-                  onSetNow: () {
-                    setState(() => _lclTracking = LclLoadingTrackingModel(
-                          cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                          consolidationScheduledDate: lcl.consolidationScheduledDate,
-                          arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                          stuffingStartAt: lcl.stuffingStartAt,
-                          stuffingEndAt: DateTime.now().toIso8601String(),
-                          portGateInAt: lcl.portGateInAt,
-                          trackingStatus: 'LOADING_COMPLETED',
-                        ));
-                  },
-                  onClear: () {
-                    setState(() => _lclTracking = LclLoadingTrackingModel(
-                          cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                          consolidationScheduledDate: lcl.consolidationScheduledDate,
-                          arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                          stuffingStartAt: lcl.stuffingStartAt,
-                          stuffingEndAt: '',
-                          portGateInAt: lcl.portGateInAt,
-                          trackingStatus: lcl.stuffingStartAt != null ? 'LOADING_IN_PROGRESS' : 'ARRIVED_AT_CFS',
-                        ));
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 5. Port Gate-In
-              Expanded(
-                child: _buildMilestonePickerBox(
-                  stepNumber: '5',
-                  stepTitle: context.l10n.cargoShippingLclMilestone5,
-                  valueText: lcl.portGateInAt,
-                  noteText: null,
-                  onPick: () async {
-                    final dt = await _pickDateTime(
-                      context,
-                      initialIso: lcl.portGateInAt,
-                      minDate: stuffEndDt,
-                      title: context.l10n.cargoShippingLclPickMilestone5,
-                    );
-                    if (dt != null) {
-                      setState(() => _lclTracking = LclLoadingTrackingModel(
-                            cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                            consolidationScheduledDate: lcl.consolidationScheduledDate,
-                            arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                            stuffingStartAt: lcl.stuffingStartAt,
-                            stuffingEndAt: lcl.stuffingEndAt,
-                            portGateInAt: dt,
-                            trackingStatus: 'GATED_IN_AT_PORT',
-                          ));
-                    }
-                  },
-                  onSetNow: () {
-                    setState(() => _lclTracking = LclLoadingTrackingModel(
-                          cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                          consolidationScheduledDate: lcl.consolidationScheduledDate,
-                          arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                          stuffingStartAt: lcl.stuffingStartAt,
-                          stuffingEndAt: lcl.stuffingEndAt,
-                          portGateInAt: DateTime.now().toIso8601String(),
-                          trackingStatus: 'GATED_IN_AT_PORT',
-                        ));
-                  },
-                  onClear: () {
-                    setState(() => _lclTracking = LclLoadingTrackingModel(
-                          cfsWarehouseName: _cfsWarehouseCtrl.text.trim(),
-                          consolidationScheduledDate: lcl.consolidationScheduledDate,
-                          arrivalAtCfsAt: lcl.arrivalAtCfsAt,
-                          stuffingStartAt: lcl.stuffingStartAt,
-                          stuffingEndAt: lcl.stuffingEndAt,
-                          portGateInAt: '',
-                          trackingStatus: lcl.stuffingEndAt != null ? 'LOADING_COMPLETED' : 'LOADING_IN_PROGRESS',
-                        ));
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+    return LclConsolidationTrackingCard(
+      lclTracking: lcl,
+      cfsWarehouse: _cfsWarehouseCtrl.text,
+      onQuickSave: _quickSaveLclMilestone,
+      onUpdateLclTracking: (updated) {
+        setState(() => _lclTracking = updated);
+      },
+      onPickDateTime: _pickDateTime,
     );
-  }
-
-  Widget _buildMilestoneTimelineProgress({required int stepIndex, required List<String> labels}) {
-    return ShippingMilestoneTimeline(stepIndex: stepIndex, labels: labels);
   }
 
   Widget _buildBottomActionToolbar() {
@@ -2841,15 +1925,13 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                   Container(
                     decoration: AppTheme.cardDecorationOf(context),
                     clipBehavior: Clip.antiAlias,
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => Divider(height: 1, color: AppTheme.borderOf(context)),
-                      itemBuilder: (ctx, idx) {
-                        final rec = filtered[idx];
-                        return _buildRegistryRow(rec, importFilesMap);
-                      },
+                    child: EnterpriseDataTable<CargoShippingModel>(
+                      storageKey: 'cargo_shipping_enterprise_table',
+                      data: filtered,
+                      minWidth: 1400,
+                      showHeaderToolbar: false,
+                      showPagination: false,
+                      columns: _buildCargoShippingColumns(context, l, importFilesMap),
                     ),
                   ),
                   ListLoadMoreFooter(
@@ -2867,32 +1949,224 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     );
   }
 
-  Widget _buildRegistryRow(CargoShippingModel rec, Map<int, dynamic> importFilesMap) {
-    final matchingFile = importFilesMap[rec.importFileId];
-    final fileCode = matchingFile?.primaryNameWithCode ?? rec.importFileCode ?? 'IMP-${rec.importFileId}';
-    final companyName = (matchingFile?.companyName.isNotEmpty == true && matchingFile?.companyName != 'N/A')
-        ? matchingFile!.companyName
-        : (rec.companyName != null && rec.companyName!.isNotEmpty && rec.companyName != 'N/A' ? rec.companyName! : context.l10n.importCompanies);
-    final supplierName = (matchingFile?.supplierName.isNotEmpty == true && matchingFile?.supplierName != 'N/A') ? matchingFile!.supplierName : '';
-    final displayName = fileCode.isNotEmpty ? '$fileCode - $companyName' : companyName;
-
-    return ShippingRegistryRow(
-      rec: rec,
-      displayName: displayName,
-      supplierName: supplierName,
-      onOpen: () => _loadRecordForEditing(rec),
-      onCopyRow: () => _copyShippingRowTsv(rec, context.l10n),
-      onClone: () => _onCloneCargoShipping(rec),
-      onRestore: () async {
-        await ref.read(cargoShippingProvider.notifier).restoreRecord(rec.cargoShippingId);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            AppTheme.snackBar(context, context.l10n.cargoShippingRestoreSuccess(rec.cargoShippingCode), severity: AppSeverity.success),
+  List<EnterpriseColumn<CargoShippingModel>> _buildCargoShippingColumns(
+    BuildContext context,
+    AppLocalizations l,
+    Map<int, dynamic> importFilesMap,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return [
+      EnterpriseColumn<CargoShippingModel>(
+        id: 'actions',
+        title: l.actions,
+        width: 210,
+        cellBuilder: (ctx, rec, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.cobalt),
+              tooltip: l.edit,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: const EdgeInsets.all(4),
+              onPressed: () => _loadRecordForEditing(rec),
+            ),
+            IconButton(
+              key: Key('cloneShippingRowBtn_${rec.cargoShippingCode}'),
+              icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.cobalt),
+              tooltip: l.cshCloneBtn,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: const EdgeInsets.all(4),
+              onPressed: () => _onCloneCargoShipping(rec),
+            ),
+            IconButton(
+              icon: Icon(
+                rec.isActive ? Icons.delete_outline : Icons.restore,
+                size: 16,
+                color: rec.isActive ? AppTheme.crimson : AppTheme.emerald,
+              ),
+              tooltip: rec.isActive ? l.delete : l.restore,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: const EdgeInsets.all(4),
+              onPressed: () async {
+                if (rec.isActive) {
+                  _confirmDeleteRecord(rec);
+                } else {
+                  final messenger = ScaffoldMessenger.of(ctx);
+                  final snack = AppTheme.snackBar(
+                    ctx,
+                    l.cargoShippingRestoreSuccess(rec.cargoShippingCode),
+                    severity: AppSeverity.success,
+                  );
+                  await ref.read(cargoShippingProvider.notifier).restoreRecord(rec.cargoShippingId);
+                  if (mounted) {
+                    messenger.showSnackBar(snack);
+                  }
+                }
+              },
+            ),
+            IconButton(
+              key: Key('copyShippingRowBtn_${rec.cargoShippingCode}'),
+              icon: const Icon(Icons.content_copy_outlined, size: 16, color: AppTheme.charcoal),
+              tooltip: l.copy,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: const EdgeInsets.all(4),
+              onPressed: () => _copyShippingRowTsv(rec, l),
+            ),
+          ],
+        ),
+      ),
+      EnterpriseColumn<CargoShippingModel>(
+        id: 'shipping_code',
+        title: l.cshColCode,
+        width: 170,
+        exportValue: (rec) => rec.cargoShippingCode,
+        sortComparator: (a, b) => a.cargoShippingCode.compareTo(b.cargoShippingCode),
+        cellBuilder: (ctx, rec, _) => InkWell(
+          onTap: () => _loadRecordForEditing(rec),
+          child: LtrText(
+            rec.cargoShippingCode,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppTheme.cobalt,
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        ),
+      ),
+      EnterpriseColumn<CargoShippingModel>(
+        id: 'import_file',
+        title: l.cshColImportFile,
+        width: 220,
+        exportValue: (rec) {
+          final matchingFile = importFilesMap[rec.importFileId];
+          final fileCode = matchingFile?.primaryNameWithCode ?? rec.importFileCode ?? 'IMP-${rec.importFileId}';
+          final companyName = (matchingFile?.companyName.isNotEmpty == true && matchingFile?.companyName != 'N/A')
+              ? matchingFile!.companyName
+              : (rec.companyName != null && rec.companyName!.isNotEmpty && rec.companyName != 'N/A' ? rec.companyName! : l.importCompanies);
+          return fileCode.isNotEmpty ? '$fileCode - $companyName' : companyName;
+        },
+        cellBuilder: (ctx, rec, _) {
+          final matchingFile = importFilesMap[rec.importFileId];
+          final fileCode = matchingFile?.primaryNameWithCode ?? rec.importFileCode ?? 'IMP-${rec.importFileId}';
+          final companyName = (matchingFile?.companyName.isNotEmpty == true && matchingFile?.companyName != 'N/A')
+              ? matchingFile!.companyName
+              : (rec.companyName != null && rec.companyName!.isNotEmpty && rec.companyName != 'N/A' ? rec.companyName! : l.importCompanies);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                fileCode,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                  fontSize: 12.5,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (companyName.isNotEmpty)
+                Text(
+                  companyName,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMuted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+            ],
           );
-        }
-      },
-      onDelete: () => _confirmDeleteRecord(rec),
-    );
+        },
+      ),
+      EnterpriseColumn<CargoShippingModel>(
+        id: 'supplier',
+        title: l.foreignSupplier,
+        width: 180,
+        exportValue: (rec) {
+          final matchingFile = importFilesMap[rec.importFileId];
+          return (matchingFile?.supplierName.isNotEmpty == true && matchingFile?.supplierName != 'N/A') ? matchingFile!.supplierName : '';
+        },
+        cellBuilder: (ctx, rec, _) {
+          final matchingFile = importFilesMap[rec.importFileId];
+          final supplierName = (matchingFile?.supplierName.isNotEmpty == true && matchingFile?.supplierName != 'N/A') ? matchingFile!.supplierName : '—';
+          return Text(
+            supplierName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12),
+          );
+        },
+      ),
+      EnterpriseColumn<CargoShippingModel>(
+        id: 'shipment_type',
+        title: l.cshColShipType,
+        width: 110,
+        exportValue: (rec) => rec.shipmentType,
+        cellBuilder: (ctx, rec, _) => Chip(
+          label: Text(rec.shipmentType, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          backgroundColor: rec.shipmentType == 'FCL' ? AppTheme.emerald.withValues(alpha: 0.15) : AppTheme.orange.withValues(alpha: 0.15),
+          side: BorderSide.none,
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+        ),
+      ),
+      EnterpriseColumn<CargoShippingModel>(
+        id: 'containers_summary',
+        title: l.cshColContainers,
+        width: 180,
+        cellBuilder: (ctx, rec, _) {
+          if (rec.shipmentType == 'FCL') {
+            final count = rec.containersLoadingData.length;
+            final gated = rec.containersLoadingData.where((c) => c.trackingStatus == 'GATED_IN_AT_PORT').length;
+            return Text('$count ${l.cshColContainers} ($gated ${l.cshColGateIn})', style: const TextStyle(fontSize: 11.5));
+          } else {
+            final wh = rec.lclTrackingData?.cfsWarehouseName ?? '—';
+            return Text(wh, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5));
+          }
+        },
+      ),
+      EnterpriseColumn<CargoShippingModel>(
+        id: 'status',
+        title: l.cshColStatus,
+        width: 150,
+        exportValue: (rec) => rec.status,
+        cellBuilder: (ctx, rec, _) {
+          final statusLabel = rec.status == 'Completed'
+              ? l.cargoShippingStatusCompleted
+              : (rec.status == 'Cargo Ready' ? l.cargoShippingStatusCargoReady : rec.status);
+          final isCompleted = rec.status == 'Completed';
+          return OpsStatusChip(
+            label: statusLabel,
+            severity: isCompleted ? AppSeverity.success : AppSeverity.info,
+            icon: isCompleted ? Icons.check_circle_outline : Icons.local_shipping_outlined,
+          );
+        },
+      ),
+      EnterpriseColumn<CargoShippingModel>(
+        id: 'sla_status',
+        title: l.cshColSla,
+        width: 140,
+        cellBuilder: (ctx, rec, _) {
+          final hasBreach = rec.containersLoadingData.any((c) => c.isSlaBreached) || (rec.lclTrackingData?.isSlaBreached ?? false);
+          return OpsStatusChip(
+            label: hasBreach ? l.cargoShippingSlaBreachedFilter : l.cargoShippingSlaOnTimeFilter,
+            severity: hasBreach ? AppSeverity.danger : AppSeverity.success,
+            icon: hasBreach ? Icons.alarm_off : Icons.timer_outlined,
+          );
+        },
+      ),
+      EnterpriseColumn<CargoShippingModel>(
+        id: 'date',
+        title: l.invoiceDateCol,
+        width: 130,
+        exportValue: (rec) => rec.createdAt.split('T').first,
+        cellBuilder: (ctx, rec, _) => LtrText(
+          rec.createdAt.isNotEmpty ? rec.createdAt.split('T').first : '—',
+          style: const TextStyle(fontSize: 11.5),
+        ),
+      ),
+    ];
   }
 
   Future<void> _confirmDeleteRecord(CargoShippingModel rec) async {

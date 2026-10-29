@@ -1,3 +1,4 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
@@ -6,10 +7,6 @@ import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 import 'consultation_metric_badge.dart';
 import 'consultation_status_badges.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
 import 'search_and_clone_consultation_dialog.dart';
 import 'package:printing/printing.dart';
 import '../../../core/services/display_name_resolver.dart';
@@ -17,8 +14,6 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../services/customs_export_service.dart';
-import '../../../core/widgets/table_row_clone_helper.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/localization/api_error_text.dart';
 
 class SavedConsultationsTab extends ConsumerStatefulWidget {
@@ -108,22 +103,14 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                   payload,
                 );
                 if (cloned != null) {
+                  if (!context.mounted) return;
                   widget.onEdit(cloned);
                   messenger.hideCurrentSnackBar();
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text('✨ ${l.cloneConsultationSuccess(cloned.consultationCode)}'),
-                      backgroundColor: AppTheme.wcagEmerald,
-                    ),
-                  );
+                  messenger.showSnackBar(AppTheme.snackBar(context, l.cloneConsultationSuccess(cloned.consultationCode), severity: AppSeverity.success));
                 }
               } catch (e) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('❌ ${l.cloneConsultationError(e.toString())}'),
-                    backgroundColor: AppTheme.crimson,
-                  ),
-                );
+                if (!context.mounted) return;
+                messenger.showSnackBar(AppTheme.snackBar(context, l.cloneConsultationError(e.toString()), severity: AppSeverity.danger));
               }
             },
           ),
@@ -158,108 +145,30 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
     final l = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     if (session.isActive == false) {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.restore_from_trash_rounded, color: AppTheme.emerald, size: 22),
-              const SizedBox(width: 8),
-              Text(l.restoreConsultationTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Text(
-            l.restoreConsultationMsg(session.consultationCode, session.title),
-            style: const TextStyle(fontSize: 13),
-          ),
-          actions: [
-            AppButton(
-              label: l.cancel,
-              variant: AppButtonVariant.secondary,
-              size: AppButtonSize.small,
-              onPressed: () => Navigator.pop(ctx, false),
-            ),
-            AppButton(
-              label: l.restoreAndActivateBtn,
-              icon: Icons.restore_rounded,
-              variant: AppButtonVariant.success,
-              onPressed: () => Navigator.pop(ctx, true),
-            ),
-          ],
-        ),
-      );
+      final confirm = await AppConfirmDialog.showDelete(context, title: l.deleteConsultationTitle, message: l.deleteConsultationMsg(session.consultationCode, session.title));
       if (confirm == true) {
         try {
           await ref.read(customsConsultationsProvider.notifier).restoreConsultation(session.consultationId);
           if (mounted) {
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text('♻️ ${l.restoreConsultationSuccess(session.consultationCode)}'),
-                backgroundColor: AppTheme.emerald,
-              ),
-            );
+            messenger.showSnackBar(AppTheme.snackBar(context, l.restoreConsultationSuccess(session.consultationCode), severity: AppSeverity.success));
           }
         } catch (e) {
           if (mounted) {
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text('❌ ${ApiErrorText.of(l, e)}'),
-                backgroundColor: AppTheme.crimson,
-              ),
-            );
+            messenger.showSnackBar(AppTheme.snackBar(context, ApiErrorText.of(l, e), severity: AppSeverity.danger));
           }
         }
       }
     } else {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.warning_rounded, color: AppTheme.orange, size: 22),
-              const SizedBox(width: 8),
-              Text(l.deleteConsultationTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Text(
-            l.deleteConsultationMsg(session.consultationCode, session.title),
-            style: const TextStyle(fontSize: 13),
-          ),
-          actions: [
-            AppButton(
-              label: l.cancel,
-              variant: AppButtonVariant.secondary,
-              size: AppButtonSize.small,
-              onPressed: () => Navigator.pop(ctx, false),
-            ),
-            AppButton(
-              label: l.deleteAndArchiveBtn,
-              icon: Icons.delete_rounded,
-              variant: AppButtonVariant.danger,
-              onPressed: () => Navigator.pop(ctx, true),
-            ),
-          ],
-        ),
-      );
+      final confirm = await AppConfirmDialog.showDelete(context, title: l.deleteConsultationTitle, message: l.deleteConsultationMsg(session.consultationCode, session.title));
       if (confirm == true) {
         try {
           await ref.read(customsConsultationsProvider.notifier).softDeleteConsultation(session.consultationId);
           if (mounted) {
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text('🗑️ ${l.deleteConsultationSuccess(session.consultationCode)}'),
-                backgroundColor: AppTheme.emerald,
-              ),
-            );
+            messenger.showSnackBar(AppTheme.snackBar(context, l.deleteConsultationSuccess(session.consultationCode), severity: AppSeverity.success));
           }
         } catch (e) {
           if (mounted) {
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text('❌ ${ApiErrorText.of(l, e)}'),
-                backgroundColor: AppTheme.crimson,
-              ),
-            );
+            messenger.showSnackBar(AppTheme.snackBar(context, ApiErrorText.of(l, e), severity: AppSeverity.danger));
           }
         }
       }

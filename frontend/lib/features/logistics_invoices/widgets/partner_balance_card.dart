@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/logistics_invoice_models.dart';
 import '../providers/logistics_invoices_provider.dart';
@@ -22,7 +23,7 @@ class PartnerBalanceCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
         ),
-        child: const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
+        child: const Center(child: AppLoadingState.inline()),
       ),
       error: (err, _) => const SizedBox.shrink(),
       data: (data) => _buildCard(context, data),

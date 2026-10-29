@@ -25,7 +25,8 @@ class ImportDocumentationScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    switch (initialIndex) {
+    final child = () {
+      switch (initialIndex) {
       case 0:
         return NafezaAcidScreen(
           initialSubTab: 0,
@@ -51,6 +52,8 @@ class ImportDocumentationScreen extends ConsumerWidget {
           initialSubTab: 0,
           initialImportFileId: initialImportFileId,
         );
-    }
+      }
+    }();
+    return SelectionArea(child: child);
   }
 }

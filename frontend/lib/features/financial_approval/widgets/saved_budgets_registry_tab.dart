@@ -1,16 +1,14 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
+import 'budget_details_dialog.dart';
+import 'budget_email_share_dialog.dart';
+import 'budget_whatsapp_share_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/metric_card.dart';
-import '../../../core/widgets/row_actions_pill.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
@@ -52,17 +50,19 @@ class _SavedBudgetsRegistryTabState
     final budgetsState = ref.watch(importBudgetsProvider);
     final budgetsList = budgetsState.valueOrNull ?? [];
 
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyD, control: true): () {
-          if (widget.onSearchAndClone != null) {
-            widget.onSearchAndClone!();
-          }
+    return SelectionArea(
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyD, control: true): () {
+            if (widget.onSearchAndClone != null) {
+              widget.onSearchAndClone!();
+            }
+          },
         },
-      },
-      child: Focus(
-        autofocus: true,
-        child: _buildHistoryRegistryTab(budgetsList),
+        child: Focus(
+          autofocus: true,
+          child: _buildHistoryRegistryTab(budgetsList),
+        ),
       ),
     );
   }
@@ -289,9 +289,11 @@ class _SavedBudgetsRegistryTabState
                               context: context, list: filtered);
                       if (path != null && mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text(l.excelSavedSuccess(path)),
-                              backgroundColor: AppTheme.emerald),
+                          AppTheme.snackBar(
+                            context,
+                            l.excelSavedSuccess(path),
+                            severity: AppSeverity.success,
+                          ),
                         );
                       }
                     },
@@ -782,9 +784,11 @@ class _SavedBudgetsRegistryTabState
                             context: context, budget: budget);
                     if (path != null && mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text(context.l10n.excelSavedSuccess(path)),
-                            backgroundColor: AppTheme.emerald),
+                        AppTheme.snackBar(
+                          context,
+                          context.l10n.excelSavedSuccess(path),
+                          severity: AppSeverity.success,
+                        ),
                       );
                     }
                   },
@@ -895,620 +899,35 @@ class _SavedBudgetsRegistryTabState
   }
 
   void _showBudgetDetailsDialog(ImportBudgetModel budget) {
-    final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth =
-        screenWidth < 680 ? max(280.0, screenWidth * 0.92) : 620.0;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-              color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-        ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: CopyableText(
-                l.budgetDetailsTitle(budget.budgetCode),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                ),
-                showIcon: false,
-              ),
-            ),
-            FinancialStatusChip(status: budget.budgetStatus),
-          ],
-        ),
-        content: SizedBox(
-          width: dialogWidth,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CopyableText(
-                  budget.title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color:
-                        isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                  ),
-                  showIcon: false,
-                ),
-                const SizedBox(height: 6),
-                CopyableText(
-                  '${l.importFile}: ${budget.importFileCode ?? (budget.importFileId != null ? "IMP-${budget.importFileId}" : l.notLinked)}',
-                  style: TextStyle(
-                      color: isDark
-                          ? AppTheme.darkTextSecondary
-                          : AppTheme.charcoal),
-                  showIcon: false,
-                ),
-                if (budget.approvedBy != null)
-                  CopyableText(
-                    '${l.approvedByLabel} ${budget.approvedBy}',
-                    style: TextStyle(
-                        color: isDark
-                            ? AppTheme.darkTextSecondary
-                            : AppTheme.charcoal),
-                    showIcon: false,
-                  ),
-                CopyableText(
-                  '${l.requestDateLabel}: ${budget.createdAt.split('T').first}',
-                  style: TextStyle(
-                      color: isDark
-                          ? AppTheme.darkTextSecondary
-                          : AppTheme.charcoal),
-                  showIcon: false,
-                ),
-                Divider(
-                    color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-                const SizedBox(height: 8),
-
-                // Detailed Table wrapped in SingleChildScrollView for horizontal responsiveness
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: dialogWidth - 48),
-                    child: Table(
-                      border: TableBorder.all(
-                          color: isDark
-                              ? AppTheme.darkBorder
-                              : AppTheme.cloudWhite),
-                      columnWidths: const {
-                        0: FlexColumnWidth(2.2),
-                        1: FlexColumnWidth(1.5),
-                        2: FlexColumnWidth(1.2),
-                        3: FlexColumnWidth(1.8),
-                      },
-                      children: [
-                        TableRow(
-                          decoration: BoxDecoration(
-                              color: isDark
-                                  ? AppTheme.darkElevatedSurface
-                                  : AppTheme.charcoalSurface),
-                          children: [
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text(l.importCostItemCol,
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text(l.amountInCurrencyCol,
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text(l.currencyCol,
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text(l.equivalentEgpCol,
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal))),
-                          ],
-                        ),
-                        TableRow(
-                          children: [
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text(l.commercialInvoiceItem,
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextSecondary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: CopyableText(
-                                    budget.invoiceAmountForeign
-                                        .toStringAsFixed(2),
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal),
-                                    showIcon: false)),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: CopyableText(budget.invoiceCurrency,
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal),
-                                    showIcon: false)),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: CopyableText(
-                                    '${budget.invoiceAmountEgp.toStringAsFixed(2)} EGP',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal),
-                                    showIcon: false)),
-                          ],
-                        ),
-                        TableRow(
-                          children: [
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text(l.freightItem,
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextSecondary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: CopyableText(
-                                    budget.freightCostForeign
-                                        .toStringAsFixed(2),
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal),
-                                    showIcon: false)),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: CopyableText(budget.freightCurrency,
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal),
-                                    showIcon: false)),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: CopyableText(
-                                    '${budget.freightCostEgp.toStringAsFixed(2)} EGP',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextPrimary
-                                            : AppTheme.charcoal),
-                                    showIcon: false)),
-                          ],
-                        ),
-                        TableRow(
-                          children: [
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text(l.customsAndVatItem,
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextSecondary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text('-',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextSecondary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text('EGP',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextSecondary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: CopyableText(
-                                    '${budget.customsDutiesEgp.toStringAsFixed(2)} EGP',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.wcagCobalt,
-                                        fontSize: 12),
-                                    showIcon: false)),
-                          ],
-                        ),
-                        TableRow(
-                          children: [
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text(l.clearanceAndInlandTransportItem,
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextSecondary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text('-',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextSecondary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text('EGP',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextSecondary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: CopyableText(
-                                    '${budget.clearanceInlandEgp.toStringAsFixed(2)} EGP',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.emerald,
-                                        fontSize: 12),
-                                    showIcon: false)),
-                          ],
-                        ),
-                        TableRow(
-                          decoration: BoxDecoration(
-                              color: isDark
-                                  ? AppTheme.emerald.withValues(alpha: 0.25)
-                                  : AppTheme.emeraldLight),
-                          children: [
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text(l.totalApprovedBudgetItem,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        color: AppTheme.emerald))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text('-',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextSecondary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text('EGP',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? AppTheme.darkTextSecondary
-                                            : AppTheme.charcoal))),
-                            Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: CopyableText(
-                                    '${budget.totalBudgetEgp.toStringAsFixed(2)} EGP',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.emerald,
-                                        fontSize: 13),
-                                    showIcon: false)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (budget.notes != null && budget.notes!.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  CopyableText(
-                    '${l.notesAndInstructionsLabel} ${budget.notes}',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: isDark
-                            ? AppTheme.darkTextSecondary
-                            : AppTheme.textStrong,
-                        fontStyle: FontStyle.italic),
-                    showIcon: false,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          AppButton(
-            label: l.close,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          if (widget.onCloneBudget != null)
-            AppButton(
-              label: l.cloneBudgetTooltip,
-              variant: AppButtonVariant.primary,
-              icon: Icons.copy,
-              onPressed: () {
-                Navigator.pop(ctx);
-                widget.onCloneBudget!(budget);
-              },
-            ),
-          AppButton(
-            label: l.printOfficialPdf,
-            variant: AppButtonVariant.primary,
-            icon: Icons.print,
-            onPressed: () {
-              Navigator.pop(ctx);
-              FinancialExportService.printOrSaveBudgetPdf(budget: budget);
-            },
-          ),
-        ],
-      ),
+    BudgetDetailsDialog.show(
+      context,
+      budget: budget,
+      onEditBudget: () => widget.onEditBudget(budget),
     );
   }
 
-  void _showWhatsAppShareDialog(ImportBudgetModel budget) {
-    final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final phoneCtrl = TextEditingController();
-    final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth = min(400.0, screenWidth - 32);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-              color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-        ),
-        title: Row(
-          children: [
-            const Icon(Icons.chat, color: AppTheme.emerald),
-            const SizedBox(width: 8),
-            Text(
-              l.sendBudgetWhatsAppTitle,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-              ),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: dialogWidth,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: phoneCtrl,
-                keyboardType: TextInputType.phone,
-                style: TextStyle(
-                    color:
-                        isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                decoration: InputDecoration(
-                  labelText: l.whatsAppNumberLabel,
-                  labelStyle: TextStyle(
-                      color: isDark ? AppTheme.darkTextSecondary : null),
-                  hintText: l.whatsAppNumberHint,
-                  hintStyle: TextStyle(
-                      color: isDark ? AppTheme.darkTextSecondary : null),
-                  border: OutlineInputBorder(
-                      borderSide: BorderSide(
-                          color: isDark
-                              ? AppTheme.darkBorder
-                              : AppTheme.cloudWhite)),
-                  enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                          color: isDark
-                              ? AppTheme.darkBorder
-                              : AppTheme.cloudWhite)),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          AppButton(
-            label: l.cancel,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          AppButton(
-            label: l.sendNow,
-            variant: AppButtonVariant.success,
-            icon: Icons.send,
-            onPressed: () {
-              final phone =
-                  phoneCtrl.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
-              final text =
-                  FinancialExportService.generateBudgetWhatsAppText(budget);
-              final url =
-                  'https://wa.me/$phone?text=${Uri.encodeComponent(text)}';
-              FinancialExportService.launchUrlNative(url);
-              Navigator.pop(ctx);
-            },
-          ),
-        ],
-      ),
-    );
+  void _showBudgetWhatsAppShareDialog(ImportBudgetModel budget) {
+    BudgetWhatsAppShareDialog.show(context, budget: budget);
   }
 
-  void _showEmailShareDialog(ImportBudgetModel budget) {
-    final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final emailCtrl = TextEditingController();
-    final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth = min(400.0, screenWidth - 32);
+  void _showWhatsAppShareDialog(ImportBudgetModel budget) =>
+      _showBudgetWhatsAppShareDialog(budget);
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-              color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-        ),
-        title: Row(
-          children: [
-            const Icon(Icons.email, color: AppTheme.orange),
-            const SizedBox(width: 8),
-            Text(
-              l.sendBudgetEmailTitle,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-              ),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: dialogWidth,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                style: TextStyle(
-                    color:
-                        isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                decoration: InputDecoration(
-                  labelText: l.recipientEmailLabel,
-                  labelStyle: TextStyle(
-                      color: isDark ? AppTheme.darkTextSecondary : null),
-                  hintText: 'finance@company.com',
-                  hintStyle: TextStyle(
-                      color: isDark ? AppTheme.darkTextSecondary : null),
-                  border: OutlineInputBorder(
-                      borderSide: BorderSide(
-                          color: isDark
-                              ? AppTheme.darkBorder
-                              : AppTheme.cloudWhite)),
-                  enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                          color: isDark
-                              ? AppTheme.darkBorder
-                              : AppTheme.cloudWhite)),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          AppButton(
-            label: l.cancel,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          AppButton(
-            label: l.openMailClient,
-            variant: AppButtonVariant.warning,
-            icon: Icons.send,
-            onPressed: () {
-              final email = emailCtrl.text.trim();
-              final subject =
-                  '${l.budgetDetailsTitle(budget.budgetCode)} - ${budget.title}';
-              final body =
-                  FinancialExportService.generateBudgetWhatsAppText(budget);
-              final url =
-                  'mailto:$email?subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}';
-              FinancialExportService.launchUrlNative(url);
-              Navigator.pop(ctx);
-            },
-          ),
-        ],
-      ),
-    );
+  void _showBudgetEmailShareDialog(ImportBudgetModel budget) {
+    BudgetEmailShareDialog.show(context, budget: budget);
   }
+
+  void _showEmailShareDialog(ImportBudgetModel budget) =>
+      _showBudgetEmailShareDialog(budget);
 
   Future<void> _confirmDeleteBudget(ImportBudgetModel budget) async {
     final l = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-              color: isDark ? AppTheme.darkBorder : AppTheme.cloudWhite),
-        ),
-        title: Row(
-          children: [
-            const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
-            const SizedBox(width: 8),
-            Text(
-              l.confirmDeleteBudgetTitle,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          l.confirmDeleteBudgetMessage(budget.budgetCode, budget.title),
-          style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : null),
-        ),
-        actions: [
-          AppButton(
-            label: l.cancel,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pop(ctx, false),
-          ),
-          AppButton(
-            label: l.confirmDelete,
-            variant: AppButtonVariant.danger,
-            icon: Icons.delete,
-            onPressed: () => Navigator.pop(ctx, true),
-          ),
-        ],
-      ),
+    final confirm = await AppConfirmDialog.showDelete(
+      context,
+      title: l.confirmDeleteBudgetTitle,
+      message: l.confirmDeleteBudgetMessage(budget.budgetCode, budget.title),
+      entityName: '${budget.budgetCode} - ${budget.title}',
     );
 
     if (confirm == true) {
@@ -1518,18 +937,20 @@ class _SavedBudgetsRegistryTabState
             .softDeleteImportBudget(budget.budgetId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l.budgetDeletedSuccess(budget.budgetCode)),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              l.budgetDeletedSuccess(budget.budgetCode),
+              severity: AppSeverity.success,
             ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l.deleteErrorMsg(ApiError.message(e))),
-              backgroundColor: AppTheme.crimson,
+            AppTheme.snackBar(
+              context,
+              l.deleteErrorMsg(ApiError.message(e)),
+              severity: AppSeverity.danger,
             ),
           );
         }

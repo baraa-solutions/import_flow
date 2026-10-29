@@ -1,10 +1,10 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../auth/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/step_config_model.dart';
@@ -64,7 +64,7 @@ class _StepConfigManagementScreenState
       final loadFinished = (prev?.isLoading ?? false) && !next.isLoading;
       if (loadFinished && next.errorMessage != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.errorMessage!), backgroundColor: AppTheme.crimson),
+          AppTheme.snackBar(context, next.errorMessage!, severity: AppSeverity.danger),
         );
       }
     });
@@ -170,7 +170,7 @@ class _StepConfigManagementScreenState
         _buildFilterBar(state, notifier),
         Expanded(
           child: state.isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const AppLoadingState()
               : state.filteredConfigs.isEmpty
                   ? _buildEmptyView()
                   : _buildTableView(state.filteredConfigs),
@@ -462,343 +462,319 @@ class _StepConfigManagementScreenState
     final isAr = Localizations.maybeLocaleOf(context)?.languageCode == 'ar' ||
         Directionality.of(context) == TextDirection.rtl;
 
-    return ListView(
-      padding: const EdgeInsets.all(24),
+    return Column(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor:
-                    WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-                dataRowMinHeight: 64,
-                dataRowMaxHeight: 76,
-                columnSpacing: 24,
-                columns: [
-                  DataColumn(
-                      label: Text(l.stepConfigColActions,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(
-                      label: Text(l.stepConfigColPhaseCode,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(
-                      label: Text(l.stepConfigColStepName,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(
-                      label: Text(l.stepConfigColSkipPolicy,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(
-                      label: Text(l.stepConfigColApproverRoles,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(
-                      label: Text(l.stepConfigColPendingRef,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(
-                      label: Text(l.stepConfigColReasonCategories,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(
-                      label: Text(l.stepConfigColLastModified,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold))),
-                ],
-                rows: configs
-                    .map((cfg) => _buildDataRow(cfg, l, isAr))
-                    .toList(),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  DataRow _buildDataRow(
-      StepConfigModel cfg, AppLocalizations l, bool isAr) {
-    final rowSummary =
-        StepConfigExportService.toRowSummary(cfg, l, isArabic: isAr);
-    final localizedStepName = isAr ? cfg.stepNameAr : cfg.stepNameEn;
-    final localizedPolicy = cfg.isBlocked
-        ? l.stepConfigPolicyBlocked
-        : (cfg.isDualApproval
-            ? l.stepConfigPolicyDualApproval
-            : l.stepConfigPolicySingleApproval);
-    final localizedPendingRef = cfg.supportsPendingReference
-        ? l.stepConfigPendingRefAllowed
-        : l.stepConfigPendingRefBlocked;
-    final reasonCountStr =
-        l.stepConfigReasonCategoriesCount(cfg.reasonCategories.length);
-
-    return DataRow(
-      cells: [
-        // 8. Actions (Quick Row Copy + Edit + Audit)
-        DataCell(
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.copy_rounded,
-                    color: Color(0xFF2C3E50), size: 18),
-                tooltip: l.stepConfigCopyRowTooltip,
-                onPressed: () {
-                  CopyHelper.copy(context, rowSummary,
-                      customMessage: l.stepConfigCopyRowSuccess);
-                },
-              ),
-              if (_canManageUsers(ref.watch(authProvider).user))
-                IconButton(
-                  icon: const Icon(Icons.edit_note_rounded,
-                      color: AppTheme.flatCobalt, size: 22),
-                  tooltip: l.stepConfigEditTooltip,
-                  onPressed: () => _showEditDialog(context, cfg),
-                ),
-              IconButton(
-                icon: const Icon(Icons.history_rounded,
-                    color: Color(0xFF2C3E50), size: 20),
-                tooltip: l.stepConfigAuditTooltip,
-                onPressed: () => _showAuditDialog(context, cfg),
-              ),
-            ],
-          ),
-        ),
-        // 1. Code & Phase
-        DataCell(
-          CopyableTableCell(
-            value: 'P${cfg.phaseId}-${cfg.stepCode}',
-            rowSummary: rowSummary,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'P${cfg.phaseId}',
-                    style: const TextStyle(
-                        fontSize: 11.0,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF475569)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: () {
-                    CopyHelper.copy(
-                      context,
-                      cfg.stepCode,
-                      customMessage: l.stepConfigCopyBadgeSuccess(
-                          l.stepConfigColPhaseCode, cfg.stepCode),
-                    );
+        Expanded(
+          child: EnterpriseDataTable<StepConfigModel>(
+            storageKey: 'step_config_management_table',
+            data: configs,
+            rowHeight: 68,
+            columns: [
+              EnterpriseColumn<StepConfigModel>(
+                id: 'actions',
+                title: l.stepConfigColActions,
+                width: 140,
+                isSortable: false,
+                isSearchable: false,
+                cellBuilder: (context, cfg, index) => RowActionsPill(
+                  viewTooltip: l.stepConfigAuditTooltip,
+                  onView: () => _showAuditDialog(context, cfg),
+                  editTooltip: _canManageUsers(ref.watch(authProvider).user)
+                      ? l.stepConfigEditTooltip
+                      : null,
+                  onEdit: _canManageUsers(ref.watch(authProvider).user)
+                      ? () => _showEditDialog(context, cfg)
+                      : null,
+                  cloneTooltip: l.stepConfigCopyRowTooltip,
+                  onClone: () {
+                    final rowSummary =
+                        StepConfigExportService.toRowSummary(cfg, l, isArabic: isAr);
+                    CopyHelper.copy(context, rowSummary,
+                        customMessage: l.stepConfigCopyRowSuccess);
                   },
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 2),
+                ),
+              ),
+              EnterpriseColumn<StepConfigModel>(
+                id: 'phaseCode',
+                title: l.stepConfigColPhaseCode,
+                width: 150,
+                exportValue: (cfg) => 'P${cfg.phaseId}-${cfg.stepCode}',
+                searchValue: (cfg) => 'P${cfg.phaseId} ${cfg.stepCode}',
+                cellBuilder: (context, cfg, index) {
+                  final rowSummary =
+                      StepConfigExportService.toRowSummary(cfg, l, isArabic: isAr);
+                  return CopyableTableCell(
+                    value: 'P${cfg.phaseId}-${cfg.stepCode}',
+                    rowSummary: rowSummary,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          cfg.stepCode,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'monospace',
-                            color: Color(0xFF2C3E50),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'P${cfg.phaseId}',
+                            style: const TextStyle(
+                                fontSize: 11.0,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF475569)),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.copy_rounded,
-                            size: 13, color: AppTheme.flatCobalt),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: () {
+                            CopyHelper.copy(
+                              context,
+                              cfg.stepCode,
+                              customMessage: l.stepConfigCopyBadgeSuccess(
+                                  l.stepConfigColPhaseCode, cfg.stepCode),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  cfg.stepCode,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'monospace',
+                                    color: Color(0xFF2C3E50),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.copy_rounded,
+                                    size: 13, color: AppTheme.flatCobalt),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // 2. Step Name (Single language according to active locale)
-        DataCell(
-          CopyableTableCell(
-            value: localizedStepName,
-            rowSummary: rowSummary,
-            child: Text(
-              localizedStepName,
-              style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-
-        // 3. Policy Badge
-        DataCell(
-          CopyableTableCell(
-            value: localizedPolicy,
-            rowSummary: rowSummary,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: cfg.policyColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: cfg.policyColor.withValues(alpha: 0.3)),
+                  );
+                },
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(cfg.policyIcon, size: 14, color: cfg.policyColor),
-                  const SizedBox(width: 6),
-                  Text(
-                    localizedPolicy,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: cfg.policyColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        // 4. Approver Roles
-        DataCell(
-          CopyableTableCell(
-            value: cfg.approverRoles.join(', '),
-            rowSummary: rowSummary,
-            child: Wrap(
-              spacing: 4,
-              children: cfg.approverRoles.map((role) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2F6),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    role,
-                    style: const TextStyle(
-                        fontSize: 11.0, color: Color(0xFF334155)),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-
-        // 5. Pending Reference Supported
-        DataCell(
-          CopyableTableCell(
-            value: localizedPendingRef,
-            rowSummary: rowSummary,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  cfg.supportsPendingReference
-                      ? Icons.check_circle_rounded
-                      : Icons.cancel_outlined,
-                  size: 16,
-                  color: cfg.supportsPendingReference
-                      ? const Color(0xFF27AE60)
-                      : Colors.grey,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  localizedPendingRef,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: cfg.supportsPendingReference
-                        ? const Color(0xFF27AE60)
-                        : Colors.grey,
-                    fontWeight: cfg.supportsPendingReference
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // 6. Reason categories count
-        DataCell(
-          CopyableTableCell(
-            value: reasonCountStr,
-            rowSummary: rowSummary,
-            child: Tooltip(
-              message: cfg.reasonCategories
-                  .map((c) => DomainEnums.label(context.l10n, DomainEnumType.skipReasonCategory, c))
-                  .join('\n'),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.list_alt_rounded,
-                      size: 14, color: Color(0xFF64748B)),
-                  const SizedBox(width: 4),
-                  Flexible(
+              EnterpriseColumn<StepConfigModel>(
+                id: 'stepName',
+                title: l.stepConfigColStepName,
+                flex: 2,
+                exportValue: (cfg) => isAr ? cfg.stepNameAr : cfg.stepNameEn,
+                searchValue: (cfg) => '${cfg.stepNameAr} ${cfg.stepNameEn}',
+                cellBuilder: (context, cfg, index) {
+                  final localizedStepName = isAr ? cfg.stepNameAr : cfg.stepNameEn;
+                  final rowSummary =
+                      StepConfigExportService.toRowSummary(cfg, l, isArabic: isAr);
+                  return CopyableTableCell(
+                    value: localizedStepName,
+                    rowSummary: rowSummary,
                     child: Text(
-                      reasonCountStr,
-                      style: const TextStyle(
-                          fontSize: 11, color: Color(0xFF64748B)),
-                      overflow: TextOverflow.ellipsis,
+                      localizedStepName,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
-            ),
+              EnterpriseColumn<StepConfigModel>(
+                id: 'skipPolicy',
+                title: l.stepConfigColSkipPolicy,
+                width: 140,
+                exportValue: (cfg) => cfg.isBlocked
+                    ? l.stepConfigPolicyBlocked
+                    : (cfg.isDualApproval
+                        ? l.stepConfigPolicyDualApproval
+                        : l.stepConfigPolicySingleApproval),
+                cellBuilder: (context, cfg, index) {
+                  final localizedPolicy = cfg.isBlocked
+                      ? l.stepConfigPolicyBlocked
+                      : (cfg.isDualApproval
+                          ? l.stepConfigPolicyDualApproval
+                          : l.stepConfigPolicySingleApproval);
+                  final rowSummary =
+                      StepConfigExportService.toRowSummary(cfg, l, isArabic: isAr);
+                  return CopyableTableCell(
+                    value: localizedPolicy,
+                    rowSummary: rowSummary,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: cfg.policyColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: cfg.policyColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(cfg.policyIcon, size: 14, color: cfg.policyColor),
+                          const SizedBox(width: 6),
+                          Text(
+                            localizedPolicy,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: cfg.policyColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              EnterpriseColumn<StepConfigModel>(
+                id: 'approverRoles',
+                title: l.stepConfigColApproverRoles,
+                width: 180,
+                exportValue: (cfg) => cfg.approverRoles.join(', '),
+                cellBuilder: (context, cfg, index) {
+                  final rowSummary =
+                      StepConfigExportService.toRowSummary(cfg, l, isArabic: isAr);
+                  return CopyableTableCell(
+                    value: cfg.approverRoles.join(', '),
+                    rowSummary: rowSummary,
+                    child: Wrap(
+                      spacing: 4,
+                      children: cfg.approverRoles.map((role) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF2F6),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            role,
+                            style: const TextStyle(
+                                fontSize: 11.0, color: Color(0xFF334155)),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+              ),
+              EnterpriseColumn<StepConfigModel>(
+                id: 'pendingRef',
+                title: l.stepConfigColPendingRef,
+                width: 140,
+                exportValue: (cfg) => cfg.supportsPendingReference
+                    ? l.stepConfigPendingRefAllowed
+                    : l.stepConfigPendingRefBlocked,
+                cellBuilder: (context, cfg, index) {
+                  final localizedPendingRef = cfg.supportsPendingReference
+                      ? l.stepConfigPendingRefAllowed
+                      : l.stepConfigPendingRefBlocked;
+                  final rowSummary =
+                      StepConfigExportService.toRowSummary(cfg, l, isArabic: isAr);
+                  return CopyableTableCell(
+                    value: localizedPendingRef,
+                    rowSummary: rowSummary,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          cfg.supportsPendingReference
+                              ? Icons.check_circle_rounded
+                              : Icons.cancel_outlined,
+                          size: 16,
+                          color: cfg.supportsPendingReference
+                              ? const Color(0xFF27AE60)
+                              : Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          localizedPendingRef,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: cfg.supportsPendingReference
+                                ? const Color(0xFF27AE60)
+                                : Colors.grey,
+                            fontWeight: cfg.supportsPendingReference
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              EnterpriseColumn<StepConfigModel>(
+                id: 'reasonCategories',
+                title: l.stepConfigColReasonCategories,
+                width: 160,
+                exportValue: (cfg) =>
+                    l.stepConfigReasonCategoriesCount(cfg.reasonCategories.length),
+                cellBuilder: (context, cfg, index) {
+                  final reasonCountStr =
+                      l.stepConfigReasonCategoriesCount(cfg.reasonCategories.length);
+                  final rowSummary =
+                      StepConfigExportService.toRowSummary(cfg, l, isArabic: isAr);
+                  return CopyableTableCell(
+                    value: reasonCountStr,
+                    rowSummary: rowSummary,
+                    child: Tooltip(
+                      message: cfg.reasonCategories
+                          .map((c) => DomainEnums.label(
+                              context.l10n, DomainEnumType.skipReasonCategory, c))
+                          .join('\n'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.list_alt_rounded,
+                              size: 14, color: Color(0xFF64748B)),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              reasonCountStr,
+                              style: const TextStyle(
+                                  fontSize: 11, color: Color(0xFF64748B)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              EnterpriseColumn<StepConfigModel>(
+                id: 'lastModified',
+                title: l.stepConfigColLastModified,
+                width: 160,
+                exportValue: (cfg) =>
+                    '${cfg.lastModifiedBy ?? "-"} ${cfg.lastModifiedAt ?? ""}'.trim(),
+                cellBuilder: (context, cfg, index) {
+                  final rowSummary =
+                      StepConfigExportService.toRowSummary(cfg, l, isArabic: isAr);
+                  return CopyableTableCell(
+                    value:
+                        '${cfg.lastModifiedBy ?? "-"} ${cfg.lastModifiedAt ?? ""}'
+                            .trim(),
+                    rowSummary: rowSummary,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(cfg.lastModifiedBy ?? '-',
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.w500)),
+                        if (cfg.lastModifiedAt != null)
+                          Text(cfg.lastModifiedAt!,
+                              style: const TextStyle(
+                                  fontSize: 11.0, color: Color(0xFF94A3B8))),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
         ),
-
-        // 7. Last modified
-        DataCell(
-          CopyableTableCell(
-            value: '${cfg.lastModifiedBy ?? "-"} ${cfg.lastModifiedAt ?? ""}'
-                .trim(),
-            rowSummary: rowSummary,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(cfg.lastModifiedBy ?? '-',
-                    style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w500)),
-                if (cfg.lastModifiedAt != null)
-                  Text(cfg.lastModifiedAt!,
-                      style: const TextStyle(
-                          fontSize: 11.0, color: Color(0xFF94A3B8))),
-              ],
-            ),
-          ),
-        ),
-
-
       ],
     );
   }
@@ -1087,8 +1063,7 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
                 ? const SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                    child: AppLoadingState.inline(),
                   )
                 : const Icon(Icons.check_rounded, size: 18),
             label: Text(l.stepConfigSaveBtn),
@@ -1119,16 +1094,17 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
     if (success && mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l.stepConfigSaveSuccess(widget.config.stepCode)),
-          backgroundColor: const Color(0xFF27AE60),
+        AppTheme.snackBar(
+          context,
+          l.stepConfigSaveSuccess(widget.config.stepCode),
+          severity: AppSeverity.success,
         ),
       );
     } else if (!success && mounted) {
       final error = ref.read(stepConfigProvider).errorMessage;
       if (error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), backgroundColor: AppTheme.crimson),
+          AppTheme.snackBar(context, error, severity: AppSeverity.danger),
         );
       }
     }
@@ -1171,7 +1147,7 @@ class _StepConfigAuditHistoryDialog extends ConsumerWidget {
                 .fetchAuditLogs(config.stepCode),
             builder: (ctx, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const AppLoadingState();
               }
               final logs = snapshot.data ?? [];
               if (logs.isEmpty) {

@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../models/production_sync_model.dart';
 import '../providers/production_sync_provider.dart';
 import '../../app_update/widgets/app_update_panel.dart';
@@ -100,37 +98,13 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
 
   Future<void> _confirmAndRestoreBackup(LocalBackupEntry b) async {
     final l = context.l10n;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.history_rounded, color: AppTheme.orange),
-            const SizedBox(width: 8),
-            Text(l.prodSyncConfirmRestoreTitleDialog, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l.prodSyncConfirmRestoreMsgDialog(b.filename)),
-            const SizedBox(height: 10),
-            Text(
-              l.prodSyncConfirmRestoreSafeNotice,
-              style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.prodSyncCancelAction)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l.prodSyncRestoreNowAction),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l.prodSyncConfirmRestoreTitleDialog,
+      message: '${l.prodSyncConfirmRestoreMsgDialog(b.filename)}\n\n${l.prodSyncConfirmRestoreSafeNotice}',
+      confirmLabel: l.prodSyncRestoreNowAction,
+      confirmVariant: AppButtonVariant.warning,
+      icon: Icons.history_rounded,
     );
 
     if (confirmed == true) {
@@ -170,17 +144,19 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
       if (mounted) {
         if (code == 0) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✅ ${l.prodSyncActionSuccess(actionName)}'),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              '✅ ${l.prodSyncActionSuccess(actionName)}',
+              severity: AppSeverity.success,
               duration: const Duration(seconds: 3),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('⚠️ ${l.prodSyncActionFailed(actionName)}'),
-              backgroundColor: AppTheme.crimson,
+            AppTheme.snackBar(
+              context,
+              '⚠️ ${l.prodSyncActionFailed(actionName)}',
+              severity: AppSeverity.danger,
               duration: const Duration(seconds: 4),
             ),
           );
@@ -208,40 +184,10 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
-        elevation: 1,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: AppTheme.cobalt,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Icon(Icons.system_update_alt_rounded, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    l.prodSyncScreenHeaderTitle,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    l.prodSyncScreenHeaderSubtitle,
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+      appBar: PageHeader(
+        icon: Icons.system_update_alt_rounded,
+        title: l.prodSyncScreenHeaderTitle,
+        subtitle: l.prodSyncScreenHeaderSubtitle,
         actions: [
           // ── Linked Output Actions (Task C) ──────────────────────────────
           IconButton(
@@ -315,25 +261,8 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
           ),
           const SizedBox(width: 8),
           const BackToDashboardButton(),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          indicatorColor: AppTheme.cobalt,
-          indicatorWeight: 3,
-          tabs: [
-            Tab(
-              icon: const Icon(Icons.security_rounded, size: 18),
-              text: l.prodSyncTabUpdatesAndBackups,
-            ),
-            Tab(
-              icon: const Icon(Icons.code_rounded, size: 18),
-              text: l.prodSyncTabDevToolsAndDiff,
-            ),
-          ],
-        ),
       ),
       body: SelectionArea(
         child: Padding(
@@ -342,6 +271,41 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
             children: [
               // ─── Version & Update Status Top Banner ────────────────────────
               _buildUpdateStatusBanner(updateState, l),
+              const SizedBox(height: 10),
+
+              // ─── Tabs Bar ──────────────────────────────────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF1E2631)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppTheme.darkBorder
+                        : Colors.grey.shade300,
+                  ),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  labelColor: AppTheme.cobalt,
+                  unselectedLabelColor: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white60
+                      : Colors.grey.shade700,
+                  indicatorColor: AppTheme.cobalt,
+                  indicatorWeight: 3,
+                  tabs: [
+                    Tab(
+                      icon: const Icon(Icons.security_rounded, size: 18),
+                      text: l.prodSyncTabUpdatesAndBackups,
+                    ),
+                    Tab(
+                      icon: const Icon(Icons.code_rounded, size: 18),
+                      text: l.prodSyncTabDevToolsAndDiff,
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 10),
 
               // ─── Tab Views ────────────────────────────────────────────────
@@ -407,7 +371,7 @@ class _ProductionSyncScreenState extends ConsumerState<ProductionSyncScreen>
         ),
         child: Row(
           children: [
-            const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.cobalt)),
+            const AppLoadingState.inline(),
             const SizedBox(width: 12),
             Text(l.prodSyncCheckingCloudUpdates, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
           ],

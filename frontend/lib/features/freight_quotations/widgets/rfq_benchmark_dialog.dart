@@ -1,8 +1,8 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
 import '../providers/freight_quotations_provider.dart';
 
 void showRFQBenchmarkDialog(BuildContext context, WidgetRef ref, {required int rfqId, String? rfqCode}) {
@@ -67,7 +67,7 @@ class _RFQBenchmarkDialogState extends ConsumerState<RFQBenchmarkDialog> {
           width: 860,
           padding: const EdgeInsets.all(24),
           child: _isLoading
-              ? const SizedBox(height: 320, child: Center(child: CircularProgressIndicator()))
+              ? const SizedBox(height: 320, child: AppLoadingState.section())
               : _error != null
                   ? SizedBox(
                       height: 260,
@@ -438,19 +438,21 @@ class _RFQBenchmarkDialogState extends ConsumerState<RFQBenchmarkDialog> {
                     if (!mounted) return;
                     nav.pop(true);
                     messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(isArabic
+                      AppTheme.snackBar(
+                        context,
+                        isArabic
                             ? 'تم اعتماد العرض الفائز ومزامنته مع ملف الشحنة بنجاح!'
-                            : 'Winning quotation awarded and synced successfully!'),
-                        backgroundColor: AppTheme.emerald,
+                            : 'Winning quotation awarded and synced successfully!',
+                        severity: AppSeverity.success,
                       ),
                     );
                   } catch (e) {
                     if (!mounted) return;
                     messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Error: $e'),
-                        backgroundColor: AppTheme.crimson,
+                      AppTheme.snackBar(
+                        context,
+                        'Error: $e',
+                        severity: AppSeverity.danger,
                       ),
                     );
                   }

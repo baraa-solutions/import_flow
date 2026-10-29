@@ -7,6 +7,8 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../purchase_orders/models/purchase_order_model.dart';
 import '../models/smart_reference_card_model.dart';
+import '../../comprehensive_report/models/comprehensive_dossier_model.dart';
+import '../../comprehensive_report/services/comprehensive_dossier_service.dart';
 import '../providers/experience_guide_provider.dart';
 import 'add_guide_entry_dialog.dart';
 import 'experience_guide_management_dialog.dart';
@@ -21,6 +23,7 @@ class SmartShipmentReferenceCard extends ConsumerStatefulWidget {
   final VoidCallback? onGuidelineAdded;
   final List<PurchaseOrderModel>? linkedPOs;
   final ImportFileModel? file;
+  final ComprehensiveShipmentDossierModel? dossier;
 
   const SmartShipmentReferenceCard({
     super.key,
@@ -33,6 +36,7 @@ class SmartShipmentReferenceCard extends ConsumerStatefulWidget {
     this.onGuidelineAdded,
     this.linkedPOs,
     this.file,
+    this.dossier,
   });
 
   @override
@@ -111,7 +115,10 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
     final l10n = context.l10n;
     final isDark = AppTheme.isDark(context);
     final isArabic = ref.watch(localeProvider).languageCode == 'ar' || Localizations.localeOf(context).languageCode == 'ar';
-    final cardAsync = ref.watch(smartReferenceCardProvider(widget.importFileId));
+    final dossier = widget.dossier ?? ref.watch(comprehensiveDossierProvider(widget.importFileId)).valueOrNull;
+    final cardAsync = dossier != null
+        ? AsyncValue.data(SmartReferenceCardModel.fromDossier(dossier))
+        : ref.watch(smartReferenceCardProvider(widget.importFileId));
 
     return Card(
       elevation: 2,
@@ -195,6 +202,12 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
     final double displayNetWeight = currentHsItem != null ? currentHsItem.netWeightKg : card.totalNetWeightKg;
     final int displayPackages = currentHsItem != null ? currentHsItem.packagesCount : card.packagesCount;
     final double displayQtyPcs = currentHsItem != null ? currentHsItem.quantityPcs : 0.0;
+    final acidNum = (card.documentStatus['acid_number'] as String?) ??
+        widget.file?.acidNumber ??
+        widget.dossier?.acidNumber;
+    final form4Num = (card.documentStatus['form4_no'] as String?) ??
+        widget.file?.form4No ??
+        widget.dossier?.form4No;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -574,12 +587,15 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                         color: card.isDocsComplete ? AppTheme.flatEmerald : AppTheme.flatCrimson,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        card.isDocsComplete ? l10n.refCardDocsCompleteBadge : l10n.refCardDocsPendingBadge,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: card.isDocsComplete ? AppTheme.flatEmerald : AppTheme.flatCrimson,
+                      Flexible(
+                        child: Text(
+                          card.isDocsComplete ? l10n.refCardDocsCompleteBadge : l10n.refCardDocsPendingBadge,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: card.isDocsComplete ? AppTheme.flatEmerald : AppTheme.flatCrimson,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -592,6 +608,23 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                   isAlert: !card.hasCooAttached && card.isCooRequired,
                   isDark: isDark,
                 ),
+                if (acidNum != null && acidNum.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  _buildInfoRow(
+                    isArabic ? 'رقم نافذة ACID:' : 'ACID Number:',
+                    acidNum,
+                    isBadge: true,
+                    isDark: isDark,
+                  ),
+                ],
+                if (form4Num != null && form4Num.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  _buildInfoRow(
+                    isArabic ? 'نموذج 4 بنكي:' : 'Bank Form 4:',
+                    form4Num,
+                    isDark: isDark,
+                  ),
+                ],
                 if (card.pendingDocuments.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
@@ -692,12 +725,15 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
             children: [
               Icon(icon, size: 16, color: accentColor),
               const SizedBox(width: 6),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: accentColor,
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: accentColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -722,12 +758,17 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+          Expanded(
+            flex: 5,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           const SizedBox(width: 8),
           Flexible(
+            flex: 6,
             child: isBadge
                 ? Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -753,6 +794,7 @@ class _SmartShipmentReferenceCardState extends ConsumerState<SmartShipmentRefere
                               : (isDark ? AppTheme.darkTextPrimary : AppTheme.flatCharcoal)),
                     ),
                     overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
                   ),
           ),
         ],

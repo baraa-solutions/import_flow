@@ -334,11 +334,11 @@ class _VesselEtaTrackingDialogState extends ConsumerState<VesselEtaTrackingDialo
           // Section 1: History List
           Expanded(
             child: logsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoadingState.section(),
               error: (err, _) => Center(
-                child: Text(
-                  l.isArabic ? 'خطأ في جلب سجلات المسار: $err' : 'Error loading tracking logs: $err',
-                  style: const TextStyle(color: AppTheme.crimson),
+                child: AppErrorState(
+                  error: err,
+                  onRetry: () => ref.invalidate(etaTrackingLogsProvider(widget.booking.bookingId)),
                 ),
               ),
               data: (logs) {

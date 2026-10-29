@@ -78,21 +78,20 @@ class _CreatePartialBatchDialogState extends ConsumerState<CreatePartialBatchDia
       if (mounted) {
         Navigator.of(context).pop(created);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم إنشاء ملف الدفعة الجزئية بنجاح: ${created?.importFileCode ?? ""}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            backgroundColor: AppTheme.emerald,
+          AppTheme.snackBar(
+            context,
+            'تم إنشاء ملف الدفعة الجزئية بنجاح: ${created?.importFileCode ?? ""}',
+            severity: AppSeverity.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل إنشاء الدفعة الجزئية: $e'),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            'فشل إنشاء الدفعة الجزئية: $e',
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -108,7 +107,8 @@ class _CreatePartialBatchDialogState extends ConsumerState<CreatePartialBatchDia
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
+      child: SelectionArea(
+        child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 680, maxHeight: 720),
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -365,6 +365,7 @@ class _CreatePartialBatchDialogState extends ConsumerState<CreatePartialBatchDia
             ),
           ),
         ),
+      ),
       ),
     );
   }

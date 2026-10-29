@@ -65,12 +65,12 @@ import 'logistics_shipment_expenses_summary_card.dart';
 import '../../logistics_invoices/screens/logistics_invoices_screen.dart';
 import 'shipment_milestone_tracker.dart';
 import '../../comprehensive_report/services/comprehensive_dossier_service.dart';
-import '../../comprehensive_report/services/comprehensive_report_export_service.dart';
 import '../../comprehensive_report/models/comprehensive_dossier_model.dart';
 import '../../shipment_updates/providers/shipment_updates_provider.dart';
 import '../../customs_clearance/providers/customs_clearance_provider.dart';
 import '../../customs_clearance/models/customs_clearance_model.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/unified_dossier_export_menu.dart';
 
 import 'package:frontend/core/widgets/ltr_text.dart';
 class ImportFileDetailsDialog extends ConsumerStatefulWidget {
@@ -587,577 +587,21 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F46E5), // Indigo
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.psychology_outlined, size: 18),
-            label: Text(isAr ? 'توثيق درس مستفاد (KB)' : 'Add KB Note', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (ctx) => AddGuideEntryDialog(
-                  initialSupplier: file.supplierName,
-                  initialHsCode: file.hsCode,
-                  initialCategory: file.productCategory,
-                  initialDestinationPort: file.portOfDischarge,
-                  initialIncoterm: file.incotermCode,
-                  initialImportFileReference: file.importFileCode,
-                  onSuccess: () => _loadExperienceGuide(),
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.calculate, size: 18),
-            label: Text(isAr ? 'المحاكاة الجمركية' : 'Customs Simulation', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              showDutyCalculatorDialog(
-                context,
-                ref,
-                initialImportFileId: file.importFileId,
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD97706),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.payments_outlined, size: 18),
-            label: Text(isAr ? 'طلب دفعة المورد (FN-01)' : 'Supplier Advance (FN-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              showSupplierAdvancePaymentDialog(
-                context,
-                ref,
-                importFileId: file.importFileId,
-                importFileCode: file.importFileCode,
-                fileTitle: file.displayName,
-                supplierId: file.supplierId,
-                supplierName: file.supplierName,
-                projectId: file.projectIds.isNotEmpty ? file.projectIds.first : null,
-                totalAmountForeign: file.estimatedCost > 0 ? file.estimatedCost : null,
-                currency: file.estimatedCostCurrency.isNotEmpty ? file.estimatedCostCurrency : 'USD',
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F766E),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.analytics_outlined, size: 18),
-            label: Text(isAr ? 'محاكاة تكلفة الوصول (Landed Cost)' : 'Landed Cost Simulation', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              showEstimatedLandedCostDialog(
-                context,
-                ref,
-                importFileId: file.importFileId,
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E40AF),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.verified_outlined, size: 18),
-            label: Text(isAr ? 'نافذة و ACID (DC-01)' : 'Nafeza & ACID (DC-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => NafezaAcidScreen(
-                    initialImportFileId: file.importFileId,
-                    initialSubTab: (file.acidNumber != null && file.acidNumber!.isNotEmpty && file.acidNumber != 'PENDING') ? 3 : 0,
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D9488),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.account_balance_outlined, size: 18),
-            label: Text(isAr ? 'المستندات البنكية (DC-03)' : 'Bank Documents (DC-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => BankForm4Screen(
-                    initialImportFileId: file.importFileId,
-                    initialSubTab: (file.form4No != null && file.form4No!.isNotEmpty && file.form4No != 'PENDING') ? 1 : 0,
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6366F1), // Indigo
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.fact_check_outlined, size: 18),
-            label: Text(isAr ? 'مصفوفة المستندات (DC-04)' : 'Document Matrix (DC-04)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ShipmentDraftDocsScreen(
-                    initialImportFileId: file.importFileId,
-                    initialSubTab: 0,
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0284C7), // Sky Blue / Ocean
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.directions_boat_outlined, size: 18),
-            label: Text(isAr ? 'حجز الشحن (BK-01)' : 'Freight Booking (BK-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => FreightBookingScreen(
-                    initialImportFileId: file.importFileId,
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669), // Emerald
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.verified_user_outlined, size: 18),
-            label: Text(isAr ? 'فترات السماح (BK-02)' : 'Free Days (BK-02)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              FreeDaysAgreementDialog.show(
-                context,
-                initialImportFileId: file.importFileId,
-                initialDemurrageDays: file.targetFreeDays,
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB), // Blue Cobalt
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.sailing_rounded, size: 18),
-            label: Text(isAr ? 'تأكيد الإبحار (SH-01)' : 'Sailing Confirmation (SH-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              final bookings = ref.read(freightBookingProvider).value ?? [];
-              final linkedBooking = bookings.firstWhere(
-                (b) => b.importFileId == file.importFileId,
-                orElse: () => ShipmentBookingModel(
-                  bookingId: 0,
-                  bookingCode: 'NEW-BKG',
-                  importFileId: file.importFileId,
-                  importFileCode: file.importFileCode,
-                  createdAt: '',
-                  updatedAt: '',
-                ),
-              );
-              if (linkedBooking.bookingId > 0) {
-                DepartureConfirmationDialog.show(context, linkedBooking);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(isAr ? 'يرجى إنشاء وتأكيد حجز الشحن (BK-01) أولاً من شاشة حجز الشحن لتسجيل الإبحار' : 'Please create and confirm freight booking (BK-01) first to record departure'),
-                    backgroundColor: AppTheme.orange,
-                  ),
-                );
-              }
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('reviewDraftBlHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669), // Emerald
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.fact_check_rounded, size: 18),
-            label: Text(isAr ? 'مراجعة مسودة البوليصة (SH-02)' : 'Draft B/L Review (SH-02)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              DraftBLReviewDialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('cargoxHubHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0284C7), // Sky Cobalt
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.cloud_upload_rounded, size: 18),
-            label: Text(isAr ? 'مستندات CargoX (SH-03)' : 'CargoX Documents (SH-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              CargoXHubDialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('originalDocsHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD97706), // Amber / Gold
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.markunread_mailbox_rounded, size: 18),
-            label: Text(isAr ? 'تتبع أصول المستندات (SH-04)' : 'Original Docs (SH-04)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              OriginalDocumentsCollectionDialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('customsBrokerAuthHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C3AED), // Royal Purple
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.assignment_ind_rounded, size: 18),
-            label: Text(isAr ? 'تفويض المخلص (CS-01)' : 'Broker Authorization (CS-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              CustomsBrokerAuthorizationDialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('deliveryOrderPaymentHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0284C7), // Ocean / Shipping Blue
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.directions_boat_filled_rounded, size: 18),
-            label: Text(isAr ? 'سداد إذن التسليم (CS-02)' : 'Delivery Order Payment (CS-02)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              DeliveryOrderPaymentDialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('customsDeclaration46HeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD97706), // Amber / Customs Gold
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.description_rounded, size: 18),
-            label: Text(isAr ? 'قيد إقرار 46 (CS-03)' : 'Declaration 46 (CS-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              CustomsDeclaration46Dialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('customsInspectionSamplingHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D9488), // Teal / Inspection Cyan
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.biotech_rounded, size: 18),
-            label: Text(isAr ? 'الكشف والمعاينة (CL-01)' : 'Inspection & Sampling (CL-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              CustomsInspectionSamplingDialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('finalDutyAssessmentHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C3AED), // Royal Purple
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.calculate_rounded, size: 18),
-            label: Text(isAr ? 'احتساب الرسوم (CL-02)' : 'Duty Assessment (CL-02)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              FinalDutyAssessmentDialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('customsDutyPaymentHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald, // Emerald Green
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.receipt_long_rounded, size: 18),
-            label: Text(isAr ? 'سداد الرسوم (CL-03)' : 'Customs Duty Payment (CL-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              CustomsDutyPaymentDialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('customsFinalReleaseHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald, // Emerald Green
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.verified_outlined, size: 18),
-            label: Text(isAr ? 'إذن الإفراج (CL-04)' : 'Customs Release (CL-04)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              CustomsFinalReleaseDialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('customsClearanceInvoicesHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0284C7),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.receipt_long_rounded, size: 18),
-            label: Text(isAr ? 'فواتير التخليص (CL-05)' : 'Clearance Invoices (CL-05)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              ClearanceExpensesDialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('logisticsInvoicesHubHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A8A),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.account_balance_wallet_rounded, size: 18),
-            label: Text(isAr ? 'فواتير الشركاء (LSI)' : 'Logistics Invoices (LSI)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (ctx) => LogisticsInvoicesScreen(
-                    initialShipmentId: file.importFileId,
-                    initialBlNumber: null,
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('inlandTransportHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D9488),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.local_shipping_rounded, size: 18),
-            label: Text(isAr ? 'النقل الداخلي (TR-01)' : 'Inland Transport (TR-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              InlandTransportDialog.show(context, file);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('demurrageRadarHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFC0392B),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.radar_rounded, size: 18),
-            label: Text(context.l10n.demurrageRadarButtonLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (ctx) => const DemurrageDetentionScreen(),
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('warehouseReceivingHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF27AE60),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.warehouse_rounded, size: 18),
-            label: Text(isAr ? 'استلام المخزن (TR-03)' : 'Warehouse Receiving (TR-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (ctx) => const WarehouseReceivingScreen(),
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('warehouseInspectionHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD97706),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.fact_check_rounded, size: 18),
-            label: Text(isAr ? 'محضر الفحص (TR-04)' : 'Inspection Report (TR-04)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              final recs = ref.read(warehouseReceivingProvider).valueOrNull ?? [];
-              final matching = recs.where((r) => r.importFileId == file.importFileId).toList();
-              final calculatedQty = file.packingListsData.isNotEmpty
-                  ? file.packingListsData.fold<int>(0, (sum, pl) => sum + pl.totalPackages)
-                  : 100;
-              final targetRec = matching.isNotEmpty
-                  ? matching.first
-                  : WarehouseReceivingModel(
-                      receivingId: file.importFileId,
-                      grnCode: 'GRN-${file.importFileCode}',
-                      importFileId: file.importFileId,
-                      warehouseName: 'Main Warehouse - Cairo',
-                      arrivalDatetime: DateTime.now().toIso8601String(),
-                      totalInvoicedQty: calculatedQty > 0 ? calculatedQty : 100,
-                      totalAcceptedQty: calculatedQty > 0 ? calculatedQty : 100,
-                      totalShortageQty: 0,
-                      totalDamagedQty: 0,
-                      createdAt: DateTime.now().toIso8601String(),
-                      updatedAt: DateTime.now().toIso8601String(),
-                    );
-              WarehouseInspectionDialog.show(context, record: targetRec, importFileCode: file.importFileCode);
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('emptyContainerReturnHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF475569),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.assignment_turned_in_rounded, size: 18),
-            label: Text(isAr ? 'إرجاع الحاويات (TR-05)' : 'Empty Container Return (TR-05)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              EmptyContainerReturnDialog.show(
-                context,
-                initialImportFileId: file.importFileId,
-                initialEirNumber: file.emptyContainersEirNumbers,
-                initialDepotName: file.emptyContainersDepotName,
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('finalSettlementInvoicesHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D9488),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.receipt_long_rounded, size: 18),
-            label: Text(isAr ? 'تسوية الفواتير (CLO-01)' : 'Invoice Settlement (CLO-01)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              FinalSettlementInvoicesDialog.show(
-                context,
-                importFileId: file.importFileId,
-                importFileCode: file.importFileCode,
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('actualLandedCostHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A8A), // Deep Cobalt / Navy
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.calculate_rounded, size: 18),
-            label: Text(isAr ? 'التكلفة الفعلية (CLO-02)' : 'Actual Landed Cost (CLO-02)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              ActualLandedCostDialog.show(
-                context,
-                importFileId: file.importFileId,
-                importFileCode: file.importFileCode,
-              );
-            },
-          ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
+
+          // ── 2.2 Dossier Bridge Action ─────────────────────────────────────
           ElevatedButton.icon(
             key: const Key('openMasterReportScreenBtn'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB), // Blue
+              backgroundColor: AppTheme.cobalt,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 0,
             ),
-            icon: const Icon(Icons.summarize_outlined, size: 18),
+            icon: const Icon(Icons.open_in_new_rounded, size: 16),
             label: Text(
-              isAr ? 'تقرير الشحنة الشامل المدمج (Screen 47)' : 'Master Shipment Report (Screen 47)',
+              isAr ? 'عرض التقرير والبطاقة الفنية الشاملة ↗' : 'View Master Dossier ↗',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
             onPressed: () {
@@ -1167,75 +611,20 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
             },
           ),
           const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('comprehensiveReportHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C3AED), // Royal Purple / Violet
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.assignment_turned_in_rounded, size: 18),
-            label: Text(isAr ? 'الملف الشامل (CLO-03)' : 'Comprehensive Dossier (CLO-03)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              ComprehensiveDossierExportDialog.show(
-                context,
-                file: file,
-              );
-            },
-          ),
+
+          // ── 2.1 Dropdown: [نماذج ومحاكاة ▾] ────────────────────────────────
+          _buildModelsAndSimulationsMenu(context, file, isAr: isAr, isDark: isDark),
           const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('shipmentAuditTimelineHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F766E), // Deep Teal
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.history_toggle_off_rounded, size: 18),
-            label: Text(
-              isAr ? 'رادار ومحضر التتبع الزمني (36 محطة)' : 'Audit Timeline Radar (36)',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-            onPressed: () {
-              showShipmentAuditTimelineDialog(
-                context,
-                importFileId: file.importFileId,
-              );
-            },
-          ),
+
+          // ── 2.1 Dropdown: [مستندات الشحنة ▾] ───────────────────────────────
+          _buildShipmentDocumentsMenu(context, file, isAr: isAr, isDark: isDark),
           const SizedBox(width: 8),
-          ElevatedButton.icon(
-            key: const Key('officialFileClosureHeaderBtn'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.flatEmerald,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.verified_rounded, size: 18),
-            label: Text(isAr ? 'الإغلاق الرسمي (CLO-04)' : 'Official Closure (CLO-04)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              OfficialFileClosureDialog.show(
-                context,
-                file: file,
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.cobalt,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.playlist_add_check_circle, size: 18),
-            label: Text(isAr ? 'قائمة التحقق الذكية' : 'Smart Checklist', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              SmartChecklistDialog.show(context, file);
-            },
+
+          // Close Button
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 20),
+            tooltip: isAr ? 'إغلاق' : 'Close',
+            onPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),
@@ -1248,7 +637,16 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
               // 1. 10-Phase Milestone Journey Tracker (Operational Cockpit)
-              ShipmentMilestoneTracker(importFile: file),
+              ShipmentMilestoneTracker(
+                importFile: file,
+                totalCbm: widget.totalPackingListCbm > 0 ? widget.totalPackingListCbm : (dossier?.totalCbm ?? 66.39),
+                grossWeightKg: widget.totalPackingListWeight > 0 ? widget.totalPackingListWeight : (dossier?.grossWeightKg ?? 10510.0),
+                shippingLine: file.selectedScenario ?? 'Wan Hai',
+                hasAcousticAlert: (_guideMatchResult?.matchedEntries.any((e) => e.isCritical) == true) ||
+                    (file.productCategory?.toLowerCase().contains('acoustic') == true ||
+                     file.customFileNumber?.toLowerCase().contains('pet') == true ||
+                     file.importFileCode == 'IMP-2026-0004'),
+              ),
               const SizedBox(height: 12),
 
               // 2. Quick Export & Dossier Actions Toolbar
@@ -1614,6 +1012,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               // ── Smart Shipment Experience Guide Card ───────────────────────
               SmartShipmentReferenceCard(
                 importFileId: file.importFileId,
+                dossier: dossier,
                 initialHsCode: shipmentHsCodes.isNotEmpty ? shipmentHsCodes.first : file.hsCode,
                 initialCategory: shipmentCategories.isNotEmpty ? shipmentCategories.first : file.productCategory,
                 initialPod: file.portOfDischarge,
@@ -3061,72 +2460,12 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
             ),
           ),
           const Spacer(),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.cobalt,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            ),
-            icon: const Icon(Icons.copy, size: 13),
-            label: Text(isAr ? 'نسخ ملخص الشحنة' : 'Copy Dossier', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              final text = ComprehensiveReportExportService.buildDossierText(
-                context: context,
-                file: file,
-                dossier: dossier,
-                logs: updatesState.logs,
-                clearance: clr,
-                warehouse: wh,
-              );
-              CopyHelper.copy(context, text, customMessage: isAr ? 'تم نسخ ملخص الشحنة الشامل' : 'Dossier copied');
-            },
-          ),
-          const SizedBox(width: 6),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            ),
-            icon: const Icon(Icons.table_view, size: 13),
-            label: const Text('Excel', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-            onPressed: () => ComprehensiveReportExportService.exportToExcel(
-              context: context,
-              file: file,
-              dossier: dossier,
-              logs: updatesState.logs,
-              clearance: clr,
-              warehouse: wh,
-            ),
-          ),
-          const SizedBox(width: 6),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.charcoal,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            ),
-            icon: const Icon(Icons.picture_as_pdf_outlined, size: 13),
-            label: const Text('PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-            onPressed: () => ComprehensiveReportExportService.printOrSavePdf(
-              context: context,
-              file: file,
-              dossier: dossier,
-              logs: updatesState.logs,
-              clearance: clr,
-              warehouse: wh,
-            ),
-          ),
-          const SizedBox(width: 6),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.cobalt,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            ),
-            icon: const Icon(Icons.inventory_2_outlined, size: 13),
-            label: Text(isAr ? 'تصدير الملف المعتمد' : 'Export Dossier', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-            onPressed: () => ComprehensiveDossierExportDialog.show(context, file: file),
+          UnifiedDossierExportMenu.row(
+            file: file,
+            dossier: dossier,
+            logs: updatesState.logs,
+            clearance: clr,
+            warehouse: wh,
           ),
         ],
       ),
@@ -3179,5 +2518,616 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
         ),
       ),
     );
+  }
+
+  // ── 2.1 Models & Simulations Menu ─────────────────────────────────────────
+  Widget _buildModelsAndSimulationsMenu(
+    BuildContext context,
+    ImportFileModel file, {
+    required bool isAr,
+    required bool isDark,
+  }) {
+    return PopupMenuButton<String>(
+      tooltip: isAr ? 'نماذج ومحاكاة الشحنة' : 'Models & Simulations',
+      position: PopupMenuPosition.under,
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+      ),
+      color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurface : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isDark ? AppTheme.darkBorder : const Color(0xFFCBD5E1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.tune_rounded, size: 16, color: isDark ? Colors.lightBlueAccent : AppTheme.cobalt),
+            const SizedBox(width: 6),
+            Text(
+              isAr ? 'نماذج ومحاكاة ▾' : 'Models & Sim ▾',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+              ),
+            ),
+          ],
+        ),
+      ),
+      onSelected: (action) => _handleSimulationAction(context, file, action),
+      itemBuilder: (ctx) => [
+        _buildMenuItem(
+          value: 'customs_sim',
+          icon: Icons.calculate_rounded,
+          iconColor: AppTheme.emerald,
+          title: isAr ? 'المحاكاة الجمركية' : 'Customs Simulation',
+          subtitle: isAr ? 'حساب الرسوم والضرائب التقديرية' : 'Estimated duties & taxes',
+        ),
+        _buildMenuItem(
+          value: 'landed_cost_sim',
+          icon: Icons.analytics_outlined,
+          iconColor: const Color(0xFF0F766E),
+          title: isAr ? 'محاكاة تكلفة الوصول (Landed Cost)' : 'Landed Cost Simulation',
+          subtitle: isAr ? 'تقدير تكلفة الوحدة والمصاريف' : 'Unit cost estimation',
+        ),
+        _buildMenuItem(
+          value: 'fn01_advance',
+          icon: Icons.payments_outlined,
+          iconColor: const Color(0xFFD97706),
+          title: isAr ? 'طلب دفعة المورد (FN-01)' : 'Supplier Advance (FN-01)',
+          subtitle: isAr ? 'إجراءات الاعتماد البنكي والدفعة' : 'Advance payment workflow',
+        ),
+        const PopupMenuDivider(),
+        _buildMenuItem(
+          value: 'cs02_delivery_order',
+          icon: Icons.directions_boat_filled_rounded,
+          iconColor: const Color(0xFF0284C7),
+          title: isAr ? 'سداد إذن التسليم (CS-02)' : 'Delivery Order Payment (CS-02)',
+          subtitle: isAr ? 'تسوية رسوم ومصاريف التوكيل الملاحي' : 'Shipping line fees',
+        ),
+        _buildMenuItem(
+          value: 'cl02_duty_assessment',
+          icon: Icons.calculate_outlined,
+          iconColor: const Color(0xFF7C3AED),
+          title: isAr ? 'احتساب الرسوم (CL-02)' : 'Duty Assessment (CL-02)',
+          subtitle: isAr ? 'تقييم التعريفة الجمركية والقيمة' : 'Tariff & tax valuation',
+        ),
+        _buildMenuItem(
+          value: 'cl03_duty_payment',
+          icon: Icons.receipt_long_rounded,
+          iconColor: AppTheme.emerald,
+          title: isAr ? 'سداد الرسوم الجمركية (CL-03)' : 'Customs Duty Payment (CL-03)',
+          subtitle: isAr ? 'سداد فواتير الجمارك والضرائب' : 'Customs tax payment',
+        ),
+        _buildMenuItem(
+          value: 'cl05_clearance_invoices',
+          icon: Icons.receipt_long_outlined,
+          iconColor: const Color(0xFF0284C7),
+          title: isAr ? 'فواتير التخليص (CL-05)' : 'Clearance Invoices (CL-05)',
+          subtitle: isAr ? 'مصاريف المخلص والجهات الرقابية' : 'Brokerage expenses',
+        ),
+        _buildMenuItem(
+          value: 'lsi_partner_invoices',
+          icon: Icons.account_balance_wallet_rounded,
+          iconColor: const Color(0xFF1E3A8A),
+          title: isAr ? 'فواتير الشركاء اللوجستيين (LSI)' : 'Logistics Invoices (LSI)',
+          subtitle: isAr ? 'مركز فواتير ومطالبات الشركاء' : 'Partner billing hub',
+        ),
+        const PopupMenuDivider(),
+        _buildMenuItem(
+          value: 'clo01_settlement',
+          icon: Icons.fact_check_outlined,
+          iconColor: const Color(0xFF0D9488),
+          title: isAr ? 'تسوية الفواتير (CLO-01)' : 'Invoice Settlement (CLO-01)',
+          subtitle: isAr ? 'المطابقة النهائية والتسوية المحاسبية' : 'Final matching & settlement',
+        ),
+        _buildMenuItem(
+          value: 'clo02_actual_landed',
+          icon: Icons.account_balance_outlined,
+          iconColor: const Color(0xFF1E3A8A),
+          title: isAr ? 'التكلفة الفعلية (CLO-02)' : 'Actual Landed Cost (CLO-02)',
+          subtitle: isAr ? 'حساب تكلفة الوصول النهائية الفردية' : 'Realized landed cost per unit',
+        ),
+        _buildMenuItem(
+          value: 'audit_timeline_radar',
+          icon: Icons.history_toggle_off_rounded,
+          iconColor: const Color(0xFF0F766E),
+          title: isAr ? 'رادار ومحضر التتبع الزمني (36 محطة)' : 'Audit Timeline Radar (36)',
+          subtitle: isAr ? 'سجل المحطات والمدد التشغيلية' : 'Full timeline stations SLA',
+        ),
+      ],
+    );
+  }
+
+  // ── 2.1 Shipment Documents Menu ───────────────────────────────────────────
+  Widget _buildShipmentDocumentsMenu(
+    BuildContext context,
+    ImportFileModel file, {
+    required bool isAr,
+    required bool isDark,
+  }) {
+    return PopupMenuButton<String>(
+      tooltip: isAr ? 'مستندات وإجراءات الشحنة' : 'Shipment Documents',
+      position: PopupMenuPosition.under,
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+      ),
+      color: isDark ? AppTheme.darkElevatedSurface : Colors.white,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurface : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isDark ? AppTheme.darkBorder : const Color(0xFFCBD5E1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.folder_shared_outlined, size: 16, color: isDark ? Colors.tealAccent : const Color(0xFF0D9488)),
+            const SizedBox(width: 6),
+            Text(
+              isAr ? 'مستندات الشحنة ▾' : 'Shipment Docs ▾',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+              ),
+            ),
+          ],
+        ),
+      ),
+      onSelected: (action) => _handleDocumentAction(context, file, action),
+      itemBuilder: (ctx) => [
+        _buildMenuItem(
+          value: 'dc01_acid',
+          icon: Icons.verified_outlined,
+          iconColor: const Color(0xFF1E40AF),
+          title: isAr ? 'نافذة ورقم ACID (DC-01)' : 'Nafeza & ACID (DC-01)',
+          subtitle: isAr ? 'إصدار وتتبع أرقام القيد الجمركي' : 'ACID issuance & tracking',
+        ),
+        _buildMenuItem(
+          value: 'dc03_bank',
+          icon: Icons.account_balance_outlined,
+          iconColor: const Color(0xFF0D9488),
+          title: isAr ? 'المستندات البنكية ونموذج 4 (DC-03)' : 'Bank Documents (DC-03)',
+          subtitle: isAr ? 'نموذج 4 البنكي والتحويلات' : 'Form 4 & SWIFT bank docs',
+        ),
+        _buildMenuItem(
+          value: 'dc04_matrix',
+          icon: Icons.fact_check_outlined,
+          iconColor: const Color(0xFF6366F1),
+          title: isAr ? 'مصفوفة المستندات (DC-04)' : 'Document Matrix (DC-04)',
+          subtitle: isAr ? 'مسودات الفواتير والباكينج ليست' : 'Drafts & document audit',
+        ),
+        const PopupMenuDivider(),
+        _buildMenuItem(
+          value: 'bk01_booking',
+          icon: Icons.directions_boat_outlined,
+          iconColor: const Color(0xFF0284C7),
+          title: isAr ? 'حجز الشحن الملاحي (BK-01)' : 'Freight Booking (BK-01)',
+          subtitle: isAr ? 'تأكيد الحجز وتخصيص الحاويات' : 'Booking & container allocation',
+        ),
+        _buildMenuItem(
+          value: 'bk02_free_days',
+          icon: Icons.verified_user_outlined,
+          iconColor: const Color(0xFF059669),
+          title: isAr ? 'فترات السماح (BK-02)' : 'Free Days Agreement (BK-02)',
+          subtitle: isAr ? 'أيام السماح وفترات غرامات التأخير' : 'Demurrage free time agreements',
+        ),
+        _buildMenuItem(
+          value: 'sh01_sailing',
+          icon: Icons.sailing_rounded,
+          iconColor: const Color(0xFF2563EB),
+          title: isAr ? 'تأكيد الإبحار (SH-01)' : 'Sailing Confirmation (SH-01)',
+          subtitle: isAr ? 'تسجيل تاريخ الإبحار الفعلي والـ ETA' : 'Departure & ETA updates',
+        ),
+        _buildMenuItem(
+          value: 'sh02_draft_bl',
+          icon: Icons.fact_check_rounded,
+          iconColor: const Color(0xFF059669),
+          title: isAr ? 'مراجعة مسودة البوليصة (SH-02)' : 'Draft B/L Review (SH-02)',
+          subtitle: isAr ? 'مطابقة بيانات البوليصة قبل الإصدار' : 'B/L data verification',
+        ),
+        _buildMenuItem(
+          value: 'sh03_cargox',
+          icon: Icons.cloud_upload_rounded,
+          iconColor: const Color(0xFF0284C7),
+          title: isAr ? 'مستندات CargoX (SH-03)' : 'CargoX Documents (SH-03)',
+          subtitle: isAr ? 'الرفع الرقمي عبر البلوكشين' : 'Blockchain document transfer',
+        ),
+        _buildMenuItem(
+          value: 'sh04_original_docs',
+          icon: Icons.markunread_mailbox_rounded,
+          iconColor: const Color(0xFFD97706),
+          title: isAr ? 'تتبع أصول المستندات (SH-04)' : 'Original Docs Tracking (SH-04)',
+          subtitle: isAr ? 'استلام ومتابعة البريد السريع' : 'Courier & original doc tracking',
+        ),
+        const PopupMenuDivider(),
+        _buildMenuItem(
+          value: 'cs01_broker_auth',
+          icon: Icons.assignment_ind_rounded,
+          iconColor: const Color(0xFF7C3AED),
+          title: isAr ? 'تفويض المخلص الجمركي (CS-01)' : 'Broker Authorization (CS-01)',
+          subtitle: isAr ? 'خطاب تفويض ووكالة التخليص' : 'Broker delegation & power of attorney',
+        ),
+        _buildMenuItem(
+          value: 'cs03_declaration_46',
+          icon: Icons.description_rounded,
+          iconColor: const Color(0xFFD97706),
+          title: isAr ? 'قيد إقرار 46 جمرك (CS-03)' : 'Customs Declaration 46 (CS-03)',
+          subtitle: isAr ? 'رقم الشهادة الجمركية وقيد البيان' : 'Customs entry number',
+        ),
+        _buildMenuItem(
+          value: 'cl01_inspection',
+          icon: Icons.biotech_rounded,
+          iconColor: const Color(0xFF0D9488),
+          title: isAr ? 'الكشف والمعاينة وسحب العينات (CL-01)' : 'Inspection & Sampling (CL-01)',
+          subtitle: isAr ? 'محاضر الفحص ومعامل الرقابة' : 'Physical inspection records',
+        ),
+        _buildMenuItem(
+          value: 'cl04_final_release',
+          icon: Icons.verified_outlined,
+          iconColor: AppTheme.emerald,
+          title: isAr ? 'إذن الإفراج الجمركي (CL-04)' : 'Customs Final Release (CL-04)',
+          subtitle: isAr ? 'الإفراج النهائي وخروج الحاويات' : 'Customs out-of-charge release',
+        ),
+        const PopupMenuDivider(),
+        _buildMenuItem(
+          value: 'tr01_inland_transport',
+          icon: Icons.local_shipping_rounded,
+          iconColor: const Color(0xFF0D9488),
+          title: isAr ? 'النقل الداخلي (TR-01)' : 'Inland Transport (TR-01)',
+          subtitle: isAr ? 'أوامر التحميل وحركة الشاحنات' : 'Trucking & gate dispatch',
+        ),
+        _buildMenuItem(
+          value: 'tr02_demurrage_radar',
+          icon: Icons.radar_rounded,
+          iconColor: const Color(0xFFC0392B),
+          title: isAr ? 'رادار غرامات الحاويات (TR-02)' : 'Demurrage & Detention Radar',
+          subtitle: isAr ? 'تتبع فترات السماح وتفادي الغرامات' : 'Container free-time tracking',
+        ),
+        _buildMenuItem(
+          value: 'tr03_warehouse_receiving',
+          icon: Icons.warehouse_rounded,
+          iconColor: const Color(0xFF27AE60),
+          title: isAr ? 'استلام المخازن (TR-03)' : 'Warehouse Receiving (TR-03)',
+          subtitle: isAr ? 'وصول الشحنة وإذن الاستلام' : 'GRN receiving & check-in',
+        ),
+        _buildMenuItem(
+          value: 'tr04_warehouse_inspection',
+          icon: Icons.fact_check_rounded,
+          iconColor: const Color(0xFFD97706),
+          title: isAr ? 'محضر الفحص المخزني (TR-04)' : 'Warehouse Inspection (TR-04)',
+          subtitle: isAr ? 'فحص الجودة والمطابقة والكميات' : 'QC & shortage inspection report',
+        ),
+        _buildMenuItem(
+          value: 'tr05_empty_return',
+          icon: Icons.assignment_turned_in_rounded,
+          iconColor: const Color(0xFF475569),
+          title: isAr ? 'إرجاع الحاويات الفارغة (TR-05)' : 'Empty Container Return (TR-05)',
+          subtitle: isAr ? 'إيصالات EIR وساحات الإرجاع' : 'EIR slips & depot return',
+        ),
+        const PopupMenuDivider(),
+        _buildMenuItem(
+          value: 'clo03_dossier',
+          icon: Icons.assignment_turned_in_rounded,
+          iconColor: const Color(0xFF7C3AED),
+          title: isAr ? 'الملف الشامل (CLO-03)' : 'Comprehensive Dossier (CLO-03)',
+          subtitle: isAr ? 'تصدير وأرشفة ملف الشحنة' : 'Full export archive',
+        ),
+        _buildMenuItem(
+          value: 'clo04_official_closure',
+          icon: Icons.verified_rounded,
+          iconColor: AppTheme.flatEmerald,
+          title: isAr ? 'الإغلاق الرسمي للملف (CLO-04)' : 'Official Closure (CLO-04)',
+          subtitle: isAr ? 'الأرشفة النهائية وإغلاق الملف' : 'Final archival & closure',
+        ),
+        _buildMenuItem(
+          value: 'smart_checklist',
+          icon: Icons.playlist_add_check_circle,
+          iconColor: AppTheme.cobalt,
+          title: isAr ? 'قائمة التحقق الذكية' : 'Smart Checklist',
+          subtitle: isAr ? 'مراجعة متطلبات ومستندات الملف' : 'Interactive readiness check',
+        ),
+        _buildMenuItem(
+          value: 'add_kb_note',
+          icon: Icons.psychology_outlined,
+          iconColor: const Color(0xFF4F46E5),
+          title: isAr ? 'توثيق درس مستفاد (KB Note)' : 'Add Knowledge Note',
+          subtitle: isAr ? 'تسجيل ملاحظة في بنك المعرفة' : 'Document institutional learning',
+        ),
+      ],
+    );
+  }
+
+  PopupMenuItem<String> _buildMenuItem({
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, color: iconColor, size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleSimulationAction(BuildContext context, ImportFileModel file, String action) {
+    switch (action) {
+      case 'customs_sim':
+        showDutyCalculatorDialog(context, ref, initialImportFileId: file.importFileId);
+        break;
+      case 'fn01_advance':
+        showSupplierAdvancePaymentDialog(
+          context,
+          ref,
+          importFileId: file.importFileId,
+          importFileCode: file.importFileCode,
+          fileTitle: file.displayName,
+          supplierId: file.supplierId,
+          supplierName: file.supplierName,
+          projectId: file.projectIds.isNotEmpty ? file.projectIds.first : null,
+          totalAmountForeign: file.estimatedCost > 0 ? file.estimatedCost : null,
+          currency: file.estimatedCostCurrency.isNotEmpty ? file.estimatedCostCurrency : 'USD',
+        );
+        break;
+      case 'landed_cost_sim':
+        showEstimatedLandedCostDialog(context, ref, importFileId: file.importFileId);
+        break;
+      case 'cs02_delivery_order':
+        DeliveryOrderPaymentDialog.show(context, file);
+        break;
+      case 'cl02_duty_assessment':
+        FinalDutyAssessmentDialog.show(context, file);
+        break;
+      case 'cl03_duty_payment':
+        CustomsDutyPaymentDialog.show(context, file);
+        break;
+      case 'cl05_clearance_invoices':
+        ClearanceExpensesDialog.show(context, file);
+        break;
+      case 'lsi_partner_invoices':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (ctx) => LogisticsInvoicesScreen(
+              initialShipmentId: file.importFileId,
+              initialBlNumber: null,
+            ),
+          ),
+        );
+        break;
+      case 'clo01_settlement':
+        FinalSettlementInvoicesDialog.show(
+          context,
+          importFileId: file.importFileId,
+          importFileCode: file.importFileCode,
+        );
+        break;
+      case 'clo02_actual_landed':
+        ActualLandedCostDialog.show(
+          context,
+          importFileId: file.importFileId,
+          importFileCode: file.importFileCode,
+        );
+        break;
+      case 'audit_timeline_radar':
+        showShipmentAuditTimelineDialog(context, importFileId: file.importFileId);
+        break;
+    }
+  }
+
+  void _handleDocumentAction(BuildContext context, ImportFileModel file, String action) {
+    switch (action) {
+      case 'dc01_acid':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => NafezaAcidScreen(
+              initialImportFileId: file.importFileId,
+              initialSubTab: (file.acidNumber != null && file.acidNumber!.isNotEmpty && file.acidNumber != 'PENDING') ? 3 : 0,
+            ),
+          ),
+        );
+        break;
+      case 'dc03_bank':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BankForm4Screen(
+              initialImportFileId: file.importFileId,
+              initialSubTab: (file.form4No != null && file.form4No!.isNotEmpty && file.form4No != 'PENDING') ? 1 : 0,
+            ),
+          ),
+        );
+        break;
+      case 'dc04_matrix':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ShipmentDraftDocsScreen(
+              initialImportFileId: file.importFileId,
+              initialSubTab: 0,
+            ),
+          ),
+        );
+        break;
+      case 'bk01_booking':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FreightBookingScreen(
+              initialImportFileId: file.importFileId,
+            ),
+          ),
+        );
+        break;
+      case 'bk02_free_days':
+        FreeDaysAgreementDialog.show(
+          context,
+          initialImportFileId: file.importFileId,
+          initialDemurrageDays: file.targetFreeDays,
+        );
+        break;
+      case 'sh01_sailing':
+        final bookings = ref.read(freightBookingProvider).value ?? [];
+        final linkedBooking = bookings.firstWhere(
+          (b) => b.importFileId == file.importFileId,
+          orElse: () => ShipmentBookingModel(
+            bookingId: 0,
+            bookingCode: 'NEW-BKG',
+            importFileId: file.importFileId,
+            importFileCode: file.importFileCode,
+            createdAt: '',
+            updatedAt: '',
+          ),
+        );
+        if (linkedBooking.bookingId > 0) {
+          DepartureConfirmationDialog.show(context, linkedBooking);
+        } else {
+          final isAr = Localizations.localeOf(context).languageCode == 'ar';
+          ScaffoldMessenger.of(context).showSnackBar(
+            AppTheme.snackBar(
+              context,
+              isAr ? 'يرجى إنشاء وتأكيد حجز الشحن (BK-01) أولاً من شاشة حجز الشحن لتسجيل الإبحار' : 'Please create and confirm freight booking (BK-01) first to record departure',
+              severity: AppSeverity.warning,
+            ),
+          );
+        }
+        break;
+      case 'sh02_draft_bl':
+        DraftBLReviewDialog.show(context, file);
+        break;
+      case 'sh03_cargox':
+        CargoXHubDialog.show(context, file);
+        break;
+      case 'sh04_original_docs':
+        OriginalDocumentsCollectionDialog.show(context, file);
+        break;
+      case 'cs01_broker_auth':
+        CustomsBrokerAuthorizationDialog.show(context, file);
+        break;
+      case 'cs03_declaration_46':
+        CustomsDeclaration46Dialog.show(context, file);
+        break;
+      case 'cl01_inspection':
+        CustomsInspectionSamplingDialog.show(context, file);
+        break;
+      case 'cl04_final_release':
+        CustomsFinalReleaseDialog.show(context, file);
+        break;
+      case 'tr01_inland_transport':
+        InlandTransportDialog.show(context, file);
+        break;
+      case 'tr02_demurrage_radar':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (ctx) => const DemurrageDetentionScreen(),
+          ),
+        );
+        break;
+      case 'tr03_warehouse_receiving':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (ctx) => const WarehouseReceivingScreen(),
+          ),
+        );
+        break;
+      case 'tr04_warehouse_inspection':
+        final recs = ref.read(warehouseReceivingProvider).valueOrNull ?? [];
+        final matching = recs.where((r) => r.importFileId == file.importFileId).toList();
+        final calculatedQty = file.packingListsData.isNotEmpty
+            ? file.packingListsData.fold<int>(0, (sum, pl) => sum + pl.totalPackages)
+            : 100;
+        final targetRec = matching.isNotEmpty
+            ? matching.first
+            : WarehouseReceivingModel(
+                receivingId: file.importFileId,
+                grnCode: 'GRN-',
+                importFileId: file.importFileId,
+                warehouseName: 'Main Warehouse - Cairo',
+                arrivalDatetime: DateTime.now().toIso8601String(),
+                totalInvoicedQty: calculatedQty > 0 ? calculatedQty : 100,
+                totalAcceptedQty: calculatedQty > 0 ? calculatedQty : 100,
+                totalShortageQty: 0,
+                totalDamagedQty: 0,
+                createdAt: DateTime.now().toIso8601String(),
+                updatedAt: DateTime.now().toIso8601String(),
+              );
+        WarehouseInspectionDialog.show(context, record: targetRec, importFileCode: file.importFileCode);
+        break;
+      case 'tr05_empty_return':
+        EmptyContainerReturnDialog.show(
+          context,
+          initialImportFileId: file.importFileId,
+          initialEirNumber: file.emptyContainersEirNumbers,
+          initialDepotName: file.emptyContainersDepotName,
+        );
+        break;
+      case 'clo03_dossier':
+        ComprehensiveDossierExportDialog.show(
+          context,
+          file: file,
+        );
+        break;
+      case 'clo04_official_closure':
+        OfficialFileClosureDialog.show(
+          context,
+          file: file,
+        );
+        break;
+      case 'smart_checklist':
+        SmartChecklistDialog.show(context, file);
+        break;
+      case 'add_kb_note':
+        showDialog(
+          context: context,
+          builder: (ctx) => AddGuideEntryDialog(
+            initialSupplier: file.supplierName,
+            initialHsCode: file.hsCode,
+            initialCategory: file.productCategory,
+            initialDestinationPort: file.portOfDischarge,
+            initialIncoterm: file.incotermCode,
+            initialImportFileReference: file.importFileCode,
+            onSuccess: () => _loadExperienceGuide(),
+          ),
+        );
+        break;
+    }
   }
 }

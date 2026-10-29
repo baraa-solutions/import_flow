@@ -138,7 +138,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   Future<void> _handleDownloadTemplate() async {
     if (_selectedImportFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.standardInvoiceSelectFileFirstError), backgroundColor: Colors.red),
+        AppTheme.snackBar(context, context.l10n.standardInvoiceSelectFileFirstError, severity: AppSeverity.danger),
       );
       return;
     }
@@ -651,7 +651,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   Future<void> _handlePickAndParseExcel() async {
     if (_selectedImportFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.standardInvoiceSelectFileFirstError), backgroundColor: Colors.red),
+        AppTheme.snackBar(context, context.l10n.standardInvoiceSelectFileFirstError, severity: AppSeverity.danger),
       );
       return;
     }
@@ -720,7 +720,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   Future<void> _handleSaveSession({bool isDraft = false}) async {
     if (_selectedImportFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.standardInvoiceSelectFileFirstError), backgroundColor: Colors.red),
+        AppTheme.snackBar(context, context.l10n.standardInvoiceSelectFileFirstError, severity: AppSeverity.danger),
       );
       return;
     }
@@ -2453,7 +2453,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                   await CargoXExportService.saveSessionsTsvToFile(context: context, sessions: sessions, shipments: importFiles);
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(context.l10n.cargoxCopiedTsvSuccess)),
+                    AppTheme.snackBar(context, context.l10n.cargoxCopiedTsvSuccess),
                   );
                 },
               ),
@@ -2468,7 +2468,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                   await CargoXExportService.saveSessionsCsvToFile(context: context, sessions: sessions, shipments: importFiles);
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(context.l10n.cargoxCopiedExcelSuccess)),
+                    AppTheme.snackBar(context, context.l10n.cargoxCopiedExcelSuccess),
                   );
                 },
               ),
@@ -2483,7 +2483,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                   await CargoXExportService.printOrSaveSessionsPdf(context: context, sessions: sessions, shipments: importFiles);
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(context.l10n.cargoxExportPdfDialogTitle)),
+                    AppTheme.snackBar(context, context.l10n.cargoxExportPdfDialogTitle),
                   );
                 },
               ),

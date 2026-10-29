@@ -385,7 +385,7 @@ void main() {
 
       // 1. Verify SmartUploadButton exists in dialog (both header and tabs)
       expect(find.byType(SmartUploadButton), findsWidgets);
-      expect(find.text('🚀 استخلاص ذكي (PI / PL)'), findsOneWidget);
+      expect(find.text('🚀 استخلاص ذكي للمستندات'), findsOneWidget);
 
       // 2. Verify prefilled Proforma Invoice Number & PO Reference
       expect(find.text('PI-2026-DE-8890'), findsOneWidget);

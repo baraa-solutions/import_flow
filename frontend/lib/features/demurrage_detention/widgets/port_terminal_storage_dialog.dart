@@ -1,9 +1,7 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/app_date_picker_field.dart';
 import '../models/port_storage_model.dart';
 import '../services/port_storage_service.dart';
 
@@ -111,7 +109,7 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
     final b = _breakdown!;
     final buffer = StringBuffer()
       ..writeln('محطة الميناء:\t${b.terminalName} (${b.terminalCode})')
-      ..writeln('نوع ومقاس الحاوية:\t${b.containerSize} ${b.isReefer ? "(مبردة Reefer)" : ""}')
+      ..writeln('نوع ومقاس الحاوية:\t${b.containerSize} ${b.isReefer ? "مبردة" : ""}')
       ..writeln('تاريخ الدخول:\t${b.gateInDate}')
       ..writeln('تاريخ الاحتساب:\t${b.endDate}')
       ..writeln('إجمالي الأيام:\t${b.totalDays} يوم (سماح: ${b.freeDaysAllowed} يوم | خاضع: ${b.chargeableDays} يوم)')
@@ -122,8 +120,7 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
       ..writeln('رسوم كشف إشعاعي وميزان:\t${b.xrayScanFeeEgp + b.scaleFeeEgp} ج.م')
       ..writeln('إجمالي أرضيات المحطة:\t${b.totalPortStorageEgp} ج.م');
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    AppTheme.snackBar(context, 'تم نسخ تفاصيل أرضيات المحطة بنجاح', severity: AppSeverity.success);
+    CopyHelper.copy(context, buffer.toString(), customMessage: 'تم نسخ تفاصيل أرضيات المحطة بنجاح');
   }
 
   @override
@@ -131,7 +128,8 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       backgroundColor: Colors.transparent,
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 950,
         height: 680,
         decoration: BoxDecoration(
@@ -479,8 +477,9 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildTierRow(String title, String subtitle, String amount, Color color) {
     return Container(

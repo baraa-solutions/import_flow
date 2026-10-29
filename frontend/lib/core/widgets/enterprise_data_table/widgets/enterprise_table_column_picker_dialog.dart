@@ -193,6 +193,7 @@ class _EnterpriseTableColumnPickerDialogState<T>
                   : ReorderableListView.builder(
                       buildDefaultDragHandles: true,
                       itemCount: _orderedColumns.length,
+                      // ignore: deprecated_member_use
                       onReorder: (oldIndex, newIndex) {
                         setState(() {
                           if (oldIndex < newIndex) {

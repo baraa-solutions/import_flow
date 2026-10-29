@@ -86,7 +86,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   Future<void> _handleRunMatrixCheck() async {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.customsApprovalSelectFileForMatrixWarning)),
+        AppTheme.snackBar(context, context.l10n.customsApprovalSelectFileForMatrixWarning, severity: AppSeverity.warning),
       );
       return;
     }
@@ -119,7 +119,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   Future<void> _handleAutoGenerate() async {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.customsApprovalSelectFileWarning)),
+        AppTheme.snackBar(context, context.l10n.customsApprovalSelectFileWarning, severity: AppSeverity.warning),
       );
       return;
     }
@@ -128,7 +128,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
       await ref.read(docsCustomsApprovalProvider.notifier).autoGenerateChecklist(_selectedImportFileId!);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.customsApprovalStandardListGeneratedSuccess), backgroundColor: AppTheme.emerald),
+        AppTheme.snackBar(context, context.l10n.customsApprovalStandardListGeneratedSuccess, severity: AppSeverity.success),
       );
     } catch (e) {
       if (!mounted) return;
@@ -237,7 +237,7 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   void _showRaiseTicketDialog([CustomsDocumentApprovalModel? item, DiscrepancyRectificationTicketModel? initialTicket]) {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.customsApprovalSelectFileForTicketWarning)),
+        AppTheme.snackBar(context, context.l10n.customsApprovalSelectFileForTicketWarning, severity: AppSeverity.warning),
       );
       return;
     }

@@ -3,12 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
-import '../../../core/widgets/metric_card.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/warehouse_receiving_model.dart';
@@ -16,7 +12,6 @@ import '../providers/goods_in_transit_provider.dart';
 import '../providers/warehouse_receiving_provider.dart';
 import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/services/table_export_service.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
 import '../widgets/grn_discrepancy_dialog.dart';
 import '../widgets/grn_record_card.dart';
 import '../widgets/ops_ui_kit.dart';
@@ -24,7 +19,6 @@ import '../widgets/search_and_clone_warehouse_receiving_dialog.dart';
 import '../widgets/warehouse_inspection_dialog.dart';
 import '../widgets/warehouse_receiving_form_dialog.dart';
 import '../../../core/localization/api_error_text.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/localization/stored_text.dart';
 
 class WarehouseReceivingScreen extends ConsumerStatefulWidget {
@@ -220,7 +214,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
   void _copyGrnTableTsv(List<WarehouseReceivingModel> records, AppLocalizations l) {
     if (records.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.warehouseReceivingEmptyRecords), backgroundColor: AppTheme.orange),
+        AppTheme.snackBar(context, l.warehouseReceivingEmptyRecords, severity: AppSeverity.warning),
       );
       return;
     }
@@ -359,30 +353,13 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
 
   Future<void> _confirmFinalReceipt(WarehouseReceivingModel record) async {
     final l10n = context.l10n;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.check_circle, color: AppTheme.emerald),
-            const SizedBox(width: 8),
-            Text(l10n.warehouseReceivingConfirmReceiptTitle),
-          ],
-        ),
-        content: Text(
-          l10n.warehouseReceivingConfirmReceiptMessage(record.grnCode),
-          style: const TextStyle(height: 1.5),
-        ),
-        actions: [
-          AppButton(label: l10n.cancel, variant: AppButtonVariant.secondary, onPressed: () => Navigator.pop(c, false)),
-          AppButton(
-            label: l10n.warehouseReceivingConfirmReceiptBtn,
-            variant: AppButtonVariant.success,
-            icon: Icons.verified,
-            onPressed: () => Navigator.pop(c, true),
-          ),
-        ],
-      ),
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: l10n.warehouseReceivingConfirmReceiptTitle,
+      message: l10n.warehouseReceivingConfirmReceiptMessage(record.grnCode),
+      confirmLabel: l10n.warehouseReceivingConfirmReceiptBtn,
+      confirmVariant: AppButtonVariant.success,
+      icon: Icons.check_circle,
     );
 
     if (confirm == true) {
@@ -396,16 +373,17 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.warehouseReceivingConfirmReceiptSuccess(record.grnCode)),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              l10n.warehouseReceivingConfirmReceiptSuccess(record.grnCode),
+              severity: AppSeverity.success,
             ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(ApiErrorText.of(l10n, e)), backgroundColor: AppTheme.crimson),
+            AppTheme.snackBar(context, ApiErrorText.of(l10n, e), severity: AppSeverity.danger),
           );
         }
       }
@@ -435,30 +413,19 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
 
   Future<void> _deleteGrn(WarehouseReceivingModel r) async {
     final l = context.l10n;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(l.warehouseReceivingDeleteTitle),
-        content: Text(l.warehouseReceivingDeleteConfirmMessage),
-        actionsPadding: const EdgeInsetsDirectional.fromSTEB(20, 4, 20, 16),
-        actions: [
-          AppButton(label: l.cancel, variant: AppButtonVariant.secondary, onPressed: () => Navigator.pop(c, false)),
-          AppButton(
-            label: l.delete,
-            variant: AppButtonVariant.danger,
-            icon: Icons.delete_outline,
-            onPressed: () => Navigator.pop(c, true),
-          ),
-        ],
-      ),
+    final confirm = await AppConfirmDialog.showDelete(
+      context,
+      title: l.warehouseReceivingDeleteTitle,
+      message: l.warehouseReceivingDeleteConfirmMessage,
     );
     if (confirm == true && mounted) {
       final messenger = ScaffoldMessenger.of(context);
       try {
         await ref.read(warehouseReceivingProvider.notifier).softDeleteRecord(r.receivingId);
       } catch (e) {
+        if (!mounted) return;
         messenger.showSnackBar(
-          SnackBar(content: Text(ApiErrorText.of(l, e)), backgroundColor: AppTheme.crimson),
+          AppTheme.snackBar(context, ApiErrorText.of(l, e), severity: AppSeverity.danger),
         );
       }
     }

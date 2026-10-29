@@ -118,9 +118,11 @@ class _POPackingReconciliationScreenState extends ConsumerState<POPackingReconci
               onPressed: _refreshData,
             ),
           ],
-          body: POReconciliationTab(
+          body: SelectionArea(
+            child: POReconciliationTab(
             key: _tabKey,
             initialImportFileId: _selectedImportFileId,
+            ),
           ),
         ),
       ),

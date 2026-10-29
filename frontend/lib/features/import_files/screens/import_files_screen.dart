@@ -188,7 +188,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+        AppTheme.snackBar(context, '❌ Error: $e', severity: AppSeverity.danger),
       );
     }
   }
@@ -1140,7 +1140,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+          AppTheme.snackBar(context, '❌ Error: $e', severity: AppSeverity.danger),
         );
       }
     }
@@ -1337,38 +1337,25 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
   }
 
   Widget _buildMetricMiniCard(String title, String value, String sub, Color color) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : color.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(height: 4),
-          CopyableText(value, showIcon: false, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(height: 2),
-          Text(sub, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey), overflow: TextOverflow.ellipsis),
-        ],
+    return MetricCard(
+      data: MetricCardData(
+        title: title,
+        value: value,
+        tooltip: sub,
+        icon: Icons.analytics_outlined,
+        color: color,
       ),
     );
   }
 
   Widget _buildMetricCard(String title, String value, Color color) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: color.withOpacity(0.3))),
-        child: Column(
-          children: [
-            Text(title, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            CopyableText(value, showIcon: false, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.bold)),
-          ],
+      child: MetricCard(
+        data: MetricCardData(
+          title: title,
+          value: value,
+          icon: Icons.folder_outlined,
+          color: color,
         ),
       ),
     );
@@ -1485,9 +1472,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
           );
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(l.clonedSuccessfullyToast(cloned?.importFileCode ?? newCode)),
-                backgroundColor: AppTheme.emerald,
+              AppTheme.snackBar(
+                context,
+                l.clonedSuccessfullyToast(cloned?.importFileCode ?? newCode),
+                severity: AppSeverity.success,
               ),
             );
           }
@@ -1496,9 +1484,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('${l.errorPrefix}: $e'),
-                backgroundColor: AppTheme.crimson,
+              AppTheme.snackBar(
+                context,
+                '${l.errorPrefix}: $e',
+                severity: AppSeverity.danger,
               ),
             );
           }
@@ -1709,9 +1698,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                               paginatedState,
                             );
                           }
-                          final ambientDirection = Directionality.of(context);
                           final density = ref.watch(displayDensityProvider);
-                          // Column widths for 1:1 pixel-perfect alignment between sticky header and scrolling body
                           const double colActionsWidth = 215.0;
                           const double colFileIdWidth = 160.0;
                           const double colCompanyWidth = 180.0;
@@ -1739,543 +1726,437 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                               colNextActionWidth +
                               colOwnerWidth +
                               colStatusWidth +
-                              (18.0 * 12) +
+                              (20.0 * 12) +
                               32.0;
 
-                          final headerColumns = [
-                            DataColumn(label: SizedBox(width: colActionsWidth, child: Text(l.actions, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colFileIdWidth, child: Text(l.importFileIdLabel, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colCompanyWidth, child: Text(l.importingCompany, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colPoWidth, child: Text(l.poInvoiceLabel, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colSupplierWidth, child: Text(l.foreignSupplier, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colTransportWidth, child: Text(l.transportModeIncoterm, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colPriorityWidth, child: Text(l.priorityType, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colEtaWidth, child: Text(l.targetEta, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colStageWidth, child: Text(l.currentPhaseStage, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colProgressWidth, child: Text(l.progressPercentLabel, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colNextActionWidth, child: Text(l.nextActionLabel, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colOwnerWidth, child: Text(l.responsiblePersonLabel, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                            DataColumn(label: SizedBox(width: colStatusWidth, child: Text(l.status, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                          ];
+                          final isAr = Directionality.of(context) == TextDirection.rtl || ref.watch(localeProvider).languageCode == 'ar';
 
-                          final dummyBodyColumns = [
-                            const DataColumn(label: SizedBox(width: colActionsWidth)),
-                            const DataColumn(label: SizedBox(width: colFileIdWidth)),
-                            const DataColumn(label: SizedBox(width: colCompanyWidth)),
-                            const DataColumn(label: SizedBox(width: colPoWidth)),
-                            const DataColumn(label: SizedBox(width: colSupplierWidth)),
-                            const DataColumn(label: SizedBox(width: colTransportWidth)),
-                            const DataColumn(label: SizedBox(width: colPriorityWidth)),
-                            const DataColumn(label: SizedBox(width: colEtaWidth)),
-                            const DataColumn(label: SizedBox(width: colStageWidth)),
-                            const DataColumn(label: SizedBox(width: colProgressWidth)),
-                            const DataColumn(label: SizedBox(width: colNextActionWidth)),
-                            const DataColumn(label: SizedBox(width: colOwnerWidth)),
-                            const DataColumn(label: SizedBox(width: colStatusWidth)),
-                          ];
-
-                          return Scrollbar(
-                            controller: _horizontalTableScrollController,
-                            thumbVisibility: true,
-                            trackVisibility: true,
-                            thickness: 10,
-                            radius: const Radius.circular(5),
-                            child: SingleChildScrollView(
-                              controller: _horizontalTableScrollController,
-                              scrollDirection: Axis.horizontal,
-                              child: SizedBox(
-                                width: tableTotalWidth,
-                                height: constraints.maxHeight,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    // ── Sticky Header Row (Pinned at Top) ──────────────
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: isDark ? AppTheme.darkSurface : const Color(0xFFF1F5F9),
-                                        border: Border(
-                                          bottom: BorderSide(
-                                            color: isDark ? AppTheme.darkBorder : const Color(0xFFCBD5E1),
-                                            width: 1.5,
-                                          ),
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(isDark ? 0.35 : 0.07),
-                                            offset: const Offset(0, 2),
-                                            blurRadius: 4,
-                                          ),
-                                        ],
-                                      ),
-                                      child: DataTable(
-                                        columnSpacing: 18,
-                                        horizontalMargin: 16,
-                                        headingRowHeight: density.headerHeight,
-                                        dataRowMinHeight: 0,
-                                        dataRowMaxHeight: 0,
-                                        headingRowColor: WidgetStateProperty.all(
-                                          isDark ? AppTheme.darkSurface : const Color(0xFFF1F5F9),
-                                        ),
-                                        headingTextStyle: TextStyle(
-                                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: density.tableHeaderFontSize,
-                                        ),
-                                        columns: headerColumns,
-                                        rows: const [],
-                                      ),
-                                    ),
-
-                                     // ── Dedicated Scrollable Table Body (Vertical Scrollbar Flipped to Left via RTL Direction Trick) ──
-                                     Expanded(
-                                       child: Directionality(
-                                         textDirection: ambientDirection == TextDirection.ltr ? TextDirection.rtl : ambientDirection, // LTR keeps the scrollbar on the left; RTL uses the native side
-                                         child: Scrollbar(
-                                           controller: _verticalTableScrollController,
-                                           thumbVisibility: true,
-                                           child: Directionality(
-                                             textDirection: ambientDirection,
-                                             child: SingleChildScrollView(
-                                               controller: _verticalTableScrollController,
-                                               child: DataTable(
-                                            columnSpacing: 18,
-                                            horizontalMargin: 16,
-                                            headingRowHeight: 0,
-                                            dataRowMinHeight: density.rowHeight,
-                                            dataRowMaxHeight: density.rowHeight + 16,
-                                            dataTextStyle: TextStyle(
-                                              fontSize: density.tableCellPrimaryFontSize,
-                                              color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
-                                            ),
-                                            columns: dummyBodyColumns,
-                                            rows: paginatedState.items.map((file) {
-                               final priorityText = _getPriorityLabel(file.priority, l);
-                               final statusText = _getStatusLabel(file.status, l);
-
-                               String poDisplay;
-                               if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
-                                 poDisplay = file.poNumber!.trim();
-                               } else {
-                                 final linkedPOs = linkedPOsCache.putIfAbsent(file.importFileId, () => ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs));
-                                 if (linkedPOs.isNotEmpty) {
-                                   poDisplay = linkedPOs.map((p) => (p.poReference != null && p.poReference!.trim().isNotEmpty && p.poReference != file.customFileNumber && p.poReference != file.importFileCode) ? p.poReference! : p.poNumber).join(', ');
-                                 } else {
-                                   poDisplay = '-';
-                                 }
-                               }
-                               final piDisplay = file.piNumber != null && file.piNumber!.trim().isNotEmpty ? file.piNumber!.trim() : '-';
-                               final isAr = Directionality.of(context) == TextDirection.rtl || ref.watch(localeProvider).languageCode == 'ar';
-                               final resolvedStage = DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr);
-                               final resolvedAction = file.displayNextAction(context.l10n);
-                               final shipDisplayName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
-                               final rowSummary = '$shipDisplayName\t${file.companyName}\t${l.poNumberShortPrefix}$poDisplay, ${l.piNumberShortPrefix}$piDisplay\t${file.supplierName}\t${file.shipmentMode} (${file.incotermCode})\t$priorityText\t${file.requiredEta ?? "-"}\t$resolvedStage\t${file.progressPercent.toInt()}%\t$resolvedAction\t${file.owner}\t$statusText';
-
-                               return DataRow(
-                                 selected: _highlightedFileId == file.importFileId,
-                                 onSelectChanged: (selected) {
-                                   setState(() {
-                                     _highlightedFileId = (selected == true) ? file.importFileId : null;
-                                   });
-                                 },
-                                 cells: [
-                                   DataCell(
-                                     SizedBox(
-                                       width: colActionsWidth,
-                                       child: SingleChildScrollView(
-                                         scrollDirection: Axis.horizontal,
-                                         child: Row(
-                                           mainAxisSize: MainAxisSize.min,
-                                           children: [
-                                         if (file.status != 'Closed')
-                                           IconButton(
-                                             icon: const Icon(Icons.cancel_outlined, color: AppTheme.crimson, size: 18),
-                                             tooltip: l.stopShipmentTooltip,
-                                             onPressed: () {
-                                               StopShipmentDialog.show(
-                                                 context,
-                                                 importFile: file,
-                                                 currentPhaseName: file.currentModule,
-                                                 onSuccess: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page),
-                                               );
-                                             },
-                                           )
-                                         else
-                                           IconButton(
-                                             icon: const Icon(Icons.play_arrow, color: AppTheme.emerald, size: 18),
-                                             tooltip: l.reopenShipmentTooltip,
-                                             onPressed: () {
-                                               ReopenShipmentDialog.show(
-                                                 context,
-                                                 importFile: file,
-                                                 onSuccess: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page),
-                                               );
-                                             },
-                                           ),
-                                         IconButton(
-                                           icon: const Icon(Icons.mark_email_unread_outlined, color: AppTheme.cobalt, size: 18),
-                                           tooltip: l.freightRfqTooltip,
-                                           onPressed: () {
-                                             FreightRfqDialog.show(
-                                               context,
-                                               importFileId: file.importFileId,
-                                               importFileCode: file.importFileCode,
-                                               customFileNumber: file.customFileNumber,
-                                             );
-                                           },
-                                         ),
-                                         if (file.status != 'Closed')
-                                           IconButton(
-                                             icon: const Icon(Icons.fast_forward_rounded, color: AppTheme.orange, size: 18),
-                                             tooltip: '${l.skipStepBtn}: $resolvedStage',
-                                             onPressed: () => SkipStepDialogHelper.show(
-                                               context: context,
-                                               ref: ref,
-                                               importFileCode: file.importFileCode,
-                                               currentStepCode: file.currentStage,
-                                               currentStepName: file.currentModule,
-                                               onSuccess: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page),
-                                             ),
-                                           ),
-                                         IconButton(
-                                           icon: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 18),
-                                           tooltip: l.cloneImportFileDialogTitle,
-                                           onPressed: () => _showCloneDialog(file),
-                                         ),
-                                           const SizedBox(width: 4),
-                                           IconButton(
-                                             icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
-                                             tooltip: Localizations.localeOf(context).languageCode == 'ar'
-                                                 ? 'المرجع الذكي للشحنة (Smart Reference)'
-                                                 : 'Shipment Smart Reference',
-                                             splashRadius: 18,
-                                             padding: EdgeInsets.zero,
-                                             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                             onPressed: () => _showSmartReferenceDialog(context, file),
-                                           ),
-                                           const SizedBox(width: 4),
-                                           IconButton(
-                                             icon: const Icon(Icons.playlist_add_check_circle, color: AppTheme.cobalt, size: 20),
-                                             tooltip: l.smartChecklistTooltip,
-                                             splashRadius: 18,
-                                             padding: EdgeInsets.zero,
-                                             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                             onPressed: () => SmartChecklistDialog.show(context, file),
-                                           ),
-                                           const SizedBox(width: 4),
-                                           IconButton(
-                                             icon: const Icon(Icons.summarize_outlined, color: AppTheme.cobalt, size: 18),
-                                             tooltip: 'تقرير الشحنة الشامل المدمج (Screen 47)',
-                                             splashRadius: 18,
-                                             padding: EdgeInsets.zero,
-                                             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                             onPressed: () {
-                                               ref.read(selectedComprehensiveReportFileIdProvider.notifier).state = file.importFileId;
-                                               selectNavigationIndex(ref, 47, tabTitle: 'تقرير الشحنة الشامل المدمج');
-                                             },
-                                           ),
-                                           const SizedBox(width: 4),
-                                            IconButton(
-                                              icon: const Icon(Icons.rate_review_outlined, color: AppTheme.cobalt, size: 18),
-                                              tooltip: 'ملاحظات ومرفقات الشحنة',
-                                              splashRadius: 18,
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                              onPressed: () => StageNotesCard.showAsDialog(
+                          return EnterpriseDataTable<ImportFileModel>(
+                            data: paginatedState.items,
+                            storageKey: 'import_files_master_table',
+                            isLoading: paginatedState.isLoading,
+                            showHeaderToolbar: false,
+                            showPagination: false,
+                            isScrollable: true,
+                            minWidth: tableTotalWidth,
+                            headerHeight: density.headerHeight,
+                            rowHeight: density.rowHeight + 14,
+                            columns: [
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'actions',
+                                title: l.actions,
+                                width: colActionsWidth,
+                                isSortable: false,
+                                isSearchable: false,
+                                cellBuilder: (context, file, index) {
+                                  final resolvedStage = DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr);
+                                  return SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (file.status != 'Closed')
+                                          IconButton(
+                                            icon: const Icon(Icons.cancel_outlined, color: AppTheme.crimson, size: 18),
+                                            tooltip: l.stopShipmentTooltip,
+                                            onPressed: () {
+                                              StopShipmentDialog.show(
                                                 context,
-                                                screenCode: 'import_files',
-                                                recordId: file.importFileId,
-                                                stageCode: file.currentStage,
-                                                title: 'ملاحظات ومرفقات الشحنة',
+                                                importFile: file,
+                                                currentPhaseName: file.currentModule,
+                                                onSuccess: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page),
+                                              );
+                                            },
+                                          )
+                                        else
+                                          IconButton(
+                                            icon: const Icon(Icons.play_arrow, color: AppTheme.emerald, size: 18),
+                                            tooltip: l.reopenShipmentTooltip,
+                                            onPressed: () {
+                                              ReopenShipmentDialog.show(
+                                                context,
+                                                importFile: file,
+                                                onSuccess: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page),
+                                              );
+                                            },
+                                          ),
+                                        IconButton(
+                                          icon: const Icon(Icons.mark_email_unread_outlined, color: AppTheme.cobalt, size: 18),
+                                          tooltip: l.freightRfqTooltip,
+                                          onPressed: () {
+                                            FreightRfqDialog.show(
+                                              context,
+                                              importFileId: file.importFileId,
+                                              importFileCode: file.importFileCode,
+                                              customFileNumber: file.customFileNumber,
+                                            );
+                                          },
+                                        ),
+                                        if (file.status != 'Closed')
+                                          IconButton(
+                                            icon: const Icon(Icons.fast_forward_rounded, color: AppTheme.orange, size: 18),
+                                            tooltip: '${l.skipStepBtn}: $resolvedStage',
+                                            onPressed: () => SkipStepDialogHelper.show(
+                                              context: context,
+                                              ref: ref,
+                                              importFileCode: file.importFileCode,
+                                              currentStepCode: file.currentStage,
+                                              currentStepName: file.currentModule,
+                                              onSuccess: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page),
+                                            ),
+                                          ),
+                                        IconButton(
+                                          icon: const Icon(Icons.control_point_duplicate_rounded, color: AppTheme.cobalt, size: 18),
+                                          tooltip: l.cloneImportFileDialogTitle,
+                                          onPressed: () => _showCloneDialog(file),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
+                                          tooltip: Localizations.localeOf(context).languageCode == 'ar'
+                                              ? 'المرجع الذكي للشحنة (Smart Reference)'
+                                              : 'Shipment Smart Reference',
+                                          splashRadius: 18,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                          onPressed: () => _showSmartReferenceDialog(context, file),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          icon: const Icon(Icons.playlist_add_check_circle, color: AppTheme.cobalt, size: 20),
+                                          tooltip: l.smartChecklistTooltip,
+                                          splashRadius: 18,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                          onPressed: () => SmartChecklistDialog.show(context, file),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          icon: const Icon(Icons.summarize_outlined, color: AppTheme.cobalt, size: 18),
+                                          tooltip: 'تقرير الشحنة الشامل المدمج (Screen 47)',
+                                          splashRadius: 18,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                          onPressed: () {
+                                            ref.read(selectedComprehensiveReportFileIdProvider.notifier).state = file.importFileId;
+                                            selectNavigationIndex(ref, 47, tabTitle: 'تقرير الشحنة الشامل المدمج');
+                                          },
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          icon: const Icon(Icons.rate_review_outlined, color: AppTheme.cobalt, size: 18),
+                                          tooltip: 'ملاحظات ومرفقات الشحنة',
+                                          splashRadius: 18,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                          onPressed: () => StageNotesCard.showAsDialog(
+                                            context,
+                                            screenCode: 'import_files',
+                                            recordId: file.importFileId,
+                                            stageCode: file.currentStage,
+                                            title: 'ملاحظات ومرفقات الشحنة',
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        RowActionsPill(
+                                          onView: () => _showImportFileDetailsDialog(context, file),
+                                          onEdit: () => _showAddEditFileDialog(file),
+                                          onClone: () => _showCloneDialog(file),
+                                          onPrint: () {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              AppTheme.snackBar(
+                                                context,
+                                                '${l.printFileHistoryTooltip}: ${file.customFileNumber ?? file.importFileCode}',
+                                                severity: AppSeverity.info,
+                                              ),
+                                            );
+                                          },
+                                          onDelete: () async {
+                                            final confirm = await AppConfirmDialog.showDelete(
+                                              context,
+                                              title: l.confirmDeleteImportFileTitle,
+                                              message: l.confirmDeleteImportFilePrompt(file.customFileNumber ?? file.importFileCode),
+                                            );
+                                            if (confirm) {
+                                              await ref.read(importFilesProvider.notifier).softDeleteImportFile(file.importFileId);
+                                              ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page);
+                                            }
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'file_id',
+                                title: l.importFileIdLabel,
+                                width: colFileIdWidth,
+                                isSortable: true,
+                                searchValue: (file) => '${DisplayNameResolver.resolveShipmentName(file, isArabic: isAr)} ${file.importFileCode} ${file.clonedFromCode ?? ""} ${file.parentFileCode ?? ""}',
+                                exportValue: (file) => DisplayNameResolver.resolveShipmentName(file, isArabic: isAr),
+                                cellBuilder: (context, file, index) {
+                                  final shipDisplayName = DisplayNameResolver.resolveShipmentName(file, isArabic: isAr);
+                                  return InkWell(
+                                    onTap: () => _showImportFileDetailsDialog(context, file),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          shipDisplayName,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: density.tableCellPrimaryFontSize,
+                                            color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                        ),
+                                        if (shipDisplayName != file.importFileCode)
+                                          LtrText(
+                                            file.importFileCode,
+                                            style: TextStyle(
+                                              fontSize: density.tableCellSecondaryFontSize,
+                                              color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF475569),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        if (file.clonedFromCode != null && file.clonedFromCode!.isNotEmpty)
+                                          Text(
+                                            l.clonedFromBadge(file.clonedFromCode!),
+                                            style: TextStyle(
+                                              fontSize: density.tableCellSecondaryFontSize,
+                                              color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        if (file.isChildPartial && file.parentFileCode != null)
+                                          Container(
+                                            margin: const EdgeInsets.only(top: 2),
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: Colors.amber.withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.amber.shade700, width: 0.8),
+                                            ),
+                                            child: Text(
+                                              'دفعة جزئية من ${file.parentFileCode}',
+                                              style: TextStyle(
+                                                fontSize: density.tableCellSecondaryFontSize - 1,
+                                                color: isDark ? Colors.amber.shade300 : Colors.amber.shade900,
+                                                fontWeight: FontWeight.bold,
                                               ),
                                             ),
-          const SizedBox(width: 4),
-                                           RowActionsPill(
-                                           onView: () => _showImportFileDetailsDialog(context, file),
-                                           onEdit: () => _showAddEditFileDialog(file),
-                                           onClone: () => _showCloneDialog(file),
-                                           onPrint: () {
-                                             AppTheme.snackBar(
-                                               context,
-                                               '${l.printFileHistoryTooltip}: ${file.customFileNumber ?? file.importFileCode}',
-                                               severity: AppSeverity.info,
-                                             );
-                                           },
-                                           onDelete: () async {
-
-                                             final confirm = await AppConfirmDialog.showDelete(
-
-                                               context,
-
-                                               title: l.confirmDeleteImportFileTitle,
-
-                                               message: l.confirmDeleteImportFilePrompt(file.customFileNumber ?? file.importFileCode),
-
-                                             );
-
-                                             if (confirm) {
-
-                                               await ref.read(importFilesProvider.notifier).softDeleteImportFile(file.importFileId);
-
-                                               ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page);
-
-                                             }
-
-                                           },
-                                         ),
-                                        ],
+                                          ),
+                                        if (file.isParentPartial)
+                                          Container(
+                                            margin: const EdgeInsets.only(top: 2),
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue.withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.blue.shade700, width: 0.8),
+                                            ),
+                                            child: Text(
+                                              'شحنة مجزأة (رئيسية)',
+                                              style: TextStyle(
+                                                fontSize: density.tableCellSecondaryFontSize - 1,
+                                                color: isDark ? Colors.lightBlueAccent : Colors.blue.shade900,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'company',
+                                title: l.importingCompany,
+                                width: colCompanyWidth,
+                                isSortable: true,
+                                searchValue: (file) => file.companyName,
+                                exportValue: (file) => file.companyName,
+                                cellBuilder: (context, file, index) => Text(file.companyName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'po_invoice',
+                                title: l.poInvoiceLabel,
+                                width: colPoWidth,
+                                isSortable: true,
+                                searchValue: (file) {
+                                  String poDisplay;
+                                  if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
+                                    poDisplay = file.poNumber!.trim();
+                                  } else {
+                                    final linkedPOs = linkedPOsCache.putIfAbsent(file.importFileId, () => ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs));
+                                    poDisplay = linkedPOs.isNotEmpty ? linkedPOs.map((p) => p.poNumber).join(', ') : '-';
+                                  }
+                                  final piDisplay = file.piNumber != null && file.piNumber!.trim().isNotEmpty ? file.piNumber!.trim() : '-';
+                                  return '$poDisplay $piDisplay';
+                                },
+                                exportValue: (file) {
+                                  String poDisplay;
+                                  if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
+                                    poDisplay = file.poNumber!.trim();
+                                  } else {
+                                    final linkedPOs = linkedPOsCache.putIfAbsent(file.importFileId, () => ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs));
+                                    poDisplay = linkedPOs.isNotEmpty ? linkedPOs.map((p) => p.poNumber).join(', ') : '-';
+                                  }
+                                  final piDisplay = file.piNumber != null && file.piNumber!.trim().isNotEmpty ? file.piNumber!.trim() : '-';
+                                  return '$poDisplay | $piDisplay';
+                                },
+                                cellBuilder: (context, file, index) {
+                                  String poDisplay;
+                                  if (file.poNumber != null && file.poNumber!.trim().isNotEmpty) {
+                                    poDisplay = file.poNumber!.trim();
+                                  } else {
+                                    final linkedPOs = linkedPOsCache.putIfAbsent(file.importFileId, () => ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs));
+                                    if (linkedPOs.isNotEmpty) {
+                                      poDisplay = linkedPOs.map((p) => (p.poReference != null && p.poReference!.trim().isNotEmpty && p.poReference != file.customFileNumber && p.poReference != file.importFileCode) ? p.poReference! : p.poNumber).join(', ');
+                                    } else {
+                                      poDisplay = '-';
+                                    }
+                                  }
+                                  final piDisplay = file.piNumber != null && file.piNumber!.trim().isNotEmpty ? file.piNumber!.trim() : '-';
+                                  return Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('${l.poNumberShortPrefix}$poDisplay', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                      Text(
+                                        '${l.piNumberShortPrefix}$piDisplay',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF475569),
+                                        ),
                                       ),
-                                     ),
-                                   ),
+                                    ],
+                                  );
+                                },
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'supplier',
+                                title: l.foreignSupplier,
+                                width: colSupplierWidth,
+                                isSortable: true,
+                                searchValue: (file) => file.supplierName,
+                                exportValue: (file) => file.supplierName,
+                                cellBuilder: (context, file, index) => Text(file.supplierName),
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'transport',
+                                title: l.transportModeIncoterm,
+                                width: colTransportWidth,
+                                isSortable: true,
+                                searchValue: (file) => '${file.shipmentMode} (${file.incotermCode})',
+                                exportValue: (file) => '${file.shipmentMode} (${file.incotermCode})',
+                                cellBuilder: (context, file, index) => Text('${file.shipmentMode} (${file.incotermCode})'),
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'priority',
+                                title: l.priorityType,
+                                width: colPriorityWidth,
+                                isSortable: true,
+                                searchValue: (file) => file.priority,
+                                exportValue: (file) => _getPriorityLabel(file.priority, l),
+                                cellBuilder: (context, file, index) {
+                                  final priorityText = _getPriorityLabel(file.priority, l);
+                                  return AppStatusBadge(
+                                    label: priorityText,
+                                    severity: file.priority == 'High' || file.priority == 'Critical' ? AppSeverity.danger : AppSeverity.warning,
+                                    size: AppStatusBadgeSize.small,
+                                  );
+                                },
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'eta',
+                                title: l.targetEta,
+                                width: colEtaWidth,
+                                isSortable: true,
+                                searchValue: (file) => file.requiredEta ?? '',
+                                exportValue: (file) => file.requiredEta ?? '-',
+                                cellBuilder: (context, file, index) => Text(file.requiredEta ?? '-'),
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'stage',
+                                title: l.currentPhaseStage,
+                                width: colStageWidth,
+                                isSortable: true,
+                                searchValue: (file) => DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr),
+                                exportValue: (file) => DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr),
+                                cellBuilder: (context, file, index) {
+                                  final resolvedStage = DisplayNameResolver.resolveStepName(file.displayStepKey, isArabic: isAr);
+                                  return Text(resolvedStage, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold));
+                                },
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'progress',
+                                title: l.progressPercentLabel,
+                                width: colProgressWidth,
+                                isSortable: true,
+                                sortComparator: (a, b) => a.progressPercent.compareTo(b.progressPercent),
+                                exportValue: (file) => '${file.progressPercent.toInt()}%',
+                                cellBuilder: (context, file, index) => SizedBox(
+                                  width: 100,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      LinearProgressIndicator(
+                                        value: file.progressPercent / 100,
+                                        backgroundColor: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+                                        color: AppTheme.wcagEmerald,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text('${file.progressPercent.toInt()}%', style: TextStyle(fontSize: density.tableCellSecondaryFontSize, fontWeight: FontWeight.bold)),
+                                    ],
                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colFileIdWidth,
-                                       child: CopyableTableCell(
-                                         value: shipDisplayName,
-                                         rowSummary: rowSummary,
-                                         child: InkWell(
-                                           onTap: () => _showImportFileDetailsDialog(context, file),
-                                           child: Column(
-                                             mainAxisSize: MainAxisSize.min,
-                                             mainAxisAlignment: MainAxisAlignment.center,
-                                             crossAxisAlignment: CrossAxisAlignment.start,
-                                             children: [
-                                               Text(
-                                                 shipDisplayName,
-                                                 style: TextStyle(
-                                                   fontWeight: FontWeight.bold,
-                                                   fontSize: density.tableCellPrimaryFontSize,
-                                                   color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
-                                                   decoration: TextDecoration.underline,
-                                                 ),
-                                               ),
-                                               if (shipDisplayName != file.importFileCode)
-                                                 LtrText(
-                                                   file.importFileCode,
-                                                   style: TextStyle(
-                                                     fontSize: density.tableCellSecondaryFontSize,
-                                                     color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF475569),
-                                                     fontWeight: FontWeight.w600,
-                                                   ),
-                                                 ),
-                                               if (file.clonedFromCode != null && file.clonedFromCode!.isNotEmpty)
-                                                 Text(
-                                                   l.clonedFromBadge(file.clonedFromCode!),
-                                                   style: TextStyle(
-                                                     fontSize: density.tableCellSecondaryFontSize,
-                                                     color: isDark ? AppTheme.darkHyperlink : AppTheme.cobalt,
-                                                     fontWeight: FontWeight.bold,
-                                                   ),
-                                                 ),
-                                               if (file.isChildPartial && file.parentFileCode != null)
-                                                 Container(
-                                                   margin: const EdgeInsets.only(top: 2),
-                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                                   decoration: BoxDecoration(
-                                                     color: Colors.amber.withValues(alpha: 0.15),
-                                                     borderRadius: BorderRadius.circular(4),
-                                                     border: Border.all(color: Colors.amber.shade700, width: 0.8),
-                                                   ),
-                                                   child: Text(
-                                                     'دفعة جزئية من ${file.parentFileCode}',
-                                                     style: TextStyle(
-                                                       fontSize: density.tableCellSecondaryFontSize - 1,
-                                                       color: isDark ? Colors.amber.shade300 : Colors.amber.shade900,
-                                                       fontWeight: FontWeight.bold,
-                                                     ),
-                                                   ),
-                                                 ),
-                                               if (file.isParentPartial)
-                                                 Container(
-                                                   margin: const EdgeInsets.only(top: 2),
-                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                                   decoration: BoxDecoration(
-                                                     color: Colors.blue.withValues(alpha: 0.15),
-                                                     borderRadius: BorderRadius.circular(4),
-                                                     border: Border.all(color: Colors.blue.shade700, width: 0.8),
-                                                   ),
-                                                   child: Text(
-                                                     'شحنة مجزأة (رئيسية)',
-                                                     style: TextStyle(
-                                                       fontSize: density.tableCellSecondaryFontSize - 1,
-                                                       color: isDark ? Colors.lightBlueAccent : Colors.blue.shade900,
-                                                       fontWeight: FontWeight.bold,
-                                                     ),
-                                                   ),
-                                                 ),
-                                             ],
-                                           ),
-                                         ),
-                                       ),
-                                     ),
-                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colCompanyWidth,
-                                       child: CopyableTableCell(
-                                         value: file.companyName,
-                                         rowSummary: rowSummary,
-                                         child: Text(file.companyName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                       ),
-                                     ),
-                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colPoWidth,
-                                       child: CopyableTableCell(
-                                         value: '${l.poNumberShortPrefix}$poDisplay | ${l.piNumberShortPrefix}$piDisplay',
-                                         rowSummary: rowSummary,
-                                         child: Column(
-                                           mainAxisSize: MainAxisSize.min,
-                                           mainAxisAlignment: MainAxisAlignment.center,
-                                           crossAxisAlignment: CrossAxisAlignment.start,
-                                           children: [
-                                             Text('${l.poNumberShortPrefix}$poDisplay', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                             Text(
-                                               '${l.piNumberShortPrefix}$piDisplay',
-                                               style: TextStyle(
-                                                 fontSize: 11,
-                                                 color: isDark ? AppTheme.darkTextSecondary : const Color(0xFF475569),
-                                               ),
-                                             ),
-                                           ],
-                                         ),
-                                       ),
-                                     ),
-                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colSupplierWidth,
-                                       child: CopyableTableCell(
-                                         value: file.supplierName,
-                                         rowSummary: rowSummary,
-                                         child: Text(file.supplierName),
-                                       ),
-                                     ),
-                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colTransportWidth,
-                                       child: CopyableTableCell(
-                                         value: '${file.shipmentMode} (${file.incotermCode})',
-                                         rowSummary: rowSummary,
-                                         child: Text('${file.shipmentMode} (${file.incotermCode})'),
-                                       ),
-                                     ),
-                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colPriorityWidth,
-                                       child: CopyableTableCell(
-                                         value: priorityText,
-                                         rowSummary: rowSummary,
-                                         child: AppStatusBadge(
-
-                                           label: priorityText,
-
-                                           severity: file.priority == 'High' || file.priority == 'Critical' ? AppSeverity.danger : AppSeverity.warning,
-
-                                           size: AppStatusBadgeSize.small,
-
-                                         ),
-                                       ),
-                                     ),
-                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colEtaWidth,
-                                       child: CopyableTableCell(
-                                         value: file.requiredEta ?? '-',
-                                         rowSummary: rowSummary,
-                                         child: Text(file.requiredEta ?? '-'),
-                                       ),
-                                     ),
-                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colStageWidth,
-                                       child: CopyableTableCell(
-                                         value: resolvedStage,
-                                         rowSummary: rowSummary,
-                                         child: Text(resolvedStage, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                       ),
-                                     ),
-                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colProgressWidth,
-                                       child: CopyableTableCell(
-                                         value: '${file.progressPercent.toInt()}%',
-                                         rowSummary: rowSummary,
-                                         child: SizedBox(
-                                           width: 100,
-                                           child: Column(
-                                             mainAxisAlignment: MainAxisAlignment.center,
-                                             children: [
-                                               LinearProgressIndicator(value: file.progressPercent / 100, backgroundColor: isDark ? AppTheme.darkBorder : Colors.grey.shade200, color: AppTheme.wcagEmerald),
-                                               const SizedBox(height: 2),
-                                               Text('${file.progressPercent.toInt()}%', style: TextStyle(fontSize: density.tableCellSecondaryFontSize, fontWeight: FontWeight.bold)),
-                                             ],
-                                           ),
-                                         ),
-                                       ),
-                                     ),
-                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colNextActionWidth,
-                                       child: CopyableTableCell(
-                                         value: resolvedAction,
-                                         rowSummary: rowSummary,
-                                         child: Text(resolvedAction, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-                                       ),
-                                     ),
-                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colOwnerWidth,
-                                       child: CopyableTableCell(
-                                         value: file.owner,
-                                         rowSummary: rowSummary,
-                                         child: Text(file.owner, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                       ),
-                                     ),
-                                   ),
-                                   DataCell(
-                                     SizedBox(
-                                       width: colStatusWidth,
-                                       child: CopyableTableCell(
-                                         value: statusText,
-                                         rowSummary: rowSummary,
-                                         child: AppStatusBadge.fromStatus(
-
-                                           status: file.status,
-
-                                           label: statusText,
-
-                                           size: AppStatusBadgeSize.small,
-
-                                         ),
-                                       ),
-                                     ),
-                                   ),
-                               ],
-                             );
-                           }).toList(),
-                         ),
-                       ),
-                     ),
-                   ),
-                 ),
-               ),
-                 ],
-               ),
-             ),
-           ),
-         );
-                  },
-                ),
-              ),
+                                ),
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'next_action',
+                                title: l.nextActionLabel,
+                                width: colNextActionWidth,
+                                isSortable: false,
+                                exportValue: (file) => file.displayNextAction(context.l10n),
+                                cellBuilder: (context, file, index) {
+                                  final resolvedAction = file.displayNextAction(context.l10n);
+                                  return Text(resolvedAction, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal));
+                                },
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'owner',
+                                title: l.responsiblePersonLabel,
+                                width: colOwnerWidth,
+                                isSortable: true,
+                                searchValue: (file) => file.owner,
+                                exportValue: (file) => file.owner,
+                                cellBuilder: (context, file, index) => Text(file.owner, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              EnterpriseColumn<ImportFileModel>(
+                                id: 'status',
+                                title: l.status,
+                                width: colStatusWidth,
+                                isSortable: true,
+                                searchValue: (file) => _getStatusLabel(file.status, l),
+                                exportValue: (file) => _getStatusLabel(file.status, l),
+                                cellBuilder: (context, file, index) {
+                                  final statusText = _getStatusLabel(file.status, l);
+                                  return AppStatusBadge.fromStatus(
+                                    status: file.status,
+                                    label: statusText,
+                                    size: AppStatusBadgeSize.small,
+                                  );
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
                 // Seamless Integrated Compact Pagination Footer
                 if (!paginatedState.isLoading && paginatedState.items.isNotEmpty)
                   CompactTablePaginationFooter(
@@ -2563,7 +2444,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
     final files = ref.read(paginatedImportFilesProvider).items;
     if (files.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isArabic ? 'لا توجد شحنات للتصدير' : 'No import files to export'), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          isArabic ? 'لا توجد شحنات للتصدير' : 'No import files to export',
+          severity: AppSeverity.danger,
+        ),
       );
       return;
     }
@@ -2622,7 +2507,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
     final files = ref.read(paginatedImportFilesProvider).items;
     if (files.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isArabic ? 'لا توجد شحنات للتصدير' : 'No import files to export'), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          isArabic ? 'لا توجد شحنات للتصدير' : 'No import files to export',
+          severity: AppSeverity.danger,
+        ),
       );
       return;
     }
@@ -2678,7 +2567,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
     final files = ref.read(paginatedImportFilesProvider).items;
     if (files.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isArabic ? 'لا توجد شحنات للنسخ' : 'No import files to copy'), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(
+          context,
+          isArabic ? 'لا توجد شحنات للنسخ' : 'No import files to copy',
+          severity: AppSeverity.danger,
+        ),
       );
       return;
     }
@@ -3018,7 +2911,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  isArabic ? 'نسخ الجدول (TSV)' : 'Copy Table (TSV)',
+                  isArabic ? 'نسخ جدول البيانات' : 'Copy Table (TSV)',
                   style: const TextStyle(fontSize: 12.5),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -3111,9 +3004,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
       if (file.bytes == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Could not read file bytes'),
-              backgroundColor: AppTheme.crimson,
+            AppTheme.snackBar(
+              context,
+              'Could not read file bytes',
+              severity: AppSeverity.danger,
             ),
           );
         }
@@ -3141,17 +3035,19 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
       ref.read(paginatedImportFilesProvider.notifier).fetchPage(1);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errors.isEmpty ? message : '$message (${errors.length} errors)'),
-          backgroundColor: errors.isEmpty ? AppTheme.emerald : AppTheme.orange,
+        AppTheme.snackBar(
+          context,
+          errors.isEmpty ? message : '$message (${errors.length} errors)',
+          severity: errors.isEmpty ? AppSeverity.success : AppSeverity.warning,
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          'Error: $e',
+          severity: AppSeverity.danger,
         ),
       );
     }

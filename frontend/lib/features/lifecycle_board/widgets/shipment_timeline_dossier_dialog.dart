@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/ltr_text.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/timeline_snapshot_model.dart';
 import '../providers/lifecycle_board_provider.dart';
 
@@ -109,12 +108,7 @@ class _ShipmentTimelineDossierDialogState
             // Body
             Expanded(
               child: timelineAsync.when(
-                loading: () => const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
+                loading: () => const AppLoadingState(),
                 error: (err, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
@@ -191,7 +185,7 @@ class _ShipmentTimelineDossierDialogState
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.18),
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: LtrText(
@@ -211,7 +205,7 @@ class _ShipmentTimelineDossierDialogState
                       ? 'متابعة حية لمطابقة الـ SLA، انحرافات المواعيد، ونقاط الاختناق التشغيلية'
                       : 'Live tracking of stage SLAs, schedule variances, and bottleneck constraints',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 11.5,
                   ),
                 ),
@@ -321,7 +315,7 @@ class _ShipmentTimelineDossierDialogState
         border: Border.all(color: AppTheme.borderOf(context)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -459,7 +453,7 @@ class _ShipmentTimelineDossierDialogState
           label: Text(isAr ? 'جميع المراحل' : 'All Phases'),
           selected: _selectedPhaseNumber == null,
           onSelected: (_) => setState(() => _selectedPhaseNumber = null),
-          selectedColor: AppTheme.cobalt.withOpacity(0.2),
+          selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
           checkmarkColor: AppTheme.cobalt,
         ),
         for (int p = 1; p <= 6; p++)
@@ -467,7 +461,7 @@ class _ShipmentTimelineDossierDialogState
             label: Text('${isAr ? "المرحلة" : "Phase"} $p'),
             selected: _selectedPhaseNumber == p,
             onSelected: (_) => setState(() => _selectedPhaseNumber = p),
-            selectedColor: AppTheme.cobalt.withOpacity(0.2),
+            selectedColor: AppTheme.cobalt.withValues(alpha: 0.2),
             checkmarkColor: AppTheme.cobalt,
           ),
         const SizedBox(width: 8),
@@ -479,7 +473,7 @@ class _ShipmentTimelineDossierDialogState
           ),
           selected: _onlyBottlenecks,
           onSelected: (val) => setState(() => _onlyBottlenecks = val),
-          selectedColor: AppTheme.crimson.withOpacity(0.15),
+          selectedColor: AppTheme.crimson.withValues(alpha: 0.15),
           checkmarkColor: AppTheme.crimson,
         ),
         FilterChip(
@@ -490,7 +484,7 @@ class _ShipmentTimelineDossierDialogState
           ),
           selected: _onlyDelayed,
           onSelected: (val) => setState(() => _onlyDelayed = val),
-          selectedColor: AppTheme.orange.withOpacity(0.15),
+          selectedColor: AppTheme.orange.withValues(alpha: 0.15),
           checkmarkColor: AppTheme.orange,
         ),
       ],
@@ -515,9 +509,9 @@ class _ShipmentTimelineDossierDialogState
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         border: Border.all(
           color: isBottleneck
-              ? AppTheme.crimson.withOpacity(0.7)
+              ? AppTheme.crimson.withValues(alpha: 0.7)
               : (s.status == 'IN_PROGRESS'
-                  ? AppTheme.cobalt.withOpacity(0.4)
+                  ? AppTheme.cobalt.withValues(alpha: 0.4)
                   : AppTheme.borderOf(context)),
           width: isBottleneck ? 1.5 : 1,
         ),
@@ -531,7 +525,7 @@ class _ShipmentTimelineDossierDialogState
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                 decoration: BoxDecoration(
-                  color: AppTheme.charcoal.withOpacity(0.08),
+                  color: AppTheme.charcoal.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -605,9 +599,9 @@ class _ShipmentTimelineDossierDialogState
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: varianceColor.withOpacity(0.08),
+                  color: varianceColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: varianceColor.withOpacity(0.25)),
+                  border: Border.all(color: varianceColor.withValues(alpha: 0.25)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -639,7 +633,7 @@ class _ShipmentTimelineDossierDialogState
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: AppTheme.crimson.withOpacity(0.07),
+                color: AppTheme.crimson.withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -673,7 +667,7 @@ class _ShipmentTimelineDossierDialogState
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.charcoal.withOpacity(0.05),
+                    color: AppTheme.charcoal.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
@@ -743,62 +737,7 @@ class _ShipmentTimelineDossierDialogState
   }
 
   Widget _buildStatusBadge(String status, bool isAr) {
-    Color bg;
-    Color fg;
-    String label;
-
-    switch (status) {
-      case 'COMPLETED':
-        bg = AppTheme.emerald.withOpacity(0.12);
-        fg = AppTheme.emerald;
-        label = isAr ? 'مكتملة' : 'Completed';
-        break;
-      case 'IN_PROGRESS':
-        bg = AppTheme.cobalt.withOpacity(0.12);
-        fg = AppTheme.cobalt;
-        label = isAr ? 'جارية' : 'In Progress';
-        break;
-      case 'DELAYED':
-        bg = AppTheme.crimson.withOpacity(0.12);
-        fg = AppTheme.crimson;
-        label = isAr ? 'متأخرة' : 'Delayed';
-        break;
-      case 'PENDING':
-      default:
-        bg = AppTheme.charcoal.withOpacity(0.08);
-        fg = AppTheme.charcoal;
-        label = isAr ? 'في الانتظار' : 'Pending';
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: fg,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'COMPLETED':
-        return AppTheme.emerald;
-      case 'IN_PROGRESS':
-        return AppTheme.cobalt;
-      case 'DELAYED':
-        return AppTheme.crimson;
-      default:
-        return AppTheme.charcoal;
-    }
+    return AppStatusBadge.fromStatus(status: status);
   }
 
   Widget _buildDialogFooter(BuildContext context, bool isAr) {

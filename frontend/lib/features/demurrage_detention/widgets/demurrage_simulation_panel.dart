@@ -1,3 +1,4 @@
+import '../../../core/widgets/enterprise_data_table/enterprise_data_table.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
@@ -169,11 +170,7 @@ class DemurrageSimulationPanel extends StatelessWidget {
     final res = result;
     final hasTiers = res.storageTierBreakdown.isNotEmpty ||
         res.breakdownDetails.any((b) => (b is Map && (b['tiers_applied'] as List?)?.isNotEmpty == true));
-    TextStyle head = TextStyle(
-      fontSize: 12.5,
-      fontWeight: FontWeight.w700,
-      color: AppTheme.textPrimaryOf(context),
-    );
+
     return CcSectionCard(
       title: l.tieredBreakdownTitle,
       icon: Icons.table_rows_outlined,
@@ -188,73 +185,108 @@ class DemurrageSimulationPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 460),
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
-                headingRowHeight: 40,
-                dataRowMinHeight: 42,
-                dataRowMaxHeight: 48,
-                columnSpacing: 24,
-                columns: [
-                  DataColumn(label: Text(l.colCategory, style: head)),
-                  DataColumn(label: Text(l.colConsumedDays, style: head), numeric: true),
-                  DataColumn(label: Text(l.colFreeDays, style: head), numeric: true),
-                  DataColumn(label: Text(l.colOverdueDays, style: head), numeric: true),
-                  DataColumn(label: Text(l.colFeeAmount, style: head), numeric: true),
-                ],
-                rows: res.breakdownDetails.map((b) {
+          EnterpriseDataTable<Map<String, dynamic>>(
+            storageKey: 'demurrage_simulation_breakdown_table',
+            data: res.breakdownDetails.map((b) => Map<String, dynamic>.from(b as Map)).toList(),
+            minWidth: 500,
+            showHeaderToolbar: false,
+            showPagination: false,
+            columns: [
+              EnterpriseColumn<Map<String, dynamic>>(
+                id: 'category',
+                title: l.colCategory,
+                width: 130,
+                exportValue: (b) => l.demurrageCategoryLabel(b['category']),
+                cellBuilder: (ctx, b, _) {
                   final cat = l.demurrageCategoryLabel(b['category']);
+                  return CopyableTableCell(
+                    value: cat,
+                    rowSummary: _buildRowSummary(b, l),
+                    child: Text(cat, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  );
+                },
+              ),
+              EnterpriseColumn<Map<String, dynamic>>(
+                id: 'days_consumed',
+                title: l.colConsumedDays,
+                width: 95,
+                isNumeric: true,
+                exportValue: (b) => (b['days_consumed'] ?? 0).toString(),
+                cellBuilder: (ctx, b, _) {
+                  final consumedStr = l.daysCountFormatted(b['days_consumed'] ?? 0);
+                  return CopyableTableCell(
+                    value: (b['days_consumed'] ?? 0).toString(),
+                    rowSummary: _buildRowSummary(b, l),
+                    child: LtrText(consumedStr),
+                  );
+                },
+              ),
+              EnterpriseColumn<Map<String, dynamic>>(
+                id: 'free_days',
+                title: l.colFreeDays,
+                width: 90,
+                isNumeric: true,
+                exportValue: (b) => (b['free_days'] ?? 0).toString(),
+                cellBuilder: (ctx, b, _) {
+                  final freeStr = l.daysCountFormatted(b['free_days'] ?? 0);
+                  return CopyableTableCell(
+                    value: (b['free_days'] ?? 0).toString(),
+                    rowSummary: _buildRowSummary(b, l),
+                    child: LtrText(freeStr),
+                  );
+                },
+              ),
+              EnterpriseColumn<Map<String, dynamic>>(
+                id: 'days_overdue',
+                title: l.colOverdueDays,
+                width: 95,
+                isNumeric: true,
+                exportValue: (b) => (b['days_overdue'] ?? 0).toString(),
+                cellBuilder: (ctx, b, _) {
+                  final overdueStr = l.daysCountFormatted(b['days_overdue'] ?? 0);
+                  final overdue = (b['days_overdue'] ?? 0) > 0;
+                  final feeColor = AppTheme.severityForegroundOf(
+                    ctx,
+                    overdue ? AppSeverity.danger : AppSeverity.success,
+                  );
+                  return CopyableTableCell(
+                    value: (b['days_overdue'] ?? 0).toString(),
+                    rowSummary: _buildRowSummary(b, l),
+                    child: LtrText(
+                      overdueStr,
+                      style: TextStyle(
+                        fontWeight: overdue ? FontWeight.bold : FontWeight.normal,
+                        color: overdue ? feeColor : null,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              EnterpriseColumn<Map<String, dynamic>>(
+                id: 'fee_amount',
+                title: l.colFeeAmount,
+                width: 120,
+                isNumeric: true,
+                exportValue: (b) => b['currency'] == 'EGP'
+                    ? l.egpCurrencyAmount((b['fee_egp'] ?? 0).toString())
+                    : '${b['fee_fx']} ${b['currency']}',
+                cellBuilder: (ctx, b, _) {
                   final feeStr = b['currency'] == 'EGP'
                       ? l.egpCurrencyAmount((b['fee_egp'] ?? 0).toString())
                       : '${b['fee_fx']} ${b['currency']}';
-                  final consumedStr = l.daysCountFormatted(b['days_consumed'] ?? 0);
-                  final freeStr = l.daysCountFormatted(b['free_days'] ?? 0);
-                  final overdueStr = l.daysCountFormatted(b['days_overdue'] ?? 0);
-                  final rowSummary = '$cat | $consumedStr | $freeStr | $overdueStr | $feeStr';
                   final overdue = (b['days_overdue'] ?? 0) > 0;
                   final feeColor = AppTheme.severityForegroundOf(
-                    context,
+                    ctx,
                     overdue ? AppSeverity.danger : AppSeverity.success,
                   );
-                  return DataRow(cells: [
-                    DataCell(CopyableTableCell(
-                      value: cat,
-                      rowSummary: rowSummary,
-                      child: Text(cat, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    )),
-                    DataCell(CopyableTableCell(
-                      value: (b['days_consumed'] ?? 0).toString(),
-                      rowSummary: rowSummary,
-                      child: LtrText(consumedStr),
-                    )),
-                    DataCell(CopyableTableCell(
-                      value: (b['free_days'] ?? 0).toString(),
-                      rowSummary: rowSummary,
-                      child: LtrText(freeStr),
-                    )),
-                    DataCell(CopyableTableCell(
-                      value: (b['days_overdue'] ?? 0).toString(),
-                      rowSummary: rowSummary,
-                      child: LtrText(
-                        overdueStr,
-                        style: TextStyle(
-                          fontWeight: overdue ? FontWeight.bold : FontWeight.normal,
-                          color: overdue ? feeColor : null,
-                        ),
-                      ),
-                    )),
-                    DataCell(CopyableTableCell(
-                      value: feeStr,
-                      rowSummary: rowSummary,
-                      child: LtrText(feeStr, style: TextStyle(fontWeight: FontWeight.bold, color: feeColor)),
-                    )),
-                  ]);
-                }).toList(),
+                  return CopyableTableCell(
+                    value: feeStr,
+                    rowSummary: _buildRowSummary(b, l),
+                    child: LtrText(feeStr, style: TextStyle(fontWeight: FontWeight.bold, color: feeColor)),
+                  );
+                },
               ),
-            ),
+            ],
           ),
           if (hasTiers) ...[
             const SizedBox(height: 16),
@@ -265,6 +297,17 @@ class DemurrageSimulationPanel extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static String _buildRowSummary(Map<String, dynamic> b, AppLocalizations l) {
+    final cat = l.demurrageCategoryLabel(b['category']);
+    final feeStr = b['currency'] == 'EGP'
+        ? l.egpCurrencyAmount((b['fee_egp'] ?? 0).toString())
+        : '${b['fee_fx']} ${b['currency']}';
+    final consumedStr = l.daysCountFormatted(b['days_consumed'] ?? 0);
+    final freeStr = l.daysCountFormatted(b['free_days'] ?? 0);
+    final overdueStr = l.daysCountFormatted(b['days_overdue'] ?? 0);
+    return '$cat | $consumedStr | $freeStr | $overdueStr | $feeStr';
   }
 
   Widget _buildTiersBreakdown(BuildContext context, AppLocalizations l) {

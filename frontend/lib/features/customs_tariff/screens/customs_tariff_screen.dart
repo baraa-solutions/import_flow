@@ -792,7 +792,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const CircularProgressIndicator(),
+                        const AppLoadingState(),
                         const SizedBox(height: 16),
                         Text(l10n.importingTariffDataset),
                       ],
@@ -813,26 +813,13 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
             final updated = summary?['updated'] ?? 0;
             final total = summary?['total_processed'] ?? 0;
 
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: Row(
-                  children: [
-                    const Icon(Icons.check_circle, color: AppTheme.emerald),
-                    const SizedBox(width: 8),
-                    Text(l10n.importCompletedTitle),
-                  ],
-                ),
-                content: Text(
-                  l10n.importSummaryContent(total, imported, updated),
-                ),
-                actions: [
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text(l10n.ok),
-                  ),
-                ],
-              ),
+            await AppConfirmDialog.show(
+              context,
+              title: l10n.importCompletedTitle,
+              message: l10n.importSummaryContent(total, imported, updated),
+              confirmLabel: l10n.ok,
+              confirmVariant: AppButtonVariant.primary,
+              icon: Icons.check_circle,
             );
           }
         }

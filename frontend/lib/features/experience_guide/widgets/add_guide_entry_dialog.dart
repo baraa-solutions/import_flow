@@ -1,7 +1,7 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../providers/experience_guide_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -181,10 +181,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
       if (mounted) {
         final l10n = context.l10n;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.guideEntrySavedSuccess),
-            backgroundColor: AppTheme.flatEmerald,
-          ),
+          AppTheme.snackBar(context, l10n.guideEntrySavedSuccess),
         );
         if (widget.onSuccess != null) widget.onSuccess!();
         Navigator.of(context).pop();
@@ -192,10 +189,7 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('حدث خطأ أثناء حفظ التوجيه: $e'),
-            backgroundColor: AppTheme.flatCrimson,
-          ),
+          AppTheme.snackBar(context, 'حدث خطأ أثناء حفظ التوجيه: $e'),
         );
       }
     } finally {

@@ -1058,7 +1058,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
   void _showPoVisualLoadPlannerDialog(BuildContext context, AppLocalizations l) {
     if (widget.packingItems.isEmpty && widget.palletItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.enterPackingOrPalletsNotice)),
+        AppTheme.snackBar(context, l.enterPackingOrPalletsNotice),
       );
       return;
     }
@@ -1126,7 +1126,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
 
     if (cargoItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.enterPackingOrPalletsNotice)),
+        AppTheme.snackBar(context, l.enterPackingOrPalletsNotice),
       );
       return;
     }

@@ -26,6 +26,7 @@ class SmartInvoiceBLMatchScreen extends ConsumerStatefulWidget {
 
 class _SmartInvoiceBLMatchScreenState extends ConsumerState<SmartInvoiceBLMatchScreen> {
   int? _selectedImportFileId;
+  bool _isDirty = false;
 
   @override
   void initState() {
@@ -67,6 +68,8 @@ class _SmartInvoiceBLMatchScreenState extends ConsumerState<SmartInvoiceBLMatchS
       titleEn: 'Smart Invoice vs B/L Match',
       headerIcon: Icons.auto_awesome,
       headerColor: AppTheme.wcagCobalt,
+      isDirty: _isDirty,
+      onDiscard: () => setState(() => _isDirty = false),
       selectedImportFileId: _selectedImportFileId,
       onShipmentStatusChanged: _refreshData,
       headerActions: [
@@ -83,13 +86,20 @@ class _SmartInvoiceBLMatchScreenState extends ConsumerState<SmartInvoiceBLMatchS
           onPressed: _refreshData,
         ),
       ],
-      body: InvoiceBLMatcherTab(
-        selectedImportFileId: _selectedImportFileId,
-        onImportFileChanged: (newId) {
-          setState(() {
-            _selectedImportFileId = newId;
-          });
-        },
+      body: SelectionArea(
+        child: InvoiceBLMatcherTab(
+          selectedImportFileId: _selectedImportFileId,
+          onDirtyChanged: (dirty) {
+            if (_isDirty != dirty && mounted) {
+              setState(() => _isDirty = dirty);
+            }
+          },
+          onImportFileChanged: (newId) {
+            setState(() {
+              _selectedImportFileId = newId;
+            });
+          },
+        ),
       ),
     );
   }

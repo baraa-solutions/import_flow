@@ -216,5 +216,10 @@ class _FakeRadarNotifier extends StateNotifier<AsyncValue<LiveRadarOverviewModel
   Future<ShipmentTrackingModel?> confirmArrival({required int importFileId, DateTime? actualArrivalDate}) async {
     return null;
   }
+
+  @override
+  Future<ShipmentTrackingModel?> syncDemurrageClock({required int importFileId}) async {
+    return null;
+  }
 }
 

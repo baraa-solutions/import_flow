@@ -6,18 +6,13 @@ import '../../../core/helpers/file_picker_helper.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/adaptive_tab_scaffold.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/metric_card.dart';
+import '../../../core/widgets/widgets.dart';
 import 'idoc_feedback.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
 import '../providers/docs_customs_approval_provider.dart';
 import '../services/draft_bl_export_service.dart';
-import '../../../core/widgets/clone_entity_review_dialog.dart';
 import 'search_and_clone_draft_bl_dialog.dart';
 import 'visual_draft_bl_sheet.dart';
 import '../../../core/helpers/table_copy_helper.dart';
@@ -117,9 +112,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   Future<void> _runComparison({bool silent = false}) async {
     if (_selectedImportFileId == null) {
       if (!silent) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.selectImportFileFirst), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.selectImportFileFirst, severity: AppSeverity.info));
       }
       return;
     }
@@ -177,20 +170,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       });
 
       if (!silent && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res.hasBlockingMismatch
-                ? context.l10n.draftBlComparisonMismatch(res.openDiscrepanciesCount)
-                : context.l10n.draftBlComparisonMatchSuccess),
-            backgroundColor: res.hasBlockingMismatch ? AppTheme.orange : AppTheme.emerald,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, res.hasBlockingMismatch ? context.l10n.draftBlComparisonMismatch(res.openDiscrepanciesCount) : context.l10n.draftBlComparisonMatchSuccess, severity: res.hasBlockingMismatch ? AppSeverity.warning : AppSeverity.success));
       }
     } catch (e) {
       if (mounted && !silent) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.draftBlComparisonError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.draftBlComparisonError(ApiErrorText.of(context.l10n, e)), severity: AppSeverity.info));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -307,12 +291,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               }
 
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(context.l10n.cloneDraftBlSuccess),
-                    backgroundColor: AppTheme.wcagEmerald,
-                  ),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cloneDraftBlSuccess, severity: AppSeverity.info));
               }
             },
           ),
@@ -335,9 +314,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       final fileBytes = FilePickerHelper.getBytes(file);
       if (fileBytes == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.draftBlFileReadError), backgroundColor: AppTheme.crimson),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.draftBlFileReadError, severity: AppSeverity.info));
         }
         return;
       }
@@ -378,27 +355,14 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
 
       if (mounted) {
         if (missingCritical.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.draftBlExtractedWithCritical(file.name)),
-              backgroundColor: AppTheme.severityForegroundOf(context, AppSeverity.warning),
-              duration: const Duration(seconds: 4),
-            ),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.draftBlExtractedWithCritical(file.name), severity: AppSeverity.warning));
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.draftBlExtractedSuccess(file.name)),
-              backgroundColor: AppTheme.emerald,
-            ),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.draftBlExtractedSuccess(file.name), severity: AppSeverity.info));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.draftBlExtractionError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.draftBlExtractionError(ApiErrorText.of(context.l10n, e)), severity: AppSeverity.info));
       }
     } finally {
       if (mounted) {
@@ -410,9 +374,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   Future<void> _saveReview({bool isDraft = false}) async {
     if (_comparisonResult == null || _selectedImportFileId == null) {
       if (_selectedImportFileId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.selectImportFileFirst), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.selectImportFileFirst, severity: AppSeverity.info));
       }
       return;
     }
@@ -684,26 +646,18 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
 
       if (mounted) {
         if (updated.stage == 'Stage 5: Final') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.draftBlDualApprovalCompleted), backgroundColor: AppTheme.emerald),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.draftBlDualApprovalCompleted, severity: AppSeverity.info));
           setState(() => _activeStep = 4);
         } else if (action == 'Rejected') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.draftBlRevisionRequiredAlert), backgroundColor: AppTheme.crimson),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.draftBlRevisionRequiredAlert, severity: AppSeverity.info));
           setState(() => _activeStep = 1);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.draftBlRoleApprovalRegistered(role)), backgroundColor: AppTheme.cobalt),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.draftBlRoleApprovalRegistered(role), severity: AppSeverity.info));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.draftBlApprovalError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.draftBlApprovalError(ApiErrorText.of(context.l10n, e)), severity: AppSeverity.info));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -822,8 +776,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 LayoutBuilder(
-                  builder: (context, _) {
-                    final messenger = ScaffoldMessenger.of(context);
+                  builder: (_, __) {
                     final l = context.l10n;
 
                     final actionWidgets = [
@@ -851,9 +804,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               );
                             } catch (e) {
                               if (mounted) {
-                                messenger.showSnackBar(
-                                  SnackBar(content: Text(l.draftBlPdfExportError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
-                                );
+                                ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.draftBlPdfExportError(ApiErrorText.of(context.l10n, e)), severity: AppSeverity.danger));
                               }
                             }
                           },
@@ -872,15 +823,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
                               );
                               if (mounted && res != null) {
-                                messenger.showSnackBar(
-                                  SnackBar(content: Text(l.excelExportSuccess(res)), backgroundColor: AppTheme.emerald),
-                                );
+                                ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.excelExportSuccess(res), severity: AppSeverity.success));
                               }
                             } catch (e) {
                               if (mounted) {
-                                messenger.showSnackBar(
-                                  SnackBar(content: Text(l.excelExportError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
-                                );
+                                ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l.excelExportError(ApiErrorText.of(context.l10n, e)), severity: AppSeverity.danger));
                               }
                             }
                           },
@@ -2434,9 +2381,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     size: AppButtonSize.small,
                     onPressed: () {
                       ref.invalidate(draftBLReviewsProvider);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(context.l10n.draftBlRegistryUpdatedSuccess)),
-                      );
+                      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.draftBlRegistryUpdatedSuccess, severity: AppSeverity.info));
                     },
                   )),
                 ];
@@ -2674,284 +2619,233 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     ],
                   ),
                 ),
-              )
-            else
-              SelectionArea(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 950),
-                    child: DataTable(
-                      columnSpacing: 18,
-                      headingRowColor: WidgetStateProperty.all(AppTheme.surfaceAltOf(context)),
-                      columns: [
-                        DataColumn(label: Text(context.l10n.draftBlRegistryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(context.l10n.idocASessionType, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(context.l10n.draftBlRegistryColSessionId, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(context.l10n.draftBlRegistryColBlNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                        DataColumn(label: Text(context.l10n.draftBlRegistryColShippingLine, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(context.l10n.draftBlRegistryColVesselVoyage, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(context.l10n.draftBlRegistryColStage, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(context.l10n.draftBlRegistryColImporterApproval, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(context.l10n.draftBlRegistryColBrokerApproval, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text(context.l10n.draftBlRegistryColStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      ],
-                      rows: filteredReviews.map((r) {
-                        final blNumber = (r.draftExtractedData?['draft_bl_number'] ??
-                                r.draftExtractedData?['bl_number'] ??
-                                r.systemDataSnapshot?['draft_bl_number'] ??
-                                r.draftBlNumber)
-                            .toString();
-
-                        final vesselVoyage = '${r.vesselName ?? "-"} / ${r.voyageNumber ?? "-"}';
-                        final importerApproval = r.importerApprovalStatus == 'Approved' ? context.l10n.approved : r.importerApprovalStatus;
-                        final brokerApproval = r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus;
-                        final statusLabel = r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status;
-                        final isDraft = r.isDraft;
-                        final rowSummary = [
-                          isDraft ? context.l10n.idocADraft : context.l10n.idocACertified,
-                          '#${r.blReviewId}',
-                          blNumber,
-                          r.shippingLine ?? '-',
-                          vesselVoyage,
-                          r.stage,
-                          importerApproval,
-                          brokerApproval,
-                          statusLabel,
-                        ].join('\t');
-
-                        return DataRow(cells: [
-                          DataCell(
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Tooltip(
-                                  message: context.l10n.cloneDraftBlRecordTooltip,
-                                  child: IconButton(
-                                    key: Key('cloneDraftBlRowBtn_${r.blReviewId}'),
-                                    icon: const Icon(Icons.copy_all, size: 18, color: AppTheme.emerald),
-                                    onPressed: () => _onCloneDraftBlSession(r),
-                                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                ),
-                                Tooltip(
-                                  message: context.l10n.idocARestoreAndLoadTheSessionInAlt,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.play_circle_outline, size: 18, color: AppTheme.cobalt),
-                                    onPressed: () => _loadSessionIntoEditor(r),
-                                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                ),
-                                Tooltip(
-                                  message: context.l10n.idocAViewSessionDetailsAndMatrix,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.info_outline, size: 18, color: AppTheme.charcoal),
-                                    onPressed: () => _showDraftBLSessionDetailsDialog(r),
-                                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                ),
-                                Tooltip(
-                                  message: context.l10n.draftBlPrintBlTooltip,
-                                  child: IconButton(
-                                    icon: Icon(Icons.print, size: 18, color: AppTheme.textPrimaryOf(context)),
-                                    onPressed: () async {
-                                      try {
-                                        final sysData = r.systemDataSnapshot ?? {};
-                                        final draftData = r.draftExtractedData ?? {};
-                                        await DraftBLExportService.printDraftBL(
-                                          systemData: sysData,
-                                          draftData: draftData,
-                                          draftBlNumber: blNumber,
-                                        );
-                                      } catch (e) {
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text(context.l10n.draftBlPrintError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
-                                          );
-                                        }
-                                      }
-                                    },
-                                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                ),
-                                Tooltip(
-                                  message: context.l10n.draftBlDownloadPdfTooltip,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.picture_as_pdf, size: 18, color: AppTheme.crimson),
-                                    onPressed: () async {
-                                      try {
-                                        final sysData = r.systemDataSnapshot ?? {};
-                                        final draftData = r.draftExtractedData ?? {};
-                                        await DraftBLExportService.exportDraftBLToPdf(
-                                          systemData: sysData,
-                                          draftData: draftData,
-                                          draftBlNumber: blNumber,
-                                        );
-                                      } catch (e) {
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text(context.l10n.draftBlPdfExportError(ApiErrorText.of(context.l10n, e))), backgroundColor: AppTheme.crimson),
-                                          );
-                                        }
-                                      }
-                                    },
-                                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                ),
-                                if (isDraft)
-                                  Tooltip(
-                                    message: context.l10n.idocADeleteDraft,
-                                    child: IconButton(
-                                      icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.crimson),
-                                      onPressed: () => _deleteDraftBLSession(r),
-                                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                                      padding: EdgeInsets.zero,
-                                    ),
-                                  ),
-                              ],
+              )            else
+              EnterpriseDataTable<DraftBLReviewModel>(
+                data: filteredReviews,
+                storageKey: 'draft_bl_reviews_registry_table',
+                columns: [
+                  EnterpriseColumn<DraftBLReviewModel>(
+                    id: 'actions',
+                    title: context.l10n.draftBlRegistryColActions,
+                    width: 260,
+                    isSortable: false,
+                    isSearchable: false,
+                    cellBuilder: (context, r, index) {
+                      final blNumber = (r.draftExtractedData?['draft_bl_number'] ??
+                              r.draftExtractedData?['bl_number'] ??
+                              r.systemDataSnapshot?['draft_bl_number'] ??
+                              r.draftBlNumber)
+                          .toString();
+                      final isDraft = r.isDraft;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Tooltip(
+                            message: context.l10n.cloneDraftBlRecordTooltip,
+                            child: IconButton(
+                              key: Key('cloneDraftBlRowBtn_${r.blReviewId}'),
+                              icon: const Icon(Icons.copy_all, size: 18, color: AppTheme.emerald),
+                              onPressed: () => _onCloneDraftBlSession(r),
+                              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                              padding: EdgeInsets.zero,
                             ),
                           ),
-                          DataCell(
-                            IdocStatusChip(
-                              label: isDraft ? context.l10n.idocADraft : context.l10n.idocACertified,
-                              severity: isDraft ? AppSeverity.warning : AppSeverity.success,
-                              icon: isDraft ? Icons.edit_document : Icons.verified_rounded,
+                          Tooltip(
+                            message: context.l10n.idocARestoreAndLoadTheSessionInAlt,
+                            child: IconButton(
+                              icon: const Icon(Icons.play_circle_outline, size: 18, color: AppTheme.cobalt),
+                              onPressed: () => _loadSessionIntoEditor(r),
+                              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                              padding: EdgeInsets.zero,
                             ),
                           ),
-                          DataCell(CopyableTableCell(
-                            value: '#${r.blReviewId}',
-                            rowSummary: rowSummary,
-                            child: Text('#${r.blReviewId}', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimaryOf(context))),
-                          )),
-                          DataCell(
-                            CopyableTableCell(
-                              value: blNumber,
-                              rowSummary: rowSummary,
-                              child: InkWell(
-                                onTap: () => CopyHelper.copy(context, blNumber),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.cobalt.withValues(alpha: isDark ? 0.2 : 0.08),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.confirmation_number_outlined, size: 14, color: AppTheme.cobalt),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        blNumber,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt,
-                                          fontFamily: 'monospace',
-                                          fontSize: 12.5,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Tooltip(
-                                        message: context.l10n.draftBlCopyBlNumberTooltip,
-                                        child: Icon(Icons.copy, size: 12, color: isDark ? AppTheme.cobaltLight : AppTheme.cobalt),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                          Tooltip(
+                            message: context.l10n.idocAViewSessionDetailsAndMatrix,
+                            child: IconButton(
+                              icon: Icon(Icons.info_outline, size: 18, color: AppTheme.textMutedOf(context)),
+                              onPressed: () => _showDraftBLSessionDetailsDialog(r),
+                              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                              padding: EdgeInsets.zero,
                             ),
                           ),
-                          DataCell(CopyableTableCell(
-                            value: r.shippingLine ?? '-',
-                            rowSummary: rowSummary,
-                            child: Text(r.shippingLine ?? '-', style: const TextStyle(fontWeight: FontWeight.w600)),
-                          )),
-                          DataCell(CopyableTableCell(
-                            value: vesselVoyage,
-                            rowSummary: rowSummary,
-                            child: Text(vesselVoyage, style: const TextStyle(fontSize: 11.5)),
-                          )),
-                          DataCell(CopyableTableCell(
-                            value: r.stage,
-                            rowSummary: rowSummary,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: isDark ? AppTheme.textPrimaryOf(context) : AppTheme.surfaceAltOf(context),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: AppTheme.borderOf(context)),
-                              ),
-                              child: Text(
-                                r.stage,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimaryOf(context),
-                                ),
+                          Tooltip(
+                            message: context.l10n.draftBlPrintBlTooltip,
+                            child: IconButton(
+                              icon: Icon(Icons.print, size: 18, color: AppTheme.textPrimaryOf(context)),
+                              onPressed: () async {
+                                try {
+                                  final sysData = r.systemDataSnapshot ?? {};
+                                  final draftData = r.draftExtractedData ?? {};
+                                  await DraftBLExportService.printDraftBL(
+                                    systemData: sysData,
+                                    draftData: draftData,
+                                    draftBlNumber: blNumber,
+                                  );
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      AppTheme.snackBar(context, context.l10n.draftBlPrintError(ApiErrorText.of(context.l10n, e)), severity: AppSeverity.danger),
+                                    );
+                                  }
+                                }
+                              },
+                              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                          Tooltip(
+                            message: context.l10n.draftBlDownloadPdfTooltip,
+                            child: IconButton(
+                              icon: const Icon(Icons.picture_as_pdf, size: 18, color: AppTheme.crimson),
+                              onPressed: () async {
+                                try {
+                                  final sysData = r.systemDataSnapshot ?? {};
+                                  final draftData = r.draftExtractedData ?? {};
+                                  await DraftBLExportService.exportDraftBLToPdf(
+                                    systemData: sysData,
+                                    draftData: draftData,
+                                    draftBlNumber: blNumber,
+                                  );
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      AppTheme.snackBar(context, context.l10n.draftBlPdfExportError(ApiErrorText.of(context.l10n, e)), severity: AppSeverity.danger),
+                                    );
+                                  }
+                                }
+                              },
+                              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                          if (isDraft)
+                            Tooltip(
+                              message: context.l10n.idocADeleteDraft,
+                              child: IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.crimson),
+                                onPressed: () => _deleteDraftBLSession(r),
+                                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                                padding: EdgeInsets.zero,
                               ),
                             ),
-                          )),
-                          DataCell(CopyableTableCell(
-                            value: importerApproval,
-                            rowSummary: rowSummary,
-                            child: Text(
-                              importerApproval,
-                              style: TextStyle(
-                                color: r.importerApprovalStatus == 'Approved' ? AppTheme.emerald : AppTheme.orange,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          )),
-                          DataCell(CopyableTableCell(
-                            value: brokerApproval,
-                            rowSummary: rowSummary,
-                            child: Text(
-                              brokerApproval,
-                              style: TextStyle(
-                                color: r.brokerApprovalStatus == 'Approved' ? AppTheme.emerald : AppTheme.orange,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          )),
-                          DataCell(CopyableTableCell(
-                            value: statusLabel,
-                            rowSummary: rowSummary,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: r.status == 'Final Approved' || r.status == 'Approved'
-                                    ? (isDark ? AppTheme.severityForegroundOf(context, AppSeverity.success).withValues(alpha: 0.3) : AppTheme.severityBackgroundOf(context, AppSeverity.success))
-                                    : (isDark ? AppTheme.severityForegroundOf(context, AppSeverity.info).withValues(alpha: 0.3) : AppTheme.severityBackgroundOf(context, AppSeverity.info)),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: r.status == 'Final Approved' || r.status == 'Approved'
-                                      ? (isDark ? AppTheme.severityForegroundOf(context, AppSeverity.success) : AppTheme.emeraldBorder)
-                                      : (isDark ? AppTheme.severityForegroundOf(context, AppSeverity.info) : AppTheme.cobaltBorder),
-                                ),
-                              ),
-                              child: Text(
-                                statusLabel,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                  color: r.status == 'Final Approved' || r.status == 'Approved'
-                                      ? (isDark ? AppTheme.emerald : AppTheme.severityForegroundOf(context, AppSeverity.success))
-                                      : (isDark ? AppTheme.cobalt : AppTheme.severityForegroundOf(context, AppSeverity.info)),
-                                ),
-                              ),
-                            ),
-                          )),
-                        ]);
-                      }).toList(),
-                    ),
+                        ],
+                      );
+                    },
                   ),
-                ),
-              ),
+                  EnterpriseColumn<DraftBLReviewModel>(
+                    id: 'session_type',
+                    title: context.l10n.idocASessionType,
+                    width: 110,
+                    isSortable: true,
+                    searchValue: (r) => r.isDraft ? context.l10n.idocADraft : context.l10n.idocACertified,
+                    exportValue: (r) => r.isDraft ? context.l10n.idocADraft : context.l10n.idocACertified,
+                    cellBuilder: (context, r, index) {
+                      final isDraft = r.isDraft;
+                      return AppStatusBadge(
+                        label: isDraft ? context.l10n.idocADraft : context.l10n.idocACertified,
+                        severity: isDraft ? AppSeverity.warning : AppSeverity.success,
+                        size: AppStatusBadgeSize.small,
+                      );
+                    },
+                  ),
+                  EnterpriseColumn<DraftBLReviewModel>(
+                    id: 'session_id',
+                    title: context.l10n.draftBlRegistryColSessionId,
+                    width: 90,
+                    isSortable: true,
+                    searchValue: (r) => '#${r.blReviewId}',
+                    exportValue: (r) => '#${r.blReviewId}',
+                    cellBuilder: (context, r, index) => Text('#${r.blReviewId}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  EnterpriseColumn<DraftBLReviewModel>(
+                    id: 'bl_number',
+                    title: context.l10n.draftBlRegistryColBlNumber,
+                    width: 150,
+                    isSortable: true,
+                    searchValue: (r) => (r.draftExtractedData?['draft_bl_number'] ?? r.draftExtractedData?['bl_number'] ?? r.systemDataSnapshot?['draft_bl_number'] ?? r.draftBlNumber).toString(),
+                    exportValue: (r) => (r.draftExtractedData?['draft_bl_number'] ?? r.draftExtractedData?['bl_number'] ?? r.systemDataSnapshot?['draft_bl_number'] ?? r.draftBlNumber).toString(),
+                    cellBuilder: (context, r, index) {
+                      final blNumber = (r.draftExtractedData?['draft_bl_number'] ?? r.draftExtractedData?['bl_number'] ?? r.systemDataSnapshot?['draft_bl_number'] ?? r.draftBlNumber).toString();
+                      return Text(blNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt));
+                    },
+                  ),
+                  EnterpriseColumn<DraftBLReviewModel>(
+                    id: 'shipping_line',
+                    title: context.l10n.draftBlRegistryColShippingLine,
+                    width: 140,
+                    isSortable: true,
+                    searchValue: (r) => r.shippingLine ?? '-',
+                    exportValue: (r) => r.shippingLine ?? '-',
+                    cellBuilder: (context, r, index) => Text(r.shippingLine ?? '-'),
+                  ),
+                  EnterpriseColumn<DraftBLReviewModel>(
+                    id: 'vessel_voyage',
+                    title: context.l10n.draftBlRegistryColVesselVoyage,
+                    width: 150,
+                    isSortable: true,
+                    searchValue: (r) => '${r.vesselName ?? "-"} / ${r.voyageNumber ?? "-"}',
+                    exportValue: (r) => '${r.vesselName ?? "-"} / ${r.voyageNumber ?? "-"}',
+                    cellBuilder: (context, r, index) => Text('${r.vesselName ?? "-"} / ${r.voyageNumber ?? "-"}'),
+                  ),
+                  EnterpriseColumn<DraftBLReviewModel>(
+                    id: 'stage',
+                    title: context.l10n.draftBlRegistryColStage,
+                    width: 110,
+                    isSortable: true,
+                    searchValue: (r) => r.stage,
+                    exportValue: (r) => r.stage,
+                    cellBuilder: (context, r, index) => Text(r.stage),
+                  ),
+                  EnterpriseColumn<DraftBLReviewModel>(
+                    id: 'importer_approval',
+                    title: context.l10n.draftBlRegistryColImporterApproval,
+                    width: 130,
+                    isSortable: true,
+                    searchValue: (r) => r.importerApprovalStatus == 'Approved' ? context.l10n.approved : r.importerApprovalStatus,
+                    exportValue: (r) => r.importerApprovalStatus == 'Approved' ? context.l10n.approved : r.importerApprovalStatus,
+                    cellBuilder: (context, r, index) {
+                      final isApproved = r.importerApprovalStatus == 'Approved';
+                      return AppStatusBadge(
+                        label: isApproved ? context.l10n.approved : r.importerApprovalStatus,
+                        severity: isApproved ? AppSeverity.success : AppSeverity.warning,
+                        size: AppStatusBadgeSize.small,
+                      );
+                    },
+                  ),
+                  EnterpriseColumn<DraftBLReviewModel>(
+                    id: 'broker_approval',
+                    title: context.l10n.draftBlRegistryColBrokerApproval,
+                    width: 130,
+                    isSortable: true,
+                    searchValue: (r) => r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus,
+                    exportValue: (r) => r.brokerApprovalStatus == 'Approved' ? context.l10n.approved : r.brokerApprovalStatus,
+                    cellBuilder: (context, r, index) {
+                      final isApproved = r.brokerApprovalStatus == 'Approved';
+                      return AppStatusBadge(
+                        label: isApproved ? context.l10n.approved : r.brokerApprovalStatus,
+                        severity: isApproved ? AppSeverity.success : AppSeverity.warning,
+                        size: AppStatusBadgeSize.small,
+                      );
+                    },
+                  ),
+                  EnterpriseColumn<DraftBLReviewModel>(
+                    id: 'status',
+                    title: context.l10n.draftBlRegistryColStatus,
+                    width: 120,
+                    isSortable: true,
+                    searchValue: (r) => r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status,
+                    exportValue: (r) => r.status == 'Final Approved' || r.status == 'Approved' ? context.l10n.approved : r.status,
+                    cellBuilder: (context, r, index) {
+                      final isApproved = r.status == 'Final Approved' || r.status == 'Approved';
+                      return AppStatusBadge(
+                        label: isApproved ? context.l10n.approved : r.status,
+                        severity: isApproved ? AppSeverity.success : AppSeverity.info,
+                        size: AppStatusBadgeSize.small,
+                      );
+                    },
+                  ),
+                ],
+              )
           ],
         ),
       ),
@@ -2978,44 +2872,20 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       _containerNoCtrl.text = session.containerSummary ?? '';
       _activeStep = 0; // jump to Review Sheet
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.idocASessionRestoredReview(session.blReviewCode))),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.idocASessionRestoredReview(session.blReviewCode), severity: AppSeverity.info));
   }
 
   Future<void> _deleteDraftBLSession(DraftBLReviewModel session) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.delete_forever, color: AppTheme.crimson),
-            const SizedBox(width: 8),
-            Text(context.l10n.idocAConfirmDraftSessionDeletion),
-          ],
-        ),
-        content: Text(context.l10n.idocAAreYouSureYouWantToAlt(session.blReviewCode)),
-        actions: [
-          IdocUi.fit(AppButton(
-            label: context.l10n.cancel,
-            variant: AppButtonVariant.ghost,
-            onPressed: () => Navigator.pop(ctx, false),
-          )),
-          IdocUi.fit(AppButton(
-            label: context.l10n.idocAConfirmDeletion,
-            variant: AppButtonVariant.danger,
-            onPressed: () => Navigator.pop(ctx, true),
-          )),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.showDelete(
+      context,
+      title: context.l10n.idocAConfirmDraftSessionDeletion,
+      message: context.l10n.idocAAreYouSureYouWantToAlt(session.blReviewCode),
     );
     if (confirmed == true) {
       try {
         await ref.read(draftBLReviewsProvider.notifier).deleteDraftBLReview(session.blReviewId);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.idocADraftSessionDeletedSuccessfully), backgroundColor: AppTheme.crimson),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.idocADraftSessionDeletedSuccessfully, severity: AppSeverity.info));
         }
       } catch (e) {
         // e.g. 409 when the review is FINAL.
@@ -3112,20 +2982,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           DataCell(Text(item.displaySystemValue(context.l10n))),
                           DataCell(Text(item.displayDraftValue(context.l10n))),
                           DataCell(
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: item.matchStatus == 'MATCH' ? AppTheme.emerald.withValues(alpha: 0.12) : AppTheme.crimson.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                item.matchStatus == 'MATCH' ? context.l10n.idocAMatched : context.l10n.idocAVariance,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: item.matchStatus == 'MATCH' ? AppTheme.emerald : AppTheme.crimson,
-                                ),
-                              ),
+                            AppStatusBadge(
+                              label: item.matchStatus == 'MATCH' ? context.l10n.idocAMatched : context.l10n.idocAVariance,
+                              severity: item.matchStatus == 'MATCH' ? AppSeverity.success : AppSeverity.danger,
+                              size: AppStatusBadgeSize.small,
                             ),
                           ),
                         ]);

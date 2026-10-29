@@ -25,6 +25,11 @@ class RowActionsPill extends StatelessWidget {
   /// Whether delete action triggers the shared confirmation dialog.
   /// Defaults to false for backward compatibility with callers that display their own dialog.
   final bool confirmDelete;
+  final Key? viewKey;
+  final Key? editKey;
+  final Key? cloneKey;
+  final Key? printKey;
+  final Key? deleteKey;
 
   const RowActionsPill({
     super.key,
@@ -40,6 +45,11 @@ class RowActionsPill extends StatelessWidget {
     this.deleteTooltip,
     this.iconSize = 16.0,
     this.confirmDelete = false,
+    this.viewKey,
+    this.editKey,
+    this.cloneKey,
+    this.printKey,
+    this.deleteKey,
   });
 
   @override
@@ -49,6 +59,7 @@ class RowActionsPill extends StatelessWidget {
     if (onView != null) {
       actions.add(
         RowAction.view(
+          key: viewKey,
           run: (_) async => await onView!(),
           label: viewTooltip != null ? (_) => viewTooltip! : null,
         ),
@@ -58,6 +69,7 @@ class RowActionsPill extends StatelessWidget {
     if (onEdit != null) {
       actions.add(
         RowAction.edit(
+          key: editKey,
           run: (_) async => await onEdit!(),
           label: editTooltip != null ? (_) => editTooltip! : null,
         ),
@@ -67,6 +79,7 @@ class RowActionsPill extends StatelessWidget {
     if (onClone != null) {
       actions.add(
         RowAction.clone(
+          key: cloneKey,
           run: (_) async => await onClone!(),
           label: cloneTooltip != null ? (_) => cloneTooltip! : null,
         ),
@@ -76,6 +89,7 @@ class RowActionsPill extends StatelessWidget {
     if (onPrint != null) {
       actions.add(
         RowAction.print(
+          key: printKey,
           run: (_) async => await onPrint!(),
           label: printTooltip != null ? (_) => printTooltip! : null,
         ),
@@ -85,6 +99,7 @@ class RowActionsPill extends StatelessWidget {
     if (onDelete != null) {
       actions.add(
         RowAction.delete(
+          key: deleteKey,
           run: (_) async => await onDelete!(),
           confirm: confirmDelete,
           showOutcomeSnackBar: false,

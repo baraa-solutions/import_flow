@@ -1,7 +1,7 @@
+import 'package:frontend/core/theme/app_theme.dart';
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../providers/smart_checklists_provider.dart';
 import 'checklist_item_card.dart';
@@ -289,13 +289,9 @@ class _SmartChecklistDialogState extends ConsumerState<SmartChecklistDialog> {
                                       await ref.read(smartChecklistProvider.notifier).autoSync(widget.file.importFileId);
                                       if (context.mounted) {
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              isAr
+                                          AppTheme.snackBar(context, isAr
                                                   ? 'تم الفحص الآلي ومزامنة كافة بنود الشحنة مع قاعدة البيانات'
-                                                  : 'Automated check completed and synchronized with database',
-                                            ),
-                                          ),
+                                                  : 'Automated check completed and synchronized with database',),
                                         );
                                       }
                                     },

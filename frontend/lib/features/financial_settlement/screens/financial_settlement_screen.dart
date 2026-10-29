@@ -380,10 +380,12 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
     final files = ref.read(importFilesProvider).valueOrNull ?? [];
     if (files.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(actualCost
+        AppTheme.snackBar(
+          context,
+          actualCost
               ? l10n.settlementSelectShipmentForActual
-              : l10n.settlementSelectShipmentForInvoices),
+              : l10n.settlementSelectShipmentForInvoices,
+          severity: AppSeverity.warning,
         ),
       );
       return;

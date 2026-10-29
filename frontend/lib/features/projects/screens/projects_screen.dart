@@ -1266,7 +1266,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       }
                     },
               child: isSubmitting
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(width: 16, height: 16, child: AppLoadingState.inline())
                   : Text(project == null ? l10n.createProjectSubmitBtn : l10n.saveChangesSubmitBtn),
             ),
           ],

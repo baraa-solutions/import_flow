@@ -193,7 +193,7 @@ void main() {
       expect(find.text('حالة النقل الداخلي'), findsOneWidget);
       expect(find.text('بوليصة النقل الداخلي'), findsOneWidget);
       expect(find.text('الشاحنة والسائق'), findsOneWidget);
-      expect(find.text('نولون النقل (EGP)'), findsOneWidget);
+      expect(find.text('نولون النقل بالجنيه المصري'), findsOneWidget);
 
       // 3. Form Section & Elements
       expect(find.text('نموذج حجز وتنسيق النقل الداخلي'), findsOneWidget);

@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/logistics_invoice_models.dart';
 import '../providers/logistics_invoices_provider.dart';
 import '../repositories/logistics_invoices_repository.dart';
@@ -112,43 +111,45 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF101419) : AppTheme.cloudWhite,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top App Bar / Header
-            _buildHeader(context, isDark, isArabic),
+      body: SelectionArea(
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Top App Bar / Header
+              _buildHeader(context, isDark, isArabic),
 
-            // Tab Bar
-            Container(
-              color: isDark ? const Color(0xFF1E2630) : Colors.white,
-              child: TabBar(
-                controller: _tabController,
-                labelColor: AppTheme.cobalt,
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: AppTheme.cobalt,
-                indicatorWeight: 3,
-                tabs: [
-                  Tab(icon: const Icon(Icons.receipt_long), text: isArabic ? 'فواتير الخدمات' : 'Service Invoices'),
-                  Tab(icon: const Icon(Icons.payment), text: isArabic ? 'سندات الصرف والإقفال' : 'Payment Vouchers & Knock-off'),
-                  Tab(icon: const Icon(Icons.account_balance_wallet), text: isArabic ? 'عهد ودفعات التخليص' : 'Clearance Advances'),
-                  Tab(icon: const Icon(Icons.shield), text: isArabic ? 'بوالص التأمين البحري' : 'Marine Insurance Policies'),
-                ],
+              // Tab Bar
+              Container(
+                color: isDark ? const Color(0xFF1E2630) : Colors.white,
+                child: TabBar(
+                  controller: _tabController,
+                  labelColor: AppTheme.cobalt,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: AppTheme.cobalt,
+                  indicatorWeight: 3,
+                  tabs: [
+                    Tab(icon: const Icon(Icons.receipt_long), text: isArabic ? 'فواتير الخدمات' : 'Service Invoices'),
+                    Tab(icon: const Icon(Icons.payment), text: isArabic ? 'سندات الصرف والإقفال' : 'Payment Vouchers & Knock-off'),
+                    Tab(icon: const Icon(Icons.account_balance_wallet), text: isArabic ? 'عهد ودفعات التخليص' : 'Clearance Advances'),
+                    Tab(icon: const Icon(Icons.shield), text: isArabic ? 'بوالص التأمين البحري' : 'Marine Insurance Policies'),
+                  ],
+                ),
               ),
-            ),
 
-            // Tab View Body
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildInvoicesTab(context, isDark, isArabic),
-                  _buildPaymentsTab(context, isDark, isArabic),
-                  _buildAdvancesTab(context, isDark, isArabic),
-                  _buildInsuranceTab(context, isDark, isArabic),
-                ],
+              // Tab View Body
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildInvoicesTab(context, isDark, isArabic),
+                    _buildPaymentsTab(context, isDark, isArabic),
+                    _buildAdvancesTab(context, isDark, isArabic),
+                    _buildInsuranceTab(context, isDark, isArabic),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -313,19 +314,18 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
         // Invoices List
         Expanded(
           child: invoicesAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text('Error loading invoices: $err', style: const TextStyle(color: Colors.red))),
+            loading: () => const AppLoadingState(),
+            error: (err, _) => AppErrorState(
+              error: err,
+              onRetry: () => ref.invalidate(logisticsInvoicesListProvider),
+            ),
             data: (invoices) {
               if (invoices.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey.shade400),
-                      const SizedBox(height: 12),
-                      Text(isArabic ? 'لا توجد فواتير خدمات مسجلة.' : 'No logistics invoices found.', style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                    ],
-                  ),
+                return AppEmptyState(
+                  icon: Icons.receipt_long_outlined,
+                  message: isArabic
+                      ? 'لا توجد فواتير خدمات مسجلة.'
+                      : 'No logistics invoices found.',
                 );
               }
 
@@ -343,6 +343,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
   }
 
   Widget _buildInvoiceCard(BuildContext context, LogisticsInvoiceModel inv, bool isDark) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     Color partnerColor;
     IconData partnerIcon;
 
@@ -471,37 +472,112 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    tooltip: 'Edit Invoice',
-                    onPressed: () => _openEditInvoiceDialog(inv),
+                  if (inv.status == 'draft') ...[
+                    Tooltip(
+                      message: isArabic ? 'ترحيل الفاتورة للمراجعة' : 'Submit Invoice',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        onTap: () async {
+                          final repo = ref.read(logisticsInvoicesRepositoryProvider);
+                          await repo.submitInvoice(inv.invoiceId);
+                          ref.invalidate(logisticsInvoicesListProvider);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cobaltLight,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.send_rounded, size: 13, color: AppTheme.cobalt),
+                              const SizedBox(width: 4),
+                              Text(
+                                isArabic ? 'ترحيل' : 'Submit',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (inv.status == 'submitted') ...[
+                    Tooltip(
+                      message: isArabic ? 'اعتماد الفاتورة' : 'Approve Invoice',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        onTap: () async {
+                          final repo = ref.read(logisticsInvoicesRepositoryProvider);
+                          await repo.approveInvoice(inv.invoiceId);
+                          ref.invalidate(logisticsInvoicesListProvider);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: AppTheme.emeraldLight,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.check_circle_outline, size: 13, color: AppTheme.emerald),
+                              const SizedBox(width: 4),
+                              Text(
+                                isArabic ? 'اعتماد' : 'Approve',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (inv.remainingAmountEgp > 0 && inv.status == 'approved') ...[
+                    Tooltip(
+                      message: isArabic ? 'سداد / إقفال الفاتورة' : 'Pay / Knock-off',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        onTap: () => _openPaymentDialog(inv.partnerId, inv.partnerName),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: AppTheme.orangeLight,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.orange.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.payments_outlined, size: 13, color: AppTheme.orange),
+                              const SizedBox(width: 4),
+                              Text(
+                                isArabic ? 'سداد' : 'Pay',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  RowActionsPill(
+                    viewTooltip: isArabic ? 'عرض الفاتورة' : 'View Invoice',
+                    onView: () => _openEditInvoiceDialog(inv),
+                    editTooltip: inv.status == 'draft' ? (isArabic ? 'تعديل الفاتورة' : 'Edit Invoice') : null,
+                    onEdit: inv.status == 'draft' ? () => _openEditInvoiceDialog(inv) : null,
+                    cloneTooltip: isArabic ? 'نسخ بيانات الفاتورة' : 'Copy Invoice Details',
+                    onClone: () {
+                      final summary = '${inv.invoiceCode} · ${inv.partnerName} · ${inv.netPayableEgp.toStringAsFixed(2)} EGP · ${inv.status.toUpperCase()}';
+                      CopyHelper.copy(context, summary);
+                    },
                   ),
-                  if (inv.status == 'draft')
-                    IconButton(
-                      icon: const Icon(Icons.send_outlined, size: 18, color: Colors.blue),
-                      tooltip: 'Submit Invoice',
-                      onPressed: () async {
-                        final repo = ref.read(logisticsInvoicesRepositoryProvider);
-                        await repo.submitInvoice(inv.invoiceId);
-                        ref.invalidate(logisticsInvoicesListProvider);
-                      },
-                    ),
-                  if (inv.status == 'submitted')
-                    IconButton(
-                      icon: const Icon(Icons.check_circle_outline, size: 18, color: Colors.green),
-                      tooltip: 'Approve Invoice',
-                      onPressed: () async {
-                        final repo = ref.read(logisticsInvoicesRepositoryProvider);
-                        await repo.approveInvoice(inv.invoiceId);
-                        ref.invalidate(logisticsInvoicesListProvider);
-                      },
-                    ),
-                  if (inv.remainingAmountEgp > 0 && inv.status == 'approved')
-                    IconButton(
-                      icon: const Icon(Icons.payments_outlined, size: 18, color: Colors.purple),
-                      tooltip: 'Pay / Knock-off',
-                      onPressed: () => _openPaymentDialog(inv.partnerId, inv.partnerName),
-                    ),
                 ],
               ),
             ],
@@ -517,28 +593,28 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
 
     switch (status) {
       case 'draft':
-        bg = Colors.grey.withValues(alpha: 0.15);
-        fg = Colors.grey.shade700;
+        bg = AppTheme.charcoal.withValues(alpha: 0.1);
+        fg = AppTheme.charcoal;
         break;
       case 'submitted':
-        bg = Colors.blue.withValues(alpha: 0.15);
-        fg = Colors.blue;
+        bg = AppTheme.cobaltLight;
+        fg = AppTheme.cobalt;
         break;
       case 'approved':
-        bg = AppTheme.emerald.withValues(alpha: 0.15);
+        bg = AppTheme.emeraldLight;
         fg = AppTheme.emerald;
         break;
       case 'partially_paid':
-        bg = Colors.amber.withValues(alpha: 0.15);
-        fg = Colors.amber.shade800;
+        bg = AppTheme.orangeLight;
+        fg = AppTheme.orange;
         break;
       case 'fully_paid':
-        bg = AppTheme.emerald.withValues(alpha: 0.2);
+        bg = AppTheme.emeraldLight;
         fg = AppTheme.emerald;
         break;
       default:
-        bg = Colors.red.withValues(alpha: 0.15);
-        fg = Colors.red;
+        bg = AppTheme.crimsonLight;
+        fg = AppTheme.crimson;
     }
 
     return Container(
@@ -581,11 +657,19 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
         const Divider(height: 1),
         Expanded(
           child: vouchersAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+            loading: () => const AppLoadingState(),
+            error: (err, _) => AppErrorState(
+              error: err,
+              onRetry: () => ref.invalidate(paymentVouchersListProvider),
+            ),
             data: (vouchers) {
               if (vouchers.isEmpty) {
-                return Center(child: Text(isArabic ? 'لا توجد سندات صرف مسجلة حتى الآن.' : 'No payment vouchers recorded yet.', style: const TextStyle(color: Colors.grey)));
+                return AppEmptyState(
+                  icon: Icons.payment,
+                  message: isArabic
+                      ? 'لا توجد سندات صرف مسجلة حتى الآن.'
+                      : 'No payment vouchers recorded yet.',
+                );
               }
 
               return ListView.separated(
@@ -666,11 +750,19 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
         const Divider(height: 1),
         Expanded(
           child: advancesAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+            loading: () => const AppLoadingState(),
+            error: (err, _) => AppErrorState(
+              error: err,
+              onRetry: () => ref.invalidate(clearanceAdvancesListProvider),
+            ),
             data: (advances) {
               if (advances.isEmpty) {
-                return Center(child: Text(isArabic ? 'لا توجد عهد أو دفعات مخلصين مسجلة حتى الآن.' : 'No advance payments recorded yet.', style: const TextStyle(color: Colors.grey)));
+                return AppEmptyState(
+                  icon: Icons.account_balance_wallet,
+                  message: isArabic
+                      ? 'لا توجد عهد أو دفعات مخلصين مسجلة حتى الآن.'
+                      : 'No advance payments recorded yet.',
+                );
               }
 
               return ListView.separated(
@@ -758,11 +850,19 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
         const Divider(height: 1),
         Expanded(
           child: policiesAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+            loading: () => const AppLoadingState(),
+            error: (err, _) => AppErrorState(
+              error: err,
+              onRetry: () => ref.invalidate(insurancePoliciesListProvider),
+            ),
             data: (policies) {
               if (policies.isEmpty) {
-                return Center(child: Text(isArabic ? 'لا توجد بوالص تأمين بحري مسجلة حتى الآن.' : 'No marine insurance policies issued yet.', style: const TextStyle(color: Colors.grey)));
+                return AppEmptyState(
+                  icon: Icons.shield,
+                  message: isArabic
+                      ? 'لا توجد بوالص تأمين بحري مسجلة حتى الآن.'
+                      : 'No marine insurance policies issued yet.',
+                );
               }
 
               return ListView.separated(
