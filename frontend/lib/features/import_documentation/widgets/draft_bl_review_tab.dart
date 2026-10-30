@@ -211,9 +211,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     final allReviews = ref.read(draftBLReviewsProvider).valueOrNull ?? [];
     showDialog(
       context: context,
-      builder: (ctx) => SearchAndCloneDraftBlDialog(
-        reviews: allReviews,
-        onSelectReview: _onCloneDraftBlSession,
+      builder: (ctx) => SelectionArea(
+        child: SearchAndCloneDraftBlDialog(
+          reviews: allReviews,
+          onSelectReview: _onCloneDraftBlSession,
+        ),
       ),
     );
   }
@@ -231,7 +233,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         locale: Localizations.localeOf(context),
         child: Directionality(
           textDirection: Directionality.of(context),
-          child: CloneEntityReviewDialog(
+          child: SelectionArea(
+            child: CloneEntityReviewDialog(
             entityType: context.l10n.idocADraftBillOfLadingDraftB,
             sourceCode: session.blReviewCode,
             sourceTitle: '$blNumber — ${session.shippingLine ?? ""}',
@@ -295,6 +298,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               }
             },
           ),
+        ),
         ),
       ),
     );
@@ -384,7 +388,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         context: context,
         builder: (ctx) {
           final l = ctx.l10n;
-          return AlertDialog(
+          return SelectionArea(
+            child: AlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson),
@@ -411,6 +416,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                 onPressed: () => Navigator.pop(ctx, true),
               )),
             ],
+          ),
           );
         },
       );
@@ -1172,7 +1178,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                               context: context,
                               builder: (dCtx) {
                                 final editCtrl = TextEditingController(text: _draftBlNumberCtrl.text);
-                                return AlertDialog(
+                                return SelectionArea(
+                                  child: AlertDialog(
                                   title: Text(context.l10n.draftBlEditBlNumberTitle),
                                   content: TextField(
                                     controller: editCtrl,
@@ -1195,6 +1202,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                       },
                                     ),
                                   ],
+                                ),
                                 );
                               },
                             );
@@ -2900,8 +2908,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 8),
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
+          titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 8),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         title: Row(
           children: [
@@ -3013,6 +3022,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
           )),
         ],
       ),
+    ),
     );
   }
 

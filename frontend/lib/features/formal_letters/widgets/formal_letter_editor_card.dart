@@ -106,7 +106,8 @@ class _FormalLetterEditorCardState extends ConsumerState<FormalLetterEditorCard>
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(color: isDark ? AppTheme.darkBorder : const Color(0xFFE2E8F0)),
       ),
-      child: Padding(
+      child: SelectionArea(
+        child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -154,23 +155,14 @@ class _FormalLetterEditorCardState extends ConsumerState<FormalLetterEditorCard>
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
-                DropdownButtonFormField<String>(
-                  initialValue: widget.selectedTemplateType,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  hint: Text(
-                    isArabic ? 'اختر نموذج الخطاب...' : 'Select letter template...',
-                    style: const TextStyle(fontSize: 12),
-                  ),
+                SearchableDropdownField<String>(
+                  value: widget.selectedTemplateType,
+                  labelText: isArabic ? 'نوع الخطاب الرسمي *' : 'Letter Template *',
+                  hintText: isArabic ? 'اختر نموذج الخطاب...' : 'Select letter template...',
                   items: templates
-                      .map((t) => DropdownMenuItem(
+                      .map((t) => SearchableDropdownItem<String>(
                             value: t.templateType,
-                            child: Text(
-                              isArabic ? t.titleAr : t.titleEn,
-                              style: const TextStyle(fontSize: 12.5),
-                            ),
+                            label: isArabic ? t.titleAr : t.titleEn,
                           ))
                       .toList(),
                   onChanged: widget.onTemplateChanged,
@@ -354,6 +346,7 @@ class _FormalLetterEditorCardState extends ConsumerState<FormalLetterEditorCard>
                 ),
               ],
             ),
+          ),
           ),
         ),
       ),

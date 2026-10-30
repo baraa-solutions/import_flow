@@ -898,9 +898,9 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
                       style: const TextStyle(
                           fontSize: 13, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: _skipPolicy,
+                  SearchableDropdownField<String>(
+                    value: _skipPolicy,
+                    labelText: l.stepConfigSkipPolicyLabel,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
@@ -911,17 +911,17 @@ class _StepConfigEditDialogState extends ConsumerState<_StepConfigEditDialog> {
                       ),
                     ),
                     items: [
-                      DropdownMenuItem(
+                      SearchableDropdownItem<String>(
                         value: 'blocked',
-                        child: Text(l.stepConfigPolicyItemBlocked),
+                        label: l.stepConfigPolicyItemBlocked,
                       ),
-                      DropdownMenuItem(
+                      SearchableDropdownItem<String>(
                         value: 'single_approval',
-                        child: Text(l.stepConfigPolicyItemSingleApproval),
+                        label: l.stepConfigPolicyItemSingleApproval,
                       ),
-                      DropdownMenuItem(
+                      SearchableDropdownItem<String>(
                         value: 'dual_approval',
-                        child: Text(l.stepConfigPolicyItemDualApproval),
+                        label: l.stepConfigPolicyItemDualApproval,
                       ),
                     ],
                     onChanged: (val) {

@@ -921,7 +921,7 @@ import '../../currencies/providers/currencies_provider.dart';
                     children: [
                       Text(
                         isArabic
-                            ? 'سطور الفاتورة (Invoice Line Items):'
+                            ? 'سطور الفاتورة:'
                             : 'Invoice Line Items:',
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,

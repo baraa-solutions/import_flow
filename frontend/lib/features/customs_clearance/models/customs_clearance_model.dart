@@ -294,7 +294,7 @@ class CustomsClearanceModel {
       releasePermitNo: json['release_permit_no'],
       releaseDate: json['release_date'],
       releaseOfficerName: json['release_officer_name'],
-      releaseType: json['release_type'] ?? 'نهائي وبات (Final Green Release)',
+      releaseType: json['release_type'] ?? 'نهائي وبات',
       releaseDocumentUrl: json['release_document_url'],
       gatePassNumber: json['gate_pass_number'],
       demurrageStorageFees: (json['demurrage_storage_fees'] as num?)?.toDouble(),

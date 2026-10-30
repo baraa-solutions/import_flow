@@ -20,7 +20,8 @@ class ReportDocumentsCard extends StatelessWidget {
   static void openBankForm4Dialog(BuildContext context, ImportFileModel file) {
     showDialog(
       context: context,
-      builder: (dialogCtx) => Dialog(
+      builder: (dialogCtx) => SelectionArea(
+        child: Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         clipBehavior: Clip.antiAlias,
@@ -49,6 +50,7 @@ class ReportDocumentsCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

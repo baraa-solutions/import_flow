@@ -693,7 +693,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setSheetState) => AlertDialog(
+        builder: (context, setSheetState) => SelectionArea(
+          child: AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: Row(
             children: [
@@ -877,6 +878,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
           ],
         ),
       ),
+      ),
     ).then((_) {
       amountCtrl.dispose();
     });
@@ -897,7 +899,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setSheetState) => AlertDialog(
+        builder: (context, setSheetState) => SelectionArea(
+          child: AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: Row(
             children: [
@@ -1113,6 +1116,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
             ),
           ],
         ),
+      ),
       ),
     ).then((_) {
       amountCtrl.dispose();

@@ -37,7 +37,8 @@ class SkipStepDialogHelper {
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            return AlertDialog(
+            return SelectionArea(
+              child: AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               title: Row(
                 children: [
@@ -192,6 +193,7 @@ class SkipStepDialogHelper {
                   ),
                 ),
               ],
+              ),
             );
           },
         );

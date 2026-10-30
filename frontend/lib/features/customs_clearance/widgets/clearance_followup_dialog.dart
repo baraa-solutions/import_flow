@@ -63,6 +63,30 @@ class _ClearanceFollowupDialogState extends ConsumerState<ClearanceFollowupDialo
     'Customs Tariff & Classification / لجنة التعريفة والتصنيف',
   ];
 
+  static String _authorityLabel(String a, bool isArabic) {
+    if (!isArabic) return a;
+    switch (a) {
+      case 'Customs Inspection Yard / ساحة الكشف والمعاينة':
+        return 'ساحة الكشف والمعاينة';
+      case 'Customs Valuation Committee / لجنة التثمين الجمركي':
+        return 'لجنة التثمين الجمركي';
+      case 'GOEIC Inspection / هيئة الصادرات والواردات':
+        return 'الهيئة العامة للرقابة على الصادرات والواردات';
+      case 'Food Safety Authority / هيئة سلامة الغذاء (NFSA)':
+        return 'الهيئة القومية لسلامة الغذاء';
+      case 'Quarantine / الحجر الزراعي والبيطري':
+        return 'الحجر الزراعي والبيطري';
+      case 'Chemistry Administration / مصلحة الكيمياء والفحص المعملي':
+        return 'مصلحة الكيمياء والفحص المعملي';
+      case 'NTRA Telecomm / الجهاز القومي لتنظيم الاتصالات':
+        return 'الجهاز القومي لتنظيم الاتصالات';
+      case 'Customs Tariff & Classification / لجنة التعريفة والتصنيف':
+        return 'لجنة التعريفة والتصنيف';
+      default:
+        return a.contains(' / ') ? a.split(' / ').last : a;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -184,33 +208,34 @@ class _ClearanceFollowupDialogState extends ConsumerState<ClearanceFollowupDialo
       backgroundColor: AppTheme.surfaceOf(context),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 860, maxHeight: 760),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: const BoxDecoration(
-                color: AppTheme.charcoal,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.checklist_rtl_rounded, color: AppTheme.emerald, size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l.isArabic
-                              ? 'سجل المتابعات الميدانية للتخليص الجمركي (5 لجان فحص وتثمين)'
-                              : 'Field Customs Clearance Follow-up Logs (5 Stages)',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+        child: SelectionArea(
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: AppTheme.charcoal,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.checklist_rtl_rounded, color: AppTheme.emerald, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l.isArabic
+                                ? 'سجل المتابعات الميدانية للتخليص الجمركي'
+                                : 'Field Customs Clearance Follow-up Logs',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
                         Text(
                           '${r.clearanceCode} | ${f != null ? f.importFileCode : "File #${r.importFileId}"}'
                           '${r.declaration46No != null ? " | شهادة 46: ${r.declaration46No}" : ""}',
@@ -391,15 +416,16 @@ class _ClearanceFollowupDialogState extends ConsumerState<ClearanceFollowupDialo
                             Row(
                               children: [
                                 SizedBox(
-                                  width: 90,
-                                  child: DropdownButtonFormField<int>(
-                                    initialValue: _followupSeq,
-                                    decoration: InputDecoration(
-                                      labelText: l.isArabic ? 'المتابعة #' : 'Seq #',
-                                      isDense: true,
-                                      border: const OutlineInputBorder(),
-                                    ),
-                                    items: [1, 2, 3, 4, 5].map((s) => DropdownMenuItem(value: s, child: Text('#$s'))).toList(),
+                                  width: 100,
+                                  child: SearchableDropdownField<int>(
+                                    value: _followupSeq,
+                                    labelText: l.isArabic ? 'المتابعة #' : 'Seq #',
+                                    items: [1, 2, 3, 4, 5]
+                                        .map((s) => SearchableDropdownItem<int>(
+                                              value: s,
+                                              label: '#$s',
+                                            ))
+                                        .toList(),
                                     onChanged: (v) {
                                       if (v != null) setState(() => _followupSeq = v);
                                     },
@@ -407,15 +433,15 @@ class _ClearanceFollowupDialogState extends ConsumerState<ClearanceFollowupDialo
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    initialValue: _selectedAuthorityType,
-                                    isExpanded: true,
-                                    decoration: InputDecoration(
-                                      labelText: l.isArabic ? 'الجهة الجمركية / المعاينة *' : 'Authority / Inspection *',
-                                      isDense: true,
-                                      border: const OutlineInputBorder(),
-                                    ),
-                                    items: _authoritiesList.map((a) => DropdownMenuItem(value: a, child: Text(a, style: const TextStyle(fontSize: 12)))).toList(),
+                                  child: SearchableDropdownField<String>(
+                                    value: _selectedAuthorityType,
+                                    labelText: l.isArabic ? 'الجهة الجمركية / المعاينة *' : 'Authority / Inspection *',
+                                    items: _authoritiesList
+                                        .map((a) => SearchableDropdownItem<String>(
+                                              value: a,
+                                              label: _authorityLabel(a, l.isArabic),
+                                            ))
+                                        .toList(),
                                     onChanged: (v) {
                                       if (v != null) setState(() => _selectedAuthorityType = v);
                                     },
@@ -552,6 +578,7 @@ class _ClearanceFollowupDialogState extends ConsumerState<ClearanceFollowupDialo
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -591,7 +618,7 @@ class _ClearanceFollowupDialogState extends ConsumerState<ClearanceFollowupDialo
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  item.authorityType,
+                  _authorityLabel(item.authorityType, l.isArabic),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),

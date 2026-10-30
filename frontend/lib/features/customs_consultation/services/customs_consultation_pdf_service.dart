@@ -146,7 +146,7 @@ class CustomsConsultationPdfService {
                 _buildPdfMetricBox('إجمالي المستندات', '${session.totalDocumentsCount}', PdfColor.fromHex('#2C3E50')),
                 _buildPdfMetricBox('المستندات المعتمدة', '${session.approvedDocumentsCount}', PdfColor.fromHex('#27AE60')),
                 _buildPdfMetricBox(
-                  'عوائق التخليص (Blocking)',
+                  'عوائق التخليص',
                   '${session.blockingIssuesCount} عائق',
                   session.blockingIssuesCount > 0 ? PdfColor.fromHex('#C0392B') : PdfColor.fromHex('#27AE60'),
                 ),
@@ -173,7 +173,7 @@ class CustomsConsultationPdfService {
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Text(
-                        '🏛️ تفاصيل بنود التحصيل والإقرارات الرسمية (Nafeza Statement Fee Breakdown):',
+                        '🏛️ تفاصيل بنود التحصيل والإقرارات الرسمية:',
                         style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50')),
                       ),
                       pw.Text(

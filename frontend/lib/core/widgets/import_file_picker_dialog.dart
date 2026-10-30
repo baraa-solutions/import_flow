@@ -104,7 +104,8 @@ class _ImportFilePickerDialogState extends ConsumerState<ImportFilePickerDialog>
       backgroundColor: Colors.transparent,
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Material(
+      child: SelectionArea(
+        child: Material(
         color: Theme.of(context).brightness == Brightness.dark
             ? AppTheme.surfaceOf(context)
             : Colors.white,
@@ -134,8 +135,9 @@ class _ImportFilePickerDialogState extends ConsumerState<ImportFilePickerDialog>
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildHeader(BuildContext context, AppLocalizations l) {
     return Padding(

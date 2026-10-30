@@ -114,8 +114,9 @@ class _FreightBookingConfirmDialogState extends ConsumerState<FreightBookingConf
     final l = context.l10n;
     final b = widget.booking;
 
-    return CcStageDialogShell(
-      title: l.fbkConfirmTitle,
+    return SelectionArea(
+      child: CcStageDialogShell(
+        title: l.fbkConfirmTitle,
       icon: Icons.verified,
       accent: AppTheme.emerald,
       maxWidth: 680,
@@ -233,6 +234,7 @@ class _FreightBookingConfirmDialogState extends ConsumerState<FreightBookingConf
           ],
         ),
       ),
+    ),
     );
   }
 }

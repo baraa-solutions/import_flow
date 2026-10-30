@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/expense_catalog_model.dart';
 import '../providers/expense_catalog_provider.dart';
 
@@ -50,27 +51,27 @@ class ExpenseCategoryFormDialog {
         builder: (context, setDlgState) {
           final isArabic = context.l10n.isArabic;
           final isDark = AppTheme.isDark(context);
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            backgroundColor: isDark ? const Color(0xFF1E2631) : Colors.white,
-            title: Row(
-              children: [
-                Icon(
-                  isEdit ? Icons.edit_note_rounded : Icons.post_add_rounded,
-                  color: AppTheme.cobalt,
-                  size: 24,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isEdit
-                      ? (isArabic ? 'تعديل بند المصروف' : 'Edit Expense Item')
-                      : (isArabic ? 'إضافة كود مصروف قياسي جديد' : 'New Expense Code'),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            content: SelectionArea(
-              child: SizedBox(
+          return SelectionArea(
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              backgroundColor: isDark ? const Color(0xFF1E2631) : Colors.white,
+              title: Row(
+                children: [
+                  Icon(
+                    isEdit ? Icons.edit_note_rounded : Icons.post_add_rounded,
+                    color: AppTheme.cobalt,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isEdit
+                        ? (isArabic ? 'تعديل بند المصروف' : 'Edit Expense Item')
+                        : (isArabic ? 'إضافة كود مصروف قياسي جديد' : 'New Expense Code'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: SizedBox(
                 width: 520,
                 child: Form(
                   key: formKey,
@@ -80,7 +81,7 @@ class ExpenseCategoryFormDialog {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isArabic ? 'كود البند القياسي (فريد بحروف كبيرة)' : 'Catalog Code (Uppercase)',
+                          isArabic ? 'كود البند القياسي' : 'Catalog Code',
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                         ),
                         const SizedBox(height: 4),
@@ -131,6 +132,7 @@ class ExpenseCategoryFormDialog {
                         ),
                         const SizedBox(height: 12),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               child: Column(
@@ -141,14 +143,11 @@ class ExpenseCategoryFormDialog {
                                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                                   ),
                                   const SizedBox(height: 4),
-                                  DropdownButtonFormField<String>(
-                                    initialValue: selectedCategory,
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                      isDense: true,
-                                    ),
+                                  SearchableDropdownField<String>(
+                                    value: selectedCategory,
+                                    labelText: isArabic ? 'التصنيف' : 'Category',
                                     items: categories
-                                        .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12))))
+                                        .map((c) => SearchableDropdownItem<String>(value: c, label: c))
                                         .toList(),
                                     onChanged: (v) => setDlgState(() => selectedCategory = v ?? selectedCategory),
                                   ),
@@ -165,14 +164,11 @@ class ExpenseCategoryFormDialog {
                                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                                   ),
                                   const SizedBox(height: 4),
-                                  DropdownButtonFormField<String>(
-                                    initialValue: selectedUnit,
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                      isDense: true,
-                                    ),
+                                  SearchableDropdownField<String>(
+                                    value: selectedUnit,
+                                    labelText: isArabic ? 'وحدة الحساب' : 'Unit Type',
                                     items: unitTypes
-                                        .map((u) => DropdownMenuItem(value: u, child: Text(u, style: const TextStyle(fontSize: 12))))
+                                        .map((u) => SearchableDropdownItem<String>(value: u, label: u))
                                         .toList(),
                                     onChanged: (v) => setDlgState(() => selectedUnit = v ?? selectedUnit),
                                   ),
@@ -185,7 +181,7 @@ class ExpenseCategoryFormDialog {
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           title: Text(
-                            isArabic ? 'يسمح بالقيمة المجمعة / المتعددة' : 'Allow Composite / Multi-item',
+                            isArabic ? 'يسمح بالقيمة المجمعة أو المتعددة' : 'Allow Composite / Multi-item',
                             style: const TextStyle(fontSize: 12.5),
                           ),
                           value: allowComposite,
@@ -196,46 +192,46 @@ class ExpenseCategoryFormDialog {
                   ),
                 ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: Text(isArabic ? 'إلغاء' : 'Cancel'),
-              ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(isArabic ? 'إلغاء' : 'Cancel'),
                 ),
-                onPressed: () async {
-                  if (!formKey.currentState!.validate()) return;
-                  final payload = {
-                    'code': codeController.text.trim().toUpperCase(),
-                    'canonical_name_ar': nameArController.text.trim(),
-                    'canonical_name_en': nameEnController.text.trim().isEmpty ? null : nameEnController.text.trim(),
-                    'category': selectedCategory,
-                    'unit_type': selectedUnit,
-                    'allow_composite': allowComposite,
-                  };
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.cobalt,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) return;
+                    final payload = {
+                      'code': codeController.text.trim().toUpperCase(),
+                      'canonical_name_ar': nameArController.text.trim(),
+                      'canonical_name_en': nameEnController.text.trim().isEmpty ? null : nameEnController.text.trim(),
+                      'category': selectedCategory,
+                      'unit_type': selectedUnit,
+                      'allow_composite': allowComposite,
+                    };
 
-                  bool success;
-                  if (isEdit) {
-                    success = await ref.read(expenseCatalogProvider.notifier).updateItem(item.code, payload);
-                  } else {
-                    success = await ref.read(expenseCatalogProvider.notifier).createItem(payload);
-                  }
+                    bool success;
+                    if (isEdit) {
+                      success = await ref.read(expenseCatalogProvider.notifier).updateItem(item.code, payload);
+                    } else {
+                      success = await ref.read(expenseCatalogProvider.notifier).createItem(payload);
+                    }
 
-                  if (context.mounted && success) {
-                    Navigator.of(ctx).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      AppTheme.snackBar(context, isArabic ? 'تم حفظ بند المصروف بنجاح' : 'Expense item saved successfully', severity: AppSeverity.success),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.check, size: 18),
-                label: Text(isArabic ? 'حفظ' : 'Save'),
-              ),
-            ],
+                    if (context.mounted && success) {
+                      Navigator.of(ctx).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        AppTheme.snackBar(context, isArabic ? 'تم حفظ بند المصروف بنجاح' : 'Expense item saved successfully', severity: AppSeverity.success),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.check, size: 18),
+                  label: Text(isArabic ? 'حفظ' : 'Save'),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -254,69 +250,71 @@ class ExpenseCategoryFormDialog {
 
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        backgroundColor: isDark ? const Color(0xFF1E2631) : Colors.white,
-        title: Row(
-          children: [
-            const Icon(Icons.auto_awesome_rounded, color: AppTheme.cobalt, size: 22),
-            const SizedBox(width: 8),
-            Text(
-              isArabic ? 'إضافة نمط / مرادف ذكي للتعرف' : 'Add Recognition Pattern',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: SelectionArea(
-          child: SizedBox(
-            width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDlgState) => SelectionArea(
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            backgroundColor: isDark ? const Color(0xFF1E2631) : Colors.white,
+            title: Row(
               children: [
+                const Icon(Icons.auto_awesome_rounded, color: AppTheme.cobalt, size: 22),
+                const SizedBox(width: 8),
                 Text(
-                  '${isArabic ? 'كود البند:' : 'Item Code:'} ${item.code} (${item.canonicalNameAr})',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: patternController,
-                  decoration: InputDecoration(
-                    hintText: isArabic ? 'مثال: أتعاب المخلص، مصاريف إجراءات' : 'e.g. clearance fee, agent fees',
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
+                  isArabic ? 'إضافة نمط ذكي للتعرف' : 'Add Recognition Pattern',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
+            content: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${isArabic ? 'كود البند:' : 'Item Code:'} ${item.code} — ${isArabic ? item.canonicalNameAr : (item.canonicalNameEn ?? item.canonicalNameAr)}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: patternController,
+                    decoration: InputDecoration(
+                      hintText: isArabic ? 'مثال: أتعاب المخلص، مصاريف إجراءات' : 'e.g. clearance fee, agent fees',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emerald,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final pattern = patternController.text.trim();
+                  if (pattern.isEmpty) return;
+                  final success = await ref.read(expenseCatalogProvider.notifier).addPattern(item.code, pattern);
+                  if (ctx.mounted && success) {
+                    Navigator.of(ctx).pop();
+                  }
+                  if (context.mounted && success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      AppTheme.snackBar(context, isArabic ? 'تم إضافة نمط التعرف بنجاح' : 'Pattern added successfully', severity: AppSeverity.success),
+                    );
+                  }
+                },
+                child: Text(isArabic ? 'إضافة النمط' : 'Add Pattern'),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emerald,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              final pattern = patternController.text.trim();
-              if (pattern.isEmpty) return;
-              final success = await ref.read(expenseCatalogProvider.notifier).addPattern(item.code, pattern);
-              if (ctx.mounted && success) {
-                Navigator.of(ctx).pop();
-              }
-              if (context.mounted && success) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  AppTheme.snackBar(context, isArabic ? 'تم إضافة نمط التعرف بنجاح' : 'Pattern added successfully', severity: AppSeverity.success),
-                );
-              }
-            },
-            child: Text(isArabic ? 'إضافة النمط' : 'Add Pattern'),
-          ),
-        ],
       ),
     );
   }

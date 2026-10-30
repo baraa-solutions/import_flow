@@ -752,7 +752,8 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
           final text = MasterDataExportService.generateSupplierWhatsAppText(supplier, isArabic: isArabic);
-          return AlertDialog(
+          return SelectionArea(
+            child: AlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366)),
@@ -808,7 +809,8 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                 },
               ),
             ],
-          );
+          ),
+        );
         },
       ),
     );
@@ -825,7 +827,8 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
           final subject = MasterDataExportService.generateSupplierEmailSubject(supplier, isArabic: isArabic);
           final body = MasterDataExportService.generateSupplierEmailBody(supplier, isArabic: isArabic);
 
-          return AlertDialog(
+          return SelectionArea(
+            child: AlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.mail_outline_rounded, color: AppTheme.cobalt),
@@ -884,7 +887,8 @@ Global Brand: ${supplier.hasGlobalBrand ? (supplier.globalBrandNumber ?? 'Yes') 
                 },
               ),
             ],
-          );
+          ),
+        );
         },
       ),
     );

@@ -70,16 +70,11 @@ class DocumentUploadDropzone extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      isArabic ? 'اختر الموديول المستهدف' : 'Target Module',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                    ),
-                    const SizedBox(height: 4),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedModule,
-                      decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+                    SearchableDropdownField<String>(
+                      value: selectedModule,
+                      labelText: isArabic ? 'اختر الموديول المستهدف' : 'Target Module',
                       items: availableModules
-                          .map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(fontSize: 12))))
+                          .map((m) => SearchableDropdownItem<String>(value: m, label: m))
                           .toList(),
                       onChanged: (v) {
                         if (v != null) onModuleChanged(v);

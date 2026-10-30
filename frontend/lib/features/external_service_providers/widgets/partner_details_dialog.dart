@@ -913,7 +913,8 @@ class PartnerDetailsDialog extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
           final text = MasterDataExportService.generatePartnerWhatsAppText(partner, isArabic: isArabic);
-          return AlertDialog(
+          return SelectionArea(
+            child: AlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366)),
@@ -969,7 +970,8 @@ class PartnerDetailsDialog extends StatelessWidget {
                 },
               ),
             ],
-          );
+          ),
+        );
         },
       ),
     );
@@ -986,7 +988,8 @@ class PartnerDetailsDialog extends StatelessWidget {
           final subject = MasterDataExportService.generatePartnerEmailSubject(partner, isArabic: isArabic);
           final body = MasterDataExportService.generatePartnerEmailBody(partner, isArabic: isArabic);
 
-          return AlertDialog(
+          return SelectionArea(
+            child: AlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.mail_outline_rounded, color: AppTheme.cobalt),
@@ -1049,7 +1052,8 @@ class PartnerDetailsDialog extends StatelessWidget {
                 },
               ),
             ],
-          );
+          ),
+        );
         },
       ),
     );

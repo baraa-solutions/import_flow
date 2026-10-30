@@ -445,7 +445,7 @@ class _BudgetDetailsDialogState extends ConsumerState<BudgetDetailsDialog> {
                                   budget: bgt,
                                   prefill: prefill,
                                 );
-                                if (path != null && mounted) {
+                                if (path != null && context.mounted) {
                                   scaffold.showSnackBar(
                                     AppTheme.snackBar(context, l.excelSavedSuccess(path), severity: AppSeverity.success),
                                   );
@@ -544,7 +544,7 @@ class _BudgetDetailsDialogState extends ConsumerState<BudgetDetailsDialog> {
                         .approveImportBudget(bgt.budgetId);
                     nav.pop();
                   } catch (e) {
-                    if (mounted) {
+                    if (context.mounted) {
                       scaffold.showSnackBar(
                         AppTheme.snackBar(context, ApiError.message(e), severity: AppSeverity.danger),
                       );

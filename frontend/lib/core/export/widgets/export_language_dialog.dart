@@ -90,7 +90,8 @@ class _ExportLanguageDialogState extends State<ExportLanguageDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 12,
       backgroundColor: dialogBg,
-      child: ConstrainedBox(
+      child: SelectionArea(
+        child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
         child: Padding(
           padding: const EdgeInsets.all(22.0),
@@ -251,8 +252,9 @@ class _ExportLanguageDialogState extends State<ExportLanguageDialog> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildLanguageCard({
     required ExportLanguage lang,

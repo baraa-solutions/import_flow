@@ -104,7 +104,8 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
 
     return PopScope(
       canPop: !_check.mandatory,
-      child: AlertDialog(
+      child: SelectionArea(
+        child: AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Row(
           children: [
@@ -153,6 +154,7 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
           ),
         ),
         actions: _actions(l, status, canInstall, version),
+        ),
       ),
     );
   }

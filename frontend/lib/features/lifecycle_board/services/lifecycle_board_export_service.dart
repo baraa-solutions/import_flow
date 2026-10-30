@@ -3,9 +3,12 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/utils/bidi_text.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../models/lifecycle_board_model.dart';
 
@@ -71,7 +74,85 @@ class LifecycleBoardExportService {
       sb.writeln('----------------------------------------------------------------');
     }
 
-    return sb.toString();
+    return stripBidiIsolates(sb.toString());
+  }
+
+  /// Copies the Kanban dossier to the system clipboard cleanly using [CopyHelper].
+  static Future<void> copyKanbanDossier({
+    required BuildContext context,
+    required List<ShipmentStageCardModel> shipments,
+    required List<PhaseSummaryModel> phases,
+    List<ImportFileModel>? allImportFiles,
+    String? filterTitle,
+  }) async {
+    final dossier = buildKanbanDossierText(
+      context: context,
+      shipments: shipments,
+      phases: phases,
+      allImportFiles: allImportFiles,
+      filterTitle: filterTitle,
+    );
+    await CopyHelper.copy(
+      context,
+      dossier,
+      customMessage: context.l10n.lifecycleCopyDossierSuccess,
+    );
+  }
+
+  /// Copies the Kanban table as TSV directly to clipboard using [TableCopyHelper.copyTable].
+  static Future<void> copyKanbanTable({
+    required BuildContext context,
+    required List<ShipmentStageCardModel> shipments,
+    List<ImportFileModel>? allImportFiles,
+  }) async {
+    final l = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
+    final headers = [
+      l.operationalTsvHeaderShipmentName,
+      l.lifecycleTsvHeaderFileCode,
+      l.lifecycleTsvHeaderPreviousStep,
+      l.lifecycleTsvHeaderCurrentStep,
+      l.lifecycleTsvHeaderNextStep,
+      l.lifecycleTsvHeaderCompany,
+      l.lifecycleTsvHeaderSupplier,
+      l.lifecycleTsvHeaderPoNumber,
+      l.lifecycleTsvHeaderShipmentMode,
+      l.lifecycleTsvHeaderEstimatedCost,
+      l.lifecycleTsvHeaderStatus,
+      l.lifecycleTsvHeaderNotes,
+    ];
+    final rows = shipments.map((s) {
+      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+        s.importFileCode,
+        shipments: allImportFiles,
+        isArabic: isAr,
+      );
+      final prevStep = s.previousStepCode != null
+          ? DisplayNameResolver.resolveStepName(s.previousStepCode!, isArabic: isAr)
+          : '-';
+      final curStep = DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr);
+      final nxtStep = s.nextStepCode != null
+          ? DisplayNameResolver.resolveStepName(s.nextStepCode!, isArabic: isAr)
+          : '-';
+      final statusStr = s.status == 'On-Hold' ? l.onHoldStatusTag : s.status;
+
+      return [
+        shipmentName,
+        s.importFileCode,
+        prevStep,
+        curStep,
+        nxtStep,
+        s.companyName,
+        s.supplierName,
+        s.poNumber ?? '-',
+        '${s.shipmentMode ?? "-"} | ${s.incotermCode ?? "-"}',
+        '${s.estimatedCost != null ? s.estimatedCost!.toStringAsFixed(0) : "-"} ${s.estimatedCostCurrency ?? ""}',
+        statusStr,
+        s.notes ?? '',
+      ];
+    }).toList();
+
+    await TableCopyHelper.copyTable(context, headers, rows);
   }
 
   /// Exports the Kanban shipments table to TSV format with UTF-8 BOM.
@@ -429,7 +510,71 @@ class LifecycleBoardExportService {
       sb.writeln('----------------------------------------------------------------');
     }
 
-    return sb.toString();
+    return stripBidiIsolates(sb.toString());
+  }
+
+  /// Copies the Live Logistics Radar dossier to the system clipboard cleanly using [CopyHelper].
+  static Future<void> copyRadarDossier({
+    required BuildContext context,
+    required List<LiveLogisticsTrackingItemModel> items,
+    List<ImportFileModel>? allImportFiles,
+  }) async {
+    final dossier = buildRadarDossierText(
+      context: context,
+      items: items,
+      allImportFiles: allImportFiles,
+    );
+    await CopyHelper.copy(
+      context,
+      dossier,
+      customMessage: context.l10n.lifecycleCopyDossierSuccess,
+    );
+  }
+
+  /// Copies the Live Logistics Radar table as TSV directly to clipboard using [TableCopyHelper.copyTable].
+  static Future<void> copyRadarTable({
+    required BuildContext context,
+    required List<LiveLogisticsTrackingItemModel> items,
+    List<ImportFileModel>? allImportFiles,
+  }) async {
+    final l = context.l10n;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
+    final headers = [
+      l.operationalTsvHeaderShipmentName,
+      l.radarTsvHeaderFileCode,
+      l.radarTsvHeaderCarrierVessel,
+      l.radarTsvHeaderBlRoute,
+      l.radarTsvHeaderArrivalStatus,
+      l.radarTsvHeaderDemurrageRisk,
+      l.radarTsvHeaderTestingStatus,
+      l.radarTsvHeaderDocReadiness,
+    ];
+    final rows = items.map((item) {
+      final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(
+        item.importFileCode,
+        shipments: allImportFiles,
+        isArabic: isAr,
+      );
+      final carrierVessel = '${item.carrierName ?? l.colCarrierUnderPrep} (${item.vesselName ?? "-"})';
+      final blRoute = '${item.blNumber ?? l.colCarrierUnderPrep} | ${item.polName ?? "-"} -> ${item.podName ?? "-"}';
+      final arrivalStr = '${item.eta ?? "-"} (${item.arrivalStatus})';
+      final demurrageStr = item.accumulatedDemurrageFx > 0
+          ? '${l.demurrageIncurredBadge}: \$${item.accumulatedDemurrageFx.toStringAsFixed(0)}'
+          : (item.freeDaysRemaining != null ? l.freeDaysRemainingBadge(item.freeDaysRemaining) : '-');
+
+      return [
+        shipmentName,
+        item.importFileCode,
+        carrierVessel,
+        blRoute,
+        arrivalStr,
+        demurrageStr,
+        item.sampleTestStatus,
+        '${item.docReadinessPercent.toStringAsFixed(0)}%',
+      ];
+    }).toList();
+
+    await TableCopyHelper.copyTable(context, headers, rows);
   }
 
   /// Exports the Live Radar table to TSV format with UTF-8 BOM.

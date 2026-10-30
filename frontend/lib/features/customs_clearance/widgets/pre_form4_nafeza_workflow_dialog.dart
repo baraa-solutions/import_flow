@@ -323,7 +323,7 @@ class _PreForm4NafezaWorkflowDialogState
           _buildStepCard(
             stepNumber: 1,
             title: isAr
-                ? 'التكويد الضريبي للبنود على نافذة (Item Tax Coding)'
+                ? 'التكويد الضريبي للبنود على نافذة'
                 : 'Item Tax Coding on Nafeza',
             isCompleted: _isTariffCodingCompleted,
             completionDate: _record.tariffCodingDate,
@@ -339,7 +339,7 @@ class _PreForm4NafezaWorkflowDialogState
                       flex: 2,
                       child: CustomTextField(
                         controller: _tariffCodingDateController,
-                        label: isAr ? 'تاريخ التكويد الضريبي (YYYY-MM-DD)' : 'Tariff Coding Date',
+                        label: isAr ? 'تاريخ التكويد الضريبي' : 'Tariff Coding Date',
                         icon: Icons.calendar_today,
                       ),
                     ),
@@ -379,7 +379,7 @@ class _PreForm4NafezaWorkflowDialogState
           _buildStepCard(
             stepNumber: 2,
             title: isAr
-                ? 'قبول ربط البنك على نافذة (Bank Linkage Acceptance)'
+                ? 'قبول ربط البنك على نافذة'
                 : 'Nafeza Bank Linkage Acceptance',
             isCompleted: _isBankLinkCompleted,
             completionDate: _record.bankLinkAcceptedDate,
@@ -537,7 +537,7 @@ class _PreForm4NafezaWorkflowDialogState
                       flex: 2,
                       child: CustomTextField(
                         controller: _estimatedAmountController,
-                        label: isAr ? 'الرسوم التقديرية (EGP)' : 'Estimated Duty (EGP)',
+                        label: isAr ? 'الرسوم التقديرية (ج.م)' : 'Estimated Duty (EGP)',
                         icon: Icons.payments_outlined,
                       ),
                     ),

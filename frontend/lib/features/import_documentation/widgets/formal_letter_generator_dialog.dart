@@ -159,7 +159,8 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 960,
         height: 720,
         padding: const EdgeInsets.all(24),
@@ -561,6 +562,7 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
             ),
           ],
         ),
+      ),
       ),
     );
   }

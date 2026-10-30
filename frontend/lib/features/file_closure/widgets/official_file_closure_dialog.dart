@@ -226,7 +226,8 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
     // The dialog is still mounted here (it shows the closed state), so its context is valid.
     showDialog(
       context: context,
-      builder: (dCtx) => AddGuideEntryDialog(
+      builder: (dCtx) => SelectionArea(
+        child: AddGuideEntryDialog(
         initialSupplier: widget.file.supplierName,
         initialHsCode: widget.file.hsCode,
         initialCategory: widget.file.productCategory,
@@ -234,6 +235,7 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
         initialIncoterm: widget.file.incotermCode,
         initialImportFileReference: widget.file.importFileCode,
       ),
+    ),
     );
   }
 
@@ -245,7 +247,8 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: (MediaQuery.of(context).size.width - 32).clamp(320.0, 860.0),
         constraints: BoxConstraints(maxHeight: (MediaQuery.of(context).size.height - 48).clamp(360.0, 740.0)),
         padding: const EdgeInsetsDirectional.all(24),
@@ -272,6 +275,7 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
           ],
         ),
       ),
+    ),
     );
   }
 

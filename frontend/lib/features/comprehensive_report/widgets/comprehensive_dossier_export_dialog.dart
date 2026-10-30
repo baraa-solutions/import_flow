@@ -12,6 +12,7 @@ import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers/navigation_provider.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 
 /// Desktop-oriented interactive modal dialog for CLO-03 Comprehensive Shipment Dossier Export.
 /// Provides 10-phase readiness KPIs, multi-format export buttons (PDF, Excel, TSV, Clipboard),
@@ -626,17 +627,12 @@ class _ComprehensiveDossierExportDialogState
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 2,
-                  child: DropdownButtonFormField<String>(
+                  child: SearchableDropdownField<String>(
                     key: const Key('dossierExportFormatDropdown'),
                     value: _selectedFormat,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'صيغة الحزمة المصدرة',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                    labelText: 'صيغة الحزمة المصدرة',
                     items: _formatOptions
-                        .map((f) => DropdownMenuItem(value: f, child: Text(f, style: const TextStyle(fontSize: 12))))
+                        .map((f) => SearchableDropdownItem<String>(value: f, label: f))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) setState(() => _selectedFormat = val);

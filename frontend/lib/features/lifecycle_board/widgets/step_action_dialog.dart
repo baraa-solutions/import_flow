@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/lifecycle_board_model.dart';
 import '../providers/lifecycle_board_provider.dart';
 
@@ -172,18 +172,18 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return AlertDialog(
-          backgroundColor: isDark ? AppTheme.darkSurface : null,
-          title: Row(
-            children: [
-              const Icon(Icons.fast_forward_rounded, color: AppTheme.orange),
-              const SizedBox(width: 8),
-              Text(l10n.skipStepDialogTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-            ],
-          ),
-          content: SelectionArea(
-            child: SizedBox(
+        return SelectionArea(
+          child: AlertDialog(
+            backgroundColor: AppTheme.surfaceOf(ctx),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+            title: Row(
+              children: [
+                const Icon(Icons.fast_forward_rounded, color: AppTheme.orange),
+                const SizedBox(width: 8),
+                Text(l10n.skipStepDialogTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryOf(ctx))),
+              ],
+            ),
+            content: SizedBox(
               width: 450,
               child: Form(
                 key: formKey,
@@ -193,7 +193,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                   children: [
                     Text(
                       l10n.skipStepConfirmText(l10n.lifecycleStepName(widget.shipment.stepCode), widget.shipment.importFileCode),
-                      style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                      style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(ctx)),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -215,20 +215,20 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                 ),
               ),
             ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
+                onPressed: () {
+                  if (formKey.currentState!.validate()) {
+                    Navigator.pop(ctx, true);
+                  }
+                },
+                icon: const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
+                label: Text(l10n.confirmSkipAndAdvanceBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(ctx, true);
-                }
-              },
-              icon: const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
-              label: Text(l10n.confirmSkipAndAdvanceBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ],
         );
       },
     );
@@ -303,18 +303,18 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) {
-          final isDark = Theme.of(ctx).brightness == Brightness.dark;
-          return AlertDialog(
-            backgroundColor: isDark ? AppTheme.darkSurface : null,
-            title: Row(
-              children: [
-                const Icon(Icons.pause_circle_outline_rounded, color: AppTheme.crimson),
-                const SizedBox(width: 8),
-                Text(l10n.holdDialogTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-              ],
-            ),
-            content: SelectionArea(
-              child: SizedBox(
+          return SelectionArea(
+            child: AlertDialog(
+              backgroundColor: AppTheme.surfaceOf(ctx),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+              title: Row(
+                children: [
+                  const Icon(Icons.pause_circle_outline_rounded, color: AppTheme.crimson),
+                  const SizedBox(width: 8),
+                  Text(l10n.holdDialogTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryOf(ctx))),
+                ],
+              ),
+              content: SizedBox(
                 width: 450,
                 child: Form(
                   key: formKey,
@@ -324,7 +324,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                     children: [
                       Text(
                         l10n.holdConfirmText(widget.shipment.importFileCode, l10n.lifecycleStepName(widget.shipment.stepCode)),
-                        style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                        style: TextStyle(fontSize: 13, color: AppTheme.textPrimaryOf(ctx)),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -346,20 +346,20 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                   ),
                 ),
               ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
+                  onPressed: () {
+                    if (formKey.currentState!.validate()) {
+                      Navigator.pop(ctx, true);
+                    }
+                  },
+                  icon: const Icon(Icons.pause_circle_filled_rounded, color: Colors.white, size: 18),
+                  label: Text(l10n.confirmHoldBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
-                onPressed: () {
-                  if (formKey.currentState!.validate()) {
-                    Navigator.pop(ctx, true);
-                  }
-                },
-                icon: const Icon(Icons.pause_circle_filled_rounded, color: Colors.white, size: 18),
-                label: Text(l10n.confirmHoldBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ],
           );
         },
       );
@@ -392,17 +392,15 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOnHold = widget.shipment.status == 'On-Hold';
     final localizedStepName = l10n.lifecycleStepName(widget.shipment.stepCode);
 
-    return Dialog(
-      backgroundColor: isDark ? AppTheme.darkSurface : null,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: SelectionArea(
+    return SelectionArea(
+      child: Dialog(
+        backgroundColor: AppTheme.surfaceOf(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
         child: Container(
-          width: 780,
-          constraints: const BoxConstraints(maxHeight: 720),
+          constraints: const BoxConstraints(maxWidth: 780, maxHeight: 720),
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
@@ -416,7 +414,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: AppTheme.cobalt.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                       ),
                       child: const Icon(Icons.tune_outlined, color: AppTheme.cobalt, size: 24),
                     ),
@@ -427,27 +425,33 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                l10n.stepActionCardTitle(localizedStepName),
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                              Flexible(
+                                child: Text(
+                                  l10n.stepActionCardTitle(localizedStepName),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimaryOf(context),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: isOnHold ? AppTheme.crimson : AppTheme.cobalt,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  isOnHold ? '${widget.shipment.stepCode} (${l10n.onHoldStatusTag})' : widget.shipment.stepCode,
-                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
+                              AppStatusBadge(
+                                label: isOnHold
+                                    ? '${widget.shipment.stepCode} (${l10n.onHoldStatusTag})'
+                                    : widget.shipment.stepCode,
+                                severity: isOnHold ? AppSeverity.danger : AppSeverity.info,
+                                size: AppStatusBadgeSize.small,
                               ),
                             ],
                           ),
                           Text(
                             localizedStepName,
-                            style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryOf(context),
+                            ),
                           ),
                         ],
                       ),
@@ -470,9 +474,9 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                            color: AppTheme.surfaceAltOf(context),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                            border: Border.all(color: AppTheme.borderOf(context)),
                           ),
                           child: Row(
                             children: [
@@ -489,7 +493,11 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         // Step-Specific Parameters Form
                         Text(
                           l10n.currentStepRequirementsHeader,
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: AppTheme.textPrimaryOf(context),
+                          ),
                         ),
                         const SizedBox(height: 10),
 
@@ -549,7 +557,11 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         // Next Step Multi-Target Picker (Supports Concurrent Multi-Stage)
                         Text(
                           l10n.targetNextPhasesHeader,
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: AppTheme.textPrimaryOf(context),
+                          ),
                         ),
                         const SizedBox(height: 8),
 
@@ -559,14 +571,14 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                           children: _allStepCodes.map((stepCode) {
                             final isSelected = _selectedNextSteps.contains(stepCode);
                             return FilterChip(
-                              backgroundColor: isDark ? AppTheme.darkCardBackground : null,
-                              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+                              backgroundColor: AppTheme.surfaceAltOf(context),
+                              side: BorderSide(color: AppTheme.borderOf(context)),
                               label: Text(
                                 '$stepCode: ${l10n.lifecycleStepName(stepCode)}',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                  color: isSelected ? Colors.white : AppTheme.textPrimaryOf(context),
                                 ),
                               ),
                               selected: isSelected,
@@ -589,7 +601,11 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         // Notes & Live Updates
                         Text(
                           l10n.stepNotesHeader,
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: AppTheme.textPrimaryOf(context),
+                          ),
                         ),
                         const SizedBox(height: 6),
                         TextFormField(
@@ -613,17 +629,22 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                 const Divider(height: 24),
 
                 // Action Buttons with Skip and Hold/Resume
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         TextButton.icon(
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.cancel_outlined, size: 16),
                           label: Text(l10n.close),
                         ),
-                        const SizedBox(width: 8),
                         // Skip Step Button
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
@@ -635,7 +656,6 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                           icon: const Icon(Icons.fast_forward_rounded, size: 16),
                           label: Text(l10n.skipStepBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         ),
-                        const SizedBox(width: 8),
                         // Hold / Resume Button
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
@@ -675,17 +695,22 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
   }
 
   Widget _buildInfoCol(String label, String value, {bool isBold = false, Color? color}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: InkWell(
         onTap: () => CopyHelper.copy(context, value),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.0,
+                  color: AppTheme.textSecondaryOf(context),
+                ),
+              ),
               const SizedBox(height: 2),
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -696,14 +721,18 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-                        color: color ?? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                        color: color ?? AppTheme.textPrimaryOf(context),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(Icons.copy_rounded, size: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
+                  Icon(
+                    Icons.copy_rounded,
+                    size: 11,
+                    color: AppTheme.textMutedOf(context),
+                  ),
                 ],
               ),
             ],

@@ -124,7 +124,8 @@ class _UpdateRollbackDialogState extends ConsumerState<UpdateRollbackDialog> {
 
     return PopScope(
       canPop: !_busy,
-      child: AlertDialog(
+      child: SelectionArea(
+        child: AlertDialog(
         title: Text(l.updateRollbackTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
         content: SizedBox(width: 480, child: body),
         actions: [
@@ -143,6 +144,7 @@ class _UpdateRollbackDialogState extends ConsumerState<UpdateRollbackDialog> {
               onPressed: _acknowledged ? () => _confirm(candidate) : null,
             ),
         ],
+        ),
       ),
     );
   }

@@ -673,7 +673,8 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
           final text = MasterDataExportService.generateImporterWhatsAppText(company, isArabic: isArabic);
-          return AlertDialog(
+          return SelectionArea(
+            child: AlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366)),
@@ -729,7 +730,8 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                 },
               ),
             ],
-          );
+          ),
+        );
         },
       ),
     );
@@ -746,7 +748,8 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
           final subject = MasterDataExportService.generateImporterEmailSubject(company, isArabic: isArabic);
           final body = MasterDataExportService.generateImporterEmailBody(company, isArabic: isArabic);
 
-          return AlertDialog(
+          return SelectionArea(
+            child: AlertDialog(
             title: Row(
               children: [
                 const Icon(Icons.mail_outline_rounded, color: AppTheme.cobalt),
@@ -805,7 +808,8 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                 },
               ),
             ],
-          );
+          ),
+        );
         },
       ),
     );

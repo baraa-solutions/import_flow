@@ -190,9 +190,10 @@ class _AddTrackingDialogState extends ConsumerState<AddTrackingDialog> {
     final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
     final terminals = DemurrageLookups.terminalsByPort[_port] ?? [];
 
-    return Form(
-      key: _formKey,
-      child: CcStageDialogShell(
+    return SelectionArea(
+      child: Form(
+        key: _formKey,
+        child: CcStageDialogShell(
         title: l.addTrackingDialogTitle,
         icon: Icons.add_road_rounded,
         maxWidth: 680,
@@ -427,6 +428,7 @@ class _AddTrackingDialogState extends ConsumerState<AddTrackingDialog> {
           ],
         ),
       ),
+    ),
     );
   }
 }
@@ -523,8 +525,9 @@ class _UpdateTrackingDatesDialogState extends ConsumerState<UpdateTrackingDatesD
   Widget build(BuildContext context) {
     final l = context.l10n;
     final item = widget.item;
-    return CcStageDialogShell(
-      title: l.updateTrackingDatesDialogTitle(item.trackingCode),
+    return SelectionArea(
+      child: CcStageDialogShell(
+        title: l.updateTrackingDatesDialogTitle(item.trackingCode),
       icon: Icons.edit_calendar_outlined,
       maxWidth: 620,
       chips: [
@@ -676,6 +679,7 @@ class _UpdateTrackingDatesDialogState extends ConsumerState<UpdateTrackingDatesD
           ),
         ],
       ),
+    ),
     );
   }
 }
@@ -756,10 +760,11 @@ class _AddPolicyDialogState extends ConsumerState<AddPolicyDialog> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final currencies = ref.watch(currenciesProvider).valueOrNull ?? [];
-    return Form(
-      key: _formKey,
-      child: CcStageDialogShell(
-        title: l.addPolicyDialogTitle,
+    return SelectionArea(
+      child: Form(
+        key: _formKey,
+        child: CcStageDialogShell(
+          title: l.addPolicyDialogTitle,
         icon: Icons.policy_outlined,
         maxWidth: 640,
         confirmLabel: l.savePolicyBtn,
@@ -844,6 +849,7 @@ class _AddPolicyDialogState extends ConsumerState<AddPolicyDialog> {
           ],
         ),
       ),
+    ),
     );
   }
 }
@@ -871,8 +877,9 @@ class DemurragePushToSettlementConfirmDialog extends StatelessWidget {
     final fileCode = item.importFileCode ?? (item.importFileId != null ? '#${item.importFileId}' : '-');
     final rateStr = item.exchangeRate != null ? item.exchangeRate!.toStringAsFixed(4) : '-';
 
-    return CcStageDialogShell(
-      key: const Key('pushToSettlementConfirmDialog'),
+    return SelectionArea(
+      child: CcStageDialogShell(
+        key: const Key('pushToSettlementConfirmDialog'),
       title: l.demPushConfirmTitle,
       icon: Icons.receipt_long_rounded,
       accent: AppTheme.emerald,
@@ -955,6 +962,7 @@ class DemurragePushToSettlementConfirmDialog extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

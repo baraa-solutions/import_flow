@@ -117,9 +117,11 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
     final list = reviews ?? ref.read(cooReviewsProvider).valueOrNull ?? [];
     showDialog(
       context: context,
-      builder: (ctx) => SearchAndCloneCooDialog(
-        reviews: list,
-        onSelectReview: (r) => _cloneCOOReview(r),
+      builder: (ctx) => SelectionArea(
+        child: SearchAndCloneCooDialog(
+          reviews: list,
+          onSelectReview: (r) => _cloneCOOReview(r),
+        ),
       ),
     );
   }
@@ -154,7 +156,8 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
         locale: Localizations.localeOf(context),
         child: Directionality(
           textDirection: Directionality.of(context),
-          child: CloneEntityReviewDialog(
+          child: SelectionArea(
+            child: CloneEntityReviewDialog(
             entityType: context.l10n.idocBCooCloneEntity,
             sourceCode: session.cooReviewCode,
             sourceTitle: '${session.certificateType} - ${session.certificateNumber}',
@@ -203,6 +206,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
               ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, context.l10n.cloneCooSuccess, severity: AppSeverity.success));
             },
           ),
+        ),
         ),
       ),
     );
@@ -343,8 +347,9 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
 
       showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        builder: (ctx) => SelectionArea(
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -391,6 +396,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
               }, variant: AppButtonVariant.success, icon: Icons.check)),
           ],
         ),
+      ),
       );
     } catch (e) {
       if (mounted) {
@@ -2074,8 +2080,9 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 8),
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
+          titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 8),
         title: Row(
           children: [
             Container(
@@ -2192,6 +2199,7 @@ class COOReviewTabState extends ConsumerState<COOReviewTab> {
           IdocBUi.fit(AppButton(label: context.l10n.close, onPressed: () => Navigator.of(ctx).pop())),
         ],
       ),
+    ),
     );
   }
 

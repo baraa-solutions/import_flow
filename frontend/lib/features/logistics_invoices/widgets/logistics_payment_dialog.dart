@@ -259,17 +259,18 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 1,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _currency,
+                    child: SearchableDropdownField<String>(
+                      value: _currency,
+                      labelText: isArabic ? 'العملة' : 'Currency',
                       decoration: InputDecoration(
                         labelText: isArabic ? 'العملة' : 'Currency',
                         isDense: true,
                         border: const OutlineInputBorder(),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'EGP', child: Text('EGP')),
-                        DropdownMenuItem(value: 'USD', child: Text('USD')),
-                        DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                        SearchableDropdownItem<String>(value: 'EGP', label: 'EGP'),
+                        SearchableDropdownItem<String>(value: 'USD', label: 'USD'),
+                        SearchableDropdownItem<String>(value: 'EUR', label: 'EUR'),
                       ],
                       onChanged: (v) => setState(() => _currency = v ?? 'EGP'),
                     ),
@@ -282,17 +283,18 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                 children: [
                   Expanded(
                     flex: 2,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _paymentMethod,
+                    child: SearchableDropdownField<String>(
+                      value: _paymentMethod,
+                      labelText: isArabic ? 'طريقة الدفع' : 'Payment Method',
                       decoration: InputDecoration(
                         labelText: isArabic ? 'طريقة الدفع' : 'Payment Method',
                         isDense: true,
                         border: const OutlineInputBorder(),
                       ),
                       items: [
-                        DropdownMenuItem(value: 'BANK_TRANSFER', child: Text(isArabic ? 'تحويل بنكي' : 'Bank Transfer')),
-                        DropdownMenuItem(value: 'CHEQUE', child: Text(isArabic ? 'شيك بنكي' : 'Bank Cheque')),
-                        DropdownMenuItem(value: 'CASH', child: Text(isArabic ? 'نقداً' : 'Cash')),
+                        SearchableDropdownItem<String>(value: 'BANK_TRANSFER', label: isArabic ? 'تحويل بنكي' : 'Bank Transfer'),
+                        SearchableDropdownItem<String>(value: 'CHEQUE', label: isArabic ? 'شيك بنكي' : 'Bank Cheque'),
+                        SearchableDropdownItem<String>(value: 'CASH', label: isArabic ? 'نقداً' : 'Cash'),
                       ],
                       onChanged: (v) => setState(() => _paymentMethod = v ?? 'BANK_TRANSFER'),
                     ),

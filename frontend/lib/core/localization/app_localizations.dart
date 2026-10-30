@@ -5360,6 +5360,27 @@ abstract class AppLocalizations {
   String get radarTsvHeaderTestingStatus;
   String get radarTsvHeaderDocReadiness;
 
+  // ── Screen 48 Canonical KPI Metric Bar & Badges ─────────────────────────────
+  String get kpiHealthScoreTitle;
+  String kpiHealthScoreValue(int percent);
+  String get kpiHealthScoreTooltip;
+  String get kpiFreeTimeBurnTitle;
+  String kpiFreeTimeBurnValue(int percent, int days);
+  String get kpiFreeTimeBurnTooltip;
+  String get kpiBlockersAndOverdueTitle;
+  String kpiOverdueCountBadge(int count);
+  String kpiBlockersCountBadge(int count);
+  String get kpiNoBlockersBadge;
+  String get kpiBlockersTooltip;
+  String get kpiCostVarianceTitle;
+  String kpiCostVarianceValue(String sign, double percent);
+  String get kpiCostVarianceTooltip;
+  String get phasePendingShipmentsTitle;
+  String phasePendingCountBadge(int count);
+  String phaseDelayedCountBadge(int count);
+  String get phaseAllClearBadge;
+  String get phasePendingBadgeTooltip;
+
   // ==========================================
   // Screen 49: Freight Quotations Comparison (FreightQuotationsComparisonScreen)
   // ==========================================
@@ -10779,6 +10800,18 @@ abstract class AppLocalizations {
   String get copyAcidNumberTooltip;
   String get governanceActionTooltip;
   String get advancedOperationalPillarsAccordionTitle;
+
+  // ── Lifecycle KPI Metrics & Phase Counters ─────────────────────────────────
+  String get kpiHealthScore;
+  String get kpiFreeTimeBurn;
+  String get kpiDaysLeft;
+  String get kpiOverdueSteps;
+  String get kpiCostVariance;
+  String get kpiRiskSafe;
+  String get kpiRiskWarning;
+  String get kpiRiskCritical;
+  String get phasePendingCount;
+  String get phaseDelayedCount;
 
 // === end review phase08_10 keys ===
 }

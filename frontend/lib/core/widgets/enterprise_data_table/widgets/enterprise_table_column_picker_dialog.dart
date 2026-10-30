@@ -83,8 +83,9 @@ class _EnterpriseTableColumnPickerDialogState<T>
           col.id.toLowerCase().contains(_filter.toLowerCase());
     }).toList();
 
-    return AlertDialog(
-      title: Row(
+    return SelectionArea(
+      child: AlertDialog(
+        title: Row(
         children: [
           const Icon(Icons.view_column_rounded, color: AppTheme.cobalt),
           const SizedBox(width: 8),
@@ -235,8 +236,9 @@ class _EnterpriseTableColumnPickerDialogState<T>
           child: const Text('تطبيق التعديلات'),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildColumnTile(EnterpriseColumn<T> col, int index, {Key? key, required bool isReorderable}) {
     final isChecked = _selectedIds.contains(col.id);

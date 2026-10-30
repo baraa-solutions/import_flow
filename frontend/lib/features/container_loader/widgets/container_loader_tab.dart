@@ -1,3 +1,4 @@
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -205,12 +206,12 @@ class _ContainerLoaderTabState extends ConsumerState<ContainerLoaderTab> {
                                       ),
                                       const SizedBox(width: 6),
                                       SizedBox(
-                                        width: 70,
-                                        child: DropdownButtonFormField<String>(
-                                          initialValue: item.unit,
-                                          decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+                                        width: 85,
+                                        child: SearchableDropdownField<String>(
+                                          value: item.unit,
+                                          isDense: true,
                                           items: ['cm', 'mm', 'm']
-                                              .map((u) => DropdownMenuItem(value: u, child: Text(u, style: const TextStyle(fontSize: 11))))
+                                              .map((u) => SearchableDropdownItem<String>(value: u, label: u))
                                               .toList(),
                                           onChanged: (v) => setState(() => item.unit = v ?? item.unit),
                                         ),

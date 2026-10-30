@@ -63,6 +63,7 @@ export 'app_shimmer_skeleton.dart';
 export 'stage_notes_card.dart';
 
 // ── Dialogs & Modals ────────────────────────────────────────────────────────
+export 'app_dialog_layout.dart';
 export 'app_confirm_dialog.dart';
 export 'reopen_shipment_dialog.dart';
 export 'stop_shipment_dialog.dart';

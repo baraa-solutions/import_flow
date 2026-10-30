@@ -185,7 +185,8 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
             maxWidth: 1200,
             maxHeight: 880,
           ),
-          child: Column(
+          child: SelectionArea(
+            child: Column(
             children: [
               SettlementDialogHeader(
                 icon: Icons.calculate_outlined,
@@ -204,6 +205,7 @@ class _ActualLandedCostDialogState extends ConsumerState<ActualLandedCostDialog>
               ),
               if (!_isLoading && _errorMessage == null) _buildFooter(l10n),
             ],
+            ),
           ),
         ),
       ),

@@ -533,7 +533,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
         const SizedBox(width: 8),
         AppButton(
           key: const Key('globalLogisticsInvoicesBtn'),
-          label: 'فواتير الخدمات اللوجستية (LSI)',
+          label: l10n.isArabic ? 'فواتير الخدمات اللوجستية' : 'Logistics Service Invoices',
           icon: Icons.account_balance_wallet_rounded,
           variant: AppButtonVariant.secondary,
           size: AppButtonSize.small,

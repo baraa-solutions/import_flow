@@ -1635,21 +1635,17 @@ class _HsCodeSearchScreenState extends ConsumerState<HsCodeSearchScreen> with Si
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: _selectedOriginCountry,
-                  decoration: InputDecoration(
-                    labelText: l.hsOriginCountryLabel,
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
+                child: SearchableDropdownField<String>(
+                  value: _selectedOriginCountry,
+                  labelText: l.hsOriginCountryLabel,
                   items: [
-                    DropdownMenuItem(value: 'ITALY', child: Text(l.hsOriginItalyEur1)),
-                    DropdownMenuItem(value: 'GERMANY', child: Text(l.hsOriginGermanyEur1)),
-                    DropdownMenuItem(value: 'CHINA', child: Text(l.hsOriginChinaGeneral)),
-                    DropdownMenuItem(value: 'TURKEY', child: Text(l.hsOriginTurkeyFta)),
-                    DropdownMenuItem(value: 'BRAZIL', child: Text(l.hsOriginBrazilMercosur)),
-                    DropdownMenuItem(value: 'SERBIA', child: Text(l.hsOriginSerbiaFta)),
-                    DropdownMenuItem(value: 'UK', child: Text(l.hsOriginUkPartnership)),
+                    SearchableDropdownItem(value: 'ITALY', label: l.hsOriginItalyEur1),
+                    SearchableDropdownItem(value: 'GERMANY', label: l.hsOriginGermanyEur1),
+                    SearchableDropdownItem(value: 'CHINA', label: l.hsOriginChinaGeneral),
+                    SearchableDropdownItem(value: 'TURKEY', label: l.hsOriginTurkeyFta),
+                    SearchableDropdownItem(value: 'BRAZIL', label: l.hsOriginBrazilMercosur),
+                    SearchableDropdownItem(value: 'SERBIA', label: l.hsOriginSerbiaFta),
+                    SearchableDropdownItem(value: 'UK', label: l.hsOriginUkPartnership),
                   ],
                   onChanged: (val) {
                     if (val != null) setState(() => _selectedOriginCountry = val);

@@ -94,8 +94,9 @@ class _IncotermEditDialogState extends ConsumerState<IncotermEditDialog> {
     final l10n = context.l10n;
     final isEditing = widget.incoterm != null;
 
-    return AlertDialog(
-      title: Text(isEditing ? l10n.editIncotermDialogTitle : l10n.addIncotermDialogTitle),
+    return SelectionArea(
+      child: AlertDialog(
+        title: Text(isEditing ? l10n.editIncotermDialogTitle : l10n.addIncotermDialogTitle),
       content: SelectionArea(
         child: Form(
           key: _formKey,
@@ -210,6 +211,7 @@ class _IncotermEditDialogState extends ConsumerState<IncotermEditDialog> {
           onPressed: _handleSubmit,
         ),
       ],
+    ),
     );
   }
 }

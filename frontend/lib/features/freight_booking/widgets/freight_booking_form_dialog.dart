@@ -1447,8 +1447,9 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
     final l = AppLocalizations.of(context);
     final isEdit = _isEdit;
 
-    return CcStageDialogShell(
-      title: isEdit ? l.freightBookingEditDialogTitle(widget.bookingToEdit!.bookingCode) : l.freightBookingNewDialogTitle,
+    return SelectionArea(
+      child: CcStageDialogShell(
+        title: isEdit ? l.freightBookingEditDialogTitle(widget.bookingToEdit!.bookingCode) : l.freightBookingNewDialogTitle,
       icon: Icons.directions_boat,
       maxWidth: 980,
       isSubmitting: _isSaving,
@@ -1572,6 +1573,7 @@ class _FreightBookingFormDialogState extends ConsumerState<FreightBookingFormDia
           ],
         ),
       ),
+    ),
     );
   }
 }

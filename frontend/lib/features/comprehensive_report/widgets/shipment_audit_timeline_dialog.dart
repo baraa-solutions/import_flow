@@ -2,7 +2,6 @@ import 'package:frontend/core/theme/app_theme.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/widgets/app_status_badge.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
@@ -106,14 +105,14 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          AppTheme.snackBar(context, '✅ تم حفظ توجيهات ومحضر اجتماع الشحنة بنجاح في قاعدة البيانات.', severity: AppSeverity.success),
+          AppTheme.snackBar(context, 'تم حفظ توجيهات ومحضر اجتماع الشحنة بنجاح في قاعدة البيانات.', severity: AppSeverity.success),
         );
       }
     } catch (e) {
       if (mounted) {
         final errText = ApiError.message(e);
         ScaffoldMessenger.of(context).showSnackBar(
-          AppTheme.snackBar(context, '❌ تعذر حفظ التوجيهات: ${errText.isNotEmpty ? errText : e.toString()}'),
+          AppTheme.snackBar(context, 'تعذر حفظ التوجيهات: ${errText.isNotEmpty ? errText : e.toString()}', severity: AppSeverity.danger),
         );
       }
     } finally {
@@ -183,10 +182,7 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
     for (final m in _data!.milestones) {
       sb.writeln('#${m.seq} | ${m.nameAr} | مخطط: ${m.plannedDate ?? "-"} | فعلي: ${m.actualDate ?? "-"} | فارق: ${m.varianceDays} يوم | مدة: ${m.tatDisplay ?? "-"} | حالة: ${m.status} | ملاحظات: ${m.notes ?? ""}');
     }
-    Clipboard.setData(ClipboardData(text: sb.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      AppTheme.snackBar(context, '📋 تم نسخ جدول الـ 36 محطة والملاحظات بالكامل إلى الحافظة!'),
-    );
+    CopyHelper.copy(context, sb.toString());
   }
 
   Future<void> _printOrExportPdf() async {
@@ -264,7 +260,7 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          AppTheme.snackBar(context, 'تعذر إنشاء ملف الطباعة: $e'),
+          AppTheme.snackBar(context, 'تعذر إنشاء ملف الطباعة: $e', severity: AppSeverity.danger),
         );
       }
     }
@@ -280,7 +276,8 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.transparent),
       ),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: MediaQuery.of(context).size.width * 0.95,
         height: MediaQuery.of(context).size.height * 0.92,
         padding: const EdgeInsets.all(18),
@@ -356,6 +353,7 @@ class _ShipmentAuditTimelineDialogState extends ConsumerState<ShipmentAuditTimel
                       _buildMeetingDirectivesSection(isDark),
                     ],
                   ),
+        ),
       ),
     );
   }

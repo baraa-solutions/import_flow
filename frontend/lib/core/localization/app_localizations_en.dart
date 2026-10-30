@@ -5436,6 +5436,27 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get radarTsvHeaderTestingStatus => 'Regulatory Testing';
   @override String get radarTsvHeaderDocReadiness => 'Doc Readiness %';
 
+  // ── Screen 48 Canonical KPI Metric Bar & Badges ─────────────────────────────
+  @override String get kpiHealthScoreTitle => 'Health Score';
+  @override String kpiHealthScoreValue(int percent) => 'Health $percent%';
+  @override String get kpiHealthScoreTooltip => 'Operational progress and health score of the shipment';
+  @override String get kpiFreeTimeBurnTitle => 'Free Time Burn';
+  @override String kpiFreeTimeBurnValue(int percent, int days) => '$percent% ($days days left)';
+  @override String get kpiFreeTimeBurnTooltip => 'Free time consumption radar and remaining days to avoid demurrage';
+  @override String get kpiBlockersAndOverdueTitle => 'Blockers & Overdue';
+  @override String kpiOverdueCountBadge(int count) => '$count Overdue';
+  @override String kpiBlockersCountBadge(int count) => '$count Blocked';
+  @override String get kpiNoBlockersBadge => 'On Track';
+  @override String get kpiBlockersTooltip => 'Overdue steps and operational blockers affecting shipment flow';
+  @override String get kpiCostVarianceTitle => 'Cost Variance';
+  @override String kpiCostVarianceValue(String sign, double percent) => '$sign${percent.toStringAsFixed(1)}%';
+  @override String get kpiCostVarianceTooltip => 'Variance between actual booked costs and estimated budget';
+  @override String get phasePendingShipmentsTitle => 'Phase Status';
+  @override String phasePendingCountBadge(int count) => '$count Pending';
+  @override String phaseDelayedCountBadge(int count) => '$count Delayed';
+  @override String get phaseAllClearBadge => 'All Clear';
+  @override String get phasePendingBadgeTooltip => 'Pending and delayed shipments in this phase';
+
   // ==========================================
   // Screen 49: Freight Quotations Comparison (FreightQuotationsComparisonScreen)
   // ==========================================
@@ -13509,6 +13530,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get copyAcidNumberTooltip => 'Copy ACID Number';
   @override String get governanceActionTooltip => 'Governance & Dual Control';
   @override String get advancedOperationalPillarsAccordionTitle => 'Advanced Operational Pillars';
+
+  // ── Lifecycle KPI Metrics & Phase Counters ─────────────────────────────────
+  @override String get kpiHealthScore => 'Completion Rate';
+  @override String get kpiFreeTimeBurn => 'Free Time Burn';
+  @override String get kpiDaysLeft => 'Days Remaining';
+  @override String get kpiOverdueSteps => 'Overdue Steps';
+  @override String get kpiCostVariance => 'Cost Variance';
+  @override String get kpiRiskSafe => 'Safe';
+  @override String get kpiRiskWarning => 'Warning';
+  @override String get kpiRiskCritical => 'Critical';
+  @override String get phasePendingCount => 'Pending Shipments';
+  @override String get phaseDelayedCount => 'Delayed Shipments';
 
 // === end review phase08_10 keys ===
 }

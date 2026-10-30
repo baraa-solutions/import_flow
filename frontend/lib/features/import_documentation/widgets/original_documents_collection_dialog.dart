@@ -36,7 +36,8 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: dialogWidth,
         height: dialogHeight,
         decoration: BoxDecoration(
@@ -166,6 +167,7 @@ class OriginalDocumentsCollectionDialog extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

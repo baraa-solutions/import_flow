@@ -13,30 +13,30 @@ import '../providers/master_items_provider.dart';
 
 /// Standard UOM items for Master Items catalog
 const List<Map<String, String>> kStandardUoms = [
-  {'code': 'PCS', 'nameAr': 'قطعة (PCS)'},
-  {'code': 'KG', 'nameAr': 'كيلوجرام (KG)'},
-  {'code': 'TON', 'nameAr': 'طن (TON)'},
-  {'code': 'MTR', 'nameAr': 'متر طولي (MTR)'},
-  {'code': 'M2', 'nameAr': 'متر مربع (M2)'},
-  {'code': 'M3', 'nameAr': 'متر مكعب (M3)'},
-  {'code': 'SET', 'nameAr': 'طقم / مجموعة (SET)'},
-  {'code': 'ROLL', 'nameAr': 'رول / لفة (ROLL)'},
-  {'code': 'BOX', 'nameAr': 'صندوق (BOX)'},
-  {'code': 'CARTON', 'nameAr': 'كرتونة (CTN)'},
-  {'code': 'PALLET', 'nameAr': 'بالتة (PLT)'},
-  {'code': 'LTR', 'nameAr': 'لتر (LTR)'},
+  {'code': 'PCS', 'nameAr': 'قطعة', 'nameEn': 'Piece (PCS)'},
+  {'code': 'KG', 'nameAr': 'كيلوجرام', 'nameEn': 'Kilogram (KG)'},
+  {'code': 'TON', 'nameAr': 'طن', 'nameEn': 'Ton (TON)'},
+  {'code': 'MTR', 'nameAr': 'متر طولي', 'nameEn': 'Meter (MTR)'},
+  {'code': 'M2', 'nameAr': 'متر مربع', 'nameEn': 'Square Meter (M2)'},
+  {'code': 'M3', 'nameAr': 'متر مكعب', 'nameEn': 'Cubic Meter (M3)'},
+  {'code': 'SET', 'nameAr': 'طقم', 'nameEn': 'Set (SET)'},
+  {'code': 'ROLL', 'nameAr': 'رول', 'nameEn': 'Roll (ROLL)'},
+  {'code': 'BOX', 'nameAr': 'صندوق', 'nameEn': 'Box (BOX)'},
+  {'code': 'CARTON', 'nameAr': 'كرتونة', 'nameEn': 'Carton (CTN)'},
+  {'code': 'PALLET', 'nameAr': 'بالتة', 'nameEn': 'Pallet (PLT)'},
+  {'code': 'LTR', 'nameAr': 'لتر', 'nameEn': 'Liter (LTR)'},
 ];
 
 /// Standard Packaging Types
 const List<Map<String, String>> kStandardPkgTypes = [
-  {'code': 'Carton', 'nameAr': 'كرتونة (Carton)'},
-  {'code': 'Pallet', 'nameAr': 'بالتة خشبية/بلاستيكية (Pallet)'},
-  {'code': 'Wooden Box', 'nameAr': 'صندوق خشب (Wooden Box)'},
-  {'code': 'Bag', 'nameAr': 'شيكارة / كيس (Bag)'},
-  {'code': 'Drum', 'nameAr': 'برميل (Drum)'},
-  {'code': 'Bundle', 'nameAr': 'حزمة (Bundle)'},
-  {'code': 'Steel Cage', 'nameAr': 'قفص حديدي (Steel Cage)'},
-  {'code': 'Bulk', 'nameAr': 'شحنة صب (Bulk)'},
+  {'code': 'Carton', 'nameAr': 'كرتونة', 'nameEn': 'Carton'},
+  {'code': 'Pallet', 'nameAr': 'بالتة', 'nameEn': 'Pallet'},
+  {'code': 'Wooden Box', 'nameAr': 'صندوق خشب', 'nameEn': 'Wooden Box'},
+  {'code': 'Bag', 'nameAr': 'شيكارة', 'nameEn': 'Bag'},
+  {'code': 'Drum', 'nameAr': 'برميل', 'nameEn': 'Drum'},
+  {'code': 'Bundle', 'nameAr': 'حزمة', 'nameEn': 'Bundle'},
+  {'code': 'Steel Cage', 'nameAr': 'قفص حديدي', 'nameEn': 'Steel Cage'},
+  {'code': 'Bulk', 'nameAr': 'شحنة صب', 'nameEn': 'Bulk'},
 ];
 
 /// Standard Product Categories
@@ -194,6 +194,7 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final tariffsAsync = ref.watch(customsTariffProvider);
 
     return Dialog(
@@ -300,7 +301,7 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
                               flex: 4,
                               child: CustomTextField(
                                 controller: _itemCodeCtrl,
-                                label: 'كود الصنف الداخلي (Item SKU)',
+                                label: isArabic ? 'كود الصنف الداخلي' : 'Internal Item SKU',
                                 hint: 'مثال: PET-RAW-001',
                                 isRequired: true,
                                 textDirection: TextDirection.ltr,
@@ -320,12 +321,12 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
                               flex: 5,
                               child: SearchableDropdownField<String>(
                                 value: _selectedCategory,
-                                labelText: 'فئة الصنف (Product Category)',
-                                hintText: 'اختر الفئة الرئيسية...',
+                                labelText: isArabic ? 'فئة الصنف' : 'Product Category',
+                                hintText: isArabic ? 'اختر الفئة الرئيسية...' : 'Select main category...',
                                 items: kStandardCategories.map((cat) {
                                   return SearchableDropdownItem(
                                     value: cat,
-                                    label: '$cat (${_getCategoryAr(cat)})',
+                                    label: isArabic ? _getCategoryAr(cat) : cat,
                                   );
                                 }).toList(),
                                 onChanged: (val) => setState(() => _selectedCategory = val),
@@ -338,12 +339,12 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
                         // Row 2: Arabic Description
                         CustomTextField(
                           controller: _descArCtrl,
-                          label: 'الوصف العربي المعتمد (Description AR)',
-                          hint: 'اسم وتوصيف البضاعة بالعربية للمستندات الجمركية ونموذج 46',
+                          label: isArabic ? 'الوصف العربي المعتمد' : 'Approved Arabic Description',
+                          hint: isArabic ? 'اسم وتوصيف البضاعة بالعربية للمستندات الجمركية ونموذج 46' : 'Arabic goods description for customs and Form 46',
                           isRequired: true,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) {
-                              return 'الوصف العربي إلزامي للجمارك والتخليص';
+                              return isArabic ? 'الوصف العربي إلزامي للجمارك والتخليص' : 'Arabic description is required';
                             }
                             return null;
                           },
@@ -353,7 +354,7 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
                         // Row 3: English Description
                         CustomTextField(
                           controller: _descEnCtrl,
-                          label: 'الوصف الإنجليزي (Description EN)',
+                          label: isArabic ? 'الوصف الإنجليزي' : 'English Description',
                           hint: 'Commercial invoice English description for overseas suppliers',
                           textDirection: TextDirection.ltr,
                         ),
@@ -388,9 +389,9 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
                               children: [
                                 SearchableDropdownField<int>(
                                   value: _selectedTariffId,
-                                  labelText: 'بند التعريفة الجمركية (HS Code Tariff)',
-                                  hintText: 'ابحث برقم البند أو الوصف الجمركي...',
-                                  searchHintText: 'ابحث برقم البند الجمركي أو الاسم...',
+                                  labelText: isArabic ? 'بند التعريفة الجمركية' : 'Customs Tariff (HS Code)',
+                                  hintText: isArabic ? 'ابحث برقم البند أو الوصف الجمركي...' : 'Search by HS code or description...',
+                                  searchHintText: isArabic ? 'ابحث برقم البند الجمركي أو الاسم...' : 'Search by HS code or name...',
                                   items: tariffItems,
                                   onChanged: (val) {
                                     setState(() => _selectedTariffId = val);
@@ -436,11 +437,11 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
                             Expanded(
                               child: SearchableDropdownField<String>(
                                 value: _selectedUom,
-                                labelText: 'وحدة القياس القياسية (Default UOM)',
+                                labelText: isArabic ? 'وحدة القياس القياسية' : 'Standard UOM',
                                 items: kStandardUoms.map((u) {
                                   return SearchableDropdownItem(
                                     value: u['code']!,
-                                    label: u['nameAr']!,
+                                    label: isArabic ? u['nameAr']! : u['nameEn']!,
                                   );
                                 }).toList(),
                                 onChanged: (val) {
@@ -452,11 +453,11 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
                             Expanded(
                               child: SearchableDropdownField<String>(
                                 value: _selectedPkgType,
-                                labelText: 'نوع التعبئة القياسي (Packaging Type)',
+                                labelText: isArabic ? 'نوع التعبئة القياسي' : 'Standard Packaging Type',
                                 items: kStandardPkgTypes.map((p) {
                                   return SearchableDropdownItem(
                                     value: p['code']!,
-                                    label: p['nameAr']!,
+                                    label: isArabic ? p['nameAr']! : p['nameEn']!,
                                   );
                                 }).toList(),
                                 onChanged: (val) {
@@ -474,7 +475,7 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
                             Expanded(
                               child: CustomTextField(
                                 controller: _cbmCtrl,
-                                label: 'الحجم للوحدة (CBM)',
+                                label: isArabic ? 'الحجم للوحدة (م³)' : 'Unit Volume (CBM)',
                                 hint: '0.000',
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                 textDirection: TextDirection.ltr,
@@ -484,7 +485,7 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
                             Expanded(
                               child: CustomTextField(
                                 controller: _grossWeightCtrl,
-                                label: 'الوزن القائم للوحدة (كجم)',
+                                label: isArabic ? 'الوزن القائم للوحدة (كجم)' : 'Unit Gross Weight (kg)',
                                 hint: '0.00',
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                 textDirection: TextDirection.ltr,
@@ -494,7 +495,7 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
                             Expanded(
                               child: CustomTextField(
                                 controller: _netWeightCtrl,
-                                label: 'الوزن الصافي للوحدة (كجم)',
+                                label: isArabic ? 'الوزن الصافي للوحدة (كجم)' : 'Unit Net Weight (kg)',
                                 hint: '0.00',
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                 textDirection: TextDirection.ltr,
@@ -512,7 +513,7 @@ class _MasterItemFormDialogState extends ConsumerState<MasterItemFormDialog> {
                               flex: 4,
                               child: CustomTextField(
                                 controller: _subCategoryCtrl,
-                                label: 'الفئة الفرعية (Subcategory)',
+                                label: isArabic ? 'الفئة الفرعية' : 'Subcategory',
                                 hint: 'مثال: قطع ميكانيكية، حبيبات بوليمر',
                               ),
                             ),

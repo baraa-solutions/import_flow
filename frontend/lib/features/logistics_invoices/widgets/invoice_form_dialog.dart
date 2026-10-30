@@ -393,22 +393,22 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                         children: [
                           Expanded(
                             flex: 2,
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              initialValue: const ['freight', 'clearance', 'transport', 'inspection', 'insurance'].contains(_partnerType)
+                            child: SearchableDropdownField<String>(
+                              value: const ['freight', 'clearance', 'transport', 'inspection', 'insurance'].contains(_partnerType)
                                   ? _partnerType
                                   : 'freight',
+                              labelText: isArabic ? 'نوع الشريك اللوجستي' : 'Partner Type',
                               decoration: InputDecoration(
                                 labelText: isArabic ? 'نوع الشريك اللوجستي' : 'Partner Type',
                                 isDense: true,
                                 border: const OutlineInputBorder(),
                               ),
                               items: [
-                                DropdownMenuItem(value: 'freight', child: Text(isArabic ? 'شركة شحن ونولون' : 'Freight Forwarder')),
-                                DropdownMenuItem(value: 'clearance', child: Text(isArabic ? 'مخلص جمركي' : 'Customs Broker')),
-                                DropdownMenuItem(value: 'transport', child: Text(isArabic ? 'نقل داخلي' : 'Inland Transport')),
-                                DropdownMenuItem(value: 'inspection', child: Text(isArabic ? 'جهة فحص ومعاينة' : 'Inspection Agency')),
-                                DropdownMenuItem(value: 'insurance', child: Text(isArabic ? 'شركة تأمين بحري' : 'Marine Insurance')),
+                                SearchableDropdownItem<String>(value: 'freight', label: isArabic ? 'شركة شحن ونولون' : 'Freight Forwarder'),
+                                SearchableDropdownItem<String>(value: 'clearance', label: isArabic ? 'مخلص جمركي' : 'Customs Broker'),
+                                SearchableDropdownItem<String>(value: 'transport', label: isArabic ? 'نقل داخلي' : 'Inland Transport'),
+                                SearchableDropdownItem<String>(value: 'inspection', label: isArabic ? 'جهة فحص ومعاينة' : 'Inspection Agency'),
+                                SearchableDropdownItem<String>(value: 'insurance', label: isArabic ? 'شركة تأمين بحري' : 'Marine Insurance'),
                               ],
                               onChanged: widget.initialInvoice != null
                                   ? null
@@ -487,19 +487,19 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                           const SizedBox(width: 12),
                           Expanded(
                             flex: 1,
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              initialValue: _currency,
+                            child: SearchableDropdownField<String>(
+                              value: _currency,
+                              labelText: isArabic ? 'العملة' : 'Currency',
                               decoration: InputDecoration(
                                 labelText: isArabic ? 'العملة' : 'Currency',
                                 isDense: true,
                                 border: const OutlineInputBorder(),
                               ),
                               items: const [
-                                DropdownMenuItem(value: 'USD', child: Text('USD')),
-                                DropdownMenuItem(value: 'EUR', child: Text('EUR')),
-                                DropdownMenuItem(value: 'GBP', child: Text('GBP')),
-                                DropdownMenuItem(value: 'EGP', child: Text('EGP')),
+                                SearchableDropdownItem<String>(value: 'USD', label: 'USD'),
+                                SearchableDropdownItem<String>(value: 'EUR', label: 'EUR'),
+                                SearchableDropdownItem<String>(value: 'GBP', label: 'GBP'),
+                                SearchableDropdownItem<String>(value: 'EGP', label: 'EGP'),
                               ],
                               onChanged: (val) {
                                 if (val != null) {

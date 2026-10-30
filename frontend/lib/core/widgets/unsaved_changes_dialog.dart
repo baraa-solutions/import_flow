@@ -41,8 +41,9 @@ class UnsavedChangesDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: Container(
-        width: 520,
+      child: SelectionArea(
+        child: Container(
+          width: 520,
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1B232E) : Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -179,6 +180,7 @@ class UnsavedChangesDialog extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

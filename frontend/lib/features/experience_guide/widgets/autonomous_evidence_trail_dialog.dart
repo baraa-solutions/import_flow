@@ -90,7 +90,8 @@ class _AutonomousEvidenceTrailDialogState
   Future<void> _handlePromote() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
         title: const Row(
           children: [
             Icon(Icons.verified_rounded, color: AppTheme.emerald),
@@ -117,6 +118,7 @@ class _AutonomousEvidenceTrailDialogState
           ),
         ],
       ),
+    ),
     );
 
     if (confirmed != true) return;
@@ -152,7 +154,8 @@ class _AutonomousEvidenceTrailDialogState
     final reasonController = TextEditingController();
     final rejected = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
         title: const Row(
           children: [
             Icon(Icons.cancel_rounded, color: AppTheme.crimson),
@@ -197,6 +200,7 @@ class _AutonomousEvidenceTrailDialogState
           ),
         ],
       ),
+    ),
     );
 
     if (rejected != true || reasonController.text.trim().length < 3) return;
@@ -233,7 +237,8 @@ class _AutonomousEvidenceTrailDialogState
     return Dialog(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ConstrainedBox(
+      child: SelectionArea(
+        child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 780, maxHeight: 820),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -343,6 +348,7 @@ class _AutonomousEvidenceTrailDialogState
           ],
         ),
       ),
+    ),
     );
   }
 

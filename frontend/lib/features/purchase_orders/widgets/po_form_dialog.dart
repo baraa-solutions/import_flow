@@ -206,6 +206,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   }
 
   Future<CustomsTariffModel?> _showHsCodeSearchPicker(BuildContext context, List<CustomsTariffModel> tariffs) async {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     return showDialog<CustomsTariffModel?>(
       context: context,
       builder: (ctx) {
@@ -220,92 +221,101 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                   t.categorySearchText.contains(query);
             }).toList();
 
-            return AlertDialog(
-              title: const Row(
-                children: [
-                  Icon(Icons.search, color: AppTheme.cobalt),
-                  SizedBox(width: 8),
-                  Text('اختيار البند الجمركي (Customs Tariff / HS Code)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              content: SizedBox(
-                width: 600,
-                height: 450,
-                child: Column(
+            return SelectionArea(
+              child: AlertDialog(
+                title: Row(
                   children: [
-                    TextField(
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        hintText: 'ابحث برقم البند الجمركي أو الوصف (مثال: 8415 أو تكييف)...',
-                        prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
-                        suffixIcon: search.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () => setDialogState(() => search = ''),
-                              )
-                            : null,
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onChanged: (v) => setDialogState(() => search = v),
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: filtered.isEmpty
-                          ? const Center(child: Text('لا توجد نتائج مطابقة لمفتاح البحث'))
-                          : ListView.builder(
-                              itemCount: filtered.length,
-                              itemBuilder: (context, i) {
-                                final item = filtered[i];
-                                return ListTile(
-                                  dense: true,
-                                  title: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.cobalt.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: LtrText(
-                                          item.hsCode,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          item.hsDescription,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  subtitle: Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      'الفئة: ${item.categoryLabelArabic ?? "عام"} | جمارك: ${item.customsDutyRate}% | قيمة مضافة: ${item.vatRate}% | رسم تنمية: ${item.developmentFeeRate}%',
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.textStrong),
-                                    ),
-                                  ),
-                                  onTap: () => Navigator.pop(ctx, item),
-                                );
-                              },
-                            ),
+                    const Icon(Icons.search, color: AppTheme.cobalt),
+                    const SizedBox(width: 8),
+                    Text(
+                      isArabic ? 'اختيار البند الجمركي' : 'Select Customs Tariff',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
-              ),
-              actions: [
-                AppButton(
-                  label: 'إلغاء',
-                  variant: AppButtonVariant.secondary,
-                  size: AppButtonSize.small,
-                  onPressed: () => Navigator.pop(ctx, null),
+                content: SizedBox(
+                  width: 600,
+                  height: 450,
+                  child: Column(
+                    children: [
+                      TextField(
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: isArabic
+                              ? 'ابحث برقم البند الجمركي أو الوصف (مثال: 8415 أو تكييف)...'
+                              : 'Search by HS code or description (e.g. 8415 or chiller)...',
+                          prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
+                          suffixIcon: search.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () => setDialogState(() => search = ''),
+                                )
+                              : null,
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onChanged: (v) => setDialogState(() => search = v),
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: filtered.isEmpty
+                            ? Center(child: Text(isArabic ? 'لا توجد نتائج مطابقة لمفتاح البحث' : 'No matching results found'))
+                            : ListView.builder(
+                                itemCount: filtered.length,
+                                itemBuilder: (context, i) {
+                                  final item = filtered[i];
+                                  return ListTile(
+                                    dense: true,
+                                    title: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.cobalt.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: LtrText(
+                                            item.hsCode,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            item.hsDescription,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    subtitle: Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        isArabic
+                                            ? 'الفئة: ${item.categoryLabelArabic ?? "عام"} | جمارك: ${item.customsDutyRate}% | قيمة مضافة: ${item.vatRate}% | رسم تنمية: ${item.developmentFeeRate}%'
+                                            : 'Category: ${item.categoryLabelArabic ?? "General"} | Customs: ${item.customsDutyRate}% | VAT: ${item.vatRate}% | Dev: ${item.developmentFeeRate}%',
+                                        style: const TextStyle(fontSize: 11, color: AppTheme.textStrong),
+                                      ),
+                                    ),
+                                    onTap: () => Navigator.pop(ctx, item),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+                actions: [
+                  AppButton(
+                    label: isArabic ? 'إلغاء' : 'Cancel',
+                    variant: AppButtonVariant.secondary,
+                    size: AppButtonSize.small,
+                    onPressed: () => Navigator.pop(ctx, null),
+                  ),
+                ],
+              ),
             );
           },
         );
@@ -1308,33 +1318,35 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final restore = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.history_edu_rounded, color: AppTheme.cobalt),
-            const SizedBox(width: 8),
-            Text(context.l10n.poRestoreUnsavedDraft),
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.history_edu_rounded, color: AppTheme.cobalt),
+              const SizedBox(width: 8),
+              Text(context.l10n.poRestoreUnsavedDraft),
+            ],
+          ),
+          content: Text(
+            context.l10n.poAnAutosavedDraftExistsForThis(savedAt),
+          ),
+          actions: [
+            AppButton(
+              label: context.l10n.poDiscardDraft,
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.small,
+              onPressed: () {
+                PODraftManager.clearDraft(widget.po?.poId);
+                Navigator.of(ctx).pop(false);
+              },
+            ),
+            AppButton(
+              label: context.l10n.poRestoreDraft,
+              variant: AppButtonVariant.success,
+              onPressed: () => Navigator.of(ctx).pop(true),
+            ),
           ],
         ),
-        content: Text(
-          context.l10n.poAnAutosavedDraftExistsForThis(savedAt),
-        ),
-        actions: [
-          AppButton(
-            label: context.l10n.poDiscardDraft,
-            variant: AppButtonVariant.secondary,
-            size: AppButtonSize.small,
-            onPressed: () {
-              PODraftManager.clearDraft(widget.po?.poId);
-              Navigator.of(ctx).pop(false);
-            },
-          ),
-          AppButton(
-            label: context.l10n.poRestoreDraft,
-            variant: AppButtonVariant.success,
-            onPressed: () => Navigator.of(ctx).pop(true),
-          ),
-        ],
       ),
     );
 
@@ -1605,8 +1617,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       onDiscard: () => PODraftManager.clearDraft(widget.po?.poId),
       child: DefaultTabController(
         length: 2,
-        child: AlertDialog(
-          titlePadding: EdgeInsets.zero,
+        child: SelectionArea(
+          child: AlertDialog(
+            titlePadding: EdgeInsets.zero,
           title: Container(
             decoration: const BoxDecoration(
               color: AppTheme.charcoal,
@@ -1772,11 +1785,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             ),
                             SearchableDropdownField<int?>(
                               value: _selectedImportFileId,
-                              labelText: 'Import File (ملف الشحنة الاستيرادية)',
+                              labelText: isArabic ? 'ملف الشحنة الاستيرادية' : 'Import File',
                               items: [
-                                const SearchableDropdownItem<int?>(
+                                SearchableDropdownItem<int?>(
                                   value: null,
-                                  label: '-- None / غير مرتبط بملف شحنة --',
+                                  label: isArabic ? '-- غير مرتبط بملف شحنة --' : '-- None / Unlinked --',
                                 ),
                                 ...importFiles.map((f) => SearchableDropdownItem<int?>(
                                       value: f.importFileId,
@@ -1791,10 +1804,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             const SizedBox(height: 12),
                             TextFormField(
                               controller: _poReferenceCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'PO Reference / Name (اسم / مرجع أمر الشراء)',
-                                hintText: 'مثال: وحدات شيلر مصنع الدلتا / Chiller Units 500kW',
-                                prefixIcon: Icon(Icons.bookmark_outline_rounded, color: AppTheme.cobalt, size: 18),
+                              decoration: InputDecoration(
+                                labelText: isArabic ? 'اسم أو مرجع أمر الشراء' : 'PO Reference / Name',
+                                hintText: isArabic ? 'مثال: وحدات شيلر مصنع الدلتا' : 'e.g. Delta Chiller Units 500kW',
+                                prefixIcon: const Icon(Icons.bookmark_outline_rounded, color: AppTheme.cobalt, size: 18),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -1803,10 +1816,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 Expanded(
                                   child: TextFormField(
                                     controller: _piCtrl,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Proforma Invoice # (رقم الفاتورة المبدئية)',
+                                    decoration: InputDecoration(
+                                      labelText: isArabic ? 'رقم الفاتورة المبدئية' : 'Proforma Invoice #',
                                       hintText: 'e.g. PI-2026-991',
-                                      prefixIcon: Icon(Icons.receipt_long_outlined, color: AppTheme.cobalt, size: 18),
+                                      prefixIcon: const Icon(Icons.receipt_long_outlined, color: AppTheme.cobalt, size: 18),
                                     ),
                                   ),
                                 ),
@@ -2017,14 +2030,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 Expanded(
                                   child: SearchableDropdownField<String?>(
                                     value: _selectedCountryOfOrigin,
-                                    labelText: 'Country of Origin (بلد المنشأ العام)',
+                                    labelText: isArabic ? 'بلد المنشأ العام' : 'Country of Origin',
                                     items: [
                                       // The "clear" entry is offered only once a country is chosen; while empty
                                       // the field shows its hint instead of a placeholder that looks selected.
                                       if (_selectedCountryOfOrigin != null)
-                                        const SearchableDropdownItem<String?>(
+                                        SearchableDropdownItem<String?>(
                                           value: null,
-                                          label: '-- غير محدد (Auto / غير محدد) --',
+                                          label: isArabic ? '-- تلقائي / غير محدد --' : '-- Auto / Unspecified --',
                                         ),
                                       ...countryOptions.map((c) => SearchableDropdownItem<String?>(
                                             value: c['name'],
@@ -2087,24 +2100,24 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   child: SearchableDropdownField<String>(
                                     // Shown as-is (a legacy value not in the list is displayed, not swapped for SWIFT).
                                     value: _selectedPaymentTerms,
-                                    labelText: 'Payment Terms (شروط الدفع) *',
+                                    labelText: '\${context.l10n.poPaymentTerms} *',
                                     validator: (_) => (_selectedPaymentTerms == null || _selectedPaymentTerms!.trim().isEmpty) ? l.requiredField : null,
-                                    items: const [
+                                    items: [
                                       SearchableDropdownItem(
                                         value: PoPaymentTerms.cashInAdvance,
-                                        label: 'Cash in Advance / SWIFT (تحويل سويفت مقدم)',
+                                        label: isArabic ? 'تحويل سويفت مقدم' : 'Cash in Advance / SWIFT',
                                       ),
                                       SearchableDropdownItem(
                                         value: PoPaymentTerms.letterOfCredit,
-                                        label: 'Letter of Credit / LC (اعتماد مستندي)',
+                                        label: isArabic ? 'اعتماد مستندي' : 'Letter of Credit (LC)',
                                       ),
                                       SearchableDropdownItem(
                                         value: PoPaymentTerms.cashAgainstDocuments,
-                                        label: 'CAD / Cash Against Documents (تحصيل مستندي)',
+                                        label: isArabic ? 'تحصيل مستندي' : 'Cash Against Documents (CAD)',
                                       ),
                                       SearchableDropdownItem(
                                         value: PoPaymentTerms.openAccount,
-                                        label: 'Open Account / Deferred Payment (حساب مفتوح / آجل)',
+                                        label: isArabic ? 'حساب مفتوح / آجل' : 'Open Account / Deferred Payment',
                                       ),
                                     ],
                                     onChanged: (v) {
@@ -2281,7 +2294,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                               },
                                               child: InputDecorator(
                                                 decoration: InputDecoration(
-                                                  labelText: 'Customs Tariff / HS Code (بحث 🔍)',
+                                                  labelText: isArabic ? 'البند الجمركي (بحث 🔍)' : 'Customs Tariff (Search 🔍)',
                                                   isDense: true,
                                                   suffixIcon: isMismatched ? const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 16) : null,
                                                 ),
@@ -2290,7 +2303,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                       ? (tariffs.any((t) => t.tariffId == item.tariffId)
                                                           ? '${tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsCode} - ${tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsDescription}'
                                                           : (item.hsCode ?? 'ID #${item.tariffId}'))
-                                                      : (item.hsCode != null && item.hsCode!.isNotEmpty ? item.hsCode! : 'None / General'),
+                                                      : (item.hsCode != null && item.hsCode!.isNotEmpty ? item.hsCode! : (isArabic ? 'عام / غير محدد' : 'General / None')),
                                                   style: TextStyle(
                                                     fontWeight: (item.tariffId != null || (item.hsCode != null && item.hsCode!.isNotEmpty)) ? FontWeight.bold : FontWeight.normal,
                                                     color: isMismatched ? AppTheme.crimson : ((item.tariffId != null || (item.hsCode != null && item.hsCode!.isNotEmpty)) ? AppTheme.cobalt : AppTheme.textStrong),
@@ -2306,8 +2319,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             flex: 2,
                                             child: SearchableDropdownField<String?>(
                                               value: normalizeCountryName(item.countryOfOrigin ?? _selectedCountryOfOrigin),
-                                              labelText: 'بلد المنشأ للبند',
-                                              searchHintText: 'ابحث عن بلد المنشأ...',
+                                              labelText: isArabic ? 'بلد المنشأ للبند' : 'Item Country of Origin',
+                                              searchHintText: isArabic ? 'ابحث عن بلد المنشأ...' : 'Search country...',
                                               items: cachedCountryItems,
                                               onChanged: (v) {
                                                 setState(() {
@@ -3460,15 +3473,16 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             variant: AppButtonVariant.primary,
             size: AppButtonSize.small,
             isLoading: _isSubmitting,
-            onPressed: _isSubmitting ? null : () => _submitForm(context),
+            onPressed: _isSubmitting ? null : _submitForm,
           ),
         ],
       ),
     ),
+    ),
   );
   }
 
-  Future<void> _submitForm(BuildContext context) async {
+  Future<void> _submitForm() async {
     final l10n = context.l10n;
     // validate() first so every missing required field shows its red error text.
     final fieldsValid = _formKey.currentState!.validate();
@@ -3589,11 +3603,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         );
       } else {
         await PODraftManager.clearDraft(widget.po?.poId);
+        if (!mounted) return;
         _isDirty = false;
+        final isAr = Localizations.localeOf(context).languageCode == 'ar';
         messenger.showSnackBar(
-          AppTheme.snackBar(context, 'تم إنشاء وحفظ أمر الشراء بنجاح!', severity: AppSeverity.success),
+          AppTheme.snackBar(context, isAr ? 'تم حفظ أمر الشراء بنجاح' : 'Purchase order saved successfully', severity: AppSeverity.success),
         );
-        if (context.mounted) Navigator.pop(context);
+        Navigator.pop(context);
       }
     } else {
       final oldPO = widget.po!;
@@ -3609,7 +3625,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       if (FieldChangeItem.isDifferent(oldPO.poReference, newPoRef)) {
         changes.add(FieldChangeItem(
           section: 'بيانات الفاتورة المبدئية والترويسة',
-          fieldName: 'اسم / مرجع أمر الشراء (PO Reference)',
+          fieldName: 'اسم أو مرجع أمر الشراء',
           oldValue: oldPO.poReference,
           newValue: newPoRef,
         ));
@@ -3619,7 +3635,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       if (FieldChangeItem.isDifferent(oldPO.proformaInvoiceNumber, newPi)) {
         changes.add(FieldChangeItem(
           section: 'بيانات الفاتورة المبدئية والترويسة',
-          fieldName: 'رقم الفاتورة المبدئية (PI Number)',
+          fieldName: 'رقم الفاتورة المبدئية',
           oldValue: oldPO.proformaInvoiceNumber,
           newValue: newPi,
         ));
@@ -3628,7 +3644,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       if (FieldChangeItem.isDifferent(oldPO.countryOfOrigin, _selectedCountryOfOrigin)) {
         changes.add(FieldChangeItem(
           section: 'بيانات الفاتورة المبدئية والترويسة',
-          fieldName: 'بلد المنشأ (Country of Origin)',
+          fieldName: 'بلد المنشأ',
           oldValue: oldPO.countryOfOrigin,
           newValue: _selectedCountryOfOrigin,
         ));
@@ -3672,7 +3688,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         final newInco = incoterms.where((i) => i.incotermId == _selectedIncotermId).firstOrNull?.incotermCode ?? '$_selectedIncotermId';
         changes.add(FieldChangeItem(
           section: 'بيانات الفاتورة المبدئية والترويسة',
-          fieldName: 'شرط الشحن (Incoterm)',
+          fieldName: 'شرط الشحن والتسليم',
           oldValue: oldInco,
           newValue: newInco,
         ));
@@ -3767,7 +3783,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       // 3. Packing List Items
       if (oldPO.packingListItems.length != _dialogPackingItems.length) {
         changes.add(FieldChangeItem(
-          section: 'قائمة التعبئة (Packing List)',
+          section: 'قائمة التعبئة',
           fieldName: 'عدد طرود قائمة التعبئة',
           oldValue: '${oldPO.packingListItems.length} طرد',
           newValue: '${_dialogPackingItems.length} طرد',
@@ -3778,7 +3794,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           final n = _dialogPackingItems[i];
           if (FieldChangeItem.isDifferent(o.itemCode, n.itemCode)) {
             changes.add(FieldChangeItem(
-              section: 'قائمة التعبئة (Packing List)',
+              section: 'قائمة التعبئة',
               fieldName: 'طرد #${i + 1} - كود البند',
               oldValue: o.itemCode,
               newValue: n.itemCode,
@@ -3786,7 +3802,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           }
           if (FieldChangeItem.isDifferent(o.packageType, n.packageType)) {
             changes.add(FieldChangeItem(
-              section: 'قائمة التعبئة (Packing List)',
+              section: 'قائمة التعبئة',
               fieldName: 'طرد #${i + 1} (${n.itemCode}) - نوع الطرد',
               oldValue: o.packageType,
               newValue: n.packageType,
@@ -3794,7 +3810,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           }
           if (FieldChangeItem.isDifferent(o.qtyPkg, n.qtyPkg)) {
             changes.add(FieldChangeItem(
-              section: 'قائمة التعبئة (Packing List)',
+              section: 'قائمة التعبئة',
               fieldName: 'طرد #${i + 1} (${n.itemCode}) - عدد الطرود',
               oldValue: o.qtyPkg,
               newValue: n.qtyPkg,
@@ -3802,15 +3818,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           }
           if (FieldChangeItem.isDifferent(o.grossWeightUnitKg, n.grossWeightUnitKg)) {
             changes.add(FieldChangeItem(
-              section: 'قائمة التعبئة (Packing List)',
-              fieldName: 'طرد #${i + 1} (${n.itemCode}) - وزن الطرد (kg)',
+              section: 'قائمة التعبئة',
+              fieldName: 'طرد #${i + 1} (${n.itemCode}) - وزن الطرد (كجم)',
               oldValue: o.grossWeightUnitKg,
               newValue: n.grossWeightUnitKg,
             ));
           }
           if (FieldChangeItem.isDifferent(o.isStackable, n.isStackable)) {
             changes.add(FieldChangeItem(
-              section: 'قائمة التعبئة (Packing List)',
+              section: 'قائمة التعبئة',
               fieldName: 'طرد #${i + 1} (${n.itemCode}) - تعليمات الرص',
               oldValue: o.isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص',
               newValue: n.isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص',
@@ -3907,11 +3923,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         );
       } else {
         await PODraftManager.clearDraft(widget.po?.poId);
+        if (!mounted) return;
         _isDirty = false;
+        final isAr = Localizations.localeOf(context).languageCode == 'ar';
         messenger.showSnackBar(
-          AppTheme.snackBar(context, 'تم حفظ التعديلات بنجاح!', severity: AppSeverity.success),
+          AppTheme.snackBar(context, isAr ? 'تم حفظ التعديلات بنجاح' : 'Changes saved successfully', severity: AppSeverity.success),
         );
-        if (context.mounted) Navigator.pop(context);
+        Navigator.pop(context);
       }
     }
   }
@@ -3968,7 +3986,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       isDirectVolumeMode: _isDirectVolumeMode,
       notes: _notesCtrl.text.trim(),
       onConfirmSave: () async {
-        await _submitForm(context);
+        await _submitForm();
       },
     );
   }
@@ -4084,14 +4102,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
               }
             }
             final fleetSummary = containerCounts.isEmpty
-                ? 'لا توجد حاويات مناسبة'
+                ? (isArabic ? 'لا توجد حاويات مناسبة' : 'No suitable containers')
                 : containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
 
-            return Dialog(
-              insetPadding: const EdgeInsets.all(16),
-              child: Container(
-                width: 1180,
-                height: 780,
+            return SelectionArea(
+              child: Dialog(
+                insetPadding: const EdgeInsets.all(16),
+                child: Container(
+                  width: 1180,
+                  height: 780,
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -4598,6 +4617,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                   ],
                 ),
               ),
+            ),
             );
           },
         );

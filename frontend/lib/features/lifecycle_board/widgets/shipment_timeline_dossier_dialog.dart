@@ -97,10 +97,11 @@ class _ShipmentTimelineDossierDialogState
         borderRadius: BorderRadius.circular(AppTheme.radiusXl),
       ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      child: Container(
-        width: dialogWidth,
-        constraints: BoxConstraints(maxHeight: screen.height * 0.92),
-        child: Column(
+      child: SelectionArea(
+        child: Container(
+          width: dialogWidth,
+          constraints: BoxConstraints(maxHeight: screen.height * 0.92),
+          child: Column(
           children: [
             // Header
             _buildDialogHeader(context, isAr, l),
@@ -139,6 +140,7 @@ class _ShipmentTimelineDossierDialogState
             // Footer
             _buildDialogFooter(context, isAr),
           ],
+          ),
         ),
       ),
     );

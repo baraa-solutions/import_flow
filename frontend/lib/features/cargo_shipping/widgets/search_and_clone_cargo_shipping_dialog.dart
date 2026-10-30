@@ -87,8 +87,9 @@ class _SearchAndCloneCargoShippingDialogState
   Widget build(BuildContext context) {
     final l = context.l10n;
 
-    return ShippingDialogFrame(
-      title: l.cloneCargoShippingDialogTitle,
+    return SelectionArea(
+      child: ShippingDialogFrame(
+        title: l.cloneCargoShippingDialogTitle,
       subtitle: l.cloneCargoShippingDialogSubtitle,
       icon: Icons.copy_all_rounded,
       child: Column(
@@ -159,6 +160,7 @@ class _SearchAndCloneCargoShippingDialogState
           ),
         ],
       ),
+    ),
     );
   }
 

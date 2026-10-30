@@ -232,11 +232,12 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
       }
     }
 
-    return UnsavedChangesGuard(
-      isDirty: _isDirty,
-      child: Form(
-        key: _formKey,
-        child: CcStageDialogShell(
+    return SelectionArea(
+      child: UnsavedChangesGuard(
+        isDirty: _isDirty,
+        child: Form(
+          key: _formKey,
+          child: CcStageDialogShell(
           title: l.fdaDialogTitle,
           icon: Icons.verified_user_outlined,
           accent: AppTheme.emerald,
@@ -264,6 +265,7 @@ class _FreeDaysAgreementDialogState extends ConsumerState<FreeDaysAgreementDialo
           body: _buildBody(context, l, importFiles),
         ),
       ),
+    ),
     );
   }
 

@@ -160,7 +160,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         builder: (context, setDialogState) {
           return Dialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Container(
+            child: SelectionArea(
+              child: Container(
               width: 950,
               constraints: const BoxConstraints(maxHeight: 780),
               padding: const EdgeInsets.all(24),
@@ -471,6 +472,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                   ),
                 ],
               ),
+            ),
             ),
           );
         },
@@ -1507,7 +1509,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         length: 2,
         child: Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Container(
+          child: SelectionArea(
+            child: Container(
             width: 1000,
             constraints: const BoxConstraints(maxHeight: 750),
             padding: const EdgeInsets.all(24),
@@ -1652,6 +1655,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               ],
             ),
           ),
+          ),
         ),
       ),
     );
@@ -1676,7 +1680,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         builder: (context, setModalState) {
           return Dialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Container(
+            child: SelectionArea(
+              child: Container(
               width: 900,
               height: 750,
               padding: const EdgeInsets.all(20),
@@ -1735,6 +1740,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                 ],
               ),
             ),
+            ),
           );
         },
       ),
@@ -1766,18 +1772,13 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(context.l10n.customsTrackCustomsStatus, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedStatus,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
+                    SearchableDropdownField<String>(
+                      value: selectedStatus,
+                      labelText: context.l10n.customsTrackCustomsStatus,
                       items: [
-                        DropdownMenuItem(value: 'DRAFT', child: Text(context.l10n.standardInvoiceStatusDraft)),
-                        DropdownMenuItem(value: 'APPROVED', child: Text(context.l10n.standardInvoiceStatusApproved)),
-                        DropdownMenuItem(value: 'SEALED', child: Text(context.l10n.customsTrackStatusSealed)),
+                        SearchableDropdownItem<String>(value: 'DRAFT', label: context.l10n.standardInvoiceStatusDraft),
+                        SearchableDropdownItem<String>(value: 'APPROVED', label: context.l10n.standardInvoiceStatusApproved),
+                        SearchableDropdownItem<String>(value: 'SEALED', label: context.l10n.customsTrackStatusSealed),
                       ],
                       onChanged: (val) {
                         if (val != null) setModalState(() => selectedStatus = val);
@@ -2388,9 +2389,12 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // ignore: deprecated_member_use
             Radio<String>(
               value: value,
+              // ignore: deprecated_member_use
               groupValue: _selectedStatus,
+              // ignore: deprecated_member_use
               onChanged: (v) => setState(() => _selectedStatus = v!),
               activeColor: color,
             ),

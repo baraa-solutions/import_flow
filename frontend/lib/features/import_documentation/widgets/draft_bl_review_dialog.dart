@@ -33,7 +33,8 @@ class DraftBLReviewDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: dialogWidth,
         height: dialogHeight,
         decoration: BoxDecoration(
@@ -138,6 +139,7 @@ class DraftBLReviewDialog extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

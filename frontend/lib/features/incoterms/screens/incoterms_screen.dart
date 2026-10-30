@@ -629,8 +629,9 @@ class _CostItemsTab extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(item == null ? l10n.addCostItemDialogTitle : l10n.editCostItemDialogTitle),
+        builder: (ctx, setDialogState) => SelectionArea(
+          child: AlertDialog(
+            title: Text(item == null ? l10n.addCostItemDialogTitle : l10n.editCostItemDialogTitle),
           content: SelectionArea(
             child: Form(
               key: formKey,
@@ -748,6 +749,7 @@ class _CostItemsTab extends ConsumerWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1150,14 +1152,15 @@ class _ResponsibilityMatrixTabState
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.edit_note, color: AppTheme.cobalt),
-              const SizedBox(width: 8),
-              Text(l10n.editResponsibilityDialogTitle(r.incotermCode ?? '')),
-            ],
-          ),
+        builder: (ctx, setDialogState) => SelectionArea(
+          child: AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.edit_note, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Text(l10n.editResponsibilityDialogTitle(r.incotermCode ?? '')),
+              ],
+            ),
           content: SelectionArea(
             child: Form(
               key: formKey,
@@ -1324,6 +1327,7 @@ class _ResponsibilityMatrixTabState
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -18,15 +18,17 @@ import 'update_rollback_dialog.dart';
 Future<void> showAppUpdatePanelDialog(BuildContext context) {
   return showDialog<void>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      content: const SizedBox(width: 520, child: AppUpdatePanel()),
-      actions: [
-        AppButton(
-          label: ctx.l10n.updateClose,
-          variant: AppButtonVariant.secondary,
-          onPressed: () => Navigator.of(ctx).pop(),
-        ),
-      ],
+    builder: (ctx) => SelectionArea(
+      child: AlertDialog(
+        content: const SizedBox(width: 520, child: AppUpdatePanel()),
+        actions: [
+          AppButton(
+            label: ctx.l10n.updateClose,
+            variant: AppButtonVariant.secondary,
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+        ],
+      ),
     ),
   );
 }

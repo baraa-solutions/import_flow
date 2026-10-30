@@ -20,7 +20,7 @@ enum ContainerCondition {
   String get labelAr {
     switch (this) {
       case ContainerCondition.soundClean:
-        return 'سليمة ونظيفة (Sound Clean)';
+        return 'سليمة ونظيفة';
       case ContainerCondition.damageClaimed:
         return 'مطالبة بتلفيات وأضرار';
       case ContainerCondition.cleaningFeeDeducted:

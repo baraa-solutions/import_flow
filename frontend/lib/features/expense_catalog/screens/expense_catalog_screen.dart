@@ -298,7 +298,7 @@ class _ExpenseCatalogScreenState extends ConsumerState<ExpenseCatalogScreen>
                             ],
                           ),
                           subtitle: Text(
-                            '${isArabic ? 'المخلص:' : 'Broker:'} ${mapping.brokerName.isEmpty ? (isArabic ? 'عام / شامل' : 'Global') : mapping.brokerName} | ${isArabic ? 'دقة المطابقة:' : 'Confidence:'} ${(mapping.confidenceScore * 100).toInt()}%',
+                            '${isArabic ? 'المخلص:' : 'Broker:'} ${mapping.brokerName.isEmpty ? (isArabic ? 'عام أو شامل' : 'Global') : mapping.brokerName} | ${isArabic ? 'دقة المطابقة:' : 'Confidence:'} ${(mapping.confidenceScore * 100).toInt()}%',
                             style: const TextStyle(fontSize: 11),
                           ),
                           trailing: RowActionsPill(

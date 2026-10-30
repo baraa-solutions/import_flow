@@ -82,23 +82,25 @@ class _CurrencyRateUpdateDialogState
         if (errCode == ApiErrorCode.currencyRateExists) {
           final confirmReplace = await showDialog<bool>(
             context: context,
-            builder: (c) => AlertDialog(
-              title: Text(l10n.warning),
-              content: Text(ApiErrorText.of(l10n, dioErr)),
-              actions: [
-                AppButton(
-                  label: l10n.cancel,
-                  variant: AppButtonVariant.secondary,
-                  size: AppButtonSize.small,
-                  onPressed: () => Navigator.pop(c, false),
-                ),
-                AppButton(
-                  label: l10n.confirm,
-                  variant: AppButtonVariant.primary,
-                  size: AppButtonSize.small,
-                  onPressed: () => Navigator.pop(c, true),
-                ),
-              ],
+            builder: (c) => SelectionArea(
+              child: AlertDialog(
+                title: Text(l10n.warning),
+                content: Text(ApiErrorText.of(l10n, dioErr)),
+                actions: [
+                  AppButton(
+                    label: l10n.cancel,
+                    variant: AppButtonVariant.secondary,
+                    size: AppButtonSize.small,
+                    onPressed: () => Navigator.pop(c, false),
+                  ),
+                  AppButton(
+                    label: l10n.confirm,
+                    variant: AppButtonVariant.primary,
+                    size: AppButtonSize.small,
+                    onPressed: () => Navigator.pop(c, true),
+                  ),
+                ],
+              ),
             ),
           );
           if (confirmReplace == true) {
@@ -151,8 +153,9 @@ class _CurrencyRateUpdateDialogState
 
     _selectedCurrencyId ??= nonBaseCurrencies.first.currencyId;
 
-    return AlertDialog(
-      title: Text(l10n.updateExchangeRatesDialogTitle),
+    return SelectionArea(
+      child: AlertDialog(
+        title: Text(l10n.updateExchangeRatesDialogTitle),
       content: SelectionArea(
         child: SizedBox(
           width: 450,
@@ -250,6 +253,7 @@ class _CurrencyRateUpdateDialogState
           onPressed: () => _handleSubmit(nonBaseCurrencies),
         ),
       ],
+    ),
     );
   }
 }

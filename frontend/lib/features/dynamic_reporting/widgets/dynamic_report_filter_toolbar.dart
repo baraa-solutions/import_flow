@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/dynamic_report_models.dart';
 
 class DynamicReportFilterToolbar extends StatelessWidget {
@@ -203,18 +204,17 @@ class DynamicReportFilterToolbar extends StatelessWidget {
                 // Filter Mode
                 SizedBox(
                   width: 160,
-                  child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: filterMode,
-                    decoration: InputDecoration(labelText: l.dynFilterModeLabel, isDense: true, border: const OutlineInputBorder()),
+                  child: SearchableDropdownField<String>(
+                    value: filterMode,
+                    labelText: l.dynFilterModeLabel,
                     items: [
-                      DropdownMenuItem(value: 'All', child: Text(l.dynModeAll)),
-                      DropdownMenuItem(value: 'Sea FCL', child: Text(l.dynModeSeaFcl)),
-                      DropdownMenuItem(value: 'Sea LCL', child: Text(l.dynModeSeaLcl)),
-                      DropdownMenuItem(value: 'Air', child: Text(l.dynModeAir)),
-                      DropdownMenuItem(value: 'Courier', child: Text(l.dynModeCourier)),
-                      DropdownMenuItem(value: 'Land', child: Text(l.dynModeLand)),
-                      DropdownMenuItem(value: 'Multimodal', child: Text(l.dynModeMultimodal)),
+                      SearchableDropdownItem(value: 'All', label: l.dynModeAll),
+                      SearchableDropdownItem(value: 'Sea FCL', label: l.dynModeSeaFcl),
+                      SearchableDropdownItem(value: 'Sea LCL', label: l.dynModeSeaLcl),
+                      SearchableDropdownItem(value: 'Air', label: l.dynModeAir),
+                      SearchableDropdownItem(value: 'Courier', label: l.dynModeCourier),
+                      SearchableDropdownItem(value: 'Land', label: l.dynModeLand),
+                      SearchableDropdownItem(value: 'Multimodal', label: l.dynModeMultimodal),
                     ],
                     onChanged: (v) {
                       if (v != null) onFilterModeChanged(v);
@@ -226,15 +226,14 @@ class DynamicReportFilterToolbar extends StatelessWidget {
                 // Filter Priority
                 SizedBox(
                   width: 160,
-                  child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: filterPriority,
-                    decoration: InputDecoration(labelText: l.dynFilterPriorityLabel, isDense: true, border: const OutlineInputBorder()),
+                  child: SearchableDropdownField<String>(
+                    value: filterPriority,
+                    labelText: l.dynFilterPriorityLabel,
                     items: [
-                      DropdownMenuItem(value: 'All', child: Text(l.dynPriorityAll)),
-                      DropdownMenuItem(value: 'High', child: Text(l.dynPriorityHigh)),
-                      DropdownMenuItem(value: 'Critical', child: Text(l.dynPriorityCritical)),
-                      DropdownMenuItem(value: 'Medium', child: Text(l.dynPriorityMedium)),
+                      SearchableDropdownItem(value: 'All', label: l.dynPriorityAll),
+                      SearchableDropdownItem(value: 'High', label: l.dynPriorityHigh),
+                      SearchableDropdownItem(value: 'Critical', label: l.dynPriorityCritical),
+                      SearchableDropdownItem(value: 'Medium', label: l.dynPriorityMedium),
                     ],
                     onChanged: (v) {
                       if (v != null) onFilterPriorityChanged(v);

@@ -488,7 +488,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     final ctrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
         title: Text(isArabic ? 'إضافة بند جمركي إضافي (HS Code)' : 'Add Additional HS Code'),
         content: TextField(
           controller: ctrl,
@@ -525,6 +526,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -543,7 +545,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
 
     return UnsavedChangesGuard(
       isDirty: _isDirty,
-      child: AlertDialog(
+      child: SelectionArea(
+        child: AlertDialog(
         backgroundColor: isDark ? AppTheme.darkSurface : null,
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1476,6 +1479,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         ),
       ],
     ),
+  ),
   );
   }
 }

@@ -633,7 +633,8 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
 
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
+      builder: (dialogCtx) => SelectionArea(
+        child: AlertDialog(
         title: Text('${l.freightStudiesTitle} (${sess.sessionCode})'),
         content: SizedBox(
           width: 950,
@@ -724,6 +725,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -741,7 +743,8 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     final l = context.l10n;
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
+      builder: (dialogCtx) => SelectionArea(
+        child: AlertDialog(
         title: Text('🚚 ${l.compareContainersMatrix}'),
         content: SizedBox(
           width: 650,
@@ -797,6 +800,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -876,7 +880,8 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
         locale: isArabic ? const Locale('ar') : const Locale('en'),
         child: Directionality(
           textDirection: textDir,
-          child: CloneEntityReviewDialog(
+          child: SelectionArea(
+            child: CloneEntityReviewDialog(
             entityType: l.cloneStudyDialogTitle,
             sourceCode: source.sessionCode,
             suggestedNewCode: '${source.sessionCode}-CLONE',
@@ -931,6 +936,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
             },
           ),
         ),
+        ),
       ),
     );
   }
@@ -945,13 +951,15 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
         locale: isArabic ? const Locale('ar') : const Locale('en'),
         child: Directionality(
           textDirection: textDir,
-          child: SearchAndCloneStudyDialog(
+          child: SelectionArea(
+            child: SearchAndCloneStudyDialog(
             sessions: sessions,
             onSelectStudy: (session) {
               Navigator.of(dialogCtx).pop();
               _openCloneStudyReviewDialog(context, session);
             },
           ),
+        ),
         ),
       ),
     );

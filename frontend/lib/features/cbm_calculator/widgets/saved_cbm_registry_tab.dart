@@ -1973,8 +1973,9 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-      child: Container(
-        width: math.min(720.0, screenWidth - 32),
+      child: SelectionArea(
+        child: Container(
+          width: math.min(720.0, screenWidth - 32),
         height: math.min(600.0, screenHeight - 64),
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -2112,6 +2113,7 @@ class _SearchAndCloneCBMDialogState extends State<_SearchAndCloneCBMDialog> {
           ],
         ),
       ),
+    ),
     );
   }
 }

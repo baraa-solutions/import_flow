@@ -1,3 +1,4 @@
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
@@ -467,7 +468,8 @@ Other (21days+USD200/ctnr)
     showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) => AlertDialog(
+        builder: (ctx, setModalState) => SelectionArea(
+          child: AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
@@ -492,15 +494,11 @@ Other (21days+USD200/ctnr)
                   style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedPreset,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: isArabic ? 'نوع البيان أو المصروف المطلوب إضافته' : 'Expense / Field Type',
-                    isDense: true,
-                  ),
+                SearchableDropdownField<String>(
+                  value: selectedPreset,
+                  labelText: isArabic ? 'نوع البيان أو المصروف المطلوب إضافته' : 'Expense / Field Type',
                   items: presets.entries
-                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 12.5))))
+                      .map((e) => SearchableDropdownItem<String>(value: e.key, label: e.value))
                       .toList(),
                   onChanged: (v) {
                     if (v != null) {
@@ -559,6 +557,7 @@ Other (21days+USD200/ctnr)
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -567,7 +566,8 @@ Other (21days+USD200/ctnr)
     final valCtrl = TextEditingController(text: currentValue);
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
@@ -610,6 +610,7 @@ Other (21days+USD200/ctnr)
           ),
         ],
       ),
+    ),
     );
   }
 

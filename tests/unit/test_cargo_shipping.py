@@ -464,5 +464,74 @@ class TestCargoShippingModule(unittest.TestCase):
         self.assertIn("STEP_08", self.import_file.current_module)
         self.assertGreaterEqual(self.import_file.progress_percent, 38.0)
 
+
+    def test_cargo_shipping_containers_count_must_match_booking(self):
+        # Create an active booking with 1x 40HC container
+        booking = ShipmentBooking(
+            booking_code="BKG-TEST-0001",
+            import_file_id=self.import_file_id_2,
+            shipment_type="Ocean FCL",
+            containers_data=[
+                {"container_type": "40HC", "quantity": 1, "container_numbers": [], "seal_numbers": []}
+            ],
+            status="Confirmed",
+            is_active=True,
+        )
+        self.db.add(booking)
+        self.db.commit()
+        self.db.refresh(booking)
+
+        # 1. Attempting to create cargo shipping with 2 containers -> MUST fail with 422
+        schema_fail_count = CargoShippingCreate(
+            import_file_id=self.import_file_id_2,
+            shipment_type="FCL",
+            containers_loading_data=[
+                ContainerLoadingItem(container_no="WHSU1111111", seal_no="SL-111", container_type="40HC"),
+                ContainerLoadingItem(container_no="WHSU2222222", seal_no="SL-222", container_type="40HC"),
+            ],
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            create_cargo_shipping_service(self.db, schema_fail_count)
+        self.assertEqual(ctx.exception.status_code, 422)
+        self.assertIn("يجب أن يكون مساوياً لعدد الحاويات في البوكينج", ctx.exception.detail)
+
+        # 2. Attempting to create with mismatched container type (1x 20GP instead of 40HC) -> MUST fail with 422
+        schema_fail_type = CargoShippingCreate(
+            import_file_id=self.import_file_id_2,
+            shipment_type="FCL",
+            containers_loading_data=[
+                ContainerLoadingItem(container_no="WHSU1111111", seal_no="SL-111", container_type="20GP"),
+            ],
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            create_cargo_shipping_service(self.db, schema_fail_type)
+        self.assertEqual(ctx.exception.status_code, 422)
+        self.assertIn("غير مطابقة للحاويات المعتمدة في البوكينج", ctx.exception.detail)
+
+        # 3. Creating with exactly 1x 40HC matching booking -> MUST succeed
+        schema_ok = CargoShippingCreate(
+            import_file_id=self.import_file_id_2,
+            shipment_type="FCL",
+            containers_loading_data=[
+                ContainerLoadingItem(container_no="WHSU1111111", seal_no="SL-111", container_type="40HC"),
+            ],
+        )
+        record = create_cargo_shipping_service(self.db, schema_ok)
+        self.assertIsNotNone(record)
+        self.assertEqual(record.booking_id, booking.booking_id)
+        self.assertEqual(len(record.containers_loading_data), 1)
+
+        # 4. Updating record with 2 containers -> MUST fail with 422
+        update_fail = CargoShippingUpdate(
+            containers_loading_data=[
+                ContainerLoadingItem(container_no="WHSU1111111", seal_no="SL-111", container_type="40HC"),
+                ContainerLoadingItem(container_no="WHSU3333333", seal_no="SL-333", container_type="40HC"),
+            ]
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            update_cargo_shipping_service(self.db, record.cargo_shipping_id, update_fail)
+        self.assertEqual(ctx.exception.status_code, 422)
+        self.assertIn("يجب أن يكون مساوياً لعدد الحاويات في البوكينج", ctx.exception.detail)
+
 if __name__ == "__main__":
     unittest.main()

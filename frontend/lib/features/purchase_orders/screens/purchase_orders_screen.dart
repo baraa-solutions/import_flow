@@ -782,12 +782,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                 ? l.noSuitableContainers
                 : containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
 
-            return Dialog(
-              backgroundColor: isDark ? AppTheme.darkSurface : null,
-              insetPadding: const EdgeInsets.all(16),
-              child: Container(
-                width: math.min(1180.0, MediaQuery.of(dialogCtx).size.width - 32),
-                height: math.min(780.0, MediaQuery.of(dialogCtx).size.height - 48),
+            return SelectionArea(
+              child: Dialog(
+                backgroundColor: isDark ? AppTheme.darkSurface : null,
+                insetPadding: const EdgeInsets.all(16),
+                child: Container(
+                  width: math.min(1180.0, MediaQuery.of(dialogCtx).size.width - 32),
+                  height: math.min(780.0, MediaQuery.of(dialogCtx).size.height - 48),
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1306,6 +1307,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> wit
                   ],
                 ),
               ),
+            ),
             );
           },
         );
@@ -1663,11 +1665,12 @@ class _SearchAndClonePODialogState extends State<_SearchAndClonePODialog> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
-      child: Container(
-        width: math.min(720.0, screenWidth - 32),
+    return SelectionArea(
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.white,
+        child: Container(
+          width: math.min(720.0, screenWidth - 32),
         height: math.min(600.0, screenHeight - 64),
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -1816,6 +1819,7 @@ class _SearchAndClonePODialogState extends State<_SearchAndClonePODialog> {
           ],
         ),
       ),
+    ),
     );
   }
 }

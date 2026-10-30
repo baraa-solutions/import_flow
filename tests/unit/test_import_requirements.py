@@ -567,3 +567,94 @@ def test_decree_43_flag_only_on_the_hs_line_of_the_goeic_finding():
     assert pdata["decree_43_applicable"] is True              # file-level finding
     assert items["8418.10"]["decree_43_applicable"] is True   # the line the GOEIC finding names
     assert items["9403.20"]["decree_43_applicable"] is False  # other lines are not flagged
+
+
+def test_advanced_operational_pillars_and_adaptive_shelflife():
+    """Verify the new operational pillars: adaptive shelf-life, CargoX readiness, sampling, detention, and maker-checker."""
+    from modules.currencies.model import Currency
+    db = TestingSessionLocal()
+    usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    db.add(usd)
+    db.commit()
+    file_obj = _make_file(db, code="IF-ADV-001")
+
+    # Create assessment with advanced operational pillars
+    payload = {
+        "import_file_id": file_obj.import_file_id,
+        "import_file_code": file_obj.import_file_code,
+        "hs_code": "0406.90",
+        "commodity_description": "Cheddar Cheese",
+        "country_of_origin": "NL",
+        "currency": "USD",
+        "shipment_value": 25000.0,
+        "shipment_value_usd": 27000.0,
+        "cargox_verified": True,
+        "cargox_status": "Verified",
+        "ready_for_acid": True,
+        "triple_match_status": "Matched",
+        "commodity_group_matched": True,
+        "import_card_group_code": "GRP-FOOD-04",
+        "is_shelflife_applicable": True,
+        "shelf_life_total_days": 365,
+        "shelf_life_remaining_percent": 75.0,
+        "artwork_arabic_approved": True,
+        "labeling_notes": "Complies with ES 1008/2020",
+        "sampling_required": True,
+        "lab_type": "Central Food Safety Lab",
+        "detention_allowed": True,
+        "estimated_lab_fees": 4500.0,
+        "cold_chain_required": True,
+        "target_temperature": "+4C",
+        "data_logger_verified": True,
+        "is_hazmat": False,
+        "checker_user_id": 10,
+        "checker_approved": True,
+        "checker_notes": "Double-checked against NFSA requirements",
+        "is_overridden": False,
+        "overall_status": "Cleared",
+        "risk_level": "Low",
+        "assessed_by": "Compliance Lead",
+        "hs_code_items": [
+            {
+                "hs_code": "0406.90",
+                "commodity_description": "Cheddar Cheese",
+                "item_value": 25000.0,
+                "quantity": 1000.0,
+                "cargox_verified": True,
+                "ready_for_acid": True,
+                "commodity_group_matched": True,
+                "is_shelflife_applicable": True,
+                "shelf_life_total_days": 365,
+                "shelf_life_remaining_percent": 75.0,
+                "artwork_arabic_approved": True,
+                "sampling_required": True,
+                "detention_allowed": True,
+                "cold_chain_required": True,
+                "target_temperature": "+4C",
+            }
+        ],
+    }
+
+    resp = client.post("/api/v1/import-requirements", json=payload)
+    assert resp.status_code == 201, resp.text
+    created = resp.json()
+    assert created["cargox_verified"] is True
+    assert created["cargox_status"] == "Verified"
+    assert created["ready_for_acid"] is True
+    assert created["is_shelflife_applicable"] is True
+    assert created["shelf_life_remaining_percent"] == 75.0
+    assert created["artwork_arabic_approved"] is True
+    assert created["detention_allowed"] is True
+    assert created["cold_chain_required"] is True
+    assert created["checker_approved"] is True
+    assert created["checker_notes"] == "Double-checked against NFSA requirements"
+
+    # Verify retrieval
+    get_resp = client.get(f"/api/v1/import-requirements/{created['assessment_id']}")
+    assert get_resp.status_code == 200
+    retrieved = get_resp.json()
+    assert retrieved["assessment_code"] == created["assessment_code"]
+    assert retrieved["cargox_verified"] is True
+    assert retrieved["detention_allowed"] is True
+    assert retrieved["estimated_lab_fees"] == 4500.0
+    db.close()

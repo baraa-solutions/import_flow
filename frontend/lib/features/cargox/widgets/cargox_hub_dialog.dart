@@ -34,7 +34,8 @@ class CargoXHubDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: dialogWidth,
         height: dialogHeight,
         decoration: BoxDecoration(
@@ -165,6 +166,7 @@ class CargoXHubDialog extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

@@ -426,19 +426,19 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusXl)),
       backgroundColor: AppTheme.surfaceOf(context),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
-        width: dialogWidth,
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
-        child: Column(
-          children: [
-            _buildDialogHeader(),
-            Expanded(
-              child: _isLoading
-                  ? const OpsLoadingView()
-                  : _loadError != null
-                      ? _buildLoadError()
-                      : SelectionArea(
-                          child: SingleChildScrollView(
+      child: SelectionArea(
+        child: Container(
+          width: dialogWidth,
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
+          child: Column(
+            children: [
+              _buildDialogHeader(),
+              Expanded(
+                child: _isLoading
+                    ? const OpsLoadingView()
+                    : _loadError != null
+                        ? _buildLoadError()
+                        : SingleChildScrollView(
                             padding: const EdgeInsetsDirectional.all(20),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -453,10 +453,10 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                               ],
                             ),
                           ),
-                        ),
-            ),
-            _buildDialogFooter(),
-          ],
+              ),
+              _buildDialogFooter(),
+            ],
+          ),
         ),
       ),
     );

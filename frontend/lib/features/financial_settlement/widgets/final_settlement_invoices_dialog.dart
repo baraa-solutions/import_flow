@@ -153,10 +153,11 @@ class _FinalSettlementInvoicesDialogState
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 16,
-      child: SizedBox(
-        width: dialogWidth,
-        height: dialogHeight,
-        child: Column(
+      child: SelectionArea(
+        child: SizedBox(
+          width: dialogWidth,
+          height: dialogHeight,
+          child: Column(
           children: [
             _buildHeader(l10n),
             Expanded(
@@ -172,6 +173,7 @@ class _FinalSettlementInvoicesDialogState
             ),
             _buildFooter(l10n),
           ],
+          ),
         ),
       ),
     );
@@ -373,7 +375,7 @@ class _FinalSettlementInvoicesDialogState
             padding: const EdgeInsetsDirectional.only(start: 8.0),
             child: ActionChip(
               avatar: const Icon(Icons.add_circle_outline, size: 16, color: Colors.white),
-              label: const Text('إدارة فواتير الخدمات اللوجستية (LSI)', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              label: Text(l10n.isArabic ? 'إدارة فواتير الخدمات اللوجستية' : 'Manage Logistics Service Invoices', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
               backgroundColor: const Color(0xFF0D9488),
               onPressed: () async {
                 await Navigator.of(context).push(

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../providers/experience_guide_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/widgets/widgets.dart';
 
 class AddGuideEntryDialog extends ConsumerStatefulWidget {
   final String? initialHsCode;
@@ -205,7 +206,8 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ConstrainedBox(
+      child: SelectionArea(
+        child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 680, maxHeight: 780),
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -302,52 +304,33 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                             // Severity
                             Expanded(
                               flex: 3,
-                              child: DropdownButtonFormField<String>(
-                                initialValue: _severity,
+                              child: SearchableDropdownField<String>(
+                                value: _severity,
+                                labelText: l10n.guideSeverityLabel,
                                 decoration: InputDecoration(
                                   labelText: l10n.guideSeverityLabel,
                                   border: const OutlineInputBorder(),
                                 ),
                                 items: const [
-                                  DropdownMenuItem(
+                                  SearchableDropdownItem<String>(
                                     value: 'critical',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.dangerous_rounded, color: AppTheme.flatCrimson, size: 16),
-                                        SizedBox(width: 6),
-                                        Text('حرج / مانع للخطأ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                      ],
-                                    ),
+                                    label: 'حرج / مانع للخطأ',
+                                    icon: Icons.dangerous_rounded,
                                   ),
-                                  DropdownMenuItem(
+                                  SearchableDropdownItem<String>(
                                     value: 'warning',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.warning_amber_rounded, color: AppTheme.flatOrange, size: 16),
-                                        SizedBox(width: 6),
-                                        Text('تحذير تشغيلي', style: TextStyle(fontSize: 12)),
-                                      ],
-                                    ),
+                                    label: 'تحذير تشغيلي',
+                                    icon: Icons.warning_amber_rounded,
                                   ),
-                                  DropdownMenuItem(
+                                  SearchableDropdownItem<String>(
                                     value: 'info',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.info_outline, color: AppTheme.flatCobalt, size: 16),
-                                        SizedBox(width: 6),
-                                        Text('معلومة إرشادية', style: TextStyle(fontSize: 12)),
-                                      ],
-                                    ),
+                                    label: 'معلومة إرشادية',
+                                    icon: Icons.info_outline,
                                   ),
-                                  DropdownMenuItem(
+                                  SearchableDropdownItem<String>(
                                     value: 'positive',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.verified_rounded, color: AppTheme.flatEmerald, size: 16),
-                                        SizedBox(width: 6),
-                                        Text('أفضل ممارسة / نجاح', style: TextStyle(fontSize: 12)),
-                                      ],
-                                    ),
+                                    label: 'أفضل ممارسة / نجاح',
+                                    icon: Icons.verified_rounded,
                                   ),
                                 ],
                                 onChanged: (val) {
@@ -359,17 +342,18 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                             // Type
                             Expanded(
                               flex: 3,
-                              child: DropdownButtonFormField<String>(
-                                initialValue: _entryType,
+                              child: SearchableDropdownField<String>(
+                                value: _entryType,
+                                labelText: l10n.guideEntryTypeLabel,
                                 decoration: InputDecoration(
                                   labelText: l10n.guideEntryTypeLabel,
                                   border: const OutlineInputBorder(),
                                 ),
                                 items: const [
-                                  DropdownMenuItem(value: 'required_document', child: Text('مستند إلزامي مسبق', style: TextStyle(fontSize: 12))),
-                                  DropdownMenuItem(value: 'alert', child: Text('تنبيه إجرائي', style: TextStyle(fontSize: 12))),
-                                  DropdownMenuItem(value: 'task', child: Text('مهمة متابعة إجبارية', style: TextStyle(fontSize: 12))),
-                                  DropdownMenuItem(value: 'info', child: Text('معلومة استرشادية', style: TextStyle(fontSize: 12))),
+                                  SearchableDropdownItem<String>(value: 'required_document', label: 'مستند إلزامي مسبق'),
+                                  SearchableDropdownItem<String>(value: 'alert', label: 'تنبيه إجرائي'),
+                                  SearchableDropdownItem<String>(value: 'task', label: 'مهمة متابعة إجبارية'),
+                                  SearchableDropdownItem<String>(value: 'info', label: 'معلومة استرشادية'),
                                 ],
                                 onChanged: (val) {
                                   if (val != null) setState(() => _entryType = val);
@@ -380,18 +364,19 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                             // Department
                             Expanded(
                               flex: 2,
-                              child: DropdownButtonFormField<String>(
-                                initialValue: _department,
+                              child: SearchableDropdownField<String>(
+                                value: _department,
+                                labelText: 'القسم المعني',
                                 decoration: const InputDecoration(
                                   labelText: 'القسم المعني',
                                   border: OutlineInputBorder(),
                                 ),
                                 items: const [
-                                  DropdownMenuItem(value: 'Logistics', child: Text('اللوجستيات', style: TextStyle(fontSize: 12))),
-                                  DropdownMenuItem(value: 'Customs', child: Text('الجمارك', style: TextStyle(fontSize: 12))),
-                                  DropdownMenuItem(value: 'Finance', child: Text('المالية', style: TextStyle(fontSize: 12))),
-                                  DropdownMenuItem(value: 'Quality', child: Text('الجودة', style: TextStyle(fontSize: 12))),
-                                  DropdownMenuItem(value: 'Management', child: Text('الإدارة', style: TextStyle(fontSize: 12))),
+                                  SearchableDropdownItem<String>(value: 'Logistics', label: 'اللوجستيات'),
+                                  SearchableDropdownItem<String>(value: 'Customs', label: 'الجمارك'),
+                                  SearchableDropdownItem<String>(value: 'Finance', label: 'المالية'),
+                                  SearchableDropdownItem<String>(value: 'Quality', label: 'الجودة'),
+                                  SearchableDropdownItem<String>(value: 'Management', label: 'الإدارة'),
                                 ],
                                 onChanged: (val) {
                                   if (val != null) setState(() => _department = val);
@@ -478,20 +463,17 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
                               children: [
                                 SizedBox(
                                   width: 210,
-                                  child: DropdownButtonFormField<String>(
-                                    initialValue: scope['scope_type'],
+                                  child: SearchableDropdownField<String>(
+                                    value: scope['scope_type'],
+                                    labelText: '',
                                     decoration: const InputDecoration(
                                       contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       border: OutlineInputBorder(),
                                     ),
                                     items: _scopeTypes.map((st) {
-                                      return DropdownMenuItem(
-                                        value: st['value'],
-                                        child: Text(
-                                          st['label']!,
-                                          style: const TextStyle(fontSize: 11),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                                      return SearchableDropdownItem<String>(
+                                        value: st['value']!,
+                                        label: st['label']!,
                                       );
                                     }).toList(),
                                     onChanged: (val) {
@@ -564,6 +546,6 @@ class _AddGuideEntryDialogState extends ConsumerState<AddGuideEntryDialog> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

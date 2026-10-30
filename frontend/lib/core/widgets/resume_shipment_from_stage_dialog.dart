@@ -101,8 +101,9 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
       fallback: '-',
     );
 
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    return SelectionArea(
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       titlePadding: EdgeInsets.zero,
       contentPadding: const EdgeInsets.all(20),
       title: Container(
@@ -257,7 +258,8 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }
 

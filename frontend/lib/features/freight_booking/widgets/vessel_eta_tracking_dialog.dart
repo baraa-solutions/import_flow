@@ -171,7 +171,8 @@ class _VesselEtaTrackingDialogState extends ConsumerState<VesselEtaTrackingDialo
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       backgroundColor: AppTheme.surfaceOf(context),
-      child: ConstrainedBox(
+      child: SelectionArea(
+        child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 800, maxHeight: 720),
         child: Column(
           children: [
@@ -321,6 +322,7 @@ class _VesselEtaTrackingDialogState extends ConsumerState<VesselEtaTrackingDialo
           ],
         ),
       ),
+    ),
     );
   }
 

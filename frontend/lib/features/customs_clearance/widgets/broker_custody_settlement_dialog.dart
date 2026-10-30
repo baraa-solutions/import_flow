@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/app_status_badge.dart';
-import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/broker_custody_model.dart';
 import '../services/broker_custody_service.dart';
 
@@ -243,34 +241,35 @@ class _BrokerCustodySettlementDialogState extends ConsumerState<BrokerCustodySet
             ),
           ],
         ),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: const BoxDecoration(
-                color: AppTheme.charcoal,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.emerald, size: 26),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'تسوية عهد ومصروفات المخلصين الجمركيين (Broker Custody & Settlement)',
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          'صرف العهد المالية، تسجيل المصروفات واحتساب ضريبة الخصم 1% (نموذج 41)، وإجراء المقاصة النهائية',
-                          style: TextStyle(color: Colors.white70, fontSize: 11.5),
-                        ),
-                      ],
+        child: SelectionArea(
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: AppTheme.charcoal,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.emerald, size: 26),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'تسوية عهد ومصروفات المخلصين الجمركيين',
+                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'صرف العهد المالية، تسجيل المصروفات واحتساب ضريبة الخصم 1% (نموذج 41)، وإجراء المقاصة النهائية',
+                            style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   AppButton(
                     label: 'صرف عهدة جديدة',
                     icon: Icons.add_circle_outline,
@@ -445,6 +444,7 @@ class _BrokerCustodySettlementDialogState extends ConsumerState<BrokerCustodySet
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -536,79 +536,75 @@ class _NewBrokerCustodyAdvanceDialogState extends State<_NewBrokerCustodyAdvance
       ),
       content: SizedBox(
         width: 500,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'معرف الملف الاستيرادي (ID)',
-                      controller: _fileIdController,
-                      keyboardType: TextInputType.number,
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: CustomTextField(
+                        label: 'معرف الملف الاستيرادي',
+                        controller: _fileIdController,
+                        keyboardType: TextInputType.number,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'معرف المخلص (Broker ID)',
-                      controller: _brokerIdController,
-                      keyboardType: TextInputType.number,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: CustomTextField(
+                        label: 'معرف المخلص الجمركي',
+                        controller: _brokerIdController,
+                        keyboardType: TextInputType.number,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              CustomTextField(
-                label: 'اسم المخلص الجمركي / المكتب',
-                controller: _brokerNameController,
-                hint: 'مكتب الإسكندرية للخدمات الجمركية',
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'مبلغ العهدة المصروفة (ج.م EGP)',
-                      controller: _amountController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                CustomTextField(
+                  label: 'اسم المخلص الجمركي / المكتب',
+                  controller: _brokerNameController,
+                  hint: 'مكتب الإسكندرية للخدمات الجمركية',
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: CustomTextField(
+                        label: 'مبلغ العهدة المصروفة (ج.م)',
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'تاريخ الصرف (YYYY-MM-DD)',
-                      controller: _dateController,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: CustomTextField(
+                        label: 'تاريخ الصرف (YYYY-MM-DD)',
+                        controller: _dateController,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('طريقة الصرف:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<String>(
-                    initialValue: _paymentMethod,
-                    items: const [
-                      DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('تحويل بنكي (Bank Transfer)')),
-                      DropdownMenuItem(value: 'CHECK', child: Text('شيك مصرفي (Check)')),
-                      DropdownMenuItem(value: 'CASH', child: Text('نقدي من الخزينة (Cash)')),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setState(() => _paymentMethod = v);
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              CustomTextField(
-                label: 'ملاحظات الصرف والغرض من العهدة',
-                controller: _notesController,
-              ),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 10),
+                SearchableDropdownField<String>(
+                  value: _paymentMethod,
+                  labelText: 'طريقة الصرف',
+                  items: const [
+                    SearchableDropdownItem(value: 'BANK_TRANSFER', label: 'تحويل بنكي'),
+                    SearchableDropdownItem(value: 'CHECK', label: 'شيك مصرفي'),
+                    SearchableDropdownItem(value: 'CASH', label: 'نقدي من الخزينة'),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setState(() => _paymentMethod = v);
+                  },
+                ),
+                const SizedBox(height: 10),
+                CustomTextField(
+                  label: 'ملاحظات الصرف والغرض من العهدة',
+                  controller: _notesController,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -696,75 +692,76 @@ class _AddBrokerCustodyExpenseDialogState extends State<_AddBrokerCustodyExpense
       title: Text('إضافة بند مصروف للعهدة — ${widget.advance.advanceCode}'),
       content: SizedBox(
         width: 500,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('بند وتصنيف المصروف:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              const SizedBox(height: 4),
-              DropdownButtonFormField<String>(
-                initialValue: _category,
-                items: const [
-                  DropdownMenuItem(value: 'OFFICIAL_DUTIES_TAXES', child: Text('ضرائب ورسوم جمركية رسمية (معفية من الخصم)')),
-                  DropdownMenuItem(value: 'PORT_AUTHORITY_FEES', child: Text('رسوم وأرضيات هيئة الميناء')),
-                  DropdownMenuItem(value: 'LAB_TESTING_FEES', child: Text('رسوم فحص معملي وسحب عينات')),
-                  DropdownMenuItem(value: 'HANDLING_AND_PORTERAGE', child: Text('عتالة ومصروفات مناولة وتعتيق')),
-                  DropdownMenuItem(value: 'INSPECTION_TRANSPORT', child: Text('انتقالات لجان الكشف والمعاينة')),
-                  DropdownMenuItem(value: 'SUNDRY_PETTY_CASH', child: Text('نثريات ومصروفات متنوعة')),
-                ],
-                onChanged: (v) {
-                  if (v != null) setState(() => _category = v);
-                },
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'المبلغ الإجمالي (ج.م EGP)',
-                      controller: _amountController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SearchableDropdownField<String>(
+                  value: _category,
+                  labelText: 'بند وتصنيف المصروف',
+                  items: const [
+                    SearchableDropdownItem(value: 'OFFICIAL_DUTIES_TAXES', label: 'ضرائب ورسوم جمركية رسمية (معفية من الخصم)'),
+                    SearchableDropdownItem(value: 'PORT_AUTHORITY_FEES', label: 'رسوم وأرضيات هيئة الميناء'),
+                    SearchableDropdownItem(value: 'LAB_TESTING_FEES', label: 'رسوم فحص معملي وسحب عينات'),
+                    SearchableDropdownItem(value: 'HANDLING_AND_PORTERAGE', label: 'عتالة ومصروفات مناولة وتعتيق'),
+                    SearchableDropdownItem(value: 'INSPECTION_TRANSPORT', label: 'انتقالات لجان الكشف والمعاينة'),
+                    SearchableDropdownItem(value: 'SUNDRY_PETTY_CASH', label: 'نثريات ومصروفات متنوعة'),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setState(() => _category = v);
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: CustomTextField(
+                        label: 'المبلغ الإجمالي (ج.م)',
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'رقم الإيصال أو المستند',
-                      controller: _refController,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: CustomTextField(
+                        label: 'رقم الإيصال أو المستند',
+                        controller: _refController,
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  title: const Text('معتمد بفاتورة إلكترونية ضريبية رسمية', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                  value: _isEInvoice,
+                  onChanged: (v) => setState(() => _isEInvoice = v ?? false),
+                ),
+                if (_isEInvoice) ...[
+                  const SizedBox(height: 8),
+                  CustomTextField(
+                    label: 'الرقم التعريفي الموحد للفاتورة الإلكترونية',
+                    controller: _uuidController,
+                    hint: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
-              CheckboxListTile(
-                title: const Text('معتمد بفاتورة إلكترونية ضريبية رسمية', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
-                value: _isEInvoice,
-                onChanged: (v) => setState(() => _isEInvoice = v ?? false),
-              ),
-              if (_isEInvoice) ...[
                 const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(6)),
+                  child: const Text(
+                    'ملاحظة ضريبية: يتم تلقائياً خصم 1% ضريبة خصم وتحصيل (نموذج 41) على الأتعاب والمصروفات غير السيادية طبقاً للقانون المصري.',
+                    style: TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                  ),
+                ),
+                const SizedBox(height: 10),
                 CustomTextField(
-                  label: 'الرقم التعريفي الموحد للفاتورة الإلكترونية (UUID)',
-                  controller: _uuidController,
-                  hint: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+                  label: 'ملاحظات وتفاصيل إضافية',
+                  controller: _notesController,
                 ),
               ],
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(6)),
-                child: const Text(
-                  'ملاحظة ضريبية: يتم تلقائياً خصم 1% ضريبة خصم وتحصيل (نموذج 41) على الأتعاب والمصروفات غير السيادية طبقاً للقانون المصري.',
-                  style: TextStyle(fontSize: 11, color: AppTheme.charcoal),
-                ),
-              ),
-              const SizedBox(height: 10),
-              CustomTextField(
-                label: 'ملاحظات وتفاصيل إضافية',
-                controller: _notesController,
-              ),
-            ],
+            ),
           ),
         ),
       ),

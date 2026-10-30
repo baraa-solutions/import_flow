@@ -141,14 +141,18 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   void _showCommercialReviewDialog(CustomsDocumentApprovalModel item) {
     showDialog(
       context: context,
-      builder: (c) => _CommercialReviewDialog(item: item, importFileId: _selectedImportFileId),
+      builder: (c) => SelectionArea(
+        child: _CommercialReviewDialog(item: item, importFileId: _selectedImportFileId),
+      ),
     );
   }
 
   void _showCustomsBrokerReviewDialog(CustomsDocumentApprovalModel item) {
     showDialog(
       context: context,
-      builder: (c) => _CustomsBrokerReviewDialog(item: item, importFileId: _selectedImportFileId),
+      builder: (c) => SelectionArea(
+        child: _CustomsBrokerReviewDialog(item: item, importFileId: _selectedImportFileId),
+      ),
     );
   }
 
@@ -243,10 +247,12 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
     }
     showDialog(
       context: context,
-      builder: (c) => _RaiseTicketDialog(
-        importFileId: _selectedImportFileId!,
-        approvalItem: item,
-        initialTicket: initialTicket,
+      builder: (c) => SelectionArea(
+        child: _RaiseTicketDialog(
+          importFileId: _selectedImportFileId!,
+          approvalItem: item,
+          initialTicket: initialTicket,
+        ),
       ),
     );
   }
@@ -254,7 +260,9 @@ class CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppro
   void _showResolveTicketDialog(DiscrepancyRectificationTicketModel ticket) {
     showDialog(
       context: context,
-      builder: (c) => _ResolveTicketDialog(ticket: ticket, importFileId: _selectedImportFileId),
+      builder: (c) => SelectionArea(
+        child: _ResolveTicketDialog(ticket: ticket, importFileId: _selectedImportFileId),
+      ),
     );
   }
 

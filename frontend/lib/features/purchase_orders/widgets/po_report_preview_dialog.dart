@@ -1165,14 +1165,15 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
             }
 
             final fleetSummary = containerCounts.isEmpty
-                ? 'لا توجد حاويات مناسبة'
+                ? (isArabic ? 'لا توجد حاويات مناسبة' : 'No suitable containers')
                 : containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
 
-            return Dialog(
-              insetPadding: const EdgeInsets.all(16),
-              child: Container(
-                width: 1180,
-                height: 780,
+            return SelectionArea(
+              child: Dialog(
+                insetPadding: const EdgeInsets.all(16),
+                child: Container(
+                  width: 1180,
+                  height: 780,
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1483,6 +1484,7 @@ class _POReportPreviewDialogState extends State<POReportPreviewDialog> {
                   ],
                 ),
               ),
+            ),
             );
           },
         );

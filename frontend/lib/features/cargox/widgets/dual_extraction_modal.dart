@@ -4,6 +4,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/document_export/packaging_detail_toggle.dart';
 import '../../../core/widgets/document_export/grouping_selector.dart';
 import '../models/cargox_model.dart';
@@ -483,7 +484,8 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
     showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setInnerState) => AlertDialog(
+        builder: (ctx, setInnerState) => SelectionArea(
+          child: AlertDialog(
           title: Text(l.dualExtractionAddPalletBtn, style: const TextStyle(fontSize: 14)),
           content: SizedBox(
             width: 400,
@@ -498,16 +500,13 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: palletType,
+                SearchableDropdownField<String>(
+                  value: palletType,
+                  labelText: isAr ? 'نوع البالتة' : 'Pallet Type',
                   items: palletTypeOptions
-                      .map((t) => DropdownMenuItem(value: t.$1, child: Text(t.$2)))
+                      .map((t) => SearchableDropdownItem<String>(value: t.$1, label: t.$2))
                       .toList(),
                   onChanged: (v) => setInnerState(() => palletType = v ?? 'EURO'),
-                  decoration: InputDecoration(
-                    labelText: isAr ? 'نوع البالتة' : 'Pallet Type',
-                    isDense: true,
-                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -568,6 +567,7 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

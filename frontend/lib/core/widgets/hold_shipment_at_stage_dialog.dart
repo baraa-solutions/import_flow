@@ -132,8 +132,9 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
     final commonReasons = DomainEnums.codesOf(DomainEnumType.holdReason).where((c) => c != 'OTHER').toList();
     final file = widget.importFile;
 
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    return SelectionArea(
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       titlePadding: EdgeInsets.zero,
       contentPadding: const EdgeInsets.all(20),
       title: Container(
@@ -314,8 +315,9 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }
 
 /// Request fields for `POST /import-files/{id}/hold`.

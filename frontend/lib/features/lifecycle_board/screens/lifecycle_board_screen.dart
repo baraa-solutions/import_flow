@@ -665,16 +665,29 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     OutlinedButton.icon(
                       onPressed: filteredItems.isEmpty
                           ? null
-                          : () {
-                              final dossier = LifecycleBoardExportService.buildRadarDossierText(
+                          : () => LifecycleBoardExportService.copyRadarDossier(
                                 context: context,
                                 items: filteredItems,
                                 allImportFiles: allImportFiles,
-                              );
-                              CopyHelper.copy(context, dossier, customMessage: l10n.lifecycleCopyDossierSuccess);
-                            },
+                              ),
                       icon: const Icon(Icons.content_copy_outlined, size: 14, color: AppTheme.cobalt),
                       label: Text(l10n.lifecycleCopyDossierBtn, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    OutlinedButton.icon(
+                      onPressed: filteredItems.isEmpty
+                          ? null
+                          : () => LifecycleBoardExportService.copyRadarTable(
+                                context: context,
+                                items: filteredItems,
+                                allImportFiles: allImportFiles,
+                              ),
+                      icon: const Icon(Icons.copy_all_outlined, size: 14, color: AppTheme.cobalt),
+                      label: Text(isAr ? 'نسخ الجدول' : 'Copy Table', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt)),
                       style: OutlinedButton.styleFrom(
                         visualDensity: VisualDensity.compact,
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1178,7 +1191,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.timeline_rounded, size: 16, color: AppTheme.cobalt),
-                  tooltip: isAr ? 'سجل المسار الزمني (25 مرحلة)' : 'Master Timeline Dossier (25 Stages)',
+                  tooltip: isAr ? 'سجل المسار الزمني الشامل' : 'Master Timeline Dossier',
                   onPressed: () {
                     ShipmentTimelineDossierDialog.show(
                       context,
@@ -1200,6 +1213,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   Widget _buildPhaseTopCard(PhaseSummaryModel phase, double width) {
     final l10n = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAr = Directionality.of(context) == TextDirection.rtl;
     final headerColor = _parseColor(phase.colorHex);
     final isPhaseSelected = _selectedPhaseId == phase.phaseId && _selectedStepCode == null;
 
@@ -1253,19 +1267,50 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${phase.totalActiveShipments}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.0),
-                    ),
+                  PhasePendingBadge(
+                    pendingCount: phase.totalActiveShipments,
+                    baseColor: headerColor,
                   ),
                 ],
               ),
+            ),
+          ),
+          // Phase pending files status indicator strip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkSurface : headerColor.withValues(alpha: 0.08),
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark ? AppTheme.darkBorder : headerColor.withValues(alpha: 0.2),
+                  width: 0.5,
+                ),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    isAr
+                        ? '${phase.totalActiveShipments} ملفات بها مهام قيد المتابعة'
+                        : '${phase.totalActiveShipments} pending files in phase',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (phase.totalActiveShipments > 0)
+                  AppStatusBadge(
+                    label: isAr ? 'نشط' : 'Active',
+                    severity: AppSeverity.warning,
+                    size: AppStatusBadgeSize.small,
+                  ),
+              ],
             ),
           ),
           Padding(
@@ -1326,20 +1371,10 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: count > 0 ? headerColor.withValues(alpha: 0.2) : (isDark ? AppTheme.darkSurface : Colors.grey.shade200),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '$count',
-                            style: TextStyle(
-                              fontSize: 11.0,
-                              fontWeight: FontWeight.bold,
-                              color: count > 0 ? headerColor : Colors.grey.shade600,
-                            ),
-                          ),
+                        AppStatusBadge(
+                          label: '$count',
+                          severity: count > 0 ? AppSeverity.warning : AppSeverity.info,
+                          size: AppStatusBadgeSize.small,
                         ),
                       ],
                     ),
@@ -1364,7 +1399,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
     if (_selectedStepCode != null) {
       final cleanStepName = DisplayNameResolver.resolveStepName(_selectedStepCode!, isArabic: isAr);
-      selectedTitle = isAr ? '$cleanStepName (${_selectedStepCode!})' : '$cleanStepName (${_selectedStepCode!})';
+      selectedTitle = cleanStepName;
       final phaseStr = _stepPhases[_selectedStepCode!];
       final phaseId = int.tryParse(phaseStr ?? '1') ?? 1;
       final p = phases.firstWhere((ph) => ph.phaseId == phaseId, orElse: () => phases[0]);
@@ -1394,9 +1429,21 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                 color: badgeColor,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(
-                selectedTitle,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    selectedTitle,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
+                  if (_selectedStepCode != null) ...[
+                    const SizedBox(width: 5),
+                    LtrText(
+                      _selectedStepCode!,
+                      style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(width: 8),
@@ -1472,18 +1519,32 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
             OutlinedButton.icon(
               onPressed: filteredShipments.isEmpty
                   ? null
-                  : () {
-                      final dossier = LifecycleBoardExportService.buildKanbanDossierText(
+                  : () => LifecycleBoardExportService.copyKanbanDossier(
                         context: context,
                         shipments: filteredShipments,
                         phases: phases,
                         allImportFiles: allImportFiles,
                         filterTitle: selectedTitle,
-                      );
-                      CopyHelper.copy(context, dossier, customMessage: l10n.lifecycleCopyDossierSuccess);
-                    },
+                      ),
               icon: const Icon(Icons.content_copy_outlined, size: 14, color: AppTheme.cobalt),
               label: Text(l10n.lifecycleCopyDossierBtn, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+              ),
+            ),
+            const SizedBox(width: 4),
+            OutlinedButton.icon(
+              onPressed: filteredShipments.isEmpty
+                  ? null
+                  : () => LifecycleBoardExportService.copyKanbanTable(
+                        context: context,
+                        shipments: filteredShipments,
+                        allImportFiles: allImportFiles,
+                      ),
+              icon: const Icon(Icons.copy_all_outlined, size: 14, color: AppTheme.cobalt),
+              label: Text(isAr ? 'نسخ الجدول' : 'Copy Table', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt)),
               style: OutlinedButton.styleFrom(
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1536,21 +1597,31 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     final l10n = context.l10n;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isAr = Directionality.of(context) == TextDirection.rtl;
+    final radarData = ref.watch(livePollingProvider).valueOrNull ?? ref.watch(liveLogisticsTrackingProvider).valueOrNull;
+    final trackingMap = {
+      for (final item in radarData?.items ?? <LiveLogisticsTrackingItemModel>[])
+        item.importFileCode: item,
+    };
 
     return EnterpriseDataTable<ShipmentStageCardModel>(
       storageKey: 'lifecycle_board_shipments_table',
       data: shipments,
-      rowHeight: 60,
+      rowHeight: 64,
       columns: [
         EnterpriseColumn<ShipmentStageCardModel>(
           id: 'shipmentName',
           title: l10n.operationalTsvHeaderShipmentName,
-          width: 240,
+          width: 280,
           exportValue: (s) => DisplayNameResolver.resolveShipmentTitleByCode(s.importFileCode, shipments: allImportFiles, isArabic: isAr, includeCodeSecondary: true),
           searchValue: (s) => '${s.importFileCode} ${s.companyName} ${s.supplierName}',
           cellBuilder: (context, s, index) {
             final shipmentName = DisplayNameResolver.resolveShipmentNameByCode(s.importFileCode, shipments: allImportFiles, isArabic: isAr);
             final isOnHold = s.status == 'On-Hold';
+            final tracking = trackingMap[s.importFileCode];
+            final healthPercent = tracking?.docReadinessPercent;
+            final freeDays = tracking?.freeDaysRemaining;
+            final overdue = tracking?.accumulatedDemurrageFx ?? 0.0;
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1561,7 +1632,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1587,20 +1658,13 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         ),
                       ),
                     ),
-                    if (isOnHold) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: AppTheme.crimson,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          l10n.onHoldStatusTag,
-                          style: const TextStyle(color: Colors.white, fontSize: 11.0, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
+                    const SizedBox(width: 5),
+                    ShipmentKpiMetricBar(
+                      healthPercent: healthPercent,
+                      freeDaysRemaining: freeDays,
+                      accumulatedOverdue: overdue,
+                      isOnHold: isOnHold,
+                    ),
                   ],
                 ),
               ],
@@ -1625,42 +1689,39 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
         EnterpriseColumn<ShipmentStageCardModel>(
           id: 'currentStep',
           title: l10n.colCurrentStep,
-          width: 160,
+          width: 180,
           exportValue: (s) => DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr),
           cellBuilder: (context, s, index) {
-            final phaseStr = _stepPhases[s.stepCode] ?? '1';
-            final phaseId = int.tryParse(phaseStr) ?? 1;
-            final p = phases.firstWhere((ph) => ph.phaseId == phaseId, orElse: () => phases[0]);
-            final stepColor = _parseColor(p.colorHex);
             final isOnHold = s.status == 'On-Hold';
-            final cleanCurStep = DisplayNameResolver.resolveStepName(s.stepCode, isArabic: isAr);
+            final pendingSteps = shipments
+                .where((item) => item.importFileCode == s.importFileCode)
+                .map((item) => item.stepCode)
+                .toSet()
+                .toList();
+            if (!pendingSteps.contains(s.stepCode)) {
+              pendingSteps.insert(0, s.stepCode);
+            }
 
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              decoration: BoxDecoration(
-                color: isOnHold ? AppTheme.crimson.withValues(alpha: 0.12) : stepColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: isOnHold ? AppTheme.crimson : stepColor, width: 1),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(isOnHold ? Icons.pause_circle_outline : Icons.play_circle_fill, size: 11, color: isOnHold ? AppTheme.crimson : stepColor),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      cleanCurStep,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11.0,
-                        color: isOnHold ? AppTheme.crimson : stepColor,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+            return Wrap(
+              spacing: 4,
+              runSpacing: 2,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: pendingSteps.map((stepCode) {
+                final cleanStepName = DisplayNameResolver.resolveStepName(stepCode, isArabic: isAr);
+                final isCurrent = stepCode == s.stepCode;
+                final severity = isOnHold
+                    ? AppSeverity.danger
+                    : (isCurrent ? AppSeverity.warning : AppSeverity.info);
+
+                return AppStatusBadge(
+                  label: cleanStepName,
+                  severity: severity,
+                  size: AppStatusBadgeSize.small,
+                  icon: isOnHold
+                      ? Icons.pause_circle_outline
+                      : (isCurrent ? Icons.pending_actions_rounded : Icons.radio_button_checked),
+                );
+              }).toList(),
             );
           },
         ),
@@ -1770,7 +1831,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.timeline_rounded, size: 16, color: AppTheme.cobalt),
-                  tooltip: isAr ? 'سجل المسار الزمني (25 مرحلة)' : 'Master Timeline Dossier (25 Stages)',
+                  tooltip: isAr ? 'سجل المسار الزمني الشامل' : 'Master Timeline Dossier',
                   onPressed: () {
                     final matchedFile = allImportFiles
                         .where((f) => f.importFileCode == s.importFileCode)
@@ -1853,5 +1914,208 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     if (hexString.length == 6 || hexString.length == 7) buffer.write('ff');
     buffer.write(hexString.replaceFirst('#', ''));
     return Color(int.parse(buffer.toString(), radix: 16));
+  }
+}
+
+/// 🏷️ Phase Pending Badge for Top Phase Cards (Task 2)
+class PhasePendingBadge extends StatelessWidget {
+  final int pendingCount;
+  final Color baseColor;
+
+  const PhasePendingBadge({
+    super.key,
+    required this.pendingCount,
+    required this.baseColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isAr = Directionality.of(context) == TextDirection.rtl;
+    final label = isAr ? '$pendingCount معلق' : '$pendingCount Pending';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: pendingCount > 0 ? Colors.white.withValues(alpha: 0.28) : Colors.white12,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: pendingCount > 0 ? Colors.white.withValues(alpha: 0.6) : Colors.white24,
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            pendingCount > 0 ? Icons.pending_actions_rounded : Icons.check_circle_outline_rounded,
+            size: 10,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 10.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 📊 Shipment KPI Metric Bar for table rows (Task 3)
+class ShipmentKpiMetricBar extends StatelessWidget {
+  final double? healthPercent;
+  final int? freeDaysRemaining;
+  final double accumulatedOverdue;
+  final bool isOnHold;
+
+  const ShipmentKpiMetricBar({
+    super.key,
+    this.healthPercent,
+    this.freeDaysRemaining,
+    this.accumulatedOverdue = 0.0,
+    this.isOnHold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isAr = Directionality.of(context) == TextDirection.rtl;
+
+    // 1. Health / Readiness Pill
+    final healthVal = healthPercent ?? 100.0;
+    final healthColor = healthVal >= 80.0
+        ? AppTheme.emerald
+        : (healthVal >= 50.0 ? AppTheme.orange : AppTheme.crimson);
+
+    // 2. Free Time Pill per KPI Master Contract:
+    // Green (>7d), Orange (4-7d), Red (<=3d)
+    final freeDays = freeDaysRemaining;
+    final freeColor = (freeDays == null || freeDays > 7)
+        ? AppTheme.emerald
+        : (freeDays >= 4 ? AppTheme.orange : AppTheme.crimson);
+
+    final hasOverdue = accumulatedOverdue > 0;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Health / Readiness Pill
+        Tooltip(
+          message: isAr ? 'مؤشر صحة واكتمال الملف' : 'Operational Health & Readiness',
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: healthColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: healthColor.withValues(alpha: 0.4), width: 0.8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.health_and_safety_outlined, size: 10, color: healthColor),
+                const SizedBox(width: 2),
+                Text(
+                  '${healthVal.toInt()}%',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: healthColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 3),
+
+        // Free Time Pill
+        if (freeDays != null) ...[
+          Tooltip(
+            message: isAr ? 'أيام السماح المتبقية' : 'Remaining Free Days',
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: freeColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: freeColor.withValues(alpha: 0.4), width: 0.8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.timer_outlined, size: 10, color: freeColor),
+                  const SizedBox(width: 2),
+                  Text(
+                    isAr ? '$freeDays ي' : '${freeDays}d',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                      color: freeColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 3),
+        ],
+
+        // Overdue Pill / Hold Pill
+        if (hasOverdue)
+          Tooltip(
+            message: isAr ? 'غرامات أرضيات متراكمة' : 'Accumulated Demurrage',
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: AppTheme.crimson.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: AppTheme.crimson, width: 0.8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, size: 10, color: AppTheme.crimson),
+                  const SizedBox(width: 2),
+                  Text(
+                    '\$${accumulatedOverdue.toInt()}',
+                    style: const TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.crimson,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (isOnHold)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: AppTheme.crimson.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: AppTheme.crimson, width: 0.8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.pause_circle_outline, size: 10, color: AppTheme.crimson),
+                const SizedBox(width: 2),
+                Text(
+                  isAr ? 'معلق' : 'Hold',
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.crimson,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 }

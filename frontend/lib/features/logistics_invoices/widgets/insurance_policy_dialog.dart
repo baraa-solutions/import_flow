@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/logistics_invoice_models.dart';
 import '../providers/logistics_invoices_provider.dart';
 import '../repositories/logistics_invoices_repository.dart';
@@ -274,15 +274,16 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _coverageType,
+                    child: SearchableDropdownField<String>(
+                      value: _coverageType,
+                      labelText: 'Coverage Clause',
                       decoration: const InputDecoration(labelText: 'Coverage Clause', isDense: true, border: OutlineInputBorder()),
                       items: const [
-                        DropdownMenuItem(value: 'all_risks', child: Text('All Risks (شامل كافة الأخطار)')),
-                        DropdownMenuItem(value: 'icc_a', child: Text('ICC (A) — Standard Marine')),
-                        DropdownMenuItem(value: 'icc_b', child: Text('ICC (B) — Major Casualties')),
-                        DropdownMenuItem(value: 'icc_c', child: Text('ICC (C) — Total Loss Only')),
-                        DropdownMenuItem(value: 'war_srcc', child: Text('War & Strikes (أخطار حرب وإضرابات)')),
+                        SearchableDropdownItem<String>(value: 'all_risks', label: 'All Risks (شامل كافة الأخطار)'),
+                        SearchableDropdownItem<String>(value: 'icc_a', label: 'ICC (A) — Standard Marine'),
+                        SearchableDropdownItem<String>(value: 'icc_b', label: 'ICC (B) — Major Casualties'),
+                        SearchableDropdownItem<String>(value: 'icc_c', label: 'ICC (C) — Total Loss Only'),
+                        SearchableDropdownItem<String>(value: 'war_srcc', label: 'War & Strikes (أخطار حرب وإضرابات)'),
                       ],
                       onChanged: (v) => setState(() => _coverageType = v ?? 'all_risks'),
                     ),

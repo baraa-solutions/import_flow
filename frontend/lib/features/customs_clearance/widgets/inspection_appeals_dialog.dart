@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/app_status_badge.dart';
-import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/inspection_appeal_model.dart';
 import '../services/inspection_appeal_service.dart';
 
@@ -111,73 +109,68 @@ class _InspectionAppealsDialogState extends ConsumerState<InspectionAppealsDialo
           ),
           content: SizedBox(
             width: 520,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CustomTextField(
-                    label: 'معرف الملف الاستيرادي (Import File ID)',
-                    controller: fileIdController,
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('الجهة الرقابية المختصة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<String>(
-                    initialValue: authority,
-                    items: const [
-                      DropdownMenuItem(value: 'GOEIC', child: Text('الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)')),
-                      DropdownMenuItem(value: 'NFSA', child: Text('الهيئة القومية لسلامة الغذاء (NFSA)')),
-                      DropdownMenuItem(value: 'EDA', child: Text('هيئة الدواء المصرية (EDA)')),
-                      DropdownMenuItem(value: 'NTRA', child: Text('الجهاز القومي لتنظيم الاتصالات (NTRA)')),
-                      DropdownMenuItem(value: 'ATOMIC_ENERGY', child: Text('هيئة الطاقة الذرية')),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setDlgState(() => authority = v);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CustomTextField(
-                          label: 'رقم العينة المعملية المسحوبة',
-                          controller: sampleNoController,
-                          hint: 'SMP-2026-9876',
+            child: SelectionArea(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CustomTextField(
+                      label: 'معرف الملف الاستيرادي',
+                      controller: fileIdController,
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 12),
+                    SearchableDropdownField<String>(
+                      value: authority,
+                      labelText: 'الجهة الرقابية المختصة',
+                      items: const [
+                        SearchableDropdownItem(value: 'GOEIC', label: 'الهيئة العامة للرقابة على الصادرات والواردات'),
+                        SearchableDropdownItem(value: 'NFSA', label: 'الهيئة القومية لسلامة الغذاء'),
+                        SearchableDropdownItem(value: 'EDA', label: 'هيئة الدواء المصرية'),
+                        SearchableDropdownItem(value: 'NTRA', label: 'الجهاز القومي لتنظيم الاتصالات'),
+                        SearchableDropdownItem(value: 'ATOMIC_ENERGY', label: 'هيئة الطاقة الذرية'),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setDlgState(() => authority = v);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CustomTextField(
+                            label: 'رقم العينة المعملية المسحوبة',
+                            controller: sampleNoController,
+                            hint: 'SMP-2026-9876',
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('نوع عدم المطابقة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            const SizedBox(height: 4),
-                            DropdownButtonFormField<String>(
-                              initialValue: initialResult,
-                              items: const [
-                                DropdownMenuItem(value: 'NON_CONFORMING_CHEMICAL', child: Text('غير مطابق كيميائياً')),
-                                DropdownMenuItem(value: 'NON_CONFORMING_MICROBIAL', child: Text('غير مطابق ميكروبياً')),
-                                DropdownMenuItem(value: 'NON_CONFORMING_VISUAL', child: Text('غير مطابق ظاهرياً')),
-                              ],
-                              onChanged: (v) {
-                                if (v != null) setDlgState(() => initialResult = v);
-                              },
-                            ),
-                          ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: SearchableDropdownField<String>(
+                            value: initialResult,
+                            labelText: 'نوع عدم المطابقة',
+                            items: const [
+                              SearchableDropdownItem(value: 'NON_CONFORMING_CHEMICAL', label: 'غير مطابق كيميائياً'),
+                              SearchableDropdownItem(value: 'NON_CONFORMING_MICROBIAL', label: 'غير مطابق ميكروبياً'),
+                              SearchableDropdownItem(value: 'NON_CONFORMING_VISUAL', label: 'غير مطابق ظاهرياً'),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) setDlgState(() => initialResult = v);
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  CustomTextField(
-                    label: 'أسباب ومبررات التظلم الفنية',
-                    controller: reasonController,
-                    maxLines: 2,
-                    hint: 'طلب إعادة التحليل بمعمل مرجعي معتمد أو فحص العينة المحفوظة...',
-                  ),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    CustomTextField(
+                      label: 'أسباب ومبررات التظلم الفنية',
+                      controller: reasonController,
+                      maxLines: 2,
+                      hint: 'طلب إعادة التحليل بمعمل مرجعي معتمد أو فحص العينة المحفوظة...',
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -230,45 +223,46 @@ class _InspectionAppealsDialogState extends ConsumerState<InspectionAppealsDialo
           title: Text('تسجيل قرار لجنة التظلمات — ${item.appealCode}'),
           content: SizedBox(
             width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('قرار اللجنة النهائي:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                const SizedBox(height: 4),
-                DropdownButtonFormField<String>(
-                  initialValue: decision,
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'OVERTURNED_CONFORMING',
-                      child: Text('قبول التظلم وإلغاء الرفض (مطابق للإفراج 🟢)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'UPHELD_REJECTED',
-                      child: Text('تأييد قرار الرفض (إحالة لإعادة التصدير 🔴)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'PENDING',
-                      child: Text('استمرار الفحص والمراجعة (معلق 🟡)'),
-                    ),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) setDlgState(() => decision = v);
-                  },
-                ),
-                const SizedBox(height: 12),
-                CustomTextField(
-                  label: 'رقم الخطاب / القرار الرسمي الصادر',
-                  controller: letterController,
-                  hint: 'قرار رقم 104 لسنة 2026',
-                ),
-                const SizedBox(height: 10),
-                CustomTextField(
-                  label: 'حيثيات وملاحظات القرار',
-                  controller: notesController,
-                  maxLines: 2,
-                ),
-              ],
+            child: SelectionArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SearchableDropdownField<String>(
+                    value: decision,
+                    labelText: 'قرار اللجنة النهائي',
+                    items: const [
+                      SearchableDropdownItem(
+                        value: 'OVERTURNED_CONFORMING',
+                        label: 'قبول التظلم وإلغاء الرفض (مطابق للإفراج)',
+                      ),
+                      SearchableDropdownItem(
+                        value: 'UPHELD_REJECTED',
+                        label: 'تأييد قرار الرفض (إحالة لإعادة التصدير)',
+                      ),
+                      SearchableDropdownItem(
+                        value: 'PENDING',
+                        label: 'استمرار الفحص والمراجعة (معلق)',
+                      ),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) setDlgState(() => decision = v);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  CustomTextField(
+                    label: 'رقم الخطاب أو القرار الرسمي الصادر',
+                    controller: letterController,
+                    hint: 'قرار رقم 104 لسنة 2026',
+                  ),
+                  const SizedBox(height: 10),
+                  CustomTextField(
+                    label: 'حيثيات وملاحظات القرار',
+                    controller: notesController,
+                    maxLines: 2,
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -315,41 +309,42 @@ class _InspectionAppealsDialogState extends ConsumerState<InspectionAppealsDialo
           title: Text('تصعيد التظلم إلى مرحلة أعلى — ${item.appealCode}'),
           content: SizedBox(
             width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('المرحلة المستهدفة بالتصعيد:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                const SizedBox(height: 4),
-                DropdownButtonFormField<String>(
-                  initialValue: nextTier,
-                  items: const [
-                    DropdownMenuItem(value: 'SECOND_APPEAL', child: Text('التظلم الثاني (لجنة الخبراء)')),
-                    DropdownMenuItem(value: 'TRIPLICATE_SAMPLE', child: Text('التحكيم الثلاثي (العينة المرجعية المحفوظة)')),
+            child: SelectionArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SearchableDropdownField<String>(
+                    value: nextTier,
+                    labelText: 'المرحلة المستهدفة بالتصعيد',
+                    items: const [
+                      SearchableDropdownItem(value: 'SECOND_APPEAL', label: 'التظلم الثاني (لجنة الخبراء)'),
+                      SearchableDropdownItem(value: 'TRIPLICATE_SAMPLE', label: 'التحكيم الثلاثي (العينة المرجعية)'),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) setDlgState(() => nextTier = v);
+                    },
+                  ),
+                  if (nextTier == 'TRIPLICATE_SAMPLE') ...[
+                    const SizedBox(height: 12),
+                    CustomTextField(
+                      label: 'اسم المعمل المحايد المعتمد للتحكيم',
+                      controller: labController,
+                      hint: 'المعمل المركزي لجامعة القاهرة، معمل البتروكيماويات...',
+                    ),
                   ],
-                  onChanged: (v) {
-                    if (v != null) setDlgState(() => nextTier = v);
-                  },
-                ),
-                if (nextTier == 'TRIPLICATE_SAMPLE') ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   CustomTextField(
-                    label: 'اسم المعمل المحايد المعتمد للتحكيم',
-                    controller: labController,
-                    hint: 'المعمل المركزي لجامعة القاهرة، معمل البتروكيماويات...',
+                    label: 'رقم خطاب طلب التصعيد',
+                    controller: refController,
+                  ),
+                  const SizedBox(height: 10),
+                  CustomTextField(
+                    label: 'مبررات التصعيد',
+                    controller: notesController,
                   ),
                 ],
-                const SizedBox(height: 10),
-                CustomTextField(
-                  label: 'رقم خطاب طلب التصعيد',
-                  controller: refController,
-                ),
-                const SizedBox(height: 10),
-                CustomTextField(
-                  label: 'مبررات التصعيد',
-                  controller: notesController,
-                ),
-              ],
+              ),
             ),
           ),
           actions: [
@@ -402,76 +397,77 @@ class _InspectionAppealsDialogState extends ConsumerState<InspectionAppealsDialo
             ),
           ],
         ),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: const BoxDecoration(
-                color: AppTheme.charcoal,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.biotech_rounded, color: AppTheme.cobalt, size: 26),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'تظلمات الفحص المعملي والتحكيم الثلاثي (Inspection & Lab Appeals)',
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          'إدارة دورة التظلم المعملي، لجان الخبراء، وتحكيم العينات الثلاثية لدى الهيئات الرقابية (GOEIC / NFSA / EDA)',
-                          style: TextStyle(color: Colors.white70, fontSize: 11.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AppButton(
-                    label: 'تقديم تظلم معملي',
-                    icon: Icons.add_circle_outline,
-                    variant: AppButtonVariant.primary,
-                    size: AppButtonSize.small,
-                    onPressed: _showNewAppealDialog,
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-
-            // Filters
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+        child: SelectionArea(
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: AppTheme.charcoal,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                ),
                 child: Row(
                   children: [
-                    const Text('الجهة الرقابية: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                    DropdownButton<String>(
-                      value: _selectedAuthority,
-                      underline: const SizedBox(),
-                      items: const [
-                        DropdownMenuItem(value: 'All', child: Text('كافة الجهات')),
-                        DropdownMenuItem(value: 'GOEIC', child: Text('صادرات وواردات (GOEIC)')),
-                        DropdownMenuItem(value: 'NFSA', child: Text('سلامة الغذاء (NFSA)')),
-                        DropdownMenuItem(value: 'EDA', child: Text('هيئة الدواء (EDA)')),
-                        DropdownMenuItem(value: 'NTRA', child: Text('تنظيم الاتصالات (NTRA)')),
-                        DropdownMenuItem(value: 'ATOMIC_ENERGY', child: Text('طاقة ذرية')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _selectedAuthority = val);
-                          _loadData();
-                        }
-                      },
+                    const Icon(Icons.biotech_rounded, color: AppTheme.cobalt, size: 26),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'تظلمات الفحص المعملي والتحكيم الثلاثي',
+                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'إدارة دورة التظلم المعملي، لجان الخبراء، وتحكيم العينات الثلاثية لدى الهيئات الرقابية',
+                            style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                          ),
+                        ],
+                      ),
                     ),
+                    AppButton(
+                      label: 'تقديم تظلم معملي',
+                      icon: Icons.add_circle_outline,
+                      variant: AppButtonVariant.primary,
+                      size: AppButtonSize.small,
+                      onPressed: _showNewAppealDialog,
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Filters
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      const Text('الجهة الرقابية: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                      DropdownButton<String>(
+                        value: _selectedAuthority,
+                        underline: const SizedBox(),
+                        items: const [
+                          DropdownMenuItem(value: 'All', child: Text('كافة الجهات')),
+                          DropdownMenuItem(value: 'GOEIC', child: Text('صادرات وواردات')),
+                          DropdownMenuItem(value: 'NFSA', child: Text('سلامة الغذاء')),
+                          DropdownMenuItem(value: 'EDA', child: Text('هيئة الدواء')),
+                          DropdownMenuItem(value: 'NTRA', child: Text('تنظيم الاتصالات')),
+                          DropdownMenuItem(value: 'ATOMIC_ENERGY', child: Text('طاقة ذرية')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedAuthority = val);
+                            _loadData();
+                          }
+                        },
+                      ),
                     const SizedBox(width: 16),
                     const Text('المرحلة: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                     DropdownButton<String>(
@@ -655,6 +651,7 @@ class _InspectionAppealsDialogState extends ConsumerState<InspectionAppealsDialo
                             ),
             ),
           ],
+        ),
         ),
       ),
     );

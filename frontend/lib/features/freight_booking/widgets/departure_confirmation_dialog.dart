@@ -197,8 +197,9 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
 
     final isEditSailed = widget.mode == DepartureDialogMode.editSailed;
 
-    return CcStageDialogShell(
-      title: isEditSailed ? l.fbkEditBlTitle : l.fbkDepTitle,
+    return SelectionArea(
+      child: CcStageDialogShell(
+        title: isEditSailed ? l.fbkEditBlTitle : l.fbkDepTitle,
       icon: isEditSailed ? Icons.receipt_long : Icons.sailing_rounded,
       maxWidth: 720,
       chips: [
@@ -334,6 +335,7 @@ class _DepartureConfirmationDialogState extends ConsumerState<DepartureConfirmat
           ],
         ),
       ),
+    ),
     );
   }
 

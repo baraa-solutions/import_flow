@@ -217,21 +217,21 @@ class _SmartTaskDialogState extends ConsumerState<SmartTaskDialog> {
                         Row(
                           children: [
                             Expanded(
-                              child: DropdownButtonFormField<String>(
-                                initialValue: _priority,
-                                isExpanded: true,
+                              child: SearchableDropdownField<String>(
+                                value: _priority,
+                                labelText: l.smartTaskFieldPriority,
                                 decoration: InputDecoration(labelText: l.smartTaskFieldPriority, border: const OutlineInputBorder()),
-                                items: _priorities.map((p) => DropdownMenuItem(value: p, child: Text(l.smartTaskPriorityLabel(p)))).toList(),
+                                items: _priorities.map((p) => SearchableDropdownItem<String>(value: p, label: l.smartTaskPriorityLabel(p))).toList(),
                                 onChanged: (v) => setState(() => _priority = v!),
                               ),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
-                              child: DropdownButtonFormField<String>(
-                                initialValue: _reminderType,
-                                isExpanded: true,
+                              child: SearchableDropdownField<String>(
+                                value: _reminderType,
+                                labelText: l.smartTaskFieldReminderType,
                                 decoration: InputDecoration(labelText: l.smartTaskFieldReminderType, border: const OutlineInputBorder()),
-                                items: _reminderTypes.map((t) => DropdownMenuItem(value: t, child: Text(l.smartTaskReminderTypeLabel(t)))).toList(),
+                                items: _reminderTypes.map((t) => SearchableDropdownItem<String>(value: t, label: l.smartTaskReminderTypeLabel(t))).toList(),
                                 onChanged: (v) => setState(() => _reminderType = v!),
                               ),
                             ),

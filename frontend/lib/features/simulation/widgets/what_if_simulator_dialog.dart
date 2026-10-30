@@ -386,18 +386,19 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                         const SizedBox(width: 8),
                         Expanded(
                           flex: 1,
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _selectedCurrency,
+                          child: SearchableDropdownField<String>(
+                            value: _selectedCurrency,
+                            labelText: l10n.currency,
                             decoration: InputDecoration(
                               labelText: l10n.currency,
                               border: const OutlineInputBorder(),
                               isDense: true,
                             ),
                             items: const [
-                              DropdownMenuItem(value: 'USD', child: Text('USD')),
-                              DropdownMenuItem(value: 'EUR', child: Text('EUR')),
-                              DropdownMenuItem(value: 'CNY', child: Text('CNY')),
-                              DropdownMenuItem(value: 'GBP', child: Text('GBP')),
+                              SearchableDropdownItem<String>(value: 'USD', label: 'USD'),
+                              SearchableDropdownItem<String>(value: 'EUR', label: 'EUR'),
+                              SearchableDropdownItem<String>(value: 'CNY', label: 'CNY'),
+                              SearchableDropdownItem<String>(value: 'GBP', label: 'GBP'),
                             ],
                             onChanged: (val) {
                               if (val != null) {
@@ -466,21 +467,21 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                     const SizedBox(height: 8),
                     Text(l10n.whatIfShippingRouteRisk, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: _shippingRoute,
-                      isExpanded: true,
+                    SearchableDropdownField<String>(
+                      value: _shippingRoute,
+                      labelText: l10n.whatIfShippingRouteRisk,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
                       items: [
-                        DropdownMenuItem(
+                        SearchableDropdownItem<String>(
                           value: 'RED_SEA',
-                          child: Text(l10n.whatIfRouteRedSea, overflow: TextOverflow.ellipsis),
+                          label: l10n.whatIfRouteRedSea,
                         ),
-                        DropdownMenuItem(
+                        SearchableDropdownItem<String>(
                           value: 'CAPE_OF_GOOD_HOPE',
-                          child: Text(l10n.whatIfRouteCape, overflow: TextOverflow.ellipsis),
+                          label: l10n.whatIfRouteCape,
                         ),
                       ],
                       onChanged: (val) => setState(() => _shippingRoute = val ?? 'RED_SEA'),
@@ -506,14 +507,15 @@ class _WhatIfSimulatorDialogState extends ConsumerState<WhatIfSimulatorDialog>
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: DropdownButtonFormField<int>(
-                            initialValue: _containerCount,
+                          child: SearchableDropdownField<int>(
+                            value: _containerCount,
+                            labelText: l10n.whatIfContainersCount,
                             decoration: InputDecoration(
                               labelText: l10n.whatIfContainersCount,
                               border: const OutlineInputBorder(),
                               isDense: true,
                             ),
-                            items: [1, 2, 3, 4, 5, 10].map((c) => DropdownMenuItem(value: c, child: Text('$c ${l10n.whatIfContainerUnit}'))).toList(),
+                            items: [1, 2, 3, 4, 5, 10].map((c) => SearchableDropdownItem<int>(value: c, label: '$c ${l10n.whatIfContainerUnit}')).toList(),
                             onChanged: (val) => setState(() => _containerCount = val ?? 1),
                           ),
                         ),

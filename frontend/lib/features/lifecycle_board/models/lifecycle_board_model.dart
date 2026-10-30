@@ -9,6 +9,8 @@ class PhaseSummaryModel {
   final List<String> stepCodes;
   final int totalActiveShipments;
   final Map<String, int> stepCounts;
+  final int pendingShipmentsCount;
+  final int delayedShipmentsCount;
 
   PhaseSummaryModel({
     required this.phaseId,
@@ -18,6 +20,8 @@ class PhaseSummaryModel {
     required this.stepCodes,
     required this.totalActiveShipments,
     required this.stepCounts,
+    this.pendingShipmentsCount = 0,
+    this.delayedShipmentsCount = 0,
   });
 
   factory PhaseSummaryModel.fromJson(Map<String, dynamic> json) {
@@ -29,7 +33,49 @@ class PhaseSummaryModel {
       stepCodes: List<String>.from(json['step_codes'] ?? []),
       totalActiveShipments: json['total_active_shipments'] ?? 0,
       stepCounts: Map<String, int>.from(json['step_counts'] ?? {}),
+      pendingShipmentsCount: json['pending_shipments_count'] ?? 0,
+      delayedShipmentsCount: json['delayed_shipments_count'] ?? 0,
     );
+  }
+}
+
+class ShipmentKpiMetricsModel {
+  final double healthScore;
+  final double freeTimeBurnPct;
+  final int? freeDaysRemaining;
+  final int overdueStepsCount;
+  final double? costVariancePct;
+  final String riskLevel;
+
+  ShipmentKpiMetricsModel({
+    required this.healthScore,
+    required this.freeTimeBurnPct,
+    this.freeDaysRemaining,
+    required this.overdueStepsCount,
+    this.costVariancePct,
+    required this.riskLevel,
+  });
+
+  factory ShipmentKpiMetricsModel.fromJson(Map<String, dynamic> json) {
+    return ShipmentKpiMetricsModel(
+      healthScore: (json['health_score'] as num?)?.toDouble() ?? 0.0,
+      freeTimeBurnPct: (json['free_time_burn_pct'] as num?)?.toDouble() ?? 0.0,
+      freeDaysRemaining: json['free_days_remaining'] as int?,
+      overdueStepsCount: json['overdue_steps_count'] as int? ?? 0,
+      costVariancePct: (json['cost_variance_pct'] as num?)?.toDouble(),
+      riskLevel: json['risk_level'] as String? ?? 'SAFE',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'health_score': healthScore,
+      'free_time_burn_pct': freeTimeBurnPct,
+      if (freeDaysRemaining != null) 'free_days_remaining': freeDaysRemaining,
+      'overdue_steps_count': overdueStepsCount,
+      if (costVariancePct != null) 'cost_variance_pct': costVariancePct,
+      'risk_level': riskLevel,
+    };
   }
 }
 
@@ -58,6 +104,9 @@ class ShipmentStageCardModel {
   /// System message code of [notes] (null for legacy rows / user notes).
   final String? msgCode;
   final Map<String, dynamic>? msgParams;
+  final ShipmentKpiMetricsModel? kpiMetrics;
+  final List<String> pendingStepCodes;
+  final List<String> skippedStepCodes;
 
   ShipmentStageCardModel({
     required this.importFileCode,
@@ -83,6 +132,9 @@ class ShipmentStageCardModel {
     this.notes,
     this.msgCode,
     this.msgParams,
+    this.kpiMetrics,
+    this.pendingStepCodes = const [],
+    this.skippedStepCodes = const [],
   });
 
   /// [notes] in the user's language; the stored text when there is no usable code.
@@ -115,6 +167,11 @@ class ShipmentStageCardModel {
       notes: json['notes'],
       msgCode: SystemMessageRenderer.parseCode(json['msg_code']),
       msgParams: SystemMessageRenderer.parseParams(json['msg_params']),
+      kpiMetrics: json['kpi_metrics'] != null && json['kpi_metrics'] is Map<String, dynamic>
+          ? ShipmentKpiMetricsModel.fromJson(json['kpi_metrics'] as Map<String, dynamic>)
+          : null,
+      pendingStepCodes: (json['pending_step_codes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      skippedStepCodes: (json['skipped_step_codes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
     );
   }
 }
@@ -129,6 +186,18 @@ class LifecycleBoardSummaryModel {
     required this.totalActiveFiles,
     required this.allShipments,
   });
+
+  LifecycleBoardSummaryModel copyWith({
+    List<PhaseSummaryModel>? phases,
+    int? totalActiveFiles,
+    List<ShipmentStageCardModel>? allShipments,
+  }) {
+    return LifecycleBoardSummaryModel(
+      phases: phases ?? this.phases,
+      totalActiveFiles: totalActiveFiles ?? this.totalActiveFiles,
+      allShipments: allShipments ?? this.allShipments,
+    );
+  }
 
   factory LifecycleBoardSummaryModel.fromJson(Map<String, dynamic> json) {
     return LifecycleBoardSummaryModel(

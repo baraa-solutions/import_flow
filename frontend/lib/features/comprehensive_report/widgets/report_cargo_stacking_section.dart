@@ -50,7 +50,8 @@ class ReportCargoStackingSection extends StatelessWidget {
       context: context,
       builder: (context) {
         final l = context.l10n;
-        return DefaultTabController(
+        return SelectionArea(
+          child: DefaultTabController(
           length: 3,
           child: AlertDialog(
             title: Row(
@@ -110,6 +111,7 @@ class ReportCargoStackingSection extends StatelessWidget {
               TextButton(onPressed: () => Navigator.pop(context), child: Text(l.closeDiagramBtn)),
             ],
           ),
+        ),
         );
       },
     );

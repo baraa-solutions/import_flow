@@ -141,7 +141,7 @@ class CustomsPdfService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('إجمالي المستحق للجمارك والضرائب (Taxes & Duties Breakdown):',
+                  pw.Text('إجمالي المستحق للجمارك والضرائب:',
                       style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50'))),
                   pw.SizedBox(height: 8),
                   pw.Row(
@@ -170,7 +170,7 @@ class CustomsPdfService {
             pw.SizedBox(height: 16),
 
             // Line Items Detailed Table
-            pw.Text('جدول تفاصيل البنود والأصناف الجمركية (Line Items Breakdown):',
+            pw.Text('جدول تفاصيل البنود والأصناف الجمركية:',
                 style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#2C3E50'))),
             pw.SizedBox(height: 6),
 

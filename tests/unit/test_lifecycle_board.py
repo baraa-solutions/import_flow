@@ -619,6 +619,85 @@ def test_initialize_file_lifecycle_from_alphanumeric_substep(db_session):
     assert coo.status == "In-Progress"
 
 
+def test_kpi_engine_and_phase_summary_metrics(db_session):
+    """
+    Test ShipmentKpiMetrics calculation:
+    - health_score_pct = (completed + skipped) / 25 * 100
+    - free_time_burn_pct and free_days_remaining
+    - cost_variance_pct
+    - overdue_steps_count and risk_level (SAFE, WARNING, CRITICAL)
+    - PhaseSummary pending_shipments_count & delayed_shipments_count
+    """
+    from datetime import datetime, timedelta
+    from modules.lifecycle_board.schemas import ShipmentKpiMetrics
+
+    # Initially IMP-2026-0001 has STEP_01 In-Progress (started_at was 2026-10-08, which is > 3 days SLA from today)
+    summary = service.get_board_summary_service(db_session)
+    assert len(summary.all_shipments) >= 1
+    card = next(c for c in summary.all_shipments if c.import_file_code == "IMP-2026-0001")
+    
+    assert card.kpi_metrics is not None
+    assert isinstance(card.kpi_metrics, ShipmentKpiMetrics)
+    assert card.kpi_metrics.health_score_pct == 0.0
+    assert card.kpi_metrics.free_time_burn_pct == 0.0
+    assert card.kpi_metrics.free_days_remaining == 21
+    # 22 days elapsed > 3 days SLA -> 1 overdue step -> WARNING
+    assert card.kpi_metrics.overdue_steps_count == 1
+    assert card.kpi_metrics.risk_level == "WARNING"
+    assert "STEP_02" in card.pending_step_codes
+    assert "STEP_21" in card.pending_step_codes
+    assert card.skipped_step_codes == []
+
+    # Reset started_at to now -> should become SAFE with 0 overdue
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    repo.save_or_update_activity(db_session, "IMP-2026-0001", "STEP_01", "In-Progress", started_at=now_str)
+    summary_fresh = service.get_board_summary_service(db_session)
+    card_fresh = next(c for c in summary_fresh.all_shipments if c.import_file_code == "IMP-2026-0001")
+    assert card_fresh.kpi_metrics.overdue_steps_count == 0
+    assert card_fresh.kpi_metrics.risk_level == "SAFE"
+
+    # Phase 1 summary from initial summary (with overdue step) should show 1 delayed shipment
+    phase_1 = next(p for p in summary.phases if p.phase_id == 1)
+    assert phase_1.total_active_shipments == 1
+    assert phase_1.pending_shipments_count >= 1
+    assert phase_1.delayed_shipments_count == 1
+
+    # Fresh phase 1 summary after resetting started_at should have 0 delayed shipments
+    phase_1_fresh = next(p for p in summary_fresh.phases if p.phase_id == 1)
+    assert phase_1_fresh.delayed_shipments_count == 0
+
+    # Test alias get_lifecycle_board_summary
+    alias_summary = service.get_lifecycle_board_summary(db_session)
+    assert alias_summary.total_active_files == summary.total_active_files
+
+    # Now let's complete 4 steps and skip 1 step -> 5 / 25 * 100 = 20.0%
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for sc in ["STEP_01", "STEP_02", "STEP_03", "STEP_04"]:
+        repo.save_or_update_activity(db_session, "IMP-2026-0001", sc, "Completed", completed_at=now_str)
+    repo.save_or_update_activity(db_session, "IMP-2026-0001", "STEP_05", "Skipped", completed_at=now_str)
+    # Activate STEP_06
+    repo.save_or_update_activity(db_session, "IMP-2026-0001", "STEP_06", "In-Progress", started_at=now_str)
+
+    summary2 = service.get_board_summary_service(db_session)
+    card2 = next(c for c in summary2.all_shipments if c.import_file_code == "IMP-2026-0001")
+    assert card2.kpi_metrics.health_score_pct == 20.0  # (4 + 1) / 25 * 100
+    assert "STEP_05" in card2.skipped_step_codes
+    assert "STEP_01" not in card2.pending_step_codes
+    assert "STEP_07" in card2.pending_step_codes
+
+    # Now simulate an overdue delay: step started 10 days ago (SLA is 3 days)
+    old_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
+    repo.save_or_update_activity(db_session, "IMP-2026-0001", "STEP_06", "In-Progress", started_at=old_date)
+
+    summary3 = service.get_board_summary_service(db_session)
+    card3 = next(c for c in summary3.all_shipments if c.import_file_code == "IMP-2026-0001")
+    assert card3.kpi_metrics.overdue_steps_count >= 1
+    assert card3.kpi_metrics.risk_level in ["WARNING", "CRITICAL"]
+
+    phase_3 = next(p for p in summary3.phases if p.phase_id == 3)
+    assert phase_3.delayed_shipments_count >= 1
+
+
 
 
 

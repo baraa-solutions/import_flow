@@ -5,6 +5,7 @@ import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/app_status_badge.dart';
 import '../../../core/widgets/app_search_field.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/container_deposit_model.dart';
 import '../services/container_deposit_service.dart';
 
@@ -102,122 +103,124 @@ class _ContainerDepositLedgerDialogState extends ConsumerState<ContainerDepositL
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.add_card_rounded, color: AppTheme.cobalt),
-            SizedBox(width: 8),
-            Text('تسجيل تأمين حاوية جديد مدفوع للخط الملاحي'),
-          ],
-        ),
-        content: SizedBox(
-          width: 500,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'معرف الملف الاستيرادي (ID)',
-                        controller: fileIdController,
-                        keyboardType: TextInputType.number,
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.add_card_rounded, color: AppTheme.cobalt),
+              SizedBox(width: 8),
+              Text('تسجيل تأمين حاوية جديد مدفوع للخط الملاحي'),
+            ],
+          ),
+          content: SizedBox(
+            width: 500,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'معرف الملف الاستيرادي',
+                          controller: fileIdController,
+                          keyboardType: TextInputType.number,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'اسم الخط الملاحي / التوكيل',
-                        controller: carrierController,
-                        hint: 'Maersk, MSC, CMA CGM...',
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'اسم الخط الملاحي / التوكيل',
+                          controller: carrierController,
+                          hint: 'Maersk, MSC, CMA CGM...',
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: CustomTextField(
-                        label: 'رقم الحاوية',
-                        controller: containerNoController,
-                        hint: 'MSKU1234567',
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: CustomTextField(
+                          label: 'رقم الحاوية',
+                          controller: containerNoController,
+                          hint: 'MSKU1234567',
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'نوع الحاوية',
-                        controller: containerTypeController,
-                        hint: '20ft, 40HC, Reefer',
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'نوع الحاوية',
+                          controller: containerTypeController,
+                          hint: '20ft, 40HC, Reefer',
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'مبلغ التأمين (ج.م EGP)',
-                        controller: amountController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'مبلغ التأمين (ج.م)',
+                          controller: amountController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'تاريخ الدفع (YYYY-MM-DD)',
-                        controller: dateController,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'تاريخ الدفع (YYYY-MM-DD)',
+                          controller: dateController,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                CustomTextField(
-                  label: 'رقم إيصال / شيك / مرجع السداد',
-                  controller: refController,
-                ),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  CustomTextField(
+                    label: 'رقم إيصال / شيك / مرجع السداد',
+                    controller: refController,
+                  ),
+                ],
+              ),
             ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
+            AppButton(
+              label: 'حفظ التأمين',
+              variant: AppButtonVariant.primary,
+              onPressed: () async {
+                final fid = int.tryParse(fileIdController.text.trim());
+                final amt = double.tryParse(amountController.text.trim());
+                if (fid == null || amt == null || containerNoController.text.trim().isEmpty || carrierController.text.trim().isEmpty) {
+                  AppTheme.snackBar(ctx, 'يرجى استيفاء الحقول الإجبارية ورقم الحاوية والمبلغ', severity: AppSeverity.warning);
+                  return;
+                }
+                Navigator.of(ctx).pop();
+                try {
+                  final service = ref.read(containerDepositServiceProvider);
+                  await service.createDeposit(
+                    importFileId: fid,
+                    carrierName: carrierController.text.trim(),
+                    containerNumber: containerNoController.text.trim(),
+                    containerType: containerTypeController.text.trim(),
+                    depositAmountEgp: amt,
+                    paymentDate: dateController.text.trim(),
+                    paymentReference: refController.text.trim().isNotEmpty ? refController.text.trim() : null,
+                  );
+                  if (!mounted) return;
+                  AppTheme.snackBar(context, 'تم تسجيل تأمين الحاوية بنجاح', severity: AppSeverity.success);
+                  _loadData();
+                } catch (e) {
+                  if (!mounted) return;
+                  AppTheme.snackBar(context, 'فشل في حفظ التأمين: $e', severity: AppSeverity.danger);
+                }
+              },
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
-          AppButton(
-            label: 'حفظ التأمين',
-            variant: AppButtonVariant.primary,
-            onPressed: () async {
-              final fid = int.tryParse(fileIdController.text.trim());
-              final amt = double.tryParse(amountController.text.trim());
-              if (fid == null || amt == null || containerNoController.text.trim().isEmpty || carrierController.text.trim().isEmpty) {
-                AppTheme.snackBar(ctx, 'يرجى استيفاء الحقول الإجبارية ورقم الحاوية والمبلغ', severity: AppSeverity.warning);
-                return;
-              }
-              Navigator.of(ctx).pop();
-              try {
-                final service = ref.read(containerDepositServiceProvider);
-                await service.createDeposit(
-                  importFileId: fid,
-                  carrierName: carrierController.text.trim(),
-                  containerNumber: containerNoController.text.trim(),
-                  containerType: containerTypeController.text.trim(),
-                  depositAmountEgp: amt,
-                  paymentDate: dateController.text.trim(),
-                  paymentReference: refController.text.trim().isNotEmpty ? refController.text.trim() : null,
-                );
-                if (!mounted) return;
-                AppTheme.snackBar(context, 'تم تسجيل تأمين الحاوية بنجاح', severity: AppSeverity.success);
-                _loadData();
-              } catch (e) {
-                if (!mounted) return;
-                AppTheme.snackBar(context, 'فشل في حفظ التأمين: $e', severity: AppSeverity.danger);
-              }
-            },
-          ),
-        ],
       ),
     );
   }
@@ -236,115 +239,116 @@ class _ContainerDepositLedgerDialogState extends ConsumerState<ContainerDepositL
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (dlgCtx, setDlgState) => AlertDialog(
-          title: Text('تسجيل إيصال استرجاع الفارغ (EIR) — ${item.containerNumber}'),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'تسجيل إيصال الـ EIR يبدأ مهلة الـ 30 يوماً القانونية الممنوحة للخط الملاحي لرد مبلغ التأمين.',
-                      style: TextStyle(fontSize: 11.5, color: AppTheme.cobalt),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CustomTextField(
-                          label: 'رقم إيصال التسليم (EIR No)',
-                          controller: eirNoController,
-                        ),
+        builder: (dlgCtx, setDlgState) => SelectionArea(
+          child: AlertDialog(
+            title: Text('تسجيل إيصال استرجاع الفارغ (EIR) — ${item.containerNumber}'),
+            content: SizedBox(
+              width: 480,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: CustomTextField(
-                          label: 'تاريخ الإيصال (YYYY-MM-DD)',
-                          controller: eirDateController,
-                        ),
+                      child: const Text(
+                        'تسجيل إيصال الـ EIR يبدأ مهلة الـ 30 يوماً القانونية الممنوحة للخط الملاحي لرد مبلغ التأمين.',
+                        style: TextStyle(fontSize: 11.5, color: AppTheme.cobalt),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('حالة الحاوية في محطة الإرجاع:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<String>(
-                    initialValue: condition,
-                    items: const [
-                      DropdownMenuItem(value: 'SOUND_CLEAN', child: Text('سليمة ونظيفة (Sound Clean)')),
-                      DropdownMenuItem(value: 'DAMAGE_CLAIMED', child: Text('مطالبة بأضرار وتلفيات')),
-                      DropdownMenuItem(value: 'CLEANING_FEE_DEDUCTED', child: Text('خصم غسيل ونظافة')),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setDlgState(() => condition = v);
-                    },
-                  ),
-                  if (condition != 'SOUND_CLEAN') ...[
+                    ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: CustomTextField(
-                            label: 'مبلغ الخصم المدعى (ج.م EGP)',
-                            controller: deductionController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            label: 'رقم إيصال التسليم',
+                            controller: eirNoController,
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: CustomTextField(
-                            label: 'سبب الخصم / التلفيات',
-                            controller: reasonController,
+                            label: 'تاريخ الإيصال (YYYY-MM-DD)',
+                            controller: eirDateController,
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    SearchableDropdownField<String>(
+                      value: condition,
+                      labelText: 'حالة الحاوية في محطة الإرجاع',
+                      items: const [
+                        SearchableDropdownItem<String>(value: 'SOUND_CLEAN', label: 'سليمة ونظيفة'),
+                        SearchableDropdownItem<String>(value: 'DAMAGE_CLAIMED', label: 'مطالبة بأضرار وتلفيات'),
+                        SearchableDropdownItem<String>(value: 'CLEANING_FEE_DEDUCTED', label: 'خصم غسيل ونظافة'),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setDlgState(() => condition = v);
+                      },
+                    ),
+                    if (condition != 'SOUND_CLEAN') ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CustomTextField(
+                              label: 'مبلغ الخصم المدعى (ج.م)',
+                              controller: deductionController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: CustomTextField(
+                              label: 'سبب الخصم / التلفيات',
+                              controller: reasonController,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
+              AppButton(
+                label: 'حفظ إيصال الـ EIR',
+                variant: AppButtonVariant.primary,
+                onPressed: () async {
+                  if (eirNoController.text.trim().isEmpty) {
+                    AppTheme.snackBar(ctx, 'يرجى إدخال رقم إيصال الـ EIR', severity: AppSeverity.warning);
+                    return;
+                  }
+                  final ded = double.tryParse(deductionController.text.trim()) ?? 0.0;
+                  Navigator.of(ctx).pop();
+                  try {
+                    final service = ref.read(containerDepositServiceProvider);
+                    await service.recordEirReturn(
+                      item.depositId,
+                      eirReturnNumber: eirNoController.text.trim(),
+                      eirReturnDate: eirDateController.text.trim(),
+                      containerCondition: condition,
+                      deductionAmountEgp: ded,
+                      deductionReason: reasonController.text.trim().isNotEmpty ? reasonController.text.trim() : null,
+                    );
+                    if (!mounted) return;
+                    AppTheme.snackBar(context, 'تم حفظ إيصال استرجاع الحاوية بنجاح وبدء مهلة المطالبة', severity: AppSeverity.success);
+                    _loadData();
+                  } catch (e) {
+                    if (!mounted) return;
+                    AppTheme.snackBar(context, 'فشل في حفظ إيصال EIR: $e', severity: AppSeverity.danger);
+                  }
+                },
+              ),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('إلغاء')),
-            AppButton(
-              label: 'حفظ إيصال الـ EIR',
-              variant: AppButtonVariant.primary,
-              onPressed: () async {
-                if (eirNoController.text.trim().isEmpty) {
-                  AppTheme.snackBar(ctx, 'يرجى إدخال رقم إيصال الـ EIR', severity: AppSeverity.warning);
-                  return;
-                }
-                final ded = double.tryParse(deductionController.text.trim()) ?? 0.0;
-                Navigator.of(ctx).pop();
-                try {
-                  final service = ref.read(containerDepositServiceProvider);
-                  await service.recordEirReturn(
-                    item.depositId,
-                    eirReturnNumber: eirNoController.text.trim(),
-                    eirReturnDate: eirDateController.text.trim(),
-                    containerCondition: condition,
-                    deductionAmountEgp: ded,
-                    deductionReason: reasonController.text.trim().isNotEmpty ? reasonController.text.trim() : null,
-                  );
-                  if (!mounted) return;
-                  AppTheme.snackBar(context, 'تم حفظ إيصال استرجاع الحاوية بنجاح وبدء مهلة المطالبة', severity: AppSeverity.success);
-                  _loadData();
-                } catch (e) {
-                  if (!mounted) return;
-                  AppTheme.snackBar(context, 'فشل في حفظ إيصال EIR: $e', severity: AppSeverity.danger);
-                }
-              },
-            ),
-          ],
         ),
       ),
     );
@@ -358,8 +362,9 @@ class _ContainerDepositLedgerDialogState extends ConsumerState<ContainerDepositL
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('تسجيل استرداد مبلغ التأمين — ${item.containerNumber}'),
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
+          title: Text('تسجيل استرداد مبلغ التأمين — ${item.containerNumber}'),
         content: SizedBox(
           width: 450,
           child: Column(
@@ -432,6 +437,7 @@ class _ContainerDepositLedgerDialogState extends ConsumerState<ContainerDepositL
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -443,8 +449,9 @@ class _ContainerDepositLedgerDialogState extends ConsumerState<ContainerDepositL
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (dlgCtx, setDlgState) => AlertDialog(
-          title: Text('اعتراض على خصومات التأمين — ${item.containerNumber}'),
+        builder: (dlgCtx, setDlgState) => SelectionArea(
+          child: AlertDialog(
+            title: Text('اعتراض على خصومات التأمين — ${item.containerNumber}'),
           content: SizedBox(
             width: 460,
             child: Column(
@@ -510,6 +517,7 @@ class _ContainerDepositLedgerDialogState extends ConsumerState<ContainerDepositL
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -519,9 +527,10 @@ class _ContainerDepositLedgerDialogState extends ConsumerState<ContainerDepositL
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       backgroundColor: Colors.transparent,
-      child: Container(
-        width: 1150,
-        height: 760,
+      child: SelectionArea(
+        child: Container(
+          width: 1150,
+          height: 760,
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
           borderRadius: BorderRadius.circular(12),
@@ -836,6 +845,7 @@ class _ContainerDepositLedgerDialogState extends ConsumerState<ContainerDepositL
             ),
           ],
         ),
+      ),
       ),
     );
   }

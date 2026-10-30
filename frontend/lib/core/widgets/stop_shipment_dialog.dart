@@ -89,8 +89,9 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
     final l = context.l10n;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return SelectionArea(
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       titlePadding: EdgeInsets.zero,
       contentPadding: const EdgeInsets.all(20),
       title: Container(
@@ -203,7 +204,8 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }
 

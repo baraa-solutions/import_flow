@@ -183,9 +183,10 @@ class _EmptyContainerReturnDialogState
     final l = context.l10n;
     final filesAsync = ref.watch(importFilesProvider);
 
-    return Form(
-      key: _formKey,
-      child: CcStageDialogShell(
+    return SelectionArea(
+      child: Form(
+        key: _formKey,
+        child: CcStageDialogShell(
         title: l.erTitle,
         icon: Icons.assignment_turned_in_rounded,
         accent: AppTheme.emerald,
@@ -253,6 +254,7 @@ class _EmptyContainerReturnDialogState
           ],
         ),
       ),
+    ),
     );
   }
 

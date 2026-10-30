@@ -84,7 +84,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
+        builder: (ctx, setLocal) => SelectionArea(
+          child: AlertDialog(
           title: Row(
             children: [
               Container(
@@ -208,36 +209,28 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                     const SizedBox(height: 14),
 
                     // ── Role Dropdown ──────────────────────────────────────────
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedRole,
+                    SearchableDropdownField<String>(
+                      value: selectedRole,
+                      labelText: l.usersMgmtFieldRole,
                       decoration: InputDecoration(
                         labelText: l.usersMgmtFieldRole,
                         prefixIcon: const Icon(Icons.shield_outlined, size: 20),
                       ),
                       items: [
-                        DropdownMenuItem(
+                        SearchableDropdownItem<String>(
                           value: 'ADMIN',
-                          child: Row(children: [
-                            const Icon(Icons.admin_panel_settings_rounded, size: 16, color: AppTheme.crimson),
-                            const SizedBox(width: 8),
-                            Text(l.usersMgmtRoleAdminOption),
-                          ]),
+                          label: l.usersMgmtRoleAdminOption,
+                          icon: Icons.admin_panel_settings_rounded,
                         ),
-                        DropdownMenuItem(
+                        SearchableDropdownItem<String>(
                           value: 'MANAGER',
-                          child: Row(children: [
-                            const Icon(Icons.manage_accounts_rounded, size: 16, color: AppTheme.cobalt),
-                            const SizedBox(width: 8),
-                            Text(l.usersMgmtRoleManagerOption),
-                          ]),
+                          label: l.usersMgmtRoleManagerOption,
+                          icon: Icons.manage_accounts_rounded,
                         ),
-                        DropdownMenuItem(
+                        SearchableDropdownItem<String>(
                           value: 'OPERATOR',
-                          child: Row(children: [
-                            const Icon(Icons.badge_rounded, size: 16, color: AppTheme.emerald),
-                            const SizedBox(width: 8),
-                            Text(l.usersMgmtRoleOperatorOption),
-                          ]),
+                          label: l.usersMgmtRoleOperatorOption,
+                          icon: Icons.badge_rounded,
                         ),
                       ],
                       onChanged: (v) => setLocal(() => selectedRole = v ?? 'OPERATOR'),
@@ -342,6 +335,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
               ),
             ),
           ],
+          ),
         ),
       ),
     ).then((_) {
@@ -537,8 +531,9 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: DropdownButtonFormField<int?>(
-                            initialValue: selectedRoleId,
+                          child: SearchableDropdownField<int?>(
+                            value: selectedRoleId,
+                            labelText: l.usersMgmtPermRoleLabel,
                             decoration: InputDecoration(
                               isDense: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -550,16 +545,16 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen> {
                               fillColor: Colors.white,
                             ),
                             items: [
-                              DropdownMenuItem<int?>(
+                              SearchableDropdownItem<int?>(
                                 value: null,
-                                child: Text(l.usersMgmtPermNoRole,
-                                    style: const TextStyle(color: Colors.grey)),
+                                label: l.usersMgmtPermNoRole,
                               ),
                               ...currentRbac.roles
                                   .where((r) => r.isActive)
-                                  .map((r) => DropdownMenuItem<int?>(
+                                  .map((r) => SearchableDropdownItem<int?>(
                                         value: r.roleId,
-                                        child: Text('${r.nameAr} (${r.roleCode})'),
+                                        label: '${r.nameAr} (${r.roleCode})',
+                                        searchValue: '${r.nameAr} ${r.nameEn} ${r.roleCode}',
                                       )),
                             ],
                             onChanged: isSaving

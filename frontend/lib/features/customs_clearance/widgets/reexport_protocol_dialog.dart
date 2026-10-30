@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/app_status_badge.dart';
-import '../../../core/widgets/app_search_field.dart';
-import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/reexport_protocol_model.dart';
 import '../services/reexport_protocol_service.dart';
 
@@ -118,49 +115,50 @@ class _ReexportProtocolDialogState extends ConsumerState<ReexportProtocolDialog>
         ),
         content: SizedBox(
           width: 550,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.red.shade200),
+          child: SelectionArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'المادة 67 من قانون 207/2020: يبدأ سريان مهلة الـ 30 يوماً فور صدور قرار الرفض النهائي قبل الشروع في إجراءات الإعدام الجمركي.',
+                            style: TextStyle(fontSize: 11.5, color: AppTheme.crimson),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: const Row(
+                  const SizedBox(height: 14),
+                  Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 20),
-                      SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          'المادة 67 من قانون 207/2020: يبدأ سريان مهلة الـ 30 يوماً فور صدور قرار الرفض النهائي قبل الشروع في إجراءات الإعدام الجمركي.',
-                          style: TextStyle(fontSize: 11.5, color: AppTheme.crimson),
+                        child: CustomTextField(
+                          label: 'معرف الملف الاستيرادي',
+                          controller: fileIdController,
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'كود الملف (مثال: IMP-2026-001)',
+                          controller: fileCodeController,
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'معرف الملف الاستيرادي (ID)',
-                        controller: fileIdController,
-                        keyboardType: TextInputType.number,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'كود الملف (مثال: IMP-2026-001)',
-                        controller: fileCodeController,
-                      ),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 10),
                 CustomTextField(
                   label: 'الجهة الرقابية الصادر عنها الرفض',
@@ -199,6 +197,7 @@ class _ReexportProtocolDialogState extends ConsumerState<ReexportProtocolDialog>
               ],
             ),
           ),
+        ),
         ),
         actions: [
           TextButton(
@@ -257,25 +256,27 @@ class _ReexportProtocolDialogState extends ConsumerState<ReexportProtocolDialog>
         title: Text('تسجيل حجز الشحن العكسي — ${item.importFileCode}'),
         content: SizedBox(
           width: 450,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CustomTextField(
-                label: 'رقم حجز الشحن العكسي (Booking No)',
-                controller: bookingNoController,
-              ),
-              const SizedBox(height: 10),
-              CustomTextField(
-                label: 'ميناء الوصول النهائي لإعادة التصدير (POD)',
-                controller: podController,
-              ),
-              const SizedBox(height: 10),
-              CustomTextField(
-                label: 'رقم بوليصة الشحن الصادر (Outbound B/L)',
-                controller: blNoController,
-                hint: 'اختياري في مرحلة الحجز المبدئي',
-              ),
-            ],
+          child: SelectionArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CustomTextField(
+                  label: 'رقم حجز الشحن العكسي',
+                  controller: bookingNoController,
+                ),
+                const SizedBox(height: 10),
+                CustomTextField(
+                  label: 'ميناء الوصول النهائي لإعادة التصدير',
+                  controller: podController,
+                ),
+                const SizedBox(height: 10),
+                CustomTextField(
+                  label: 'رقم بوليصة الشحن الصادر',
+                  controller: blNoController,
+                  hint: 'اختياري في مرحلة الحجز المبدئي',
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -376,33 +377,34 @@ class _ReexportProtocolDialogState extends ConsumerState<ReexportProtocolDialog>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (dlgCtx, setDlgState) => AlertDialog(
-          title: Text('إشعار الخصم الدائن للمورد (Credit Note) — ${item.importFileCode}'),
+          title: Text('إشعار الخصم الدائن للمورد — ${item.importFileCode}'),
           content: SizedBox(
             width: 450,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('حالة إشعار الخصم:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                const SizedBox(height: 4),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedStatus,
-                  items: const [
-                    DropdownMenuItem(value: 'REQUESTED', child: Text('تمت المطالبة وقيد المتابعة')),
-                    DropdownMenuItem(value: 'RECEIVED', child: Text('تم استلام إشعار الخصم الدائن (Received)')),
-                    DropdownMenuItem(value: 'ARBITRATION', child: Text('نزاع وتحكيم تجاري مع المورد')),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) setDlgState(() => selectedStatus = v);
-                  },
-                ),
-                const SizedBox(height: 12),
-                CustomTextField(
-                  label: 'قيمة إشعار الخصم (\$ USD)',
-                  controller: amountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                ),
-              ],
+            child: SelectionArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SearchableDropdownField<String>(
+                    value: selectedStatus,
+                    labelText: 'حالة إشعار الخصم',
+                    items: const [
+                      SearchableDropdownItem(value: 'REQUESTED', label: 'تمت المطالبة وقيد المتابعة'),
+                      SearchableDropdownItem(value: 'RECEIVED', label: 'تم استلام إشعار الخصم الدائن'),
+                      SearchableDropdownItem(value: 'ARBITRATION', label: 'نزاع وتحكيم تجاري مع المورد'),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) setDlgState(() => selectedStatus = v);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  CustomTextField(
+                    label: 'قيمة إشعار الخصم (\$)',
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -450,30 +452,31 @@ class _ReexportProtocolDialogState extends ConsumerState<ReexportProtocolDialog>
           title: Text('استرداد الرسوم الجمركية (دروباك) — ${item.importFileCode}'),
           content: SizedBox(
             width: 450,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('حالة طلب رد الرسوم:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                const SizedBox(height: 4),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedStatus,
-                  items: const [
-                    DropdownMenuItem(value: 'PENDING_APPLICATION', child: Text('قيد تقديم طلب الاسترداد')),
-                    DropdownMenuItem(value: 'APPROVED_REFUNDED', child: Text('تمت الموافقة ورد الرسوم الجمركية')),
-                    DropdownMenuItem(value: 'EXEMPTION_SUSPENDED', child: Text('موقوف ومعلق الإعفاء')),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) setDlgState(() => selectedStatus = v);
-                  },
-                ),
-                const SizedBox(height: 12),
-                CustomTextField(
-                  label: 'قيمة الرسوم الجمركية القابلة للاسترداد (ج.م EGP)',
-                  controller: amountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                ),
-              ],
+            child: SelectionArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SearchableDropdownField<String>(
+                    value: selectedStatus,
+                    labelText: 'حالة طلب رد الرسوم',
+                    items: const [
+                      SearchableDropdownItem(value: 'PENDING_APPLICATION', label: 'قيد تقديم طلب الاسترداد'),
+                      SearchableDropdownItem(value: 'APPROVED_REFUNDED', label: 'تمت الموافقة ورد الرسوم الجمركية'),
+                      SearchableDropdownItem(value: 'EXEMPTION_SUSPENDED', label: 'موقوف ومعلق الإعفاء'),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) setDlgState(() => selectedStatus = v);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  CustomTextField(
+                    label: 'قيمة الرسوم الجمركية القابلة للاسترداد (ج.م)',
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -556,34 +559,35 @@ class _ReexportProtocolDialogState extends ConsumerState<ReexportProtocolDialog>
             ),
           ],
         ),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: const BoxDecoration(
-                color: AppTheme.charcoal,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.outbox_rounded, color: AppTheme.crimson, size: 26),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'بروتوكول البضائع المرفوضة وإعادة التصدير (Re-Export Protocol & Statutory Destruction)',
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          'المادة 67 و 70 من قانون الجمارك 207/2020: مهلة الـ 30 يوماً لإعادة التصدير لحماية المستورد من الغرامات والإعدام الجمركي',
-                          style: TextStyle(color: Colors.white70, fontSize: 11.5),
-                        ),
-                      ],
+        child: SelectionArea(
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: AppTheme.charcoal,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.outbox_rounded, color: AppTheme.crimson, size: 26),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'بروتوكول البضائع المرفوضة وإعادة التصدير',
+                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'المادة 67 و 70 من قانون الجمارك 207/2020: مهلة الـ 30 يوماً لإعادة التصدير لحماية المستورد من الغرامات والإعدام الجمركي',
+                            style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   AppButton(
                     label: 'تسجيل رفض جمركي جديد',
                     icon: Icons.add_circle_outline,
@@ -876,6 +880,7 @@ class _ReexportProtocolDialogState extends ConsumerState<ReexportProtocolDialog>
                             ),
             ),
           ],
+        ),
         ),
       ),
     );
