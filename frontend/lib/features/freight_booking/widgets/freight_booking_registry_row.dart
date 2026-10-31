@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../models/freight_booking_model.dart';
+import '../l10n/air_lcl_l10n.dart';
 import 'freight_booking_ui.dart';
 
 /// Callbacks of one registry row (kept together so the screen stays small).
@@ -21,7 +22,10 @@ class FbkRowActions {
     required this.onReviewDraftBl,
     this.onCancelBooking,
     this.onEtaTracking,
+    this.onAirLclDetails,
   });
+
+  final VoidCallback? onAirLclDetails;
 
   final VoidCallback onView;
   final VoidCallback onEdit;
@@ -132,6 +136,18 @@ class FbkRegistryRow extends StatelessWidget {
             ],
           ),
         ),
+        if (b.isAirFreight)
+          AppStatusBadge(
+            label: l.transportModeAirFreight,
+            severity: AppSeverity.info,
+            icon: Icons.flight_takeoff,
+          )
+        else if (b.isSeaLcl)
+          AppStatusBadge(
+            label: l.transportModeSeaLcl,
+            severity: AppSeverity.success,
+            icon: Icons.conveyor_belt,
+          ),
         Tooltip(
           message: tip,
           child: InkWell(
@@ -244,6 +260,19 @@ class FbkRegistryRow extends StatelessWidget {
         fact(l.freightBookingColDeparture, departure),
         fact(l.freightBookingColArrival, arrival),
         fact(l.freightBookingColContainers, FbkFormat.containers(b)),
+        if (b.isAirFreight) ...[
+          if (b.masterAirWaybill != null && b.masterAirWaybill!.isNotEmpty)
+            fact(l.masterAirWaybillLabel, b.masterAirWaybill!, mono: true),
+          if (b.flightNumber != null && b.flightNumber!.isNotEmpty)
+            fact(l.flightNumberLabel, b.flightNumber!, mono: true),
+          if (b.chargeableWeightKg != null && b.chargeableWeightKg! > 0)
+            fact(l.chargeableWeightResult, '${b.chargeableWeightKg} ${l.unitKg}', mono: true),
+        ] else if (b.isSeaLcl) ...[
+          if (b.cfsTerminalName != null && b.cfsTerminalName!.isNotEmpty)
+            fact(l.cfsTerminalNameLabel, b.cfsTerminalName!),
+          if (b.strippingFeesEgp != null && b.strippingFeesEgp! > 0)
+            fact(l.strippingFeesEgpLabel, '${b.strippingFeesEgp} ${l.unitEgp}', mono: true),
+        ],
       ],
     );
   }
@@ -332,6 +361,18 @@ class FbkRegistryRow extends StatelessWidget {
               actions.onReviewDraftBl,
               color: AppTheme.emerald),
         ],
+        if (actions.onAirLclDetails != null)
+          _icon(
+            Key('airLclDetailsRowBtn_${b.bookingCode}'),
+            b.isAirFreight
+                ? Icons.flight_takeoff
+                : (b.isSeaLcl ? Icons.conveyor_belt : Icons.tune),
+            l.viewAirLclDetails,
+            actions.onAirLclDetails!,
+            color: b.isAirFreight
+                ? AppTheme.cobalt
+                : (b.isSeaLcl ? AppTheme.flatEmerald : AppTheme.textSecondaryOf(context)),
+          ),
         if (actions.onCancelBooking != null && FbkUi.canCancel(b.status))
           _icon(Key('cancelBookingRowBtn_${b.bookingCode}'), Icons.cancel_outlined, l.fbkCancelBookingTitle,
               actions.onCancelBooking!,

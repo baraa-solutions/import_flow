@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import math
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -421,7 +423,8 @@ class VesselTrackingService:
                 )
                 dd_service._apply_totals(dem, containers, dem_fx, det_fx, stor_egp, rate)
                 dem.status = dd_service._incurred_status(dem_fx, det_fx)
-            except Exception:
+            except Exception as exc:
+                logger.exception("Failed to recalculate demurrage tracking on vessel port arrival: %s", exc)
                 if dem.status in ("Pending", "Not Started", None, "Free Time Active"):
                     dem.status = "Free Time Active"
             dem.updated_at = now
@@ -450,11 +453,11 @@ class VesselTrackingService:
                 if not containers_payload:
                     containers_payload = [ContainerItemInput(container_no=f"CONT-{import_file_id}-01", container_type="40ft High Cube")]
 
-                rate = 50.0
+                rate = None
                 try:
                     rate = dd_service._resolve_exchange_rate(self.db, "USD", arr_date)
-                except Exception:
-                    rate = 50.0
+                except Exception as exc:
+                    logger.warning("Could not resolve USD exchange rate on %s: %s", arr_date, exc)
 
                 req_create = DemurrageTrackingCreate(
                     import_file_id=import_file_id,
@@ -467,8 +470,8 @@ class VesselTrackingService:
                     notes=f"Auto-created on vessel port arrival: {arr_date}",
                 )
                 dem = dd_service.create_demurrage_tracking_service(self.db, req_create, user=user)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.exception("Failed to auto-provision demurrage tracking on vessel arrival: %s", exc)
 
         # 6. Primary Commit for Core Business Data
         self.db.commit()

@@ -11,13 +11,13 @@ def normalize_container_number(raw_number: str) -> str:
     """Cleans and standardizes a container number (uppercase, alphanumeric)."""
     if not raw_number or not raw_number.strip():
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="رقم الحاوية لا يمكن أن يكون فارغاً.",
         )
     cleaned = re.sub(r"[^A-Za-z0-9]", "", raw_number).upper()
     if len(cleaned) < 4:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"رقم الحاوية '{raw_number}' قصير جداً وغير صالح.",
         )
     return cleaned
@@ -31,19 +31,19 @@ def validate_container_dates(
     """Validates chronological ordering of container operational milestone dates."""
     if gate_out_date and discharge_date and gate_out_date < discharge_date:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="تاريخ خروج الحاوية من الميناء لا يمكن أن يسبق تاريخ التفريغ.",
         )
 
     if empty_return_date and gate_out_date and empty_return_date < gate_out_date:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="تاريخ إرجاع الحاوية الفارغة لا يمكن أن يسبق تاريخ خروجها من الميناء.",
         )
 
     if empty_return_date and discharge_date and empty_return_date < discharge_date:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="تاريخ إرجاع الحاوية الفارغة لا يمكن أن يسبق تاريخ التفريغ.",
         )
 

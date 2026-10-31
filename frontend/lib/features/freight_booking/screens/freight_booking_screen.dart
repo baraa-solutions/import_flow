@@ -24,6 +24,7 @@ import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/freight_booking_model.dart';
 import '../providers/freight_booking_provider.dart';
+import '../widgets/air_lcl_details_dialog.dart';
 import '../widgets/departure_confirmation_dialog.dart';
 import '../widgets/freight_booking_confirm_dialog.dart';
 import '../widgets/freight_booking_form_dialog.dart';
@@ -148,6 +149,14 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => FreightBookingConfirmDialog(booking: booking),
+    );
+  }
+
+  void _showAirLclDetailsDialog(ShipmentBookingModel booking) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AirLclDetailsDialog(booking: booking),
     );
   }
 
@@ -477,6 +486,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
               onReviewDraftBl: () => _showDraftBlReviewDialog(bkg),
               onCancelBooking: () => _confirmCancel(bkg),
               onEtaTracking: () => VesselEtaTrackingDialog.show(context, bkg),
+              onAirLclDetails: () => _showAirLclDetailsDialog(bkg),
             ),
           );
         },

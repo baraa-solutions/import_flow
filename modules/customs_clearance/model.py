@@ -64,6 +64,13 @@ class CustomsClearanceRecord(Base):
 
     # BP-030 & CL-02 Duty Payment Breakdown & Nafeza Assessment
     cif_base_amount = Column(Float, default=0.0)
+    # EPIC-CUST-VAL: Customs Valuation Uplift & Commercial vs Assessed Customs CIF
+    commercial_cif_base_amount = Column(Float, default=0.0, nullable=True)
+    customs_assessed_cif_egp = Column(Float, default=0.0, nullable=True)
+    customs_assessed_cif_usd = Column(Float, default=0.0, nullable=True)
+    is_valuation_uplifted = Column(Boolean, default=False, nullable=False)
+    valuation_uplift_amount_egp = Column(Float, default=0.0, nullable=True)
+    valuation_uplift_reason = Column(Text, nullable=True)
     customs_exchange_rate = Column(Float, nullable=True)
     import_duty_amount = Column(Float, default=0.0)
     vat_amount = Column(Float, default=0.0)

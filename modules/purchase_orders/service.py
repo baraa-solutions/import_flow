@@ -1083,11 +1083,15 @@ class PurchaseOrderService:
 
         allocation = POShipmentAllocation(
             po_id=po.po_id,
-            po_item_id=data.po_item_id,
+            po_line_item_id=getattr(data, "po_line_item_id", None) or getattr(data, "po_item_id", None),
+            po_item_id=getattr(data, "po_line_item_id", None) or getattr(data, "po_item_id", None),
             import_file_id=data.import_file_id,
-            shipment_ref=data.shipment_ref.strip(),
-            shipped_quantity=data.shipped_quantity,
-            shipped_amount_fob=data.shipped_amount_fob,
+            shipment_batch_no=getattr(data, "shipment_batch_no", None) or data.shipment_ref,
+            shipment_ref=(data.shipment_ref or getattr(data, "shipment_batch_no", None) or "BATCH-01").strip(),
+            allocated_quantity=getattr(data, "allocated_quantity", None) or data.shipped_quantity or 0.0,
+            shipped_quantity=data.shipped_quantity or getattr(data, "allocated_quantity", None) or 0.0,
+            allocated_fob_amount=getattr(data, "allocated_fob_amount", None) or data.shipped_amount_fob or 0.0,
+            shipped_amount_fob=data.shipped_amount_fob or getattr(data, "allocated_fob_amount", None) or 0.0,
             shipping_date=data.shipping_date or datetime.now(timezone.utc),
             status=alloc_status,
             notes=data.notes,
@@ -1110,6 +1114,17 @@ class PurchaseOrderService:
             if ordered > 0 and shipped > ordered + QTY_EPSILON:
                 messages.append(to_item("OVER_SHIPPED", "warning", shipped_qty=round(shipped, 2), ordered_qty=round(ordered, 2),
                                          po_number=po.po_number, item_code=None))
+
+        total_ord_q = self._ordered_qty(po)
+        total_ship_q, _ = self._shipped_totals(allocations)
+        po.total_shipped_quantity = round(total_ship_q, 2)
+        po.remaining_balance_quantity = max(0.0, round(total_ord_q - total_ship_q, 2))
+        if total_ship_q <= 0:
+            po.fulfillment_status = "OPEN"
+        elif total_ship_q >= total_ord_q - QTY_EPSILON:
+            po.fulfillment_status = "FULLY_SHIPPED"
+        else:
+            po.fulfillment_status = "PARTIALLY_SHIPPED"
 
         if self._sync_po_fulfillment_status(po, allocations):
             self._touch(po, current_user_name)
@@ -1191,6 +1206,16 @@ class PurchaseOrderService:
             f"({overall_percent}% إنجاز توريد {method_ar})، والمتبقي للتوريد {total_rem_qty:,.0f} وحدة "
             f"بقيمة تعاقدية متبقية {total_rem_fob:,.2f}{curr_label} عبر {len(allocations)} شحنات مجزأة."
         )
+
+        po.total_shipped_quantity = round(total_shipped_qty, 2)
+        po.remaining_balance_quantity = round(total_rem_qty, 2)
+        if total_shipped_qty <= 0:
+            po.fulfillment_status = "OPEN"
+        elif total_shipped_qty >= total_ordered_qty - QTY_EPSILON:
+            po.fulfillment_status = "FULLY_SHIPPED"
+        else:
+            po.fulfillment_status = "PARTIALLY_SHIPPED"
+        self.db.commit()
 
         return POBalanceSummaryResponse(
             po_id=po.po_id,

@@ -104,6 +104,23 @@ def in_memory_db():
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
+    # Seed USD currency and commercial rates for tests
+    from modules.currencies.model import Currency, ExchangeRate
+    from datetime import date
+    usd = Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+    session.add(usd)
+    session.flush()
+    for d_str in ("2026-10-26", "2026-10-31", str(date.today())):
+        y, m, d = [int(x) for x in d_str.split("-")]
+        rate_obj = ExchangeRate(
+            currency_id=usd.currency_id,
+            commercial_rate=48.5,
+            customs_rate=48.5,
+            effective_date=date(y, m, d),
+            is_active=True,
+        )
+        session.add(rate_obj)
+    session.commit()
     yield session
     session.close()
 

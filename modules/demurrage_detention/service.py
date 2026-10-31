@@ -471,10 +471,21 @@ def _recalculate_containers(
     (containers, demurrage_fx, detention_fx, storage_egp) with unrounded sums."""
     out: List[Dict[str, Any]] = []
     total_dem = total_det = total_stor = 0.0
+    container_count = len(tracking.containers or [])
     for c in (tracking.containers or []):
         item = dict(c)
-        c_gate_out = _parse_date(item.get("gate_out_date")) or gate_out
-        c_return = _parse_date(item.get("empty_return_date")) or empty_return
+        c_gate_out = _parse_date(item.get("gate_out_timestamp")) or _parse_date(item.get("gate_out_date")) or gate_out
+        
+        # Cease penalty accrual for any container with established eir_timestamp or empty_return_date
+        c_eir_ts = item.get("eir_timestamp")
+        c_ret_date = item.get("empty_return_date")
+        if c_eir_ts or c_ret_date:
+            c_return = _parse_date(c_eir_ts) or _parse_date(c_ret_date)
+        elif container_count > 1:
+            c_return = None
+        else:
+            c_return = empty_return
+
         sim = simulate_demurrage_and_detention(DemurrageSimulationRequest(
             carrier_name=tracking.carrier_name,
             container_type=item.get("container_type") or "40ft High Cube",
@@ -506,6 +517,7 @@ def _recalculate_containers(
             "storage_egp": sim.storage_fee_egp,
             "storage_fx": sim.storage_fee_fx,
             "total_egp": sim.total_cost_egp,
+            "individual_demurrage_cost": round(sim.demurrage_fee_fx + sim.detention_fee_fx, 2),
             "status": status_fn(item, sim, c_gate_out, c_return) if status_fn else sim.status_badge,
         })
         out.append(item)
@@ -1155,6 +1167,17 @@ def _sync_containers_from_tracking(db: Session, tracking: DemurrageTracking, use
                 sc.detention_cost_fx = float(c_data.get("detention_fx") or 0.0)
                 sc.storage_cost_egp = float(c_data.get("storage_egp") or 0.0)
                 sc.total_cost_egp = float(c_data.get("total_egp") or 0.0)
+                sc.individual_demurrage_cost = round(sc.demurrage_cost_fx + sc.detention_cost_fx, 2)
+                if c_data.get("eir_timestamp") and not sc.eir_timestamp:
+                    try:
+                        sc.eir_timestamp = datetime.fromisoformat(str(c_data["eir_timestamp"]))
+                    except Exception:
+                        pass
+                if c_data.get("gate_out_timestamp") and not sc.gate_out_timestamp:
+                    try:
+                        sc.gate_out_timestamp = datetime.fromisoformat(str(c_data["gate_out_timestamp"]))
+                    except Exception:
+                        pass
                 if c_data.get("status"):
                     sc.status = c_data["status"]
                 sc.updated_by = user
@@ -1830,7 +1853,7 @@ def get_containers_radar_overview_service(db: Session) -> ContainerRadarOverview
             c_type = c.get("container_type") or "40ft High Cube"
 
             c_gate_out = _parse_date(c.get("gate_out_date")) or t.gate_out_date
-            c_empty_ret = _parse_date(c.get("empty_return_date")) or t.empty_return_date
+            c_empty_ret = _parse_date(c.get("eir_timestamp")) or _parse_date(c.get("empty_return_date")) or t.empty_return_date
 
             c_ref_gate_out = c_gate_out or today
             c_dem_consumed = max(0, (c_ref_gate_out - t.discharge_date).days)

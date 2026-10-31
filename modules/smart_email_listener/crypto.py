@@ -19,7 +19,7 @@ from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 logger = logging.getLogger("smart_email_listener.crypto")
 
 # Hard-coded fallback used by older builds when SECRET_KEY was not in the environment.
-# Kept for DECRYPTION ONLY; never used to encrypt new values.
+# Kept for DECRYPTION ONLY of historical credentials; NEVER used to encrypt new values.
 LEGACY_FALLBACK_SECRET = "ImportFlow_ERP_Secret_Key_2026_Secure_RBAC"
 ENC_PREFIX = "enc:"
 
@@ -30,7 +30,13 @@ def _fernet_for(secret: str) -> Fernet:
 
 
 def _current_secret() -> str:
-    return os.getenv("SECRET_KEY", "") or LEGACY_FALLBACK_SECRET
+    secret = os.getenv("SECRET_KEY", "").strip()
+    if not secret:
+        raise RuntimeError(
+            "SECRET_KEY is not configured in the environment. "
+            "Refusing to encrypt credentials with a fallback key."
+        )
+    return secret
 
 
 def _get_fernet_cipher() -> Fernet:
@@ -39,8 +45,11 @@ def _get_fernet_cipher() -> Fernet:
 
 
 def _get_decrypt_cipher() -> MultiFernet:
-    """Current key first, then the legacy fallback key."""
-    secrets_in_order: List[str] = [_current_secret()]
+    """Current key first (if present), then the legacy fallback key for reading legacy data only."""
+    secrets_in_order: List[str] = []
+    secret = os.getenv("SECRET_KEY", "").strip()
+    if secret:
+        secrets_in_order.append(secret)
     if LEGACY_FALLBACK_SECRET not in secrets_in_order:
         secrets_in_order.append(LEGACY_FALLBACK_SECRET)
     return MultiFernet([_fernet_for(s) for s in secrets_in_order])

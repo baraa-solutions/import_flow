@@ -78,3 +78,27 @@ def resolve_backup_file(backups_dir: Path, filename: str) -> Path:
     if not candidate.is_file():
         raise FileNotFoundError(f"الملف الاحتياطي '{raw}' غير موجود في مجلد النسخ الاحتياطية.")
     return candidate
+
+
+import re
+
+_SQL_IDENTIFIER_REGEX = re.compile(r"^[a-zA-Z0-9_]+$")
+
+
+def validate_sql_identifier(identifier: str) -> str:
+    """Validate that an SQL identifier consists only of alphanumerics and underscores.
+    
+    Prevents SQL injection when table or column names are dynamically formatted into SQL queries.
+    """
+    raw = (identifier or "").strip()
+    if not raw or not _SQL_IDENTIFIER_REGEX.match(raw):
+        raise ValueError(f"Invalid or unsafe SQL identifier: {identifier!r}")
+    return raw
+
+
+def validate_table_ddl(ddl: str) -> str:
+    """Validate that a table creation statement is a safe CREATE TABLE statement."""
+    raw = (ddl or "").strip()
+    if not raw.upper().startswith("CREATE TABLE"):
+        raise ValueError("Invalid DDL: Only CREATE TABLE statements are permitted.")
+    return raw

@@ -168,9 +168,11 @@ class PurchaseOrderValidator:
         """Returns the allocated line item (None for a PO-level allocation)."""
         self.normalize_allocation_status(data.status)
         item = None
-        if data.po_item_id:
-            item = next((it for it in po.line_items if it.item_id == data.po_item_id), None)
+        target_item_id = getattr(data, "po_line_item_id", None) or getattr(data, "po_item_id", None)
+        if target_item_id:
+            item = next((it for it in po.line_items if it.item_id == target_item_id), None)
             if item is None:
-                raise _bad_request(f"البند رقم #{data.po_item_id} غير مرتبط بأمر الشراء #{po.po_number}.")
-        require_active(self.db, ImportFile, data.import_file_id, "ملف الاستيراد")
+                raise _bad_request(f"البند رقم #{target_item_id} غير مرتبط بأمر الشراء #{po.po_number}.")
+        if data.import_file_id:
+            require_active(self.db, ImportFile, data.import_file_id, "ملف الاستيراد")
         return item

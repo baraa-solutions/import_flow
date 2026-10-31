@@ -292,7 +292,7 @@ void main() {
 
       // Verify form sections and terminal dropdown
       expect(find.textContaining('بيانات الحاوية والمحطة'), findsOneWidget);
-      expect(find.textContaining('ACCHCO'), findsWidgets);
+      expect(find.textContaining('الإسكندرية'), findsWidgets);
 
       // Verify calculate button
       expect(find.textContaining('إعادة احتساب الرسوم'), findsOneWidget);

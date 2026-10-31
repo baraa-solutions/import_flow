@@ -96,7 +96,7 @@ _CODE_BUCKETS = (
 
 # CL-04: an explicit null may not clear these (NOT NULL columns and money amounts).
 _MONEY_UPDATE_FIELDS = frozenset({
-    "cif_base_amount", "customs_exchange_rate", "estimated_duty_total", "delivery_order_fees", *DUTY_COMPONENT_FIELDS,
+    "cif_base_amount", "commercial_cif_base_amount", "customs_assessed_cif_egp", "customs_assessed_cif_usd", "valuation_uplift_amount_egp", "customs_exchange_rate", "estimated_duty_total", "delivery_order_fees", *DUTY_COMPONENT_FIELDS,
 })
 
 
@@ -400,7 +400,13 @@ def create_customs_clearance_service(
             duty_payment_requested_date=schema.duty_payment_requested_date,
             customs_office_name=schema.customs_office_name,
             channel_type=schema.channel_type,
-            cif_base_amount=schema.cif_base_amount,
+            cif_base_amount=schema.customs_assessed_cif_egp if (schema.customs_assessed_cif_egp and schema.customs_assessed_cif_egp > 0) else schema.cif_base_amount,
+            commercial_cif_base_amount=schema.commercial_cif_base_amount,
+            customs_assessed_cif_egp=schema.customs_assessed_cif_egp,
+            customs_assessed_cif_usd=schema.customs_assessed_cif_usd,
+            is_valuation_uplifted=schema.is_valuation_uplifted,
+            valuation_uplift_amount_egp=schema.valuation_uplift_amount_egp,
+            valuation_uplift_reason=schema.valuation_uplift_reason,
             customs_exchange_rate=schema.customs_exchange_rate,
             inspection_date=schema.inspection_date or now,
             regulatory_bodies=schema.regulatory_bodies,
@@ -497,7 +503,8 @@ def update_customs_clearance_service(
     ensure_file_open(db, record.import_file_id)
     data = _normalize_clearance_update(schema.model_dump(exclude_unset=True))
     duty_costing_fields = set(DUTY_COMPONENT_FIELDS) | {
-        "cif_base_amount", "customs_exchange_rate", "estimated_duty_total",
+        "cif_base_amount", "commercial_cif_base_amount", "customs_assessed_cif_egp", "customs_assessed_cif_usd",
+        "valuation_uplift_amount_egp", "customs_exchange_rate", "estimated_duty_total",
         "total_duty_payable", "actual_duty_total", "duty_paid_amount", "delivery_order_fees",
     }
     if any(k in data for k in duty_costing_fields):
@@ -525,6 +532,12 @@ def update_customs_clearance_service(
         target = get_customs_clearance_service(db, record_id)
         for name, value in data.items():
             setattr(target, name, value)
+        if "customs_assessed_cif_egp" in data and data["customs_assessed_cif_egp"] is not None:
+            target.cif_base_amount = float(data["customs_assessed_cif_egp"])
+        if (target.customs_assessed_cif_egp or 0.0) > (target.commercial_cif_base_amount or 0.0) > 0.0:
+            target.is_valuation_uplifted = True
+            if not target.valuation_uplift_amount_egp:
+                target.valuation_uplift_amount_egp = round((target.customs_assessed_cif_egp or 0.0) - (target.commercial_cif_base_amount or 0.0), 2)
         if not is_assessed(target):
             # Not assessed yet: the CL-03 component sum; the assessed totals are never written by a PUT.
             target.total_duty_payable = duty_components_total(target)
@@ -961,6 +974,23 @@ def register_customs_declaration_46_service(
         if mts_cert:
             record.mts_certificate_number = mts_cert
         record.customs_tariff_items_count = tariff_count
+        # EPIC-CUST-VAL: Customs Valuation Uplift & Commercial vs Assessed CIF
+        if payload.commercial_cif_base_amount is not None:
+            record.commercial_cif_base_amount = float(payload.commercial_cif_base_amount)
+        if payload.customs_assessed_cif_egp is not None:
+            record.customs_assessed_cif_egp = float(payload.customs_assessed_cif_egp)
+            record.cif_base_amount = float(payload.customs_assessed_cif_egp)
+        if payload.customs_assessed_cif_usd is not None:
+            record.customs_assessed_cif_usd = float(payload.customs_assessed_cif_usd)
+        if payload.is_valuation_uplifted is not None:
+            record.is_valuation_uplifted = bool(payload.is_valuation_uplifted)
+        if payload.valuation_uplift_amount_egp is not None:
+            record.valuation_uplift_amount_egp = float(payload.valuation_uplift_amount_egp)
+        elif (record.customs_assessed_cif_egp or 0.0) > (record.commercial_cif_base_amount or 0.0) > 0.0:
+            record.valuation_uplift_amount_egp = round((record.customs_assessed_cif_egp or 0.0) - (record.commercial_cif_base_amount or 0.0), 2)
+            record.is_valuation_uplifted = True
+        if payload.valuation_uplift_reason is not None:
+            record.valuation_uplift_reason = payload.valuation_uplift_reason
         if payload.inspection_notes:
             record.inspection_notes = payload.inspection_notes
         record.status = "Under Customs Clearance"
@@ -1139,7 +1169,44 @@ def assess_final_customs_duties_service(
             var_amount = round(actual_total - est_total, 2)
             var_pct = round((var_amount / est_total) * 100, 2)
 
-        record.cif_base_amount = float(payload.cif_base_amount or 0.0)
+        # EPIC-CUST-VAL: Commercial CIF vs Customs Assessed CIF calculation
+        assessed_cif = float(
+            payload.customs_assessed_cif_egp
+            if payload.customs_assessed_cif_egp is not None
+            else (payload.cif_base_amount or record.customs_assessed_cif_egp or record.cif_base_amount or 0.0)
+        )
+        commercial_cif = float(
+            payload.commercial_cif_base_amount
+            if payload.commercial_cif_base_amount is not None
+            else (record.commercial_cif_base_amount or assessed_cif)
+        )
+        record.commercial_cif_base_amount = commercial_cif
+        record.customs_assessed_cif_egp = assessed_cif
+        if payload.customs_assessed_cif_usd is not None:
+            record.customs_assessed_cif_usd = float(payload.customs_assessed_cif_usd)
+        elif payload.customs_exchange_rate and float(payload.customs_exchange_rate) > 0:
+            record.customs_assessed_cif_usd = round(assessed_cif / float(payload.customs_exchange_rate), 2)
+
+        # Customs duties & taxes are calculated on the Assessed CIF
+        record.cif_base_amount = assessed_cif
+
+        is_uplifted = bool(
+            payload.is_valuation_uplifted
+            or (assessed_cif > commercial_cif and commercial_cif > 0.0)
+        )
+        record.is_valuation_uplifted = is_uplifted
+        if is_uplifted:
+            diff = assessed_cif - commercial_cif
+            record.valuation_uplift_amount_egp = float(
+                payload.valuation_uplift_amount_egp
+                if payload.valuation_uplift_amount_egp is not None and payload.valuation_uplift_amount_egp > 0
+                else max(0.0, round(diff, 2))
+            )
+        else:
+            record.valuation_uplift_amount_egp = 0.0
+
+        if payload.valuation_uplift_reason:
+            record.valuation_uplift_reason = payload.valuation_uplift_reason
         if payload.customs_exchange_rate is not None:  # never default the customs rate to 1.0
             record.customs_exchange_rate = float(payload.customs_exchange_rate)
         for name, value in components.items():

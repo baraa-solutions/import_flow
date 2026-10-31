@@ -29,13 +29,18 @@ class PhasePendingBadge extends StatelessWidget {
   /// Optional click callback when tapping the badge.
   final VoidCallback? onTap;
 
+  /// Optional background/accent color hint.
+  final Color? baseColor;
+
   const PhasePendingBadge({
     super.key,
-    required this.pendingShipmentsCount,
+    int? pendingShipmentsCount,
+    int? pendingCount,
+    this.baseColor,
     this.delayedShipmentsCount = 0,
     this.size = AppStatusBadgeSize.small,
     this.onTap,
-  });
+  }) : pendingShipmentsCount = pendingShipmentsCount ?? pendingCount ?? 0;
 
   /// Factory constructor to create a [PhasePendingBadge] from a [PhaseSummaryModel].
   factory PhasePendingBadge.fromPhaseSummary(

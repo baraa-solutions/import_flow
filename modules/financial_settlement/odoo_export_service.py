@@ -121,21 +121,72 @@ def generate_odoo_journal_entry_service(
     total_vat_input = round(total_customs_vat_egp + total_vendor_vat_egp, 2)
 
     # 1. DEBIT: Total Landed Cost (net of recoverable VAT if flagged) -> Inventory Valuation Account
+    # EPIC-CUST-VAL: Check for Customs Valuation Uplift
+    from modules.customs_clearance.model import CustomsClearanceRecord
+    clearance = db.query(CustomsClearanceRecord).filter(
+        CustomsClearanceRecord.import_file_id == settlement.import_file_id,
+        CustomsClearanceRecord.is_active == True,
+    ).order_by(CustomsClearanceRecord.customs_clearance_id.desc()).first()
+
+    uplift_duty_addition = 0.0
+    if clearance and getattr(clearance, "is_valuation_uplifted", False):
+        assessed_cif = float(getattr(clearance, "customs_assessed_cif_egp", 0.0) or getattr(clearance, "cif_base_amount", 0.0) or 0.0)
+        uplift_amt = float(getattr(clearance, "valuation_uplift_amount_egp", 0.0) or 0.0)
+        if assessed_cif > 0 and uplift_amt > 0:
+            from .service import row_amount_egp
+            total_customs_exp = sum(
+                row_amount_egp(exp) for exp in expense_invoices
+                if not _is_seller_paid(exp) and classify_odoo_cost_category(exp.get("category") or "") == "Customs"
+            )
+            net_customs_in_landed = total_customs_exp - (total_customs_vat_egp if config.import_vat_recoverable else 0.0)
+            if net_customs_in_landed > 0:
+                uplift_ratio = min(1.0, uplift_amt / assessed_cif)
+                uplift_duty_addition = round(net_customs_in_landed * uplift_ratio, 2)
+
     total_landed_cost = round(settlement.total_landed_cost_egp, 2)
     inventory_debit = round(total_landed_cost - (total_vat_input if config.import_vat_recoverable else 0.0), 2)
-    lines.append(
-        OdooJournalLineItem(
-            account_code=config.inventory_account_code,
-            account_name=config.inventory_account_name,
-            partner_name=company_name,
-            label=f"إثبات تكلفة وصول الشحنة الإجمالية (Landed Cost) - ملف {file_code}",
-            debit=inventory_debit,
-            credit=0.0,
-            currency="EGP",
-            analytic_account=project_name,
-            cost_category="Goods",
+    if uplift_duty_addition > 0 and inventory_debit > uplift_duty_addition:
+        base_inventory_debit = round(inventory_debit - uplift_duty_addition, 2)
+        lines.append(
+            OdooJournalLineItem(
+                account_code=config.inventory_account_code,
+                account_name=config.inventory_account_name,
+                partner_name=company_name,
+                label=f"إثبات تكلفة وصول الشحنة الأساسية (Base Landed Cost) - ملف {file_code}",
+                debit=base_inventory_debit,
+                credit=0.0,
+                currency="EGP",
+                analytic_account=project_name,
+                cost_category="Goods",
+            )
         )
-    )
+        lines.append(
+            OdooJournalLineItem(
+                account_code=config.inventory_account_code,
+                account_name=config.inventory_account_name,
+                partner_name=company_name,
+                label=f"إضافة تكلفة وصول - ضرائب ورسوم تحسين السعر الجمركي (Landed Cost Addition - Valuation Uplift) - ملف {file_code}",
+                debit=uplift_duty_addition,
+                credit=0.0,
+                currency="EGP",
+                analytic_account=project_name,
+                cost_category="Customs",
+            )
+        )
+    else:
+        lines.append(
+            OdooJournalLineItem(
+                account_code=config.inventory_account_code,
+                account_name=config.inventory_account_name,
+                partner_name=company_name,
+                label=f"إثبات تكلفة وصول الشحنة الإجمالية (Landed Cost) - ملف {file_code}",
+                debit=inventory_debit,
+                credit=0.0,
+                currency="EGP",
+                analytic_account=project_name,
+                cost_category="Goods",
+            )
+        )
 
     # 1b. DEBIT: Recoverable Import & Vendor VAT Input (ACC2-T13)
     if config.import_vat_recoverable and total_vat_input > 0:
@@ -153,7 +204,8 @@ def generate_odoo_journal_entry_service(
             )
         )
 
-    # 2. CREDIT: Foreign Supplier Payable (FOB Value)
+    # 2. CREDIT: Foreign Supplier Payable (Commercial Invoice / FOB Value) - Account 401
+    # Strictly recorded at actual commercial invoice value without any valuation uplift distortion
     total_fob_egp = round(settlement.total_fob_egp, 2)
     if total_fob_egp > 0:
         lines.append(
@@ -161,7 +213,7 @@ def generate_odoo_journal_entry_service(
                 account_code=config.supplier_account_code,
                 account_name=f"موردون خارجيون - {supplier_name}",
                 partner_name=supplier_name,
-                label=f"قيمة بضاعة الفاتورة التجارية (FOB Goods) - المورد {supplier_name}",
+                label=f"قيمة بضاعة الفاتورة التجارية للمورد (Commercial Invoice) - المورد {supplier_name}",
                 debit=0.0,
                 credit=total_fob_egp,
                 currency="EGP",

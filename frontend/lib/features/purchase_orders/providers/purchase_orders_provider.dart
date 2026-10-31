@@ -257,6 +257,12 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     }
   }
 
+  /// Fetch full balance summary for a PO (EPIC-PO-PART).
+  Future<POBalanceSummaryModel> fetchBalanceSummary(int poId) async {
+    final response = await _dio.get('${ApiConstants.purchaseOrders}/$poId/balance-summary');
+    return POBalanceSummaryModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
   @override
   void dispose() {
     _cancelToken?.cancel('PurchaseOrdersNotifier disposed');

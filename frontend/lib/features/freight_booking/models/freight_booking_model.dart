@@ -174,6 +174,15 @@ class ShipmentBookingModel {
   final int? shippingLineId;
   final String? shippingLineName;
   final String shipmentType;
+  final String transportMode;
+  final String? masterAirWaybill;
+  final String? houseAirWaybill;
+  final String? flightNumber;
+  final String? airlineCode;
+  final String? airportTerminalName;
+  final String? cfsTerminalName;
+  final double? strippingFeesEgp;
+  final double? chargeableWeightKg;
   final int? polLocationId;
   final String? polName;
   final int? podLocationId;
@@ -218,6 +227,9 @@ class ShipmentBookingModel {
   bool get hasSavings => costSavingsUsd > 0.0;
   bool get hasCostIncrease => costVarianceUsd < 0.0 && originalFreightCostUsd > 0.0;
   double get savingsPercent => originalFreightCostUsd > 0.0 ? (costSavingsUsd / originalFreightCostUsd) * 100.0 : 0.0;
+  bool get isAirFreight => transportMode == 'AIR_FREIGHT' || shipmentType.toLowerCase().contains('air');
+  bool get isSeaLcl => transportMode == 'SEA_LCL' || shipmentType.toLowerCase().contains('lcl');
+  bool get isSeaFcl => transportMode == 'SEA_FCL' || (!isAirFreight && !isSeaLcl);
 
   ShipmentBookingModel({
     required this.bookingId,
@@ -234,6 +246,15 @@ class ShipmentBookingModel {
     this.shippingLineId,
     this.shippingLineName,
     this.shipmentType = 'Ocean FCL',
+    this.transportMode = 'SEA_FCL',
+    this.masterAirWaybill,
+    this.houseAirWaybill,
+    this.flightNumber,
+    this.airlineCode,
+    this.airportTerminalName,
+    this.cfsTerminalName,
+    this.strippingFeesEgp = 0.0,
+    this.chargeableWeightKg = 0.0,
     this.polLocationId,
     this.polName,
     this.podLocationId,
@@ -296,6 +317,15 @@ class ShipmentBookingModel {
       shippingLineId: json['shipping_line_id'],
       shippingLineName: json['shipping_line_name'],
       shipmentType: json['shipment_type'] ?? 'Ocean FCL',
+      transportMode: json['transport_mode'] ?? 'SEA_FCL',
+      masterAirWaybill: json['master_air_waybill'],
+      houseAirWaybill: json['house_air_waybill'],
+      flightNumber: json['flight_number'],
+      airlineCode: json['airline_code'],
+      airportTerminalName: json['airport_terminal_name'],
+      cfsTerminalName: json['cfs_terminal_name'],
+      strippingFeesEgp: (json['stripping_fees_egp'] as num?)?.toDouble() ?? 0.0,
+      chargeableWeightKg: (json['chargeable_weight_kg'] as num?)?.toDouble() ?? 0.0,
       polLocationId: json['pol_location_id'],
       polName: json['pol_name'],
       podLocationId: json['pod_location_id'],
@@ -355,6 +385,15 @@ class ShipmentBookingModel {
       'shipping_line_id': shippingLineId,
       'shipping_line_name': shippingLineName,
       'shipment_type': shipmentType,
+      'transport_mode': transportMode,
+      'master_air_waybill': masterAirWaybill,
+      'house_air_waybill': houseAirWaybill,
+      'flight_number': flightNumber,
+      'airline_code': airlineCode,
+      'airport_terminal_name': airportTerminalName,
+      'cfs_terminal_name': cfsTerminalName,
+      'stripping_fees_egp': strippingFeesEgp,
+      'chargeable_weight_kg': chargeableWeightKg,
       'pol_location_id': polLocationId,
       'pol_name': polName,
       'pod_location_id': podLocationId,

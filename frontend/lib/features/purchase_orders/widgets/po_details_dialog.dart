@@ -19,6 +19,8 @@ import '../models/purchase_order_model.dart';
 import '../utils/po_packing_matcher.dart';
 import 'po_reconciliation_warning_dialog.dart';
 import 'po_table_cells.dart';
+import 'po_fulfillment_progress_widget.dart';
+import 'create_partial_shipment_dialog.dart';
 
 /// The isolated, comprehensive Purchase Order Details Dialog (Session 4).
 ///
@@ -248,6 +250,14 @@ class _PoDetailsDialogState extends ConsumerState<PoDetailsDialog> {
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 14),
+                                    child: POFulfillmentProgressWidget.fromPO(
+                                      po: po,
+                                      isCompact: true,
+                                      onAllocatePressed: () => showCreatePartialShipmentDialog(context, po: po),
+                                    ),
+                                  ),
                                   Wrap(
                                     spacing: 20,
                                     runSpacing: 10,
