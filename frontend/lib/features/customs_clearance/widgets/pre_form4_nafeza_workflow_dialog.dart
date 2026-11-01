@@ -5,11 +5,12 @@ import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/custom_text_field.dart';
-import '../../../core/widgets/ltr_text.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
 import 'cc_dialog_shell.dart';
+import 'pre_form4/pre_form4_bank_link_card.dart';
+import 'pre_form4/pre_form4_payment_request_card.dart';
+import 'pre_form4/pre_form4_tariff_coding_card.dart';
 
 /// Pre-Form 4 Egyptian Customs Nafeza MTS Workflow Dialog (TASK-BE-10).
 /// Enforces sequential business rules:
@@ -287,410 +288,70 @@ class _PreForm4NafezaWorkflowDialogState
       confirmVariant: AppButtonVariant.primary,
       isSubmitting: false,
       onConfirm: () => Navigator.of(context).pop(true),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Process Overview Header Card
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTheme.cobalt.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.25)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    isAr
-                      ? 'دورة العمل الإلزامية على نافذة MTS: يجب تسجيل التكويد الضريبي للبنود أولاً، يليه قبول ربط البنك على نافذة، ثم إصدار مطالبة الرسوم وطلب فورمة 4.'
-                      : 'Mandatory Nafeza MTS Workflow: Item tax coding must be completed first, followed by bank link acceptance, then Form 4 duty payment request.',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // STEP 1: ITEM TAX CODING
-          _buildStepCard(
-            stepNumber: 1,
-            title: isAr
-                ? 'التكويد الضريبي للبنود على نافذة'
-                : 'Item Tax Coding on Nafeza',
-            isCompleted: _isTariffCodingCompleted,
-            completionDate: _record.tariffCodingDate,
-            accentColor: AppTheme.cobalt,
-            icon: Icons.qr_code_2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: CustomTextField(
-                        controller: _tariffCodingDateController,
-                        label: isAr ? 'تاريخ التكويد الضريبي' : 'Tariff Coding Date',
-                        icon: Icons.calendar_today,
+      body: SelectionArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.cobalt.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      isAr
+                          ? 'دورة العمل الإلزامية على نافذة MTS: يجب تسجيل التكويد الضريبي للبنود أولاً، يليه قبول ربط البنك على نافذة، ثم إصدار مطالبة الرسوم وطلب فورمة 4.'
+                          : 'Mandatory Nafeza MTS Workflow: Item tax coding must be completed first, followed by bank link acceptance, then Form 4 duty payment request.',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 3,
-                      child: CustomTextField(
-                        controller: _tariffCodingNotesController,
-                        label: isAr ? 'ملاحظات التكويد (اختياري)' : 'Coding Notes (Optional)',
-                        icon: Icons.note_alt_outlined,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: AppButton(
-                    label: _isTariffCodingCompleted
-                        ? (isAr ? 'تحديث تاريخ التكويد' : 'Update Coding Date')
-                        : (isAr ? 'اعتماد التكويد الضريبي' : 'Record Tax Coding'),
-                    icon: Icons.check,
-                    variant: _isTariffCodingCompleted
-                        ? AppButtonVariant.secondary
-                        : AppButtonVariant.primary,
-                    size: AppButtonSize.small,
-                    isLoading: _isSubmittingTariff,
-                    onPressed: () => _submitTariffCoding(l),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // STEP 2: NAFEZA BANK LINKAGE ACCEPTANCE
-          _buildStepCard(
-            stepNumber: 2,
-            title: isAr
-                ? 'قبول ربط البنك على نافذة'
-                : 'Nafeza Bank Linkage Acceptance',
-            isCompleted: _isBankLinkCompleted,
-            completionDate: _record.bankLinkAcceptedDate,
-            accentColor: AppTheme.emerald,
-            icon: Icons.account_balance,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!_isTariffCodingCompleted) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.orange.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                      border: Border.all(color: AppTheme.orange.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 20),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            isAr
-                                ? 'شرط مسبق: لا يمكن قبول ربط البنك إلا بعد تسجيل التكويد الضريبي للبنود أعلاه.'
-                                : 'Prerequisite: Bank linkage cannot be accepted before item tax coding is completed.',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.orange,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                 ],
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: CustomTextField(
-                        controller: _bankLinkDateController,
-                        label: isAr ? 'تاريخ قبول الربط (YYYY-MM-DD)' : 'Acceptance Date',
-                        icon: Icons.event_available,
-                        enabled: _isTariffCodingCompleted,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: CustomTextField(
-                        controller: _bankNameController,
-                        label: isAr ? 'اسم البنك المعتمد' : 'Bank Name',
-                        icon: Icons.account_balance_outlined,
-                        enabled: _isTariffCodingCompleted,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 3,
-                      child: CustomTextField(
-                        controller: _bankLinkNotesController,
-                        label: isAr ? 'ملاحظات الربط (اختياري)' : 'Link Notes (Optional)',
-                        icon: Icons.notes,
-                        enabled: _isTariffCodingCompleted,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: AppButton(
-                    label: _isBankLinkCompleted
-                        ? (isAr ? 'تحديث قبول ربط البنك' : 'Update Bank Link')
-                        : (isAr ? 'اعتماد وقبول ربط البنك' : 'Accept Bank Linkage'),
-                    icon: Icons.check_circle_outline,
-                    variant: _isBankLinkCompleted
-                        ? AppButtonVariant.secondary
-                        : AppButtonVariant.success,
-                    size: AppButtonSize.small,
-                    isLoading: _isSubmittingBankLink,
-                    onPressed: _isTariffCodingCompleted
-                        ? () => _submitBankLink(l)
-                        : null,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // STEP 3: DUTY PAYMENT REQUEST & NAFEZA CLAIM (FORM 4)
-          _buildStepCard(
-            stepNumber: 3,
-            title: isAr
-                ? 'إصدار مطالبة الرسوم وطلب فورمة 4 (Duty Payment Request / Form 4)'
-                : 'Duty Payment Request & Nafeza Claim',
-            isCompleted: _isPaymentRequestCompleted,
-            completionDate: _record.dutyPaymentRequestedDate,
-            accentColor: AppTheme.cobalt,
-            icon: Icons.receipt_long,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!_isBankLinkCompleted) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.charcoal.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                      border: Border.all(color: AppTheme.charcoal.withValues(alpha: 0.15)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, size: 20),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            isAr
-                                ? 'يوصى باكتمال ربط البنك أولاً قبل طلب السداد لضمان مطابقة المنظومة البنكية مع نافذة.'
-                                : 'Recommended to accept bank linkage before requesting duty payment to match MTS with bank systems.',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: CustomTextField(
-                        controller: _paymentRequestDateController,
-                        label: isAr ? 'تاريخ طلب السداد (YYYY-MM-DD)' : 'Request Date',
-                        icon: Icons.calendar_month,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: CustomTextField(
-                        controller: _claimNumberController,
-                        label: isAr ? 'رقم مطالبة نافذة' : 'Nafeza Claim Number',
-                        icon: Icons.tag,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: CustomTextField(
-                        controller: _estimatedAmountController,
-                        label: isAr ? 'الرسوم التقديرية (ج.م)' : 'Estimated Duty (EGP)',
-                        icon: Icons.payments_outlined,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                CustomTextField(
-                  controller: _paymentRequestNotesController,
-                  label: isAr ? 'ملاحظات طلب السداد والمطالبة' : 'Payment Request Notes',
-                  icon: Icons.note_alt_outlined,
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: AppButton(
-                    label: _isPaymentRequestCompleted
-                        ? (isAr ? 'تحديث طلب السداد والمطالبة' : 'Update Payment Request')
-                        : (isAr ? 'إرسال طلب السداد (طلب فورمة 4)' : 'Submit Duty Payment Request'),
-                    icon: Icons.send_rounded,
-                    variant: AppButtonVariant.primary,
-                    size: AppButtonSize.small,
-                    isLoading: _isSubmittingPaymentRequest,
-                    onPressed: () => _submitPaymentRequest(l),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepCard({
-    required int stepNumber,
-    required String title,
-    required bool isCompleted,
-    required String? completionDate,
-    required Color accentColor,
-    required IconData icon,
-    required Widget child,
-  }) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceOf(context),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(
-          color: isCompleted
-              ? AppTheme.emerald.withValues(alpha: 0.4)
-              : AppTheme.borderOf(context),
-          width: isCompleted ? 1.5 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isCompleted
-                  ? AppTheme.emerald.withValues(alpha: 0.08)
-                  : accentColor.withValues(alpha: 0.06),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppTheme.radiusLg),
               ),
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: isCompleted ? AppTheme.emerald : accentColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 16),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.bold,
-                      color: isCompleted ? AppTheme.emerald : accentColor,
-                    ),
-                  ),
-                ),
-                if (isCompleted)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppTheme.emerald,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.check, size: 13, color: Colors.white),
-                        const SizedBox(width: 4),
-                        Text(
-                          isAr ? 'مكتمل' : 'Completed',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        if (completionDate != null) ...[
-                          const SizedBox(width: 4),
-                          LtrText(
-                            '($completionDate)',
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppTheme.charcoal.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      isAr ? 'في الانتظار' : 'Pending',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondaryOf(context),
-                      ),
-                    ),
-                  ),
-              ],
+            const SizedBox(height: 16),
+            PreForm4TariffCodingCard(
+              isCompleted: _isTariffCodingCompleted,
+              completionDate: _record.tariffCodingDate,
+              dateController: _tariffCodingDateController,
+              notesController: _tariffCodingNotesController,
+              isSubmitting: _isSubmittingTariff,
+              onSubmit: () => _submitTariffCoding(l),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: child,
-          ),
-        ],
+            const SizedBox(height: 16),
+            PreForm4BankLinkCard(
+              isCompleted: _isBankLinkCompleted,
+              completionDate: _record.bankLinkAcceptedDate,
+              isTariffCodingCompleted: _isTariffCodingCompleted,
+              dateController: _bankLinkDateController,
+              bankNameController: _bankNameController,
+              notesController: _bankLinkNotesController,
+              isSubmitting: _isSubmittingBankLink,
+              onSubmit: () => _submitBankLink(l),
+            ),
+            const SizedBox(height: 16),
+            PreForm4PaymentRequestCard(
+              isCompleted: _isPaymentRequestCompleted,
+              completionDate: _record.dutyPaymentRequestedDate,
+              isBankLinkCompleted: _isBankLinkCompleted,
+              dateController: _paymentRequestDateController,
+              claimNumberController: _claimNumberController,
+              estimatedAmountController: _estimatedAmountController,
+              notesController: _paymentRequestNotesController,
+              isSubmitting: _isSubmittingPaymentRequest,
+              onSubmit: () => _submitPaymentRequest(l),
+            ),
+          ],
+        ),
       ),
     );
   }

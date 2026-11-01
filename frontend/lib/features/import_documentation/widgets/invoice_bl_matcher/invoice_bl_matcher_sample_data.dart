@@ -1,0 +1,50 @@
+/// Preset sample data for commercial invoice and draft bill of lading.
+class InvoiceBlMatcherSampleData {
+  static const String shawInvoice = '''
+Commercial Invoice
+Shaw Europe Limited
+Blackaddie Road, Sanquhar, United Kingdom, DG4 6DB
+VAT Number 428102677
+
+Order Date 24-06-2026
+Order Number 35220
+Shipment Number 688990
+Purchase Order RSA-ARCE-Found Ever
+
+Bill To:
+ARCHI BRANDS FOR CORPET AND FLOOR TRADING
+44 Street 18, Maadi Sarayat, Cairo, Egypt
+Tax ID 759552827
+''';
+
+  static const String mscBL = '''
+MEDITERRANEAN SHIPPING COMPANY S.A.
+BILL OF LADING No. MEDURE910647
+DRAFT - SCAC Code: MEDU
+
+SHIPPER:
+SHAW EUROPE LTD
+BUILDING E, BLACKADDIE RD SANQUHAR, DG4 6DB. UNITED KINGDOM
+
+CONSIGNEE:
+ARCHI Brands for Corpet and Floor Trading
+St.81 with st.18 building 44, 3rd floor, SARAYAT EL MAADI, Cairo- Egypt
+VAT No: 759-552-827
+
+VESSEL AND VOYAGE NO: MSC GISELLE - NL630A
+PORT OF LOADING: FELIXSTOWE, UNITED KINGDOM
+PORT OF DISCHARGE: SOX - SOKHNA, EGYPT
+PLACE OF DELIVERY: SOKHNA, EGYPT
+
+ACID NUMBER: 7595528271019210013
+IMPORTER TAX ID: 759552827
+EXPORTER REGISTRATION NUMBER: 428102677
+
+CONTAINER NUMBER: BEAU5851356 / 40HC / SEAL: 177345
+PACKAGES: 31 PALLETS (CONTAINING 960 BOXES)
+COMMODITY: TUFTED CARPET TILES OF NYLON
+HS CODE: 5703299100
+Gross Cargo Weight: 20,030.000 kgs.
+Total Items: 31 Total: 20,030.000 kgs.
+''';
+}

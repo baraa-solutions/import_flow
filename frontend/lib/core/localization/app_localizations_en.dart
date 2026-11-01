@@ -2516,6 +2516,41 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get copyRegistryTableSuccess => 'Customs declarations registry copied as TSV successfully';
   @override String get cloneFromAssessmentBtn => 'Clone as New Draft';
 
+  // ── Form 46 Three-Way Comparison & Variance ───────────────────────────────
+  @override String get form46ThreeColumnComparisonTitle => 'Three-Way Customs Duties & Taxes Comparison';
+  @override String get form46ColStudyEstimate => 'Study-Time Estimate';
+  @override String get form46ColStudyEstimateSub => 'Values calculated during import file study (Read-only)';
+  @override String get form46ColRevisedEstimate => 'Revised Estimate';
+  @override String get form46ColRevisedEstimateSub => 'Instant recalculation with approved shipment parameters';
+  @override String get form46ColNafezaActual => 'Nafeza Actual';
+  @override String get form46ColNafezaActualSub => 'Actual values confirmed on Nafeza electronic claim';
+  @override String get form46VarExchangeRate => 'Revised Customs Exchange Rate';
+  @override String get form46VarApprovedFreight => 'Approved Freight';
+  @override String get form46VarActualInsurance => 'Actual Marine Insurance';
+  @override String get form46VarDischargeDemurrage => 'Port Handling & Discharge Expenses';
+  @override String get form46VarNewFees => 'New & Additional Customs Fees';
+  @override String get form46SmartExtractNafezaBtn => 'Smart Extract from Nafeza';
+  @override String get form46NafezaClaimNo => 'Nafeza Claim Number';
+  @override String get form46NafezaClaimDate => 'Claim Date';
+  @override String get form46ActualCif => 'Actual CIF Value';
+  @override String get form46ActualDuty => 'Actual Import Duty';
+  @override String get form46ActualVat => 'Actual VAT';
+  @override String get form46ActualOtherFees => 'Actual Other Fees';
+  @override String get form46ActualTotalDuties => 'Actual Total Duties & Taxes';
+  @override String get form46VarianceBarTitle => 'Customs Valuation Variance Indicators';
+  @override String get form46VarianceBvsA => 'Revised vs Study';
+  @override String get form46VarianceCvsA => 'Actual vs Study';
+  @override String get form46VarianceCvsB => 'Actual vs Revised';
+  @override String get form46VarianceStatusCompliant => 'Minimal Variance';
+  @override String get form46VarianceStatusModerate => 'Moderate Variance';
+  @override String get form46VarianceStatusHigh => 'High Variance';
+  @override String get form46VarianceReasonLabel => 'Duty Variance Reason';
+  @override String get form46VarianceReasonHint => 'Explain reason for variance (Mandatory if variance exceeds 10%)';
+  @override String get form46VarianceReasonRequired => 'Please provide the duty variance reason as variance exceeds 10%';
+  @override String get customsDeclColVariance => 'Customs Variance';
+  @override String get customsDeclVariancePending => 'Pending Claim';
+  @override String get customsDeclVarianceNoDiff => 'Exact Match';
+
   // ── Screen 24/27: Customs Clearance Management ────────────────────────────────
   @override String get searchAndCloneCustomsClearanceBtn => 'Search & Clone Clearance';
   @override String get cloneCustomsClearanceDialogTitle => 'Clone Customs Clearance Record';

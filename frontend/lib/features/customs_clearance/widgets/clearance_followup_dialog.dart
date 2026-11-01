@@ -5,9 +5,12 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../import_files/models/import_file_model.dart';
-import '../models/clearance_followup_log_model.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
+import 'followup/clearance_followup_card.dart';
+import 'followup/clearance_followup_form.dart';
+import 'followup/clearance_followup_header.dart';
+import 'followup/clearance_followup_stepper.dart';
 
 /// Modal dialog for recording and managing the 5 sequential customs inspection and valuation follow-ups (TASK-BE-12).
 class ClearanceFollowupDialog extends ConsumerStatefulWidget {
@@ -51,41 +54,6 @@ class _ClearanceFollowupDialogState extends ConsumerState<ClearanceFollowupDialo
   DateTime _followupDate = DateTime.now();
   DateTime? _nextVisitDate;
   bool _isSubmitting = false;
-
-  final List<String> _authoritiesList = [
-    'Customs Inspection Yard / ساحة الكشف والمعاينة',
-    'Customs Valuation Committee / لجنة التثمين الجمركي',
-    'GOEIC Inspection / هيئة الصادرات والواردات',
-    'Food Safety Authority / هيئة سلامة الغذاء (NFSA)',
-    'Quarantine / الحجر الزراعي والبيطري',
-    'Chemistry Administration / مصلحة الكيمياء والفحص المعملي',
-    'NTRA Telecomm / الجهاز القومي لتنظيم الاتصالات',
-    'Customs Tariff & Classification / لجنة التعريفة والتصنيف',
-  ];
-
-  static String _authorityLabel(String a, bool isArabic) {
-    if (!isArabic) return a;
-    switch (a) {
-      case 'Customs Inspection Yard / ساحة الكشف والمعاينة':
-        return 'ساحة الكشف والمعاينة';
-      case 'Customs Valuation Committee / لجنة التثمين الجمركي':
-        return 'لجنة التثمين الجمركي';
-      case 'GOEIC Inspection / هيئة الصادرات والواردات':
-        return 'الهيئة العامة للرقابة على الصادرات والواردات';
-      case 'Food Safety Authority / هيئة سلامة الغذاء (NFSA)':
-        return 'الهيئة القومية لسلامة الغذاء';
-      case 'Quarantine / الحجر الزراعي والبيطري':
-        return 'الحجر الزراعي والبيطري';
-      case 'Chemistry Administration / مصلحة الكيمياء والفحص المعملي':
-        return 'مصلحة الكيمياء والفحص المعملي';
-      case 'NTRA Telecomm / الجهاز القومي لتنظيم الاتصالات':
-        return 'الجهاز القومي لتنظيم الاتصالات';
-      case 'Customs Tariff & Classification / لجنة التعريفة والتصنيف':
-        return 'لجنة التعريفة والتصنيف';
-      default:
-        return a.contains(' / ') ? a.split(' / ').last : a;
-    }
-  }
 
   @override
   void initState() {
@@ -211,504 +179,152 @@ class _ClearanceFollowupDialogState extends ConsumerState<ClearanceFollowupDialo
         child: SelectionArea(
           child: Column(
             children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: const BoxDecoration(
-                  color: AppTheme.charcoal,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+              ClearanceFollowupHeader(
+                clearanceRecord: r,
+                importFile: f,
+                onClose: () => Navigator.of(context).pop(),
+              ),
+              logsAsync.when(
+                loading: () => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  color: AppTheme.charcoalSurface,
+                  child: const SizedBox(height: 28),
                 ),
+                error: (_, __) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  color: AppTheme.charcoalSurface,
+                  child: const SizedBox(height: 28),
+                ),
+                data: (logs) => ClearanceFollowupStepper(
+                  logs: logs,
+                  isArabic: l.isArabic,
+                ),
+              ),
+              Expanded(
                 child: Row(
                   children: [
-                    const Icon(Icons.checklist_rtl_rounded, color: AppTheme.emerald, size: 24),
-                    const SizedBox(width: 12),
+                    // Left Side: Follow-up History (50%)
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l.isArabic
-                                ? 'سجل المتابعات الميدانية للتخليص الجمركي'
-                                : 'Field Customs Clearance Follow-up Logs',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        Text(
-                          '${r.clearanceCode} | ${f != null ? f.importFileCode : "File #${r.importFileId}"}'
-                          '${r.declaration46No != null ? " | شهادة 46: ${r.declaration46No}" : ""}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withValues(alpha: 0.7),
+                      flex: 5,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: BorderDirectional(
+                            end: BorderSide(color: AppTheme.borderOf(context)),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-
-            // Top Summary Stepper
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              color: AppTheme.charcoalSurface,
-              child: logsAsync.when(
-                loading: () => const SizedBox(height: 28),
-                error: (_, __) => const SizedBox(height: 28),
-                data: (logs) {
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: List.generate(5, (idx) {
-                      final seq = idx + 1;
-                      final matchingLog = logs.where((x) => x.followupSeq == seq).firstOrNull;
-                      final isDone = matchingLog?.isCompleted ?? false;
-                      final isLogged = matchingLog != null;
-
-                      Color badgeColor = AppTheme.borderOf(context);
-                      Color textColor = AppTheme.textSecondaryOf(context);
-                      IconData badgeIcon = Icons.hourglass_empty_rounded;
-
-                      if (isDone) {
-                        badgeColor = AppTheme.emerald;
-                        textColor = Colors.white;
-                        badgeIcon = Icons.check_circle_rounded;
-                      } else if (isLogged) {
-                        badgeColor = AppTheme.orange;
-                        textColor = Colors.white;
-                        badgeIcon = Icons.schedule_rounded;
-                      }
-
-                      return Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isLogged ? badgeColor : Colors.transparent,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: badgeColor),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(badgeIcon, size: 14, color: isLogged ? textColor : badgeColor),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '#$seq ${_stageLabel(seq, l.isArabic)}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: isLogged ? FontWeight.bold : FontWeight.normal,
-                                    color: isLogged ? textColor : AppTheme.textSecondaryOf(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (seq < 5) ...[
-                            const SizedBox(width: 6),
-                            Icon(Icons.arrow_forward_ios_rounded, size: 10, color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.5)),
-                            const SizedBox(width: 6),
-                          ],
-                        ],
-                      );
-                    }),
-                  );
-                },
-              ),
-            ),
-
-            // Main Content: History List + Form
-            Expanded(
-              child: Row(
-                children: [
-                  // Left Side: Follow-up History (48%)
-                  Expanded(
-                    flex: 5,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: BorderDirectional(
-                          end: BorderSide(color: AppTheme.borderOf(context)),
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.history_rounded, size: 18, color: AppTheme.cobalt),
-                              const SizedBox(width: 8),
-                              Text(
-                                l.isArabic ? 'سجل المتابعات المسجلة' : 'Recorded Follow-ups',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Expanded(
-                            child: logsAsync.when(
-                              loading: () => const Center(child: CircularProgressIndicator()),
-                              error: (err, _) => Center(
-                                child: Text('Error: $err', style: const TextStyle(color: AppTheme.crimson)),
-                              ),
-                              data: (logs) {
-                                if (logs.isEmpty) {
-                                  return Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.assignment_late_outlined, size: 36, color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.4)),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          l.isArabic
-                                              ? 'لا توجد متابعات ميدانية مسجلة حتى الآن.'
-                                              : 'No field follow-ups recorded yet.',
-                                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryOf(context)),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }
-                                return ListView.separated(
-                                  itemCount: logs.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                                  itemBuilder: (context, index) {
-                                    final item = logs[index];
-                                    return _buildFollowupCard(item, l);
-                                  },
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Right Side: Add New Follow-up Form (52%)
-                  Expanded(
-                    flex: 5,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Form(
-                        key: _formKey,
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.add_task_rounded, size: 18, color: AppTheme.emerald),
+                                const Icon(Icons.history_rounded, size: 18, color: AppTheme.cobalt),
                                 const SizedBox(width: 8),
                                 Text(
-                                  l.isArabic ? 'تسجيل متابعة ميدانية جديدة' : 'Add New Field Follow-up',
+                                  l.isArabic ? 'سجل المتابعات المسجلة' : 'Recorded Follow-ups',
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 14),
-
-                            // Sequence + Authority Type
-                            Row(
-                              children: [
-                                SizedBox(
-                                  width: 100,
-                                  child: SearchableDropdownField<int>(
-                                    value: _followupSeq,
-                                    labelText: l.isArabic ? 'المتابعة #' : 'Seq #',
-                                    items: [1, 2, 3, 4, 5]
-                                        .map((s) => SearchableDropdownItem<int>(
-                                              value: s,
-                                              label: '#$s',
-                                            ))
-                                        .toList(),
-                                    onChanged: (v) {
-                                      if (v != null) setState(() => _followupSeq = v);
-                                    },
-                                  ),
+                            const SizedBox(height: 10),
+                            Expanded(
+                              child: logsAsync.when(
+                                loading: () => const Center(child: CircularProgressIndicator()),
+                                error: (err, _) => Center(
+                                  child: Text('Error: $err', style: const TextStyle(color: AppTheme.crimson)),
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: SearchableDropdownField<String>(
-                                    value: _selectedAuthorityType,
-                                    labelText: l.isArabic ? 'الجهة الجمركية / المعاينة *' : 'Authority / Inspection *',
-                                    items: _authoritiesList
-                                        .map((a) => SearchableDropdownItem<String>(
-                                              value: a,
-                                              label: _authorityLabel(a, l.isArabic),
-                                            ))
-                                        .toList(),
-                                    onChanged: (v) {
-                                      if (v != null) setState(() => _selectedAuthorityType = v);
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Official Contact Name + Followup Date
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _officialContactController,
-                                    decoration: InputDecoration(
-                                      labelText: l.isArabic ? 'اسم المسؤول / المثمن / المأمور' : 'Official / Officer Contact',
-                                      hintText: l.isArabic ? 'مثال: مأمور الكشف م. وليد' : 'Officer Name',
-                                      isDense: true,
-                                      border: const OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: _followupDate,
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime(2035),
+                                data: (logs) {
+                                  if (logs.isEmpty) {
+                                    return Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.assignment_late_outlined,
+                                            size: 36,
+                                            color: AppTheme.textSecondaryOf(context).withValues(alpha: 0.4),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            l.isArabic
+                                                ? 'لا توجد متابعات ميدانية مسجلة حتى الآن.'
+                                                : 'No field follow-ups recorded yet.',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: AppTheme.textSecondaryOf(context),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                  return ListView.separated(
+                                    itemCount: logs.length,
+                                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                    itemBuilder: (context, index) {
+                                      final item = logs[index];
+                                      return ClearanceFollowupCard(
+                                        item: item,
+                                        onComplete: (logId) => _completeFollowup(logId),
                                       );
-                                      if (picked != null) {
-                                        setState(() => _followupDate = picked);
-                                      }
                                     },
-                                    child: InputDecorator(
-                                      decoration: InputDecoration(
-                                        labelText: l.isArabic ? 'تاريخ المتابعة *' : 'Followup Date *',
-                                        isDense: true,
-                                        border: const OutlineInputBorder(),
-                                        suffixIcon: const Icon(Icons.calendar_today_rounded, size: 16),
-                                      ),
-                                      child: Text(
-                                        _followupDate.toIso8601String().substring(0, 10),
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Status Summary
-                            TextFormField(
-                              controller: _statusSummaryController,
-                              maxLines: 2,
-                              decoration: InputDecoration(
-                                labelText: l.isArabic ? 'ملخص المعاينة / الإجراء الميداني *' : 'Status Summary / Inspection Outcome *',
-                                hintText: l.isArabic ? 'مثال: تم فتح الحاويات وسحب عينات الكيماويات للمطابقة' : 'Inspection completed, samples taken',
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                              ),
-                              validator: (v) => (v == null || v.trim().isEmpty)
-                                  ? (l.isArabic ? 'مطلوب إدخال ملخص المتابعة' : 'Summary required')
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Action Required
-                            TextFormField(
-                              controller: _actionRequiredController,
-                              maxLines: 2,
-                              decoration: InputDecoration(
-                                labelText: l.isArabic ? 'الإجراء المطلوب من المستورد / المخلص' : 'Action Required from Importer/Broker',
-                                hintText: l.isArabic ? 'مثال: سداد رسوم الفحص المعملي واستيفاء موافقة الهيئة' : 'Pay lab fees, submit certificate',
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Next Visit Date
-                            InkWell(
-                              onTap: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: _nextVisitDate ?? DateTime.now().add(const Duration(days: 1)),
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2035),
-                                );
-                                if (picked != null) {
-                                  setState(() => _nextVisitDate = picked);
-                                }
-                              },
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: l.isArabic ? 'موعد الزيارة / المتابعة القادمة' : 'Next Visit Date',
-                                  isDense: true,
-                                  border: const OutlineInputBorder(),
-                                  suffixIcon: const Icon(Icons.event_repeat_rounded, size: 16),
-                                ),
-                                child: Text(
-                                  _nextVisitDate != null ? _nextVisitDate!.toIso8601String().substring(0, 10) : (l.isArabic ? 'غير محدد' : 'Not Set'),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: _nextVisitDate != null ? AppTheme.textPrimaryOf(context) : AppTheme.textSecondaryOf(context),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Submit Button
-                            Align(
-                              alignment: AlignmentDirectional.centerEnd,
-                              child: AppButton(
-                                label: l.isArabic ? 'حفظ المتابعة الميدانية' : 'Save Field Follow-up',
-                                icon: Icons.save_rounded,
-                                variant: AppButtonVariant.primary,
-                                isLoading: _isSubmitting,
-                                onPressed: _isSubmitting ? null : _submitNewFollowup,
+                                  );
+                                },
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildFollowupCard(ClearanceFollowupLogModel item, AppLocalizations l) {
-    final isDone = item.isCompleted;
-
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: isDone
-            ? AppTheme.severityBackgroundOf(context, AppSeverity.success).withValues(alpha: 0.3)
-            : AppTheme.charcoalSurface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(
-          color: isDone
-              ? AppTheme.severityForegroundOf(context, AppSeverity.success).withValues(alpha: 0.4)
-              : AppTheme.borderOf(context),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isDone ? AppTheme.emerald : AppTheme.cobalt,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '#${item.followupSeq}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _authorityLabel(item.authorityType, l.isArabic),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                item.followupDate.length >= 10 ? item.followupDate.substring(0, 10) : item.followupDate,
-                style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryOf(context)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          if (item.officialContact != null && item.officialContact!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                '${l.isArabic ? "المسؤول:" : "Officer:"} ${item.officialContact!}',
-                style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
-              ),
-            ),
-          Text(
-            item.statusSummary,
-            style: const TextStyle(fontSize: 11.5),
-          ),
-          if (item.actionRequired != null && item.actionRequired!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.severityBackgroundOf(context, AppSeverity.warning).withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '${l.isArabic ? "مطلوب:" : "Action:"} ${item.actionRequired!}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.orange,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              if (item.nextVisitDate != null)
-                Text(
-                  '${l.isArabic ? "الموعد القادم:" : "Next:"} ${item.nextVisitDate!.substring(0, 10)}',
-                  style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryOf(context)),
-                ),
-              const Spacer(),
-              if (isDone)
-                Row(
-                  children: [
-                    const Icon(Icons.check_circle, size: 14, color: AppTheme.emerald),
-                    const SizedBox(width: 4),
-                    Text(
-                      l.isArabic ? 'مكتملة' : 'Completed',
-                      style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 11),
+                    // Right Side: Add New Follow-up Form (50%)
+                    Expanded(
+                      flex: 5,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: ClearanceFollowupForm(
+                          formKey: _formKey,
+                          followupSeq: _followupSeq,
+                          selectedAuthorityType: _selectedAuthorityType,
+                          officialContactController: _officialContactController,
+                          statusSummaryController: _statusSummaryController,
+                          actionRequiredController: _actionRequiredController,
+                          followupDate: _followupDate,
+                          nextVisitDate: _nextVisitDate,
+                          isSubmitting: _isSubmitting,
+                          onSeqChanged: (seq) => setState(() => _followupSeq = seq),
+                          onAuthorityChanged: (auth) => setState(() => _selectedAuthorityType = auth),
+                          onFollowupDateChanged: (d) => setState(() => _followupDate = d),
+                          onNextVisitDateChanged: (d) => setState(() => _nextVisitDate = d),
+                          onSubmit: _submitNewFollowup,
+                        ),
+                      ),
                     ),
                   ],
-                )
-              else
-                AppButton(
-                  label: l.isArabic ? 'تأكيد الإنجاز' : 'Mark Done',
-                  icon: Icons.check,
-                  variant: AppButtonVariant.success,
-                  size: AppButtonSize.small,
-                  onPressed: () => _completeFollowup(item.logId),
                 ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceOf(context),
+                  border: Border(top: BorderSide(color: AppTheme.borderOf(context))),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppTheme.radiusLg)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    AppButton(
+                      label: l.isArabic ? 'إغلاق' : 'Close',
+                      variant: AppButtonVariant.secondary,
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
-  }
-
-  String _stageLabel(int seq, bool isArabic) {
-    switch (seq) {
-      case 1:
-        return isArabic ? 'المعاينة' : 'Inspection';
-      case 2:
-        return isArabic ? 'التثمين' : 'Valuation';
-      case 3:
-        return isArabic ? 'الرقابة' : 'GOEIC';
-      case 4:
-        return isArabic ? 'الجهات' : 'Agencies';
-      case 5:
-        return isArabic ? 'الإفراج' : 'Release';
-      default:
-        return '';
-    }
   }
 }

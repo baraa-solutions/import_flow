@@ -25,6 +25,11 @@ from modules.import_files.model import ImportFile
 
 from . import repository as repo
 from .model import ClearanceExpenseInvoice, ClearanceFollowupLog, CustomsClearanceRecord
+from .declaration_46_service import (
+    apply_revised_estimate_fields,
+    save_revised_estimate_service,
+    get_approved_booking_freight_service,
+)
 from .schemas import (
     ClearanceExpenseInvoiceCreate,
     ClearanceExpenseInvoiceResponse,
@@ -991,6 +996,9 @@ def register_customs_declaration_46_service(
             record.is_valuation_uplifted = True
         if payload.valuation_uplift_reason is not None:
             record.valuation_uplift_reason = payload.valuation_uplift_reason
+        apply_revised_estimate_fields(record, payload, db=db)
+
+
         if payload.inspection_notes:
             record.inspection_notes = payload.inspection_notes
         record.status = "Under Customs Clearance"

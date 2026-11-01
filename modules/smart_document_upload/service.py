@@ -28,6 +28,7 @@ from modules.smart_document_upload.extractors.cargo_shipping import CargoShippin
 from modules.smart_document_upload.extractors.commercial_invoice import CommercialInvoiceExtractor
 from modules.smart_document_upload.extractors.packing_list import PackingListExtractor
 from modules.smart_document_upload.extractors.customs_clearance import CustomsClearanceExtractor
+from modules.smart_document_upload.extractors.nafeza_declaration_extractor import NafezaDeclarationExtractor
 from modules.smart_document_upload.cross_checker import cross_check_invoice_vs_bl
 
 from modules.smart_document_upload.extractors.customs_broker_quotation import CustomsBrokerQuotationExtractor
@@ -57,6 +58,10 @@ _EXTRACTOR_MAP: Dict[str, BaseExtractor] = {
     "import-file": ImportFileExtractor(),
     "cargo-shipping": CargoShippingExtractor(),
     "customs-clearance": CustomsClearanceExtractor(),
+    "nafeza-declaration": NafezaDeclarationExtractor(),
+    "nafeza-declaration-review": NafezaDeclarationExtractor(),
+    "nafeza-unified-fees": NafezaDeclarationExtractor(),
+    "nafeza": NafezaDeclarationExtractor(),
     "clearance-quotation": CustomsBrokerQuotationExtractor(),
     "customs-broker-quotation": CustomsBrokerQuotationExtractor(),
     "customs-clearance-quotation": CustomsBrokerQuotationExtractor(),

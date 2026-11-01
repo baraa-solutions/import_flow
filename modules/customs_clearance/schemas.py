@@ -55,6 +55,20 @@ class CustomsClearanceCreate(BaseModel):
     actual_duty_total: float = Field(0.0, ge=0)
     duty_variance_amount: float = 0.0
     duty_variance_percentage: float = 0.0
+    revised_exchange_rate: Optional[float] = None
+    revised_freight_egp: Optional[float] = None
+    revised_insurance_egp: Optional[float] = None
+    revised_unloading_egp: Optional[float] = None
+    revised_duty_rate: Optional[float] = None
+    revised_extra_fees_egp: Optional[float] = None
+    revised_cif_egp: Optional[float] = None
+    revised_import_duty_egp: Optional[float] = None
+    revised_vat_egp: Optional[float] = None
+    revised_total_duties_egp: Optional[float] = None
+    revised_has_exemption: Optional[bool] = None
+    revised_estimate_date: Optional[datetime] = None
+    revised_estimate_by: Optional[str] = None
+    revised_estimate_notes: Optional[str] = None
     duty_variance_reason: Optional[str] = None
     nafeza_assessment_json: Optional[Dict[str, Any]] = None
     port_arrival_date: Optional[datetime] = None
@@ -120,6 +134,62 @@ class CustomsDeclaration46Submit(BaseModel):
     is_valuation_uplifted: Optional[bool] = Field(False, description="هل تم تحسين السعر استرشادياً؟")
     valuation_uplift_amount_egp: Optional[float] = Field(0.0, ge=0.0, description="قيمة الزيادة الاسترشادية")
     valuation_uplift_reason: Optional[str] = Field(None, description="سبب التحسين الاسترشادي")
+
+    # Revised Estimate fields (optional on Form 46 submit)
+    revised_exchange_rate: Optional[float] = Field(None, gt=0, description="سعر الصرف الجمركي المحدّث")
+    revised_freight_egp: Optional[float] = Field(None, ge=0.0, description="نولون الشحن المعتمد بالجنيه المصري")
+    revised_insurance_egp: Optional[float] = Field(None, ge=0.0, description="قيمة التأمين المحدّثة بالجنيه المصري")
+    revised_unloading_egp: Optional[float] = Field(None, ge=0.0, description="مصاريف التفريغ والعتالة المحدّثة")
+    revised_duty_rate: Optional[float] = Field(None, ge=0.0, description="نسبة ضريبة الوارد المحدّثة")
+    revised_extra_fees_egp: Optional[float] = Field(None, ge=0.0, description="الرسوم الإضافية المحدّثة")
+    revised_cif_egp: Optional[float] = Field(None, ge=0.0, description="الوعاء الجمركي CIF المحدّث بالجنيه")
+    revised_import_duty_egp: Optional[float] = Field(None, ge=0.0, description="ضريبة الوارد المحدّثة بالجنيه")
+    revised_vat_egp: Optional[float] = Field(None, ge=0.0, description="ضريبة القيمة المضافة المحدّثة بالجنيه")
+    revised_total_duties_egp: Optional[float] = Field(None, ge=0.0, description="إجمالي الرسوم الجمركية المحدّثة بالجنيه")
+    revised_has_exemption: Optional[bool] = Field(None, description="هل توجد إعفاءات جمركية أو تفضيلية؟")
+    revised_estimate_date: Optional[datetime] = Field(None, description="تاريخ تسجيل التقدير المحدّث")
+    revised_estimate_by: Optional[str] = Field(None, description="المسؤول عن تسجيل التقدير المحدّث")
+    revised_estimate_notes: Optional[str] = Field(None, description="ملاحظات وتفاصيل التقدير المحدّث")
+    duty_variance_reason: Optional[str] = Field(None, description="سبب الانحراف عن التقدير المبدئي إن وجد")
+
+
+# Revised Estimate Submission Schema
+class RevisedEstimateSubmit(BaseModel):
+    import_file_id: int = Field(..., description="معرف ملف الشحنة الاستيرادية")
+    revised_exchange_rate: Optional[float] = Field(None, gt=0, description="سعر الصرف الجمركي المحدّث")
+    revised_freight_egp: Optional[float] = Field(None, ge=0.0, description="نولون الشحن المعتمد بالجنيه المصري")
+    revised_insurance_egp: Optional[float] = Field(None, ge=0.0, description="قيمة التأمين المحدّثة بالجنيه المصري")
+    revised_unloading_egp: Optional[float] = Field(None, ge=0.0, description="مصاريف التفريغ والعتالة المحدّثة")
+    revised_duty_rate: Optional[float] = Field(None, ge=0.0, description="نسبة ضريبة الوارد المحدّثة")
+    revised_extra_fees_egp: Optional[float] = Field(None, ge=0.0, description="الرسوم الإضافية المحدّثة")
+    revised_cif_egp: Optional[float] = Field(None, ge=0.0, description="الوعاء الجمركي CIF المحدّث بالجنيه")
+    revised_import_duty_egp: Optional[float] = Field(None, ge=0.0, description="ضريبة الوارد المحدّثة بالجنيه")
+    revised_vat_egp: Optional[float] = Field(None, ge=0.0, description="ضريبة القيمة المضافة المحدّثة بالجنيه")
+    revised_total_duties_egp: Optional[float] = Field(None, ge=0.0, description="إجمالي الرسوم الجمركية المحدّثة بالجنيه")
+    revised_has_exemption: Optional[bool] = Field(None, description="هل توجد إعفاءات جمركية أو تفضيلية؟")
+    revised_estimate_date: Optional[datetime] = Field(None, description="تاريخ تسجيل التقدير المحدّث")
+    revised_estimate_by: Optional[str] = Field(None, description="المسؤول عن تسجيل التقدير المحدّث")
+    revised_estimate_notes: Optional[str] = Field(None, description="ملاحظات وتفاصيل التقدير المحدّث")
+    duty_variance_reason: Optional[str] = Field(None, description="سبب انحراف الرسوم التقديرية المحدّثة")
+
+
+# Approved Booking Freight Response Schema
+class ApprovedBookingFreightResponse(BaseModel):
+    has_booking: bool = False
+    import_file_id: int
+    booking_id: Optional[int] = None
+    booking_code: Optional[str] = None
+    booking_status: Optional[str] = None
+    shipping_line_name: Optional[str] = None
+    freight_forwarder_name: Optional[str] = None
+    bill_of_lading_no: Optional[str] = None
+    freight_terms: Optional[str] = None
+    total_freight_cost_usd: float = 0.0
+    freight_cost_egp: Optional[float] = None
+    exchange_rate_used: Optional[float] = None
+    source: Optional[str] = None
+    notes: Optional[str] = None
+
 
 # TASK-BE-10: Tax Coding & Bank Linkage on Nafeza before Form 4
 class TariffCodingSubmit(BaseModel):
@@ -374,6 +444,20 @@ class CustomsClearanceUpdate(BaseModel):
     wht_amount: Optional[float] = Field(None, ge=0)
     lab_service_fees: Optional[float] = Field(None, ge=0)
     estimated_duty_total: Optional[float] = Field(None, ge=0)
+    revised_exchange_rate: Optional[float] = None
+    revised_freight_egp: Optional[float] = None
+    revised_insurance_egp: Optional[float] = None
+    revised_unloading_egp: Optional[float] = None
+    revised_duty_rate: Optional[float] = None
+    revised_extra_fees_egp: Optional[float] = None
+    revised_cif_egp: Optional[float] = None
+    revised_import_duty_egp: Optional[float] = None
+    revised_vat_egp: Optional[float] = None
+    revised_total_duties_egp: Optional[float] = None
+    revised_has_exemption: Optional[bool] = None
+    revised_estimate_date: Optional[datetime] = None
+    revised_estimate_by: Optional[str] = None
+    revised_estimate_notes: Optional[str] = None
     duty_variance_reason: Optional[str] = None
     nafeza_assessment_json: Optional[Dict[str, Any]] = None
     port_arrival_date: Optional[datetime] = None
@@ -454,6 +538,21 @@ class CustomsClearanceResponse(LegacyRowTolerantModel):
     nafeza_claim_number: Optional[str] = None
     nafeza_claim_date: Optional[datetime] = None
     assessment_status: str = "Assessed"
+    # Revised Estimate fields (التقدير المحدّث للرسوم)
+    revised_exchange_rate: Optional[float] = None
+    revised_freight_egp: Optional[float] = None
+    revised_insurance_egp: Optional[float] = None
+    revised_unloading_egp: Optional[float] = None
+    revised_duty_rate: Optional[float] = None
+    revised_extra_fees_egp: Optional[float] = None
+    revised_cif_egp: Optional[float] = None
+    revised_import_duty_egp: Optional[float] = None
+    revised_vat_egp: Optional[float] = None
+    revised_total_duties_egp: Optional[float] = None
+    revised_has_exemption: Optional[bool] = None
+    revised_estimate_date: Optional[datetime] = None
+    revised_estimate_by: Optional[str] = None
+    revised_estimate_notes: Optional[str] = None
     nafeza_assessment_json: Optional[Dict[str, Any]] = None
     port_arrival_date: Optional[datetime] = None
     delivery_order_number: Optional[str] = None

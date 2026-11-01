@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/api_error_text.dart';
@@ -13,6 +12,9 @@ import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
 import 'cc_dialog_shell.dart';
 import 'customs_ui.dart';
+import 'inspection/customs_inspection_info_header.dart';
+import 'inspection/customs_inspection_result_cards.dart';
+import 'inspection/customs_inspection_sampling_section.dart';
 
 /// Modal dialog for CL-01: Customs Inspection & Samples GOEIC Report
 /// (field inspection, sampling and regulatory conformity).
@@ -77,7 +79,7 @@ class _CustomsInspectionSamplingDialogState
     'CHEMISTRY_DEPT',
     'ATOMIC_ENERGY',
     'AGRICULTURAL_QUARANTINE',
-    'VETERINARY_QUARANTINE',
+    'VETERINARY_QUARARANTINE',
     'NTRA',
     'WEIGHTS_MEASURES',
     'EDA',
@@ -90,21 +92,13 @@ class _CustomsInspectionSamplingDialogState
     final bool hasExistingInspection = rec != null && rec.inspectionDate != null;
 
     if (hasExistingInspection) {
-      _inspectorController = TextEditingController(
-        text: rec.inspectorName ?? '',
-      );
-      _samplingRecordController = TextEditingController(
-        text: rec.samplingRecordNo ?? '',
-      );
-      _goeicCertController = TextEditingController(
-        text: rec.goeicCertificateNo ?? '',
-      );
+      _inspectorController = TextEditingController(text: rec.inspectorName ?? '');
+      _samplingRecordController = TextEditingController(text: rec.samplingRecordNo ?? '');
+      _goeicCertController = TextEditingController(text: rec.goeicCertificateNo ?? '');
       _labFeesController = TextEditingController(
         text: rec.labServiceFees != null ? rec.labServiceFees.toString() : '0',
       );
-      _inspectionNotesController = TextEditingController(
-        text: rec.inspectionNotes ?? '',
-      );
+      _inspectionNotesController = TextEditingController(text: rec.inspectionNotes ?? '');
 
       if (rec.inspectionYard != null && rec.inspectionYard!.isNotEmpty) {
         _selectedYard = rec.inspectionYard;
@@ -256,24 +250,6 @@ class _CustomsInspectionSamplingDialogState
     final l = context.l10n;
     final file = widget.file;
 
-    final channel = widget.clearanceRecord?.channelType;
-    final channelInfo = channel != null && channel.trim().isNotEmpty
-        ? CcUi.channelStyle(l, channel)
-        : null;
-    final channelLabel = channelInfo?.label ?? '—';
-    final channelIcon = channelInfo?.icon ?? Icons.security_rounded;
-    final channelColor = channelInfo != null
-        ? AppTheme.severityForegroundOf(context, channelInfo.severity)
-        : AppTheme.charcoal;
-
-    final String dateValue;
-    if (file.form46Date != null && file.form46Date!.trim().isNotEmpty) {
-      final trimmed = file.form46Date!.trim();
-      dateValue = trimmed.length >= 10 ? trimmed.substring(0, 10) : trimmed;
-    } else {
-      dateValue = '—';
-    }
-
     final inspectionTypes = <String, String>{
       'Physical & Sampling': l.ccInsType1,
       '100% Full Inspection': l.ccInsType2,
@@ -313,32 +289,11 @@ class _CustomsInspectionSamplingDialogState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CcFieldRow(
-              gap: 12,
-              children: [
-                _buildInfoBadge(
-                  title: l.ccInsBadgeDecl,
-                  value: file.form46No ?? l.ccInsBadgeDeclFallback,
-                  icon: Icons.assignment_turned_in_rounded,
-                  accentColor: AppTheme.cobalt,
-                ),
-                _buildInfoBadge(
-                  title: l.ccInsBadgeChannel,
-                  value: channelLabel,
-                  icon: channelIcon,
-                  accentColor: channelColor,
-                ),
-                _buildInfoBadge(
-                  title: l.ccInsBadgeDate,
-                  value: dateValue,
-                  icon: Icons.calendar_today_rounded,
-                  accentColor: AppTheme.charcoal,
-                  ltr: true,
-                ),
-              ],
+            CustomsInspectionInfoHeader(
+              file: file,
+              clearanceRecord: widget.clearanceRecord,
             ),
             const SizedBox(height: 20),
-
             CcFormSection(
               title: l.ccInsSection1,
               icon: Icons.fact_check_rounded,
@@ -434,8 +389,7 @@ class _CustomsInspectionSamplingDialogState
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildResultCards(
-                            l,
+                          CustomsInspectionResultCards(
                             selectedResult: _selectedResult,
                             onSelected: (val) {
                               setState(() => _selectedResult = val);
@@ -463,174 +417,25 @@ class _CustomsInspectionSamplingDialogState
               ),
             ),
             const SizedBox(height: 20),
-
-            CcFormSection(
-              title: l.ccInsSection2,
-              icon: Icons.science_rounded,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SwitchListTile(
-                    value: _isSampleDrawn,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      l.ccInsSampleSwitchTitle,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                    ),
-                    subtitle: Text(
-                      _isSampleDrawn ? l.ccInsSampleSwitchOn : l.ccInsSampleSwitchOff,
-                      style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryOf(context)),
-                    ),
-                    activeThumbColor: AppTheme.emerald,
-                    onChanged: (val) {
-                      setState(() {
-                        _isSampleDrawn = val;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  if (_isSampleDrawn) ...[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextFormField(
-                            controller: _samplingRecordController,
-                            textDirection: TextDirection.ltr,
-                            decoration: _dec(
-                              l.ccInsSampleRecordLabel,
-                              hint: l.ccInsSampleRecordHint,
-                              icon: Icons.numbers_rounded,
-                            ),
-                            validator: (val) {
-                              if (_isSampleDrawn && (val == null || val.trim().length < 3)) {
-                                return l.ccInsSamplingNoRequired;
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 2,
-                          child: InkWell(
-                            onTap: () => _pickDate(isSampling: true),
-                            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                            child: InputDecorator(
-                              decoration: _dec(l.ccInsSampleDateLabel, icon: Icons.event_note_rounded),
-                              child: LtrText(CcFormat.date(_samplingDate),
-                                  style: const TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(l.ccInsBodiesLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    const SizedBox(height: 6),
-                    FormField<Set<String>>(
-                      validator: (_) {
-                        if (_isSampleDrawn && _selectedSampledBodies.isEmpty) {
-                          return l.ccInsBodiesRequired;
-                        }
-                        return null;
-                      },
-                      builder: (state) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 6,
-                              children: _regulatoryAgencyOptions.map((agency) {
-                                final isSelected = _selectedSampledBodies.contains(agency);
-                                return FilterChip(
-                                  label: Text(
-                                    DomainEnums.label(l, DomainEnumType.regulatoryBody, agency),
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  selected: isSelected,
-                                  selectedColor: AppTheme.cobaltMedium,
-                                  checkmarkColor: AppTheme.cobalt,
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      if (selected) {
-                                        _selectedSampledBodies.add(agency);
-                                      } else {
-                                        _selectedSampledBodies.remove(agency);
-                                      }
-                                    });
-                                    state.didChange(_selectedSampledBodies);
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                            if (state.hasError) ...[
-                              const SizedBox(height: 6),
-                              Padding(
-                                padding: const EdgeInsetsDirectional.only(start: 4),
-                                child: Text(
-                                  state.errorText!,
-                                  style: TextStyle(
-                                    color: Theme.of(context).colorScheme.error,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextFormField(
-                            controller: _goeicCertController,
-                            textDirection: TextDirection.ltr,
-                            decoration: _dec(l.ccInsGoeicLabel, hint: l.ccInsGoeicHint, icon: Icons.verified_rounded),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 2,
-                          child: TextFormField(
-                            controller: _labFeesController,
-                            textDirection: TextDirection.ltr,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                            ],
-                            decoration: _dec(l.ccInsLabFeesLabel, icon: Icons.payments_rounded, suffixText: 'EGP'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(l.ccInsTestStatusLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildSampleStatusChip('Samples Under Testing', l.ccInsStatusTesting,
-                            Icons.hourglass_top_rounded, AppTheme.orange),
-                        _buildSampleStatusChip(
-                            'Approved', l.ccInsStatusApproved, Icons.check_circle_rounded, AppTheme.emerald),
-                        _buildSampleStatusChip(
-                            'Rejected', l.ccInsStatusRejected, Icons.cancel_rounded, AppTheme.crimson),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
+            CustomsInspectionSamplingSection(
+              isSampleDrawn: _isSampleDrawn,
+              onSampleDrawnChanged: (val) => setState(() => _isSampleDrawn = val),
+              samplingRecordController: _samplingRecordController,
+              samplingDate: _samplingDate,
+              onPickSamplingDate: () => _pickDate(isSampling: true),
+              selectedSampledBodies: _selectedSampledBodies,
+              regulatoryAgencyOptions: _regulatoryAgencyOptions,
+              onSampledBodiesChanged: (val) => setState(() {
+                _selectedSampledBodies.clear();
+                _selectedSampledBodies.addAll(val);
+              }),
+              goeicCertController: _goeicCertController,
+              labFeesController: _labFeesController,
+              selectedSampleTestStatus: _selectedSampleTestStatus,
+              onSampleTestStatusChanged: (val) => setState(() => _selectedSampleTestStatus = val),
+              dec: _dec,
             ),
             const SizedBox(height: 20),
-
             CcFormSection(
               title: l.ccInsSection3,
               icon: Icons.notes_rounded,
@@ -643,158 +448,6 @@ class _CustomsInspectionSamplingDialogState
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildResultCards(
-    AppLocalizations l, {
-    required ValueChanged<String> onSelected,
-    String? selectedResult,
-  }) {
-    final results = <({String id, String label, String desc, AppSeverity severity, IconData icon})>[
-      (
-        id: 'Conforming',
-        label: l.ccInsResConforming,
-        desc: l.ccInsResConformingDesc,
-        severity: AppSeverity.success,
-        icon: Icons.check_circle_rounded
-      ),
-      (
-        id: 'Shortage',
-        label: l.ccInsResShortage,
-        desc: l.ccInsResShortageDesc,
-        severity: AppSeverity.warning,
-        icon: Icons.remove_circle_outline_rounded
-      ),
-      (
-        id: 'Surplus',
-        label: l.ccInsResSurplus,
-        desc: l.ccInsResSurplusDesc,
-        severity: AppSeverity.info,
-        icon: Icons.add_circle_outline_rounded
-      ),
-      (
-        id: 'Discrepancy',
-        label: l.ccInsResDiscrepancy,
-        desc: l.ccInsResDiscrepancyDesc,
-        severity: AppSeverity.danger,
-        icon: Icons.warning_amber_rounded
-      ),
-    ];
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: results.map((result) {
-        final isSelected = selectedResult == result.id;
-        final color = AppTheme.severityForegroundOf(context, result.severity);
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsetsDirectional.symmetric(horizontal: 4),
-            child: InkWell(
-              onTap: () => onSelected(result.id),
-              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-              child: Container(
-                padding: const EdgeInsetsDirectional.all(12),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.severityBackgroundOf(context, result.severity)
-                      : AppTheme.surfaceOf(context),
-                  border: Border.all(
-                    color: isSelected ? color : AppTheme.borderOf(context),
-                    width: isSelected ? 2 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(result.icon, size: 18, color: isSelected ? color : AppTheme.textSecondaryOf(context)),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            result.label,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isSelected ? color : AppTheme.textPrimaryOf(context),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      result.desc,
-                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildInfoBadge({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color accentColor,
-    bool ltr = false,
-  }) {
-    final valueStyle = TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: accentColor);
-    return Container(
-      padding: const EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: accentColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(color: accentColor.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: accentColor),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
-                ltr
-                    ? LtrText(value, style: valueStyle, overflow: TextOverflow.ellipsis)
-                    : Text(value, style: valueStyle, overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSampleStatusChip(String code, String label, IconData icon, Color color) {
-    final isSelected = _selectedSampleTestStatus == code;
-    return ChoiceChip(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: isSelected ? color : AppTheme.textSecondaryOf(context)),
-          const SizedBox(width: 4),
-          Text(label,
-              style: TextStyle(fontSize: 11.5, color: isSelected ? color : AppTheme.textPrimaryOf(context))),
-        ],
-      ),
-      selected: isSelected,
-      showCheckmark: false,
-      selectedColor: color.withValues(alpha: 0.15),
-      onSelected: (selected) {
-        if (selected) setState(() => _selectedSampleTestStatus = code);
-      },
     );
   }
 }

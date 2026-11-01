@@ -12,6 +12,9 @@ import '../../providers/financial_approval_provider.dart';
 import '../../../currencies/providers/currencies_provider.dart';
 import '../../../import_files/providers/import_files_provider.dart';
 import 'swift_reconciliation_common.dart';
+import 'dialog/swift_extract_actions_bar.dart';
+import 'dialog/swift_matching_matrix_box.dart';
+import 'dialog/swift_payment_summary_banner.dart';
 
 /// Modal dialog for resolving SWIFT reconciliation differences, discrepancy handling,
 /// and live synchronization with financial records.
@@ -191,7 +194,6 @@ class _SwiftDiscrepancyDialogState
             swiftReconciliationNotes: _notesController.text.trim(),
           );
 
-      // Refresh Import Files provider so swift_no is live immediately
       ref.read(importFilesProvider.notifier).fetchImportFiles();
       widget.onReconciled?.call();
 
@@ -229,39 +231,10 @@ class _SwiftDiscrepancyDialogState
 
     final transferredAmt =
         double.tryParse(_transferredAmountController.text.trim()) ?? 0.0;
-    final variance = transferredAmt - pay.requestedAmount;
     final processingDays = _receiptDate?.difference(_requestDate).inDays;
     final safeDays = processingDays != null
         ? (processingDays < 0 ? 0 : processingDays)
         : null;
-
-    Color varianceColor;
-    IconData varianceIcon;
-    String varianceText;
-
-    if (transferredAmt <= 0) {
-      varianceColor = AppTheme.textMuted;
-      varianceIcon = Icons.hourglass_empty;
-      varianceText = l10n.swiftWaitingAmountEntry;
-    } else if (variance.abs() < 0.001) {
-      varianceColor = AppTheme.emerald;
-      varianceIcon = Icons.check_circle;
-      varianceText = l10n.swiftBadgeMatchedFull;
-    } else if (variance < 0) {
-      varianceColor = AppTheme.crimson;
-      varianceIcon = Icons.arrow_downward;
-      varianceText = l10n.swiftBadgeDeficit(
-        variance.abs().toStringAsFixed(2),
-        pay.currencyCode,
-      );
-    } else {
-      varianceColor = AppTheme.orange;
-      varianceIcon = Icons.arrow_upward;
-      varianceText = l10n.swiftBadgeSurplus(
-        variance.toStringAsFixed(2),
-        pay.currencyCode,
-      );
-    }
 
     return SelectionArea(
       child: AlertDialog(
@@ -285,176 +258,16 @@ class _SwiftDiscrepancyDialogState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Summary of Payment Request
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cobaltLight.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.cobaltBorder),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '${l10n.swiftRequestTitleLabel} ${pay.title}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                            if (pay.importFileCode != null)
-                              InkWell(
-                                borderRadius: BorderRadius.circular(4),
-                                onTap: () => CopyHelper.copy(
-                                  context,
-                                  pay.importFileCode!,
-                                ),
-                                child: Tooltip(
-                                  message: l10n.swiftCopyFieldTooltip,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.cobalt,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.copy_rounded,
-                                          color: AppTheme.white,
-                                          size: 12,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          pay.importFileCode!,
-                                          style: const TextStyle(
-                                            color: AppTheme.white,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '${l10n.swiftBeneficiaryLabel} ${pay.beneficiaryName ?? pay.supplierName}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                '${l10n.swiftBankLabel} ${pay.bankName ?? "-"} (${pay.swiftCode ?? "-"})',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '${l10n.swiftRequestDateLabel}: ${pay.requestDate.isNotEmpty ? pay.requestDate : "-"}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.charcoal,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                '${l10n.swiftRequestedAmountLabel}: ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.cobalt,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  SwiftPaymentSummaryBanner(pay: pay),
                   const SizedBox(height: 12),
-
-                  // Quick Smart AI Extract Button inside Dialog
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cobaltLight,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.cobaltBorder),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.auto_awesome,
-                            color: AppTheme.wcagCobalt, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '${l10n.swiftExtractorHeader}:',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.wcagCobalt,
-                            ),
-                          ),
-                        ),
-                        FinancialUi.fit(AppButton(
-                          label: l10n.swiftSampleMT103Chip,
-                          variant: AppButtonVariant.secondary,
-                          size: AppButtonSize.small,
-                          icon: Icons.description,
-                          onPressed: _handleSampleExtract,
-                        )),
-                        const SizedBox(width: 4),
-                        FinancialUi.fit(AppButton(
-                          label: l10n.swiftPasteAndExtractChip,
-                          variant: AppButtonVariant.primary,
-                          size: AppButtonSize.small,
-                          icon: Icons.paste,
-                          onPressed: _handlePasteExtract,
-                        )),
-                        const SizedBox(width: 4),
-                        FinancialUi.fit(AppButton(
-                          label: l10n.swiftUploadDocChip,
-                          variant: AppButtonVariant.primary,
-                          size: AppButtonSize.small,
-                          icon: Icons.upload_file,
-                          onPressed: _handleUploadExtract,
-                        )),
-                      ],
-                    ),
+                  SwiftExtractActionsBar(
+                    onSampleExtract: _handleSampleExtract,
+                    onPasteExtract: _handlePasteExtract,
+                    onUploadExtract: _handleUploadExtract,
                   ),
                   const SizedBox(height: 14),
-
-                  // Input Fields
                   Row(
                     children: [
-                      // SWIFT Receipt Date
                       Expanded(
                         child: AppDatePickerField(
                           key: const Key('swiftReceiptDateField'),
@@ -475,7 +288,6 @@ class _SwiftDiscrepancyDialogState
                         ),
                       ),
                       const SizedBox(width: 12),
-                      // SWIFT Reference No
                       Expanded(
                         child: TextFormField(
                           controller: _swiftRefController,
@@ -503,10 +315,8 @@ class _SwiftDiscrepancyDialogState
                     ],
                   ),
                   const SizedBox(height: 14),
-
                   Row(
                     children: [
-                      // Transferred Amount
                       Expanded(
                         flex: 2,
                         child: TextFormField(
@@ -542,7 +352,6 @@ class _SwiftDiscrepancyDialogState
                         ),
                       ),
                       const SizedBox(width: 12),
-                      // Currency
                       Expanded(
                         flex: 1,
                         child: Consumer(
@@ -590,140 +399,12 @@ class _SwiftDiscrepancyDialogState
                     ],
                   ),
                   const SizedBox(height: 14),
-
-                  // Reconciliation Live Comparison Box
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: varianceColor.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: varianceColor.withValues(alpha: 0.4),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(varianceIcon, color: varianceColor, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              l10n.swiftMatchingMatrixTitle,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: varianceColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              safeDays != null
-                                  ? l10n.swiftDaysBetweenDates(safeDays)
-                                  : '-',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (safeDays != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: safeDays <= 3
-                                      ? AppTheme.emeraldLight
-                                      : (safeDays <= 7
-                                          ? AppTheme.orangeLight
-                                          : AppTheme.crimsonLight),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  safeDays <= 3
-                                      ? l10n.swiftExecutionInstantTag(safeDays)
-                                      : (safeDays <= 7
-                                          ? l10n.swiftExecutionReasonableTag(
-                                              safeDays)
-                                          : l10n.swiftExecutionDelayedTag(
-                                              safeDays)),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: safeDays <= 3
-                                        ? AppTheme.wcagEmerald
-                                        : (safeDays <= 7
-                                            ? AppTheme.wcagOrange
-                                            : AppTheme.crimson),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '${l10n.swiftRequestedAmountLabel}: ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '${l10n.swiftTransferredAmountLabel}: ${transferredAmt.toStringAsFixed(2)} ${pay.currencyCode}',
-                                textAlign: TextAlign.end,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: varianceColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Divider(),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                varianceText,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: varianceColor,
-                                ),
-                              ),
-                            ),
-                            if (variance != 0) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                '${l10n.swiftVarianceLabel}: ${variance >= 0 ? "+" : ""}${variance.toStringAsFixed(2)} ${pay.currencyCode}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: varianceColor,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
-                    ),
+                  SwiftMatchingMatrixBox(
+                    pay: pay,
+                    transferredAmt: transferredAmt,
+                    safeDays: safeDays,
                   ),
                   const SizedBox(height: 12),
-
-                  // Auto-Sync Info Banner
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
@@ -750,8 +431,6 @@ class _SwiftDiscrepancyDialogState
                     ),
                   ),
                   const SizedBox(height: 12),
-
-                  // Notes Field
                   TextFormField(
                     controller: _notesController,
                     maxLines: 2,

@@ -315,8 +315,26 @@ class ProductionSyncService:
                 if not common_cols:
                     continue
 
-                cols_str = ", ".join([f'"{c}"' for c in common_cols])
-                placeholders = ", ".join(["?"] * len(common_cols))
+                # SEC-02: Verify columns against SQLAlchemy Base metadata if registered,
+                # and apply strict identifier validation & quoting to prevent SQL injection.
+                safe_common_cols = []
+                for c in common_cols:
+                    safe_c = validate_sql_identifier(c)
+                    if safe_tbl in Base.metadata.tables:
+                        model_cols = Base.metadata.tables[safe_tbl].columns.keys()
+                        if safe_c not in model_cols:
+                            logger.warning(
+                                "Column %s in table %s is not defined in SQLAlchemy Base metadata",
+                                safe_c,
+                                safe_tbl,
+                            )
+                    safe_common_cols.append(safe_c)
+
+                if not safe_common_cols:
+                    continue
+
+                cols_str = ", ".join([f'"{c}"' for c in safe_common_cols])
+                placeholders = ", ".join(["?"] * len(safe_common_cols))
 
                 cur_src.execute(f'SELECT {cols_str} FROM "{safe_tbl}";')
                 src_rows = cur_src.fetchall()
@@ -358,8 +376,9 @@ class ProductionSyncService:
             result = {}
             for table in tables:
                 try:
-                    cursor.execute(f'PRAGMA table_info("{table}");')
-                    result[table] = [row[1] for row in cursor.fetchall()]
+                    safe_table = validate_sql_identifier(table)
+                    cursor.execute(f'PRAGMA table_info("{safe_table}");')
+                    result[safe_table] = [row[1] for row in cursor.fetchall()]
                 except Exception:
                     result[table] = []
             conn.close()

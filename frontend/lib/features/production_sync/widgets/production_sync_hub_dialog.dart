@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import 'package:frontend/core/widgets/widgets.dart';
+import '../../../core/widgets/widgets.dart';
 import '../providers/production_sync_provider.dart';
 import '../services/local_process_sync_service.dart';
-import '../services/production_sync_export_service.dart';
+import 'hub/sync_backups_tab.dart';
+import 'hub/sync_db_status_cards.dart';
+import 'hub/sync_operations_tab.dart';
 import 'sync_console_widget.dart';
-import 'sync_progress_and_diff_widget.dart';
 
 class ProductionSyncHubDialog extends ConsumerStatefulWidget {
   final LocalProcessSyncService? service;
@@ -33,7 +35,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
   final List<ConsoleLogLine> _consoleLogs = [];
   bool _isRunning = false;
   String _currentAction = '';
-  SyncProgressEvent? _progress;
+  final SyncProgressEvent? _progress = null;
   SyncDiffSummary? _diffSummary;
 
   late LocalDbStats _devStats;
@@ -176,7 +178,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
           ),
           child: Column(
             children: [
-              // ─── Header Bar ───────────────────────────────────────────────
+              // Header Bar
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: const BoxDecoration(
@@ -225,37 +227,14 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 ),
               ),
 
-              // ─── DB Status Header Cards ────────────────────────────────────
-              Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildDbCard(
-                        title: l.prodSyncDevDbTitle,
-                        path: _service.devDbPath,
-                        stats: _devStats,
-                        color: AppTheme.cobalt,
-                        icon: Icons.code_rounded,
-                        l: l,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildDbCard(
-                        title: l.prodSyncProdDbTitle,
-                        path: _service.prodDbPath,
-                        stats: _prodStats,
-                        color: AppTheme.emerald,
-                        icon: Icons.desktop_windows_rounded,
-                        l: l,
-                      ),
-                    ),
-                  ],
-                ),
+              // DB Status Header Cards
+              SyncDbStatusCards(
+                service: _service,
+                devStats: _devStats,
+                prodStats: _prodStats,
               ),
 
-              // ─── Tab Bar ──────────────────────────────────────────────────
+              // Tab Bar
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
@@ -308,64 +287,20 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
               ),
               const SizedBox(height: 6),
 
-              // ─── Tab Views ────────────────────────────────────────────────
+              // Tab Views
               Expanded(
                 child: Padding(
                   padding: const EdgeInsetsDirectional.fromSTEB(16, 4, 16, 16),
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildOperationsTab(l),
-                      _buildBackupsTab(l),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // Tab 1: Direct Operations + Live Console
-  // ──────────────────────────────────────────────────────────────────────────
-
-  Widget _buildOperationsTab(AppLocalizations l) {
-    return Column(
-      children: [
-        // Action Buttons Row
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              // Compare DBs (read-only). Sync / pull / full build / launch were retired:
-              // the product never syncs a dev DB into production.
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-                ),
-                icon: _isRunning && _currentAction == l.prodSyncCompareTablesBtn
-                    ? const AppLoadingState.inline()
-                    : const Icon(Icons.compare_arrows_rounded, size: 17),
-                label: Text(
-                  l.prodSyncCompareTablesBtn,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-                onPressed: _isRunning
-                    ? null
-                    : () => _executeAction(
+                      SyncOperationsTab(
+                        isRunning: _isRunning,
+                        currentAction: _currentAction,
+                        progress: _progress,
+                        diffSummary: _diffSummary,
+                        consoleLogs: _consoleLogs,
+                        onCompareDatabases: () => _executeAction(
                           l.prodSyncCompareTablesBtn,
                           () => _service.compareDatabases(
                             onOutput: (msg) => _appendLog(msg),
@@ -375,310 +310,30 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                             },
                           ),
                         ),
+                        onClearLogs: () => setState(() => _consoleLogs.clear()),
+                      ),
+                      SyncBackupsTab(
+                        backups: _backups,
+                        devStats: _devStats,
+                        prodStats: _prodStats,
+                        diffSummary: _diffSummary,
+                        isRunning: _isRunning,
+                        onCreateManualBackup: () => _executeAction(
+                          l.prodSyncCreateInstantBackupBtn,
+                          () => _service.createManualBackup(
+                            onOutput: (msg) => _appendLog(msg),
+                            onError: (msg) => _appendLog(msg, isError: true),
+                          ),
+                        ),
+                        onRestoreBackup: _confirmAndRestoreBackup,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
-
-        // ── Visual Progress & Database Changes Diff Inspector ────────────
-        SyncProgressAndDiffWidget(
-          progress: _progress,
-          diffSummary: _diffSummary,
-          isRunning: _isRunning,
-          onCheckDiff: () => _executeAction(
-            l.prodSyncCompareTablesBtn,
-            () => _service.compareDatabases(
-              onOutput: (msg) => _appendLog(msg),
-              onError: (msg) => _appendLog(msg, isError: true),
-              onDiffSummary: (d) {
-                if (mounted) setState(() => _diffSummary = d);
-              },
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // Live Console Terminal Output
-        Expanded(
-          child: SyncConsoleWidget(
-            logs: _consoleLogs,
-            isRunning: _isRunning,
-            onClear: () => setState(() => _consoleLogs.clear()),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // Tab 2: Backups Archive
-  // ──────────────────────────────────────────────────────────────────────────
-
-  Widget _buildBackupsTab(AppLocalizations l) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l.prodSyncBackupsArchiveHeader(_backups.length),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
-                    ),
-                    Text(
-                      l.prodSyncBackupsDialogSub,
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.charcoal,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    ),
-                    icon: const Icon(Icons.copy_rounded, size: 15),
-                    label: Text(l.prodSyncCopyDossierBtn, style: const TextStyle(fontSize: 11.5)),
-                    onPressed: _backups.isEmpty
-                        ? null
-                        : () => ProductionSyncExportService.copyDossierToClipboard(
-                              context: context,
-                              devStats: _devStats,
-                              prodStats: _prodStats,
-                              diffSummary: _diffSummary,
-                              backups: _backups,
-                            ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                    icon: const Icon(Icons.add_to_photos_rounded, size: 16),
-                    label: Text(l.prodSyncCreateInstantBackupBtn, style: const TextStyle(fontSize: 11.5)),
-                    onPressed: _isRunning
-                        ? null
-                        : () => _executeAction(
-                              l.prodSyncCreateInstantBackupBtn,
-                              () => _service.createManualBackup(
-                                onOutput: (msg) => _appendLog(msg),
-                                onError: (msg) => _appendLog(msg, isError: true),
-                              ),
-                            ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _backups.isEmpty
-                ? Center(
-                    child: Text(l.prodSyncNoBackupsDialogSub),
-                  )
-                : ListView.separated(
-                    itemCount: _backups.length,
-                    separatorBuilder: (ctx, i) => Divider(height: 1, color: Colors.grey.shade200),
-                    itemBuilder: (ctx, idx) {
-                      final b = _backups[idx];
-                      final tagColor = b.tag.contains('prod')
-                          ? AppTheme.emerald
-                          : b.tag.contains('dev')
-                              ? AppTheme.cobalt
-                              : AppTheme.orange;
-                      final tagText = b.tag.contains('prod')
-                          ? l.prodSyncTargetProdLabel
-                          : (b.tag.contains('dev') ? l.prodSyncTargetDevLabel : b.tag);
-
-                      return ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.inventory_2_outlined, color: AppTheme.cobalt, size: 20),
-                        title: Row(
-                          children: [
-                            Tooltip(
-                              message: l.prodSyncCopyFieldTooltip,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(4),
-                                onTap: () => CopyHelper.copy(
-                                  context,
-                                  b.filename,
-                                  customMessage: l.prodSyncCopyFieldTooltip,
-                                ),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Colors.grey.shade300),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        b.filename,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace'),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Icon(Icons.copy_rounded, size: 12, color: Colors.grey),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        subtitle: Text(
-                          '${l.prodSyncBackupCreatedAt(b.mtime)} • ${l.prodSyncBackupSize(b.sizeKb)}',
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Quick copy row summary action
-                            Tooltip(
-                              message: l.prodSyncCopyRowSummaryBtn,
-                              child: IconButton(
-                                icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
-                                onPressed: () {
-                                  final summary = '${b.filename} | $tagText | ${b.sizeKb} KB | ${b.mtime}';
-                                  CopyHelper.copy(context, summary, customMessage: l.prodSyncCopyRowSummarySuccess);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: tagColor.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                tagText,
-                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: tagColor),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.orange,
-                                side: const BorderSide(color: AppTheme.orange),
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              icon: const Icon(Icons.restore_rounded, size: 14),
-                              label: Text(l.prodSyncRestoreActionBtn, style: const TextStyle(fontSize: 10.5)),
-                              onPressed: _isRunning ? null : () => _confirmAndRestoreBackup(b),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // Helper: DB Card
-  // ──────────────────────────────────────────────────────────────────────────
-
-  Widget _buildDbCard({
-    required String title,
-    required String path,
-    required LocalDbStats stats,
-    required Color color,
-    required IconData icon,
-    required AppLocalizations l,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        title,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Tooltip(
-                      message: l.prodSyncCopyFieldTooltip,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(4),
-                        onTap: () => CopyHelper.copy(context, path, customMessage: l.prodSyncCopyFieldTooltip),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                path.length > 18 ? '...${path.substring(path.length - 15)}' : path,
-                                style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: AppTheme.charcoal),
-                              ),
-                              const SizedBox(width: 3),
-                              const Icon(Icons.copy_rounded, size: 10, color: Colors.grey),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  stats.exists
-                      ? '${l.prodSyncDbSizeLabel(stats.sizeKb)} • ${l.prodSyncDbLastModified(stats.mtime ?? "—")}'
-                      : l.prodSyncDbNotFoundNotice,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: stats.exists ? Colors.black87 : AppTheme.crimson,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

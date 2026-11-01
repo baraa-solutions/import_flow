@@ -2516,6 +2516,41 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get copyRegistryTableSuccess => 'تم نسخ سجل الإقرارات الجمركية بصيغة TSV بنجاح';
   @override String get cloneFromAssessmentBtn => 'استنساخ كمسودة جديدة';
 
+  // ── Form 46 Three-Way Comparison & Variance ───────────────────────────────
+  @override String get form46ThreeColumnComparisonTitle => 'المقارنة الثلاثية للرسوم والضرائب الجمركية';
+  @override String get form46ColStudyEstimate => 'التقدير المبدئي للدراسة';
+  @override String get form46ColStudyEstimateSub => 'القيم المحسوبة عند دراسة ملف الاستيراد (مقروء فقط)';
+  @override String get form46ColRevisedEstimate => 'التقدير التقريبي المحدّث';
+  @override String get form46ColRevisedEstimateSub => 'إعادة احتساب فورية بموجب المتغيرات المعتمدة';
+  @override String get form46ColNafezaActual => 'الفعلي من منظومة نافذة';
+  @override String get form46ColNafezaActualSub => 'القيم الفعلية الواردة بمطالبة نافذة الإلكترونية';
+  @override String get form46VarExchangeRate => 'سعر الصرف الجمركي المحدث';
+  @override String get form46VarApprovedFreight => 'نولون الشحن المعتمد';
+  @override String get form46VarActualInsurance => 'التأمين البحري الفعلي';
+  @override String get form46VarDischargeDemurrage => 'مصاريف التفريغ والتداول بالميناء';
+  @override String get form46VarNewFees => 'رسوم إضافية ومستجدة';
+  @override String get form46SmartExtractNafezaBtn => 'استخلاص ذكي من نافذة';
+  @override String get form46NafezaClaimNo => 'رقم مطالبة نافذة';
+  @override String get form46NafezaClaimDate => 'تاريخ المطالبة';
+  @override String get form46ActualCif => 'قيمة سيف الفعلية';
+  @override String get form46ActualDuty => 'ضريبة الوارد الفعلية';
+  @override String get form46ActualVat => 'ضريبة القيمة المضافة الفعلية';
+  @override String get form46ActualOtherFees => 'رسوم وضرائب أخرى فعلية';
+  @override String get form46ActualTotalDuties => 'إجمالي المطالبة الفعلية';
+  @override String get form46VarianceBarTitle => 'مؤشرات وفروقات التقييم الجمركي';
+  @override String get form46VarianceBvsA => 'المحدث مقابل التقديري';
+  @override String get form46VarianceCvsA => 'الفعلي مقابل التقديري';
+  @override String get form46VarianceCvsB => 'الفعلي مقابل المحدث';
+  @override String get form46VarianceStatusCompliant => 'مطابق / انحراف طفيف';
+  @override String get form46VarianceStatusModerate => 'انحراف متوسط';
+  @override String get form46VarianceStatusHigh => 'انحراف مرتفع';
+  @override String get form46VarianceReasonLabel => 'سبب انحراف الرسوم الجمركية';
+  @override String get form46VarianceReasonHint => 'توضيح أسباب فروق الرسوم والضرائب (إلزامي إذا تجاوز الانحراف 10%)';
+  @override String get form46VarianceReasonRequired => 'يرجى توضيح سبب انحراف الرسوم الجمركية لتجاوزه نسبة 10%';
+  @override String get customsDeclColVariance => 'الانحراف الجمركي';
+  @override String get customsDeclVariancePending => 'بانتظار المطالبة';
+  @override String get customsDeclVarianceNoDiff => 'مطابق تماماً';
+
   // ── Screen 24/27: Customs Clearance Management ────────────────────────────────
   @override String get searchAndCloneCustomsClearanceBtn => 'بحث واستنساخ بيان تخليص سابق';
   @override String get cloneCustomsClearanceDialogTitle => 'استنساخ بيان تخليص ومعاينة جمركية';

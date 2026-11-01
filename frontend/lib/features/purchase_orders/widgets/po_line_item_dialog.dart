@@ -8,53 +8,18 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../master_items/models/master_item_model.dart';
-import '../../master_items/widgets/master_item_autocomplete_field.dart';
 import '../models/purchase_order_model.dart';
+import 'line_item/po_line_item_catalog_section.dart';
+import 'line_item/po_line_item_constants.dart';
+import 'line_item/po_line_item_header.dart';
+import 'line_item/po_line_item_identification_section.dart';
+import 'line_item/po_line_item_logistics_section.dart';
+import 'line_item/po_line_item_pricing_section.dart';
+import 'line_item/po_line_item_tariff_section.dart';
 import 'po_decimal_field.dart';
-
-/// Standard Country Options for PO Line Items
-const List<Map<String, String>> _kCountryOptions = [
-  {'code': 'CN', 'name': 'CN - الصين (China)'},
-  {'code': 'DE', 'name': 'DE - ألمانيا (Germany)'},
-  {'code': 'IT', 'name': 'IT - إيطاليا (Italy)'},
-  {'code': 'LT', 'name': 'LT - ليتوانيا (Lithuania)'},
-  {'code': 'TW', 'name': 'TW - تايوان (Taiwan)'},
-  {'code': 'TR', 'name': 'TR - تركيا (Turkey)'},
-  {'code': 'FR', 'name': 'FR - فرنسا (France)'},
-  {'code': 'ES', 'name': 'ES - إسبانيا (Spain)'},
-  {'code': 'GB', 'name': 'GB - المملكة المتحدة (United Kingdom)'},
-  {'code': 'US', 'name': 'US - الولايات المتحدة الأمريكية (USA)'},
-  {'code': 'BR', 'name': 'BR - البرازيل (Brazil)'},
-  {'code': 'AR', 'name': 'AR - الأرجنتين (Argentina)'},
-  {'code': 'IN', 'name': 'IN - الهند (India)'},
-  {'code': 'JP', 'name': 'JP - اليابان (Japan)'},
-  {'code': 'KR', 'name': 'KR - كوريا الجنوبية (South Korea)'},
-  {'code': 'SA', 'name': 'SA - المملكة العربية السعودية (Saudi Arabia)'},
-  {'code': 'AE', 'name': 'AE - الإمارات العربية المتحدة (UAE)'},
-  {'code': 'JO', 'name': 'JO - الأردن (Jordan)'},
-  {'code': 'MA', 'name': 'MA - المغرب (Morocco)'},
-  {'code': 'TN', 'name': 'TN - تونس (Tunisia)'},
-  {'code': 'LB', 'name': 'LB - لبنان (Lebanon)'},
-  {'code': 'NL', 'name': 'NL - هولندا (Netherlands)'},
-  {'code': 'BE', 'name': 'BE - بلجيكا (Belgium)'},
-  {'code': 'AT', 'name': 'AT - النمسا (Austria)'},
-  {'code': 'PL', 'name': 'PL - بولندا (Poland)'},
-  {'code': 'SE', 'name': 'SE - السويد (Sweden)'},
-  {'code': 'CH', 'name': 'CH - سويسرا (Switzerland)'},
-  {'code': 'RU', 'name': 'RU - روسيا (Russia)'},
-  {'code': 'VN', 'name': 'VN - فيتنام (Vietnam)'},
-  {'code': 'TH', 'name': 'TH - تايلاند (Thailand)'},
-  {'code': 'MY', 'name': 'MY - ماليزيا (Malaysia)'},
-  {'code': 'ID', 'name': 'ID - إندونيسيا (Indonesia)'},
-  {'code': 'EG', 'name': 'EG - مصر (Egypt)'},
-];
 
 /// Modal Dialog for Adding / Editing a PO Line Item with Master Items Catalog
 /// Integration and Auto-fill capabilities (MD-ITEM-001 / Task 14).
-///
-/// Cuts line item entry time from 3 minutes to under 30 seconds by automatically
-/// populating item code, descriptions, HS Code, UOM, dimensions, and weights
-/// upon selecting an item from the master catalog.
 class POLineItemDialog extends ConsumerStatefulWidget {
   final POLineItemModel? initialItem;
   final List<CustomsTariffModel> tariffs;
@@ -313,7 +278,7 @@ class _POLineItemDialogState extends ConsumerState<POLineItemDialog> {
         value: null,
         label: isArabic ? 'افتراضي حسب أمر الشراء' : 'Default from PO',
       ),
-      ..._kCountryOptions.map((c) {
+      ...kCountryOptions.map((c) {
         final label = isArabic
             ? c['name']!
             : '${c['code']} - ${c['code'] == 'CN' ? 'China' : c['code'] == 'DE' ? 'Germany' : c['name']!.split('(').last.replaceAll(')', '')}';
@@ -362,55 +327,7 @@ class _POLineItemDialogState extends ConsumerState<POLineItemDialog> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // ── Dialog Header ──────────────────────────────────────────
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cobaltLight.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        _isEdit
-                            ? Icons.edit_note_rounded
-                            : Icons.playlist_add_rounded,
-                        color: AppTheme.cobalt,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _isEdit
-                                ? l.poLineItemDialogTitleEdit
-                                : l.poLineItemDialogTitleAdd,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.charcoal,
-                            ),
-                          ),
-                          Text(
-                            l.poLineItemCatalogAutoFillHint,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded,
-                          color: AppTheme.textMuted),
-                      tooltip: isArabic ? 'إغلاق' : 'Close',
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
+                POLineItemHeader(isEdit: _isEdit, isArabic: isArabic),
                 const SizedBox(height: 16),
                 const Divider(height: 1, color: AppTheme.cloudWhite),
                 const SizedBox(height: 14),
@@ -421,457 +338,96 @@ class _POLineItemDialogState extends ConsumerState<POLineItemDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // ── 1. Catalog Fast Autocomplete ────────────────────
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppTheme.cloudWhite.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _wasAutoFilled
-                                  ? AppTheme.emeraldBorder
-                                  : AppTheme.cobalt.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.auto_awesome_rounded,
-                                    size: 16,
-                                    color: _wasAutoFilled
-                                        ? AppTheme.emerald
-                                        : AppTheme.cobalt,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      isArabic
-                                          ? 'استدعاء الصنف من الكاتالوج المركزي'
-                                          : 'Fast Catalog Autocomplete & Pre-fill',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: _wasAutoFilled
-                                            ? AppTheme.emerald
-                                            : AppTheme.charcoal,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  if (_wasAutoFilled) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.emeraldLight,
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                            color: AppTheme.emeraldBorder),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.check_circle_rounded,
-                                              size: 12,
-                                              color: AppTheme.emerald),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            l.masterItemAutoFilled,
-                                            style: const TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.emerald,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              MasterItemAutocompleteField(
-                                initialValue: _itemCodeController.text,
-                                selectedItem: _selectedMasterItem,
-                                onItemSelected: _onMasterItemSelected,
-                                onChanged: (code) {
-                                  _itemCodeController.text = code;
-                                },
-                                onCleared: () {
-                                  setState(() {
-                                    _wasAutoFilled = false;
-                                    _selectedMasterItem = null;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
+                        // 1. Catalog Fast Autocomplete
+                        POLineItemCatalogSection(
+                          wasAutoFilled: _wasAutoFilled,
+                          isArabic: isArabic,
+                          initialItemCode: _itemCodeController.text,
+                          selectedMasterItem: _selectedMasterItem,
+                          onItemSelected: _onMasterItemSelected,
+                          onChanged: (code) {
+                            _itemCodeController.text = code;
+                          },
+                          onCleared: () {
+                            setState(() {
+                              _wasAutoFilled = false;
+                              _selectedMasterItem = null;
+                            });
+                          },
                         ),
                         const SizedBox(height: 14),
 
-                        // ── 2. Identification & Descriptions ────────────────
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: _itemCodeController,
-                                decoration: InputDecoration(
-                                  labelText: isArabic
-                                      ? 'كود الصنف / SKU'
-                                      : 'Item Code / SKU',
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 3,
-                              child: SearchableDropdownField<String?>(
-                                value: _selectedCountryOfOrigin,
-                                labelText: isArabic
-                                    ? 'بلد المنشأ للبند'
-                                    : 'Country of Origin',
-                                searchHintText: isArabic
-                                    ? 'ابحث عن بلد المنشأ...'
-                                    : 'Search country...',
-                                items: countryItems,
-                                onChanged: (v) {
-                                  setState(() => _selectedCountryOfOrigin = v);
-                                },
-                              ),
-                            ),
-                          ],
+                        // 2. Identification & Descriptions
+                        POLineItemIdentificationSection(
+                          itemCodeController: _itemCodeController,
+                          descArController: _descArController,
+                          descEnController: _descEnController,
+                          selectedCountryOfOrigin: _selectedCountryOfOrigin,
+                          countryItems: countryItems,
+                          onCountryChanged: (v) {
+                            setState(() => _selectedCountryOfOrigin = v);
+                          },
+                          isArabic: isArabic,
                         ),
                         const SizedBox(height: 12),
 
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _descArController,
-                                decoration: InputDecoration(
-                                  labelText: isArabic
-                                      ? 'الوصف بالعربية *'
-                                      : 'Arabic Description *',
-                                  isDense: true,
-                                ),
-                                validator: (v) => v == null || v.trim().isEmpty
-                                    ? l.requiredField
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _descEnController,
-                                decoration: InputDecoration(
-                                  labelText: isArabic
-                                      ? 'الوصف بالإنجليزية'
-                                      : 'English Description',
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-
-                        // ── 3. Customs Tariff & Taxes ───────────────────────
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: SearchableDropdownField<int?>(
-                                value: _tariffId,
-                                labelText: isArabic
-                                    ? 'بند التعريفة الجمركية (HS Code)'
-                                    : 'Customs Tariff (HS Code)',
-                                searchHintText: isArabic
-                                    ? 'ابحث برقم البند أو الوصف...'
-                                    : 'Search HS code or description...',
-                                items: tariffItems,
-                                onChanged: (pickedId) {
-                                  setState(() {
-                                    _tariffId = pickedId;
-                                    if (pickedId != null &&
-                                        widget.tariffs.isNotEmpty) {
-                                      final match = widget.tariffs
-                                          .where((t) => t.tariffId == pickedId)
-                                          .firstOrNull;
-                                      if (match != null) {
-                                        _hsCode = match.hsCode;
-                                        _dutyRate = match.customsDutyRate;
-                                        _vatRate = match.vatRate;
-                                      }
-                                    } else {
-                                      _hsCode = null;
-                                      _dutyRate = null;
-                                      _vatRate = null;
-                                    }
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 2,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.charcoalSurface,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AppTheme.cloudWhite),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      isArabic
-                                          ? 'الرسوم المقدرة'
-                                          : 'Estimated Duties',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.textMuted,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Duty: ${_dutyRate != null ? "${(_dutyRate! * 100).toStringAsFixed(1)}%" : "--"} | VAT: ${_vatRate != null ? "${(_vatRate! * 100).toStringAsFixed(1)}%" : "--"}',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.cobalt,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                        // 3. Customs Tariff & Taxes
+                        POLineItemTariffSection(
+                          tariffId: _tariffId,
+                          dutyRate: _dutyRate,
+                          vatRate: _vatRate,
+                          tariffItems: tariffItems,
+                          onTariffChanged: (pickedId) {
+                            setState(() {
+                              _tariffId = pickedId;
+                              if (pickedId != null &&
+                                  widget.tariffs.isNotEmpty) {
+                                final match = widget.tariffs
+                                    .where((t) => t.tariffId == pickedId)
+                                    .firstOrNull;
+                                if (match != null) {
+                                  _hsCode = match.hsCode;
+                                  _dutyRate = match.customsDutyRate;
+                                  _vatRate = match.vatRate;
+                                }
+                              } else {
+                                _hsCode = null;
+                                _dutyRate = null;
+                                _vatRate = null;
+                              }
+                            });
+                          },
+                          isArabic: isArabic,
                         ),
                         const SizedBox(height: 14),
 
-                        // ── 4. Quantities & Commercial Pricing ──────────────
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: _qtyController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                inputFormatters: [
-                                  PoDecimalField.decimalFormatter(2)
-                                ],
-                                decoration: InputDecoration(
-                                  labelText: isArabic
-                                      ? 'الكمية *'
-                                      : 'Quantity *',
-                                  isDense: true,
-                                ),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 2,
-                              child: SearchableDropdownField<String>(
-                                value: _unitOfMeasure,
-                                labelText: isArabic ? 'الوحدة' : 'Unit',
-                                items: uomItems,
-                                onChanged: (u) {
-                                  if (u != null) {
-                                    setState(() => _unitOfMeasure = u);
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: _unitPriceController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                inputFormatters: [
-                                  PoDecimalField.decimalFormatter(4)
-                                ],
-                                decoration: InputDecoration(
-                                  labelText: isArabic
-                                      ? 'سعر الوحدة (${currency.currencyCode}) *'
-                                      : 'Unit Price (${currency.currencyCode}) *',
-                                  isDense: true,
-                                ),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 3,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.emeraldLight,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border:
-                                      Border.all(color: AppTheme.emeraldBorder),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      isArabic
-                                          ? 'إجمالي السطر'
-                                          : 'Line Total',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.textMuted,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${currency.currencyCode} ${calculatedTotal.toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.emerald,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                        // 4. Quantities & Commercial Pricing
+                        POLineItemPricingSection(
+                          qtyController: _qtyController,
+                          unitPriceController: _unitPriceController,
+                          unitOfMeasure: _unitOfMeasure,
+                          uomItems: uomItems,
+                          onUomChanged: (u) {
+                            if (u != null) {
+                              setState(() => _unitOfMeasure = u);
+                            }
+                          },
+                          currency: currency,
+                          calculatedTotal: calculatedTotal,
+                          onValuesChanged: () => setState(() {}),
+                          isArabic: isArabic,
                         ),
                         const SizedBox(height: 14),
 
-                        // ── 5. Logistics Dimensions & Weights ───────────────
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppTheme.charcoalSurface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.cloudWhite),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.scale_rounded,
-                                      size: 16, color: AppTheme.cobalt),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    isArabic
-                                        ? 'الأوزان والأحجام اللوجستية (تعبئة تلقائية من الكاتالوج)'
-                                        : 'Logistics Weights & Dimensions (Auto-filled)',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.charcoal,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: _cbmPerUnitController,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                              decimal: true),
-                                      inputFormatters: [
-                                        PoDecimalField.decimalFormatter(4)
-                                      ],
-                                      decoration: InputDecoration(
-                                        labelText: isArabic
-                                            ? 'الحجم للوحدة (CBM)'
-                                            : 'CBM / Unit',
-                                        isDense: true,
-                                      ),
-                                      onChanged: (_) => setState(() {}),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: _netWeightController,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                              decimal: true),
-                                      inputFormatters: [
-                                        PoDecimalField.decimalFormatter(4)
-                                      ],
-                                      decoration: InputDecoration(
-                                        labelText: isArabic
-                                            ? 'الوزن الصافي (KG)'
-                                            : 'Net Wt / Unit (KG)',
-                                        isDense: true,
-                                      ),
-                                      onChanged: (_) => setState(() {}),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: _grossWeightController,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                              decimal: true),
-                                      inputFormatters: [
-                                        PoDecimalField.decimalFormatter(4)
-                                      ],
-                                      decoration: InputDecoration(
-                                        labelText: isArabic
-                                            ? 'الوزن القائم (KG)'
-                                            : 'Gross Wt / Unit (KG)',
-                                        isDense: true,
-                                      ),
-                                      onChanged: (_) => setState(() {}),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 14,
-                                children: [
-                                  Text(
-                                    '${isArabic ? "إجمالي الحجم:" : "Total CBM:"} ${calculatedTotalCbm.toStringAsFixed(4)} m³',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${isArabic ? "إجمالي الوزن القائم:" : "Total Gross Wt:"} ${calculatedTotalGrossWeight.toStringAsFixed(2)} kg',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                        // 5. Logistics Dimensions & Weights
+                        POLineItemLogisticsSection(
+                          cbmPerUnitController: _cbmPerUnitController,
+                          netWeightController: _netWeightController,
+                          grossWeightController: _grossWeightController,
+                          calculatedTotalCbm: calculatedTotalCbm,
+                          calculatedTotalGrossWeight: calculatedTotalGrossWeight,
+                          onValuesChanged: () => setState(() {}),
+                          isArabic: isArabic,
                         ),
                       ],
                     ),

@@ -6,11 +6,14 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
-import 'package:frontend/core/widgets/widgets.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../import_files/providers/import_files_provider.dart';
-import '../services/landed_cost_comparison_export_service.dart';
+import '../widgets/landed_cost/landed_cost_breakdown_tables.dart';
+import '../widgets/landed_cost/landed_cost_export_toolbar.dart';
+import '../widgets/landed_cost/landed_cost_file_selector.dart';
+import '../widgets/landed_cost/landed_cost_incoterm_rule_card.dart';
+import '../widgets/landed_cost/landed_cost_metric_cards.dart';
 import '../widgets/settlement_ui.dart';
-import '../../../core/localization/domain_enum_labels.dart';
 
 class LandedCostComparisonScreen extends ConsumerStatefulWidget {
   final int? importFileId;
@@ -39,6 +42,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   double? _backendLandedVariancePct;
   Map<String, dynamic>? _settlementRecord;
   CancelToken? _cancelToken;
+  String _selectedIncoterm = 'FOB';
 
   @override
   void initState() {
@@ -60,8 +64,6 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     _cancelToken?.cancel('LandedCostComparisonScreen disposed');
     super.dispose();
   }
-
-  String _selectedIncoterm = 'FOB';
 
   Future<void> _fetchData(int fileId) async {
     _cancelToken?.cancel('New file fetch requested');
@@ -142,10 +144,8 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         }
       } catch (e) {
         if (e is DioException && CancelToken.isCancel(e)) return;
-        // No settlement registered yet for this file
         _settlementRecord = null;
       }
-
     } catch (e) {
       if (e is DioException && CancelToken.isCancel(e)) return;
       _settlementRecord = null;
@@ -156,139 +156,6 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         });
       }
     }
-  }
-
-  Color _getCategoryColor(String category) {
-    switch (category.toLowerCase()) {
-      case 'freight':
-        return AppTheme.cobalt;
-      case 'customs':
-        return AppTheme.orange;
-      case 'clearance':
-        return AppTheme.wcagEmerald;
-      case 'transport':
-        return AppTheme.charcoal;
-      case 'storage':
-        return AppTheme.wcagOrange;
-      default:
-        return AppTheme.textSecondary;
-    }
-  }
-
-  String _money(num v) => formatSettlementMoney(v);
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final fileDisplayCode = _selectedImportFileCode.isNotEmpty ? _selectedImportFileCode : (_selectedImportFileId != null ? 'IMP-#$_selectedImportFileId' : '');
-
-    final bodyContent = SelectionArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(24, 24, 24, 0),
-            child: _buildImportFileSelector(),
-          ),
-          Expanded(
-            child: _isLoading
-                ? SettlementStateView.loading(message: l10n.settlementRegistryLoading)
-                : _error != null
-                    ? SettlementStateView.error(message: _error!)
-                    : _buildContent(),
-          ),
-        ],
-      ),
-    );
-
-    if (widget.isEmbedded) {
-      return bodyContent;
-    }
-
-    return Scaffold(
-      appBar: PageHeader(
-        icon: Icons.analytics_outlined,
-        title: fileDisplayCode.isNotEmpty
-            ? l10n.landedCostComparisonTitle(fileDisplayCode)
-            : l10n.landedCostComparison,
-        actions: const [
-          BackToDashboardButton(),
-          SizedBox(width: 10),
-        ],
-      ),
-      body: bodyContent,
-    );
-  }
-
-  Widget _buildImportFileSelector() {
-    final l10n = context.l10n;
-    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
-
-    final items = importFiles.map((file) {
-      final supplier = file.supplierName.isNotEmpty ? file.supplierName : l10n.unknownSupplierFallback;
-      final company = file.companyName.isNotEmpty ? file.companyName : '';
-      final label = '${file.primaryNameWithCode} — $supplier ${company.isNotEmpty ? "($company)" : ""}';
-      return SearchableDropdownItem<int>(
-        value: file.importFileId,
-        label: label,
-      );
-    }).toList();
-
-    return SettlementPanel(
-      child: Row(
-        children: [
-          Expanded(
-            child: SearchableDropdownField<int>(
-              labelText: l10n.settlementCmpFileLabel,
-              searchHintText: l10n.selectImportFileDropdownHint,
-              value: _selectedImportFileId,
-              items: items,
-              onChanged: (fileId) {
-                if (fileId != null) {
-                  final found = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
-                  if (found != null) {
-                    _selectedImportFileCode = found.importFileCode;
-                  }
-                  _fetchData(fileId);
-                } else {
-                  setState(() {
-                    _selectedImportFileId = null;
-                    _selectedImportFileCode = '';
-                    _settlementRecord = null;
-                  });
-                }
-              },
-            ),
-          ),
-          if (_selectedImportFileCode.isNotEmpty) ...[
-            const SizedBox(width: 12),
-            InkWell(
-              onTap: () => CopyHelper.copy(context, _selectedImportFileCode, customMessage: l10n.settlementCmpCopiedFileCode),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
-                    const SizedBox(width: 6),
-                    LtrText(
-                      _selectedImportFileCode,
-                      style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
   }
 
   Widget _buildContent() {
@@ -313,19 +180,48 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
 
     final double? fobVariance = (_settlementRecord?['fob_variance_percent'] as num?)?.toDouble();
     final double? landedVariance = _backendLandedVariancePct ?? (_settlementRecord?['variance_percent'] as num?)?.toDouble();
+    final estDisplay = _estimatedLandedCostEgp ?? (_estimatedCost > 0 ? _estimatedCost : null);
+
+    final expenses = (_settlementRecord?['expense_invoices'] as List? ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    final items = (_settlementRecord?['item_landed_costs'] as List? ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildMetricStrip(totalFobEgp, totalExpensesEgp, totalLandedCostEgp, landedVariance),
+          LandedCostMetricStrip(
+            totalExpenses: totalExpensesEgp,
+            totalLanded: totalLandedCostEgp,
+            landedVariance: landedVariance,
+            estimatedCostDisplay: estDisplay,
+          ),
           const SizedBox(height: 16),
-          _buildExportToolbar(landedVariance),
+          LandedCostExportToolbar(
+            fileCode: _selectedImportFileCode.isNotEmpty
+                ? _selectedImportFileCode
+                : (_selectedImportFileId != null ? 'IMP-#$_selectedImportFileId' : 'SHIPMENT'),
+            incoterm: _selectedIncoterm,
+            estimatedCost: _estimatedCost,
+            settlementRecord: _settlementRecord,
+            landedVariance: landedVariance,
+            estimatedLandedCostEgp: _estimatedLandedCostEgp,
+          ),
           const SizedBox(height: 16),
-          _buildIncotermRuleCard(),
+          LandedCostIncotermRuleCard(incoterm: _selectedIncoterm),
           const SizedBox(height: 16),
-          _buildSummaryCards(totalFobEgp, totalExpensesEgp, totalLandedCostEgp, fobVariance, landedVariance),
+          LandedCostSummaryCards(
+            totalFob: totalFobEgp,
+            totalExpenses: totalExpensesEgp,
+            totalLanded: totalLandedCostEgp,
+            fobVariance: fobVariance,
+            landedVariance: landedVariance,
+            estimatedCostDisplay: estDisplay,
+          ),
           const SizedBox(height: 24),
           SettlementSectionHeader(
             title: l10n.expenseBreakdownHeader,
@@ -333,7 +229,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
             color: AppTheme.cobalt,
           ),
           const SizedBox(height: 12),
-          _buildExpenseTable(),
+          LandedCostExpenseTable(expenses: expenses),
           const SizedBox(height: 24),
           SettlementSectionHeader(
             title: l10n.itemLandedCostHeader,
@@ -341,504 +237,75 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
             color: AppTheme.emerald,
           ),
           const SizedBox(height: 12),
-          _buildItemLandedCostTable(),
+          LandedCostItemTable(items: items),
           const SizedBox(height: 24),
-          _buildSummaryBanner(landedVariance),
+          LandedCostSummaryBanner(landedVariance: landedVariance),
         ],
       ),
     );
   }
 
-  Widget _buildMetricStrip(double totalFob, double totalExpenses, double totalLanded, double? landedVariance) {
+  @override
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final egp = l10n.financialSettlementCurrencyEgp;
-    final varianceColor = landedVariance == null
-        ? AppTheme.textSecondary
-        : landedVariance > 0
-            ? AppTheme.crimson
-            : AppTheme.emerald;
-    final estDisplay = _estimatedLandedCostEgp ?? (_estimatedCost > 0 ? _estimatedCost : null);
-    return MetricCardStrip(
-      padding: EdgeInsets.zero,
-      metrics: [
-        MetricCardData(
-          title: l10n.estimatedCostHeader,
-          value: estDisplay != null ? '${_money(estDisplay)} $egp' : '-',
-          icon: Icons.request_quote_outlined,
-          color: AppTheme.cobalt,
-        ),
-        MetricCardData(
-          title: l10n.totalExpensesCardTitle,
-          value: '${_money(totalExpenses)} $egp',
-          icon: Icons.receipt_long_outlined,
-          color: AppTheme.orange,
-        ),
-        MetricCardData(
-          title: l10n.totalLandedCostCardTitle,
-          value: '${_money(totalLanded)} $egp',
-          icon: Icons.account_balance_wallet_outlined,
-          color: AppTheme.emerald,
-        ),
-        MetricCardData(
-          title: l10n.settlementCmpVarianceLabel,
-          value: landedVariance != null ? formatSettlementPercent(landedVariance, digits: 2) : '-',
-          icon: landedVariance == null
-              ? Icons.remove
-              : landedVariance > 0
-                  ? Icons.trending_up
-                  : Icons.trending_down,
-          color: varianceColor,
-        ),
-      ],
-    );
-  }
+    final fileDisplayCode = _selectedImportFileCode.isNotEmpty
+        ? _selectedImportFileCode
+        : (_selectedImportFileId != null ? 'IMP-#$_selectedImportFileId' : '');
 
-  Widget _buildExportToolbar(double? landedVariance) {
-    final l10n = context.l10n;
-    final exportService = LandedCostComparisonExportService(
-      context: context,
-      fileCode: _selectedImportFileCode.isNotEmpty ? _selectedImportFileCode : (_selectedImportFileId != null ? 'IMP-#$_selectedImportFileId' : 'SHIPMENT'),
-      incoterm: _selectedIncoterm,
-      estimatedCost: _estimatedLandedCostEgp ?? _estimatedCost,
-      settlementRecord: _settlementRecord,
-      backendVariancePct: landedVariance,
-      backendEstimatedLandedEgp: _estimatedLandedCostEgp,
-    );
+    final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
-    return SettlementPanel(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 8,
-        alignment: WrapAlignment.end,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          SettlementFit(child: AppButton(
-            label: l10n.landedCostExportTsvBtn,
-            icon: Icons.table_chart_outlined,
-            variant: AppButtonVariant.secondary,
-            size: AppButtonSize.small,
-            onPressed: () => exportService.exportToTsv(),
-          )),
-          SettlementFit(child: AppButton(
-            label: l10n.landedCostExportExcelBtn,
-            icon: Icons.file_present_outlined,
-            variant: AppButtonVariant.success,
-            size: AppButtonSize.small,
-            onPressed: () => exportService.exportToExcel(),
-          )),
-          SettlementFit(child: AppButton(
-            label: l10n.landedCostPrintPdfBtn,
-            icon: Icons.picture_as_pdf_outlined,
-            variant: AppButtonVariant.danger,
-            size: AppButtonSize.small,
-            onPressed: () => exportService.printOrSavePdf(),
-          )),
-          SettlementFit(child: AppButton(
-            label: l10n.landedCostCopyDossierBtn,
-            icon: Icons.copy_all,
-            variant: AppButtonVariant.primary,
-            size: AppButtonSize.small,
-            onPressed: () => exportService.copyDossierToClipboard(),
-          )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIncotermRuleCard() {
-    final l10n = context.l10n;
-    final inco = _selectedIncoterm.toUpperCase();
-
-    String ruleTitle;
-    String ruleDesc;
-    String exporterCovers;
-    String importerCovers;
-
-    switch (inco) {
-      case 'CIF':
-      case 'CIP':
-        ruleTitle = l10n.incoCifRuleTitle;
-        ruleDesc = l10n.incoCifRuleDesc;
-        exporterCovers = l10n.incoCifExporterCovers;
-        importerCovers = l10n.incoCifImporterCovers;
-        break;
-      case 'CFR':
-      case 'CPT':
-        ruleTitle = l10n.incoCfrRuleTitle;
-        ruleDesc = l10n.incoCfrRuleDesc;
-        exporterCovers = l10n.incoCfrExporterCovers;
-        importerCovers = l10n.incoCfrImporterCovers;
-        break;
-      case 'EXW':
-        ruleTitle = l10n.incoExwRuleTitle;
-        ruleDesc = l10n.incoExwRuleDesc;
-        exporterCovers = l10n.incoExwExporterCovers;
-        importerCovers = l10n.incoExwImporterCovers;
-        break;
-      case 'DDP':
-        ruleTitle = l10n.incoDdpRuleTitle;
-        ruleDesc = l10n.incoDdpRuleDesc;
-        exporterCovers = l10n.incoDdpExporterCovers;
-        importerCovers = l10n.incoDdpImporterCovers;
-        break;
-      case 'FOB':
-      case 'FCA':
-      case 'FAS':
-      default:
-        ruleTitle = l10n.incoFobRuleTitle;
-        ruleDesc = l10n.incoFobRuleDesc;
-        exporterCovers = l10n.incoFobExporterCovers;
-        importerCovers = l10n.incoFobImporterCovers;
-        break;
-    }
-
-    Widget coverBox(String label, String text, Color color) => Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: color.withValues(alpha: 0.35)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
-                const SizedBox(height: 4),
-                Text(text, style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
-              ],
-            ),
-          ),
-        );
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(SettlementTokens.radius),
-        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
-      ),
+    final bodyContent = SelectionArea(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              InkWell(
-                onTap: () => CopyHelper.copy(context, inco, customMessage: l10n.settlementCmpCopiedIncoterm(inco)),
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cobalt,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      LtrText(
-                        inco,
-                        style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.copy, size: 12, color: AppTheme.white.withValues(alpha: 0.7)),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  ruleTitle,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            ruleDesc,
-            style: const TextStyle(fontSize: 12, color: AppTheme.textStrong, height: 1.4),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              coverBox(l10n.incoRuleExporterCoversLabel, exporterCovers, AppTheme.wcagEmerald),
-              const SizedBox(width: 12),
-              coverBox(l10n.incoRuleImporterCoversLabel, importerCovers, AppTheme.cobalt),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCards(double totalFob, double totalExpenses, double totalLanded, double? fobVariance, double? landedVariance) {
-    final l10n = context.l10n;
-    final estDisplay = _estimatedLandedCostEgp ?? (_estimatedCost > 0 ? _estimatedCost : null);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: _buildCard(l10n.fobValueCardTitle, null, totalFob, fobVariance)),
-        const SizedBox(width: 16),
-        Expanded(child: _buildCard(l10n.totalExpensesCardTitle, null, totalExpenses, null)),
-        const SizedBox(width: 16),
-        Expanded(child: _buildCard(l10n.totalLandedCostCardTitle, estDisplay, totalLanded, landedVariance, highlight: true)),
-      ],
-    );
-  }
-
-  Widget _buildCard(String title, double? est, double act, double? variance, {bool highlight = false}) {
-    final l10n = context.l10n;
-    final varColor = variance == null ? null : (variance > 0 ? AppTheme.crimson : AppTheme.emerald);
-
-    final estStr = est != null ? est.toStringAsFixed(2) : '-';
-    final summary = '$title: ${l10n.estAbbreviation} $estStr | ${l10n.actAbbreviation} ${act.toStringAsFixed(2)}${variance != null ? " (${variance > 0 ? '+' : ''}${variance.toStringAsFixed(2)}%)" : ""}';
-
-    return Card(
-      elevation: highlight ? 4 : 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(SettlementTokens.radius),
-        side: highlight
-            ? const BorderSide(color: AppTheme.charcoal, width: 1.5)
-            : BorderSide(color: SettlementTokens.border),
-      ),
-      child: InkWell(
-        onTap: () => CopyHelper.copy(context, summary, customMessage: title),
-        borderRadius: BorderRadius.circular(SettlementTokens.radius),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), overflow: TextOverflow.ellipsis),
-                  ),
-                  const Icon(Icons.copy, size: 14, color: AppTheme.textMuted),
-                ],
-              ),
-              const Divider(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(l10n.estAbbreviation, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                      LtrText(est != null ? _money(est) : '-', style: const TextStyle(fontSize: 15, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(l10n.actAbbreviation, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                      LtrText(_money(act), style: const TextStyle(fontSize: 15, color: AppTheme.emerald, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ],
-              ),
-              if (variance != null) ...[
-                const SizedBox(height: 8),
-                SettlementStatusChip(
-                  label: formatSettlementPercent(variance, digits: 2),
-                  color: varColor!,
-                  icon: variance > 0 ? Icons.arrow_upward : Icons.arrow_downward,
-                  dense: true,
-                ),
-              ]
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExpenseTable() {
-    final l10n = context.l10n;
-    final expenses = (_settlementRecord?['expense_invoices'] as List? ?? [])
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList();
-
-    return EnterpriseDataTable<Map<String, dynamic>>(
-      storageKey: 'LandedCostComparisonExpenses',
-      showHeaderToolbar: false,
-      showPagination: false,
-      initialPageSize: 1000,
-      emptyMessage: l10n.noLandedCostDataRegistered,
-      columns: [
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'category',
-          title: l10n.colExpenseCategory,
-          exportValue: (e) {
-            final categoryRaw = e['category']?.toString() ?? 'other';
-            return DomainEnums.labelIfKnown(l10n, DomainEnumType.clearanceExpenseCategory, categoryRaw) ?? l10n.expenseCategoryName(categoryRaw);
-          },
-          cellBuilder: (ctx, e, _) {
-            final categoryRaw = e['category']?.toString() ?? 'other';
-            final categoryLocalized = DomainEnums.labelIfKnown(l10n, DomainEnumType.clearanceExpenseCategory, categoryRaw) ?? l10n.expenseCategoryName(categoryRaw);
-            return SettlementStatusChip(
-              label: categoryLocalized,
-              color: _getCategoryColor(categoryRaw),
-              dense: true,
-            );
-          },
-        ),
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'provider',
-          title: l10n.colExpenseProvider,
-          exportValue: (e) => e['provider_name']?.toString() ?? '-',
-          cellBuilder: (ctx, e, _) => Text(e['provider_name']?.toString() ?? '-'),
-        ),
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'currency',
-          title: l10n.colExpenseCurrency,
-          exportValue: (e) => e['currency']?.toString() ?? 'EGP',
-          cellBuilder: (ctx, e, _) => Text(e['currency']?.toString() ?? 'EGP'),
-        ),
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'amount_fx',
-          title: l10n.colExpenseAmountFx,
-          isNumeric: true,
-          exportValue: (e) => (e['amount_fx'] ?? 0).toString(),
-          cellBuilder: (ctx, e, _) => SettlementMoneyText((e['amount_fx'] ?? 0).toString()),
-        ),
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'exchange_rate',
-          title: l10n.colExpenseExchangeRate,
-          isNumeric: true,
-          exportValue: (e) => (e['exchange_rate'] ?? 1).toString(),
-          cellBuilder: (ctx, e, _) => SettlementMoneyText((e['exchange_rate'] ?? 1).toString()),
-        ),
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'amount_egp',
-          title: l10n.colExpenseAmountEgp,
-          isNumeric: true,
-          exportValue: (e) => (e['amount_egp'] ?? 0).toString(),
-          cellBuilder: (ctx, e, _) => SettlementMoneyText(
-            (e['amount_egp'] ?? 0).toString(),
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-      ],
-      data: expenses,
-    );
-  }
-
-  Widget _buildItemLandedCostTable() {
-    final l10n = context.l10n;
-    final items = (_settlementRecord?['item_landed_costs'] as List? ?? [])
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList();
-
-    return EnterpriseDataTable<Map<String, dynamic>>(
-      storageKey: 'LandedCostComparisonItems',
-      showHeaderToolbar: false,
-      showPagination: false,
-      initialPageSize: 1000,
-      emptyMessage: l10n.noLandedCostDataRegistered,
-      columns: [
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'item_code',
-          title: l10n.colItemCode,
-          exportValue: (e) => e['item_code']?.toString() ?? '-',
-          cellBuilder: (ctx, e, _) {
-            final itemCode = e['item_code']?.toString() ?? '-';
-            return LtrText(itemCode, style: const TextStyle(fontWeight: FontWeight.bold));
-          },
-        ),
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'item_name',
-          title: l10n.colItemName,
-          exportValue: (e) => e['item_name']?.toString() ?? '-',
-          cellBuilder: (ctx, e, _) => Text(e['item_name']?.toString() ?? '-'),
-        ),
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'qty',
-          title: l10n.colItemQty,
-          isNumeric: true,
-          exportValue: (e) => (e['qty'] ?? 0).toString(),
-          cellBuilder: (ctx, e, _) => SettlementMoneyText((e['qty'] ?? 0).toString()),
-        ),
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'fob_unit',
-          title: l10n.colFobUnitPrice,
-          isNumeric: true,
-          exportValue: (e) => ((e['fob_unit_egp'] ?? 0) as num).toStringAsFixed(2),
-          cellBuilder: (ctx, e, _) {
-            final fobUnit = ((e['fob_unit_egp'] ?? 0) as num).toStringAsFixed(2);
-            return SettlementMoneyText(_money(double.tryParse(fobUnit) ?? 0));
-          },
-        ),
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'unit_landed_cost',
-          title: l10n.colLandedUnitPrice,
-          isNumeric: true,
-          exportValue: (e) => ((e['unit_landed_cost_egp'] ?? 0) as num).toStringAsFixed(2),
-          cellBuilder: (ctx, e, _) {
-            final landedUnit = ((e['unit_landed_cost_egp'] ?? 0) as num).toStringAsFixed(2);
-            return SettlementMoneyText(
-              _money(double.tryParse(landedUnit) ?? 0),
-              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
-            );
-          },
-        ),
-        EnterpriseColumn<Map<String, dynamic>>(
-          id: 'markup_factor',
-          title: l10n.colCostMarkupFactor,
-          isNumeric: true,
-          exportValue: (e) => '${((e['markup_factor'] ?? 1.0) as num).toDouble().toStringAsFixed(2)}x',
-          cellBuilder: (ctx, e, _) {
-            final markup = ((e['markup_factor'] ?? 1.0) as num).toDouble();
-            final markupText = '${markup.toStringAsFixed(2)}x';
-            return SettlementStatusChip(label: markupText, color: AppTheme.charcoal, dense: true);
-          },
-        ),
-      ],
-      data: items,
-    );
-  }
-
-  Widget _buildSummaryBanner(double? landedVariance) {
-    if (landedVariance == null) return const SizedBox.shrink();
-    final l10n = context.l10n;
-    if (landedVariance > 10) {
-      return _banner(
-        color: AppTheme.crimson,
-        icon: Icons.warning,
-        text: l10n.landedCostOverBudgetBanner(landedVariance.toStringAsFixed(2)),
-      );
-    } else if (landedVariance < 0) {
-      return _banner(
-        color: AppTheme.emerald,
-        icon: Icons.check_circle,
-        text: l10n.landedCostUnderBudgetBanner(landedVariance.abs().toStringAsFixed(2)),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
-  Widget _banner({required Color color, required IconData icon, required String text}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(SettlementTokens.radius),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
+          Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(24, 24, 24, 0),
+            child: LandedCostFileSelector(
+              importFiles: importFiles,
+              selectedImportFileId: _selectedImportFileId,
+              selectedImportFileCode: _selectedImportFileCode,
+              onFileSelected: (fileId) {
+                if (fileId != null) {
+                  final found = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
+                  if (found != null) {
+                    _selectedImportFileCode = found.importFileCode;
+                  }
+                  _fetchData(fileId);
+                } else {
+                  setState(() {
+                    _selectedImportFileId = null;
+                    _selectedImportFileCode = '';
+                    _settlementRecord = null;
+                  });
+                }
+              },
             ),
           ),
+          Expanded(
+            child: _isLoading
+                ? SettlementStateView.loading(message: l10n.settlementRegistryLoading)
+                : _error != null
+                    ? SettlementStateView.error(message: _error!)
+                    : _buildContent(),
+          ),
         ],
       ),
+    );
+
+    if (widget.isEmbedded) {
+      return bodyContent;
+    }
+
+    return Scaffold(
+      appBar: PageHeader(
+        icon: Icons.analytics_outlined,
+        title: fileDisplayCode.isNotEmpty ? l10n.landedCostComparisonTitle(fileDisplayCode) : l10n.landedCostComparison,
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 10),
+        ],
+      ),
+      body: bodyContent,
     );
   }
 }

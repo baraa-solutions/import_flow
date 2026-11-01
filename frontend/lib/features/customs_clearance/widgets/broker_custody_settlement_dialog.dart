@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/widgets.dart';
 import '../models/broker_custody_model.dart';
 import '../services/broker_custody_service.dart';
+import 'broker_custody/add_broker_custody_expense_dialog.dart';
+import 'broker_custody/broker_custody_advance_card.dart';
+import 'broker_custody/broker_custody_reconciliation_dialog.dart';
+import 'broker_custody/new_broker_custody_advance_dialog.dart';
 
 class BrokerCustodySettlementDialog extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -76,7 +81,7 @@ class _BrokerCustodySettlementDialogState extends ConsumerState<BrokerCustodySet
   void _showNewAdvanceDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => _NewBrokerCustodyAdvanceDialog(
+      builder: (ctx) => NewBrokerCustodyAdvanceDialog(
         initialImportFileId: widget.initialImportFileId,
         onSubmit: ({
           required int importFileId,
@@ -108,7 +113,7 @@ class _BrokerCustodySettlementDialogState extends ConsumerState<BrokerCustodySet
   void _showAddExpenseDialog(BrokerCustodyAdvanceModel advance) {
     showDialog(
       context: context,
-      builder: (ctx) => _AddBrokerCustodyExpenseDialog(
+      builder: (ctx) => AddBrokerCustodyExpenseDialog(
         advance: advance,
         onSubmit: ({
           required String expenseCategory,
@@ -159,67 +164,15 @@ class _BrokerCustodySettlementDialogState extends ConsumerState<BrokerCustodySet
       final reconciliation = await service.settleAdvance(advance.advanceId);
       if (!mounted) return;
 
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: AppTheme.emerald),
-              const SizedBox(width: 8),
-              Text('تقرير التسوية والمقاصة النهائية — ${reconciliation.advanceCode}'),
-            ],
-          ),
-          content: SizedBox(
-            width: 520,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(reconciliation.reconciliationSummary, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, height: 1.5)),
-                  const Divider(height: 24),
-                  _buildSummaryRow('قيمة العهدة المصروفة:', '${reconciliation.advanceAmount.toStringAsFixed(2)} ج.م', AppTheme.cobalt),
-                  _buildSummaryRow('إجمالي المصروفات المطالب بها:', '${reconciliation.totalExpensesClaimed.toStringAsFixed(2)} ج.م', Colors.black87),
-                  _buildSummaryRow('ضريبة الخصم والإضافة المستقطعة (1% نموذج 41):', '${reconciliation.totalTaxWithheldW41.toStringAsFixed(2)} ج.م', AppTheme.orange),
-                  _buildSummaryRow('صافي المستحق تسويته:', '${reconciliation.totalNetSettled.toStringAsFixed(2)} ج.م', Colors.blueGrey.shade800),
-                  const Divider(height: 16),
-                  _buildSummaryRow(
-                    reconciliation.balanceRemaining >= 0 ? 'المتبقي طرف المخلص (واجب الرد):' : 'مستحق للمخلص (واجب الصرف):',
-                    '${reconciliation.balanceRemaining.abs().toStringAsFixed(2)} ج.م',
-                    reconciliation.balanceRemaining >= 0 ? AppTheme.emerald : AppTheme.crimson,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            AppButton(
-              label: 'تم والعودة',
-              variant: AppButtonVariant.primary,
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                _loadData();
-              },
-            ),
-          ],
-        ),
+      BrokerCustodyReconciliationDialog.show(
+        context,
+        reconciliation: reconciliation,
+        onDismissed: _loadData,
       );
     } catch (e) {
       if (!mounted) return;
       AppTheme.snackBar(context, 'فشل في تنفيذ التسوية: $e', severity: AppSeverity.danger);
     }
-  }
-
-  Widget _buildSummaryRow(String title, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 12.5)),
-          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
-        ],
-      ),
-    );
   }
 
   @override
@@ -244,7 +197,6 @@ class _BrokerCustodySettlementDialogState extends ConsumerState<BrokerCustodySet
         child: SelectionArea(
           child: Column(
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: const BoxDecoration(
@@ -270,510 +222,58 @@ class _BrokerCustodySettlementDialogState extends ConsumerState<BrokerCustodySet
                         ],
                       ),
                     ),
-                  AppButton(
-                    label: 'صرف عهدة جديدة',
-                    icon: Icons.add_circle_outline,
-                    variant: AppButtonVariant.primary,
-                    size: AppButtonSize.small,
-                    onPressed: _showNewAdvanceDialog,
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+                    AppButton(
+                      label: 'صرف عهدة جديدة',
+                      icon: Icons.add_circle_outline,
+                      variant: AppButtonVariant.primary,
+                      size: AppButtonSize.small,
+                      onPressed: _showNewAdvanceDialog,
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
               ),
-            ),
-
-            // Advances List
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _errorMessage != null
-                      ? Center(child: Text('خطأ: $_errorMessage', style: const TextStyle(color: AppTheme.crimson)))
-                      : _advances.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.check_circle_outline, size: 54, color: Colors.grey.shade400),
-                                  const SizedBox(height: 10),
-                                  const Text('لا توجد عهد مخلصين مسجلة لهذا الملف حالياً', style: TextStyle(fontSize: 14, color: Colors.grey)),
-                                ],
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _errorMessage != null
+                        ? Center(child: Text('خطأ: $_errorMessage', style: const TextStyle(color: AppTheme.crimson)))
+                        : _advances.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle_outline, size: 54, color: Colors.grey.shade400),
+                                    const SizedBox(height: 10),
+                                    const Text('لا توجد عهد مخلصين مسجلة لهذا الملف حالياً', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                                  ],
+                                ),
+                              )
+                            : SelectionArea(
+                                child: ListView.separated(
+                                  padding: const EdgeInsets.all(12),
+                                  itemCount: _advances.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                  itemBuilder: (context, idx) {
+                                    return BrokerCustodyAdvanceCard(
+                                      advance: _advances[idx],
+                                      onAddExpense: _showAddExpenseDialog,
+                                      onSettleAdvance: _settleAdvance,
+                                      onApproveItem: _approveItem,
+                                      statusSeverity: _statusSeverity,
+                                    );
+                                  },
+                                ),
                               ),
-                            )
-                          : SelectionArea(
-                              child: ListView.separated(
-                                padding: const EdgeInsets.all(12),
-                                itemCount: _advances.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                                itemBuilder: (context, idx) {
-                                  final advance = _advances[idx];
-
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.grey.shade300),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.03),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        // Header of Card
-                                        Container(
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey.shade50,
-                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Text(
-                                                advance.advanceCode,
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.cobalt),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'المخلص: ${advance.brokerName}',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              AppStatusBadge(
-                                                label: advance.statusLabelAr,
-                                                severity: _statusSeverity(advance.status),
-                                              ),
-                                              const Spacer(),
-                                              Text(
-                                                'العهدة: ${advance.advanceAmount.toStringAsFixed(2)} ج.م | المسوّى: ${advance.settledAmount.toStringAsFixed(2)} ج.م | المتبقي: ${advance.remainingBalance.toStringAsFixed(2)} ج.م',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              AppButton(
-                                                label: 'إضافة مصروف',
-                                                icon: Icons.add,
-                                                variant: AppButtonVariant.secondary,
-                                                size: AppButtonSize.small,
-                                                onPressed: () => _showAddExpenseDialog(advance),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              AppButton(
-                                                label: 'تسوية ومقاصة',
-                                                icon: Icons.done_all_rounded,
-                                                variant: AppButtonVariant.success,
-                                                size: AppButtonSize.small,
-                                                onPressed: () => _settleAdvance(advance),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-
-                                        // Items Table
-                                        if (advance.expenseItems.isNotEmpty)
-                                          ListView.separated(
-                                            shrinkWrap: true,
-                                            physics: const NeverScrollableScrollPhysics(),
-                                            padding: const EdgeInsets.all(8),
-                                            itemCount: advance.expenseItems.length,
-                                            separatorBuilder: (_, __) => const Divider(height: 1),
-                                            itemBuilder: (context, iIdx) {
-                                              final item = advance.expenseItems[iIdx];
-
-                                              return Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      flex: 3,
-                                                      child: Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                        children: [
-                                                          Text(item.categoryLabelAr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                                                          if (item.receiptReference != null)
-                                                            Text('مستند: ${item.receiptReference}', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    if (item.isEInvoiceBacked)
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                        decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(4)),
-                                                        child: const Text('فاتورة إلكترونية ✔', style: TextStyle(color: Colors.green, fontSize: 10.5, fontWeight: FontWeight.bold)),
-                                                      ),
-                                                    const SizedBox(width: 12),
-                                                    Text('الإجمالي: ${item.amount.toStringAsFixed(2)} ج.م', style: const TextStyle(fontSize: 12)),
-                                                    const SizedBox(width: 12),
-                                                    Text('خصم 1%: ${item.taxWithheldAmount.toStringAsFixed(2)} ج.م', style: const TextStyle(fontSize: 12, color: AppTheme.crimson)),
-                                                    const SizedBox(width: 12),
-                                                    Text('الصافي: ${item.netSettledAmount.toStringAsFixed(2)} ج.م', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
-                                                    const SizedBox(width: 12),
-                                                    AppStatusBadge(
-                                                      label: item.approvalStatus == 'APPROVED' ? 'معتمد' : 'قيد المراجعة',
-                                                      severity: item.approvalStatus == 'APPROVED' ? AppSeverity.success : AppSeverity.warning,
-                                                    ),
-                                                    if (item.approvalStatus != 'APPROVED') ...[
-                                                      const SizedBox(width: 6),
-                                                      IconButton(
-                                                        icon: const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 20),
-                                                        tooltip: 'اعتماد البند',
-                                                        onPressed: () => _approveItem(item),
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ),
-                                              );
-                                            },
-                                          )
-                                        else
-                                          const Padding(
-                                            padding: EdgeInsets.all(12),
-                                            child: Text('لم يتم تسجيل أي بنود مصروفات لهذه العهدة بعد', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                          ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-            ),
-          ],
-        ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NewBrokerCustodyAdvanceDialog extends StatefulWidget {
-  final int? initialImportFileId;
-  final Future<void> Function({
-    required int importFileId,
-    required int brokerId,
-    required String brokerName,
-    required double advanceAmount,
-    required String disbursementDate,
-    required String paymentMethod,
-    String? notes,
-  }) onSubmit;
-
-  const _NewBrokerCustodyAdvanceDialog({
-    required this.initialImportFileId,
-    required this.onSubmit,
-  });
-
-  @override
-  State<_NewBrokerCustodyAdvanceDialog> createState() => _NewBrokerCustodyAdvanceDialogState();
-}
-
-class _NewBrokerCustodyAdvanceDialogState extends State<_NewBrokerCustodyAdvanceDialog> {
-  late final TextEditingController _fileIdController;
-  late final TextEditingController _brokerIdController;
-  late final TextEditingController _brokerNameController;
-  late final TextEditingController _amountController;
-  late final TextEditingController _dateController;
-  late final TextEditingController _notesController;
-  String _paymentMethod = 'BANK_TRANSFER';
-  bool _isSubmitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _fileIdController = TextEditingController(text: widget.initialImportFileId?.toString() ?? '');
-    _brokerIdController = TextEditingController(text: '1');
-    _brokerNameController = TextEditingController();
-    _amountController = TextEditingController();
-    _dateController = TextEditingController(text: DateTime.now().toIso8601String().split('T').first);
-    _notesController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _fileIdController.dispose();
-    _brokerIdController.dispose();
-    _brokerNameController.dispose();
-    _amountController.dispose();
-    _dateController.dispose();
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final fid = int.tryParse(_fileIdController.text.trim());
-    final bid = int.tryParse(_brokerIdController.text.trim()) ?? 1;
-    final amt = double.tryParse(_amountController.text.trim());
-    if (fid == null || amt == null || _brokerNameController.text.trim().isEmpty) {
-      AppTheme.snackBar(context, 'يرجى استيفاء الحقول الإلزامية ومبلغ العهدة', severity: AppSeverity.warning);
-      return;
-    }
-    setState(() => _isSubmitting = true);
-    Navigator.of(context).pop();
-    await widget.onSubmit(
-      importFileId: fid,
-      brokerId: bid,
-      brokerName: _brokerNameController.text.trim(),
-      advanceAmount: amt,
-      disbursementDate: _dateController.text.trim(),
-      paymentMethod: _paymentMethod,
-      notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Row(
-        children: [
-          Icon(Icons.payments_outlined, color: AppTheme.cobalt),
-          SizedBox(width: 8),
-          Text('صرف عهدة مالية جديدة للمخلص الجمركي'),
-        ],
-      ),
-      content: SizedBox(
-        width: 500,
-        child: SelectionArea(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'معرف الملف الاستيرادي',
-                        controller: _fileIdController,
-                        keyboardType: TextInputType.number,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'معرف المخلص الجمركي',
-                        controller: _brokerIdController,
-                        keyboardType: TextInputType.number,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                CustomTextField(
-                  label: 'اسم المخلص الجمركي / المكتب',
-                  controller: _brokerNameController,
-                  hint: 'مكتب الإسكندرية للخدمات الجمركية',
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'مبلغ العهدة المصروفة (ج.م)',
-                        controller: _amountController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'تاريخ الصرف (YYYY-MM-DD)',
-                        controller: _dateController,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                SearchableDropdownField<String>(
-                  value: _paymentMethod,
-                  labelText: 'طريقة الصرف',
-                  items: const [
-                    SearchableDropdownItem(value: 'BANK_TRANSFER', label: 'تحويل بنكي'),
-                    SearchableDropdownItem(value: 'CHECK', label: 'شيك مصرفي'),
-                    SearchableDropdownItem(value: 'CASH', label: 'نقدي من الخزينة'),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) setState(() => _paymentMethod = v);
-                  },
-                ),
-                const SizedBox(height: 10),
-                CustomTextField(
-                  label: 'ملاحظات الصرف والغرض من العهدة',
-                  controller: _notesController,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
-      actions: [
-        TextButton(onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(), child: const Text('إلغاء')),
-        AppButton(
-          label: 'صرف وقيد العهدة',
-          variant: AppButtonVariant.primary,
-          isLoading: _isSubmitting,
-          onPressed: _isSubmitting ? null : _submit,
-        ),
-      ],
-    );
-  }
-}
-
-class _AddBrokerCustodyExpenseDialog extends StatefulWidget {
-  final BrokerCustodyAdvanceModel advance;
-  final Future<void> Function({
-    required String expenseCategory,
-    required double amount,
-    required bool isEInvoiceBacked,
-    String? eInvoiceUuid,
-    String? receiptReference,
-    String? notes,
-  }) onSubmit;
-
-  const _AddBrokerCustodyExpenseDialog({
-    required this.advance,
-    required this.onSubmit,
-  });
-
-  @override
-  State<_AddBrokerCustodyExpenseDialog> createState() => _AddBrokerCustodyExpenseDialogState();
-}
-
-class _AddBrokerCustodyExpenseDialogState extends State<_AddBrokerCustodyExpenseDialog> {
-  String _category = 'OFFICIAL_DUTIES_TAXES';
-  late final TextEditingController _amountController;
-  bool _isEInvoice = false;
-  late final TextEditingController _uuidController;
-  late final TextEditingController _refController;
-  late final TextEditingController _notesController;
-  bool _isSubmitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _amountController = TextEditingController();
-    _uuidController = TextEditingController();
-    _refController = TextEditingController();
-    _notesController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    _uuidController.dispose();
-    _refController.dispose();
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final amt = double.tryParse(_amountController.text.trim());
-    if (amt == null || amt <= 0) {
-      AppTheme.snackBar(context, 'يرجى إدخال مبلغ صحيح', severity: AppSeverity.warning);
-      return;
-    }
-    setState(() => _isSubmitting = true);
-    Navigator.of(context).pop();
-    await widget.onSubmit(
-      expenseCategory: _category,
-      amount: amt,
-      isEInvoiceBacked: _isEInvoice,
-      eInvoiceUuid: _uuidController.text.trim().isNotEmpty ? _uuidController.text.trim() : null,
-      receiptReference: _refController.text.trim().isNotEmpty ? _refController.text.trim() : null,
-      notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('إضافة بند مصروف للعهدة — ${widget.advance.advanceCode}'),
-      content: SizedBox(
-        width: 500,
-        child: SelectionArea(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SearchableDropdownField<String>(
-                  value: _category,
-                  labelText: 'بند وتصنيف المصروف',
-                  items: const [
-                    SearchableDropdownItem(value: 'OFFICIAL_DUTIES_TAXES', label: 'ضرائب ورسوم جمركية رسمية (معفية من الخصم)'),
-                    SearchableDropdownItem(value: 'PORT_AUTHORITY_FEES', label: 'رسوم وأرضيات هيئة الميناء'),
-                    SearchableDropdownItem(value: 'LAB_TESTING_FEES', label: 'رسوم فحص معملي وسحب عينات'),
-                    SearchableDropdownItem(value: 'HANDLING_AND_PORTERAGE', label: 'عتالة ومصروفات مناولة وتعتيق'),
-                    SearchableDropdownItem(value: 'INSPECTION_TRANSPORT', label: 'انتقالات لجان الكشف والمعاينة'),
-                    SearchableDropdownItem(value: 'SUNDRY_PETTY_CASH', label: 'نثريات ومصروفات متنوعة'),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) setState(() => _category = v);
-                  },
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'المبلغ الإجمالي (ج.م)',
-                        controller: _amountController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: CustomTextField(
-                        label: 'رقم الإيصال أو المستند',
-                        controller: _refController,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                CheckboxListTile(
-                  title: const Text('معتمد بفاتورة إلكترونية ضريبية رسمية', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
-                  value: _isEInvoice,
-                  onChanged: (v) => setState(() => _isEInvoice = v ?? false),
-                ),
-                if (_isEInvoice) ...[
-                  const SizedBox(height: 8),
-                  CustomTextField(
-                    label: 'الرقم التعريفي الموحد للفاتورة الإلكترونية',
-                    controller: _uuidController,
-                    hint: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(6)),
-                  child: const Text(
-                    'ملاحظة ضريبية: يتم تلقائياً خصم 1% ضريبة خصم وتحصيل (نموذج 41) على الأتعاب والمصروفات غير السيادية طبقاً للقانون المصري.',
-                    style: TextStyle(fontSize: 11, color: AppTheme.charcoal),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                CustomTextField(
-                  label: 'ملاحظات وتفاصيل إضافية',
-                  controller: _notesController,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(), child: const Text('إلغاء')),
-        AppButton(
-          label: 'حفظ واحتساب البند',
-          variant: AppButtonVariant.primary,
-          isLoading: _isSubmitting,
-          onPressed: _isSubmitting ? null : _submit,
-        ),
-      ],
     );
   }
 }

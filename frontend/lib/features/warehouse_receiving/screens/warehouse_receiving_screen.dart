@@ -1,25 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import 'package:frontend/core/widgets/widgets.dart';
 import '../../../core/theme/density_provider.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/warehouse_receiving_model.dart';
-import '../providers/goods_in_transit_provider.dart';
 import '../providers/warehouse_receiving_provider.dart';
-import '../../../core/helpers/table_copy_helper.dart';
-import '../../../core/services/table_export_service.dart';
 import '../widgets/grn_discrepancy_dialog.dart';
 import '../widgets/grn_record_card.dart';
 import '../widgets/ops_ui_kit.dart';
+import '../widgets/screen/warehouse_receiving_actions_helper.dart';
+import '../widgets/screen/warehouse_receiving_metrics.dart';
+import '../widgets/screen/warehouse_receiving_toolbar.dart';
 import '../widgets/search_and_clone_warehouse_receiving_dialog.dart';
 import '../widgets/warehouse_inspection_dialog.dart';
 import '../widgets/warehouse_receiving_form_dialog.dart';
-import '../../../core/localization/api_error_text.dart';
-import '../../../core/localization/stored_text.dart';
 
 class WarehouseReceivingScreen extends ConsumerStatefulWidget {
   final bool isEmbedded;
@@ -73,509 +72,8 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
         records: records,
         onSelectRecord: (selectedRec) {
           Navigator.of(ctx).pop();
-          _onCloneGrnRecord(selectedRec);
+          WarehouseReceivingActionsHelper.onCloneGrnRecord(context, selectedRec);
         },
-      ),
-    );
-  }
-
-  void _onCloneGrnRecord(WarehouseReceivingModel rec) {
-    final l = context.l10n;
-    final isAr = l.isArabic;
-
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AppLocalizationsProvider(
-        locale: isAr ? const Locale('ar') : const Locale('en'),
-        child: Directionality(
-          textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
-          child: CloneEntityReviewDialog(
-            entityType: l.wrCloneEntityType,
-            sourceCode: rec.grnCode,
-            // Header data only: the server issues the GRN code, the user picks the file.
-            suggestedNewCode: '',
-            sourceTitle: '${rec.warehouseName} (${rec.grnCode})',
-            copiedFieldsSummary: {
-              l.warehouseReceivingColWarehouse: rec.warehouseName,
-              l.warehouseReceivingColTruckDriver: '${rec.driverName ?? "-"} (${rec.truckPlateNumber ?? "-"})',
-              l.warehouseReceivingSealNumberLabel: rec.sealNumber ?? '-',
-              l.warehouseReceivingSealIntactSwitch: rec.sealIntact ? l.warehouseReceivingSealIntact : l.warehouseReceivingSealBroken,
-            },
-            mandatorilyResetFields: [
-              l.wrCloneResetReceivingId,
-              l.wrCloneResetGrnCode,
-              l.wrCloneResetArrival,
-              l.wrCloneResetStatus,
-              l.wrCloneResetQuarantine,
-              l.wrCloneResetDiscrepancy,
-              l.wrCloneResetInsuranceClaim,
-            ],
-            allowCopyLineItems: false,
-            allowCopyAttachments: false,
-            onConfirm: ({
-              required String newCode,
-              required String newTitle,
-              required bool copyLineItems,
-              required bool copyAttachments,
-              String? notes,
-            }) async {
-              final clonedDraft = WarehouseReceivingModel(
-                receivingId: 0,
-                grnCode: '',
-                importFileId: 0,
-                warehouseName: rec.warehouseName,
-                arrivalDatetime: DateTime.now().toIso8601String(),
-                truckPlateNumber: rec.truckPlateNumber,
-                driverName: rec.driverName,
-                driverPhone: rec.driverPhone,
-                sealNumber: rec.sealNumber,
-                sealIntact: rec.sealIntact,
-                grnItems: const [],
-                totalInvoicedQty: 0,
-                totalAcceptedQty: 0,
-                totalShortageQty: 0,
-                totalDamagedQty: 0,
-                discrepancyType: 'None',
-                discrepancyNotes: null,
-                quarantineZoneAssigned: false,
-                insuranceClaimFiled: false,
-                insuranceClaimRef: null,
-                status: '',
-                inspectorName: rec.inspectorName,
-                notes: notes,
-                createdAt: DateTime.now().toIso8601String(),
-                updatedAt: DateTime.now().toIso8601String(),
-              );
-
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  _showAddEditDialog(clonedDraft, true);
-                }
-              });
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showDiscrepancyDialog(WarehouseReceivingModel record) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => GrnDiscrepancyReportDialog(record: record),
-    );
-  }
-
-  void _copyGrnRowTsv(WarehouseReceivingModel r, AppLocalizations l) {
-    final quarantineText = r.quarantineZoneAssigned ? l.warehouseReceivingQuarantineStatusBlocked : '-';
-    final driverTruck = '${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})';
-    final arrival = r.arrivalDatetime.replaceFirst('T', ' ').split('.').first;
-
-    final rowData = [
-      r.grnCode,
-      r.warehouseName,
-      r.status,
-      quarantineText,
-      driverTruck,
-      arrival,
-      r.inspectorName,
-      r.discrepancyType,
-      r.totalInvoicedQty.toString(),
-      r.totalAcceptedQty.toString(),
-      r.totalShortageQty.toString(),
-      r.totalDamagedQty.toString(),
-    ];
-
-    final headers = [
-      l.warehouseReceivingColGrnCode,
-      l.warehouseReceivingColWarehouse,
-      l.warehouseReceivingColStatus,
-      l.warehouseReceivingColQuarantine,
-      l.warehouseReceivingColTruckDriver,
-      l.warehouseReceivingColArrivalDate,
-      l.warehouseReceivingColInspector,
-      l.warehouseReceivingColDiscrepancy,
-      l.warehouseReceivingColInvoicedQty,
-      l.warehouseReceivingColAcceptedQty,
-      l.warehouseReceivingColShortageQty,
-      l.warehouseReceivingColDamagedQty,
-    ];
-
-    TableCopyHelper.copyRow(
-      context,
-      rowData,
-      headers: headers,
-      includeHeaders: true,
-      customMessage: l.copyWarehouseReceivingRowSuccess,
-    );
-  }
-
-  void _copyGrnTableTsv(List<WarehouseReceivingModel> records, AppLocalizations l) {
-    if (records.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        AppTheme.snackBar(context, l.warehouseReceivingEmptyRecords, severity: AppSeverity.warning),
-      );
-      return;
-    }
-
-    final headers = [
-      l.warehouseReceivingColGrnCode,
-      l.warehouseReceivingColWarehouse,
-      l.warehouseReceivingColStatus,
-      l.warehouseReceivingColQuarantine,
-      l.warehouseReceivingColTruckDriver,
-      l.warehouseReceivingColArrivalDate,
-      l.warehouseReceivingColInspector,
-      l.warehouseReceivingColDiscrepancy,
-      l.warehouseReceivingColInvoicedQty,
-      l.warehouseReceivingColAcceptedQty,
-      l.warehouseReceivingColShortageQty,
-      l.warehouseReceivingColDamagedQty,
-    ];
-
-    final rows = records.map((r) {
-      final quarantineText = r.quarantineZoneAssigned ? l.warehouseReceivingQuarantineStatusBlocked : '-';
-      final driverTruck = '${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})';
-      final arrival = r.arrivalDatetime.replaceFirst('T', ' ').split('.').first;
-      return [
-        r.grnCode,
-        r.warehouseName,
-        r.status,
-        quarantineText,
-        driverTruck,
-        arrival,
-        r.inspectorName,
-        r.discrepancyType,
-        r.totalInvoicedQty.toString(),
-        r.totalAcceptedQty.toString(),
-        r.totalShortageQty.toString(),
-        r.totalDamagedQty.toString(),
-      ];
-    }).toList();
-
-    TableCopyHelper.copyTable(
-      context,
-      headers,
-      rows,
-      customMessage: l.copyWarehouseReceivingTableSuccess,
-    );
-  }
-
-  Future<void> _exportGrnExcel(List<WarehouseReceivingModel> records, AppLocalizations l) async {
-    if (records.isEmpty) return;
-    final headers = [
-      l.warehouseReceivingColGrnCode,
-      l.warehouseReceivingColWarehouse,
-      l.warehouseReceivingColStatus,
-      l.warehouseReceivingColQuarantine,
-      l.warehouseReceivingColTruckDriver,
-      l.warehouseReceivingColArrivalDate,
-      l.warehouseReceivingColInspector,
-      l.warehouseReceivingColDiscrepancy,
-      l.warehouseReceivingColInvoicedQty,
-      l.warehouseReceivingColAcceptedQty,
-      l.warehouseReceivingColShortageQty,
-      l.warehouseReceivingColDamagedQty,
-    ];
-
-    final rows = records.map((r) {
-      final quarantineText = r.quarantineZoneAssigned ? l.warehouseReceivingQuarantineStatusBlocked : '-';
-      final driverTruck = '${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})';
-      final arrival = r.arrivalDatetime.replaceFirst('T', ' ').split('.').first;
-      return [
-        r.grnCode,
-        r.warehouseName,
-        r.status,
-        quarantineText,
-        driverTruck,
-        arrival,
-        r.inspectorName,
-        r.discrepancyType,
-        r.totalInvoicedQty.toString(),
-        r.totalAcceptedQty.toString(),
-        r.totalShortageQty.toString(),
-        r.totalDamagedQty.toString(),
-      ];
-    }).toList();
-
-    await TableExportService.exportTableToExcel(
-      context: context,
-      stageName: 'Warehouse Receiving',
-      importFileNameOrCode: 'GRN_Registry',
-      headers: headers,
-      rows: rows,
-    );
-  }
-
-  Future<void> _exportGrnPdf(List<WarehouseReceivingModel> records, AppLocalizations l) async {
-    if (records.isEmpty) return;
-    final headers = [
-      l.warehouseReceivingColGrnCode,
-      l.warehouseReceivingColWarehouse,
-      l.warehouseReceivingColStatus,
-      l.warehouseReceivingColTruckDriver,
-      l.warehouseReceivingColArrivalDate,
-      l.warehouseReceivingColInspector,
-      l.warehouseReceivingColAcceptedQty,
-      l.warehouseReceivingColShortageQty,
-      l.warehouseReceivingColDamagedQty,
-    ];
-
-    final rows = records.map((r) {
-      final driverTruck = '${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})';
-      final arrival = r.arrivalDatetime.replaceFirst('T', ' ').split('.').first;
-      return [
-        r.grnCode,
-        r.warehouseName,
-        r.status,
-        driverTruck,
-        arrival,
-        r.inspectorName,
-        r.totalAcceptedQty.toString(),
-        r.totalShortageQty.toString(),
-        r.totalDamagedQty.toString(),
-      ];
-    }).toList();
-
-    await TableExportService.exportTableToPdf(
-      context: context,
-      stageName: 'Warehouse Receiving',
-      importFileNameOrCode: 'GRN_Registry',
-      headers: headers,
-      rows: rows,
-      headerContext: TableExportHeaderContext(
-        title: l.wrPdfRegistryTitle,
-        subtitle: l.wrPdfRegistrySubtitle,
-      ),
-    );
-  }
-
-  Future<void> _confirmFinalReceipt(WarehouseReceivingModel record) async {
-    final l10n = context.l10n;
-    final confirm = await AppConfirmDialog.show(
-      context,
-      title: l10n.warehouseReceivingConfirmReceiptTitle,
-      message: l10n.warehouseReceivingConfirmReceiptMessage(record.grnCode),
-      confirmLabel: l10n.warehouseReceivingConfirmReceiptBtn,
-      confirmVariant: AppButtonVariant.success,
-      icon: Icons.check_circle,
-    );
-
-    if (confirm == true) {
-      try {
-        final payload = {
-          'status': 'Goods Received',
-          'discrepancy_notes': storedText.warehouseReceivingStatusGoodsReceived,
-        };
-        await ref.read(warehouseReceivingProvider.notifier).updateRecord(record.receivingId, payload);
-        ref.read(goodsInTransitProvider.notifier).confirmWarehouseReceipt(record.importFileId);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            AppTheme.snackBar(
-              context,
-              l10n.warehouseReceivingConfirmReceiptSuccess(record.grnCode),
-              severity: AppSeverity.success,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            AppTheme.snackBar(context, ApiErrorText.of(l10n, e), severity: AppSeverity.danger),
-          );
-        }
-      }
-    }
-  }
-
-  void _printGrn(WarehouseReceivingModel r) {
-    final l = context.l10n;
-    final buffer = StringBuffer();
-    buffer.writeln('${l.warehouseReceivingColGrnCode}: ${r.grnCode}');
-    buffer.writeln('${l.warehouseReceivingColWarehouse}: ${r.warehouseName}');
-    buffer.writeln('${l.warehouseReceivingColStatus}: ${r.status}');
-    buffer.writeln('${l.warehouseReceivingTruckAndDriver}: ${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})');
-    buffer.writeln('${l.warehouseReceivingArrivalDatetime}: ${r.arrivalDatetime.replaceFirst("T", " ").split(".")[0]}');
-    buffer.writeln('${l.warehouseReceivingInspector}: ${r.inspectorName}');
-    buffer.writeln('${l.warehouseReceivingDiscrepancyStatus}: ${r.discrepancyType}');
-    buffer.writeln('${l.warehouseReceivingMetricInvoiced}: ${r.totalInvoicedQty}');
-    buffer.writeln('${l.warehouseReceivingMetricAccepted}: ${r.totalAcceptedQty}');
-    buffer.writeln('${l.warehouseReceivingMetricShortage}: ${r.totalShortageQty}');
-    buffer.writeln('${l.warehouseReceivingMetricDamaged}: ${r.totalDamagedQty}');
-    CopyHelper.copy(
-      context,
-      buffer.toString(),
-      customMessage: l.warehouseReceivingPrintReceiptSuccess(r.grnCode),
-    );
-  }
-
-  Future<void> _deleteGrn(WarehouseReceivingModel r) async {
-    final l = context.l10n;
-    final confirm = await AppConfirmDialog.showDelete(
-      context,
-      title: l.warehouseReceivingDeleteTitle,
-      message: l.warehouseReceivingDeleteConfirmMessage,
-    );
-    if (confirm == true && mounted) {
-      final messenger = ScaffoldMessenger.of(context);
-      try {
-        await ref.read(warehouseReceivingProvider.notifier).softDeleteRecord(r.receivingId);
-      } catch (e) {
-        if (!mounted) return;
-        messenger.showSnackBar(
-          AppTheme.snackBar(context, ApiErrorText.of(l, e), severity: AppSeverity.danger),
-        );
-      }
-    }
-  }
-
-  void _showQuarantineState(WarehouseReceivingModel r) {
-    final l = context.l10n;
-    final blocked = r.quarantineZoneAssigned;
-    ScaffoldMessenger.of(context).showSnackBar(
-      AppTheme.snackBar(
-        context,
-        blocked ? l.warehouseReceivingQuarantineAlertBlocked : l.warehouseReceivingQuarantineAlertCleared,
-        severity: blocked ? AppSeverity.danger : AppSeverity.success,
-      ),
-    );
-  }
-
-  Widget _buildMetrics(List<WarehouseReceivingModel> records, AppLocalizations l) {
-    final pending = records.where((r) => GrnStatusView.isDraftStatus(r.status)).length;
-    final received = records.where((r) => r.status == 'Goods Received' || r.status == 'Closed').length;
-    final discrepancy = records.where((r) => r.status == 'Discrepancy Reported' || r.discrepancyType != 'None').length;
-    return MetricCardStrip(
-      metrics: [
-        MetricCardData(
-          title: l.wrGrnMetricTotal,
-          shortTitle: l.wrGrnMetricTotal,
-          value: '${records.length}',
-          icon: Icons.inventory_outlined,
-          color: AppTheme.cobalt,
-        ),
-        MetricCardData(
-          title: l.wrGrnMetricPending,
-          shortTitle: l.wrGrnMetricPending,
-          value: '$pending',
-          icon: Icons.hourglass_top_rounded,
-          color: AppTheme.orange,
-        ),
-        MetricCardData(
-          title: l.wrGrnMetricReceived,
-          shortTitle: l.wrGrnMetricReceived,
-          value: '$received',
-          icon: Icons.check_circle_outline,
-          color: AppTheme.emerald,
-        ),
-        MetricCardData(
-          title: l.wrGrnMetricDiscrepancy,
-          shortTitle: l.wrGrnMetricDiscrepancy,
-          value: '$discrepancy',
-          icon: Icons.report_problem_outlined,
-          color: AppTheme.crimson,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildToolbar(List<WarehouseReceivingModel> records, AppLocalizations l) {
-    return Container(
-      decoration: AppTheme.cardDecorationOf(context),
-      padding: const EdgeInsetsDirectional.all(12),
-      child: OpsActionWrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          AppButton(
-            key: const Key('createGrnBtn'),
-            label: l.warehouseReceivingNewGrnBtn,
-            icon: Icons.local_shipping,
-            size: AppButtonSize.small,
-            onPressed: () => _showAddEditDialog(),
-          ),
-          AppButton(
-            key: const Key('searchAndCloneGrnBtn'),
-            label: l.searchAndCloneWarehouseReceivingBtn,
-            icon: Icons.difference_outlined,
-            variant: AppButtonVariant.secondary,
-            size: AppButtonSize.small,
-            onPressed: () => _openSearchAndCloneDialog(records),
-          ),
-          SizedBox(
-            width: 220,
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: l.warehouseReceivingSearchHint,
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: _searchController,
-                  builder: (context, value, _) {
-                    return value.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchController.clear();
-                              ref.read(warehouseReceivingProvider.notifier).fetchRecords(
-                                    search: '',
-                                    status: _selectedStatusFilter,
-                                  );
-                            },
-                          )
-                        : const SizedBox.shrink();
-                  },
-                ),
-                isDense: true,
-                contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: 10),
-                border: const OutlineInputBorder(),
-              ),
-              onChanged: (val) {
-                ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: val, status: _selectedStatusFilter);
-              },
-            ),
-          ),
-          SizedBox(
-            width: 220,
-            child: SearchableDropdownField<String>(
-              value: _selectedStatusFilter,
-              items: [
-                SearchableDropdownItem(value: 'All', label: l.warehouseReceivingStatusAll),
-                SearchableDropdownItem(value: 'Draft / Pending Warehouse Count', label: l.warehouseReceivingStatusDraft),
-                SearchableDropdownItem(value: 'Goods Received', label: l.warehouseReceivingStatusGoodsReceived),
-                SearchableDropdownItem(value: 'Discrepancy Reported', label: l.warehouseReceivingStatusDiscrepancy),
-              ],
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() => _selectedStatusFilter = val);
-                  ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: _searchController.text, status: val);
-                }
-              },
-            ),
-          ),
-          AppButton(
-            key: const Key('copyGrnTableTsvBtn'),
-            label: l.warehouseReceivingExportTsvBtn,
-            icon: Icons.table_chart_outlined,
-            variant: AppButtonVariant.ghost,
-            size: AppButtonSize.small,
-            onPressed: () => _copyGrnTableTsv(records, l),
-          ),
-          IconButton(
-            key: const Key('exportGrnExcelBtn'),
-            icon: const Icon(Icons.description_outlined, color: AppTheme.emerald, size: 20),
-            tooltip: l.exportWarehouseReceivingExcelTooltip,
-            onPressed: () => _exportGrnExcel(records, l),
-          ),
-          IconButton(
-            key: const Key('exportGrnPdfBtn'),
-            icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson, size: 20),
-            tooltip: l.exportWarehouseReceivingPdfTooltip,
-            onPressed: () => _exportGrnPdf(records, l),
-          ),
-        ],
       ),
     );
   }
@@ -616,10 +114,44 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                   ),
                   const SizedBox(height: 12),
                   if (currentRecords.isNotEmpty) ...[
-                    _buildMetrics(currentRecords, l),
+                    WarehouseReceivingMetrics(records: currentRecords),
                     const SizedBox(height: 12),
                   ],
-                  _buildToolbar(currentRecords, l),
+                  WarehouseReceivingToolbar(
+                    records: currentRecords,
+                    searchController: _searchController,
+                    selectedStatusFilter: _selectedStatusFilter,
+                    onAddRecord: () => _showAddEditDialog(),
+                    onSearchAndClone: () => _openSearchAndCloneDialog(currentRecords),
+                    onSearchChanged: (val) {
+                      ref.read(warehouseReceivingProvider.notifier).fetchRecords(
+                            search: val,
+                            status: _selectedStatusFilter,
+                          );
+                    },
+                    onStatusFilterChanged: (val) {
+                      setState(() => _selectedStatusFilter = val);
+                      ref.read(warehouseReceivingProvider.notifier).fetchRecords(
+                            search: _searchController.text,
+                            status: val,
+                          );
+                    },
+                    onCopyTsv: () => WarehouseReceivingActionsHelper.copyGrnTableTsv(
+                      context,
+                      currentRecords,
+                      l,
+                    ),
+                    onExportExcel: () => WarehouseReceivingActionsHelper.exportGrnExcel(
+                      context,
+                      currentRecords,
+                      l,
+                    ),
+                    onExportPdf: () => WarehouseReceivingActionsHelper.exportGrnPdf(
+                      context,
+                      currentRecords,
+                      l,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                 ],
               ),
@@ -663,14 +195,18 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                         record: r,
                         onView: () => _showAddEditDialog(r),
                         onEdit: () => _showAddEditDialog(r),
-                        onPrint: () => _printGrn(r),
-                        onDelete: () => _deleteGrn(r),
-                        onConfirmReceipt: () => _confirmFinalReceipt(r),
-                        onRecordDiscrepancy: () => _showDiscrepancyDialog(r),
+                        onPrint: () => WarehouseReceivingActionsHelper.printGrn(context, r),
+                        onDelete: () => WarehouseReceivingActionsHelper.deleteGrn(context, ref, r),
+                        onConfirmReceipt: () => WarehouseReceivingActionsHelper.confirmFinalReceipt(context, ref, r),
+                        onRecordDiscrepancy: () => showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => GrnDiscrepancyReportDialog(record: r),
+                        ),
                         onOpenInspection: () => WarehouseInspectionDialog.show(context, record: r),
-                        onQuarantine: () => _showQuarantineState(r),
-                        onCopyRow: () => _copyGrnRowTsv(r, context.l10n),
-                        onClone: () => _onCloneGrnRecord(r),
+                        onQuarantine: () => WarehouseReceivingActionsHelper.showQuarantineState(context, r),
+                        onCopyRow: () => WarehouseReceivingActionsHelper.copyGrnRowTsv(context, r, context.l10n),
+                        onClone: () => WarehouseReceivingActionsHelper.onCloneGrnRecord(context, r),
                       );
                     },
                     childCount: records.length,

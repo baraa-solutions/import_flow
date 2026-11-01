@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frontend/core/widgets/widgets.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/logistics_invoice_models.dart';
 import '../providers/logistics_invoices_provider.dart';
 import '../repositories/logistics_invoices_repository.dart';
 import 'bl_container_lock_widget.dart';
 import 'partner_balance_card.dart';
+import 'invoice_form/invoice_form_basic_fields.dart';
+import 'invoice_form/invoice_form_header.dart';
+import 'invoice_form/invoice_form_lines_table.dart';
+import 'invoice_form/invoice_form_taxes_totals.dart';
 
 class InvoiceFormDialog extends ConsumerStatefulWidget {
   final LogisticsInvoiceModel? initialInvoice;
@@ -121,7 +125,6 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
         _recalculateTotals();
       });
     } catch (_) {
-      // Use defaults if prefill fails
       if (_lines.isEmpty) {
         _addEmptyLine();
       }
@@ -306,22 +309,6 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
     }
   }
 
-  String _partnerTypeLabel(bool isArabic) {
-    switch (_partnerType) {
-      case 'clearance':
-        return isArabic ? 'تخليص جمركي' : 'Customs Clearance';
-      case 'transport':
-        return isArabic ? 'نقل داخلي' : 'Inland Transport';
-      case 'inspection':
-        return isArabic ? 'فحص ومعاينة' : 'Inspection';
-      case 'insurance':
-        return isArabic ? 'تأمين بحري' : 'Marine Insurance';
-      case 'freight':
-      default:
-        return isArabic ? 'شحن ونولون' : 'Freight';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDark(context);
@@ -331,566 +318,167 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SelectionArea(
         child: Container(
-        width: 1050,
-        height: 750,
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Icon(
-                    _partnerType == 'freight'
-                        ? Icons.directions_boat_outlined
-                        : _partnerType == 'clearance'
-                            ? Icons.assignment_outlined
-                            : _partnerType == 'transport'
-                                ? Icons.local_shipping_outlined
-                                : _partnerType == 'insurance'
-                                    ? Icons.shield_outlined
-                                    : Icons.verified_outlined,
-                    color: AppTheme.cobalt,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    widget.initialInvoice == null
-                        ? (isArabic
-                            ? 'تسجيل فاتورة جديدة (${_partnerTypeLabel(isArabic)})'
-                            : 'New ${_partnerTypeLabel(isArabic)} Service Invoice')
-                        : (isArabic
-                            ? 'تعديل فاتورة: ${widget.initialInvoice!.invoiceCode}'
-                            : 'Edit Invoice: ${widget.initialInvoice!.invoiceCode}'),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : AppTheme.charcoal,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const Divider(height: 20),
-
-              // Body content
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Partner Balance Card Strip
-                      if (_partnerId > 0) PartnerBalanceCard(partnerId: _partnerId),
-
-                      // Basic Details Row
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: SearchableDropdownField<String>(
-                              value: const ['freight', 'clearance', 'transport', 'inspection', 'insurance'].contains(_partnerType)
-                                  ? _partnerType
-                                  : 'freight',
-                              labelText: isArabic ? 'نوع الشريك اللوجستي' : 'Partner Type',
-                              decoration: InputDecoration(
-                                labelText: isArabic ? 'نوع الشريك اللوجستي' : 'Partner Type',
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                              ),
-                              items: [
-                                SearchableDropdownItem<String>(value: 'freight', label: isArabic ? 'شركة شحن ونولون' : 'Freight Forwarder'),
-                                SearchableDropdownItem<String>(value: 'clearance', label: isArabic ? 'مخلص جمركي' : 'Customs Broker'),
-                                SearchableDropdownItem<String>(value: 'transport', label: isArabic ? 'نقل داخلي' : 'Inland Transport'),
-                                SearchableDropdownItem<String>(value: 'inspection', label: isArabic ? 'جهة فحص ومعاينة' : 'Inspection Agency'),
-                                SearchableDropdownItem<String>(value: 'insurance', label: isArabic ? 'شركة تأمين بحري' : 'Marine Insurance'),
-                              ],
-                              onChanged: widget.initialInvoice != null
-                                  ? null
-                                  : (val) {
-                                      if (val != null) {
-                                        setState(() => _partnerType = val);
-                                        _loadPrefillLines();
-                                      }
-                                    },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _invoiceNumberCtrl,
-                              decoration: InputDecoration(
-                                labelText: isArabic ? 'رقم الفاتورة *' : 'Invoice Number *',
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                              ),
-                              validator: (v) => v == null || v.trim().isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _partnerNameCtrl,
-                              decoration: InputDecoration(
-                                labelText: isArabic ? 'اسم الشريك اللوجستي *' : 'Partner Name *',
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                              ),
-                              validator: (v) => v == null || v.trim().isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Shipment, B/L, Currency, and CBE Exchange Rate Row
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _shipmentIdCtrl,
-                              decoration: InputDecoration(
-                                labelText: isArabic ? 'رقم الشحنة *' : 'Shipment ID *',
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                              onChanged: (v) {
-                                final parsed = int.tryParse(v);
-                                if (parsed != null && parsed != _shipmentId) {
-                                  setState(() => _shipmentId = parsed);
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _blNumberCtrl,
-                              decoration: InputDecoration(
-                                labelText: isArabic ? 'رقم البوليصة' : 'B/L Number',
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                              ),
-                              onChanged: (v) => setState(() => _blNumber = v),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 1,
-                            child: SearchableDropdownField<String>(
-                              value: _currency,
-                              labelText: isArabic ? 'العملة' : 'Currency',
-                              decoration: InputDecoration(
-                                labelText: isArabic ? 'العملة' : 'Currency',
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                              ),
-                              items: const [
-                                SearchableDropdownItem<String>(value: 'USD', label: 'USD'),
-                                SearchableDropdownItem<String>(value: 'EUR', label: 'EUR'),
-                                SearchableDropdownItem<String>(value: 'GBP', label: 'GBP'),
-                                SearchableDropdownItem<String>(value: 'EGP', label: 'EGP'),
-                              ],
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() => _currency = val);
-                                  _fetchCbeRate();
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 1,
-                            child: TextFormField(
-                              initialValue: _exchangeRate.toString(),
-                              decoration: InputDecoration(
-                                labelText: isArabic ? 'سعر الصرف' : 'Exchange Rate',
-                                isDense: true,
-                                border: const OutlineInputBorder(),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.sync, size: 16),
-                                  tooltip: isArabic ? 'جلب سعر البنك المركزي' : 'Fetch CBE Rate',
-                                  onPressed: _fetchCbeRate,
-                                ),
-                              ),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              onChanged: (v) {
-                                final r = double.tryParse(v);
-                                if (r != null) {
-                                  setState(() {
-                                    _exchangeRate = r;
-                                    _recalculateTotals();
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Container Billing Lock Widget
-                      if (_blNumberCtrl.text.trim().isNotEmpty) ...[
-                        BLContainerLockWidget(
-                          shipmentId: _shipmentId,
-                          blNumber: _blNumberCtrl.text.trim(),
-                          selectedContainerNumbers: _selectedContainers,
-                          onContainersChanged: (c) => setState(() => _selectedContainers = c),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-
-                      // Lines Section
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _partnerType == 'freight'
-                                  ? (isArabic ? 'بنود الفاتورة (21 بند عرض أسعار)' : 'Invoice Line Items (21 Quotation Items)')
-                                  : (isArabic ? 'بنود الفاتورة' : 'Invoice Line Items'),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                          ),
-                          Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            children: [
-                              if (_isPrefilling)
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 8),
-                                  child: AppLoadingState.inline(),
-                                ),
-                              TextButton.icon(
-                                icon: const Icon(Icons.refresh, size: 14),
-                                label: Text(isArabic ? 'إعادة تحميل' : 'Reload Prefill'),
-                                onPressed: _loadPrefillLines,
-                              ),
-                              OutlinedButton.icon(
-                                icon: const Icon(Icons.add, size: 14),
-                                label: Text(isArabic ? 'إضافة بند مخصص' : 'Add Custom Item'),
-                                onPressed: _addEmptyLine,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Line Items Table
-                      _buildLinesTable(isDark, isArabic),
-                      const SizedBox(height: 16),
-
-                      // Taxes & Summary Row
-                      _buildTaxesAndTotalsCard(isDark, isArabic),
-                    ],
-                  ),
-                ),
-              ),
-
-              const Divider(height: 20),
-
-              // Footer Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(isArabic ? 'إلغاء' : 'Cancel'),
-                  ),
-                  const SizedBox(width: 12),
-                  AppButton(
-                    label: isArabic ? 'حفظ الفاتورة' : 'Save Invoice',
-                    variant: AppButtonVariant.primary,
-                    icon: Icons.check,
-                    isLoading: _isLoading,
-                    onPressed: _saveInvoice,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-      ),
-    );
-  }
-
-  Widget _buildLinesTable(bool isDark, bool isArabic) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Table(
-        columnWidths: const {
-          0: FlexColumnWidth(3.5), // Description
-          1: FlexColumnWidth(1.2), // Group / Category
-          2: FlexColumnWidth(1.0), // Qty
-          3: FlexColumnWidth(1.4), // Unit Price FX
-          4: FlexColumnWidth(1.4), // Amount FX
-          5: FlexColumnWidth(1.5), // Amount EGP
-          6: FixedColumnWidth(44), // Action
-        },
-        children: [
-          TableRow(
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E2630) : const Color(0xFFEDF2F7),
-            ),
-            children: [
-              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'الوصف' : 'Description', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'المجموعة' : 'Group', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'الكمية' : 'Qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'سعر الوحدة' : 'Unit Price', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'الإجمالي (أجنبي)' : 'Total FX', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              Padding(padding: const EdgeInsets.all(8), child: Text(isArabic ? 'الإجمالي (ج.م)' : 'Total EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-              const Padding(padding: EdgeInsets.all(8), child: Text('', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-            ],
-          ),
-          for (int i = 0; i < _lines.length; i++)
-            TableRow(
-              decoration: BoxDecoration(
-                color: i % 2 == 1
-                    ? (isDark ? const Color(0xFF141A22) : const Color(0xFFF8FAFC))
-                    : Colors.transparent,
-              ),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: TextFormField(
-                    initialValue: _lines[i].lineDescription,
-                    style: const TextStyle(fontSize: 12),
-                    decoration: const InputDecoration(isDense: true, border: InputBorder.none),
-                    onChanged: (v) => _lines[i] = LogisticsInvoiceLineModel(
-                      lineId: _lines[i].lineId,
-                      expenseCode: _lines[i].expenseCode,
-                      lineDescription: v,
-                      lineGroup: _lines[i].lineGroup,
-                      quantity: _lines[i].quantity,
-                      unitPriceFx: _lines[i].unitPriceFx,
-                      currency: _currency,
-                      exchangeRate: _exchangeRate,
-                      taxType: _lines[i].taxType,
-                      isFromQuotation: _lines[i].isFromQuotation,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                  child: Text(
-                    _lines[i].lineGroup ?? 'Other',
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: TextFormField(
-                    initialValue: _lines[i].quantity.toString(),
-                    style: const TextStyle(fontSize: 12),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(isDense: true, border: InputBorder.none),
-                    onChanged: (v) {
-                      final q = double.tryParse(v);
-                      if (q != null) {
-                        _lines[i] = LogisticsInvoiceLineModel(
-                          lineId: _lines[i].lineId,
-                          expenseCode: _lines[i].expenseCode,
-                          lineDescription: _lines[i].lineDescription,
-                          lineGroup: _lines[i].lineGroup,
-                          quantity: q,
-                          unitPriceFx: _lines[i].unitPriceFx,
-                          currency: _currency,
-                          exchangeRate: _exchangeRate,
-                          taxType: _lines[i].taxType,
-                          isFromQuotation: _lines[i].isFromQuotation,
-                        );
-                        _recalculateTotals();
-                      }
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: TextFormField(
-                    initialValue: _lines[i].unitPriceFx.toString(),
-                    style: const TextStyle(fontSize: 12),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(isDense: true, border: InputBorder.none),
-                    onChanged: (v) {
-                      final p = double.tryParse(v);
-                      if (p != null) {
-                        _lines[i] = LogisticsInvoiceLineModel(
-                          lineId: _lines[i].lineId,
-                          expenseCode: _lines[i].expenseCode,
-                          lineDescription: _lines[i].lineDescription,
-                          lineGroup: _lines[i].lineGroup,
-                          quantity: _lines[i].quantity,
-                          unitPriceFx: p,
-                          currency: _currency,
-                          exchangeRate: _exchangeRate,
-                          taxType: _lines[i].taxType,
-                          isFromQuotation: _lines[i].isFromQuotation,
-                        );
-                        _recalculateTotals();
-                      }
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                  child: Text(
-                    '${_lines[i].amountFx.toStringAsFixed(2)} $_currency',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                  child: Text(
-                    '${_lines[i].amountEgp.toStringAsFixed(2)} EGP',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-                  onPressed: () => _removeLine(i),
-                ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTaxesAndTotalsCard(bool isDark, bool isArabic) {
-    return Material(
-      color: isDark ? const Color(0xFF1A222D) : const Color(0xFFF8FAFC),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Tax Toggles
-          Expanded(
-            flex: 3,
+          width: 1050,
+          height: 750,
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CheckboxListTile(
-                  title: Text(
-                    isArabic ? 'إضافة 14% ضريبة القيمة المضافة' : 'Add 14% VAT',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  value: _vatIncluded,
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (v) {
-                    setState(() {
-                      _vatIncluded = v ?? false;
-                      _vatAmount = _vatIncluded ? (_subtotalEgp * 0.14) : 0.0;
-                    });
-                  },
+                InvoiceFormHeader(
+                  initialInvoice: widget.initialInvoice,
+                  partnerType: _partnerType,
+                  isDark: isDark,
+                  isArabic: isArabic,
+                  onClose: () => Navigator.pop(context),
                 ),
-                CheckboxListTile(
-                  title: Text(
-                    isArabic ? 'خصم أرباح تجارية وصناعية (نموذج 41)' : 'Deduct WHT Form 41',
-                    style: const TextStyle(fontSize: 12),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_partnerId > 0) PartnerBalanceCard(partnerId: _partnerId),
+                        InvoiceFormBasicFields(
+                          isArabic: isArabic,
+                          isEditMode: widget.initialInvoice != null,
+                          partnerType: _partnerType,
+                          onPartnerTypeChanged: (val) {
+                            if (val != null) {
+                              setState(() => _partnerType = val);
+                              _loadPrefillLines();
+                            }
+                          },
+                          invoiceNumberCtrl: _invoiceNumberCtrl,
+                          partnerNameCtrl: _partnerNameCtrl,
+                          shipmentIdCtrl: _shipmentIdCtrl,
+                          blNumberCtrl: _blNumberCtrl,
+                          onShipmentIdChanged: (id) => setState(() => _shipmentId = id),
+                          onBlNumberChanged: (bl) => setState(() => _blNumber = bl),
+                          currency: _currency,
+                          onCurrencyChanged: (c) {
+                            if (c != null) {
+                              setState(() => _currency = c);
+                              _fetchCbeRate();
+                            }
+                          },
+                          exchangeRate: _exchangeRate,
+                          onExchangeRateChanged: (rate) {
+                            setState(() {
+                              _exchangeRate = rate;
+                              _recalculateTotals();
+                            });
+                          },
+                          onFetchCbeRate: _fetchCbeRate,
+                        ),
+                        const SizedBox(height: 12),
+                        if (_blNumberCtrl.text.trim().isNotEmpty) ...[
+                          BLContainerLockWidget(
+                            shipmentId: _shipmentId,
+                            blNumber: _blNumberCtrl.text.trim(),
+                            selectedContainerNumbers: _selectedContainers,
+                            onContainersChanged: (c) => setState(() => _selectedContainers = c),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _partnerType == 'freight'
+                                    ? (isArabic ? 'بنود الفاتورة (21 بند عرض أسعار)' : 'Invoice Line Items (21 Quotation Items)')
+                                    : (isArabic ? 'بنود الفاتورة' : 'Invoice Line Items'),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ),
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              children: [
+                                if (_isPrefilling)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 8),
+                                    child: AppLoadingState.inline(),
+                                  ),
+                                TextButton.icon(
+                                  icon: const Icon(Icons.refresh, size: 14),
+                                  label: Text(isArabic ? 'إعادة تحميل' : 'Reload Prefill'),
+                                  onPressed: _loadPrefillLines,
+                                ),
+                                OutlinedButton.icon(
+                                  icon: const Icon(Icons.add, size: 14),
+                                  label: Text(isArabic ? 'إضافة بند مخصص' : 'Add Custom Item'),
+                                  onPressed: _addEmptyLine,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        InvoiceFormLinesTable(
+                          lines: _lines,
+                          currency: _currency,
+                          exchangeRate: _exchangeRate,
+                          isDark: isDark,
+                          isArabic: isArabic,
+                          onLineChanged: (index, line) {
+                            _lines[index] = line;
+                            _recalculateTotals();
+                          },
+                          onRemoveLine: _removeLine,
+                        ),
+                        const SizedBox(height: 16),
+                        InvoiceFormTaxesTotals(
+                          isDark: isDark,
+                          isArabic: isArabic,
+                          vatIncluded: _vatIncluded,
+                          onVatChanged: (val) {
+                            setState(() {
+                              _vatIncluded = val;
+                              _vatAmount = _vatIncluded ? (_subtotalEgp * 0.14) : 0.0;
+                            });
+                          },
+                          whtDeducted: _whtDeducted,
+                          onWhtChanged: (val) {
+                            setState(() {
+                              _whtDeducted = val;
+                              _whtAmount = _whtDeducted ? (_subtotalEgp * 0.01) : 0.0;
+                            });
+                          },
+                          subtotalFx: _subtotalFx,
+                          subtotalEgp: _subtotalEgp,
+                          vatAmount: _vatAmount,
+                          whtAmount: _whtAmount,
+                          netPayableEgp: _netPayableEgp,
+                          currency: _currency,
+                        ),
+                      ],
+                    ),
                   ),
-                  value: _whtDeducted,
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (v) {
-                    setState(() {
-                      _whtDeducted = v ?? false;
-                      _whtAmount = _whtDeducted ? (_subtotalEgp * 0.01) : 0.0;
-                    });
-                  },
+                ),
+                const Divider(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+                    ),
+                    const SizedBox(width: 12),
+                    AppButton(
+                      label: isArabic ? 'حفظ الفاتورة' : 'Save Invoice',
+                      variant: AppButtonVariant.primary,
+                      icon: Icons.check,
+                      isLoading: _isLoading,
+                      onPressed: _saveInvoice,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 24),
-          // Totals summary
-          Expanded(
-            flex: 2,
-            child: Column(
-              children: [
-                _summaryRow(
-                  isArabic ? 'المجموع الفرعي (عملة أجنبية):' : 'Subtotal (FX):',
-                  '${_subtotalFx.toStringAsFixed(2)} $_currency',
-                ),
-                _summaryRow(
-                  isArabic ? 'المجموع الفرعي (بالجنيه):' : 'Subtotal (EGP):',
-                  '${_subtotalEgp.toStringAsFixed(2)} EGP',
-                ),
-                if (_vatIncluded)
-                  _summaryRow(
-                    isArabic ? 'قيمة ضريبة القيمة المضافة (+):' : 'VAT Amount (+):',
-                    '${_vatAmount.toStringAsFixed(2)} EGP',
-                    color: Colors.blue,
-                  ),
-                if (_whtDeducted)
-                  _summaryRow(
-                    isArabic ? 'خصم ضريبة المنبع (-):' : 'WHT Deducted (-):',
-                    '${_whtAmount.toStringAsFixed(2)} EGP',
-                    color: Colors.orange,
-                  ),
-                const Divider(height: 14),
-                _summaryRow(
-                  isArabic ? 'صافي المبلغ المستحق (بالجنيه):' : 'Net Payable (EGP):',
-                  '${_netPayableEgp.toStringAsFixed(2)} EGP',
-                  isBold: true,
-                  color: AppTheme.emerald,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      ),
-    );
-  }
-
-  Widget _summaryRow(String label, String value, {bool isBold = false, Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: isBold ? 14 : 12,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

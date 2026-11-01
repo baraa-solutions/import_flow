@@ -29,6 +29,8 @@ from .schemas import (
     ClearanceInvoicesSummaryResponse,
     ClearanceFollowupLogCreate,
     ClearanceFollowupLogResponse,
+    RevisedEstimateSubmit,
+    ApprovedBookingFreightResponse,
 )
 from .service import (
     create_customs_clearance_service,
@@ -57,6 +59,8 @@ from .service import (
     create_clearance_followup_log_service,
     get_clearance_followup_logs_service,
     complete_clearance_followup_service,
+    save_revised_estimate_service,
+    get_approved_booking_freight_service,
 )
 
 router = APIRouter(prefix="/api/v1/customs-clearance", tags=["Phase 7 - Customs Clearance"])
@@ -144,6 +148,33 @@ def record_duty_payment_request(
     current_user: User = Depends(can_update),
 ):
     return record_duty_payment_request_service(db, payload, user=current_user.username)
+
+
+@router.post("/revised-estimate", response_model=CustomsClearanceResponse, summary="تسجيل وتحديث التقدير المحدّث للرسوم الجمركية")
+def save_revised_estimate(
+    payload: RevisedEstimateSubmit,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_update),
+):
+    return save_revised_estimate_service(db, payload, user=current_user.username)
+
+
+@router.get("/approved-booking-freight/{import_file_id}", response_model=ApprovedBookingFreightResponse, summary="قراءة نولون البوكينج المعتمد لملف الشحنة")
+def get_approved_booking_freight(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
+):
+    return get_approved_booking_freight_service(db, import_file_id)
+
+
+@router.get("/booking-freight/{import_file_id}", response_model=ApprovedBookingFreightResponse, summary="قراءة نولون البوكينج المعتمد لملف الشحنة (اسم بديل)")
+def get_booking_freight_alias(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
+):
+    return get_approved_booking_freight_service(db, import_file_id)
 
 
 @router.post("/register-declaration-46", response_model=CustomsClearanceResponse, summary="قيد الإقرار الجمركي ونموذج 46 ك.م (CS-03)")

@@ -280,8 +280,8 @@ void main() {
       final excelBtn = tester.widget<IconButton>(find.byKey(const Key('exportExcelBtn')));
       final pdfBtn = tester.widget<IconButton>(find.byKey(const Key('exportPdfBtn')));
 
-      expect(imgBtn.tooltip, contains('PNG'));
-      expect(excelBtn.tooltip, contains('Excel'));
+      expect(imgBtn.tooltip, anyOf(contains('PNG'), contains('صورة')));
+      expect(excelBtn.tooltip, anyOf(contains('Excel'), contains('إكسيل'), contains('إكسل')));
       expect(pdfBtn.tooltip, contains('PDF'));
     });
 

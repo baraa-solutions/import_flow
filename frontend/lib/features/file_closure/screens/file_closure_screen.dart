@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/helpers/table_copy_helper.dart';
+import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
-import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/widgets.dart';
-import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/file_closure_model.dart';
 import '../providers/file_closure_provider.dart';
 import '../widgets/closed_files_banner.dart';
 import '../widgets/closure_record_card.dart';
 import '../widgets/file_closure_form_dialog.dart';
-import '../../warehouse_receiving/widgets/ops_ui_kit.dart';
+import '../widgets/screen/closure_certificate_dialog.dart';
+import '../widgets/screen/closure_export_helper.dart';
+import '../widgets/screen/closure_screen_metrics.dart';
+import '../widgets/screen/closure_screen_toolbar.dart';
 import '../widgets/search_and_clone_file_closure_dialog.dart';
-import '../../../core/localization/api_error_text.dart';
+import '../../warehouse_receiving/widgets/ops_ui_kit.dart';
 
 class FileClosureScreen extends ConsumerStatefulWidget {
   const FileClosureScreen({super.key});
@@ -153,276 +154,6 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
     );
   }
 
-  void _copyClosureRowTsv(
-    ImportFileClosureModel r,
-    ImportFileModel? file,
-    AppLocalizations l10n,
-  ) {
-    final fileTitle = file != null ? file.primaryNameWithCode : '#${r.importFileId}';
-    final chk = r.closureChecklist;
-    final headers = [
-      l10n.fileClosureColClosureCode,
-      l10n.fileClosureColImportFile,
-      l10n.fileClosureColArchiveVault,
-      l10n.fileClosureColAuditor,
-      l10n.fileClosureColClosedDate,
-      l10n.fileClosureColDocsVerified,
-      l10n.fileClosureColCustomsCleared,
-      l10n.fileClosureColWarehouseReceived,
-      l10n.fileClosureColLandedCostSettled,
-      l10n.fileClosureColTasksClosed,
-      l10n.fileClosureColNotes,
-    ];
-    final values = [
-      r.closureCode,
-      fileTitle,
-      r.archiveLocation,
-      r.auditorName,
-      r.closedAt,
-      chk.docsVerified ? '100%' : '0%',
-      chk.customsCleared ? '100%' : '0%',
-      chk.warehouseReceived ? '100%' : '0%',
-      chk.landedCostSettled ? '100%' : '0%',
-      chk.tasksClosed ? '100%' : '0%',
-      r.archivalNotes ?? '',
-    ];
-
-    TableCopyHelper.copyRow(
-      context,
-      values,
-      headers: headers,
-      customMessage: l10n.copyFileClosureRowSuccess,
-    );
-  }
-
-  void _copyArchivedFilesTsv(List<ImportFileClosureModel> records, Map<int, ImportFileModel> filesMap) {
-    final l10n = context.l10n;
-    if (records.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        AppTheme.snackBar(context, l10n.fileClosureEmptyRecords, severity: AppSeverity.warning),
-      );
-      return;
-    }
-
-    final headers = [
-      l10n.fileClosureColClosureCode,
-      l10n.fileClosureColImportFile,
-      l10n.fileClosureColArchiveVault,
-      l10n.fileClosureColAuditor,
-      l10n.fileClosureColClosedDate,
-      l10n.fileClosureColDocsVerified,
-      l10n.fileClosureColCustomsCleared,
-      l10n.fileClosureColWarehouseReceived,
-      l10n.fileClosureColLandedCostSettled,
-      l10n.fileClosureColTasksClosed,
-      l10n.fileClosureColNotes,
-    ];
-
-    final rows = records.map((r) {
-      final matchingFile = filesMap[r.importFileId];
-      final fileTitle = matchingFile != null ? matchingFile.primaryNameWithCode : '#${r.importFileId}';
-      final chk = r.closureChecklist;
-      return [
-        r.closureCode,
-        fileTitle,
-        r.archiveLocation,
-        r.auditorName,
-        r.closedAt,
-        chk.docsVerified ? '100%' : '0%',
-        chk.customsCleared ? '100%' : '0%',
-        chk.warehouseReceived ? '100%' : '0%',
-        chk.landedCostSettled ? '100%' : '0%',
-        chk.tasksClosed ? '100%' : '0%',
-        r.archivalNotes ?? '',
-      ];
-    }).toList();
-
-    TableCopyHelper.copyTable(
-      context,
-      headers,
-      rows,
-      customMessage: l10n.copyFileClosureTableSuccess,
-    );
-  }
-
-  Future<void> _exportClosuresExcel(
-    List<ImportFileClosureModel> records,
-    Map<int, ImportFileModel> filesMap,
-  ) async {
-    final l10n = context.l10n;
-    if (records.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        AppTheme.snackBar(context, l10n.fileClosureEmptyRecords, severity: AppSeverity.warning),
-      );
-      return;
-    }
-
-    final headers = [
-      l10n.fileClosureColClosureCode,
-      l10n.fileClosureColImportFile,
-      l10n.fileClosureColArchiveVault,
-      l10n.fileClosureColAuditor,
-      l10n.fileClosureColClosedDate,
-      l10n.fileClosureColDocsVerified,
-      l10n.fileClosureColCustomsCleared,
-      l10n.fileClosureColWarehouseReceived,
-      l10n.fileClosureColLandedCostSettled,
-      l10n.fileClosureColTasksClosed,
-      l10n.fileClosureColNotes,
-    ];
-
-    final rows = records.map((r) {
-      final matchingFile = filesMap[r.importFileId];
-      final fileTitle = matchingFile != null ? matchingFile.primaryNameWithCode : '#${r.importFileId}';
-      final chk = r.closureChecklist;
-      return [
-        r.closureCode,
-        fileTitle,
-        r.archiveLocation,
-        r.auditorName,
-        r.closedAt,
-        chk.docsVerified ? '100%' : '0%',
-        chk.customsCleared ? '100%' : '0%',
-        chk.warehouseReceived ? '100%' : '0%',
-        chk.landedCostSettled ? '100%' : '0%',
-        chk.tasksClosed ? '100%' : '0%',
-        r.archivalNotes ?? '',
-      ];
-    }).toList();
-
-    await TableExportService.exportTableToExcel(
-      context: context,
-      stageName: 'File Closure & Archival',
-      importFileNameOrCode: 'Registry',
-      headers: headers,
-      rows: rows,
-    );
-  }
-
-  Future<void> _exportClosuresPdf(
-    List<ImportFileClosureModel> records,
-    Map<int, ImportFileModel> filesMap,
-  ) async {
-    final l10n = context.l10n;
-    if (records.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        AppTheme.snackBar(context, l10n.fileClosureEmptyRecords, severity: AppSeverity.warning),
-      );
-      return;
-    }
-
-    final headers = [
-      l10n.fileClosureColClosureCode,
-      l10n.fileClosureColImportFile,
-      l10n.fileClosureColArchiveVault,
-      l10n.fileClosureColAuditor,
-      l10n.fileClosureColClosedDate,
-      l10n.fileClosureColDocsVerified,
-      l10n.fileClosureColCustomsCleared,
-      l10n.fileClosureColWarehouseReceived,
-      l10n.fileClosureColLandedCostSettled,
-      l10n.fileClosureColTasksClosed,
-    ];
-
-    final rows = records.map((r) {
-      final matchingFile = filesMap[r.importFileId];
-      final fileTitle = matchingFile != null ? matchingFile.primaryNameWithCode : '#${r.importFileId}';
-      final chk = r.closureChecklist;
-      return [
-        r.closureCode,
-        fileTitle,
-        r.archiveLocation,
-        r.auditorName,
-        r.closedAt,
-        chk.docsVerified ? '100%' : '0%',
-        chk.customsCleared ? '100%' : '0%',
-        chk.warehouseReceived ? '100%' : '0%',
-        chk.landedCostSettled ? '100%' : '0%',
-        chk.tasksClosed ? '100%' : '0%',
-      ];
-    }).toList();
-
-    await TableExportService.exportTableToPdf(
-      context: context,
-      stageName: 'File Closure & Archival',
-      importFileNameOrCode: 'Registry',
-      headers: headers,
-      rows: rows,
-    );
-  }
-
-  void _copySingleCertificateSummary(ImportFileClosureModel r, ImportFileModel? file) {
-    final l10n = context.l10n;
-    final fileTitle = file != null ? file.primaryNameWithCode : '#${r.importFileId}';
-    final chk = r.closureChecklist;
-
-    final buffer = StringBuffer();
-    buffer.writeln('=== ${l10n.fileClosureCertificateDialogTitle(r.closureCode)} ===');
-    buffer.writeln('${l10n.fileClosureColClosureCode}: ${r.closureCode}');
-    buffer.writeln('${l10n.fileClosureColImportFile}: $fileTitle');
-    buffer.writeln('${l10n.fileClosureColArchiveVault}: ${r.archiveLocation}');
-    buffer.writeln('${l10n.fileClosureColAuditor}: ${r.auditorName}');
-    buffer.writeln('${l10n.fileClosureColClosedDate}: ${r.closedAt}');
-    buffer.writeln('--- ${l10n.fileClosureChecklistHeader} ---');
-    buffer.writeln('• ${l10n.fileClosureChecklistDocsOriginals}: ${chk.docsVerified ? "100%" : "0%"}');
-    buffer.writeln('• ${l10n.fileClosureChecklistCustomsCleared}: ${chk.customsCleared ? "100%" : "0%"}');
-    buffer.writeln('• ${l10n.fileClosureChecklistWarehouseGrn}: ${chk.warehouseReceived ? "100%" : "0%"}');
-    buffer.writeln('• ${l10n.fileClosureChecklistLandedCost}: ${chk.landedCostSettled ? "100%" : "0%"}');
-    buffer.writeln('• ${l10n.fileClosureChecklistTasksClosed}: ${chk.tasksClosed ? "100%" : "0%"}');
-    if (r.archivalNotes != null && r.archivalNotes!.isNotEmpty) {
-      buffer.writeln('${l10n.fileClosureColNotes}: ${r.archivalNotes!}');
-    }
-
-    CopyHelper.copy(
-      context,
-      buffer.toString().trimRight(),
-      customMessage: l10n.fileClosurePrintSuccess(r.closureCode),
-    );
-  }
-
-  void _showCertificate(ImportFileClosureModel r, ImportFileModel? file) {
-    final l10n = context.l10n;
-    showDialog(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: OpsSectionHeader(
-          title: l10n.fileClosureCertificateDialogTitle(r.closureCode),
-          icon: Icons.verified_outlined,
-          iconColor: AppTheme.emerald,
-        ),
-        content: SelectionArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CopyableText(l10n.fileClosureCertFileNo(r.importFileId)),
-              const SizedBox(height: 4),
-              CopyableText(l10n.fileClosureCertLocation(r.archiveLocation)),
-              const SizedBox(height: 4),
-              CopyableText(l10n.fileClosureCertAuditor(r.auditorName)),
-              const SizedBox(height: 4),
-              CopyableText(l10n.fileClosureCertClosedDate(r.closedAt)),
-              if (r.archivalNotes != null) ...[
-                const SizedBox(height: 4),
-                CopyableText(l10n.fileClosureCertNotes(r.archivalNotes!)),
-              ],
-            ],
-          ),
-        ),
-        actionsPadding: const EdgeInsetsDirectional.fromSTEB(20, 4, 20, 16),
-        actions: [
-          AppButton(
-            label: l10n.fileClosureCopyCertTsvBtn,
-            icon: Icons.copy,
-            variant: AppButtonVariant.ghost,
-            onPressed: () => _copySingleCertificateSummary(r, file),
-          ),
-          AppButton(label: l10n.close, variant: AppButtonVariant.secondary, onPressed: () => Navigator.pop(c)),
-        ],
-      ),
-    );
-  }
-
   Future<void> _deleteClosure(ImportFileClosureModel r) async {
     final l10n = context.l10n;
     final confirm = await AppConfirmDialog.showDelete(
@@ -435,7 +166,6 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
       try {
         await ref.read(fileClosureProvider.notifier).softDeleteClosure(r.closureId);
       } catch (e) {
-        // e.g. 409: a Closed record cannot be deleted, reopen the file first.
         if (mounted) {
           messenger.showSnackBar(
             AppTheme.snackBar(context, ApiErrorText.of(l10n, e), severity: AppSeverity.danger),
@@ -443,130 +173,6 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
         }
       }
     }
-  }
-
-  Widget _buildMetrics(List<ImportFileClosureModel> records, int stoppedFiles, AppLocalizations l) {
-    final archived = records.where((r) => r.isFullyVerified).length;
-    return MetricCardStrip(
-      metrics: [
-        MetricCardData(
-          title: l.closureMetricRecords,
-          shortTitle: l.closureMetricRecords,
-          value: '${records.length}',
-          icon: Icons.archive_outlined,
-          color: AppTheme.cobalt,
-        ),
-        MetricCardData(
-          title: l.closureMetricArchived,
-          shortTitle: l.closureMetricArchived,
-          value: '$archived',
-          icon: Icons.verified_outlined,
-          color: AppTheme.emerald,
-        ),
-        MetricCardData(
-          title: l.closureMetricDraft,
-          shortTitle: l.closureMetricDraft,
-          value: '${records.length - archived}',
-          icon: Icons.edit_note,
-          color: AppTheme.orange,
-        ),
-        MetricCardData(
-          title: l.closureMetricStoppedFiles,
-          shortTitle: l.closureMetricStoppedFiles,
-          value: '$stoppedFiles',
-          icon: Icons.history,
-          color: AppTheme.crimson,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildToolbar(
-    List<ImportFileClosureModel> records,
-    Map<int, ImportFileModel> filesMap,
-    AppLocalizations l,
-  ) {
-    return Container(
-      decoration: AppTheme.cardDecorationOf(context),
-      padding: const EdgeInsetsDirectional.all(12),
-      child: Row(
-        children: [
-          Expanded(
-            child: OpsActionWrap(
-              spacing: 10,
-              runSpacing: 8,
-              children: [
-                AppButton(
-                  key: const Key('createClosureBtn'),
-                  label: l.fileClosureNewCertificateBtn,
-                  icon: Icons.lock_clock,
-                  size: AppButtonSize.small,
-                  onPressed: () => _showCloseFileDialog(),
-                ),
-                AppButton(
-                  key: const Key('searchAndCloneClosureBtn'),
-                  label: l.searchAndCloneFileClosureBtn,
-                  icon: Icons.difference_outlined,
-                  variant: AppButtonVariant.secondary,
-                  size: AppButtonSize.small,
-                  onPressed: () => _openSearchAndCloneDialog(records),
-                ),
-                AppButton(
-                  key: const Key('copyClosureTableTsvBtn'),
-                  label: l.fileClosureExportTsvBtn,
-                  icon: Icons.table_chart_outlined,
-                  variant: AppButtonVariant.ghost,
-                  size: AppButtonSize.small,
-                  onPressed: () => _copyArchivedFilesTsv(records, filesMap),
-                ),
-                IconButton(
-                  key: const Key('exportClosureExcelBtn'),
-                  icon: const Icon(Icons.description_outlined, color: AppTheme.emerald),
-                  tooltip: l.exportFileClosureExcelTooltip,
-                  onPressed: () => _exportClosuresExcel(records, filesMap),
-                ),
-                IconButton(
-                  key: const Key('exportClosurePdfBtn'),
-                  icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.crimson),
-                  tooltip: l.exportFileClosurePdfTooltip,
-                  onPressed: () => _exportClosuresPdf(records, filesMap),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 240,
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: l.fileClosureSearchHint,
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: _searchController,
-                  builder: (context, value, _) {
-                    if (value.text.isEmpty) return const SizedBox.shrink();
-                    return IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () {
-                        _searchController.clear();
-                        ref.read(fileClosureProvider.notifier).fetchClosures(search: '');
-                      },
-                    );
-                  },
-                ),
-                isDense: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
-                contentPadding: const EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 10),
-              ),
-              onChanged: (val) {
-                ref.read(fileClosureProvider.notifier).fetchClosures(search: val);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -629,10 +235,27 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                     ),
                     const SizedBox(height: 12),
                     if (currentRecords.isNotEmpty || closedFiles.isNotEmpty) ...[
-                      _buildMetrics(currentRecords, closedFiles.length, l),
+                      ClosureScreenMetrics(
+                        records: currentRecords,
+                        stoppedFiles: closedFiles.length,
+                      ),
                       const SizedBox(height: 12),
                     ],
-                    _buildToolbar(currentRecords, importFilesMap, l),
+                    ClosureScreenToolbar(
+                      records: currentRecords,
+                      filesMap: importFilesMap,
+                      searchController: _searchController,
+                      onNewCertificate: () => _showCloseFileDialog(),
+                      onSearchAndClone: () => _openSearchAndCloneDialog(currentRecords),
+                      onCopyTsv: () => ClosureExportHelper.copyArchivedFilesTsv(context, currentRecords, importFilesMap),
+                      onExportExcel: () => ClosureExportHelper.exportClosuresExcel(context, currentRecords, importFilesMap),
+                      onExportPdf: () => ClosureExportHelper.exportClosuresPdf(context, currentRecords, importFilesMap),
+                      onSearchChanged: (val) => ref.read(fileClosureProvider.notifier).fetchClosures(search: val),
+                      onSearchCleared: () {
+                        _searchController.clear();
+                        ref.read(fileClosureProvider.notifier).fetchClosures(search: '');
+                      },
+                    ),
                     const SizedBox(height: 16),
                     if (closedFiles.isNotEmpty) ...[
                       ClosedFilesBanner(
@@ -702,15 +325,20 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                           record: r,
                           shipmentName: shipName,
                           rawFileCode: rawCode,
-                          onView: () => _showCertificate(r, matchingFile),
+                          onView: () => ClosureCertificateDialog.show(
+                            context,
+                            record: r,
+                            file: matchingFile,
+                            onCopySummary: () => ClosureExportHelper.copySingleCertificateSummary(context, r, matchingFile),
+                          ),
                           onEdit: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               AppTheme.snackBar(context, context.l10n.fileClosureEditSnack(r.closureCode), severity: AppSeverity.warning),
                             );
                           },
-                          onPrint: () => _copySingleCertificateSummary(r, matchingFile),
+                          onPrint: () => ClosureExportHelper.copySingleCertificateSummary(context, r, matchingFile),
                           onDelete: () => _deleteClosure(r),
-                          onCopyRow: () => _copyClosureRowTsv(r, matchingFile, context.l10n),
+                          onCopyRow: () => ClosureExportHelper.copyClosureRowTsv(context, r, matchingFile, context.l10n),
                           onClone: () => _onCloneClosure(r),
                         );
                       },

@@ -1,8 +1,9 @@
 import '../../currencies/models/currency_model.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
+import '../../freight_booking/models/freight_booking_model.dart';
 import '../../import_files/models/import_file_model.dart';
 
-/// Result of the Form 46 customs assessment for one import file.
+/// Result of the Form 46 customs assessment for one import file (Column A / Initial Study).
 ///
 /// Every figure is nullable: a figure is null when one of its inputs is not
 /// available from the backend (tariff row, customs exchange rate, FOB value).
@@ -60,6 +61,62 @@ class Form46Figures {
     this.hasExemption = false,
     this.missing = const [],
     this.cifExcludesFreightInsurance = true,
+  });
+
+  bool get isComplete => missing.isEmpty;
+}
+
+/// Result of the updated customs figures (Column B / Revised Estimate).
+///
+/// Calculated using actual booking freight and revised exchange rates:
+/// Revised_CIF = (FOB USD + Booking Freight USD) * Exchange Rate + Insurance EGP + Unloading EGP
+class Form46RevisedFigures {
+  final double? fobUsd;
+  final double? freightUsd;
+  final double? exchangeRate;
+  final double? fobEgp;
+  final double? freightEgp;
+  final double? insuranceEgp;
+  final double? unloadingEgp;
+  final double? extraFeesEgp;
+  final double? cifEgp;
+  final double? dutyRate;
+  final double? importDutyEgp;
+  final double? atsRate; // 1% أ.ت.ص
+  final double? atsEgp;
+  final double? vatRate; // 14%
+  final double? vatBaseEgp;
+  final double? vatEgp;
+  final double? devFeeRate;
+  final double? devFeeEgp;
+  final double? totalDutiesEgp;
+  final String? estimateDate;
+  final String? notes;
+  final List<String> missing;
+
+  const Form46RevisedFigures({
+    this.fobUsd,
+    this.freightUsd,
+    this.exchangeRate,
+    this.fobEgp,
+    this.freightEgp,
+    this.insuranceEgp = 0.0,
+    this.unloadingEgp = 0.0,
+    this.extraFeesEgp = 0.0,
+    this.cifEgp,
+    this.dutyRate,
+    this.importDutyEgp,
+    this.atsRate = 1.0,
+    this.atsEgp,
+    this.vatRate = 14.0,
+    this.vatBaseEgp,
+    this.vatEgp,
+    this.devFeeRate,
+    this.devFeeEgp,
+    this.totalDutiesEgp,
+    this.estimateDate,
+    this.notes,
+    this.missing = const [],
   });
 
   bool get isComplete => missing.isEmpty;
@@ -158,6 +215,7 @@ class Form46Calculator {
     return Form46Fob(amount: total, currency: currencies.first);
   }
 
+  /// Compute Column A (Original Study) customs figures.
   static Form46Figures compute({
     required double? fobForeign,
     required double? customsFxRate,
@@ -171,8 +229,9 @@ class Form46Calculator {
         (fobIssue == 'mixed_currency' ? 'fob_mixed_currency' : 'fob'),
     ];
 
+    double rnd(double v) => (v * 100).roundToDouble() / 100;
     final fob = (fobForeign != null && fobForeign > 0) ? fobForeign : null;
-    final fobEgp = (fob != null && customsFxRate != null) ? fob * customsFxRate : null;
+    final fobEgp = (fob != null && customsFxRate != null) ? rnd(fob * customsFxRate) : null;
     final cif = fobEgp; // freight / insurance are not recorded: see flag
 
     final dutyRate = tariff?.customsDutyRate;
@@ -182,7 +241,6 @@ class Form46Calculator {
 
     // Mirrors modules/customs_tariff/service.py: every component is rounded to
     // 2 decimals; VAT base = CIF + import duty only.
-    double rnd(double v) => (v * 100).roundToDouble() / 100;
     double? importDuty, devFee, serviceFee, scheduleTax, importFee, other, vatBase, vat, total;
     if (cif != null && tariff != null) {
       importDuty = rnd(cif * (dutyRate! / 100.0));
@@ -219,6 +277,103 @@ class Form46Calculator {
       // Exemption only when the tariff itself says duty is 0.
       hasExemption: dutyRate != null && dutyRate == 0.0,
       missing: missing,
+    );
+  }
+
+  /// Compute Column B (Revised Estimate) figures with booking freight, updated rates,
+  /// and explicit Egyptian customs CIF base formula:
+  ///
+  /// Revised_CIF = (FOB USD + Booking Freight USD) * Exchange Rate + Insurance EGP + Unloading EGP
+  ///
+  /// Import Duty = CIF * Tariff Duty %
+  /// أ.ت.ص = CIF * 1% (Commercial & Industrial Profits Tax / Service Fee)
+  /// VAT Base = CIF + Import Duty + أ.ت.ص
+  /// VAT = VAT Base * 14%
+  /// Total Duties = Import Duty + VAT + أ.ت.ص + Extra Fees
+  static Form46RevisedFigures calculateRevisedFigures({
+    required double? fobUsd,
+    required double? exchangeRate,
+    ShipmentBookingModel? booking,
+    double? bookingFreightUsd,
+    double insuranceEgp = 0.0,
+    double unloadingEgp = 0.0,
+    double extraFeesEgp = 0.0,
+    CustomsTariffModel? tariff,
+    double? dutyRateOverride,
+    double? vatRateOverride,
+    double? atsRateOverride,
+    String? estimateDate,
+    String? notes,
+  }) {
+    final freightUsd = bookingFreightUsd ?? booking?.totalFreightCostUsd ?? 0.0;
+    final missing = <String>[
+      if (fobUsd == null || fobUsd <= 0) 'fob_usd',
+      if (exchangeRate == null || exchangeRate <= 0) 'fx_rate',
+      if (tariff == null && dutyRateOverride == null) 'tariff',
+    ];
+
+    double rnd(double v) => (v * 100).roundToDouble() / 100;
+
+    if (fobUsd == null || fobUsd <= 0 || exchangeRate == null || exchangeRate <= 0 ||
+        (tariff == null && dutyRateOverride == null)) {
+      return Form46RevisedFigures(
+        fobUsd: fobUsd,
+        freightUsd: freightUsd,
+        exchangeRate: exchangeRate,
+        insuranceEgp: insuranceEgp,
+        unloadingEgp: unloadingEgp,
+        extraFeesEgp: extraFeesEgp,
+        estimateDate: estimateDate,
+        notes: notes,
+        missing: missing,
+      );
+    }
+
+    final fobEgp = rnd(fobUsd * exchangeRate);
+    final freightEgp = rnd(freightUsd * exchangeRate);
+
+    // Revised_CIF = (FOB USD + Booking Freight USD) * Exchange Rate + Insurance EGP + Unloading EGP
+    final cifEgp = rnd((fobUsd + freightUsd) * exchangeRate + insuranceEgp + unloadingEgp);
+
+    final dutyRate = dutyRateOverride ?? tariff?.customsDutyRate ?? 0.0;
+    final importDutyEgp = rnd(cifEgp * (dutyRate / 100.0));
+
+    // أ.ت.ص = 1% on CIF
+    final atsRate = atsRateOverride ?? 1.0;
+    final atsEgp = rnd(cifEgp * (atsRate / 100.0));
+
+    // VAT Base = CIF + Import Duty + أ.ت.ص
+    final vatBaseEgp = rnd(cifEgp + importDutyEgp + atsEgp);
+    final vatRate = vatRateOverride ?? tariff?.vatRate ?? 14.0;
+    final vatEgp = rnd(vatBaseEgp * (vatRate / 100.0));
+
+    final extra = rnd(extraFeesEgp);
+    // Total duties = Import Duty + VAT + أ.ت.ص + extra fees
+    final totalDutiesEgp = rnd(importDutyEgp + vatEgp + atsEgp + extra);
+
+    return Form46RevisedFigures(
+      fobUsd: fobUsd,
+      freightUsd: freightUsd,
+      exchangeRate: exchangeRate,
+      fobEgp: fobEgp,
+      freightEgp: freightEgp,
+      insuranceEgp: insuranceEgp,
+      unloadingEgp: unloadingEgp,
+      extraFeesEgp: extra,
+      cifEgp: cifEgp,
+      dutyRate: dutyRate,
+      importDutyEgp: importDutyEgp,
+      atsRate: atsRate,
+      atsEgp: atsEgp,
+      vatRate: vatRate,
+      vatBaseEgp: vatBaseEgp,
+      vatEgp: vatEgp,
+      devFeeRate: atsRate,
+      devFeeEgp: atsEgp,
+      totalDutiesEgp: totalDutiesEgp,
+      estimateDate: estimateDate,
+      notes: notes,
+      missing: const [],
     );
   }
 }

@@ -1,6 +1,6 @@
 from datetime import datetime, date
-from typing import List, Literal, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, List, Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
@@ -72,7 +72,7 @@ class ShipmentBookingBase(BaseModel):
     shipping_line_id: Optional[int] = None
     shipping_line_name: Optional[str] = None
     shipment_type: ShipmentType = "Ocean FCL"
-    transport_mode: TransportMode = "SEA_FCL"
+    transport_mode: Literal["SEA_FCL", "SEA_LCL", "AIR_FREIGHT"] = "SEA_FCL"
     master_air_waybill: Optional[str] = None
     house_air_waybill: Optional[str] = None
     flight_number: Optional[str] = None
@@ -112,6 +112,17 @@ class ShipmentBookingBase(BaseModel):
     notes: Optional[str] = None
 
 
+    @field_validator("transport_mode", mode="before")
+    @classmethod
+    def validate_transport_mode(cls, v: Any) -> str:
+        allowed = ("SEA_FCL", "SEA_LCL", "AIR_FREIGHT")
+        if v not in allowed:
+            raise ValueError(
+                f"نمط الشحن غير صالح: '{v}'. الأنماط المعيارية المعتمدة هي: {', '.join(allowed)}"
+            )
+        return v
+
+
 class ShipmentBookingCreate(ShipmentBookingBase):
     pass
 
@@ -129,7 +140,7 @@ class ShipmentBookingUpdate(BaseModel):
     shipping_line_id: Optional[int] = None
     shipping_line_name: Optional[str] = None
     shipment_type: Optional[ShipmentType] = None
-    transport_mode: Optional[TransportMode] = None
+    transport_mode: Optional[Literal["SEA_FCL", "SEA_LCL", "AIR_FREIGHT"]] = None
     master_air_waybill: Optional[str] = None
     house_air_waybill: Optional[str] = None
     flight_number: Optional[str] = None
@@ -167,6 +178,19 @@ class ShipmentBookingUpdate(BaseModel):
     status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None
+
+
+    @field_validator("transport_mode", mode="before")
+    @classmethod
+    def validate_transport_mode(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        allowed = ("SEA_FCL", "SEA_LCL", "AIR_FREIGHT")
+        if v not in allowed:
+            raise ValueError(
+                f"نمط الشحن غير صالح: '{v}'. الأنماط المعيارية المعتمدة هي: {', '.join(allowed)}"
+            )
+        return v
 
 
 class ShipmentBookingConfirm(BaseModel):

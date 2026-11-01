@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/services/file_save_helper.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/document_export/packaging_detail_toggle.dart';
-import '../../../core/widgets/document_export/grouping_selector.dart';
 import '../models/cargox_model.dart';
 import '../models/export_configs.dart';
 import '../providers/cargox_provider.dart';
+import 'dual_extraction/dual_engine_config_panel.dart';
+import 'dual_extraction/dual_extraction_header.dart';
+import 'dual_extraction/dual_preview_summary_panel.dart';
+import 'dual_extraction/pallets_management_panel.dart';
 
-import 'package:frontend/core/widgets/ltr_text.dart';
 /// CGX-004: واجهة الاستخلاص المزدوج — فاتورة + باكينج ليست مستقلان (Task K Independent Dimensions)
 class DualExtractionModal extends ConsumerStatefulWidget {
   final int importFileId;
@@ -154,24 +155,39 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
           constraints: const BoxConstraints(maxWidth: 920, maxHeight: 700),
           child: Column(
             children: [
-              _buildHeader(l),
+              DualExtractionHeader(
+                importFileCode: widget.importFileCode,
+                onClose: () => Navigator.of(context).pop(),
+              ),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      _buildDualEnginePanel(l, isAr),
-                      if (_plConfig.effectiveIncludePalletDetails) ...[ 
+                      DualEngineConfigPanel(
+                        invoiceConfig: _invoiceConfig,
+                        plConfig: _plConfig,
+                        onInvoiceConfigChanged: (c) => setState(() => _invoiceConfig = c),
+                        onPlConfigChanged: (c) => setState(() => _plConfig = c),
+                      ),
+                      if (_plConfig.effectiveIncludePalletDetails) ...[
                         const SizedBox(height: 16),
-                        _buildPalletsPanel(l, isAr),
+                        PalletsManagementPanel(
+                          pallets: _pallets,
+                          onPalletAdded: (pallet) => setState(() => _pallets.add(pallet)),
+                          onPalletRemoved: (idx) => setState(() => _pallets.removeAt(idx)),
+                        ),
                       ],
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 12),
-                        _buildErrorBanner(),
+                        DualExtractionErrorBanner(errorMessage: _errorMessage!),
                       ],
                       if (_previewResult != null) ...[
                         const SizedBox(height: 12),
-                        _buildPreviewSummary(l, isAr),
+                        DualPreviewSummaryPanel(
+                          previewResult: _previewResult!,
+                          onCopySummary: () => _copySummary(context),
+                        ),
                       ],
                     ],
                   ),
@@ -180,488 +196,6 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
               _buildFooter(l, isAr),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(AppLocalizations l) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.charcoal,
-        borderRadius: BorderRadiusDirectional.only(
-          topStart: Radius.circular(16),
-          topEnd: Radius.circular(16),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
-        children: [
-          const Icon(Icons.file_copy_outlined, color: Colors.white, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l.dualExtractionEngineTitle,
-                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                ),
-                LtrText(
-                  widget.importFileCode,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white70),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDualEnginePanel(AppLocalizations l, bool isAr) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Invoice Engine ────────────────────────────────────────────────────
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.3)),
-              borderRadius: BorderRadius.circular(12),
-              color: AppTheme.cobalt.withValues(alpha: 0.03),
-            ),
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(l.dualExtractionCommercialInvoice,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
-                          Text(
-                            isAr ? 'الفاتورة الجمركية المستقلة' : 'Independent Customs Invoice',
-                            style: const TextStyle(fontSize: 10, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const Divider(height: 16),
-                // Dim 1 + Dim 2
-                PackagingDetailToggle(
-                  packaging: _invoiceConfig.packaging,
-                  detail: _invoiceConfig.detail,
-                  onPackagingChanged: (v) => setState(() => _invoiceConfig = _invoiceConfig.copyWith(packaging: v)),
-                  onDetailChanged: (v) => setState(() => _invoiceConfig = _invoiceConfig.copyWith(detail: v)),
-                  activeColor: AppTheme.cobalt,
-                ),
-                const SizedBox(height: 12),
-                // Dim 3 — Invoice Line Grouping
-                GroupingSelector<InvoiceGroupingMode>(
-                  title: isAr ? '٣. أسلوب تجميع بنود الفاتورة:' : '3. Invoice Line Grouping:',
-                  value: _invoiceConfig.grouping,
-                  options: InvoiceGroupingMode.values
-                      .map((m) => GroupingOption(
-                            value: m,
-                            label: isAr ? m.labelAr : m.labelEn,
-                            description: isAr ? m.descAr : m.descEn,
-                          ))
-                      .toList(),
-                  onChanged: (v) => setState(() => _invoiceConfig = _invoiceConfig.copyWith(grouping: v)),
-                  activeColor: AppTheme.cobalt,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        // ── Packing List Engine ───────────────────────────────────────────────
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
-              borderRadius: BorderRadius.circular(12),
-              color: AppTheme.emerald.withValues(alpha: 0.03),
-            ),
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    const Icon(Icons.inventory_2_outlined, color: AppTheme.emerald, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(l.dualExtractionPackingList,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.emerald)),
-                          Text(
-                            isAr ? 'قائمة التعبئة المستقلة' : 'Independent Packing List',
-                            style: const TextStyle(fontSize: 10, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const Divider(height: 16),
-                // Dim 1 + Dim 2
-                PackagingDetailToggle(
-                  packaging: _plConfig.packaging,
-                  detail: _plConfig.detail,
-                  onPackagingChanged: (v) => setState(() => _plConfig = _plConfig.copyWith(packaging: v)),
-                  onDetailChanged: (v) => setState(() => _plConfig = _plConfig.copyWith(detail: v)),
-                  activeColor: AppTheme.emerald,
-                ),
-                const SizedBox(height: 12),
-                // Dim 3 — Package & Carton Structure
-                GroupingSelector<PackingListStructure>(
-                  title: isAr ? '٣. هيكل التعبئة والتغليف:' : '3. Package & Carton Structure:',
-                  value: _plConfig.structure,
-                  options: PackingListStructure.values
-                      .map((s) => GroupingOption(
-                            value: s,
-                            label: isAr ? s.labelAr : s.labelEn,
-                            description: isAr ? s.descAr : s.descEn,
-                          ))
-                      .toList(),
-                  onChanged: (v) => setState(() => _plConfig = _plConfig.copyWith(structure: v)),
-                  activeColor: AppTheme.emerald,
-                ),
-                const SizedBox(height: 8),
-                // Dim 4 — Conditional pallet details toggle
-                AnimatedOpacity(
-                  opacity: _plConfig.isPalletToggleAllowed ? 1.0 : 0.4,
-                  duration: const Duration(milliseconds: 200),
-                  child: SwitchListTile(
-                    value: _plConfig.effectiveIncludePalletDetails,
-                    onChanged: _plConfig.isPalletToggleAllowed
-                        ? (v) => setState(() => _plConfig = _plConfig.copyWith(includePalletDetails: v))
-                        : null,
-                    title: Text(l.dualExtractionIncludePallets, style: const TextStyle(fontSize: 11)),
-                    activeThumbColor: AppTheme.emerald,
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPalletsPanel(AppLocalizations l, bool isAr) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12),
-        color: const Color(0xFFF1FBF5),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.view_module_outlined, color: AppTheme.emerald, size: 18),
-              const SizedBox(width: 8),
-              Text(l.dualExtractionPalletDataTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: () => _showAddPalletDialog(l, isAr),
-                icon: const Icon(Icons.add, size: 14),
-                label: Text(l.dualExtractionAddPalletBtn, style: const TextStyle(fontSize: 11)),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.emerald,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                ),
-              ),
-            ],
-          ),
-          if (_pallets.isEmpty) ...[
-            const SizedBox(height: 12),
-            Center(child: Text(l.dualExtractionNoPallets, style: const TextStyle(color: Colors.grey, fontSize: 12))),
-          ] else ...[
-            const SizedBox(height: 10),
-            ..._pallets.asMap().entries.map((e) => _buildPalletTile(e.key, e.value, l, isAr)),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPalletTile(int index, PalletInputModel pallet, AppLocalizations l, bool isAr) {
-    final weightGrossLabel = isAr ? 'الوزن القائم:' : 'Gross:';
-    final weightNetLabel = isAr ? 'الصافي:' : 'Net:';
-    final kgLabel = isAr ? 'كجم' : 'kg';
-    final itemsLabel = isAr ? 'بند' : 'items';
-    final cmLabel = isAr ? 'سم' : 'cm';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.table_rows_outlined, size: 18, color: AppTheme.emerald),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(pallet.palletNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                Text(
-                  '${pallet.palletType}  ·  ${pallet.items.length} $itemsLabel  ·  '
-                  '$weightGrossLabel ${pallet.grossWeightKg} $kgLabel  ·  $weightNetLabel ${pallet.netWeightKg} $kgLabel'
-                  '${pallet.dimensionsCm != null ? "  ·  ${pallet.dimensionsCm} $cmLabel" : ""}',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.copy_rounded, color: Colors.grey, size: 16),
-            onPressed: () => CopyHelper.copy(
-              context,
-              '${pallet.palletNumber}: ${pallet.palletType}, ${pallet.grossWeightKg} $kgLabel',
-              customMessage: l.copyTooltip,
-            ),
-            tooltip: l.copyTooltip,
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-            onPressed: () => setState(() => _pallets.removeAt(index)),
-            tooltip: isAr ? 'حذف البالتة' : 'Remove Pallet',
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddPalletDialog(AppLocalizations l, bool isAr) {
-    final palletNumCtrl = TextEditingController(text: 'PLT-${(_pallets.length + 1).toString().padLeft(3, "0")}');
-    final dimsCtrl = TextEditingController();
-    final grossCtrl = TextEditingController();
-    final netCtrl = TextEditingController();
-    String palletType = 'EURO';
-
-    final palletTypeOptions = isAr
-        ? [
-            ('EURO', 'بالتة أوروبية'),
-            ('CHEP', 'بالتة شيب زرقاء'),
-            ('CUSTOM', 'بالتة مقاس خاص'),
-            ('WOODEN', 'بالتة خشبية قياسية'),
-          ]
-        : [
-            ('EURO', 'EURO Standard'),
-            ('CHEP', 'CHEP Blue Pallet'),
-            ('CUSTOM', 'Custom Dimensions'),
-            ('WOODEN', 'Standard Wooden'),
-          ];
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setInnerState) => SelectionArea(
-          child: AlertDialog(
-          title: Text(l.dualExtractionAddPalletBtn, style: const TextStyle(fontSize: 14)),
-          content: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: palletNumCtrl,
-                  decoration: InputDecoration(
-                    labelText: isAr ? 'رقم البالتة' : 'Pallet Number',
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SearchableDropdownField<String>(
-                  value: palletType,
-                  labelText: isAr ? 'نوع البالتة' : 'Pallet Type',
-                  items: palletTypeOptions
-                      .map((t) => SearchableDropdownItem<String>(value: t.$1, label: t.$2))
-                      .toList(),
-                  onChanged: (v) => setInnerState(() => palletType = v ?? 'EURO'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: dimsCtrl,
-                  decoration: InputDecoration(
-                    labelText: isAr ? 'الأبعاد سم — مثال: 120×80×150' : 'Dimensions cm (e.g. 120x80x150)',
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: grossCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: isAr ? 'الوزن القائم كجم' : 'Gross Weight (kg)',
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: netCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: isAr ? 'الوزن الصافي كجم' : 'Net Weight (kg)',
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(isAr ? 'إلغاء' : 'Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final pallet = PalletInputModel(
-                  palletNumber: palletNumCtrl.text.trim(),
-                  palletType: palletType,
-                  dimensionsCm: dimsCtrl.text.trim().isEmpty ? null : dimsCtrl.text.trim(),
-                  grossWeightKg: double.tryParse(grossCtrl.text) ?? 0.0,
-                  netWeightKg: double.tryParse(netCtrl.text) ?? 0.0,
-                );
-                setState(() => _pallets.add(pallet));
-                Navigator.pop(ctx);
-              },
-              style: FilledButton.styleFrom(backgroundColor: AppTheme.emerald),
-              child: Text(isAr ? 'إضافة' : 'Add'),
-            ),
-          ],
-        ),
-      ),
-      ),
-    );
-  }
-
-  Widget _buildErrorBanner() {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF3E0),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.shade300),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.warning_amber_outlined, color: Colors.orange, size: 18),
-          const SizedBox(width: 8),
-          Expanded(child: Text(_errorMessage!, style: const TextStyle(fontSize: 11, color: Colors.orange))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPreviewSummary(AppLocalizations l, bool isAr) {
-    final r = _previewResult!;
-    final invoiceSummary = isAr
-        ? '${r.invoiceInvoicesCount} فاتورة · ${r.invoiceTotalLineItems} بند'
-        : '${r.invoiceInvoicesCount} invoices · ${r.invoiceTotalLineItems} items';
-    final plSummary = isAr
-        ? '${r.packingListCount} ملف · ${r.packingListTotalItems} بند'
-        : '${r.packingListCount} files · ${r.packingListTotalItems} items';
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F5E9),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                l.dualExtractionPreviewResults,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.emerald),
-              ),
-              IconButton(
-                icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.emerald),
-                tooltip: l.dualExtractionCopySummaryTooltip,
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                onPressed: () => _copySummary(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _previewChip(Icons.receipt_long, l.dualExtractionCommercialInvoice, invoiceSummary, AppTheme.cobalt),
-              const SizedBox(width: 12),
-              _previewChip(Icons.inventory_2_outlined, l.dualExtractionPackingList, plSummary, AppTheme.emerald),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _previewChip(IconData icon, String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: color)),
-                  Text(value, style: const TextStyle(fontSize: 10)),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

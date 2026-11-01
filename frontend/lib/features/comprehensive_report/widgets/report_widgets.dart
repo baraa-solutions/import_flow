@@ -23,3 +23,4 @@ export 'report_trade_agreements_section.dart';
 export 'report_cargo_stacking_section.dart';
 export 'report_smart_reference_card.dart';
 export 'report_command_footer.dart';
+export 'report_screen/report_screen.dart';

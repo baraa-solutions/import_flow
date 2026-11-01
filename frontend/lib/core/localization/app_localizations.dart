@@ -2634,6 +2634,41 @@ abstract class AppLocalizations {
   String get copyRegistryTableSuccess;
   String get cloneFromAssessmentBtn;
 
+  // ── Form 46 Three-Way Comparison & Variance ───────────────────────────────
+  String get form46ThreeColumnComparisonTitle;
+  String get form46ColStudyEstimate;
+  String get form46ColStudyEstimateSub;
+  String get form46ColRevisedEstimate;
+  String get form46ColRevisedEstimateSub;
+  String get form46ColNafezaActual;
+  String get form46ColNafezaActualSub;
+  String get form46VarExchangeRate;
+  String get form46VarApprovedFreight;
+  String get form46VarActualInsurance;
+  String get form46VarDischargeDemurrage;
+  String get form46VarNewFees;
+  String get form46SmartExtractNafezaBtn;
+  String get form46NafezaClaimNo;
+  String get form46NafezaClaimDate;
+  String get form46ActualCif;
+  String get form46ActualDuty;
+  String get form46ActualVat;
+  String get form46ActualOtherFees;
+  String get form46ActualTotalDuties;
+  String get form46VarianceBarTitle;
+  String get form46VarianceBvsA;
+  String get form46VarianceCvsA;
+  String get form46VarianceCvsB;
+  String get form46VarianceStatusCompliant;
+  String get form46VarianceStatusModerate;
+  String get form46VarianceStatusHigh;
+  String get form46VarianceReasonLabel;
+  String get form46VarianceReasonHint;
+  String get form46VarianceReasonRequired;
+  String get customsDeclColVariance;
+  String get customsDeclVariancePending;
+  String get customsDeclVarianceNoDiff;
+
   // ── Screen 24/27: Customs Clearance Management ────────────────────────────────
   String get searchAndCloneCustomsClearanceBtn;
   String get cloneCustomsClearanceDialogTitle;
