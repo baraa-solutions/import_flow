@@ -14,7 +14,10 @@ from modules.freight_quotations.schemas import (
     FreightRFQRequestUpdate,
     FreightRFQRequestResponse,
     RFQBenchmarkResponse,
+    SmartRFQGenerateRequest,
+    SmartRFQResponse,
 )
+from modules.freight_quotations.smart_rfq_service import SmartRFQService
 from modules.freight_quotations.service import FreightQuotationService
 
 
@@ -146,3 +149,29 @@ def benchmark_rfq_quotes(
 ):
     return FreightQuotationService.evaluate_and_rank_rfq_quotes(db, rfq_id)
 
+
+@router.get(
+    "/smart-rfq/{import_file_id}/preview",
+    response_model=SmartRFQResponse,
+    summary="توليد ومعاينة طلب عرض أسعار ذكي من ملف الشحنة (Smart RFQ Generator)",
+)
+def preview_smart_rfq(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.view")),
+):
+    req = SmartRFQGenerateRequest(import_file_id=import_file_id)
+    return SmartRFQService.generate_smart_rfq(db, req)
+
+
+@router.post(
+    "/smart-rfq/generate",
+    response_model=SmartRFQResponse,
+    summary="توليد طلب عرض أسعار ذكي مخصص مع حسابات الحجم والوزن (Generate Custom Smart RFQ)",
+)
+def generate_custom_smart_rfq(
+    req: SmartRFQGenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("quotations.manage")),
+):
+    return SmartRFQService.generate_smart_rfq(db, req)

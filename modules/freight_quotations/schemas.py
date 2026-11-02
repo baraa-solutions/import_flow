@@ -156,3 +156,69 @@ class RFQBenchmarkResponse(LegacyRowTolerantModel):
     all_ranked_quotes: List[RankedForwarderQuote] = []
     executive_recommendation_ar: str
 
+
+
+# =========================================================================
+# Smart RFQ Generator Schemas (BP-008 & Operational Standards)
+# =========================================================================
+
+class SmartRFQPackageItem(BaseModel):
+    length_cm: float = Field(..., gt=0)
+    width_cm: float = Field(..., gt=0)
+    height_cm: float = Field(..., gt=0)
+    quantity: int = Field(1, ge=1)
+    gross_weight_kg: float = Field(0.0, ge=0)
+    net_weight_kg: Optional[float] = Field(None, ge=0)
+    package_type: Optional[str] = "Pallet"
+
+
+class SmartRFQGenerateRequest(BaseModel):
+    import_file_id: Optional[int] = None
+    shipment_mode: Optional[str] = None  # Sea FCL, Sea LCL, Air, Courier
+    incoterm_code: Optional[str] = None  # EXW, FOB, FCA, CIF...
+    pickup_address: Optional[str] = None
+    port_of_loading: Optional[str] = None
+    port_of_discharge: Optional[str] = None
+    cargo_ready_date: Optional[date] = None
+    commodity_description: Optional[str] = None
+    hs_code: Optional[str] = None
+    equipment_type: Optional[str] = None  # e.g. 1x20' GP, 1x40' HC
+    container_count: Optional[int] = 1
+    is_stackable: Optional[bool] = True
+    is_dangerous_goods: Optional[bool] = False
+    has_lithium_battery: Optional[bool] = False
+    target_free_days: Optional[int] = 21
+    avoid_tmt_terminal: Optional[bool] = True
+    packages: Optional[List[SmartRFQPackageItem]] = None
+    manual_gross_weight_kg: Optional[float] = None
+    manual_net_weight_kg: Optional[float] = None
+    manual_volume_cbm: Optional[float] = None
+    custom_notes: Optional[str] = None
+
+
+@read_model
+class SmartRFQMetrics(LegacyRowTolerantModel):
+    shipment_mode: str
+    total_packages_count: int = 0
+    total_gross_weight_kg: float = 0.0
+    total_net_weight_kg: float = 0.0
+    total_volume_cbm: float = 0.0
+    chargeable_weight_kg: float = 0.0
+    volumetric_divisor: Optional[float] = None
+    is_volumetric_higher: bool = False
+    is_stackable: bool = True
+    dead_freight_applied: bool = False
+    is_heavy_road_cargo: bool = False
+    road_weight_warning: Optional[str] = None
+    is_double_stackable: bool = False
+    trade_agreement_applicable: Optional[str] = None
+    free_days_at_pod: int = 21
+    terminal_restriction: Optional[str] = None
+
+
+@read_model
+class SmartRFQResponse(LegacyRowTolerantModel):
+    subject: str
+    body_text: str
+    metrics: SmartRFQMetrics
+    warnings: List[str] = []
