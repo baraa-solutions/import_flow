@@ -1,3 +1,5 @@
+from modules.import_requirements.model import ImportRequirementAssessment
+from fastapi import HTTPException
 import pytest
 from datetime import date, datetime, timedelta, timezone
 from fastapi.testclient import TestClient
@@ -246,3 +248,254 @@ def test_issue_final_customs_release_api_endpoint(db_session: Session):
     assert data["status"] == "Final Release Granted"
     assert data["dispatch_authorized"] is True
     assert data["gate_pass_number"] == "GATE-API-99"
+
+
+def test_issue_final_customs_release_blocks_if_regulatory_permit_unapproved(db_session: Session):
+    imp_file = ImportFile(
+        import_file_code=f"IMP-TEST-REG-PERMIT-{int(datetime.now().timestamp())}",
+        company_id=None,
+        company_name="Delta Machinery LLC",
+        supplier_id=None,
+        supplier_name="Bavaria Tech",
+        acid_number="9876543210123456789",
+        acid_expiry_date=date.today() + timedelta(days=90),
+        customs_duty_payment_status="PAID",
+        customs_duty_paid_amount=50000.0,
+        owner="Kamal",
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+    db_session.refresh(imp_file)
+
+    clr_record = CustomsClearanceRecord(
+        clearance_code=f"CLR-REG-PERMIT-{imp_file.import_file_id}",
+        import_file_id=imp_file.import_file_id,
+        declaration_46_no="46-2026-DKH-PERMIT",
+        customs_office_name="El Dekheila Port",
+        channel_type="Red Channel",
+        actual_duty_total=50000.0,
+        duty_paid_amount=50000.0,
+        payment_status="Paid & Verified",
+        status="Duty Paid - Ready for Final Release",
+        owner="Kamal",
+    )
+    db_session.add(clr_record)
+    db_session.commit()
+    db_session.refresh(clr_record)
+
+    # Attach ImportRequirementAssessment with unapproved permit
+    assessment = ImportRequirementAssessment(
+        assessment_code=f"BP011-TEST-{imp_file.import_file_id}",
+        import_file_id=imp_file.import_file_id,
+        import_file_code=imp_file.import_file_code,
+        import_permit_required=True,
+        permit_issuing_authority="GOEIC (الهيئة العامة للرقابة على الصادرات والواردات)",
+        permit_status="Pending Approval",
+        inspection_required=False,
+        inspection_status="Not Required",
+        is_active=True,
+    )
+    db_session.add(assessment)
+    db_session.commit()
+
+    payload = CustomsFinalReleaseSubmit(
+        import_file_id=imp_file.import_file_id,
+        clearance_id=clr_record.customs_clearance_id,
+        release_permit_no="REL-PERMIT-FAIL",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        issue_final_customs_release_service(db_session, payload, user="TestRunner")
+
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["code"] == "CC_REGULATORY_REQUIREMENTS_NOT_MET"
+    assert exc_info.value.detail["import_permit_required"] is True
+    assert exc_info.value.detail["permit_status"] == "Pending Approval"
+
+
+def test_issue_final_customs_release_blocks_if_inspection_incomplete(db_session: Session):
+    imp_file = ImportFile(
+        import_file_code=f"IMP-TEST-REG-INSP-{int(datetime.now().timestamp())}",
+        company_id=None,
+        company_name="Delta Machinery LLC",
+        supplier_id=None,
+        supplier_name="Bavaria Tech",
+        acid_number="9876543210123456789",
+        acid_expiry_date=date.today() + timedelta(days=90),
+        customs_duty_payment_status="PAID",
+        customs_duty_paid_amount=60000.0,
+        owner="Kamal",
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+    db_session.refresh(imp_file)
+
+    clr_record = CustomsClearanceRecord(
+        clearance_code=f"CLR-REG-INSP-{imp_file.import_file_id}",
+        import_file_id=imp_file.import_file_id,
+        declaration_46_no="46-2026-DKH-INSP",
+        customs_office_name="El Dekheila Port",
+        channel_type="Red Channel",
+        actual_duty_total=60000.0,
+        duty_paid_amount=60000.0,
+        payment_status="Paid & Verified",
+        status="Duty Paid - Ready for Final Release",
+        owner="Kamal",
+    )
+    db_session.add(clr_record)
+    db_session.commit()
+    db_session.refresh(clr_record)
+
+    # Attach assessment with incomplete inspection
+    assessment = ImportRequirementAssessment(
+        assessment_code=f"BP011-INSP-{imp_file.import_file_id}",
+        import_file_id=imp_file.import_file_id,
+        import_file_code=imp_file.import_file_code,
+        import_permit_required=False,
+        permit_status="Not Required",
+        inspection_required=True,
+        inspection_body="SGS International Inspection",
+        inspection_status="Scheduled",
+        is_active=True,
+    )
+    db_session.add(assessment)
+    db_session.commit()
+
+    payload = CustomsFinalReleaseSubmit(
+        import_file_id=imp_file.import_file_id,
+        clearance_id=clr_record.customs_clearance_id,
+        release_permit_no="REL-INSP-FAIL",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        issue_final_customs_release_service(db_session, payload, user="TestRunner")
+
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["code"] == "CC_REGULATORY_REQUIREMENTS_NOT_MET"
+    assert exc_info.value.detail["inspection_required"] is True
+    assert exc_info.value.detail["inspection_status"] == "Scheduled"
+
+
+def test_issue_final_customs_release_succeeds_when_regulatory_requirements_fulfilled(db_session: Session):
+    imp_file = ImportFile(
+        import_file_code=f"IMP-TEST-REG-OK-{int(datetime.now().timestamp())}",
+        company_id=None,
+        company_name="Delta Machinery LLC",
+        supplier_id=None,
+        supplier_name="Bavaria Tech",
+        acid_number="9876543210123456789",
+        acid_expiry_date=date.today() + timedelta(days=90),
+        customs_duty_payment_status="PAID",
+        customs_duty_paid_amount=75000.0,
+        owner="Kamal",
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+    db_session.refresh(imp_file)
+
+    clr_record = CustomsClearanceRecord(
+        clearance_code=f"CLR-REG-OK-{imp_file.import_file_id}",
+        import_file_id=imp_file.import_file_id,
+        declaration_46_no="46-2026-DKH-OK",
+        customs_office_name="El Dekheila Port",
+        channel_type="Red Channel",
+        actual_duty_total=75000.0,
+        duty_paid_amount=75000.0,
+        payment_status="Paid & Verified",
+        status="Duty Paid - Ready for Final Release",
+        owner="Kamal",
+    )
+    db_session.add(clr_record)
+    db_session.commit()
+    db_session.refresh(clr_record)
+
+    # Attach assessment with approved permit and completed inspection
+    assessment = ImportRequirementAssessment(
+        assessment_code=f"BP011-OK-{imp_file.import_file_id}",
+        import_file_id=imp_file.import_file_id,
+        import_file_code=imp_file.import_file_code,
+        import_permit_required=True,
+        permit_issuing_authority="GOEIC",
+        permit_status="Approved",
+        permit_number="PERMIT-GOEIC-2026-99",
+        inspection_required=True,
+        inspection_body="SGS Inspection",
+        inspection_status="Completed",
+        inspection_report_no="REP-SGS-8822",
+        is_active=True,
+    )
+    db_session.add(assessment)
+    db_session.commit()
+
+    payload = CustomsFinalReleaseSubmit(
+        import_file_id=imp_file.import_file_id,
+        clearance_id=clr_record.customs_clearance_id,
+        release_permit_no="REL-REG-OK-99",
+    )
+
+    result = issue_final_customs_release_service(db_session, payload, user="TestRunner")
+    assert result.status == "Final Release Granted"
+    assert result.release_permit_no == "REL-REG-OK-99"
+
+
+def test_issue_final_customs_release_api_blocks_when_regulatory_not_met(db_session: Session):
+    imp_file = ImportFile(
+        import_file_code=f"IMP-TEST-API-BLOCKED-{int(datetime.now().timestamp())}",
+        company_id=None,
+        company_name="Delta Machinery LLC",
+        supplier_id=None,
+        supplier_name="Bavaria Tech",
+        acid_number="9876543210123456789",
+        acid_expiry_date=date.today() + timedelta(days=90),
+        customs_duty_payment_status="PAID",
+        customs_duty_paid_amount=88000.0,
+        owner="Kamal",
+    )
+    db_session.add(imp_file)
+    db_session.commit()
+    db_session.refresh(imp_file)
+
+    clr_record = CustomsClearanceRecord(
+        clearance_code=f"CLR-API-BLOCKED-{imp_file.import_file_id}",
+        import_file_id=imp_file.import_file_id,
+        declaration_46_no="46-2026-DKH-API-BLOCKED",
+        customs_office_name="El Dekheila Port Customs",
+        channel_type="Red Channel",
+        actual_duty_total=88000.0,
+        duty_paid_amount=88000.0,
+        payment_status="Paid & Verified",
+        status="Duty Paid - Ready for Final Release",
+        owner="Kamal",
+    )
+    db_session.add(clr_record)
+    db_session.commit()
+    db_session.refresh(clr_record)
+
+    # Attach assessment with unapproved permit
+    assessment = ImportRequirementAssessment(
+        assessment_code=f"BP011-API-BLOCKED-{imp_file.import_file_id}",
+        import_file_id=imp_file.import_file_id,
+        import_file_code=imp_file.import_file_code,
+        import_permit_required=True,
+        permit_issuing_authority="الهيئة القومية لسلامة الغذاء (NFSA)",
+        permit_status="Pending Approval",
+        inspection_required=True,
+        inspection_status="Pending",
+        is_active=True,
+    )
+    db_session.add(assessment)
+    db_session.commit()
+
+    payload = {
+        "import_file_id": imp_file.import_file_id,
+        "clearance_id": clr_record.customs_clearance_id,
+        "release_permit_no": "REL-BLOCKED-API",
+        "release_type": "FINAL_GREEN",
+    }
+
+    response = client.post("/api/v1/customs-clearance/issue-final-release", json=payload)
+    assert response.status_code == 422, response.text
+    data = response.json()
+    assert "detail" in data
+    assert data["detail"]["code"] == "CC_REGULATORY_REQUIREMENTS_NOT_MET"
+    assert data["detail"]["import_permit_required"] is True

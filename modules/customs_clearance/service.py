@@ -68,6 +68,7 @@ from .validators import (
     validate_release_not_quarantined,
     validate_release_payment,
     validate_release_permit_no,
+    validate_release_regulatory_requirements,
     validate_settlement_open,
     validate_under_bond_allowed,
     SETTLEMENT_LOCKED_STATUSES,
@@ -1411,6 +1412,7 @@ def _issue_release(
     validate_acid_not_expired_for_release(imp_file)
     validate_release_not_quarantined(record)
     validate_release_payment(record)
+    validate_release_regulatory_requirements(db, imp_file.import_file_id)
     permit_no = validate_release_permit_no(payload.release_permit_no)
 
     import_file_id, record_id = imp_file.import_file_id, record.customs_clearance_id

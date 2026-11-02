@@ -15,6 +15,57 @@ import 'demurrage_form_dialogs.dart';
 import 'demurrage_tracking_card.dart';
 import 'dual_clock_radar_dialog.dart';
 import 'empty_container_return_dialog.dart';
+import 'empty_return_form.dart';
+
+/// Extension to conveniently access primary container number on DemurrageTrackingModel.
+extension DemurrageTrackingModelContainerExt on DemurrageTrackingModel {
+  String? get containerNumber {
+    if (containers.isEmpty) return null;
+    final first = containers.first;
+    if (first is Map) {
+      return (first['container_number'] ?? first['container_no'])?.toString();
+    }
+    return first?.toString();
+  }
+}
+
+/// Helper dialog to display [EmptyReturnForm].
+class EmptyReturnFormDialog {
+  static Future<void> show({
+    required BuildContext context,
+    String? containerNumber,
+    required Future<void> Function(EmptyReturnFormData data) onSubmit,
+  }) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusXl)),
+        backgroundColor: AppTheme.surfaceOf(ctx),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: SelectionArea(
+          child: Container(
+            width: 580,
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.9),
+            padding: const EdgeInsets.all(20),
+            child: SingleChildScrollView(
+              child: EmptyReturnForm(
+                containerNumber: containerNumber,
+                onCancel: () => Navigator.of(ctx).pop(),
+                onSubmit: (data) async {
+                  await onSubmit(data);
+                  if (ctx.mounted) {
+                    Navigator.of(ctx).pop();
+                  }
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class DemurrageTrackingsTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -130,36 +181,93 @@ class _DemurrageTrackingsTabState extends ConsumerState<DemurrageTrackingsTab> {
     }
   }
 
+  void _openEmptyReturn(DemurrageTrackingModel item) {
+    EmptyReturnFormDialog.show(
+      context: context,
+      containerNumber: item.containerNumber,
+      onSubmit: (data) async {
+        final fileId = item.importFileId;
+        if (fileId != null) {
+          try {
+            await ref.read(demurrageProvider.notifier).recordEmptyContainerReturn(
+                  EmptyContainerReturnSubmitModel(
+                    importFileId: fileId,
+                    eirNumber: data.eirNumber,
+                    emptyReturnDate: data.emptyReturnDate.toIso8601String().split('T').first,
+                    depotName: data.depotName,
+                    returnedContainers: item.containerNumber != null ? [item.containerNumber!] : null,
+                    containerCondition: data.conditionStatus ?? 'SOUND_CLEAN',
+                    notes: data.notes,
+                  ),
+                );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                AppTheme.snackBar(
+                  context,
+                  _isAr
+                      ? 'تم توثيق تسليم الحاوية الفارغة بنجاح'
+                      : 'Empty container return documented successfully',
+                  severity: AppSeverity.success,
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                AppTheme.snackBar(
+                  context,
+                  ApiErrorText.of(context.l10n, e, fallback: _isAr ? 'تعذر توثيق تسليم الحاوية' : 'Failed to record empty return'),
+                  severity: AppSeverity.danger,
+                ),
+              );
+            }
+          }
+        }
+      },
+    );
+  }
+
   Widget _buildTrackingCard(DemurrageTrackingModel item) {
     final l10n = context.l10n;
-    return DemurrageTrackingCard(
-      item: item,
-      onCopySummary: () {
-        final summary = MasterDataExportService.generateDemurrageTrackingWhatsAppText(item, isAr: _isAr);
-        CopyHelper.copy(context, summary, customMessage: l10n.demurrageCopySummarySuccess);
-      },
-      onPrintSlip: () => MasterDataExportService.printOrSaveDemurrageTrackingSlipPdf(context, item, isAr: _isAr),
-      onOpenRadar: () => showDualClockRadarDialog(
-        context,
-        ref,
-        trackingId: item.trackingId,
-        billOfLadingNo: item.billOfLadingNo,
-        carrierName: item.carrierName,
-      ),
-      onUpdateDates: () => UpdateTrackingDatesDialog.show(context, item),
-      onReturnContainers: () {
-        final firstContainer = item.containers.isNotEmpty
-            ? (item.containers.first is Map
-                ? (item.containers.first['container_number'] ?? item.containers.first['container_no'])?.toString()
-                : item.containers.first.toString())
-            : null;
-        ContainerEirDialog.show(
-          context,
-          importFileId: item.importFileId,
-          initialContainerNumber: firstContainer,
-        );
-      },
-      onPushToSettlement: () => _handlePushToSettlement(item),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DemurrageTrackingCard(
+          item: item,
+          onCopySummary: () {
+            final summary = MasterDataExportService.generateDemurrageTrackingWhatsAppText(item, isAr: _isAr);
+            CopyHelper.copy(context, summary, customMessage: l10n.demurrageCopySummarySuccess);
+          },
+          onPrintSlip: () => MasterDataExportService.printOrSaveDemurrageTrackingSlipPdf(context, item, isAr: _isAr),
+          onOpenRadar: () => showDualClockRadarDialog(
+            context,
+            ref,
+            trackingId: item.trackingId,
+            billOfLadingNo: item.billOfLadingNo,
+            carrierName: item.carrierName,
+          ),
+          onUpdateDates: () => UpdateTrackingDatesDialog.show(context, item),
+          onReturnContainers: () => _openEmptyReturn(item),
+          onPushToSettlement: () => _handlePushToSettlement(item),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              AppButton(
+                key: Key('returnEmptyContainerBtn_${item.trackingId}'),
+                label: _isAr ? 'تسليم الحاوية الفارغة' : 'Return Empty',
+                icon: Icons.assignment_return_outlined,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
+                onPressed: () => _openEmptyReturn(item),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

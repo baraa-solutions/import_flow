@@ -6,7 +6,14 @@ import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../models/warehouse_receiving_model.dart';
+import 'claim_status_badge.dart';
 import 'ops_ui_kit.dart';
+import 'shortage_claim_dialog.dart';
+
+extension WarehouseReceivingModelClaimExt on WarehouseReceivingModel {
+  String get grnNumber => grnCode;
+  int? get shortageQuantity => totalShortageQty > 0 ? totalShortageQty : null;
+}
 
 /// Visual state of a GRN derived from its stored status string.
 class GrnStatusView {
@@ -140,6 +147,10 @@ class GrnRecordCard extends StatelessWidget {
                   severity: AppSeverity.danger,
                   icon: Icons.lock,
                 ),
+              // ignore: unnecessary_null_comparison, dead_null_aware_expression
+              if (r.discrepancyType != null && r.discrepancyType != 'None')
+                // ignore: dead_null_aware_expression
+                ClaimStatusBadge(status: r.discrepancyType ?? 'NONE'),
             ],
           ),
         ),
@@ -271,6 +282,24 @@ class GrnRecordCard extends StatelessWidget {
             icon: Icons.warning_amber,
             size: AppButtonSize.small,
             onPressed: onRecordDiscrepancy,
+          ),
+        // ignore: unnecessary_null_comparison
+        if ((r.discrepancyType != null && r.discrepancyType != 'None') || r.totalShortageQty > 0)
+          AppButton(
+            label: l.isArabic ? 'رفع مطالبة عجز' : 'File Shortage Claim',
+            variant: AppButtonVariant.secondary,
+            icon: Icons.assignment_late_outlined,
+            size: AppButtonSize.small,
+            onPressed: () {
+              ShortageClaimDialog.show(
+                context: context,
+                importFileId: r.importFileId,
+                grnCode: r.grnNumber,
+                totalShortageQty: r.shortageQuantity?.toInt() ?? 1,
+                estimatedAmount: 0.0,
+                currency: 'EGP',
+              );
+            },
           ),
         AppButton(
           key: Key('openInspectionProtocolBtn_${r.receivingId}'),

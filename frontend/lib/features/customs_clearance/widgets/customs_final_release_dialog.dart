@@ -12,6 +12,7 @@ import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
 import 'cc_dialog_shell.dart';
 import 'customs_ui.dart';
+import 'release_gate_summary_card.dart';
 
 /// Modal dialog for CL-04: Final Customs Release Order
 /// (green release permit and start of the transport to the warehouses).
@@ -196,6 +197,8 @@ class _CustomsFinalReleaseDialogState
           .read(customsClearanceProvider.notifier)
           .issueFinalRelease(payload);
 
+      ref.invalidate(customsClearanceProvider);
+
       if (mounted) {
         messenger.showSnackBar(
           AppTheme.snackBar(context, l.ccRelSuccess(permit), severity: AppSeverity.success),
@@ -260,6 +263,11 @@ class _CustomsFinalReleaseDialogState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            ReleaseGateSummaryCard(
+              file: widget.file,
+              clearanceRecord: widget.clearanceRecord,
+              showActions: false,
+            ),
             // Status summary
             Container(
               padding: const EdgeInsetsDirectional.all(16),

@@ -5,6 +5,7 @@ import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../demurrage_detention/widgets/demurrage_warning_banner.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../warehouse_receiving/widgets/ops_ui_kit.dart';
 import '../models/inland_transport_model.dart';
@@ -300,6 +301,12 @@ class _InlandTransportDialogState extends ConsumerState<InlandTransportDialog> {
                                 InlandTransportCostCard(
                                   file: widget.file,
                                   existingBooking: _existingBooking,
+                                ),
+                                const SizedBox(height: 16),
+                                const DemurrageWarningBanner(
+                                  remainingFreeDays: 3,
+                                  accruedFineAmount: 0.0,
+                                  isCompact: true,
                                 ),
                                 const SizedBox(height: 16),
                                 if (_existingBooking != null) ...[

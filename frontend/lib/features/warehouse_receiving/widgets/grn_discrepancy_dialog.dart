@@ -9,6 +9,7 @@ import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/warehouse_receiving_model.dart';
 import '../providers/warehouse_receiving_provider.dart';
+import 'shortage_claim_dialog.dart';
 
 /// Discrepancy & damage report for a GRN (shortage / damage / broken seal).
 class GrnDiscrepancyReportDialog extends ConsumerStatefulWidget {
@@ -37,6 +38,40 @@ class _GrnDiscrepancyReportDialogState
         TextEditingController(text: widget.record.discrepancyNotes ?? '');
     _claimRefCtrl =
         TextEditingController(text: widget.record.insuranceClaimRef ?? '');
+  }
+
+  bool get _isShortageOrDamage {
+    final lower = _selectedDiscrepancyType.toLowerCase();
+    return lower.contains('shortage') || lower.contains('damage');
+  }
+
+  Future<void> _openShortageClaim() async {
+    final qty = widget.record.totalShortageQty > 0
+        ? widget.record.totalShortageQty
+        : (widget.record.totalDamagedQty > 0 ? widget.record.totalDamagedQty : 1);
+    final res = await ShortageClaimDialog.show(
+      context: context,
+      importFileId: widget.record.importFileId,
+      grnCode: widget.record.grnCode,
+      totalShortageQty: qty,
+      estimatedAmount: widget.record.claimAmountEstimated ?? 0.0,
+      currency: widget.record.claimCurrency.isNotEmpty
+          ? widget.record.claimCurrency
+          : 'EGP',
+    );
+    if (res != null && mounted) {
+      if (res.decision == ShortageClaimDecision.fileClaim) {
+        setState(() {
+          _fileClaim = true;
+          if (res.claimRef != null && res.claimRef!.isNotEmpty) {
+            _claimRefCtrl.text = res.claimRef!;
+          }
+          if (res.reasonOrNotes.isNotEmpty && _notesCtrl.text.isEmpty) {
+            _notesCtrl.text = res.reasonOrNotes;
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -145,6 +180,43 @@ class _GrnDiscrepancyReportDialogState
                       }
                     },
                   ),
+                  if (_isShortageOrDamage) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cobalt.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        border: Border.all(color: AppTheme.cobalt.withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.assignment_late_outlined, size: 20, color: AppTheme.cobalt),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l.isArabic
+                                  ? 'تم رصد عجز أو تلف — يمكنك فتح مطالبة رسمية للمورد فوراً'
+                                  : 'Discrepancy detected — draft an immediate claim with the supplier',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimaryOf(context),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          AppButton(
+                            label: l.isArabic ? 'فتح مطالبة عجز' : 'Draft Claim',
+                            variant: AppButtonVariant.secondary,
+                            icon: Icons.send_rounded,
+                            size: AppButtonSize.small,
+                            onPressed: _openShortageClaim,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: _notesCtrl,
@@ -221,6 +293,13 @@ class _GrnDiscrepancyReportDialogState
       ),
       actionsPadding: const EdgeInsetsDirectional.fromSTEB(20, 4, 20, 16),
       actions: [
+        if (_isShortageOrDamage)
+          AppButton(
+            label: l.isArabic ? 'رفع مطالبة عجز' : 'File Shortage Claim',
+            variant: AppButtonVariant.secondary,
+            icon: Icons.assignment_late_outlined,
+            onPressed: _openShortageClaim,
+          ),
         AppButton(
           label: l.cancel,
           variant: AppButtonVariant.secondary,
