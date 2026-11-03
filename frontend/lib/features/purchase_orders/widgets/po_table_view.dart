@@ -126,6 +126,8 @@ class PoTableView extends ConsumerWidget {
                   onTap: () => onView(po),
                   child: LtrText(
                     po.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppTheme.cobalt,
@@ -138,6 +140,8 @@ class PoTableView extends ConsumerWidget {
                     padding: const EdgeInsets.only(top: 2),
                     child: LtrText(
                       po.poNumber,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 11,
                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,

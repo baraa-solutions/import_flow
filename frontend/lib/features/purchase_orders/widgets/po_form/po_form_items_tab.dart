@@ -290,7 +290,7 @@ class POFormItemsTab extends ConsumerWidget {
                       ),
                       IconButton(
                         icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
-                        tooltip: isArabic ? 'تكرار البند' : 'Clone Line Item',
+                        tooltip: isArabic ? 'استنساخ البند' : 'Clone Line Item',
                         onPressed: () => onItemCloned(idx),
                       ),
                       if (items.length > 1)

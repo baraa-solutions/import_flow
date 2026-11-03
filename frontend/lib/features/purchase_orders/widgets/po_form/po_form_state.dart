@@ -1,4 +1,6 @@
+import '../../../customs_tariff/models/customs_tariff_model.dart';
 import '../../models/purchase_order_model.dart';
+import '../../utils/po_hs_tariff_matcher.dart';
 import '../../utils/po_payment_terms.dart';
 import 'po_form_extractor.dart';
 
@@ -50,6 +52,7 @@ class PoFormInitialState {
     required Map<String, dynamic>? ext,
     required int? defaultCompanyId,
     required int? defaultSupplierId,
+    List<CustomsTariffModel> tariffs = const [],
   }) {
     final effectivePo = po ?? cloneFromPo;
     final isClone = cloneFromPo != null && po == null;
@@ -94,9 +97,60 @@ class PoFormInitialState {
         ? (PoPaymentTerms.fromText(effectivePo.paymentTerms) ?? effectivePo.paymentTerms)
         : (ext != null ? PoPaymentTerms.fromText(ext['payment_terms']?.toString()) : null);
 
+    final extTopHs = ext != null ? (ext['hs_code'] ?? ext['customs_tariff'] ?? ext['hsCode'])?.toString().trim() : null;
+    final extLineItems = ext == null
+        ? null
+        : (ext['items'] is List && (ext['items'] as List).isNotEmpty)
+            ? ext['items'] as List
+            : (ext['line_items'] is List && (ext['line_items'] as List).isNotEmpty)
+                ? ext['line_items'] as List
+                : null;
+    final extPackingItems = ext == null
+        ? null
+        : (ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty)
+            ? ext['packing_list_items'] as List
+            : (ext['packing_list'] is List && (ext['packing_list'] as List).isNotEmpty)
+                ? ext['packing_list'] as List
+                : null;
+    final extCountry = ext != null ? PoFormExtractor.normalizeCountryName(ext['country_of_origin']?.toString()) : null;
+
     List<POLineItemModel> items;
     if (effectivePo != null && effectivePo.items.isNotEmpty) {
       items = effectivePo.items.map((i) => i.copyWith(clearId: isClone)).toList();
+    } else if (extLineItems != null) {
+      // Line items handed over from a smart document extraction (PI / invoice).
+      items = extLineItems.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final i = Map<String, dynamic>.from(entry.value as Map);
+        final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
+        final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
+        final desc = i['commercial_name']?.toString() ?? i['description']?.toString() ?? i['item_name']?.toString() ??
+            i['name']?.toString() ?? i['description_ar']?.toString() ?? i['description_en']?.toString() ?? 'بند استيرادي رئيسي';
+        final codeRaw = i['item_code'] ?? i['item_number'] ?? i['item_no'] ?? i['product_code'] ?? i['code'] ?? i['item'];
+        final code = (codeRaw != null && codeRaw.toString().trim().isNotEmpty)
+            ? codeRaw.toString().trim()
+            : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}';
+        final rawHs = (i['hs_code'] != null && i['hs_code'].toString().trim().isNotEmpty)
+            ? i['hs_code'].toString().trim()
+            : (extTopHs != null && extTopHs.isNotEmpty ? extTopHs : null);
+        final rawCty = (i['country_of_origin'] ?? i['country'])?.toString();
+        final itemCty = (rawCty != null && rawCty.isNotEmpty) ? PoFormExtractor.normalizeCountryName(rawCty) : extCountry;
+        return POLineItemModel(
+          itemCode: code,
+          mainDescription: i['main_description']?.toString() ?? i['mainDescription']?.toString(),
+          descriptionAr: desc,
+          descriptionEn: desc,
+          countryOfOrigin: itemCty,
+          // Keep the printed HS code; link a tariff row only on an exact code match.
+          tariffId: matchTariffForPrintedHs(rawHs, tariffs, (t) => t.hsCode)?.tariffId,
+          hsCode: rawHs,
+          quantity: qty > 0 ? qty : 100.0,
+          unitPrice: price > 0 ? price : 10.0,
+          cbmPerUnit: (i['cbm_per_unit'] as num?)?.toDouble() ?? 0.1,
+          grossWeightKg: (i['gross_weight_kg'] as num?)?.toDouble() ?? 5.0,
+          netWeightKg: (i['net_weight_kg'] as num?)?.toDouble() ?? 4.5,
+        );
+      }).toList();
     } else {
       items = [POLineItemModel(descriptionAr: 'بند استيرادي رئيسي 1', quantity: 100, unitPrice: 10, cbmPerUnit: 0.1)];
     }
@@ -104,6 +158,51 @@ class PoFormInitialState {
     List<PackingListItemModel> packingItems;
     if (effectivePo != null && effectivePo.packingListItems.isNotEmpty) {
       packingItems = effectivePo.packingListItems.map((p) => p.copyWith(clearId: isClone)).toList();
+    } else if (extPackingItems != null) {
+      // Packing list rows handed over from a smart document extraction.
+      packingItems = extPackingItems.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final p = Map<String, dynamic>.from(entry.value as Map);
+        final line = idx < items.length ? items[idx] : null;
+        var pDesc = p['description']?.toString() ?? p['item_name']?.toString() ?? p['name']?.toString();
+        if ((pDesc == null || pDesc.trim().isEmpty) && line != null) {
+          pDesc = line.descriptionAr.isNotEmpty ? line.descriptionAr : line.descriptionEn;
+        }
+        final pCodeRaw = p['item_code'] ?? p['item_number'] ?? p['item_no'] ?? p['product_code'] ?? p['code'] ?? p['item'];
+        final pCode = (pCodeRaw != null && pCodeRaw.toString().trim().isNotEmpty)
+            ? pCodeRaw.toString().trim()
+            : (line?.itemCode != null && line!.itemCode!.isNotEmpty
+                ? line.itemCode!
+                : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}');
+        var pHs = (p['hs_code'] != null && p['hs_code'].toString().trim().isNotEmpty) ? p['hs_code'].toString().trim() : '';
+        if (pHs.isEmpty && line?.hsCode != null && line!.hsCode!.isNotEmpty) {
+          pHs = line.hsCode!;
+        } else if (pHs.isEmpty && line?.tariffId != null) {
+          pHs = tariffs.where((t) => t.tariffId == line!.tariffId).firstOrNull?.hsCode ?? '';
+        } else if (pHs.isEmpty && extTopHs != null && extTopHs.isNotEmpty) {
+          pHs = extTopHs;
+        }
+        return PackingListItemModel(
+          hsCode: pHs,
+          itemCode: pCode,
+          mainDescription: p['main_description']?.toString() ?? p['mainDescription']?.toString() ?? line?.mainDescription,
+          description: pDesc,
+          qtyPcs: (p['qty_pcs'] ?? p['quantity'] as num?)?.toDouble() ?? 1.0,
+          qtyPkg: (p['qty_pkg'] ?? p['package_count'] ?? p['quantity'] as num?)?.toDouble() ?? 1.0,
+          packageType: p['package_type']?.toString() ?? 'Carton',
+          unit: PackingListItemModel.normalizeLengthUnit(p['unit']?.toString()),
+          weightUnit: PackingListItemModel.normalizeWeightUnit(p['weight_unit']?.toString()),
+          lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 0.0,
+          widthCm: (p['width_cm'] as num?)?.toDouble() ?? 0.0,
+          heightCm: (p['height_cm'] as num?)?.toDouble() ?? 0.0,
+          grossWeightUnitKg: (p['gross_weight_unit_kg'] as num?)?.toDouble() ?? 0.0,
+          netWeightUnitKg: (p['net_weight_unit_kg'] as num?)?.toDouble() ?? 0.0,
+          totalGrossWeightKg: (p['total_gross_weight_kg'] ?? p['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+          totalNetWeightKg: (p['total_net_weight_kg'] ?? p['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+          totalCbm: (p['total_cbm'] ?? p['volume'] ?? p['cbm'] as num?)?.toDouble() ?? 0.0,
+          isStackable: p['is_stackable'] as bool? ?? true,
+        );
+      }).toList();
     } else {
       packingItems = items.asMap().entries.map((e) => PackingListItemModel(
         hsCode: e.value.hsCode ?? '',
