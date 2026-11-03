@@ -363,7 +363,9 @@ def test_odoo_csv_golden(db):
 # ──────────────────────────────────────────────────────────────────────────────
 # Golden values (captured on the pre-fix code)
 # Intended change since capture (customs review 2 #7): item B has qty 0.5, its unit landed cost and markup now
-# divide by 0.5 instead of max(qty, 1) = 1 (both doubled). Every other value is the pre-fix capture.
+# divide by 0.5 instead of max(qty, 1) = 1 (both doubled).
+# Intended change (EPIC-CUST-VAL, PR #197): the supplier payable line label now reads "Commercial Invoice" instead
+# of "FOB Goods"; amounts are unchanged. Every other value is the pre-fix capture.
 # ──────────────────────────────────────────────────────────────────────────────
 GOLDEN_ENGINE = {'Equal': {'average_markup_factor': 3.3263,
            'filled_amount_egp': 15550.95,
@@ -857,7 +859,7 @@ GOLDEN_ODOO_LINES = [('110400',
  ('210100',
   'موردون خارجيون - P09 Steel',
   'P09 Steel',
-  'قيمة بضاعة الفاتورة التجارية (FOB Goods) - المورد P09 Steel',
+  'قيمة بضاعة الفاتورة التجارية للمورد (Commercial Invoice) - المورد P09 Steel',
   0.0,
   200000.0,
   'EGP',
@@ -918,4 +920,4 @@ GOLDEN_ODOO_LINES = [('110400',
   None,
   'Other')]
 
-GOLDEN_ODOO_CSV = 'id,date,ref,journal_id/code,line_ids/account_id/code,line_ids/partner_id/name,line_ids/name,line_ids/debit,line_ids/credit,line_ids/currency_id/name,line_ids/amount_currency,line_ids/analytic_distribution\r\nimportflow_settlement_<id>,2026-03-10,IMP-P09-ODOO / LCS-2026-0901,MISC,110400,P09 Importer,إثبات تكلفة وصول الشحنة الإجمالية (Landed Cost) - ملف IMP-P09-ODOO,279283.83,0.00,EGP,,P09 Project\r\n,,,,210100,P09 Steel,قيمة بضاعة الفاتورة التجارية (FOB Goods) - المورد P09 Steel,0.00,200000.00,EGP,,P09 Project\r\n,,,,210200,Maersk,فاتورة نولون شحن رقم FR-1 - شركة Maersk,0.00,50000.00,EGP,,P09 Project\r\n,,,,210500,Customs,مطالبة جمركية ورسوم إقرار 46 رقم CU-1 - Customs,0.00,20000.00,EGP,,P09 Project\r\n,,,,210300,Broker,أتعاب ومصاريف تخليص جمركي فاتورة BR-1 - Broker,0.00,3333.33,EGP,,P09 Project\r\n,,,,210400,Trucks,فاتورة نقل داخلي وتعتيق رقم TR-1 - Trucks,0.00,4500.00,EGP,,P09 Project\r\n,,,,210600,Line,غرامات أرضيات وتأخير حاويات فاتورة DM-1 - Line,0.00,1200.50,EGP,,P09 Project\r\n,,,,210800,Bank,مصروفات استيرادية Bank Charges فاتورة OT-1 - Bank,0.00,250.00,EGP,,P09 Project\r\n'
+GOLDEN_ODOO_CSV = 'id,date,ref,journal_id/code,line_ids/account_id/code,line_ids/partner_id/name,line_ids/name,line_ids/debit,line_ids/credit,line_ids/currency_id/name,line_ids/amount_currency,line_ids/analytic_distribution\r\nimportflow_settlement_<id>,2026-03-10,IMP-P09-ODOO / LCS-2026-0901,MISC,110400,P09 Importer,إثبات تكلفة وصول الشحنة الإجمالية (Landed Cost) - ملف IMP-P09-ODOO,279283.83,0.00,EGP,,P09 Project\r\n,,,,210100,P09 Steel,قيمة بضاعة الفاتورة التجارية للمورد (Commercial Invoice) - المورد P09 Steel,0.00,200000.00,EGP,,P09 Project\r\n,,,,210200,Maersk,فاتورة نولون شحن رقم FR-1 - شركة Maersk,0.00,50000.00,EGP,,P09 Project\r\n,,,,210500,Customs,مطالبة جمركية ورسوم إقرار 46 رقم CU-1 - Customs,0.00,20000.00,EGP,,P09 Project\r\n,,,,210300,Broker,أتعاب ومصاريف تخليص جمركي فاتورة BR-1 - Broker,0.00,3333.33,EGP,,P09 Project\r\n,,,,210400,Trucks,فاتورة نقل داخلي وتعتيق رقم TR-1 - Trucks,0.00,4500.00,EGP,,P09 Project\r\n,,,,210600,Line,غرامات أرضيات وتأخير حاويات فاتورة DM-1 - Line,0.00,1200.50,EGP,,P09 Project\r\n,,,,210800,Bank,مصروفات استيرادية Bank Charges فاتورة OT-1 - Bank,0.00,250.00,EGP,,P09 Project\r\n'
