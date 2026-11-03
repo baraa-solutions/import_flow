@@ -114,7 +114,7 @@ class SuLogsTableCard extends StatelessWidget {
           EnterpriseColumn<ShipmentUpdateLogModel>(
             id: 'actions',
             title: l10n.shipmentUpdateColActions,
-            width: 170,
+            width: 200,
             isSortable: false,
             isSearchable: false,
             cellBuilder: (ctx, log, index) {

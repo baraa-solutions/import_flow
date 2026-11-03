@@ -41,7 +41,7 @@ class KanbanShipmentsTable extends StatelessWidget {
           EnterpriseColumn<ShipmentStageCardModel>(
             id: 'shipmentName',
             title: l10n.operationalTsvHeaderShipmentName,
-            width: 280,
+            width: 300,
             exportValue: (s) => DisplayNameResolver.resolveShipmentTitleByCode(
               s.importFileCode,
               shipments: allImportFiles,
@@ -308,7 +308,7 @@ class KanbanShipmentsTable extends StatelessWidget {
           EnterpriseColumn<ShipmentStageCardModel>(
             id: 'actionsAndAdvance',
             title: l10n.colActionsAndAdvance,
-            width: 160,
+            width: 300,
             isSortable: false,
             isSearchable: false,
             cellBuilder: (context, s, index) {

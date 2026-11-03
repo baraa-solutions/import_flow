@@ -41,6 +41,15 @@ class InquiryColumnsBuilder {
     }
   }
 
+  /// Tab-separated summary of one row, used by the row copy button and the
+  /// right-click "copy row" menu of each cell.
+  static String rowTsvSummary(ImportFileModel file, ShipmentInquiryReportRow row) =>
+      '${row.shipmentName}\t${file.importFileCode}\t${row.fileDate}\t${row.supplierName}\t${row.companyName}\t${row.itemAndHs}\t${row.route}\t${row.shippingMode}\t${row.incoterm}\t${row.freightCost.toStringAsFixed(0)} ${row.currency}\t${row.finalCost.toStringAsFixed(0)} ${row.finalCostCurrency}\t${row.status}';
+
+  /// Right-click copy (cell / row) for a data cell.
+  static Widget copyableCell(ImportFileModel file, ShipmentInquiryReportRow row, String value, Widget child) =>
+      CopyableTableCell(value: value, rowSummary: rowTsvSummary(file, row), child: child);
+
   static List<EnterpriseColumn<ImportFileModel>> buildColumns({
     required BuildContext context,
     required AppLocalizations l,
@@ -52,12 +61,12 @@ class InquiryColumnsBuilder {
       EnterpriseColumn<ImportFileModel>(
         id: 'actions',
         title: l.inqColActions,
-        width: 170,
+        width: 200,
         isSortable: false,
         isSearchable: false,
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          final rowTsvSummary = '${row.shipmentName}\t${file.importFileCode}\t${row.fileDate}\t${row.supplierName}\t${row.companyName}\t${row.itemAndHs}\t${row.route}\t${row.shippingMode}\t${row.incoterm}\t${row.freightCost.toStringAsFixed(0)} ${row.currency}\t${row.finalCost.toStringAsFixed(0)} ${row.finalCostCurrency}\t${row.status}';
+          final rowTsvSummary = InquiryColumnsBuilder.rowTsvSummary(file, row);
 
           return Row(
             mainAxisSize: MainAxisSize.min,
@@ -106,7 +115,7 @@ class InquiryColumnsBuilder {
         },
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          return Column(
+          return copyableCell(file, row, '${row.shipmentName} (${file.importFileCode})', Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -143,7 +152,7 @@ class InquiryColumnsBuilder {
                 ],
               ),
             ],
-          );
+          ));
         },
       ),
       EnterpriseColumn<ImportFileModel>(
@@ -153,10 +162,10 @@ class InquiryColumnsBuilder {
         exportValue: (file) => ShipmentInquiryReportRow.fromImportFile(file, l).fileDate,
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          return Text(
+          return copyableCell(file, row, row.fileDate, Text(
             row.fileDate.isNotEmpty ? row.fileDate : '-',
             style: const TextStyle(fontSize: 12),
-          );
+          ));
         },
       ),
       EnterpriseColumn<ImportFileModel>(
@@ -166,7 +175,7 @@ class InquiryColumnsBuilder {
         exportValue: (file) => ShipmentInquiryReportRow.fromImportFile(file, l).supplierName,
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          return Row(
+          return copyableCell(file, row, row.supplierName, Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.business_outlined, size: 15, color: AppTheme.cobalt),
@@ -179,7 +188,7 @@ class InquiryColumnsBuilder {
                 ),
               ),
             ],
-          );
+          ));
         },
       ),
       EnterpriseColumn<ImportFileModel>(
@@ -189,7 +198,7 @@ class InquiryColumnsBuilder {
         exportValue: (file) => ShipmentInquiryReportRow.fromImportFile(file, l).companyName,
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          return Container(
+          return copyableCell(file, row, row.companyName, Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.blueGrey.withValues(alpha: 0.08),
@@ -203,7 +212,7 @@ class InquiryColumnsBuilder {
                 color: AppTheme.charcoal,
               ),
             ),
-          );
+          ));
         },
       ),
       EnterpriseColumn<ImportFileModel>(
@@ -213,10 +222,10 @@ class InquiryColumnsBuilder {
         exportValue: (file) => ShipmentInquiryReportRow.fromImportFile(file, l).itemAndHs,
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          return Text(
+          return copyableCell(file, row, row.itemAndHs, Text(
             row.itemAndHs,
             style: const TextStyle(fontSize: 12),
-          );
+          ));
         },
       ),
       EnterpriseColumn<ImportFileModel>(
@@ -226,17 +235,21 @@ class InquiryColumnsBuilder {
         exportValue: (file) => ShipmentInquiryReportRow.fromImportFile(file, l).route,
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          return Row(
+          return copyableCell(file, row, row.route, Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.alt_route_rounded, size: 15, color: Colors.teal),
               const SizedBox(width: 6),
-              Text(
-                row.route,
-                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+              Flexible(
+                child: Text(
+                  row.route,
+                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
-          );
+          ));
         },
       ),
       EnterpriseColumn<ImportFileModel>(
@@ -246,17 +259,21 @@ class InquiryColumnsBuilder {
         exportValue: (file) => ShipmentInquiryReportRow.fromImportFile(file, l).shippingMode,
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          return Row(
+          return copyableCell(file, row, row.shippingMode, Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.directions_boat_outlined, size: 15, color: AppTheme.cobalt),
               const SizedBox(width: 6),
-              Text(
-                row.shippingMode,
-                style: const TextStyle(fontSize: 12),
+              Flexible(
+                child: Text(
+                  row.shippingMode,
+                  style: const TextStyle(fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
-          );
+          ));
         },
       ),
       EnterpriseColumn<ImportFileModel>(
@@ -266,7 +283,7 @@ class InquiryColumnsBuilder {
         exportValue: (file) => ShipmentInquiryReportRow.fromImportFile(file, l).incoterm,
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          return Container(
+          return copyableCell(file, row, row.incoterm, Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: getIncotermColor(row.incoterm).withValues(alpha: 0.12),
@@ -281,7 +298,7 @@ class InquiryColumnsBuilder {
                 color: getIncotermColor(row.incoterm),
               ),
             ),
-          );
+          ));
         },
       ),
       EnterpriseColumn<ImportFileModel>(
@@ -295,14 +312,14 @@ class InquiryColumnsBuilder {
         },
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          return Text(
+          return copyableCell(file, row, '${row.freightCost.toStringAsFixed(0)} ${row.currency}', Text(
             '${row.freightCost.toStringAsFixed(0)} ${row.currency}',
             style: const TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.bold,
               color: AppTheme.charcoal,
             ),
-          );
+          ));
         },
       ),
       EnterpriseColumn<ImportFileModel>(
@@ -316,14 +333,14 @@ class InquiryColumnsBuilder {
         },
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          return Text(
+          return copyableCell(file, row, '${row.finalCost.toStringAsFixed(0)} ${row.finalCostCurrency}', Text(
             '${row.finalCost.toStringAsFixed(0)} ${row.finalCostCurrency}',
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.bold,
               color: Colors.teal.shade800,
             ),
-          );
+          ));
         },
       ),
       EnterpriseColumn<ImportFileModel>(
@@ -333,7 +350,7 @@ class InquiryColumnsBuilder {
         exportValue: (file) => ShipmentInquiryReportRow.fromImportFile(file, l).status,
         cellBuilder: (context, file, index) {
           final row = ShipmentInquiryReportRow.fromImportFile(file, l);
-          return Container(
+          return copyableCell(file, row, row.status, Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: getStatusColor(row.status).withValues(alpha: 0.12),
@@ -348,7 +365,7 @@ class InquiryColumnsBuilder {
                 color: getStatusColor(row.status),
               ),
             ),
-          );
+          ));
         },
       ),
     ];
