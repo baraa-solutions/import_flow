@@ -1579,6 +1579,9 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'CURRENCY_BASE_EXISTS': {
     'note': 'العملة الأساسية ({base_currency}) مسجلة بالفعل؛ لا يمكن تعيين عملة أساسية ثانية.',
   },
+  'PORT_TERMINAL_RATE_EXISTS': {
+    'note': 'يوجد بالفعل سعر أرضيات للمحطة {terminal_code} لحاوية {container_size} يسري من {effective_date}. عدّل السعر الموجود أو اختر تاريخ سريان مختلفاً.',
+  },
   'CT_CUSTOMS_RATE_MISSING': {
     'note': 'لا يوجد سعر صرف جمركي مسجل للعملة \'{currency}\' بتاريخ {on_date}.',
   },
