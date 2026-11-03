@@ -140,3 +140,41 @@ __all__ = [
     "approve_actual_landed_cost_service",
     "get_shipment_fx_reconciliation",
 ]
+
+# Module-level constants re-exported so the facade keeps the pre-decomposition API.
+from .actual_settlement_service import (  # noqa: F401
+    ACTUAL_BUCKETS,
+    ACTUAL_SOURCE_MISSING,
+    ALLOCATION_BASIS_INCOMPLETE,
+    BUCKET_ENGINE_CATEGORY,
+    ESTIMATE_PARAMETER_DEFAULTS,
+    ESTIMATE_UNAVAILABLE,
+    IMPORT_FILE_LABEL_AR,
+    PARAM_DEEMED_FREIGHT_PCT,
+    PARAM_DEEMED_INSURANCE_PCT,
+    PARAM_DEFAULT_BANK_FEES_EGP,
+    PARAM_DEFAULT_CLEARANCE_EGP,
+    PARAM_DEFAULT_INLAND_TRANSPORT_EGP,
+    PARAM_DEFAULT_OTHER_EXPENSES_EGP,
+    PARAM_DEFAULT_PORT_HANDLING_EGP,
+    PAYMENT_STATUS_UNKNOWN,
+    SETTLEMENT_LINE_NO_HS,
+    SETTLEMENT_LINE_ZERO_VALUE,
+    SETTLEMENT_UNPAID_INVOICE,
+    WHT_RATE_MISSING_WARNING,
+)
+from .landed_cost_engine_service import (  # noqa: F401
+    CUSTOMS_COMPONENT_BUCKET,
+    DUTY_COMPONENT_CATEGORIES,
+    ENGINE_CLEARANCE_CATEGORIES,
+    ENGINE_CUSTOMS_CATEGORIES,
+    ENGINE_FREIGHT_CATEGORIES,
+    ENGINE_TRANSPORT_CATEGORIES,
+    SETTLEMENT_RECALC_FIELDS,
+)
+from .settlement_crud_service import (  # noqa: F401
+    _NON_NULL_UPDATE_FIELDS,
+)
+from .landed_cost_simulation_service import (  # noqa: F401
+    _CAIRO_FALLBACK_TZ,
+)
