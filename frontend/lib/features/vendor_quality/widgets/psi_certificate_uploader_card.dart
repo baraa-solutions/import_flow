@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/app_date_picker_field.dart';
 import '../../../core/widgets/app_status_badge.dart';
 import '../../../core/widgets/buttons/app_button.dart';
@@ -50,14 +51,15 @@ class PsiCertificateUploaderCard extends ConsumerWidget {
                       onChanged: (d) => setDialogState(() => inspectionDate = d),
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: psiResult,
+                    SearchableDropdownField<String>(
+                      labelText: 'نتيجة التفتيش المعتمدة',
+                      value: psiResult,
                       decoration: const InputDecoration(labelText: 'نتيجة التفتيش المعتمدة'),
                       items: const [
-                        DropdownMenuItem(value: 'PASSED', child: Text('مطابق ومقبول للشحن')),
-                        DropdownMenuItem(value: 'PASSED_WITH_CONDITIONS', child: Text('مقبول بملاحظات وشروط استدراكية')),
-                        DropdownMenuItem(value: 'FAILED', child: Text('مرفوض لوجود عيوب غير مطابقة')),
-                        DropdownMenuItem(value: 'WAIVED', child: Text('استثناء من الفحص بتفويض إداري')),
+                        SearchableDropdownItem(value: 'PASSED', label: 'مطابق ومقبول للشحن'),
+                        SearchableDropdownItem(value: 'PASSED_WITH_CONDITIONS', label: 'مقبول بملاحظات وشروط استدراكية'),
+                        SearchableDropdownItem(value: 'FAILED', label: 'مرفوض لوجود عيوب غير مطابقة'),
+                        SearchableDropdownItem(value: 'WAIVED', label: 'استثناء من الفحص بتفويض إداري'),
                       ],
                       onChanged: (v) => setDialogState(() => psiResult = v ?? 'PASSED'),
                     ),

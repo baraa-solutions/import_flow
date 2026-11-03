@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 
@@ -170,14 +171,15 @@ class _DamageClaimDialogState extends State<DamageClaimDialog> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _currency,
+                        child: SearchableDropdownField<String>(
+                          labelText: isAr ? 'العملة' : 'Currency',
+                          value: _currency,
                           decoration: InputDecoration(
                             labelText: isAr ? 'العملة' : 'Currency',
                             border: const OutlineInputBorder(),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                           ),
-                          items: ['USD', 'EGP', 'EUR'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                          items: ['USD', 'EGP', 'EUR'].map((c) => SearchableDropdownItem(value: c, label: c)).toList(),
                           onChanged: (val) => val != null ? setState(() => _currency = val) : null,
                         ),
                       ),

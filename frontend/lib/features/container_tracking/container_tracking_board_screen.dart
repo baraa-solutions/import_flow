@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/metric_card.dart';
 import '../../../core/widgets/page_header.dart';
@@ -85,18 +86,21 @@ class _ContainerTrackingBoardScreenState
                 decoration: const InputDecoration(labelText: 'رقم الختم الجمركي'),
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: isoType,
+              StatefulBuilder(
+                builder: (context, setFieldState) => SearchableDropdownField<String>(
+                labelText: 'نوع ومقاس الحاوية',
+                value: isoType,
                 items: const [
-                  DropdownMenuItem(value: '20GP', child: Text('حاوية 20 قدم عادية')),
-                  DropdownMenuItem(value: '40GP', child: Text('حاوية 40 قدم عادية')),
-                  DropdownMenuItem(value: '40HC', child: Text('حاوية 40 قدم عالية السقف')),
-                  DropdownMenuItem(value: '45HC', child: Text('حاوية 45 قدم عالية السقف')),
-                  DropdownMenuItem(value: '20RF', child: Text('حاوية 20 قدم مبردة')),
-                  DropdownMenuItem(value: '40RF', child: Text('حاوية 40 قدم مبردة')),
+                  SearchableDropdownItem(value: '20GP', label: 'حاوية 20 قدم عادية'),
+                  SearchableDropdownItem(value: '40GP', label: 'حاوية 40 قدم عادية'),
+                  SearchableDropdownItem(value: '40HC', label: 'حاوية 40 قدم عالية السقف'),
+                  SearchableDropdownItem(value: '45HC', label: 'حاوية 45 قدم عالية السقف'),
+                  SearchableDropdownItem(value: '20RF', label: 'حاوية 20 قدم مبردة'),
+                  SearchableDropdownItem(value: '40RF', label: 'حاوية 40 قدم مبردة'),
                 ],
-                onChanged: (v) => isoType = v ?? '40HC',
+                onChanged: (v) => setFieldState(() => isoType = v ?? '40HC'),
                 decoration: const InputDecoration(labelText: 'نوع ومقاس الحاوية'),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(

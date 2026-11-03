@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/searchable_dropdown_field.dart';
 import '../../core/widgets/app_status_badge.dart';
 import '../../core/widgets/buttons/app_button.dart';
 import '../../core/widgets/copyable_data_helper.dart';
@@ -51,29 +52,31 @@ class _TradeAgreementsScreenState extends ConsumerState<TradeAgreementsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: agreement,
+                  SearchableDropdownField<String>(
+                    labelText: 'الاتفاقية التفضيلية',
+                    value: agreement,
                     decoration: const InputDecoration(labelText: 'الاتفاقية التفضيلية'),
                     items: const [
-                      DropdownMenuItem(value: 'EUR1', child: Text('الشراكة المصرية الأوروبية')),
-                      DropdownMenuItem(value: 'GAFTA', child: Text('منطقة التجارة العربية الكبرى')),
-                      DropdownMenuItem(value: 'AGADIR', child: Text('اتفاقية أغادير')),
-                      DropdownMenuItem(value: 'COMESA', child: Text('الكوميسا')),
-                      DropdownMenuItem(value: 'TURKEY', child: Text('التجارة الحرة مع تركيا')),
-                      DropdownMenuItem(value: 'MERCOSUR', child: Text('الميركوسور')),
+                      SearchableDropdownItem(value: 'EUR1', label: 'الشراكة المصرية الأوروبية'),
+                      SearchableDropdownItem(value: 'GAFTA', label: 'منطقة التجارة العربية الكبرى'),
+                      SearchableDropdownItem(value: 'AGADIR', label: 'اتفاقية أغادير'),
+                      SearchableDropdownItem(value: 'COMESA', label: 'الكوميسا'),
+                      SearchableDropdownItem(value: 'TURKEY', label: 'التجارة الحرة مع تركيا'),
+                      SearchableDropdownItem(value: 'MERCOSUR', label: 'الميركوسور'),
                     ],
                     onChanged: (v) => setDialogState(() => agreement = v!),
                   ),
                   const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: certType,
+                  SearchableDropdownField<String>(
+                    labelText: 'نموذج شهادة المنشأ',
+                    value: certType,
                     decoration: const InputDecoration(labelText: 'نموذج شهادة المنشأ'),
                     items: const [
-                      DropdownMenuItem(value: 'EUR.1', child: Text('شهادة يورو 1')),
-                      DropdownMenuItem(value: 'EUR_MED', child: Text('شهادة يورو متوسطية')),
-                      DropdownMenuItem(value: 'FORM_A', child: Text('نموذج أ كوميسا')),
-                      DropdownMenuItem(value: 'ARAB_LEAGUE', child: Text('شهادة المنشأ العربية')),
-                      DropdownMenuItem(value: 'CERTIFICATE_OF_ORIGIN', child: Text('شهادة منشأ عامة')),
+                      SearchableDropdownItem(value: 'EUR.1', label: 'شهادة يورو 1'),
+                      SearchableDropdownItem(value: 'EUR_MED', label: 'شهادة يورو متوسطية'),
+                      SearchableDropdownItem(value: 'FORM_A', label: 'نموذج أ كوميسا'),
+                      SearchableDropdownItem(value: 'ARAB_LEAGUE', label: 'شهادة المنشأ العربية'),
+                      SearchableDropdownItem(value: 'CERTIFICATE_OF_ORIGIN', label: 'شهادة منشأ عامة'),
                     ],
                     onChanged: (v) => setDialogState(() => certType = v!),
                   ),
@@ -170,7 +173,6 @@ class _TradeAgreementsScreenState extends ConsumerState<TradeAgreementsScreen> {
                   'original_received_date': nowStr,
                   'provisional_escrow_refunded': refundEscrow,
                   'refund_date': refundEscrow ? nowStr : null,
-                  'verification_notes': 'تم التحقق من سلامة الأختام واستيفاء أصل الوثيقة',
                 });
                 if (success && ctx.mounted) {
                   Navigator.of(ctx).pop();

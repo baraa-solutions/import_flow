@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/searchable_dropdown_field.dart';
 import '../../core/widgets/buttons/app_button.dart';
 import 'legal_claims_provider.dart';
 import 'widgets/reservation_letter_generator_card.dart';
@@ -53,24 +54,26 @@ class _LegalClaimsDialogState extends ConsumerState<LegalClaimsDialog> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: claimType,
+                  SearchableDropdownField<String>(
+                    labelText: 'نوع المطالبة',
+                    value: claimType,
                     decoration: const InputDecoration(labelText: 'نوع المطالبة'),
                     items: const [
-                      DropdownMenuItem(value: 'CARRIER_DAMAGE', child: Text('تلف بضائع منقولة')),
-                      DropdownMenuItem(value: 'CARRIER_SHORTAGE', child: Text('عجز تفريغ ومحتويات')),
-                      DropdownMenuItem(value: 'PORT_DAMAGE', child: Text('تلف ساحات وموانئ')),
-                      DropdownMenuItem(value: 'INSURANCE_RECOVERY', child: Text('مطالبة تعويض تأميني')),
+                      SearchableDropdownItem(value: 'CARRIER_DAMAGE', label: 'تلف بضائع منقولة'),
+                      SearchableDropdownItem(value: 'CARRIER_SHORTAGE', label: 'عجز تفريغ ومحتويات'),
+                      SearchableDropdownItem(value: 'PORT_DAMAGE', label: 'تلف ساحات وموانئ'),
+                      SearchableDropdownItem(value: 'INSURANCE_RECOVERY', label: 'مطالبة تعويض تأميني'),
                     ],
                     onChanged: (v) => setDialogState(() => claimType = v!),
                   ),
                   const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: damageNature,
+                  SearchableDropdownField<String>(
+                    labelText: 'طبيعة الضرر',
+                    value: damageNature,
                     decoration: const InputDecoration(labelText: 'طبيعة الضرر'),
                     items: const [
-                      DropdownMenuItem(value: 'LATENT', child: Text('تلف مستتر / خفي (مهلة 3 أيام)')),
-                      DropdownMenuItem(value: 'APPARENT', child: Text('تلف ظاهر وفوري')),
+                      SearchableDropdownItem(value: 'LATENT', label: 'تلف مستتر / خفي (مهلة 3 أيام)'),
+                      SearchableDropdownItem(value: 'APPARENT', label: 'تلف ظاهر وفوري'),
                     ],
                     onChanged: (v) => setDialogState(() => damageNature = v!),
                   ),
@@ -142,7 +145,6 @@ class _LegalClaimsDialogState extends ConsumerState<LegalClaimsDialog> {
               final success = await ref.read(legalClaimsProvider.notifier).scheduleSurvey(claim.id, {
                 'survey_date': dateStr,
                 'surveyor_company': companyController.text,
-                'notes': 'تم التنسيق لإجراء المعاينة بمقر المستودع',
               });
               if (success && ctx.mounted) {
                 Navigator.of(ctx).pop();
@@ -183,7 +185,6 @@ class _LegalClaimsDialogState extends ConsumerState<LegalClaimsDialog> {
               final success = await ref.read(legalClaimsProvider.notifier).settleClaim(claim.id, {
                 'settled_amount': amt,
                 'settlement_date': nowStr,
-                'notes': 'تم استلام الشيك وتسوية النزاع ودياً',
               });
               if (success && ctx.mounted) {
                 Navigator.of(ctx).pop();

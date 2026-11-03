@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/app_date_picker_field.dart';
 import '../../../core/widgets/app_status_badge.dart';
 import '../../../core/widgets/buttons/app_button.dart';
@@ -49,13 +50,14 @@ class AcidImpactResolverCard extends ConsumerWidget {
                       onChanged: (d) => setDialogState(() => adjustedDate = d),
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: status,
+                    SearchableDropdownField<String>(
+                      labelText: 'حالة إجراء التمديد',
+                      value: status,
                       decoration: const InputDecoration(labelText: 'حالة إجراء التمديد'),
                       items: const [
-                        DropdownMenuItem(value: 'EXTENSION_REQUESTED', child: Text('تم تقديم طلب التمديد بالنافذة')),
-                        DropdownMenuItem(value: 'SUSPENDED', child: Text('معلق لحين البت الجمركي')),
-                        DropdownMenuItem(value: 'RESOLVED', child: Text('تم قبول التمديد واعتماد الصلاحية')),
+                        SearchableDropdownItem(value: 'EXTENSION_REQUESTED', label: 'تم تقديم طلب التمديد بالنافذة'),
+                        SearchableDropdownItem(value: 'SUSPENDED', label: 'معلق لحين البت الجمركي'),
+                        SearchableDropdownItem(value: 'RESOLVED', label: 'تم قبول التمديد واعتماد الصلاحية'),
                       ],
                       onChanged: (v) => setDialogState(() => status = v ?? 'EXTENSION_REQUESTED'),
                     ),

@@ -106,14 +106,13 @@ class SmartReferenceCardModel {
       },
       routeSummary: {
         'origin_port': dossier.portOfLoading ?? 'Shanghai Port',
-        'destination_port': dossier.portOfDischarge ?? 'ميناء الإسكندرية / الدخيلة',
+        'destination_port': dossier.portOfDischarge,
         'shipping_line': carrier,
         'incoterm_code': dossier.incotermCode,
         'shipment_mode': dossier.shipmentMode,
       },
       criticalDates: {
         'target_free_days': dossier.targetFreeDays,
-        'free_time_status': '${dossier.targetFreeDays} يوماً فترة سماح للحاويات',
       },
       documentStatus: {
         'is_complete': isReady,
