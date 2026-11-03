@@ -148,7 +148,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   Future<void> _showExtractionOptionsDialog() async {
     final file = _selectedImportFile!;
     String selectedMode = 'all_consolidated';
-    String selectedGrouping = 'by_hs_code';
+    String selectedGrouping = 'by_price_group';
     bool isExtracting = false;
     bool isDownloading = false;
     bool isSavingCustomsTrack = false;
@@ -228,7 +228,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                   onTap: () {
                                     setDialogState(() {
                                       selectedMode = 'all_consolidated';
-                                      selectedGrouping = 'by_hs_code';
+                                      selectedGrouping = 'by_price_group';
                                       previewResponse = null;
                                     });
                                   },
@@ -266,7 +266,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                                   onTap: () {
                                     setDialogState(() {
                                       selectedMode = 'per_invoice_consolidated';
-                                      selectedGrouping = 'by_hs_code';
+                                      selectedGrouping = 'by_price_group';
                                       previewResponse = null;
                                     });
                                   },

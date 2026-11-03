@@ -281,6 +281,34 @@ class _DualExtractionModalState extends ConsumerState<DualExtractionModal> {
                   onChanged: (v) => setState(() => _invoiceConfig = _invoiceConfig.copyWith(grouping: v)),
                   activeColor: AppTheme.cobalt,
                 ),
+                // CGX-CUSTOMS-GUARD banner
+                if (_invoiceConfig.grouping == InvoiceGroupingMode.byHsCode &&
+                    _invoiceConfig.detail == ContentDetailMode.consolidated) ...[    
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF8E1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFFB300), width: 1),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.shield_outlined, color: Color(0xFFFF8F00), size: 15),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            isAr
+                                ? 'حماية جمركية تلقائية: إذا وُجد نفس رمز التعريفة بأسعار مختلفة، يُفعّل التقسيم تلقائياً لضمان صحة الإقرار الجمركي المصري.'
+                                : 'Auto customs guard: if the same HS code has different prices, lines are split automatically for Egyptian Customs compliance.',
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF6D4C00)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
