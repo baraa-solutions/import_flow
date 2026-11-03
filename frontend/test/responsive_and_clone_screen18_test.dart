@@ -9,6 +9,8 @@ import 'package:frontend/core/widgets/clone_entity_review_dialog.dart';
 import 'package:frontend/features/import_documentation/models/import_documentation_model.dart';
 import 'package:frontend/features/import_documentation/providers/import_documentation_provider.dart';
 import 'package:frontend/features/import_documentation/screens/shipment_draft_docs_screen.dart';
+import 'package:frontend/features/import_documentation/widgets/draft_bl_review/draft_bl_extractor_card.dart';
+import 'package:frontend/features/import_documentation/widgets/draft_bl_review/draft_bl_header_bar.dart';
 import 'package:frontend/features/import_documentation/widgets/search_and_clone_draft_bl_dialog.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
@@ -396,9 +398,15 @@ void main() {
       await tester.tap(confirmBtn);
       await tester.pumpAndSettle();
 
-      // Ensure dialog is closed and fields populated
+      // Ensure dialog is closed and fields populated. The cloned B/L number now shows in
+      // both the extractor card and the new transport header bar.
       expect(find.byType(CloneEntityReviewDialog), findsNothing);
-      expect(find.text('DRAFT-BL-2026-'), findsOneWidget);
+      expect(
+          find.descendant(of: find.byType(DraftBlExtractorCard), matching: find.text('DRAFT-BL-2026-')),
+          findsOneWidget);
+      expect(
+          find.descendant(of: find.byType(DraftBlHeaderBar), matching: find.text('DRAFT-BL-2026-')),
+          findsOneWidget);
     });
 
     // 8. Task E Row-Level Clone Action in Stage 5 Final Registry

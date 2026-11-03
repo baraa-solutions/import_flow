@@ -120,12 +120,14 @@ class _DraftBlReviewSheetViewState extends State<DraftBlReviewSheetView> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  AppButton(
-                    label: l.draftBlRefreshAndCompare,
-                    icon: Icons.sync,
-                    variant: AppButtonVariant.primary,
-                    isLoading: widget.isLoading,
-                    onPressed: widget.isLoading ? null : widget.onRefresh,
+                  Flexible(
+                    child: AppButton(
+                      label: l.draftBlRefreshAndCompare,
+                      icon: Icons.sync,
+                      variant: AppButtonVariant.primary,
+                      isLoading: widget.isLoading,
+                      onPressed: widget.isLoading ? null : widget.onRefresh,
+                    ),
                   ),
                 ],
               ),
@@ -280,12 +282,14 @@ class _DraftBlReviewSheetViewState extends State<DraftBlReviewSheetView> {
                     children: [
                       const Icon(Icons.checklist_rtl, color: AppTheme.cobalt, size: 24),
                       const SizedBox(width: 8),
-                      Text(
-                        l.draftBlChecklistSectionTitle,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimaryOf(context),
+                      Expanded(
+                        child: Text(
+                          l.draftBlChecklistSectionTitle,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimaryOf(context),
+                          ),
                         ),
                       ),
                     ],
