@@ -16,6 +16,8 @@ from modules.purchase_orders.schemas import (
     PurchaseOrderListItem,
     PurchaseOrderResponse,
     PurchaseOrderUpdate,
+    POAllocationCreate,
+    POAllocationResponse,
     POShipmentAllocationCreate,
     POShipmentAllocationResponse,
     POBalanceSummaryResponse,
@@ -158,6 +160,7 @@ def allocate_po_shipment(
 
 
 @router.get("/{po_id}/balance", response_model=POBalanceSummaryResponse, summary="استخراج ميزان أمر الشراء ونسبة الإنجاز والرصيد المتبقي")
+@router.get("/{po_id}/balance-summary", response_model=POBalanceSummaryResponse, summary="استخراج ميزان رصيد أمر الشراء وموقف التوريد")
 def get_po_balance(
     po_id: int,
     db: Session = Depends(get_db),

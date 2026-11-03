@@ -374,7 +374,7 @@ void main() {
       expect(find.text('حجز الشحن وتخصيص الحاويات'), findsOneWidget);
       expect(find.text('طلب حجز شحن جديد'), findsWidgets);
       expect(find.text('بحث واستنساخ حجز سابق'), findsOneWidget);
-      expect(find.text('نسخ كجدول (TSV)'), findsOneWidget);
+      expect(find.text('نسخ كجدول بيانات'), findsOneWidget);
       expect(find.text('تصدير سجل الحجوزات إلى Excel'), findsOneWidget);
       expect(find.text('تصدير سجل الحجوزات إلى PDF'), findsOneWidget);
 

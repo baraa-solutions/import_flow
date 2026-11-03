@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/logistics_invoice_models.dart';
 import '../providers/logistics_invoices_provider.dart';
 import '../repositories/logistics_invoices_repository.dart';
@@ -133,15 +133,26 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
       ref.invalidate(insurancePoliciesListProvider);
 
       if (mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Marine insurance policy issued successfully!'), backgroundColor: Colors.green),
+          AppTheme.snackBar(
+            context,
+            isArabic
+                ? 'تم إصدار وثيقة التأمين البحري بنجاح!'
+                : 'Marine insurance policy issued successfully!',
+            severity: AppSeverity.success,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save policy: $e'), backgroundColor: Colors.red),
+          AppTheme.snackBar(
+            context,
+            'Failed to save policy: $e',
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {
@@ -159,15 +170,26 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
       ref.invalidate(logisticsInvoicesListProvider);
 
       if (mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invoice generated from policy!'), backgroundColor: Colors.green),
+          AppTheme.snackBar(
+            context,
+            isArabic
+                ? 'تم توليد الفاتورة من الوثيقة بنجاح!'
+                : 'Invoice generated from policy!',
+            severity: AppSeverity.success,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+          AppTheme.snackBar(
+            context,
+            'Failed: $e',
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {
@@ -183,7 +205,8 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 720,
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -251,15 +274,16 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _coverageType,
+                    child: SearchableDropdownField<String>(
+                      value: _coverageType,
+                      labelText: 'Coverage Clause',
                       decoration: const InputDecoration(labelText: 'Coverage Clause', isDense: true, border: OutlineInputBorder()),
                       items: const [
-                        DropdownMenuItem(value: 'all_risks', child: Text('All Risks (شامل كافة الأخطار)')),
-                        DropdownMenuItem(value: 'icc_a', child: Text('ICC (A) — Standard Marine')),
-                        DropdownMenuItem(value: 'icc_b', child: Text('ICC (B) — Major Casualties')),
-                        DropdownMenuItem(value: 'icc_c', child: Text('ICC (C) — Total Loss Only')),
-                        DropdownMenuItem(value: 'war_srcc', child: Text('War & Strikes (أخطار حرب وإضرابات)')),
+                        SearchableDropdownItem<String>(value: 'all_risks', label: 'All Risks (شامل كافة الأخطار)'),
+                        SearchableDropdownItem<String>(value: 'icc_a', label: 'ICC (A) — Standard Marine'),
+                        SearchableDropdownItem<String>(value: 'icc_b', label: 'ICC (B) — Major Casualties'),
+                        SearchableDropdownItem<String>(value: 'icc_c', label: 'ICC (C) — Total Loss Only'),
+                        SearchableDropdownItem<String>(value: 'war_srcc', label: 'War & Strikes (أخطار حرب وإضرابات)'),
                       ],
                       onChanged: (v) => setState(() => _coverageType = v ?? 'all_risks'),
                     ),
@@ -397,6 +421,7 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

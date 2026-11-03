@@ -358,6 +358,12 @@
       "note"
     ]
   },
+  "CC_REGULATORY_REQUIREMENTS_NOT_MET": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "CC_RELEASE_ISSUED": {
     "params": [
       "import_file_code",
@@ -567,6 +573,17 @@
       "title",
       "body",
       "note"
+    ]
+  },
+  "CLO_FILE_REOPENED": {
+    "params": [
+      "import_file_code",
+      "justification",
+      "reopened_by"
+    ],
+    "parts": [
+      "title",
+      "body"
     ]
   },
   "CLO_TASK_OFFICIAL_CLOSURE": {
@@ -1140,6 +1157,24 @@
       "note"
     ]
   },
+  "DOC_IBL_ARITHMETIC_MATCH": {
+    "params": [
+      "currency",
+      "total_amount"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_ARITHMETIC_MISMATCH": {
+    "params": [
+      "calculated_amount",
+      "total_amount"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "DOC_IBL_CONSIGNEE_MATCH": {
     "params": [],
     "parts": [
@@ -1158,6 +1193,22 @@
       "note"
     ]
   },
+  "DOC_IBL_CONTAINERS_DUMMY": {
+    "params": [
+      "container_no"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CONTAINERS_ISO_INVALID": {
+    "params": [
+      "container_no"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "DOC_IBL_CONTAINERS_MATCH": {
     "params": [],
     "parts": [
@@ -1166,6 +1217,23 @@
   },
   "DOC_IBL_CONTAINERS_MISMATCH": {
     "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CURRENCY_MATCH": {
+    "params": [
+      "currency"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_CURRENCY_MISMATCH": {
+    "params": [
+      "invoice_currency",
+      "system_currency"
+    ],
     "parts": [
       "note"
     ]
@@ -1180,6 +1248,27 @@
     "params": [
       "tolerance_pct"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_HS_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_HS_MISMATCH": {
+    "params": [
+      "bl_hs",
+      "invoice_hs"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_HS_NOT_EXTRACTED": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -1200,6 +1289,30 @@
     ]
   },
   "DOC_IBL_NET_WEIGHT_VARIANCE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_NOTIFY_MATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_NOTIFY_MISMATCH": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_NOTIFY_NOT_EXTRACTED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_IBL_NOTIFY_PENDING_WARNING": {
     "params": [],
     "parts": [
       "note"
@@ -1488,13 +1601,37 @@
       "body"
     ]
   },
+  "DOC_TOL_ARITHMETIC": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "DOC_TOL_CONTAINERS_EXACT": {
     "params": [],
     "parts": [
       "note"
     ]
   },
+  "DOC_TOL_CURRENCY": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "DOC_TOL_EXACT": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_HS_CODE": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "DOC_TOL_ISO_CONTAINER": {
     "params": [],
     "parts": [
       "note"
@@ -2301,6 +2438,23 @@
       "reason"
     ]
   },
+  "IF_FILE_ALREADY_CLOSED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IF_FILE_ON_HOLD": {
+    "params": [
+      "hold_reason",
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "IF_STATUS_TRANSITION_INVALID": {
     "params": [
       "from",
@@ -2348,6 +2502,24 @@
     "params": [
       "assessment_code"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "ITEM_CODE_ALREADY_EXISTS": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "ITEM_NOT_FOUND": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "ITEM_SUPPLIER_LINK_EXISTS": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -4100,6 +4272,12 @@
       "note"
     ]
   },
+  "SUPPLIER_NOT_FOUND": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "SYSPARAM_INVALID_VALUE": {
     "params": [
       "param_key",
@@ -4113,6 +4291,12 @@
     "params": [
       "param_key"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "TARIFF_NOT_FOUND": {
+    "params": [],
     "parts": [
       "note"
     ]

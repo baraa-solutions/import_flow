@@ -303,7 +303,7 @@ class TestBE45Paging2AndRadar:
             return real_get_parameter(*args, **kwargs)
 
         with patch("modules.common.system_parameters.get_parameter", side_effect=counting_get_parameter), \
-             patch("modules.demurrage_detention.service.get_parameter", side_effect=counting_get_parameter):
+             patch("modules.demurrage_detention.demurrage_calculation_service.get_parameter", side_effect=counting_get_parameter):
             overview = get_containers_radar_overview_service(db_session)
             assert overview.total_containers_tracked == 5
 

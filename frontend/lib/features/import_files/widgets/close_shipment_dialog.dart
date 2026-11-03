@@ -52,8 +52,9 @@ class _CloseShipmentDialogState extends ConsumerState<CloseShipmentDialog> {
           ),
         ],
       ),
-      content: SizedBox(
-        width: 480,
+      content: SelectionArea(
+        child: SizedBox(
+          width: 480,
         child: Form(
           key: _formKey,
           child: Column(
@@ -102,7 +103,7 @@ class _CloseShipmentDialogState extends ConsumerState<CloseShipmentDialog> {
             ],
           ),
         ),
-      ),
+      )),
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.pop(context),
@@ -123,25 +124,25 @@ class _CloseShipmentDialogState extends ConsumerState<CloseShipmentDialog> {
                   if (_formKey.currentState!.validate()) {
                     setState(() => _isLoading = true);
                     final nav = Navigator.of(context);
-                    final messenger = ScaffoldMessenger.of(context);
                     try {
                       await ref.read(importFilesProvider.notifier).closeShipment(
                             widget.importFileId,
                             _reasonController.text.trim(),
                             widget.currentPhaseName,
                           );
-                      if (!mounted) return;
-                      messenger.showSnackBar(
-                        const SnackBar(
-                          content: Text('Closed'),
-                          backgroundColor: AppTheme.emerald,
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        AppTheme.snackBar(
+                          context,
+                          'Closed',
+                          severity: AppSeverity.success,
                         ),
                       );
                       nav.pop(true);
                     } catch (e) {
-                      if (!mounted) return;
-                      messenger.showSnackBar(
-                        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.crimson),
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        AppTheme.snackBar(context, 'Error: ', severity: AppSeverity.danger),
                       );
                     } finally {
                       if (mounted) setState(() => _isLoading = false);

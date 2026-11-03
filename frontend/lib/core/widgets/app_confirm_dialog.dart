@@ -142,7 +142,8 @@ abstract final class AppConfirmDialog {
           ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
+            child: SelectionArea(
+              child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -203,7 +204,8 @@ abstract final class AppConfirmDialog {
               ),
             ),
           ),
-        );
+        ),
+      );
       },
     );
     return result ?? false;

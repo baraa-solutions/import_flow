@@ -2,89 +2,78 @@
 # This file is used by Alembic to discover all tables for migrations and schema verification
 
 from modules.audit_logs.model import AuditLog
+from modules.bank_form4.model import BankForm4Record
+from modules.broker_custody.model import BrokerCustodyAdvance, BrokerExpenseItem
+from modules.cargo_insurance.model import CargoInsuranceCertificate
 from modules.cargo_shipping.model import CargoShippingRecord
+from modules.cargox.model import CargoXCustomsInvoiceTrack, CargoXEnvelope, CargoXEnvelopeDocument, CargoXStandardInvoiceReviewSession
 from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
-from modules.common.system_parameters import SystemParameter
+from modules.container_deposit.model import ContainerDepositLedger
 from modules.container_loader.model import ContainerLoaderSessionModel, ContainerSpecModel
 from modules.containers.model import ShipmentContainer
 from modules.currencies.model import Currency, ExchangeRate
-from modules.customs_clearance.model import CustomsClearanceRecord
-from modules.customs_clearance_quotations.model import (
-    ClearanceServicePriceListItem,
-    CustomsClearanceQuotationItem,
-    CustomsClearanceRFQ,
-)
-from modules.customs_consultation.model import (
-    BrokerPriceList,
-    BrokerPriceListItem,
-    ClearanceExpenseType,
-    CustomsBrokerQuoteItem,
-    CustomsChecklistItem,
-    CustomsConsultationSession,
-)
+from modules.custody_release.model import CustodyReleaseDossier
+from modules.customs_abandonment.model import CustomsAbandonmentRadar
+from modules.customs_clearance.model import ClearanceExpenseInvoice, ClearanceFollowupLog, CustomsClearanceRecord
+from modules.customs_clearance_quotations.model import ClearanceServicePriceListItem, CustomsClearanceQuotationItem, CustomsClearanceRFQ
+from modules.customs_consultation.model import BrokerPriceList, BrokerPriceListItem, ClearanceExpenseType, CustomsBrokerQuoteItem, CustomsChecklistItem, CustomsConsultationSession
 from modules.customs_tariff.model import CustomsTariff, FeeCode, PreferentialAgreement
-from modules.demurrage_detention.model import (
-    Carrier,
-    CarrierDemurrageRate,
-    DemurragePolicy,
-    DemurrageTracking,
-    Terminal,
-    TerminalStorageRate,
-)
+from modules.demurrage_detention.model import Carrier, CarrierDemurrageRate, DemurragePolicy, DemurrageTracking, Terminal, TerminalStorageRate
+from modules.docs_customs_approval.model import CustomsDocumentApproval, DiscrepancyRectificationTicket, DocsCustomsApprovalSession
 from modules.expense_catalog.model import ExpenseCatalog
+from modules.experience_guide.model import AutonomousPatternAuditLog, GuideEntry, GuideEntryScope
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.file_closure.model import ImportFileClosureRecord
-from modules.financial_approval.model import (
-    BudgetVarianceLog,
-    BudgetVarianceSetting,
-    ImportBudgetApproval,
-    OcrCorrectionsLog,
-    PaymentRequestSession,
-    SwiftExtractionBatch,
-    SwiftExtractionField,
-)
+from modules.financial_approval.model import BudgetVarianceLog, BudgetVarianceSetting, ImportBudgetApproval, OcrCorrectionsLog, PaymentRequestSession, SwiftExtractionBatch, SwiftExtractionField
 from modules.financial_settlement.model import LandedCostSettlementRecord, TaxRate
-from modules.freight_booking.model import ShipmentBooking
+from modules.formal_letters.model import FormalLetterRecord
+from modules.freight_booking.model import ShipmentBooking, ShipmentEtaTrackingLog
+from modules.freight_data_connector.model import DemurrageRule, ExternalApiQuotaLog, FreightIndexSnapshot, PortDemurrageTariff
 from modules.freight_quotations.model import FreightQuotationItem, FreightRFQRequest
 from modules.import_companies.model import ImportCompany
-from modules.import_documentation.model import (
-    AcidRegistrationSession,
-    BankingDocumentSession,
-    CertificateOfOriginReviewSession,
-    CustomsDeclarationDraft,
-    DraftBLReviewSession,
-    InspectionCertificateReviewSession,
-    InvoiceBLMatchSession,
-    POPackingReconciliationSession,
-    ShipmentDocumentItem,
-)
+from modules.import_documentation.model import AcidRegistrationSession, BankingDocumentSession, CertificateOfOriginReviewSession, CustomsDeclarationDraft, DraftBLReviewSession, InspectionCertificateReviewSession, InvoiceBLMatchSession, POPackingReconciliationSession, ShipmentDocumentItem
 from modules.import_files.model import ImportFile
 from modules.import_requirements.model import ImportRequirementAssessment
 from modules.incoterms.model import CostItem, Incoterm, IncotermResponsibility
-from modules.lifecycle_board.model import ShipmentStageActivity
-from modules.logistics_invoices.model import (
-    ClearanceAdvancePayment,
-    ClearanceAdvanceSettlement,
-    InsurancePolicy,
-    InvoiceKnockoff,
-    LogisticsInvoiceContainer,
-    LogisticsInvoiceLine,
-    LogisticsPaymentVoucher,
-    LogisticsServiceInvoice,
-)
+from modules.inland_transport.model import InlandTransportBooking
+from modules.inspection_appeals.model import InspectionAppeal
+from modules.lifecycle_board.model import PendingReferenceRecord, ShipmentStageActivity, ShipmentTimelineSnapshot, StepConfig, StepConfigAuditLog
+from modules.logistics_invoices.model import ClearanceAdvancePayment, ClearanceAdvanceSettlement, InsurancePolicy, InvoiceKnockoff, LogisticsInvoiceContainer, LogisticsInvoiceLine, LogisticsPaymentVoucher, LogisticsServiceInvoice
+from modules.master_items.model import ItemPriceHistory, ItemSupplierCatalog, MasterItem
 from modules.notifications.model import SystemNotification
+from modules.original_documents_collection.model import OriginalDocumentsCollectionSession
+from modules.port_storage.model import PortStorageAccrual, PortTerminalRate
+from modules.production_sync.model import ProductionSyncLog
 from modules.projects.model import Project
-from modules.purchase_orders.model import POLineItem, PackingListItem, PurchaseOrder
+from modules.purchase_orders.model import POLineItem, POShipmentAllocation, PackageType, PackingListItem, PurchaseOrder, UnitOfMeasure
+from modules.recalculation.model import RecalculationDependencyMap, RecalculationLog
+from modules.reexport_protocol.model import ReexportDossier
+from modules.route_intelligence.model import RouteOperationalNote
 from modules.shipment_updates.model import ShipmentUpdateLog
 from modules.shipping_scenarios.model import ShippingEvaluationSession, ShippingScenarioItem
+from modules.simulation.model import SavedSimulationScenario
+from modules.smart_checklists.model import ImportFileChecklistItem
 from modules.smart_document_upload.model import UploadSession
+from modules.smart_email_listener.model import EmailSettings, InboundEmailLog
 from modules.smart_tasks.model import SmartTask
+from modules.stage_notes.model import StageNote, StageNoteAttachment
 from modules.suppliers.model import Supplier
-from modules.transport_locations.model import TransportLocation
-from modules.users.model import User
-from modules.vessel_tracking.model import Vessel, VesselPositionLog, ShipmentVesselTracking
+from modules.transport_locations.model import City, Country, TransportLocation
+from modules.users.model import Permission, Role, RolePermission, User, UserPermission
+from modules.vessel_tracking.model import ShipmentVesselTracking, Vessel, VesselPositionLog
 from modules.warehouse_receiving.model import WarehouseReceivingRecord
-from modules.inspection_appeals.model import InspectionAppeal
-from modules.custody_release.model import CustodyReleaseDossier
-from modules.reexport_protocol.model import ReexportDossier
-from modules.container_deposit.model import ContainerDepositLedger
+from modules.logistics_rules.model import LogisticsOperationalRule
+
+from modules.customs_regimes.model import CustomsSpecialRegime
+from modules.trade_agreements.model import PreferentialOriginVerification
+from modules.legal_claims.model import CargoClaimAndReservation
+from modules.logistics_exceptions.model import LogisticsException
+from modules.deposits_recovery.model import RefundableDeposit
+from modules.vendor_quality.model import VendorQualityAndPSI
+from modules.container_tracking.model import ContainerLifecycleUnit, ContainerDemurrageCharge
+from modules.split_shipments.model import SplitShipmentAllocation
+from modules.multimodal_freight.model import MultimodalFreightDetails
+from modules.regulatory_matrix.model import HsCodeRegulatoryRequirement
+from modules.trade_finance.model import ImportFinanceInstrument, LcBankCharge, FxHedgingAndVariance
+from modules.broker_custody.model import CustomsBrokerAdvance, BrokerSettlementReceipt
+

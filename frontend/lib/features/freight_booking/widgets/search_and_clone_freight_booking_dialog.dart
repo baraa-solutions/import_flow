@@ -80,8 +80,9 @@ class _SearchAndCloneFreightBookingDialogState
   Widget build(BuildContext context) {
     final l = context.l10n;
 
-    return ShippingDialogFrame(
-      title: l.cloneFreightBookingDialogTitle,
+    return SelectionArea(
+      child: ShippingDialogFrame(
+        title: l.cloneFreightBookingDialogTitle,
       subtitle: l.cloneFreightBookingDialogSubtitle,
       icon: Icons.copy_all_rounded,
       child: Column(
@@ -138,6 +139,7 @@ class _SearchAndCloneFreightBookingDialogState
           ),
         ],
       ),
+    ),
     );
   }
 

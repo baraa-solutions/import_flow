@@ -52,6 +52,26 @@ class ImportRequirementHSCodeItem(BaseModel):
     coa_status: str = "Not Required"
     technical_notes: Optional[str] = None
 
+    # Advanced Operational Pillars per HS Code
+    cargox_verified: bool = False
+    ready_for_acid: bool = False
+    commodity_group_matched: bool = True
+    import_card_group_code: Optional[str] = None
+    is_shelflife_applicable: bool = False
+    shelf_life_total_days: Optional[int] = None
+    shelf_life_remaining_percent: Optional[float] = None
+    artwork_arabic_approved: Optional[bool] = None
+    labeling_notes: Optional[str] = None
+    sampling_required: bool = False
+    lab_type: Optional[str] = None
+    detention_allowed: bool = False
+    estimated_lab_fees: float = 0.0
+    cold_chain_required: bool = False
+    target_temperature: Optional[str] = None
+    data_logger_verified: bool = False
+    is_hazmat: bool = False
+    imo_class: Optional[str] = None
+
 
 class ImportRequirementBase(BaseModel):
     import_file_id: Optional[int] = None
@@ -119,6 +139,43 @@ class ImportRequirementBase(BaseModel):
     # Sailing & Shipping Progress (من إصدار ACID حتى الإبحار)
     sailing_status: Optional[str] = Field("Pre-Sailing", max_length=50) # Pre-Sailing, Cleared for Sailing, Sailed
     sailing_date: Optional[str] = None
+
+    # CargoX & Pre-ACID Readiness (الركيزة 1: التسجيل المسبق وجاهزية كارغو إكس)
+    cargox_verified: bool = False
+    cargox_status: str = Field("Not Verified")
+    ready_for_acid: bool = False
+    triple_match_status: str = Field("Pending")
+
+    # Import Card & Commodity Group (الركيزة 2: مطابقة المجموعات السلعية)
+    commodity_group_matched: bool = True
+    import_card_group_code: Optional[str] = None
+
+    # Adaptive Shelf-Life & Labeling (الركيزة 3: الصلاحية والملصق العربي المشروط)
+    is_shelflife_applicable: bool = False
+    shelf_life_total_days: Optional[int] = None
+    shelf_life_remaining_percent: Optional[float] = None
+    artwork_arabic_approved: Optional[bool] = None
+    labeling_notes: Optional[str] = None
+
+    # Testing & Physical Sampling (الركيزة 4: مسار الفحص والمعامل والإفراج تحت التحفظ)
+    sampling_required: bool = False
+    lab_type: Optional[str] = None
+    detention_allowed: bool = False
+    estimated_lab_fees: float = Field(0.0, ge=0.0)
+
+    # Special Logistics: Cold Chain & Hazmat (الركيزة 5: النقل المبرد والمواد الخطرة)
+    cold_chain_required: bool = False
+    target_temperature: Optional[str] = None
+    data_logger_verified: bool = False
+    is_hazmat: bool = False
+    imo_class: Optional[str] = None
+
+    # Governance: Maker-Checker & Overrides (الركيزة 6: حوكمة الصلاحيات والاعتماد المزدوج)
+    checker_user_id: Optional[int] = None
+    checker_approved: bool = False
+    checker_notes: Optional[str] = None
+    is_overridden: bool = False
+    override_reason: Optional[str] = None
 
     # Overall Assessment & Risk
     overall_status: str = Field("Draft")
@@ -188,6 +245,44 @@ class ImportRequirementUpdate(BaseModel):
     confirmed_by: Optional[str] = None
     sailing_status: Optional[str] = None
     sailing_date: Optional[str] = None
+
+    # CargoX & Pre-ACID
+    cargox_verified: Optional[bool] = None
+    cargox_status: Optional[str] = None
+    ready_for_acid: Optional[bool] = None
+    triple_match_status: Optional[str] = None
+
+    # Commodity Group
+    commodity_group_matched: Optional[bool] = None
+    import_card_group_code: Optional[str] = None
+
+    # Adaptive Shelf-Life & Labeling
+    is_shelflife_applicable: Optional[bool] = None
+    shelf_life_total_days: Optional[int] = None
+    shelf_life_remaining_percent: Optional[float] = None
+    artwork_arabic_approved: Optional[bool] = None
+    labeling_notes: Optional[str] = None
+
+    # Testing & Physical Sampling
+    sampling_required: Optional[bool] = None
+    lab_type: Optional[str] = None
+    detention_allowed: Optional[bool] = None
+    estimated_lab_fees: Optional[float] = None
+
+    # Special Logistics: Cold Chain & Hazmat
+    cold_chain_required: Optional[bool] = None
+    target_temperature: Optional[str] = None
+    data_logger_verified: Optional[bool] = None
+    is_hazmat: Optional[bool] = None
+    imo_class: Optional[str] = None
+
+    # Governance: Maker-Checker & Overrides
+    checker_user_id: Optional[int] = None
+    checker_approved: Optional[bool] = None
+    checker_notes: Optional[str] = None
+    is_overridden: Optional[bool] = None
+    override_reason: Optional[str] = None
+
     overall_status: Optional[str] = None
     risk_level: Optional[str] = None
     assessed_by: Optional[str] = None
@@ -249,8 +344,44 @@ class ImportRequirementPrefillResponse(BaseModel):
     coa_status: str = "Not Required"
     special_notes: Optional[str] = None
 
-    # System messages ({code, params}): PREFILL_NO_HS when no HS code was found (hs_code_items empty),
-    # PREFILL_LINE_NO_HS per PO line without a tariff. The client renders them from the code.
+    # CargoX & Pre-ACID Readiness
+    cargox_verified: bool = False
+    cargox_status: str = "Not Verified"
+    ready_for_acid: bool = False
+    triple_match_status: str = "Pending"
+
+    # Commodity Group Match
+    commodity_group_matched: bool = True
+    import_card_group_code: Optional[str] = None
+
+    # Adaptive Shelf-Life & Labeling
+    is_shelflife_applicable: bool = False
+    shelf_life_total_days: Optional[int] = None
+    shelf_life_remaining_percent: Optional[float] = None
+    artwork_arabic_approved: Optional[bool] = None
+    labeling_notes: Optional[str] = None
+
+    # Testing & Physical Sampling
+    sampling_required: bool = False
+    lab_type: Optional[str] = None
+    detention_allowed: bool = False
+    estimated_lab_fees: float = 0.0
+
+    # Special Logistics: Cold Chain & Hazmat
+    cold_chain_required: bool = False
+    target_temperature: Optional[str] = None
+    data_logger_verified: bool = False
+    is_hazmat: bool = False
+    imo_class: Optional[str] = None
+
+    # Governance: Maker-Checker & Overrides
+    checker_user_id: Optional[int] = None
+    checker_approved: bool = False
+    checker_notes: Optional[str] = None
+    is_overridden: bool = False
+    override_reason: Optional[str] = None
+
+    # System messages
     messages: List[SystemMessageItem] = []
 
 
@@ -264,4 +395,3 @@ class ImportRequirementResponse(ImportRequirementBase):
     updated_at: datetime
     created_by: str
     updated_by: str
-

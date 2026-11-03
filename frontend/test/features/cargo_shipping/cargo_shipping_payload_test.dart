@@ -16,4 +16,9 @@ void main() {
     expect(p.containsKey('owner'), isFalse);
     expect(p['lcl_tracking_data'], isNull);
   });
+  test('payload carries booking_id when provided', () {
+    final p = buildCargoShippingPayload(
+      importFileId: 1, shipmentType: 'FCL', containers: const [], isEdit: false, bookingId: 42);
+    expect(p['booking_id'], 42);
+  });
 }

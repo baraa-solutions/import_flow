@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/customs_consultation/models/customs_consultation_model.dart';
 import 'package:frontend/features/customs_consultation/widgets/extraction_confidence_indicator.dart';
 import 'package:frontend/features/customs_consultation/widgets/extraction_summary_dialog.dart';

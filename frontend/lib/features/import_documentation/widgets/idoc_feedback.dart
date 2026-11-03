@@ -1,10 +1,10 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../auth/providers/auth_provider.dart';
 
 /// Shared feedback helpers for the import-documentation tabs.
@@ -26,12 +26,7 @@ void showIdocError(BuildContext context, Object error, {String? title}) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppTheme.crimson,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 6),
-      ),
+      AppTheme.snackBar(context, message, severity: AppSeverity.danger),
     );
 }
 
@@ -39,11 +34,7 @@ void showIdocError(BuildContext context, Object error, {String? title}) {
 void showIdocMessage(BuildContext context, String message, {Color? color}) {
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(message),
-      backgroundColor: color ?? AppTheme.emerald,
-      behavior: SnackBarBehavior.floating,
-    ),
+    AppTheme.snackBar(context, message, severity: AppSeverity.success),
   );
 }
 

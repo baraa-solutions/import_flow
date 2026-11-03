@@ -121,6 +121,13 @@ class ShipmentTrackingResponse(BaseModel):
     current_zone: Optional[str] = None
     distance_remaining_nm: Optional[float] = None
 
+    # Demurrage & Detention Radar Integration Bridge
+    demurrage_tracking_id: Optional[int] = None
+    demurrage_tracking_code: Optional[str] = None
+    demurrage_status: Optional[str] = None
+    demurrage_discharge_date: Optional[str] = None
+    demurrage_clock_started: bool = False
+
     model_config = ConfigDict(from_attributes=True)
 
 

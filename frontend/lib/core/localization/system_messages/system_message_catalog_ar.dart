@@ -147,6 +147,10 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
     'body': 'تم إغلاق الملف الاستيرادي {import_file_code} رسمياً بنجاح بنسبة إنجاز 100%، وتم إصدار شهادة الإغلاق {closure_code} وحفظه في {archive_location}.',
     'note': 'تم الإغلاق النهائي للملف الاستيرادي وأرشفته (الكود: {closure_code}) بواسطة {auditor_name}.',
   },
+  'CLO_FILE_REOPENED': {
+    'title': 'إعادة فتح الشحنة: {import_file_code}',
+    'body': 'تمت إعادة فتح الملف الاستيرادي {import_file_code} رسمياً بواسطة المشرف {reopened_by}. السبب: {justification}',
+  },
   'CLO_TASK_OFFICIAL_CLOSURE': {
     'title': 'الإغلاق الرسمي والأرشفة الرقمية للملف (CLO-04)',
     'body': 'تم تصدير واعتماد الملف الشامل للشحنة {import_file_code} بنجاح بصيغة {export_format}. المطلوب الآن استكمال قائمة التحقق النهائية وإصدار شهادة الإغلاق والأرشفة الرقمية.',
@@ -1105,6 +1109,12 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'DOC_IBL_ACID_NOT_EXTRACTED': {
     'note': 'لم يتم استخراج رقم ACID من الفاتورة أو البوليصة.',
   },
+  'DOC_IBL_ARITHMETIC_MATCH': {
+    'note': 'إعادة الحساب الرياضي لبنود الفاتورة مطابقة تماماً للإجمالي ({total_amount} {currency})',
+  },
+  'DOC_IBL_ARITHMETIC_MISMATCH': {
+    'note': 'فارق حسابي: مجموع البنود المحسوب ({calculated_amount}) يختلف عن الإجمالي المعلن ({total_amount})',
+  },
   'DOC_IBL_CONSIGNEE_MATCH': {
     'note': 'اسم المستورد متطابق قانونياً',
   },
@@ -1114,17 +1124,38 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'DOC_IBL_CONSIGNEE_NOT_EXTRACTED': {
     'note': 'تعذر استخراج اسم المستورد/المرسل إليه.',
   },
+  'DOC_IBL_CURRENCY_MATCH': {
+    'note': 'العملة موحدة ومطابقة عبر بنود الفاتورة والنظام ({currency})',
+  },
+  'DOC_IBL_CURRENCY_MISMATCH': {
+    'note': 'تضارب في العملة: الفاتورة ({invoice_currency}) تختلف عن ملف الشحنة ({system_currency})',
+  },
   'DOC_IBL_CONTAINERS_MATCH': {
     'note': 'أرقام الحاويات مطابقة تماماً',
   },
   'DOC_IBL_CONTAINERS_MISMATCH': {
     'note': 'عدم تطابق في أرقام الحاويات المسجلة بالفاتورة مع البوليصة.',
   },
+  'DOC_IBL_CONTAINERS_DUMMY': {
+    'note': 'تم رصد رقم حاوية مؤقت أو وهمي ({container_no}) يلزم تأكيد الرقم النهائي قبل الإدراج الجمركي',
+  },
+  'DOC_IBL_CONTAINERS_ISO_INVALID': {
+    'note': 'رقم الحاوية ({container_no}) غير مطابق لرقم التحقق بمعيار ISO 6346 الدولي',
+  },
   'DOC_IBL_GROSS_WEIGHT_EXCEEDS': {
     'note': 'فارق الوزن القائم يتجاوز نسبة التسامح المسموحة جمركياً.',
   },
   'DOC_IBL_GROSS_WEIGHT_MATCH': {
     'note': 'الوزن القائم متطابق وضمن النطاق المسموح به (<= {tolerance_pct}%)',
+  },
+  'DOC_IBL_HS_MATCH': {
+    'note': 'كود البند الجمركي متطابق عبر المستندات والنظام',
+  },
+  'DOC_IBL_HS_MISMATCH': {
+    'note': 'اختلاف في كود البند الجمركي بين الفاتورة ({invoice_hs}) والبوليصة ({bl_hs})',
+  },
+  'DOC_IBL_HS_NOT_EXTRACTED': {
+    'note': 'لم يتم استخراج كود البند الجمركي من أحد المستندات',
   },
   'DOC_IBL_INCOTERMS_COHERENT': {
     'note': 'شرط التسليم {incoterm} متوافق مع سداد النولون ({freight_terms})',
@@ -1134,6 +1165,18 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'DOC_IBL_NET_WEIGHT_VARIANCE': {
     'note': 'يوجد فارق في الوزن الصافي بين الفاتورة ومسودة البوليصة.',
+  },
+  'DOC_IBL_NOTIFY_MATCH': {
+    'note': 'بيانات الطرف المخطر متطابقة مع المستورد والمستندات',
+  },
+  'DOC_IBL_NOTIFY_MISMATCH': {
+    'note': 'اختلاف في بيانات الطرف المخطر بين الفاتورة وبوليصة الشحن',
+  },
+  'DOC_IBL_NOTIFY_NOT_EXTRACTED': {
+    'note': 'لم يتم استخراج بيانات الطرف المخطر من بوليصة الشحن',
+  },
+  'DOC_IBL_NOTIFY_PENDING_WARNING': {
+    'note': 'الطرف المخطر يحتوي على عبارات معلقة (Please Advise / TBA) يلزم تعديلها وتأكيدها',
   },
   'DOC_IBL_PACKAGES_MATCH': {
     'note': 'عدد الطرود والبالتات متطابق تماماً',
@@ -1174,11 +1217,23 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'DOC_INSPECTION_VALUE_NOT_FOUND': {
     'note': 'لم يتم العثور على القيمة في مسودة شهادة الفحص المرفوعة',
   },
+  'DOC_TOL_ARITHMETIC': {
+    'note': 'دقة حسابية لبنود الفاتورة',
+  },
   'DOC_TOL_CONTAINERS_EXACT': {
     'note': '0% (مطابقة تامة لأرقام الحاويات)',
   },
+  'DOC_TOL_CURRENCY': {
+    'note': '0% (تطابق تام للعملة)',
+  },
   'DOC_TOL_EXACT': {
     'note': '0% (مطابقة حتمية تامة)',
+  },
+  'DOC_TOL_HS_CODE': {
+    'note': 'مطابقة تصنيف البند الجمركي',
+  },
+  'DOC_TOL_ISO_CONTAINER': {
+    'note': 'معيار ISO 6346 وفحص الحاويات المؤقتة',
   },
   'DOC_TOL_PACKAGES_EXACT': {
     'note': '0% (مطابقة عدد الطرود)',
@@ -1470,6 +1525,30 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'CC_RELEASE_QUARANTINE_LOCKED': {
     'note': 'لا يمكن إصدار الإفراج النهائي طالما {clearance_code} تحت قفل الحجر المعملي.',
+  },
+  'CC_REGULATORY_REQUIREMENTS_NOT_MET': {
+    'note': 'لا يمكن إصدار الإفراج الجمركي: لم تكتمل موافقات الجهات الرقابية أو فحص ومعاينة البضاعة (GOEIC / سلامة الغذاء / الفحص الفني).',
+  },
+  'IF_FILE_ON_HOLD': {
+    'note': 'ملف الشحنة {import_file_code} معلق ({hold_reason})؛ استأنف الملف قبل متابعة الإجراء.',
+  },
+  'IF_FILE_ALREADY_CLOSED': {
+    'note': 'ملف الشحنة {import_file_code} مغلق بالفعل.',
+  },
+  'ITEM_CODE_ALREADY_EXISTS': {
+    'note': 'كود الصنف مسجل بالفعل في دليل الأصناف.',
+  },
+  'ITEM_NOT_FOUND': {
+    'note': 'الصنف غير مسجل أو محذوف.',
+  },
+  'ITEM_SUPPLIER_LINK_EXISTS': {
+    'note': 'هذا الصنف مرتبط بالفعل بهذا المورد في كتالوج الأسعار.',
+  },
+  'SUPPLIER_NOT_FOUND': {
+    'note': 'المورد الأجنبي غير موجود في الدليل.',
+  },
+  'TARIFF_NOT_FOUND': {
+    'note': 'بند التعريفة الجمركية غير موجود أو غير مفعل.',
   },
   'CC_LAB_RESULT_ALREADY_FINAL': {
     'note': 'تم تسجيل نتيجة المعمل ورفع الحجر بالفعل، أو تم الإفراج النهائي عن الشحنة ({clearance_status}).',

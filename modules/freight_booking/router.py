@@ -19,6 +19,8 @@ from modules.freight_booking.schemas import (
     ShipmentEtaTrackingLogCreate,
     ShipmentEtaTrackingLogResponse,
     ConfirmAtaRequest,
+    AirWeightCalculationRequest,
+    AirWeightCalculationResponse,
 )
 import modules.freight_booking.service as service
 
@@ -197,3 +199,14 @@ def confirm_port_arrival(
 ):
     return service.confirm_ata_service(db, booking_id, payload, user=current_user.username)
 
+
+@router.post(
+    "/calculate-air-weight",
+    response_model=AirWeightCalculationResponse,
+    summary="Calculate Air Freight volumetric and chargeable weight based on IATA rules",
+)
+def calculate_air_weight(
+    payload: AirWeightCalculationRequest,
+    current_user: User = Depends(require_permission("freight_booking.view")),
+):
+    return service.calculate_air_weight_service(payload)

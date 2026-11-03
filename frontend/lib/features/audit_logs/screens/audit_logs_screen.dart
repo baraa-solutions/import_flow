@@ -4,10 +4,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/widgets/page_header.dart';
-import '../../../core/widgets/action_toolbar.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/audit_log_model.dart';
 import '../providers/audit_logs_provider.dart';
 import '../widgets/row_history_dialog.dart';
@@ -299,7 +296,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             // Data Table Content
             Expanded(
               child: logsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
+                loading: () => const AppLoadingState(),
                 error: (err, stack) => Center(
                   child: Text(l10n.auditLogsFetchError(err.toString()), style: const TextStyle(color: AppTheme.crimson)),
                 ),

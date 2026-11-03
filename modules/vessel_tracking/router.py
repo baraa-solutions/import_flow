@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
 from modules.users.model import User
 from modules.vessel_tracking.schemas import (
     VesselCreate,
@@ -124,6 +125,29 @@ def confirm_port_arrival(
         return service.confirm_vessel_port_arrival(
             import_file_id=import_file_id,
             actual_arrival_date=actual_date,
+            user=current_user.username,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+
+@router.post(
+    "/sync-demurrage/{import_file_id}",
+    response_model=ShipmentTrackingResponse,
+    summary="Synchronize vessel arrival with Demurrage & Detention Radar to trigger free days clock",
+)
+def sync_demurrage_clock(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargo_shipping.update")),
+):
+    service = VesselTrackingService(db)
+    try:
+        return service.sync_vessel_demurrage_clock(
+            import_file_id=import_file_id,
             user=current_user.username,
         )
     except ValueError as e:

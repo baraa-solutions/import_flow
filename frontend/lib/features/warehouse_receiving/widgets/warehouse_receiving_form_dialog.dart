@@ -211,7 +211,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<WarehouseReceivin
     final messenger = ScaffoldMessenger.of(context);
     if (!_formKey.currentState!.validate()) return;
     if (_lines.isEmpty) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.wrNoLinesValidator), backgroundColor: AppTheme.crimson));
+      messenger.showSnackBar(AppTheme.snackBar(context, l10n.wrNoLinesValidator, severity: AppSeverity.danger));
       return;
     }
     setState(() => _isLoading = true);
@@ -240,12 +240,14 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<WarehouseReceivin
       }
 
       nav.pop();
+      if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text(l10n.warehouseReceivingFinalSuccessSnack), backgroundColor: AppTheme.emerald),
+        AppTheme.snackBar(context, l10n.warehouseReceivingFinalSuccessSnack, severity: AppSeverity.success),
       );
     } catch (e) {
+      if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text(ApiErrorText.of(l10n, e)), backgroundColor: AppTheme.crimson),
+        AppTheme.snackBar(context, ApiErrorText.of(l10n, e), severity: AppSeverity.danger),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -411,7 +413,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<WarehouseReceivin
         onPressed: () {
           setState(() => _alertSentToWarehouse = true);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.warehouseReceivingDispatchSuccessSnack), backgroundColor: AppTheme.emerald),
+            AppTheme.snackBar(context, l10n.warehouseReceivingDispatchSuccessSnack, severity: AppSeverity.success),
           );
         },
       ),

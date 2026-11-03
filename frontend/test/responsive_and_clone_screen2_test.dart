@@ -17,6 +17,7 @@ import 'package:frontend/features/purchase_orders/models/purchase_order_model.da
 import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 import 'package:frontend/features/purchase_orders/screens/purchase_orders_screen.dart';
 import 'package:frontend/features/purchase_orders/widgets/po_form_dialog.dart';
+import 'package:frontend/features/purchase_orders/widgets/po_mobile_cards_view.dart';
 
 class _MockHttpAdapter implements HttpClientAdapter {
   @override
@@ -241,8 +242,8 @@ void main() {
       expect(find.byIcon(Icons.attach_money), findsWidgets);
 
       // Verify DataTable rendered on desktop with persistent scrollbars
-      // Pinned header DataTable + scrolling body DataTable (sticky-header layout).
-      expect(find.byType(DataTable), findsNWidgets(2));
+      // Unified EnterpriseDataTable
+      expect(find.byType(DataTable), findsWidgets);
       expect(find.byType(Scrollbar), findsWidgets);
       expect(tester.takeException(), isNull);
     });
@@ -256,8 +257,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Industrial Valves Lot A'), findsOneWidget);
-      // Pinned header DataTable + scrolling body DataTable (sticky-header layout).
-      expect(find.byType(DataTable), findsNWidgets(2));
+      // Unified EnterpriseDataTable
+      expect(find.byType(DataTable), findsWidgets);
       expect(find.byType(Scrollbar), findsWidgets);
       expect(tester.takeException(), isNull);
     });
@@ -272,8 +273,13 @@ void main() {
 
       // On mobile (< 768px), DataTable should be replaced by stacked cards
       expect(find.byType(DataTable), findsNothing);
-      expect(find.text('Industrial Valves Lot A'), findsOneWidget);
-      expect(find.text('Electrical Switchboards'), findsOneWidget);
+      // Each stacked card now also embeds a compact fulfillment progress widget that repeats
+      // the PO name, so scope to the tappable card title (the InkWell that opens the PO).
+      final mobileCards = find.byType(PoMobileCardsView);
+      expect(mobileCards, findsOneWidget);
+      final cardTitles = find.descendant(of: mobileCards, matching: find.byType(InkWell));
+      expect(find.descendant(of: cardTitles, matching: find.text('Industrial Valves Lot A')), findsOneWidget);
+      expect(find.descendant(of: cardTitles, matching: find.text('Electrical Switchboards')), findsOneWidget);
 
       expect(tester.takeException(), isNull);
     });

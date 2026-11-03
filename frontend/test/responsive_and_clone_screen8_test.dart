@@ -584,7 +584,7 @@ void main() {
     });
 
     testWidgets('Task F: Row-Level Clone on Linked POs duplicates allocation item', (tester) async {
-      final size = const Size(1400, 900);
+      const size = Size(1400, 900);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -600,7 +600,7 @@ void main() {
 
       // Verify linked PO is loaded
       expect(find.text('Alpha Project'), findsOneWidget);
-      final clonePoBtn = find.byIcon(Icons.copy_rounded).first;
+      final clonePoBtn = find.byTooltip('Clone PO Allocation');
       expect(clonePoBtn, findsOneWidget);
 
       await tester.ensureVisible(clonePoBtn);

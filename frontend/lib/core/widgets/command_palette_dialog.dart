@@ -164,9 +164,10 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
       child: Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: Container(
-          width: dialogWidth,
-          height: dialogHeight,
+        child: SelectionArea(
+          child: Container(
+            width: dialogWidth,
+            height: dialogHeight,
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1B232E) : Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -478,8 +479,9 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildShortcutHint(bool isDark, String keyText, String label) {
     return Row(

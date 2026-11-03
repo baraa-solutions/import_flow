@@ -218,7 +218,7 @@ void main() {
       // Check Tab 0 headers and fields
       expect(find.text('تجهيز الشحن ومتابعة التحميل'), findsWidgets);
       expect(find.text('سجل متابعة الشحنات والتحميل'), findsWidgets);
-      expect(find.text('⚡ محاكاة ذكية (Smart Simulation) ⚡'), findsOneWidget);
+      expect(find.text('⚡ محاكاة تشغيلية ذكية ⚡'), findsOneWidget);
 
       // Switch to Tab 1 (Saved Cargo Registry)
       await tester.tap(find.text('سجل متابعة الشحنات والتحميل').first);
@@ -325,7 +325,7 @@ void main() {
 
       expect(find.text('تسجيل ومتابعة شحنة جديدة'), findsOneWidget);
       expect(find.text('بحث واستنساخ شحنة سابقة'), findsOneWidget);
-      expect(find.text('نسخ كجدول (TSV)'), findsOneWidget);
+      expect(find.text('نسخ كجدول بيانات'), findsOneWidget);
       expect(find.text('تصدير سجل الشحنات إلى Excel'), findsOneWidget);
       expect(find.text('تصدير سجل الشحنات إلى PDF'), findsOneWidget);
 

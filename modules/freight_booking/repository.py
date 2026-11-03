@@ -34,6 +34,15 @@ def create_booking(db: Session, payload: ShipmentBookingCreate, owner: str, user
         shipping_line_id=payload.shipping_line_id,
         shipping_line_name=payload.shipping_line_name,
         shipment_type=payload.shipment_type,
+        transport_mode=payload.transport_mode or "SEA_FCL",
+        master_air_waybill=payload.master_air_waybill,
+        house_air_waybill=payload.house_air_waybill,
+        flight_number=payload.flight_number,
+        airline_code=payload.airline_code,
+        airport_terminal_name=payload.airport_terminal_name,
+        cfs_terminal_name=payload.cfs_terminal_name,
+        stripping_fees_egp=payload.stripping_fees_egp or 0.0,
+        chargeable_weight_kg=payload.chargeable_weight_kg or 0.0,
         pol_location_id=payload.pol_location_id,
         pol_name=payload.pol_name,
         pod_location_id=payload.pod_location_id,
@@ -101,7 +110,12 @@ def list_bookings(
             (ShipmentBooking.booking_confirmation_no.like(pattern)) |
             (ShipmentBooking.bill_of_lading_no.like(pattern)) |
             (ShipmentBooking.vessel_name.like(pattern)) |
-            (ShipmentBooking.freight_forwarder_name.like(pattern))
+            (ShipmentBooking.freight_forwarder_name.like(pattern)) |
+            (ShipmentBooking.master_air_waybill.like(pattern)) |
+            (ShipmentBooking.house_air_waybill.like(pattern)) |
+            (ShipmentBooking.flight_number.like(pattern)) |
+            (ShipmentBooking.airport_terminal_name.like(pattern)) |
+            (ShipmentBooking.cfs_terminal_name.like(pattern))
         )
     total = query.count()
     items = query.order_by(ShipmentBooking.created_at.desc()).offset(skip).limit(limit).all()

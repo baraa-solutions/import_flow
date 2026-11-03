@@ -1,8 +1,8 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../models/update_models.dart';
 import '../providers/app_update_providers.dart';
 import 'update_rollback_dialog.dart';
@@ -46,32 +46,24 @@ class _PostUpdateNoticeState extends ConsumerState<PostUpdateNotice> {
     if (messenger == null) return;
     final isRollback = result.isRollback;
     if (result.result == UpdateResultKind.success) {
-      messenger.showSnackBar(SnackBar(
-        content: Text(isRollback
+      messenger.showSnackBar(AppTheme.snackBar(context, isRollback
             ? l.updateRollbackSucceeded(result.toVersion ?? '')
-            : l.updateSucceeded(result.toVersion ?? '')),
-        backgroundColor: AppTheme.emerald,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 6),
-      ));
+            : l.updateSucceeded(result.toVersion ?? ''), severity: AppSeverity.success,
+            duration: const Duration(seconds: 6)));
       return;
     }
     if (isRollback) {
       // A failed rollback never offers another rollback.
       final detail = result.detail;
-      messenger.showSnackBar(SnackBar(
-        content: Text(detail == null ? l.updateRollbackFailed : '${l.updateRollbackFailed}: $detail'),
-        backgroundColor: AppTheme.crimson,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 12),
-      ));
+      messenger.showSnackBar(AppTheme.snackBar(context, detail == null ? l.updateRollbackFailed : '${l.updateRollbackFailed}: $detail', severity: AppSeverity.danger,
+          duration: const Duration(seconds: 12)));
       return;
     }
     final canRollback = ref.read(canInstallUpdatesProvider);
-    messenger.showSnackBar(SnackBar(
-      content: Text('${l.updateFailed}. ${l.updateFailedRollbackHint}'),
-      backgroundColor: AppTheme.crimson,
-      behavior: SnackBarBehavior.floating,
+    messenger.showSnackBar(AppTheme.snackBar(
+      context,
+      '${l.updateFailed}. ${l.updateFailedRollbackHint}',
+      severity: AppSeverity.danger,
       duration: const Duration(seconds: 12),
       action: canRollback
           ? SnackBarAction(

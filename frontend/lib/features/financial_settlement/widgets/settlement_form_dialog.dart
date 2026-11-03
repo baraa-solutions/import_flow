@@ -223,10 +223,15 @@ class _SettlementFormDialogState extends ConsumerState<SettlementFormDialog> {
       await ref.read(financialSettlementProvider.notifier).createSettlement(payload);
       nav.pop();
     } catch (e) {
-      messenger.showSnackBar(SnackBar(
-        content: Text(l10n.financialSettlementSaveError(ApiErrorText.of(l10n, e))),
-        backgroundColor: AppTheme.crimson,
-      ));
+      if (mounted) {
+        messenger.showSnackBar(
+          AppTheme.snackBar(
+            context,
+            l10n.financialSettlementSaveError(ApiErrorText.of(l10n, e)),
+            severity: AppSeverity.danger,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

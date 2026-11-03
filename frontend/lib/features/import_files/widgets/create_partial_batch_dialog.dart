@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
 
@@ -78,21 +79,20 @@ class _CreatePartialBatchDialogState extends ConsumerState<CreatePartialBatchDia
       if (mounted) {
         Navigator.of(context).pop(created);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم إنشاء ملف الدفعة الجزئية بنجاح: ${created?.importFileCode ?? ""}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            backgroundColor: AppTheme.emerald,
+          AppTheme.snackBar(
+            context,
+            'تم إنشاء ملف الدفعة الجزئية بنجاح: ${created?.importFileCode ?? ""}',
+            severity: AppSeverity.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل إنشاء الدفعة الجزئية: $e'),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            'فشل إنشاء الدفعة الجزئية: $e',
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -108,7 +108,8 @@ class _CreatePartialBatchDialogState extends ConsumerState<CreatePartialBatchDia
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
+      child: SelectionArea(
+        child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 680, maxHeight: 720),
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -257,8 +258,9 @@ class _CreatePartialBatchDialogState extends ConsumerState<CreatePartialBatchDia
                           children: [
                             // Shipment Mode
                             Expanded(
-                              child: DropdownButtonFormField<String>(
-                                initialValue: _shipmentMode,
+                              child: SearchableDropdownField<String>(
+                                value: _shipmentMode,
+                                labelText: 'طريقة الشحن للدفعة',
                                 decoration: InputDecoration(
                                   labelText: 'طريقة الشحن للدفعة',
                                   prefixIcon: const Icon(Icons.local_shipping_outlined, size: 20),
@@ -266,11 +268,11 @@ class _CreatePartialBatchDialogState extends ConsumerState<CreatePartialBatchDia
                                   isDense: true,
                                 ),
                                 items: const [
-                                  DropdownMenuItem(value: 'Sea FCL', child: Text('Sea FCL (حاوية كاملة)')),
-                                  DropdownMenuItem(value: 'Sea LCL', child: Text('Sea LCL (شحنة مجزأة)')),
-                                  DropdownMenuItem(value: 'Air', child: Text('Air (شحن جوي)')),
-                                  DropdownMenuItem(value: 'Land', child: Text('Land (شحن بري)')),
-                                  DropdownMenuItem(value: 'Courier', child: Text('Courier (بريد سريع)')),
+                                  SearchableDropdownItem<String>(value: 'Sea FCL', label: 'Sea FCL (حاوية كاملة)'),
+                                  SearchableDropdownItem<String>(value: 'Sea LCL', label: 'Sea LCL (شحنة مجزأة)'),
+                                  SearchableDropdownItem<String>(value: 'Air', label: 'Air (شحن جوي)'),
+                                  SearchableDropdownItem<String>(value: 'Land', label: 'Land (شحن بري)'),
+                                  SearchableDropdownItem<String>(value: 'Courier', label: 'Courier (بريد سريع)'),
                                 ],
                                 onChanged: (val) {
                                   if (val != null) setState(() => _shipmentMode = val);
@@ -296,8 +298,9 @@ class _CreatePartialBatchDialogState extends ConsumerState<CreatePartialBatchDia
                         const SizedBox(height: 14),
 
                         // Starting Lifecycle Step
-                        DropdownButtonFormField<String>(
-                          initialValue: _startingStep,
+                        SearchableDropdownField<String>(
+                          value: _startingStep,
+                          labelText: 'نقطة انطلاق دورة الحياة للدفعة',
                           decoration: InputDecoration(
                             labelText: 'نقطة انطلاق دورة الحياة للدفعة',
                             prefixIcon: const Icon(Icons.flag_outlined, size: 20),
@@ -305,7 +308,7 @@ class _CreatePartialBatchDialogState extends ConsumerState<CreatePartialBatchDia
                             isDense: true,
                           ),
                           items: _availableSteps.map((s) {
-                            return DropdownMenuItem(value: s['code'], child: Text(s['label']!));
+                            return SearchableDropdownItem<String>(value: s['code']!, label: s['label']!);
                           }).toList(),
                           onChanged: (val) {
                             if (val != null) setState(() => _startingStep = val);
@@ -365,6 +368,7 @@ class _CreatePartialBatchDialogState extends ConsumerState<CreatePartialBatchDia
             ),
           ),
         ),
+      ),
       ),
     );
   }

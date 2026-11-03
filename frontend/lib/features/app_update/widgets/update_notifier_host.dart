@@ -1,10 +1,10 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../models/update_models.dart';
 import '../providers/app_update_providers.dart';
 import 'update_dialog.dart';
@@ -94,10 +94,10 @@ class _UpdateNotifierHostState extends ConsumerState<UpdateNotifierHost> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
     final l = context.l10n;
-    messenger.showSnackBar(SnackBar(
-      content: Text(l.updateReadySnack(version)),
-      backgroundColor: AppTheme.emerald,
-      behavior: SnackBarBehavior.floating,
+    messenger.showSnackBar(AppTheme.snackBar(
+      context,
+      l.updateReadySnack(version),
+      severity: AppSeverity.success,
       duration: const Duration(seconds: 10),
       action: SnackBarAction(
         key: UpdateNotifierHost.readySnackInstallKey,

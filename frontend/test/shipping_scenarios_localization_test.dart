@@ -12,7 +12,7 @@ void main() {
       expect(lAr.extractFreightQuotes, equals('استخراج عروض أسعار النولون'));
       expect(lAr.studySetupAndParameters, equals('إعدادات ومعلمات دراسة الشحن'));
       expect(lAr.studyTitleLabel, equals('مسمى دراسة خيارات الشحن'));
-      expect(lAr.crdLabel, equals('تاريخ جاهزية البضاعة (CRD)'));
+      expect(lAr.crdLabel, equals('تاريخ جاهزية البضاعة'));
       expect(lAr.pickupAddressLabel, equals('عنوان الاستلام / المصنع'));
       expect(lAr.avgForm4DaysLabel, equals('أيام نموذج 4 المتوقعة'));
       expect(lAr.avgClearanceDaysLabel, equals('أيام التخليص الجمركي المتوقعة'));
@@ -167,7 +167,7 @@ void main() {
       expect(lAr.avgDaysFromReadiness(15), equals('خلال 15 يوم من الجاهزية'));
       expect(lEn.avgDaysFromReadiness(15), equals('Within 15 days of readiness'));
 
-      expect(lAr.totalContainersCount(3, 2, 1), equals('إجمالي عدد الحاويات المطبقة = 3 (40ft: 2 | 20ft: 1)'));
+      expect(lAr.totalContainersCount(3, 2, 1), equals('إجمالي عدد الحاويات المطبقة = 3 (حاوية 40 قدم: 2 | حاوية 20 قدم: 1)'));
       expect(lEn.totalContainersCount(3, 2, 1), equals('Total Applied Containers = 3 (40ft: 2 | 20ft: 1)'));
 
       // Check pure English for English strings

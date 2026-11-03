@@ -116,5 +116,36 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
       throw Exception('Failed to delete requirement: $e');
     }
   }
-}
 
+  /// Evaluates whether an HS Code is subject to adaptive shelf-life & consumer labeling rules.
+  /// Chapters 01-24: Food & Agricultural
+  /// Chapter 30: Pharmaceuticals & Medical Supplies
+  /// Chapter 33: Cosmetics & Essential Oils
+  /// Chapter 38: Chemical products with finite shelf-life
+  static bool isPerishableOrConsumerGoods(String hsCode) {
+    final clean = hsCode.replaceAll('.', '').trim();
+    if (clean.length < 2) return false;
+    final prefix = clean.substring(0, 2);
+    final prefixNum = int.tryParse(prefix);
+    if (prefixNum != null && prefixNum >= 1 && prefixNum <= 24) return true;
+    return prefix == '30' || prefix == '33' || prefix == '38';
+  }
+
+  /// Validates whether the HS Code is covered in the company's import card commodity groups.
+  static bool isCommodityGroupCovered(String hsCode, List<String> registeredGroups) {
+    if (registeredGroups.isEmpty) return true; // Default permissive if not configured
+    final clean = hsCode.replaceAll('.', '').trim();
+    if (clean.length < 2) return true;
+    final chapter = clean.substring(0, 2);
+    return registeredGroups.any((g) => g.contains(chapter) || g.contains(clean.substring(0, clean.length >= 4 ? 4 : 2)));
+  }
+
+  /// Determines whether the shipment is cleared and ready for ACID application on Nafeza/CargoX.
+  static bool assessPreAcidReadiness({
+    required bool cargoxVerified,
+    required bool decree43Ok,
+    required bool commodityGroupMatched,
+  }) {
+    return cargoxVerified && decree43Ok && commodityGroupMatched;
+  }
+}

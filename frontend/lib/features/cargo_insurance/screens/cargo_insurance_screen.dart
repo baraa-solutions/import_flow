@@ -21,7 +21,9 @@ import '../models/cargo_insurance_model.dart';
 import '../providers/cargo_insurance_provider.dart';
 import '../widgets/insurance_certificates_table.dart';
 import '../widgets/insurance_details_dialog.dart';
+import '../widgets/damage_claim_dialog.dart';
 import '../widgets/insurance_form_dialog.dart';
+import '../widgets/insurance_policy_card.dart';
 
 class CargoInsuranceScreen extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -111,9 +113,45 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
     );
   }
 
+  void _showPolicyCardDialog(CargoInsuranceModel certificate) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: InsurancePolicyCard(
+            policy: certificate,
+            onViewDetails: () {
+              Navigator.of(context).pop();
+              _showViewCertificateDialog(certificate);
+            },
+            onFileClaim: () {
+              Navigator.of(context).pop();
+              showDialog(
+                context: context,
+                builder: (ctx) => DamageClaimDialog(
+                  importFileId: certificate.importFileId ?? widget.initialImportFileId,
+                  initialPolicyNumber: certificate.policyNumber ?? certificate.certificateCode,
+                  initialCurrency: certificate.currency,
+                ),
+              );
+            },
+            onPrint: () {
+              Navigator.of(context).pop();
+              _showViewCertificateDialog(certificate);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final certificatesAsync = ref.watch(cargoInsuranceProvider);
 
     if (widget.isEmbedded) {
@@ -149,6 +187,17 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
       selectedImportFileId: widget.initialImportFileId,
       onShipmentStatusChanged: _refreshData,
       headerActions: [
+        AppButton(
+          label: isAr ? 'مطالبة هوالك' : 'Damage Claim',
+          icon: Icons.assignment_late_outlined,
+          variant: AppButtonVariant.danger,
+          size: AppButtonSize.small,
+          onPressed: () => showDialog(
+            context: context,
+            builder: (ctx) => DamageClaimDialog(importFileId: widget.initialImportFileId),
+          ),
+        ),
+        const SizedBox(width: 8),
         AppButton(
           label: l.insuranceAiExtractorBtn,
           icon: Icons.auto_awesome_rounded,
@@ -275,6 +324,16 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                     runSpacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
+                      CcUi.fit(AppButton(
+                        label: isAr ? 'مطالبة هوالك' : 'Damage Claim',
+                        icon: Icons.assignment_late_outlined,
+                        variant: AppButtonVariant.danger,
+                        size: AppButtonSize.small,
+                        onPressed: () => showDialog(
+                          context: context,
+                          builder: (ctx) => DamageClaimDialog(importFileId: widget.initialImportFileId),
+                        ),
+                      )),
                       CcUi.fit(AppButton(
                         label: l.insuranceNewCertificateBtn,
                         icon: Icons.add_moderator_rounded,
@@ -435,6 +494,15 @@ class _CargoInsuranceScreenState extends ConsumerState<CargoInsuranceScreen> {
                           importFiles: importFiles,
                           isArabic: isAr,
                           onView: _showViewCertificateDialog,
+                          onViewPolicyCard: _showPolicyCardDialog,
+                          onFileClaim: (cert) => showDialog(
+                            context: context,
+                            builder: (ctx) => DamageClaimDialog(
+                              importFileId: cert.importFileId ?? widget.initialImportFileId,
+                              initialPolicyNumber: cert.policyNumber ?? cert.certificateCode,
+                              initialCurrency: cert.currency,
+                            ),
+                          ),
                           onEdit: _showAddEditCertificateDialog,
                           onDelete: _confirmDeleteCertificate,
                           onIssue: _confirmIssueCertificate,

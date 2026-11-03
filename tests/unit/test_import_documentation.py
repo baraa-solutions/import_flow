@@ -66,8 +66,8 @@ class TestImportDocumentationBackend:
             proforma_invoice_no="PI-2026-001",
             pol_name="Shanghai Port, China",
             pod_name="Alexandria Port, Egypt",
-            requested_date=date(2026, 8, 1),
-            generated_date=date(2026, 8, 2),
+            requested_date=date.today() - timedelta(days=30),
+            generated_date=date.today() - timedelta(days=29),
             expiry_date=date.today() + timedelta(days=90),
             verification_notes="Automatic 100% match",
         )

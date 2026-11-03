@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/localization/app_localizations.dart';
 
 void showPartnerScorecardDialog(BuildContext context, WidgetRef ref, {
@@ -110,7 +111,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                             const SizedBox(height: 12),
                             Text(_error!, style: const TextStyle(color: AppTheme.crimson)),
                             const SizedBox(height: 12),
-                            ElevatedButton(onPressed: _fetchScorecard, child: Text(l10n.retryConnectionBtn)),
+                            AppButton(label: l10n.retryConnectionBtn, variant: AppButtonVariant.primary, onPressed: _fetchScorecard),
                           ],
                         ),
                       ),
@@ -488,7 +489,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                   children: [
                     _buildMethodologyRow(
                       context,
-                      title: isArabic ? '1. المخلص الجمركي (Customs Broker):' : '1. Customs Broker:',
+                      title: isArabic ? '1. المخلص الجمركي:' : '1. Customs Broker:',
                       desc: isArabic
                           ? '• سرعة الإفراج (35%): من سجلات الإفراج الجمركي الفعلي.\n• المسار الأخضر (25%): من منظومة نافذة MTS.\n• دقة الفواتير والرسوم (25%): مطابقة الفواتير والمصاريف.\n• تجنب الأرضيات والغرامات (15%): رادار تتبع فترات السماح.'
                           : '• Turnaround Speed (35%): Actual clearance turnaround.\n• Green Channel Rate (25%): Nafeza MTS green routing.\n• Billing Precision (25%): Matching clearance invoices.\n• Demurrage Avoidance (15%): Free time radar compliance.',
@@ -496,7 +497,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                     const Divider(height: 14),
                     _buildMethodologyRow(
                       context,
-                      title: isArabic ? '2. الخط الملاحي (Shipping Line):' : '2. Shipping Line:',
+                      title: isArabic ? '2. الخط الملاحي:' : '2. Shipping Line:',
                       desc: isArabic
                           ? '• الالتزام بمواعيد الإبحار والوصول (40%): تتبع حجوزات الشحن وتأخيرات الترانزيت.\n• أيام السماح المجانية للحاويات (25%): ميزة فترات السماح المسجلة.\n• سلامة الحاويات وتفادي التلف (20%): محاضر الفحص واستلام البضائع.\n• سرعة إصدار إذن التسليم (15%): سجلات سداد واستلام D/O.'
                           : '• Transit Schedule SLA (40%): Tracking departure delays.\n• Free Days Allowance (25%): Standard demurrage free days.\n• Equipment Integrity (20%): Container condition at discharge.\n• D/O Processing Speed (15%): Delivery order receipt speed.',
@@ -504,7 +505,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                     const Divider(height: 14),
                     _buildMethodologyRow(
                       context,
-                      title: isArabic ? '3. وكيل الشحن (Freight Forwarder):' : '3. Freight Forwarder:',
+                      title: isArabic ? '3. وكيل الشحن:' : '3. Freight Forwarder:',
                       desc: isArabic
                           ? '• الالتزام بمواعيد الشحن والتتبع (35%): حجوزات الشحن والربط مع التتبع.\n• شفافية الأسعار وثبات العروض (30%): مطابقة فواتير المصاريف مع عروض الأسعار.\n• فترة السماح التنافسية (20%): رصيد أيام السماح المسجلة.\n• سرعة إصدار بوالص الشحن (15%): مراجعة مسودة Draft B/L.'
                           : '• Shipping SLA & Tracking (35%): Booking schedule compliance.\n• Quote Transparency (30%): Final invoices vs quotation.\n• Free Days Allowance (20%): Demurrage buffer days.\n• B/L Issuance Speed (15%): Draft bill of lading approval.',
@@ -512,7 +513,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                     const Divider(height: 14),
                     _buildMethodologyRow(
                       context,
-                      title: isArabic ? '4. شركة النقل الداخلي (Inland Transport):' : '4. Inland Transport:',
+                      title: isArabic ? '4. شركة النقل الداخلي:' : '4. Inland Transport:',
                       desc: isArabic
                           ? '• الالتزام بمواعيد التحميل والتسليم (40%): أوامر النقل الداخلي ومطابقة المواعيد.\n• سلامة الحاويات والبضائع (30%): محاضر الفحص والاستلام بالمستودعات GRN.\n• توفر الأسطول وتغطية الموانئ (20%): أنواع الأسطول وتغطية الموانئ.\n• التقييم العام وجودة التنسيق (10%): تقييم مشرفي الحركة.'
                           : '• Delivery SLA (40%): Fleet arrival vs scheduled gate-in.\n• Cargo Integrity (30%): Zero-damage reports at warehouse.\n• Fleet Availability (20%): Equipment types & port coverage.\n• Coordination (10%): Transport supervisors assessment.',
@@ -520,7 +521,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                     const Divider(height: 14),
                     _buildMethodologyRow(
                       context,
-                      title: isArabic ? '5. شركة الفحص والرقابة (Inspection Agency):' : '5. Inspection Agency:',
+                      title: isArabic ? '5. شركة الفحص والرقابة:' : '5. Inspection Agency:',
                       desc: isArabic
                           ? '• سرعة سحب العينات وصدور شهادة المطابقة (45%): سجلات سحب العينات وصدور النتائج.\n• دقة نتائج الفحص والمواصفات (35%): تفادي قرارات الرفض الرقابي.\n• نطاق الاعتماد والاعتراف الرقابي (20%): رقم الاعتماد والاعتراف لدى GOEIC.'
                           : '• Sampling & CoC Speed (45%): Laboratory testing turnaround.\n• Conformity Accuracy (35%): Avoiding regulatory rejection.\n• Accreditation Scope (20%): ISO 17020/17025 accredited labs.',
@@ -528,7 +529,7 @@ class _PartnerScorecardDialogState extends ConsumerState<PartnerScorecardDialog>
                     const Divider(height: 14),
                     _buildMethodologyRow(
                       context,
-                      title: isArabic ? '6. شركة التأمين البحري (Insurance Company):' : '6. Insurance Company:',
+                      title: isArabic ? '6. شركة التأمين البحري:' : '6. Insurance Company:',
                       desc: isArabic
                           ? '• شمولية وسرعة إصدار وثيقة التأمين (40%): شروط تغطية أخطار المعهد.\n• سرعة تسوية المطالبات والتعويضات (40%): سجلات تعويضات مطالبات الشحن.\n• التنافسية السعرية لنسبة القسط (20%): عروض أسعار وثائق التأمين البحري.'
                           : '• Policy Issuance & Terms (40%): Marine cargo cover clauses.\n• Claims Settlement (40%): Claim reimbursement turnaround.\n• Premium Competitiveness (20%): Rate benchmark competitiveness.',

@@ -1,9 +1,7 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/app_date_picker_field.dart';
 import '../models/port_storage_model.dart';
 import '../services/port_storage_service.dart';
 
@@ -51,10 +49,10 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
   String? _errorMessage;
 
   final Map<String, String> _terminals = {
-    'ACCHCO': 'شركة الإسكندرية لتداول الحاويات (ACCHCO - الدخيلة والإسكندرية)',
-    'DP_WORLD_SOKHNA': 'موانئ دبي العالمية - السخنة (DP World Sokhna)',
-    'DCHC': 'شركة دمياط لتداول الحاويات والبضائع (DCHC)',
-    'SCCT': 'شركة قناة السويس للحاويات (SCCT - شرق بورسعيد)',
+    'ACCHCO': 'شركة الإسكندرية لتداول الحاويات (الدخيلة والإسكندرية)',
+    'DP_WORLD_SOKHNA': 'موانئ دبي العالمية - السخنة',
+    'DCHC': 'شركة دمياط لتداول الحاويات والبضائع',
+    'SCCT': 'شركة قناة السويس للحاويات (شرق بورسعيد)',
   };
 
   @override
@@ -111,7 +109,7 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
     final b = _breakdown!;
     final buffer = StringBuffer()
       ..writeln('محطة الميناء:\t${b.terminalName} (${b.terminalCode})')
-      ..writeln('نوع ومقاس الحاوية:\t${b.containerSize} ${b.isReefer ? "(مبردة Reefer)" : ""}')
+      ..writeln('نوع ومقاس الحاوية:\t${b.containerSize} ${b.isReefer ? "مبردة" : ""}')
       ..writeln('تاريخ الدخول:\t${b.gateInDate}')
       ..writeln('تاريخ الاحتساب:\t${b.endDate}')
       ..writeln('إجمالي الأيام:\t${b.totalDays} يوم (سماح: ${b.freeDaysAllowed} يوم | خاضع: ${b.chargeableDays} يوم)')
@@ -122,8 +120,7 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
       ..writeln('رسوم كشف إشعاعي وميزان:\t${b.xrayScanFeeEgp + b.scaleFeeEgp} ج.م')
       ..writeln('إجمالي أرضيات المحطة:\t${b.totalPortStorageEgp} ج.م');
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    AppTheme.snackBar(context, 'تم نسخ تفاصيل أرضيات المحطة بنجاح', severity: AppSeverity.success);
+    CopyHelper.copy(context, buffer.toString(), customMessage: 'تم نسخ تفاصيل أرضيات المحطة بنجاح');
   }
 
   @override
@@ -131,7 +128,8 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       backgroundColor: Colors.transparent,
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 950,
         height: 680,
         decoration: BoxDecoration(
@@ -163,7 +161,7 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'حاسبة ومحرك أرضيات محطات الموانئ المصرية (Port Terminal Storage Engine)',
+                          'حاسبة ومحرك أرضيات محطات الموانئ المصرية',
                           style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                         ),
                         Text(
@@ -205,17 +203,11 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
                                 const SizedBox(height: 12),
 
                                 // Terminal Dropdown
-                                const Text('محطة التداول الجمركية:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 4),
-                                DropdownButtonFormField<String>(
-                                  initialValue: _selectedTerminal,
-                                  isExpanded: true,
-                                  decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
+                                SearchableDropdownField<String>(
+                                  value: _selectedTerminal,
+                                  labelText: 'محطة التداول الجمركية',
                                   items: _terminals.entries.map((e) {
-                                    return DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 12)));
+                                    return SearchableDropdownItem<String>(value: e.key, label: e.value);
                                   }).toList(),
                                   onChanged: (val) {
                                     if (val != null) {
@@ -230,54 +222,43 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
                                 Row(
                                   children: [
                                     Expanded(
+                                      child: SearchableDropdownField<String>(
+                                        value: _containerSize,
+                                        labelText: 'حجم الحاوية',
+                                        items: const [
+                                          SearchableDropdownItem<String>(value: '20ft', label: '20 قدم'),
+                                          SearchableDropdownItem<String>(value: '40ft', label: '40 قدم'),
+                                        ],
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            setState(() => _containerSize = val);
+                                            _runCalculation();
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          const Text('حجم الحاوية:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                          const Text('النوع:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                           const SizedBox(height: 4),
-                                          DropdownButtonFormField<String>(
-                                            initialValue: _containerSize,
-                                            isExpanded: true,
-                                          decoration: InputDecoration(
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                                          ),
-                                          items: const [
-                                            DropdownMenuItem(value: '20ft', child: Text('20 قدم (20ft)')),
-                                            DropdownMenuItem(value: '40ft', child: Text('40 قدم (40ft)')),
-                                          ],
-                                          onChanged: (val) {
-                                            if (val != null) {
-                                              setState(() => _containerSize = val);
+                                          CheckboxListTile(
+                                            title: const Text('مبردة', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                            value: _isReefer,
+                                            dense: true,
+                                            contentPadding: EdgeInsets.zero,
+                                            onChanged: (val) {
+                                              setState(() => _isReefer = val ?? false);
                                               _runCalculation();
-                                            }
-                                          },
-                                        ),
-                                      ],
+                                            },
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('النوع:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 4),
-                                        CheckboxListTile(
-                                          title: const Text('مبردة (Reefer)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                                          value: _isReefer,
-                                          dense: true,
-                                          contentPadding: EdgeInsets.zero,
-                                          onChanged: (val) {
-                                            setState(() => _isReefer = val ?? false);
-                                            _runCalculation();
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                  ],
+                                ),
                               const SizedBox(height: 14),
 
                               // Dates
@@ -307,7 +288,7 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
                               // Surcharges Checkboxes
                               const Text('رسوم المحطة الميدانية الإلزامية:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               CheckboxListTile(
-                                title: const Text('رسم الكشف بالأشعة (X-Ray Fee)', style: TextStyle(fontSize: 12)),
+                                title: const Text('رسم الكشف بالأشعة', style: TextStyle(fontSize: 12)),
                                 value: _includeXray,
                                 dense: true,
                                 contentPadding: EdgeInsets.zero,
@@ -317,7 +298,7 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
                                 },
                               ),
                               CheckboxListTile(
-                                title: const Text('رسم الميزان البسكول (Weighbridge Scale)', style: TextStyle(fontSize: 12)),
+                                title: const Text('رسم ميزان البسكول', style: TextStyle(fontSize: 12)),
                                 value: _includeScale,
                                 dense: true,
                                 contentPadding: EdgeInsets.zero,
@@ -479,8 +460,9 @@ class _PortTerminalStorageDialogState extends ConsumerState<PortTerminalStorageD
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildTierRow(String title, String subtitle, String amount, Color color) {
     return Container(

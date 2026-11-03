@@ -51,7 +51,11 @@ class ShipmentContainer(Base):
     stuffing_date = Column(DateTime, nullable=True)    # Stuffing / loading
     discharge_date = Column(Date, nullable=True)       # POD vessel discharge
     gate_out_date = Column(Date, nullable=True)        # POD customs gate-out
+    gate_out_timestamp = Column(DateTime, nullable=True)
     empty_return_date = Column(Date, nullable=True)    # Carrier depot return (EIR)
+    eir_timestamp = Column(DateTime, nullable=True)
+    customs_inspection_seal = Column(String(100), nullable=True)
+    truck_plate_number = Column(String(50), nullable=True)
 
     # Weights & VGM
     tare_weight_kg = Column(Float, nullable=False, default=0.0)
@@ -69,12 +73,14 @@ class ShipmentContainer(Base):
     detention_cost_fx = Column(Float, nullable=False, default=0.0)
     storage_cost_egp = Column(Float, nullable=False, default=0.0)
     total_cost_egp = Column(Float, nullable=False, default=0.0)
+    individual_demurrage_cost = Column(Float, nullable=False, default=0.0)
     currency = Column(String(10), nullable=False, default="USD")
 
     # Lifecycle Status & Return Info
     status = Column(String(50), nullable=False, default="Allocated", index=True)
     # Allocated, Loaded & Sealed, Gate In Origin, On Board, Discharged, Gate Out, At Warehouse, Returned Empty
     eir_number = Column(String(100), nullable=True)
+    eir_condition_status = Column(String(50), nullable=True, default="Good")
     depot_name = Column(String(150), nullable=True)
     condition_at_return = Column(String(50), nullable=True, default="Good")  # Good, Damaged, Requires Cleaning
     notes = Column(Text, nullable=True)

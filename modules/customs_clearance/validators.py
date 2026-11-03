@@ -234,3 +234,55 @@ def validate_settlement_open(
         )
 
 
+def validate_release_regulatory_requirements(db: Any, import_file_id: int) -> None:
+    """CL-04 Customs Release Guard:
+    Verify regulatory authority approvals (GOEIC / NFSA / technical authorities)
+    and pre-shipment/goods inspection requirements before issuing customs release.
+    """
+    from modules.import_requirements.repository import get_assessment_by_import_file
+
+    assessment = get_assessment_by_import_file(db, import_file_id)
+    if assessment is None:
+        return
+
+    import_permit_required = bool(assessment.import_permit_required)
+    permit_status = assessment.permit_status
+    inspection_required = bool(assessment.inspection_required)
+    inspection_status = assessment.inspection_status
+
+    permit_failed = import_permit_required and permit_status != "Approved"
+    inspection_failed = inspection_required and inspection_status not in ("Completed", "Waived")
+
+    if permit_failed or inspection_failed:
+        errors = []
+        if permit_failed:
+            authority = assessment.permit_issuing_authority or "الرقابة على الصادرات والواردات (GOEIC) / سلامة الغذاء"
+            errors.append(
+                f"موافقة الجهات الرقابية مطلوبة ({authority}) وحالتها الحالية '{permit_status}' وليست 'Approved'."
+            )
+        if inspection_failed:
+            body = assessment.inspection_body or "فحص ومعاينة البضاعة"
+            errors.append(
+                f"فحص ومعاينة البضاعة مطلوب ({body}) وحالته الحالية '{inspection_status}' وليست 'Completed' أو 'Waived'."
+            )
+
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "CC_REGULATORY_REQUIREMENTS_NOT_MET",
+                "message": (
+                    "لا يمكن إصدار الإفراج الجمركي: لم تكتمل موافقات الجهات الرقابية أو فحص ومعاينة البضاعة "
+                    "(GOEIC / سلامة الغذاء / الفحص الفني)."
+                ),
+                "errors": errors,
+                "import_file_id": import_file_id,
+                "assessment_id": assessment.assessment_id,
+                "assessment_code": assessment.assessment_code,
+                "import_permit_required": import_permit_required,
+                "permit_status": permit_status,
+                "permit_issuing_authority": assessment.permit_issuing_authority,
+                "inspection_required": inspection_required,
+                "inspection_status": inspection_status,
+                "inspection_body": assessment.inspection_body,
+            },
+        )

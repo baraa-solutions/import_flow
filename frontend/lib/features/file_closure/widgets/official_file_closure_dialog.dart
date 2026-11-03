@@ -1,9 +1,9 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -184,7 +184,7 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
     final messenger = ScaffoldMessenger.of(context);
     if (_precheck != null && !_precheck!.canClose) {
       messenger.showSnackBar(
-        SnackBar(content: Text(l10n.closureCannotCloseSnack), backgroundColor: AppTheme.flatCrimson),
+        AppTheme.snackBar(context, l10n.closureCannotCloseSnack),
       );
       return;
     }
@@ -211,17 +211,13 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
         _isSubmitting = false;
       });
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(l10n.closureOfficialSuccess(certificate.importFileCode, certificate.closureCode)),
-          backgroundColor: AppTheme.flatEmerald,
-          duration: const Duration(seconds: 4),
-        ),
+        AppTheme.snackBar(context, l10n.closureOfficialSuccess(certificate.importFileCode, certificate.closureCode)),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       messenger.showSnackBar(
-        SnackBar(content: Text(ApiErrorText.of(l10n, e)), backgroundColor: AppTheme.flatCrimson),
+        AppTheme.snackBar(context, ApiErrorText.of(l10n, e)),
       );
     }
   }
@@ -230,7 +226,8 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
     // The dialog is still mounted here (it shows the closed state), so its context is valid.
     showDialog(
       context: context,
-      builder: (dCtx) => AddGuideEntryDialog(
+      builder: (dCtx) => SelectionArea(
+        child: AddGuideEntryDialog(
         initialSupplier: widget.file.supplierName,
         initialHsCode: widget.file.hsCode,
         initialCategory: widget.file.productCategory,
@@ -238,6 +235,7 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
         initialIncoterm: widget.file.incotermCode,
         initialImportFileReference: widget.file.importFileCode,
       ),
+    ),
     );
   }
 
@@ -249,7 +247,8 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: (MediaQuery.of(context).size.width - 32).clamp(320.0, 860.0),
         constraints: BoxConstraints(maxHeight: (MediaQuery.of(context).size.height - 48).clamp(360.0, 740.0)),
         padding: const EdgeInsetsDirectional.all(24),
@@ -276,6 +275,7 @@ class _OfficialFileClosureDialogState extends ConsumerState<OfficialFileClosureD
           ],
         ),
       ),
+    ),
     );
   }
 

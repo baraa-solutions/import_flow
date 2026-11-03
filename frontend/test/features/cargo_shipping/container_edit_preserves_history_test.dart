@@ -155,24 +155,26 @@ void main() {
   });
 
   group('Source Code Scan Guard (FE05-T02)', () {
-    test('_buildContainerEquipmentCard uses item.copyWith instead of manual ContainerLoadingModel', () {
-      final file = File('lib/features/cargo_shipping/screens/cargo_shipping_screen.dart');
+    test('ContainerEquipmentCard uses item.copyWith instead of manual ContainerLoadingModel', () {
+      // The card was split out of cargo_shipping_screen.dart (_buildContainerEquipmentCard)
+      // into the ContainerEquipmentCard widget; it reports edits through onUpdate(index, ...).
+      final file = File('lib/features/cargo_shipping/widgets/container_equipment_assignment_tab.dart');
       final content = file.readAsStringSync();
 
-      // Look at the _buildContainerEquipmentCard method
-      final methodStart = content.indexOf('Widget _buildContainerEquipmentCard(');
-      expect(methodStart, isNonNegative);
-      final methodEnd = content.indexOf('Widget _buildStep2ContainerLoadingTracking(', methodStart);
-      expect(methodEnd, isNonNegative);
+      final classStart = content.indexOf('class ContainerEquipmentCard extends StatelessWidget');
+      expect(classStart, isNonNegative);
+      final classEnd = content.indexOf('class ContainerEquipmentAssignmentTab ', classStart);
+      expect(classEnd, isNonNegative);
 
-      final cardCode = content.substring(methodStart, methodEnd);
+      final cardCode = content.substring(classStart, classEnd);
 
-      // Verify that within the card handlers, we only instantiate duplicate (dup)
-      final constructorMatches = RegExp(r'_containers\[index\]\s*=\s*ContainerLoadingModel\(').allMatches(cardCode);
+      // No hand-built model in the card's edit handlers (that dropped tracking history,
+      // milestone notes and SLA deadline); every edit must go through item.copyWith.
+      final constructorMatches = RegExp(r'ContainerLoadingModel\(').allMatches(cardCode);
       expect(
         constructorMatches.isEmpty,
         isTrue,
-        reason: '_containers[index] = ContainerLoadingModel(...) in _buildContainerEquipmentCard must be replaced with item.copyWith(...)',
+        reason: 'ContainerLoadingModel(...) in ContainerEquipmentCard must be replaced with item.copyWith(...)',
       );
 
       // Verify item.copyWith is used in the card

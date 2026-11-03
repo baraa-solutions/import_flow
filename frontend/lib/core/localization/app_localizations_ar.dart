@@ -47,7 +47,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get financeApprovals => 'اعتمادات الميزانية وسداد الموردين';
   @override String get acidOperations => 'الرقم التعريفي المبدئي للشحنة ACID';
   @override String get freightBooking => 'حجز النولون وتأكيد الخط الملاحي';
-  @override String get freightAllocations => 'تخصيص وتوزيع الحاويات (VGM)';
+  @override String get freightAllocations => 'تخصيص وتوزيع الحاويات';
   @override String get cargoShippingTracking => 'متابعة حركة الشحن البحري والجوي';
   @override String get packingReconciliation => 'مطابقة وتأكيد الفاتورة والباكينج';
   @override String get draftDocsReview => 'مراجعة مسودات بوالص الشحن';
@@ -146,7 +146,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get collapseSidebar => 'إخفاء القائمة لتوسيع الشاشة';
   @override String get userOptions => 'خيارات المستخدم';
   @override String get logout => 'تسجيل الخروج';
-  @override String get versionBadge => 'v1.0.2 (Build 2026.08)';
+  @override String get versionBadge => 'v1.0.2 (بناء 2026.08)';
 
   // ── Tooltips ─────────────────────────────────────────────────────────────
   @override String get viewDetailsTooltip => 'عرض التفاصيل';
@@ -295,7 +295,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get drillDownLabelStatus => 'الحالة';
   @override String get drillDownLabelNextAction => 'الخطوة التالية';
   @override String get drillDownDataGapBadge => 'فجوة بيانات';
-  @override String get drillDownTimeDataGap => 'التوقيت الدقيق بالساعة (HH:mm) غير مسجل بقاعدة البيانات (مسجل كتاريخ فقط).';
+  @override String get drillDownTimeDataGap => 'التوقيت الدقيق بالساعة والدقيقة غير مسجل بقاعدة البيانات (مسجل كتاريخ فقط).';
   @override String get drillDownPendingReasonDataGap => 'كود سبب التعليق غير مسجل في جدول مخصص؛ مستخرج من الملاحظات أو حالة التأخير.';
   @override String get drillDownEtaChangeDataGap => 'تاريخ الوصول المجدول مسجل؛ سجل التعديلات السابقة وأسباب التغيير لم يبدأ تتبعه بعد.';
   @override String get drillDownPaymentDeadlineDataGap => 'الموعد النهائي المحدد من البنك للسداد غير مسجل بشكل مستقل عن تاريخ جاهزية الشحنة.';
@@ -378,7 +378,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   // ── Screen 1: Import Files & Shipments ────────────────────────────────────
   @override String get importFilesManagementTitle => 'إدارة وملفات استيراد الشحنات';
-  @override String get uploadImportDocument => 'رفع وثيقة ملف استيراد (PDF / Word / Excel)';
+  @override String get uploadImportDocument => 'رفع وثيقة ملف استيراد بكافة الصيغ المعتمدة';
   @override String get addNewImportFile => 'إضافة ملف استيراد شحنة جديد';
   @override String get editImportFile => 'تعديل وتحديث بيانات ملف الاستيراد';
   @override String get generateComprehensiveReport => 'استخراج تقرير الشحنات الشامل';
@@ -402,7 +402,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get colDocDate => 'تاريخ المستندات';
   @override String get colSwift => 'رقم السويفت البنكي';
   @override String get colCarrier => 'الخط الملاحي / الناقل';
-  @override String get colAcid => 'رقم القيد الجمركي (ACID)';
+  @override String get colAcid => 'رقم القيد الجمركي المبدئي';
   @override String get colForm4 => 'نموذج 4 البنكي';
   @override String get colForm46 => 'إقرار 46 ك.م';
   @override String get saveComprehensiveReportDialogTitle => 'حفظ التقرير الشامل لملفات الاستيراد بصيغة Excel / CSV';
@@ -414,7 +414,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poInvoiceLabel => 'أمر الشراء / الفاتورة';
   @override String get transportModeIncoterm => 'وسيلة النقل / الشروط';
   @override String get priorityType => 'الأولوية';
-  @override String get targetEta => 'الوصول المتوقع (ETA)';
+  @override String get targetEta => 'تاريخ الوصول المتوقع';
   @override String get currentPhaseStage => 'المرحلة الحالية';
   @override String get progressPercentLabel => 'نسبة الإنجاز %';
   @override String get nextActionLabel => 'الخطوة القادمة';
@@ -445,7 +445,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get invoicesUnit => 'فواتير';
   @override String get totalCbmFromPackingList => 'إجمالي الـ CBM من قوائم التعبئة';
   @override String get cbmSumDescription => 'مجموع CBM كافة قوائم التعبئة';
-  @override String get totalGrossWeightFromPl => 'إجمالي الوزن القائم (Gross Wt)';
+  @override String get totalGrossWeightFromPl => 'إجمالي الوزن القائم';
   @override String get grossWeightSumDescription => 'مجموع الوزن من كافة قوائم التعبئة';
   @override String get linkedPurchaseOrdersTitle => 'أوامر الشراء المرتبطة';
   @override String get posUnit => 'أوامر شراء';
@@ -476,17 +476,17 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get effectiveCapacityCbm => 'السعة الفعالة CBM';
   @override String get spaceUtilizationPercent => 'استغلال المساحة %';
   @override String get weightUtilizationPercent => 'استغلال الوزن %';
-  @override String get acidStatusTitle => 'بيانات القيد الجمركي المبدئي (ACID)';
+  @override String get acidStatusTitle => 'بيانات القيد الجمركي المبدئي';
   @override String get customsReleasedBadge => 'صُرفت من الجمرك (معفى من التنبيهات)';
   @override String get underClearanceBadge => 'قيد التخليص والصرف';
   @override String get cargoStackingScenariosTitle => 'نتائج احتمالات رص الحاويات وتوزيع الشحنة';
-  @override String get scenariosMatrixButton => 'مقارنة الحالات (Matrix)';
+  @override String get scenariosMatrixButton => 'مقارنة الحالات البديلة';
   @override String get scenarioAllStackableTitle => 'الاحتمال الأول: بضائع تقبل الرص بالكامل';
   @override String get scenarioAllNonStackableTitle => 'الاحتمال الثاني: بضائع لا تقبل الرص';
   @override String get scenarioMixedStackingTitle => 'الاحتمال الثالث: مزيج يقبل ولا يقبل الرص';
-  @override String get saveContainerImageTooltip => 'حفظ صورة المخطط (Save Image PNG)';
-  @override String get exportContainerExcelTooltip => 'تصدير إكسل (Export Excel)';
-  @override String get exportContainerPdfTooltip => 'تصدير تقرير PDF (Export PDF)';
+  @override String get saveContainerImageTooltip => 'حفظ صورة المخطط';
+  @override String get exportContainerExcelTooltip => 'تصدير جدول البيانات إكسيل';
+  @override String get exportContainerPdfTooltip => 'تصدير تقرير PDF';
   @override String get saveContainerImageDialogTitle => 'حفظ صورة مخطط الحاوية PNG';
   @override String get exportContainerExcelDialogTitle => 'تصدير جدول محاكي الحاويات Excel';
   @override String get exportContainerPdfDialogTitle => 'تصدير تقرير محاكي الحاويات PDF';
@@ -498,10 +498,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get shipmentCategoryLabel => 'تصنيف الشحنة';
   @override String get fileOpeningDateLabel => 'تاريخ فتح الملف';
   @override String get logisticsAndPortsDetails => 'بيانات النقل وموانئ الشحن لطلب النولون';
-  @override String get portOfLoadingLabel => 'ميناء الشحن (POL)';
-  @override String get portOfDischargeLabel => 'ميناء الوصول والتفريغ (POD)';
-  @override String get cargoReadyDateLabel => 'تاريخ جاهزية البضاعة (CRD)';
-  @override String get targetFreeDaysLabel => 'أيام السماح المطلوبة (FT)';
+  @override String get portOfLoadingLabel => 'ميناء الشحن';
+  @override String get portOfDischargeLabel => 'ميناء الوصول والتفريغ';
+  @override String get cargoReadyDateLabel => 'تاريخ جاهزية البضاعة';
+  @override String get targetFreeDaysLabel => 'أيام السماح المطلوبة';
   @override String get serviceTypePreferenceLabel => 'تفضيل مسار الخدمة';
   @override String get pickupAddressLabel => 'عنوان الاستلام / المصنع';
   @override String get shippingInstructionsLabel => 'تعليمات واشتراطات الشحن الخاصة';
@@ -514,12 +514,12 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get emailDraftTab => 'نموذج الإيميل الرسمي';
   @override String get whatsappTemplateTab => 'رسالة الواتساب';
   @override String get shipmentSpecsTab => 'ملخص مواصفات الشحنة';
-  @override String get grossWeightMetric => 'الوزن القائم (Gross)';
-  @override String get netWeightMetric => 'الوزن الصافي (Net)';
+  @override String get grossWeightMetric => 'الوزن القائم';
+  @override String get netWeightMetric => 'الوزن الصافي';
   @override String get commodityTitle => 'اسم البضاعة';
   @override String get closeShipmentTitle => 'إيقاف وإغلاق الشحنة';
   @override String get reason => 'سبب الإيقاف والملاحظات';
-  @override String get cbmVolumeMetric => 'الحجم الإجمالي (CBM)';
+  @override String get cbmVolumeMetric => 'الحجم الإجمالي بالمتر المكعب';
   @override String get currency => 'العملة';
   @override String get owner => 'المسؤول';
   @override String get purchaseOrdersTitle => 'أوامر الشراء والفواتير المبدئية';
@@ -550,8 +550,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get palletSimulation3D => 'محاكاة ورص الحاويات 3D';
   @override String get palletTypeCol => 'نوع ومقاس البالتة';
   @override String get palletCountCol => 'عدد البالتات';
-  @override String get palletDimensionsCol => 'الأبعاد (L × W × H)';
-  @override String get palletWeightCol => 'وزن البالتة (Gross)';
+  @override String get palletDimensionsCol => 'الأبعاد: الطول × العرض × الارتفاع';
+  @override String get palletWeightCol => 'وزن البالتة القائم';
   @override String get palletTotalWeightCol => 'إجمالي الوزن';
   @override String get palletVolumeCol => 'حجم السطر CBM';
   @override String get palletStackingInstructionsCol => 'تعليمات الرص';
@@ -598,7 +598,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String containerIndexTitle(int index, String name) => 'حاوية #$index: $name';
   @override String packagesOrPalletsCount(int count) => '$count طرد / بالتة';
   @override String get copyAllData => 'نسخ كافة البيانات';
-  @override String get copyAllPoDataSuccess => 'تم نسخ كافة بيانات وبنود أمر الشراء بنجاح (جاهزة للصق في Excel أو Word)';
+  @override String get copyAllPoDataSuccess => 'تم نسخ كافة بيانات وبنود أمر الشراء بنجاح (جاهزة للصق المباشر)';
 
   // ── CBM Calculator ───────────────────────────────────────────────────────
   @override String get cbmCalculatorTitle => 'حاسبة الأحجام والوزن الجوي';
@@ -609,7 +609,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get activeEditSessionHint => 'يتم الآن تعديل طرود وقياسات هذه الجلسة. يمكنك حفظ التعديلات مباشرة في نفس الجلسة أو كجلسة جديدة.';
   @override String get saveChangesInSession => 'حفظ التعديلات في الجلسة';
   @override String get newBlankSession => 'جلسة جديدة فارغة';
-  @override String get totalCbmVolumeMetric => 'إجمالي الحجم (CBM)';
+  @override String get totalCbmVolumeMetric => 'إجمالي الحجم بالمتر المكعب';
   @override String get airChargeableWtMetric => 'الوزن الجوي المحاسبي';
   @override String get volumetricWeight => 'الوزن الحجمي';
   @override String get recommendedShippingMetric => 'وسيلة الشحن المقترحة';
@@ -713,7 +713,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cbmFloorAreaUtilization => 'استغلال أرضية الحاوية';
   @override String get cbmWoodenPalletsFloor => 'طبالي خشبية أرضية';
   @override String get cbmInternalDimensionsLabel => 'الأبعاد الداخلية:';
-  @override String get cbmPackageDimensionsCol => 'الأبعاد L x W x H (cm)';
+  @override String get cbmPackageDimensionsCol => 'الأبعاد: الطول × العرض × الارتفاع (سم)';
   @override String get cbmStackingAccepts => '📦 يقبل الرص';
   @override String get cbmStackingRejects => '🚫 لا يقبل الرص';
   @override String get cbmNotLinked => 'غير مرتبط';
@@ -738,7 +738,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get recommendedLineMetric => 'الخط الموصى به رسمياً';
   @override String get studySetupAndParameters => 'إعدادات ومعلمات دراسة الشحن';
   @override String get studyTitleLabel => 'مسمى دراسة خيارات الشحن';
-  @override String get crdLabel => 'تاريخ جاهزية البضاعة (CRD)';
+  @override String get crdLabel => 'تاريخ جاهزية البضاعة';
   @override String get avgForm4DaysLabel => 'أيام نموذج 4 المتوقعة';
   @override String get avgClearanceDaysLabel => 'أيام التخليص الجمركي المتوقعة';
   @override String get cargoStackingType => 'نوع التحميل والتخزين';
@@ -748,13 +748,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get shippingLineCol => 'الخط الملاحي';
   @override String get vesselNameCol => 'اسم الباخرة / الرحلة';
   @override String get voyageCol => 'رقم الرحلة';
-  @override String get portOfLoadingCol => 'ميناء السفر / التحميل (POL)';
-  @override String get portOfDischargeCol => 'ميناء الوصول / التفريغ (POD)';
-  @override String get sailingDateCol => 'تاريخ الإبحار (ETD)';
-  @override String get estimatedArrivalDateCol => 'تاريخ الوصول المتوقع (ETA)';
+  @override String get portOfLoadingCol => 'ميناء التحميل والشحن';
+  @override String get portOfDischargeCol => 'ميناء الوصول والتفريغ';
+  @override String get sailingDateCol => 'تاريخ الإبحار الفعلي';
+  @override String get estimatedArrivalDateCol => 'تاريخ تاريخ الوصول المتوقع';
   @override String get expectedDelayCol => 'أيام التأخير المتوقعة';
   @override String get riskLevelCol => 'مستوى المخاطر';
-  @override String get freeTimeDaysCol => 'أيام السماح (Free Time)';
+  @override String get freeTimeDaysCol => 'أيام السماح المجانية';
   @override String get quoteCurrencyCol => 'عملة عرض السعر';
   @override String get quoteDetails => 'تفاصيل عرض السعر';
   @override String get hideQuote => 'إخفاء عرض السعر';
@@ -765,17 +765,17 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get container20ftItem => 'شحن حاوية 20 قدم';
   @override String get lclCbmItem => 'شحن CBM لشحنة LCL';
   @override String get expressCourierItem => 'البريد السريع للمستندات';
-  @override String get eurAtrItem => 'شهادة المنشأ (EUR.1 / ATR)';
-  @override String get solasVgmItem => 'مصاريف التحقق من الوزن (SOLAS/VGM)';
-  @override String get vgmNotificationItem => 'إخطار إقرار الوزن (VGM Notification)';
-  @override String get telexReleaseItem => 'إطلاق الفاكس الملاحي (Telex Release)';
+  @override String get eurAtrItem => 'شهادة المنشأ التفضيلية';
+  @override String get solasVgmItem => 'مصاريف التحقق من الوزن طبقاً لمعايير سولاس';
+  @override String get vgmNotificationItem => 'إخطار التحقق من وزن الحاوية';
+  @override String get telexReleaseItem => 'التنازل الملاحي الإلكتروني';
   @override String get insuranceItem => 'بوليصة التأمين البحري';
   @override String get bookingCancellationItem => 'غرامة إلغاء الحجز';
-  @override String get ics2FilingFeeItem => 'رسوم إيداع بيان الحمول الرقمية (ICS2)';
+  @override String get ics2FilingFeeItem => 'رسوم إيداع بيان الحمول الرقمية المسبقة';
   @override String get documentFeesItem => 'مصاريف المستندات الإضافية';
   @override String get waiverLetterFeeItem => 'مصاريف خطاب التنازل';
   @override String get othersFeeItem => 'مصاريف أخرى';
-  @override String get dthcItem => 'تفريغ ومناولة ميناء الوصول (DTHC)';
+  @override String get dthcItem => 'رسوم التفريغ بميناء الوصول';
   @override String get storagePerWeekItem => 'أرضيات / تخزين لأول أسبوع';
   @override String get extraDayStorageItem => 'أرضيات / تخزين لليوم الإضافي';
   @override String get clearanceBrokerFeeItem => 'أتعاب التخليص الجمركي';
@@ -1219,11 +1219,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get courierTrackingRegistryTab => 'سجل تتبع الكورير وإثبات ميعاد الاستلام';
   @override String get sessionsRegistryTab => 'سجل جلسات تحصيل المستندات';
   @override String get confirmCourierDeliveryBtn => 'إثبات وتأكيد ميعاد الاستلام';
-  @override String get courierDeliveryProofDialogTitle => 'إثبات ميعاد استلام طرد الكورير (POD)';
+  @override String get courierDeliveryProofDialogTitle => 'إثبات ميعاد استلام طرد البريد السريع بميناء الوصول والتفريغ';
   @override String get courierReceiptDateLabel => 'تاريخ الاستلام الفعلي';
-  @override String get courierReceiptTimeLabel => 'وقت الاستلام (HH:mm)';
+  @override String get courierReceiptTimeLabel => 'وقت الاستلام بالساعة والدقيقة';
   @override String get courierReceivedByLabel => 'اسم المستلم';
-  @override String get courierPodRefLabel => 'رقم إشعار التسليم / البوليصة (POD Ref)';
+  @override String get courierPodRefLabel => 'رقم إشعار التسليم والبوليصة - مرجع ميناء الوصول';
   @override String get markAssociatedDocsReceivedLabel => 'تحديث حالة مستندات الطرد إلى "تم الاستلام" تلقائياً';
   @override String get courierReceiptRecordedSuccess => 'تم إثبات وتسجيل ميعاد استلام الكورير بنجاح';
   @override String daysInTransitLabel(dynamic days) => '$days يوم في الطريق';
@@ -1481,7 +1481,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get importBudgetApprovalTab => 'اعتماد الميزانية الاستيرادية';
   @override String get savedBudgetsRegistryTab => 'سجل الميزانيات المعتمدة';
   @override String get paymentRequestsRegistryTab => 'سجل طلبات السداد والتحويلات';
-  @override String get swiftReconciliationTab => 'استخراج ومطابقة السويفت (MT103)';
+  @override String get swiftReconciliationTab => 'استخراج ومطابقة إشعار التحويل البنكي السويفت';
   @override String get createPaymentRequestTitle => 'إصدار طلب سداد وتحويل مالي للمورد';
   @override String get editPaymentRequestTitle => 'تعديل بيانات طلب السداد الحالي';
   @override String get activeEditModeBanner => 'وضع التعديل النشط';
@@ -1520,14 +1520,14 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get paymentRequestsLogTitle => 'سجل العمليات والتحويلات المالية للموردين';
   @override String get noMatchingPayments => 'لا توجد طلبات سداد مالي مطابقة لخيارات البحث والتصفية.';
   @override String get noMatchingBudgets => 'لا توجد اعتمادات ميزانية مطابقة لمعايير البحث.';
-  @override String get swiftExtractorTitle => 'استخراج ومطابقة إشعار التحويل البنكي (SWIFT MT103)';
+  @override String get swiftExtractorTitle => 'استخراج ومطابقة إشعار التحويل البنكي السويفت';
   @override String get swiftUploadDocument => 'رفع مستند السويفت';
   @override String get swiftPasteText => 'لصق نص رسالة السويفت';
   @override String get swiftMatchedSuccess => 'تمت المطابقة مع طلب السداد بنجاح';
   @override String get swiftExecuteReconciliation => 'تنفيذ المطابقة والاعتماد المالي';
   @override String get paymentCodeCol => 'كود الطلب';
   @override String get bankSwiftCol => 'البنك / السويفت';
-  @override String get equivalentEgpCol => 'المعادل (EGP)';
+  @override String get equivalentEgpCol => 'المعادل بالجنيه المصري';
   @override String get requestDueDateCol => 'تاريخ الطلب / الاستحقاق';
   @override String get draftStatus => 'مسودة';
   @override String get paidStatus => 'تم التحويل';
@@ -1566,7 +1566,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String budgetApprovedSuccess(String code) => '✅ تم اعتماد الميزانية الاستيرادية ($code) بنجاح';
   @override String get saveAndApproveBudget => 'حفظ واعتماد الميزانية';
   @override String faOpenPaymentSameType(String code) => 'يوجد طلب سداد مالي قيد الإجراء من نفس النوع لهذا الملف ($code)';
-  @override String get freightExchangeRateLabel => 'سعر صرف النولون (EGP)';
+  @override String get freightExchangeRateLabel => 'سعر صرف النولون بالجنيه المصري';
   @override String get autoGeneratedCode => 'توليد تلقائي للكود';
   @override String get saveBudgetFailedTitle => 'تعذر اعتماد وحفظ الميزانية الاستيرادية';
   @override String get swiftPaymentPrefix => 'سداد تحويل سويفت';
@@ -1641,7 +1641,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get discrepancyMatrixTab => 'المقارنة والتحقق الجمركي';
   @override String get acidRegistryTab => 'سجل إصدارات ACID';
   @override String get expiryTrackerTab => 'متتبع الصلاحية والإفراج';
-  @override String get acidInfoBanner => 'تسجيل وطلب استخراج رقم القيد الجمركي المبدئي (ACID) وفق متطلبات مصلحة الجمارك المصرية ومنظومة نافذة (MTS). اختر ملف الشحنة لتحميل بيانات المستورد والمورد الأجنبي تلقائياً.';
+  @override String get acidInfoBanner => 'تسجيل وطلب استخراج رقم القيد الجمركي المبدئي وفق متطلبات مصلحة الجمارك المصرية ومنظومة النافذة الواحدة نافذة. اختر ملف الشحنة لتحميل بيانات المستورد والمورد الأجنبي تلقائياً.';
   @override String get selectImportFileAcidLabel => 'اختر ملف الشحنة لطلب ACID';
   @override String get searchFileOrSupplierHint => 'ابحث برقم الملف أو اسم المورد أو الشركة...';
   @override String get importerAndExporterSection => '1. بيانات المستورد والمصدر الأجنبي';
@@ -1652,7 +1652,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get foreignExporterIdLabel => 'رقم السجل / المعرف الضريبي بالخارج';
   @override String get regTypeLabel => 'نوع التسجيل';
   @override String get countryOfOriginExportLabel => 'دولة المنشأ / التصدير';
-  @override String get cargoxPlatformIdLabel => 'معرف منصة كارجو إكس (CargoX)';
+  @override String get cargoxPlatformIdLabel => 'معرف منصة كارجو إكس';
   @override String get proformaPortsBrokerSection => '2. بيانات الفاتورة المبدئية والموانئ والمخلص';
   @override String get proformaInvoiceNoLabel => 'رقم الفاتورة المبدئية';
   @override String get proformaInvoiceDateLabel => 'تاريخ الفاتورة';
@@ -1665,10 +1665,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get goToSmartParserButton => 'الانتقال للإدخال الذكي من نافذة';
   @override String get brokerDispatchMessageTitle => 'رسالة طلب إصدار ACID الجاهزة للإرسال للمخلص الجمركي';
   @override String get brokerDispatchMessageSub => 'تم تجميع وتوليد الرسالة تلقائياً بكافة البيانات المستدعاة من الشحنة لتسهيل إرسالها للمخلص عبر الواتساب أو الإيميل بنقرة واحدة.';
-  @override String get copyArabicWhatsApp => 'نسخ عربي (WhatsApp)';
-  @override String get copyEnglishRequest => 'نسخ بالإنجليزية (English)';
+  @override String get copyArabicWhatsApp => 'نسخ عربي لتطبيق واتساب';
+  @override String get copyEnglishRequest => 'نسخ باللغة الإنجليزية';
   @override String get emailTemplateButton => 'قالب الإيميل';
-  @override String get smartParserInfoBanner => 'المحلل الذكي لنصوص نافذة (MTS Smart Parser): الصق النص الخام المستلم من إشعار نافذة أو البريد الإلكتروني. سيقوم النظام باستخراج رقم ACID، تاريخ الصلاحية، بيانات المصدر والمستورد تلقائياً وبدقة 100%.';
+  @override String get smartParserInfoBanner => 'المستخرج الذكي لمنظومة نافذة: الصق النص الخام المستلم من إشعار نافذة أو البريد الإلكتروني. سيقوم النظام باستخراج رقم القيد الجمركي المبدئي، تاريخ الصلاحية، بيانات المصدر والمستورد تلقائياً وبدقة 100%.';
   @override String get linkImportFileResult => 'ربط بنتيجة ملف شحنة';
   @override String get pasteRawMtsTextTitle => 'الصق نص إشعار نافذة الخام هنا';
   @override String get loadSampleMtsTextButton => 'تحميل نص إشعار نافذة نموذجي';
@@ -1676,7 +1676,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get runSmartParserButton => 'تشغيل المحلل الذكي واستخراج البيانات';
   @override String get clearTextButton => 'مسح النص';
   @override String get parsedMtsSuccessTitle => 'البيانات المستخرجة بنجاح من نص نافذة';
-  @override String get parsedMtsNoAcidTitle => 'نتائج الاستخراج (لم يتم العثور على رقم ACID في النص)';
+  @override String get parsedMtsNoAcidTitle => 'نتائج الاستخراج (لم يتم العثور على رقم القيد الجمركي المبدئي في النص)';
   @override String get goToVerificationButton => 'الانتقال للمطابقة والتحقق';
   @override String get saveAndCertifyAcidButton => 'حفظ واعتماد بيانات ACID بالشحنة';
   @override String get saveTempDraftButton => 'حفظ مؤقت (مسودة)';
@@ -1732,9 +1732,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get acidRequestSavedSuccess => 'تم تسجيل وحفظ طلب ACID بنجاح';
   @override String get acidCertifiedSuccess => 'تم اعتماد وتثبيت رقم ACID بنجاح ✅';
   @override String get mtsNoticeDisclaimerAlertTitle => 'تنبيه: نص تذييل الإيميل فقط';
-  @override String get mtsNoticeDisclaimerAlertContent => 'النص الملصق يحتوي فقط على إشعار السرية وتذييل الإيميل القانوني (Email Disclaimer):\n\n«MTS EMAIL NOTICE This Electronic Mail...»\n\nولا يحتوي على بيانات إشعار القيد الجمركي (رقم ACID، تاريخ الصلاحية، المصدر والمستورد).\n\n👉 يرجى نسخ محتوى الإيميل الرئيسي من الأعلى، أو تجربة النموذج بالنقر على الزر أدناه.';
+  @override String get mtsNoticeDisclaimerAlertContent => 'النص الملصق يحتوي فقط على إشعار السرية وتذييل إخلاء مسؤولية البريد الإلكتروني القانوني:\n\n«MTS EMAIL NOTICE This Electronic Mail...»\n\nولا يحتوي على بيانات إشعار القيد الجمركي (رقم القيد الجمركي المبدئي، تاريخ الصلاحية، المصدر والمستورد).\n\n👉 يرجى نسخ محتوى الإيميل الرئيسي من الأعلى، أو تجربة النموذج بالنقر على الزر أدناه.';
   @override String get mtsNoticeNoAcidAlertTitle => 'لم يتم العثور على رقم ACID في النص الملصق';
-  @override String get mtsNoticeNoAcidAlertContent => 'النص الذي تم لصقه ينقصه السطور العلوية الأولى من إشعار نافذة (التي تحتوي على رقم ACID المكون من 19 رقماً وتواريخ الصلاحية).\n\n📌 للتجربة الفورية ورؤية جدول الاستخراج بالكامل، اضغط على "تحميل إشعار نافذة نموذجي".';
+  @override String get mtsNoticeNoAcidAlertContent => 'النص الذي تم لصقه ينقصه السطور العلوية الأولى من إشعار نافذة (التي تحتوي على رقم القيد الجمركي المبدئي المكون من 19 رقماً وتواريخ الصلاحية).\n\n📌 للتجربة الفورية ورؤية جدول الاستخراج بالكامل، اضغط على "تحميل إشعار نافذة نموذجي".';
   @override String get loadSampleMtsAndExtract => 'تحميل نص نموذجي واستخراجه فوراً';
   @override String get loadSampleMtsAndTest => 'تحميل نص إشعار نافذة نموذجي وتجربته فوراً';
   @override String acidExtractedSuccess(String acid) => '✅ تم استخراج رقم ACID: $acid وكافة بيانات الشحنة بنجاح!';
@@ -1746,10 +1746,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get emailTemplateCopied => '✅ تم نسخ قالب البريد الإلكتروني';
   @override String get discrepancyOverrideReasonHint => 'أدخل مبرر استثناء الفروقات الجمركية...';
   @override String get mtsNotificationHint => 'إشعار نافذة [رقم ACID: 19 رقماً]...';
-  @override String get vatRegType => 'الرقم الضريبي (VAT)';
-  @override String get crRegType => 'السجل التجاري (CR)';
-  @override String get taxIdRegType => 'البطاقة الضريبية (Tax ID)';
-  @override String get dunsRegType => 'معرف دانز (DUNS)';
+  @override String get vatRegType => 'الرقم الضريبي للقيمة المضافة';
+  @override String get crRegType => 'السجل التجاري';
+  @override String get taxIdRegType => 'البطاقة الضريبية';
+  @override String get dunsRegType => 'رقم دونز الدولي';
   @override String get companyRegNumberType => 'رقم السجل التجاري للشركة';
   @override String get foreignExporterNafezaType => 'رقم المصدر الأجنبي (نافذة)';
   @override String get factoryRegType => 'تسجيل المصنع';
@@ -1815,9 +1815,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get draftBlRefreshAndCompare => 'تحديث ومقارنة البيانات';
   @override String get draftBlSmartExtractorTitle => '📥 استخراج ذكي من ملفات ومسودات البوليصة';
   @override String get draftBlSmartExtractorSub => 'ارفع ملف المسودة مباشرة من الخط الملاحي أو الصق نص المسودة للاستخراج والمطابقة الآلية الفورية';
-  @override String get draftBlUploadAndExtractButton => '📁 رفع واستخراج ملف المسودة (PDF، Word، Excel)';
+  @override String get draftBlUploadAndExtractButton => '📁 رفع واستخراج ملف المسودة بكافة الصيغ';
   @override String get draftBlExtractingFileProgress => 'جاري قراءة واستخراج بيانات الملف...';
-  @override String draftBlFileExtractedSuccess(String filename, String sizeKb) => 'تم استخراج: $filename ($sizeKb KB)';
+  @override String draftBlFileExtractedSuccess(String filename, String sizeKb) => 'تم استخراج: $filename ($sizeKb كيلوبايت)';
   @override String get draftBlReuploadTooltip => 'إعادة رفع ملف آخر';
   @override String get draftBlExtractedBlNumberLabel => 'رقم البوليصة المستخرج:';
   @override String get draftBlCopyBlNumberTooltip => 'نسخ رقم البوليصة';
@@ -1830,9 +1830,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get draftBlPasteRawTextHint => 'الصق هنا النص المنسوخ من مسودة البوليصة أو الإيميل...';
   @override String get draftBlExtractFromTextButton => '⚡ استخراج ومطابقة ذكية من النص';
   @override String get draftBlReferenceVisualSheetTitle => '1. ملخص الشحنة المرجعي كشكل بوليصة شحن';
-  @override String get draftBlReferenceVisualSheetSub => 'البيانات المرجعية المسجلة داخل النظام من ماستر داتا المورد والمستورد وبيان العبوة والحجز الملاحي ومعايير نافذة (ACID)';
+  @override String get draftBlReferenceVisualSheetSub => 'البيانات المرجعية المسجلة داخل النظام من البيانات الأساسية للمورد والمستورد وبيان العبوة والحجز الملاحي ومعايير نافذة ورقم القيد الجمركي المبدئي';
   @override String get draftBlExtractedVisualSheetTitle => '5. شكل بوليصة مسودة الخط الملاحي المستخرجة';
-  @override String get draftBlExtractedVisualSheetSub => 'مطابقة حية وتأكيد لصحة بيانات بوليصة الشحن مع متطلبات نافذة (ACID)';
+  @override String get draftBlExtractedVisualSheetSub => 'مطابقة حية وتأكيد لصحة بيانات بوليصة الشحن مع متطلبات نافذة ورقم القيد الجمركي المبدئي';
   @override String get draftBlSwitchToGridView => 'التبديل إلى عرض البطاقات التفصيلية';
   @override String get draftBlSwitchToVisualBl => 'عرض كشكل بوليصة رسمية';
   @override String get draftBlAutoSummaryTitle => '1. ملخص الشحنة المرجعي التلقائي';
@@ -1844,7 +1844,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get draftBlSummaryPorts => 'الموانئ';
   @override String get draftBlSummaryFreightTerms => 'شروط النولون';
   @override String get draftBlSummaryBookingNo => 'رقم الحجز';
-  @override String get draftBlSummaryAcidNo => 'رقم القيد الجمركي (ACID)';
+  @override String get draftBlSummaryAcidNo => 'رقم القيد الجمركي المبدئي';
   @override String get draftBlSummaryImporterTaxId => 'البطاقة الضريبية للمستورد';
   @override String get draftBlSummaryShipperReg => 'رقم تسجيل المصدر';
   @override String get draftBlSummaryContainers => 'الحاويات والرصاص';
@@ -1891,7 +1891,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get draftBlLetterCopiedSnackbar => '✔ تم نسخ خطاب التعديل إلى الحافظة بنجاح';
   @override String get draftBlSelectFileToViewVersions => '⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً لعرض إدارة النسخ والتعديلات';
   @override String get draftBlVersionBranchingTitle => 'إدارة النسخ والإصدارات';
-  @override String get draftBlVersionBranchingSub => 'عند استلام مسودة معدلة جديدة (v2, v3)، يقوم النظام بقفل البنود المطابقة سابقاً، وإعادة فتح البنود ذات الملاحظات فقط للتأكد من تعديلها.';
+  @override String get draftBlVersionBranchingSub => 'عند استلام مسودة معدلة جديدة بإصدارات متتالية، يقوم النظام بقفل البنود المطابقة سابقاً، وإعادة فتح البنود ذات الملاحظات فقط للتأكد من تعديلها.';
   @override String get draftBlProceedToDualApproval => 'المتابعة للاعتماد الثنائي (المرحلة 4)';
   @override String draftBlActiveVersionBanner(String version, String stage, int lockedCount) => 'النسخة الحالية النشطة: $version ($stage) | البنود المقفلة: $lockedCount';
   @override String get draftBlSelectFileToCompleteApproval => '⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً لإتمام الاعتماد الثنائي للبوليصة';
@@ -1951,7 +1951,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get draftBlRegistryUpdatedSuccess => 'تم تحديث قائمة السجل النهائي المعتمد بنجاح';
   @override String draftBlPreviewSessionSnack(int id, String blNo) => 'معاينة الجلسة #$id: $blNo';
   @override String get searchAndCloneDraftBlBtn => 'البحث ونسخ مسودة سابقة';
-  @override String get searchAndCloneDraftBlDialogTitle => 'البحث ونسخ مسودة بوليصة شحن (Draft B/L)';
+  @override String get searchAndCloneDraftBlDialogTitle => 'البحث ونسخ مسودة بوليصة الشحن';
   @override String get searchDraftBlHint => 'ابحث برقم البوليصة، الخط الملاحي، السفينة، أو كود المراجعة...';
   @override String get noDraftBlFound => 'لم يتم العثور على مسودات بوالص شحن مطابقة';
   @override String get cloneDraftBlSuccess => 'تم استنساخ بيانات مسودة البوليصة وتصفير المعرفات واعتمادات الأطراف بنجاح';
@@ -1977,11 +1977,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cooCertTypeLabel => 'نوع شهادة المنشأ *';
   @override String get cooSelectCertTypeHint => 'اختر نوع الشهادة...';
   @override String get cooCertTypeEur1 => 'EUR.1 (الاتفاقية المصرية الأوروبية - قواعد معدلة)';
-  @override String get cooCertTypeChina => 'شهادة منشأ الصين (CCPIT - اتفاقية الصين ومصر)';
-  @override String get cooCertTypeStandard => 'شهادة منشأ عادية (Standard COO)';
-  @override String get cooCertTypeFormA => 'نموذج أ - نظام الأفضليات المعمم (GSP)';
+  @override String get cooCertTypeChina => 'شهادة المنشأ الصينية - اتفاقية الصين ومصر';
+  @override String get cooCertTypeStandard => 'شهادة المنشأ العامة';
+  @override String get cooCertTypeFormA => 'نموذج أ - نظام الأفضليات المعمم';
   @override String get cooCertTypeAgadir => 'شهادة اتفاقية أغادير';
-  @override String get cooCertTypeGafta => 'شهادة منطقة التجارة الحرة العربية الكبرى (GAFTA)';
+  @override String get cooCertTypeGafta => 'شهادة اتفاقية تيسير وتنمية التبادل التجاري العربي';
   @override String get cooOpenVisualPreviewButton => '⚡ فتح المعاينة المصورة والتصدير';
   @override String get cooNextDraftInputButton => 'التالي: إدخال الدرافت';
   @override String get cooOfficialDraftPreviewTitle => 'معاينة المسودة الرسمية لشهادة المنشأ';
@@ -1999,10 +1999,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cooExporterRegIdLabel => 'كود المصدر الأجنبي أو السجل الضريبي';
   @override String get cooImporterNameLabel => 'اسم المستورد أو المرسل إليه *';
   @override String get cooInvoiceNumberLabel => 'رقم الفاتورة المذكورة *';
-  @override String get cooSmartUploadButtonLabel => 'رفع واستخراج شهادة المنشأ الذكي (PDF, Word, Excel)';
-  @override String get cooRawTextSectionTitle => 'النص الخام لدرافت شهادة المنشأ (OCR):';
+  @override String get cooSmartUploadButtonLabel => 'رفع واستخراج شهادة المنشأ الذكي بكافة الصيغ';
+  @override String get cooRawTextSectionTitle => 'النص الخام لمسودة شهادة المنشأ عبر التعرف الضوئي:';
   @override String get cooSmartExtractFromTextButton => '⚡ استخراج وتعبئة ذكية من النص';
-  @override String get cooRawTextHint => 'الصق النص الكامل للشهادة هنا (مثل نصوص CCPIT أو EUR.1)...';
+  @override String get cooRawTextHint => 'الصق النص الكامل للشهادة هنا (مثل نصوص شهادة المنشأ أو الاتفاقيات التجارية)...';
   @override String get cooPasteTextOrUploadWarning => 'يرجى لصق نص الشهادة أو رفع الملف أولاً';
   @override String get cooAiExtractSuccess => '✔ تم استخراج ومطابقة بيانات الشهادة بالذكاء الاصطناعي بنجاح';
   @override String cooExtractError(String e) => 'خطأ أثناء الاستخراج: $e';
@@ -2063,10 +2063,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cooVisualRefreshTooltip => 'تحديث حي للبيانات المستدعاة';
   @override String get cooVisualCopyButton => 'نسخ البيانات 📋';
   @override String get cooVisualCopiedSnackbar => '📋 تم نسخ بيانات شهادة المنشأ إلى الحافظة';
-  @override String get cooVisualExcelButton => 'حفظ إكسل (Excel) 📊';
+  @override String get cooVisualExcelButton => 'حفظ كملف إكسل 📊';
   @override String get cooVisualExcelReadySnackbar => '📊 تم توليد وتجهيز بيانات الإكسل لشهادة المنشأ بنجاح';
   @override String get cooVisualPrintPdfButton => 'حفظ وطباعة PDF 🖨️';
-  @override String get cooCustomsClearanceNote => 'ملاحظة جمركية: في مرحلة التخليص الجمركي بمصر، يُشترط أن يحتوي البند 11 على ختم وتوقيع المصدر، وأن يحتوي البند 12 على الختم الرسمي للجهة المعتمدة (ختم الجمارك وختم الغرفة التجارية) أو رمز التحقق الإلكتروني (QR Code أو Barcode) في حال الشهادات الإلكترونية.';
+  @override String get cooCustomsClearanceNote => 'ملاحظة جمركية: في مرحلة التخليص الجمركي بمصر، يُشترط أن يحتوي البند 11 على ختم وتوقيع المصدر، وأن يحتوي البند 12 على الختم الرسمي للجهة المعتمدة (ختم الجمارك وختم الغرفة التجارية) أو رمز الاستجابة السريعة والباركود في حال الشهادات الإلكترونية.';
   @override String cooExcelSavedSuccess(String path) => '✅ تم حفظ ملف الإكسل بنجاح في: $path';
   @override String get cooDetailsExporterLabel => 'المصدر';
   @override String get cooDetailsImporterLabel => 'المستورد';
@@ -2231,7 +2231,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRecUpdateExistingSessionButton => 'تحديث الجلسة الحالية';
   @override String poRecSaveSessionError(String error) => 'خطأ أثناء حفظ الجلسة: $error';
   @override String get poRecVarianceAlertTitle => 'تنبيه: وجود فروق في المطابقة';
-  @override String get poRecVarianceAlertContent => 'تم رصد فروق بين أمر الشراء الأصلي والفاتورة والباكينج ليست النهائية:\n• سيتم اعتماد القيم والكميات النهائية كمرجع رسمي.\n• سيتم تحديث رصيد البضاعة في الطريق (GIT) بالكميات المعتمدة.\nهل ترغب في المتابعة وتأكيد الاعتماد؟';
+  @override String get poRecVarianceAlertContent => 'تم رصد فروق بين أمر الشراء الأصلي والفاتورة والباكينج ليست النهائية:\n• سيتم اعتماد القيم والكميات النهائية كمرجع رسمي.\n• سيتم تحديث رصيد البضاعة في الطريق بالكميات المعتمدة.\nهل ترغب في المتابعة وتأكيد الاعتماد؟';
   @override String get poRecCancelAndReview => 'إلغاء والمراجعة';
   @override String get poRecConfirmCertifyButton => 'تأكيد الاعتماد والمطابقة';
   @override String get poRecCertificationSuccess => 'تم اعتماد مطابقة المستندات وتحديث ملف الاستيراد وسجل الجلسات بنجاح!';
@@ -2281,7 +2281,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRecPackingSectionTitle => '2. مراجعة وتأكيد قائمة التعبئة والأوزان والطرود والأحجام';
   @override String get poRecSelectFileToViewPackingItems => 'يرجى اختيار ملف الشحنة لعرض بنود قائمة التعبئة';
   @override String get poRecColPackageType => 'نوع الطرد';
-  @override String get poRecColPoPackagesCount => 'عبوات أمر الشراء (PO PKG)';
+  @override String get poRecColPoPackagesCount => 'بيان طرود أمر الشراء';
   @override String get poRecColFinalPackagesCount => 'عدد الطرود النهائية *';
   @override String get poRecColPkgVariance => 'فارق العبوات';
   @override String get poRecColGrossWeight => 'الوزن القائم (كجم) *';
@@ -2290,7 +2290,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override String get poRecExtractorTitle => 'أداة الرفع والاستخراج الذكي والمطابقة الثلاثية';
   @override String get poRecExtractorSubtitle => 'استخراج بنود الفاتورة النهائية وقائمة التعبئة ومطابقتها آلياً مع أمر الشراء بالسستم وكشف الفوارق';
-  @override String get poRecLoadSampleDemoButton => 'تحميل نموذج تجريبي حقيقي (G.I. INDUSTRIAL)';
+  @override String get poRecLoadSampleDemoButton => 'تحميل نموذج تجريبي عملي مكتمل';
   @override String get poRecHideTool => 'إخفاء الأداة';
   @override String get poRecShowTool => 'عرض الأداة';
   @override String get poRecExtractorTabInvoice => '1. الفاتورة التجارية النهائية';
@@ -2351,7 +2351,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRecHistoryCodeCopiedNotice => 'تم نسخ رمز الجلسة';
   @override String get poRecHistoryViewDetailsTooltip => 'عرض تفاصيل وتقرير الجلسة';
   @override String get poRecHistoryLoadIntoEditorTooltip => 'تحميل الجلسة في شاشة التعديل والمطابقة';
-  @override String get poRecHistoryPrintTooltip => 'نسخ تقرير المطابقة للطباعة (Ctrl+P)';
+  @override String get poRecHistoryPrintTooltip => 'نسخ تقرير المطابقة للطباعة';
   @override String get poRecHistoryDeleteTooltip => 'حذف الجلسة';
   @override String get poRecHistoryDeleteConfirmTitle => 'تأكيد حذف جلسة المطابقة';
   @override String poRecHistoryDeleteConfirmContent(String code, String file) => 'هل أنت متأكد من رغبتك في حذف جلسة المطابقة ($code) الخاصة بملف الشحنة ($file)؟';
@@ -2381,7 +2381,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRecCheckFieldGrossWeight => 'الوزن الإجمالي القائم';
   @override String get poRecCheckFieldSupplierName => 'اسم المورد الأجنبي';
   @override String get poRecCheckFieldImporterName => 'اسم الشركة المستوردة';
-  @override String get poRecCheckFieldHsCode => 'البند الجمركي (HS Code)';
+  @override String get poRecCheckFieldHsCode => 'بند التعريفة الجمركية';
   @override String get poRecCheckFieldTaxId => 'البطاقة الضريبية للمستورد';
   @override String get poRecCheckMsgInvoiceMatched => 'تم استخراج وتطابق رقم الفاتورة التجارية بنجاح';
   @override String get poRecCheckMsgAcidMatched => 'رقم القيد الجمركي متطابق تماماً بين الفاتورة وكشف التعبئة والمنظومة';
@@ -2413,7 +2413,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get clonePoReconSuccess => 'تم استنساخ جلسة المطابقة بنجاح وفتحها في نافذة التعديل';
   @override String get poReconClonedResetNotice => 'تنبيه: تم إنشاء كود مسودة جديد وتفريغ بيانات الاعتماد والتوثيق لبدء جلسة مستقلة';
   @override String get clonePoReconRecordTooltip => 'استنساخ جلسة المطابقة هذه كمسودة جديدة';
-  @override String get copyPoReconBtn => 'نسخ جدول المطابقة (TSV)';
+  @override String get copyPoReconBtn => 'نسخ جدول المطابقة';
   @override String get exportPoReconExcelBtn => 'تصدير جدول المطابقة إلى Excel';
   @override String get exportPoReconPdfBtn => 'تصدير تقرير المطابقة إلى PDF';
 
@@ -2474,9 +2474,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get customsDeclPrintPreviewButton => 'معاينة ونسخ ملخص الإقرار';
   @override String get customsDeclPreviewTitle => 'وثيقة قيد الإقرار الجمركي المبدئي (46 ك.م)';
   @override String get customsDeclCopySummarySuccess => 'تم نسخ ملخص الإقرار الجمركي بنجاح';
-  @override String get customsDeclExportTsvButton => 'نسخ كجدول (TSV)';
+  @override String get customsDeclExportTsvButton => 'نسخ كجدول بيانات';
   @override String get customsDeclExportSuccess => 'تم نسخ بيانات الإقرار بصيغة TSV متوافقة مع Excel';
-  @override String get customsDeclExportRegistryTsv => 'تصدير السجل (TSV)';
+  @override String get customsDeclExportRegistryTsv => 'تصدير السجل كملف نصي مفصول بمسافات';
   @override String get customsDeclCopyAllSuccess => 'تم نسخ كامل سجل شهادات 46 بصيغة TSV';
   @override String get customsDeclCloseDialog => 'إغلاق';
   @override String get customsDeclAssessmentTitle => 'التقييم الجمركي وبنود التعريفة — شهادة 46 ك.م';
@@ -2515,6 +2515,41 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get copyRegistryRowSuccess => 'تم نسخ بيانات سطر الإقرار بصيغة TSV بنجاح';
   @override String get copyRegistryTableSuccess => 'تم نسخ سجل الإقرارات الجمركية بصيغة TSV بنجاح';
   @override String get cloneFromAssessmentBtn => 'استنساخ كمسودة جديدة';
+
+  // ── Form 46 Three-Way Comparison & Variance ───────────────────────────────
+  @override String get form46ThreeColumnComparisonTitle => 'المقارنة الثلاثية للرسوم والضرائب الجمركية';
+  @override String get form46ColStudyEstimate => 'التقدير المبدئي للدراسة';
+  @override String get form46ColStudyEstimateSub => 'القيم المحسوبة عند دراسة ملف الاستيراد (مقروء فقط)';
+  @override String get form46ColRevisedEstimate => 'التقدير التقريبي المحدّث';
+  @override String get form46ColRevisedEstimateSub => 'إعادة احتساب فورية بموجب المتغيرات المعتمدة';
+  @override String get form46ColNafezaActual => 'الفعلي من منظومة نافذة';
+  @override String get form46ColNafezaActualSub => 'القيم الفعلية الواردة بمطالبة نافذة الإلكترونية';
+  @override String get form46VarExchangeRate => 'سعر الصرف الجمركي المحدث';
+  @override String get form46VarApprovedFreight => 'نولون الشحن المعتمد';
+  @override String get form46VarActualInsurance => 'التأمين البحري الفعلي';
+  @override String get form46VarDischargeDemurrage => 'مصاريف التفريغ والتداول بالميناء';
+  @override String get form46VarNewFees => 'رسوم إضافية ومستجدة';
+  @override String get form46SmartExtractNafezaBtn => 'استخلاص ذكي من نافذة';
+  @override String get form46NafezaClaimNo => 'رقم مطالبة نافذة';
+  @override String get form46NafezaClaimDate => 'تاريخ المطالبة';
+  @override String get form46ActualCif => 'قيمة سيف الفعلية';
+  @override String get form46ActualDuty => 'ضريبة الوارد الفعلية';
+  @override String get form46ActualVat => 'ضريبة القيمة المضافة الفعلية';
+  @override String get form46ActualOtherFees => 'رسوم وضرائب أخرى فعلية';
+  @override String get form46ActualTotalDuties => 'إجمالي المطالبة الفعلية';
+  @override String get form46VarianceBarTitle => 'مؤشرات وفروقات التقييم الجمركي';
+  @override String get form46VarianceBvsA => 'المحدث مقابل التقديري';
+  @override String get form46VarianceCvsA => 'الفعلي مقابل التقديري';
+  @override String get form46VarianceCvsB => 'الفعلي مقابل المحدث';
+  @override String get form46VarianceStatusCompliant => 'مطابق / انحراف طفيف';
+  @override String get form46VarianceStatusModerate => 'انحراف متوسط';
+  @override String get form46VarianceStatusHigh => 'انحراف مرتفع';
+  @override String get form46VarianceReasonLabel => 'سبب انحراف الرسوم الجمركية';
+  @override String get form46VarianceReasonHint => 'توضيح أسباب فروق الرسوم والضرائب (إلزامي إذا تجاوز الانحراف 10%)';
+  @override String get form46VarianceReasonRequired => 'يرجى توضيح سبب انحراف الرسوم الجمركية لتجاوزه نسبة 10%';
+  @override String get customsDeclColVariance => 'الانحراف الجمركي';
+  @override String get customsDeclVariancePending => 'بانتظار المطالبة';
+  @override String get customsDeclVarianceNoDiff => 'مطابق تماماً';
 
   // ── Screen 24/27: Customs Clearance Management ────────────────────────────────
   @override String get searchAndCloneCustomsClearanceBtn => 'بحث واستنساخ بيان تخليص سابق';
@@ -2888,7 +2923,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get freightBookingColImportFile => 'ملف الشحنة';
   @override String get freightBookingColConfirmationNo => 'رقم تأكيد الحجز';
   @override String get freightBookingColCarrierForwarder => 'الخط الملاحي والوكيل';
-  @override String get freightBookingColRoute => 'مسار الشحن (POL ➔ POD)';
+  @override String get freightBookingColRoute => 'مسار الشحن: ميناء الشحن ➔ ميناء الوصول والتفريغ';
   @override String get freightBookingColVesselVoyage => 'السفينة ورقم الرحلة';
   @override String get freightBookingColDeparture => 'تاريخ المغادرة';
   @override String get freightBookingColArrival => 'تاريخ الوصول';
@@ -2957,20 +2992,20 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get freightBookingItemInactive => 'غير مطبق';
   @override String get freightBookingItem40ft => '1. شحن حاوية 40 قدم';
   @override String get freightBookingItem20ft => '2. شحن حاوية 20 قدم';
-  @override String get freightBookingItemLcl => '3. نولون مجزأ (LCL CBM)';
+  @override String get freightBookingItemLcl => '3. نولون مجزأ - حجم الشحن الجزئي';
   @override String get freightBookingItemCourier => '4. البريد السريع للمستندات';
-  @override String get freightBookingItemEur1 => '5. شهادة المنشأ (EUR.1 / ATR)';
-  @override String get freightBookingItemVgm => '6. مصاريف التحقق من الوزن (VGM)';
+  @override String get freightBookingItemEur1 => '5. شهادة المنشأ التفضيلية';
+  @override String get freightBookingItemVgm => '6. مصاريف التحقق من الوزن المعتمد';
   @override String get freightBookingItemVgmNotif => '7. إخطار إقرار الوزن';
   @override String get freightBookingItemTelex => '8. إطلاق الفاكس الملاحي';
   @override String get freightBookingItemInsurance => '9. بوليصة التأمين البحري';
   @override String get freightBookingInsuranceHint => 'سجل التأمين البحري في شاشة وثائق التأمين، فهو لا يدخل ضمن تكاليف الحجز.';
   @override String get freightBookingItemCancellation => '10. غرامة إلغاء الحجز';
-  @override String get freightBookingItemIcs2 => '11. رسوم بيان الحمول المسبقة (ICS2)';
+  @override String get freightBookingItemIcs2 => '11. رسوم بيان الحمول المسبقة';
   @override String get freightBookingItemOther => '12. مصاريف ورسوم أخرى';
   @override String get freightBookingItemDocFees => '13. مصاريف إصدار وثائق الشحن';
   @override String get freightBookingItemWaiver => '14. رسوم خطاب التنازل';
-  @override String get freightBookingItemDthc => '15. تفريغ ومناولة ميناء الوصول (DTHC)';
+  @override String get freightBookingItemDthc => '15. رسوم التفريغ بميناء الوصول';
   @override String get freightBookingItemStorageWeek => '16. أرضيات وتخزين الأسبوع الأول';
   @override String get freightBookingItemStorageExtra => '17. أرضيات وتخزين الأيام الإضافية';
   @override String get freightBookingMismatchTitle => 'تنبيه عدم تطابق الحاويات';
@@ -3008,13 +3043,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get freightBookingViewPod => 'ميناء الوصول:';
   @override String freightBookingViewVesselVoyage(String vessel, String voyage) => 'السفينة: $vessel (رحلة: $voyage)';
   @override String freightBookingViewTransitTime(int days) => 'مدة الترانزيت: $days يوم';
-  @override String freightBookingViewEtd(String date) => 'تاريخ المغادرة (ETD): $date';
-  @override String freightBookingViewEta(String date) => 'تاريخ الوصول (ETA): $date';
-  @override String freightBookingViewAtd(String date, String delay) => 'تاريخ المغادرة الفعلي (ATD): $date ($delay)';
+  @override String freightBookingViewEtd(String date) => 'تاريخ المغادرة: $date';
+  @override String freightBookingViewEta(String date) => 'تاريخ الوصول: $date';
+  @override String freightBookingViewAtd(String date, String delay) => 'تاريخ الإبحار الفعلي: $date ($delay)';
   @override String freightBookingViewExpectedWh(String date) => 'وصول المخزن المتوقع: $date';
   @override String get freightBookingViewContainersSection => 'الحاويات وأرقام السيل المخصصة:';
   @override String get freightBookingViewChargesSection => 'بنود التكاليف والنولون المعتمدة:';
-  @override String get freightBookingViewTotalFreight => 'إجمالي النولون التقديري (USD):';
+  @override String get freightBookingViewTotalFreight => 'إجمالي النولون التقديري بالدولار:';
   @override String freightBookingPrintTitle(String code) => 'طباعة بطاقة حجز الشحن: $code';
   @override String freightBookingPrintManifestHeader(String code) => 'سند تأكيد حجز الشحن الملاحي ($code)';
   @override String freightBookingPrintDate(String date) => 'تاريخ الطباعة: $date';
@@ -3053,7 +3088,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cloneCargoShippingDialogTitle => 'استنساخ سجل شحن وحاويات';
   @override String get cloneCargoShippingDialogSubtitle => 'اختر شحنة سابقة واستنسخ تجهيز الحاويات والـ VGM كمسودة جديدة';
   @override String get cloneCargoShippingTooltip => 'استنساخ الشحنة وتخصيص الحاويات كمسودة جديدة';
-  @override String get cargoShippingDuplicateContainerTooltip => 'تكرار / استنساخ الحاوية (Ctrl + D)';
+  @override String get cargoShippingDuplicateContainerTooltip => 'تكرار واستنساخ الحاوية';
   @override String get copyCargoShippingRowSuccess => 'تم نسخ بيانات الشحنة إلى الحافظة بنجاح';
   @override String get copyCargoShippingTableSuccess => 'تم نسخ جدول سجل الشحنات كـ TSV بنجاح';
   @override String get exportCargoShippingExcelTooltip => 'تصدير سجل الشحنات إلى Excel';
@@ -3084,6 +3119,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cargoShippingNonStackable => 'غير قابل للرص';
   @override String cargoShippingAutoRecommendation(int count, String code, String spaceUtil, String weightUtil) => 'اقتراح الحاوية التلقائي: $count x $code (استغلال المساحة: $spaceUtil% | استغلال الوزن: $weightUtil%)';
   @override String get cargoShippingContainersHeader => 'بيانات تخصيص الحاويات وأرقام الأقفال والوزن الإجمالي المعتمد:';
+  @override String cargoShippingBookingMatchRequired(int registered, int expected) => 'لا يمكن الحفظ: عدد الحاويات المسجلة ($registered) يجب أن يساوي عدد الحاويات في البوكينج ($expected).';
+  @override String get cargoShippingBookingLimitReached => 'تم الوصول للحد الأقصى لعدد الحاويات المعتمدة في البوكينج';
+  @override String cargoShippingBookingStatusBadge(String bookingCode, String summary) => 'حاويات البوكينج ($bookingCode): $summary';
+  @override String get cargoShippingBookingStatusMatch => 'مطابق للبوكينج';
+  @override String get cargoShippingBookingStatusMismatch => 'غير مطابق للبوكينج';
   @override String get cargoShippingAddContainerType => 'إضافة نوع حاوية جديد';
   @override String get cargoShippingContainerType => 'نوع الحاوية';
   @override String get cargoShippingQty => 'العدد';
@@ -3176,7 +3216,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String cargoShippingSaveLclMilestoneSuccess(String status) => '💾 تم حفظ وتحديث مرحلة الشحن الجزئي بنجاح! الحالة: $status';
   @override String get cargoShippingAutoCompleteSuccess => '⚡ تم استيفاء دورة التحميل ودخول الميناء لجميع الحاويات بنجاح!';
   @override String cargoShippingStudySaveSuccess(String code) => '✅ تم حفظ وتحديث دراسة ومتابعة ملف الاستيراد ($code) بنجاح!';
-  @override String get cargoShippingDraftSaveSuccess => '💾 تم الحفظ المؤقت بنجاح (Draft)! تم الاحتفاظ بالبيانات ويمكنك استكمال المراحل في أي وقت.';
+  @override String get cargoShippingDraftSaveSuccess => '💾 تم الحفظ المؤقت للمسودة بنجاح! تم الاحتفاظ بالبيانات ويمكنك استكمال المراحل في أي وقت.';
   @override String cargoShippingRestoreSuccess(String code) => '♻️ تم استعادة سجل متابعة الشحن ($code) بنجاح!';
   @override String cargoShippingDeleteSuccess(String code) => '🗑️ تم حذف سجل الشحن ($code) منطقياً.';
   @override String get cargoShippingDeleteConfirmTitle => 'تأكيد الحذف المنطقي لسجل الشحن';
@@ -3242,10 +3282,10 @@ class AppLocalizationsAr extends AppLocalizations {
 
   // Screen 28: Warehouse Receiving & Inspection (GRN)
   @override String get searchAndCloneWarehouseReceivingBtn => 'بحث واستنساخ إذن إضافة سابق';
-  @override String get cloneWarehouseReceivingDialogTitle => 'استنساخ إذن إضافة وفحص مخزني (GRN)';
+  @override String get cloneWarehouseReceivingDialogTitle => 'استنساخ إذن إضافة وفحص مخزني';
   @override String get cloneWarehouseReceivingDialogSubtitle => 'اختر إذن إضافة مخزني سابق لنسخ تفاصيل الأصناف وكميات الفحص كمسودة جديدة';
   @override String get cloneWarehouseReceivingTooltip => 'استنساخ إذن الإضافة كمسودة جديدة';
-  @override String get copyWarehouseReceivingRowSuccess => 'تم نسخ بيانات إذن الإضافة (GRN) إلى الحافظة';
+  @override String get copyWarehouseReceivingRowSuccess => 'تم نسخ بيانات إذن إضافة المخزن إلى الحافظة';
   @override String get copyWarehouseReceivingTableSuccess => 'تم نسخ جدول أذون الإضافة المخزنية إلى الحافظة';
   @override String get exportWarehouseReceivingExcelTooltip => 'تصدير سجل أذون الإضافة إلى Excel';
   @override String get exportWarehouseReceivingPdfTooltip => 'تصدير سجل أذون الإضافة إلى PDF';
@@ -3354,8 +3394,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cloneFinancialSettlementDialogTitle => 'استنساخ تسوية تكلفة الوصول';
   @override String get cloneFinancialSettlementDialogSubtitle => 'إنشاء مسودة تسوية جديدة مستنسخة مع تصفير المعرفات وإعادة الضبط';
   @override String get cloneFinancialSettlementTooltip => 'استنساخ هذه التسوية كمسودة جديدة';
-  @override String get copyFinancialSettlementRowSuccess => 'تم نسخ بيانات التسوية المحددة إلى الحافظة (TSV)';
-  @override String get copyFinancialSettlementTableSuccess => 'تم نسخ جدول تسويات التكلفة إلى الحافظة (TSV)';
+  @override String get copyFinancialSettlementRowSuccess => 'تم نسخ بيانات التسوية المحددة إلى الحافظة';
+  @override String get copyFinancialSettlementTableSuccess => 'تم نسخ جدول تسويات التكلفة إلى الحافظة';
   @override String get exportFinancialSettlementExcelTooltip => 'تصدير سجل التسويات إلى Excel';
   @override String get exportFinancialSettlementPdfTooltip => 'تصدير سجل التسويات إلى PDF';
   @override String get financialSettlementStageTitle => 'التسوية المالية وتكلفة البند النهائي';
@@ -3651,7 +3691,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get categoryAirFreight => 'شحن جوي';
   @override String get categoryBulkCargo => 'بضائع صب';
   @override String get categoryMultimodal => 'شحن متعدد الوسائط';
-  @override String get categoryCourier => 'بريد سريع (Courier)';
+  @override String get categoryCourier => 'بريد سريع';
   @override String get budgetCurrencyLabel => 'عملة الميزانية';
   @override String get projectsCopyFieldTooltip => 'نسخ البيانات';
   @override String get projectsExportTsvBtn => 'تصدير المشاريع (جدول)';
@@ -3782,9 +3822,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get importCompaniesShowTokenTooltip => 'إظهار الرمز';
   @override String get importCompaniesHideTokenTooltip => 'إخفاء الرمز';
   @override String get importCompaniesCertificatesSection => 'شهادات العلامة التجارية والجودة';
-  @override String get importCompaniesWipoTitle => 'شهادة وايپو مدريد (WIPO)';
+  @override String get importCompaniesWipoTitle => 'شهادة وايپو مدريد الدولية';
   @override String get importCompaniesWipoRegLabel => 'رقم تسجيل WIPO Madrid';
-  @override String get importCompaniesEuipoTitle => 'شهادة العلامة الأوروبية (EUIPO)';
+  @override String get importCompaniesEuipoTitle => 'شهادة العلامة التجارية الأوروبية';
   @override String get importCompaniesEuipoRegLabel => 'رقم تسجيل EUIPO';
   @override String get importCompaniesIsoTitle => 'شهادات إدارة الجودة ISO';
 
@@ -4102,9 +4142,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get supportedCurrenciesHint => 'مثال: USD, EUR, EGP';
   @override String partnerFiataBadge(String fiata) => 'فياتا: $fiata';
   @override String get inspectionAgencyDetailsHeader => 'بيانات جهة الفحص والاعتماد';
-  @override String get inspectionAccreditationNumLabel => 'رقم اعتماد جهة الفحص (GOIEC / ISO) *';
+  @override String get inspectionAccreditationNumLabel => 'رقم اعتماد جهة الفحص والمطابقة الدولية *';
   @override String get inspectionAccreditationNumHint => 'مثال: GOIEC-EG-9001 أو ISO-17020';
-  @override String get inspectionScopeLabel => 'نطاق الفحص والمعاينة وشهادات المطابقة (CoC / VOC)';
+  @override String get inspectionScopeLabel => 'نطاق الفحص والمعاينة وشهادات المطابقة والتحقق';
   @override String get inspectionScopeHint => 'مثال: Pre-shipment Inspection, CoC/VOC, Food, Machinery';
   @override String partnerAccreditationBadge(String num) => 'اعتماد: $num';
   @override String get customsBrokerLicenseHeader => 'ترخيص التخليص الجمركي والموانئ المعتمدة';
@@ -4123,7 +4163,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String partnerFleetBadge(String fleet) => 'الأسطول: $fleet';
   @override String partnerCoverageBadge(String areas) => 'التغطية: $areas';
   @override String get insuranceDetailsHeader => 'بيانات ترخيص وتغطيات التأمين البحري';
-  @override String get insuranceLicenseNumLabel => 'رقم ترخيص هيئة الرقابة المالية (FRA) *';
+  @override String get insuranceLicenseNumLabel => 'رقم ترخيص الهيئة العامة للرقابة المالية *';
   @override String get insuranceLicenseNumHint => 'مثال: FRA-INS-302 / هيئة الرقابة المالية';
   @override String get insuranceCoverageTypesLabel => 'أنواع التغطيات التأمينية المعتمدة *';
   @override String get insuranceCoverageTypesHint => 'مثال: شروط معهد التأمين A / B / C، كل الأخطار، أخطار الحرب';
@@ -4209,7 +4249,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ledgerPaymentBadge => 'سداد';
   @override String get partnerSoaRecordInvoiceBtn => 'تسجيل فاتورة جديدة';
   @override String get partnerSoaRecordPaymentBtn => 'تسجيل دفعة مسددة';
-  @override String get partnerSoaExportExcelBtn => 'تصدير إكسل (Excel)';
+  @override String get partnerSoaExportExcelBtn => 'تصدير كملف إكسل';
   @override String get partnerSoaExportPdfBtn => 'تصدير كشف حساب PDF';
   @override String get partnerSoaPrintBtn => 'طباعة كشف الحساب';
   @override String get soaFooterText => 'سرور للخدمات اللوجستية — وحدة محاسبة الموردين ومقدمي الخدمات متعددة العملات';
@@ -5430,6 +5470,27 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get radarTsvHeaderDemurrageRisk => 'مؤشر غرامات الأرضيات';
   @override String get radarTsvHeaderTestingStatus => 'فحص العينات الرقابية';
   @override String get radarTsvHeaderDocReadiness => 'نسبة اكتمال المستندات';
+
+  // ── Screen 48 Canonical KPI Metric Bar & Badges ─────────────────────────────
+  @override String get kpiHealthScoreTitle => 'معدل الإنجاز';
+  @override String kpiHealthScoreValue(int percent) => 'صحة الشحنة $percent%';
+  @override String get kpiHealthScoreTooltip => 'مؤشر السلامة ومعدل الإنجاز التشغيلي للشحنة';
+  @override String get kpiFreeTimeBurnTitle => 'استهلاك السماح';
+  @override String kpiFreeTimeBurnValue(int percent, int days) => '$percent% ($days يوم متبقٍ)';
+  @override String get kpiFreeTimeBurnTooltip => 'مؤشر استهلاك فترة السماح وأيام الإعفاء المتبقية لتفادي غرامات الأرضيات';
+  @override String get kpiBlockersAndOverdueTitle => 'العوائق والتأخيرات';
+  @override String kpiOverdueCountBadge(int count) => '$count متأخر';
+  @override String kpiBlockersCountBadge(int count) => '$count عائق';
+  @override String get kpiNoBlockersBadge => 'منتظم (بدون عوائق)';
+  @override String get kpiBlockersTooltip => 'مؤشر الخطوات المتأخرة والعوائق التشغيلية المؤثرة على تدفق الشحنة';
+  @override String get kpiCostVarianceTitle => 'انحراف التكلفة';
+  @override String kpiCostVarianceValue(String sign, double percent) => '$sign${percent.toStringAsFixed(1)}%';
+  @override String get kpiCostVarianceTooltip => 'نسبة انحراف التكاليف الفعلية المسجلة عن التكلفة التقديرية المعتمدة';
+  @override String get phasePendingShipmentsTitle => 'حالة المرحلة';
+  @override String phasePendingCountBadge(int count) => '$count معلقة';
+  @override String phaseDelayedCountBadge(int count) => '$count متأخرة';
+  @override String get phaseAllClearBadge => 'مكتملة ومستقرة';
+  @override String get phasePendingBadgeTooltip => 'إجمالي الشحنات التي بها خطوات معلقة أو متأخرة زمنياً في هذه المرحلة';
 
   // ==========================================
   // Screen 49: Freight Quotations Comparison (FreightQuotationsComparisonScreen)
@@ -7308,7 +7369,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get packingListReaderBannerDesc =>
       'قم برفع ملف بيان التعبئة لاستخراج أعداد الطرود، الأوزان القائمة والصافية، والأحجام تلقائياً';
   @override
-  String get explicitDimensionsPath => 'مسار الأبعاد الصريحة (L × W × H)';
+  String get explicitDimensionsPath => 'مسار الأبعاد الصريحة: الطول × العرض × الارتفاع';
   @override
   String get cbmDirectPathAndPalletLayout => 'مسار الحجم المباشر ومخطط البالتات';
   @override
@@ -7409,7 +7470,7 @@ class AppLocalizationsAr extends AppLocalizations {
   // ── Master Palletization Plan Localizations ─────────────────────────────────
   @override
   String get masterPalletizationPlanTitle =>
-      'لوحة مخطط وحدات الشحن والبالتات (Master Palletization Plan)';
+        'لوحة المخطط الشامل لوحدات الشحن والبالتات';
   @override
   String totalPalletsPill(int count) => 'إجمالي البالتات: $count بالتة';
   @override
@@ -7433,7 +7494,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get palletTypeAndSizeLabel => 'نوع ومقاس البالتة';
   @override
-  String get palletCountFieldLabel => 'عدد البالتات (Qty) *';
+  String get palletCountFieldLabel => 'عدد البالتات *';
   @override
   String get palletStackingInstructionsLabel => 'تعليمات رص البالتة *';
   @override
@@ -7456,11 +7517,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get thPackageCode => 'كود الطرد / الصنف';
   @override
-  String get thDimensions => 'الأبعاد (L×W×H سم)';
+  String get thDimensions => 'الأبعاد: الطول × العرض × الارتفاع (سم)';
   @override
   String get thWeight => 'الوزن (كجم)';
   @override
-  String get thCoordinates => 'إحداثيات الموضع (X, Y, Z سم)';
+  String get thCoordinates => 'إحداثيات الموضع بالأبعاد الثلاثية (سم)';
   @override
   String get thStacking => 'الرص';
   @override
@@ -7521,17 +7582,17 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get poReportExchangeRate => 'سعر الصرف';
   @override
-  String get poReportIncoterms => 'شروط التسليم (Incoterms)';
+  String get poReportIncoterms => 'شروط التسليم الدولية';
   @override
   String get poReportOrigin => 'بلد المنشأ';
   @override
-  String get poReportBuyer => 'الشركة المستوردة (Buyer)';
+  String get poReportBuyer => 'الشركة المستوردة';
   @override
   String get poReportTaxId => 'السجل الضريبي';
   @override
   String get poReportImportFile => 'ملف الشحنة';
   @override
-  String get poReportSeller => 'المورد الأجنبي (Seller)';
+  String get poReportSeller => 'المورد الأجنبي';
   @override
   String get poReportSupplierCountry => 'دولة المورد';
   @override
@@ -7552,28 +7613,28 @@ class AppLocalizationsAr extends AppLocalizations {
   String get poReportRecommendedContainer => 'الحاوية المقترحة';
   @override
   String get poReportSec1InvoiceItems =>
-      '1. جدول بنود الفاتورة التجارية (Commercial Invoice Line Items)';
+        '1. جدول بنود وتفاصيل الفاتورة التجارية';
   @override
   String get poReportSec2PackingList =>
-      '2. بيان قائمة التعبئة والطرود والأبعاد (Detailed Packing List)';
+        '2. بيان قائمة التعبئة التفصيلية والطرود والأبعاد';
   @override
   String get poReportSec3PalletPlan =>
-      '3. لوحة مخطط البالتات ووحدات الشحن (Master Palletization Plan)';
+        '3. المخطط العام الشامل للبالتات ووحدات الشحن';
   @override
   String get poReportSec4Notes =>
-      '4. الملاحظات والشروط الإضافية (Additional Notes & Terms)';
+        '4. الشروط والملاحظات الإضافية التعاقدية';
   @override
   String get poReportColItemCode => 'كود الصنف';
   @override
   String get poReportColDescription => 'البيان والوصف';
   @override
-  String get poReportColHsCode => 'بند التعريفة (HS Code)';
+  String get poReportColHsCode => 'بند التعريفة الجمركية';
   @override
   String get poReportColQtyUnit => 'الكمية / الوحدة';
   @override
   String get poReportColUnitPrice => 'سعر الوحدة';
   @override
-  String get poReportColTotalAmount => 'الإجمالي (Total)';
+  String get poReportColTotalAmount => 'القيمة الإجمالية';
   @override
   String get poReportColPkgType => 'نوع التعبئة';
   @override
@@ -7613,7 +7674,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get poReportDirectVolume => 'حجم مباشر';
   @override
   String get poReportLanguageToggleTooltip =>
-      'تغيير لغة التقرير (عربي / English)';
+        'تغيير لغة التقرير (العربية / الإنجليزية)';
   @override
   String get poReportSwitchLanguageBtn => 'English';
   @override
@@ -8302,7 +8363,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get swiftColVarianceStatus => 'حالة المطابقة والفارق';
   @override
-  String get swiftChargesLabel => 'رسوم التحويل (71A)';
+  String get swiftChargesLabel => 'رسوم التحويل البنكي';
   @override
   String get swiftColSwiftRef => 'رقم السويفت البنكي';
   @override
@@ -8417,13 +8478,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get swiftBatchNotConfirmed =>
       'لا يمكن مطابقة حزمة السويفت قبل مراجعتها وتأكيدها';
   @override
-  String get swiftFieldRef => 'الرقم المرجعي للسويفت (SWIFT reference)';
+  String get swiftFieldRef => 'الرقم المرجعي للسويفت';
   @override
-  String get swiftFieldValueDate => 'تاريخ الاستحقاق (Value date)';
+  String get swiftFieldValueDate => 'تاريخ الاستحقاق';
   @override
-  String get swiftFieldAmount => 'المبلغ (Amount)';
+  String get swiftFieldAmount => 'المبلغ';
   @override
-  String get swiftFieldCurrency => 'العملة (Currency)';
+  String get swiftFieldCurrency => 'العملة';
 
   @override
   String get swiftExportTsvBtn => 'تصدير جدول نصوص';
@@ -8528,7 +8589,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get dynApplyColumnsBtn => 'تطبيق اختيار الأعمدة';
   @override
-  String get dynExportCsvTitle => 'تصدير التقرير الديناميكي (Excel CSV)';
+  String get dynExportCsvTitle => 'تصدير التقرير الديناميكي كجدول بيانات';
   @override
   String get dynExportCsvGeneratedMsg => 'تم توليد كود التقرير المخصص بنجاح، يمكنك نسخه لاستخدامه في Excel:';
   @override
@@ -8578,9 +8639,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get dynTemplateCustom => 'تخصيص حر (ديناميكي)';
   @override
-  String get dynTemplateEco => 'قالب شركة إيكو (ECO Radar)';
+  String get dynTemplateEco => 'قالب شركة إيكو';
   @override
-  String get dynTemplateScas => 'قالب شركة سكاس (SCAS Tracker)';
+  String get dynTemplateScas => 'قالب شركة سكاس لتتبع الشحنات';
   @override
   String dynLastUpdatedLabel(String timestamp) => 'آخر تحديث: $timestamp';
   @override
@@ -8596,7 +8657,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get dynCatShippingAndLogistics => 'الشحن واللوجستيات والموانئ';
   @override
-  String get dynCatPackagesAndCbm => 'الطرود والأوزان والتكعيب (CBM)';
+  String get dynCatPackagesAndCbm => 'الطرود والأوزان والحجم بالمتر المكعب';
   @override
   String get dynCatCustomsAndNafeza => 'الجمارك ونافذة وCargoX';
   @override
@@ -8616,27 +8677,27 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get dynColFileOpeningDate => 'تاريخ فتح الملف / التحرك';
   @override
-  String get dynColPoNumber => 'رقم أمر الشراء (PO)';
+  String get dynColPoNumber => 'رقم أمر الشراء';
   @override
-  String get dynColPiNumber => 'رقم الفاتورة المبدئية (PI)';
+  String get dynColPiNumber => 'رقم الفاتورة المبدئية';
   @override
-  String get dynColPiValue => 'قيمة الفاتورة (PI Value)';
+  String get dynColPiValue => 'قيمة الفاتورة المبدئية';
   @override
   String get dynColShippingLine => 'شركة / خط الشحن';
   @override
-  String get dynColPortOfLoading => 'ميناء الشحن (POL)';
+  String get dynColPortOfLoading => 'ميناء الشحن';
   @override
-  String get dynColPortOfDischarge => 'ميناء التفريغ (POD)';
+  String get dynColPortOfDischarge => 'ميناء التفريغ';
   @override
-  String get dynColCargoReadyDate => 'جاهزية البضاعة (Pick Up)';
+  String get dynColCargoReadyDate => 'تاريخ جاهزية البضاعة';
   @override
-  String get dynColTargetFreeDays => 'أيام السماح (Free Days)';
+  String get dynColTargetFreeDays => 'أيام السماح المجانية';
   @override
   String get dynColTotalPackages => 'إجمالي الطرود';
   @override
   String get dynColGrossWeightKg => 'الوزن الإجمالي (كجم)';
   @override
-  String get dynColTotalCbm => 'الحجم التكعيبي (CBM)';
+  String get dynColTotalCbm => 'الحجم التكعيبي بالمتر المكعب';
   @override
   String get dynColAcidIssueDate => 'تاريخ إصدار ACID';
   @override
@@ -8696,9 +8757,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get dynColScasPickUpDate => 'Pick Up Date from Gind';
   @override
-  String get dynColScasDeparturePort => 'Departure Date from Port (ETD)';
+  String get dynColScasDeparturePort => 'تاريخ الإبحار الفعلي من ميناء الشحن';
   @override
-  String get dynColScasArrivalAlexPort => 'Arrival Date to Alex Port (ETA)';
+  String get dynColScasArrivalAlexPort => 'تاريخ الوصول المتوقع لميناء الإسكندرية';
   @override
   String get dynColScasOrigInvoice => 'Original Commercial Invoice';
   @override
@@ -8712,7 +8773,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get dynColScasInsertNafeza => 'Insert on Nafeza';
   @override
-  String get dynColScasBankForm4 => 'Bank Name (Form 4)';
+  String get dynColScasBankForm4 => 'اسم البنك ونموذج 4';
   @override
   String get dynColScasDeclare3A => 'Declare to 3A';
   @override
@@ -8771,6 +8832,154 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dynCellInClearancePort => 'قيد التخليص بالميناء';
   @override
   String dynRecordsCount(int count) => '$count سجل';
+  @override
+  String get dynCatCourierAir => 'الطرود البريدية والشحن الجوي السريع';
+  @override
+  String get dynCatContainersDemurrage => 'إدارة الحاويات وغرامات التأخير والأرضيات';
+  @override
+  String get dynCatCustomsReleaseDuties => 'الإفراج الجمركي النهائي والرسوم والضرائب';
+  @override
+  String get dynCatInlandHaulage => 'النقل الداخلي والشاحنات وتوصيل المستودع';
+  @override
+  String get dynCatLandedCostSettlement => 'التكلفة الاستيرادية الفعلية والتسوية المالية';
+  @override
+  String get dynCatCargoXDigitalDocs => 'منصة نافذة الرقمية والمستندات الأصلية';
+  @override
+  String get dynCatPartialShipments => 'الشحنات الجزئية والتفرع';
+  @override
+  String get dynCatHoldsNotes => 'ملاحظات التشغيل وأسباب تعليق الشحنة';
+  @override
+  String get dynColCourierOperator => 'مشغل البريد السريع';
+  @override
+  String get dynColCourierTrackingNo => 'رقم بوليصة تتبع البريد السريع';
+  @override
+  String get dynColShipmentSubMode => 'نمط الشحن الفرعي';
+  @override
+  String get dynColChargeableDivisor => 'معامل الحجم القاسم';
+  @override
+  String get dynColAcidRequirement => 'موقف القيد الجمركي المسبق';
+  @override
+  String get dynColAcidExemptionReason => 'سبب الإعفاء البريدي الجمركي';
+  @override
+  String get dynColBlNumber => 'رقم بوليصة الشحن';
+  @override
+  String get dynColBookingNo => 'رقم الحجز الملاحي';
+  @override
+  String get dynColVesselName => 'اسم السفينة أو الباخرة';
+  @override
+  String get dynColDeliveryOrderNo => 'رقم إذن التسليم الملاحي';
+  @override
+  String get dynColDeliveryOrderExpiryDate => 'تاريخ صلاحية إذن التسليم';
+  @override
+  String get dynColEmptyContainersReturnedAt => 'تاريخ إرجاع الحاويات الفارغة';
+  @override
+  String get dynColEmptyContainersReturnStatus => 'حالة إرجاع الحاويات الفارغة';
+  @override
+  String get dynColEmptyContainersEirNumbers => 'أرقام إيصالات تبادل الحاويات';
+  @override
+  String get dynColEmptyContainersDepotName => 'مستودع إرجاع الحاويات';
+  @override
+  String get dynColCustomsReleasePermitNo => 'رقم تصريح الإفراج الجمركي';
+  @override
+  String get dynColCustomsReleaseType => 'نوع الإفراج الجمركي';
+  @override
+  String get dynColCustomsReleaseOfficer => 'مأمور التعريفة والمثمن الجمركي';
+  @override
+  String get dynColCustomsGatePassNo => 'رقم إذن تصريح البوابة';
+  @override
+  String get dynColCustomsDutyPaidAmount => 'مبلغ الرسوم الجمركية المدفوعة';
+  @override
+  String get dynColCustomsDutyReceiptNo => 'رقم إيصال سداد الجمارك';
+  @override
+  String get dynColCustomsDutySadadNo => 'رقم سداد الجمركي الإلكتروني';
+  @override
+  String get dynColCustomsDutyPaymentDate => 'تاريخ سداد الرسوم الجمركية';
+  @override
+  String get dynColCustomsBrokerDelegationNo => 'رقم التفويض الجمركي للمخلص';
+  @override
+  String get dynColInlandTransportStatus => 'حالة النقل الداخلي';
+  @override
+  String get dynColInlandCarrierName => 'اسم شركة النقل والمقاول';
+  @override
+  String get dynColInlandTruckPlateNo => 'رقم لوحة الشاحنة';
+  @override
+  String get dynColInlandDriverName => 'اسم السائق';
+  @override
+  String get dynColInlandDriverPhone => 'رقم هاتف السائق';
+  @override
+  String get dynColInlandTransportCostEgp => 'تكلفة النقل الداخلي بالجنيه';
+  @override
+  String get dynColInlandDepartureDate => 'تاريخ الخروج والتحرك من الميناء';
+  @override
+  String get dynColInlandActualArrivalDate => 'تاريخ الوصول الفعلي للمستودع';
+  @override
+  String get dynColTotalClearanceExpensesEgp => 'إجمالي مصاريف التخليص الجمركي';
+  @override
+  String get dynColActualLandedCostTotalEgp => 'إجمالي التكلفة الاستيرادية المحققة';
+  @override
+  String get dynColActualLandedCostMarkupFactor => 'معامل التحميل الفعلي';
+  @override
+  String get dynColActualLandedCostVarianceEgp => 'فرق الانحراف المالي بالجنيه';
+  @override
+  String get dynColActualLandedCostVariancePct => 'نسبة انحراف التكلفة الفعلية %';
+  @override
+  String get dynColFinancialSettlementStatus => 'حالة التسوية المالية';
+  @override
+  String get dynColCargoxEnvelopeCode => 'كود مظروف كارجو إكس';
+  @override
+  String get dynColCargoxEnvelopeStatus => 'حالة مظروف كارجو إكس';
+  @override
+  String get dynColCargoxTransferredAt => 'تاريخ نقل كارجو إكس';
+  @override
+  String get dynColOriginalDocumentsCourierNo => 'رقم بوليصة البريد السريع للمستندات';
+  @override
+  String get dynColOriginalDocumentsStatus => 'حالة المستندات الأصلية';
+  @override
+  String get dynColOriginalDocumentsReceivedAt => 'تاريخ استلام المستندات الأصلية';
+  @override
+  String get dynColIsPartialShipment => 'شحنة جزئية';
+  @override
+  String get dynColParentFileCode => 'كود الشحنة الأم';
+  @override
+  String get dynColHoldReason => 'سبب تعليق الشحنة';
+  @override
+  String get dynColHoldDate => 'تاريخ تعليق الشحنة';
+  @override
+  String get dynColHsCode => 'بند التعريفة الجمركية';
+  @override
+  String get dynColProductCategory => 'تصنيف البضاعة';
+  @override
+  String get dynFilterReleaseStatusLabel => 'الإفراج الجمركي';
+  @override
+  String get dynFilterReleaseStatusAll => 'الكل';
+  @override
+  String get dynFilterReleaseStatusReleased => 'مفرج عنه';
+  @override
+  String get dynFilterReleaseStatusPending => 'قيد التخليص';
+  @override
+  String get dynFilterAcidReqLabel => 'القيد الجمركي';
+  @override
+  String get dynFilterAcidReqAll => 'كافة الشحنات';
+  @override
+  String get dynFilterAcidReqMandatory => 'قيد إلزامي';
+  @override
+  String get dynFilterAcidReqExempt => 'إعفاء بريدي';
+  @override
+  String get dynSaveCustomPresetBtn => 'حفظ القالب المخصص';
+  @override
+  String get dynResetColumnsBtn => 'استعادة الافتراضي';
+  @override
+  String get dynPresetSavedToast => 'تم حفظ القالب المخصص بنجاح';
+  @override
+  String get dynPresetResetToast => 'تمت استعادة الأعمدة الافتراضية';
+  @override
+  String get dynFilterAll => 'الكل';
+  @override
+  String get dynStatusHeld => 'معلقة';
+  @override
+  String get dynYes => 'نعم';
+  @override
+  String get dynNo => 'لا';
 
   // ── Screen 68: Comprehensive Import File Report ───────────────────────────
   @override
@@ -9929,7 +10138,7 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   // Regulatory Requirements - Per-HS-Code & Adaptive Banners
-  @override String get decree43WarningNotRegistered => 'تنبيه قرار ٤٣: المصنع الأجنبي غير مقيد بالقائمة البيضاء (GOEIC)';
+  @override String get decree43WarningNotRegistered => 'تنبيه قرار ٤٣: المصنع الأجنبي غير مقيد بالقائمة البيضاء للهيئة العامة للرقابة على الصادرات والواردات';
   @override String get decree43WarningNotRegisteredDesc => 'الصنف يخضع للقرار ٤٣ لسنة ٢٠١٦. شحن البضاعة بدون قيد قد يعرضها لعدم الإفراج أو إعادة التصدير فور الوصول.';
   @override String get decree43OptionRequestJustification => 'طلب سبب الاعتماد / الاستثناء';
   @override String get decree43OptionCreateDashboardTask => 'تثبيت الملحوظة وإنشاء مهمة بالداش بورد';
@@ -9946,7 +10155,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get adaptivePillarMandatoryRequirements => 'الاشتراطات الإلزامية:';
   @override String get adaptivePillarComplianceAlert => 'التنبيهات وحالة الامتثال:';
   @override String get adaptivePillarLegalExemptions => 'الإعفاءات والاستثناءات النظامية:';
-  @override String get hsCodeSequenceNavTitle => 'التسلسل الرقابي لبنود التعريفة بالشحنة (HS Codes Compliance Sequence)';
+  @override String get hsCodeSequenceNavTitle => 'التسلسل الرقابي لبنود التعريفة الجمركية بالشحنة';
   @override String get hsCodeFulfillmentStatus => 'نسبة استيفاء البند:';
   @override String get hsCodeFullyCompliantChip => 'مكتمل ٥/٥';
   @override String get hsCodePendingPillarsChip => 'قيد الاستيفاء';
@@ -9976,7 +10185,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   // ── Freight Studies — Extended Keys (Arabic) ────────────────────────────────
   // AI Extractor
-  @override String get freightExtractorTitle => 'استخراج وقراءة عروض أسعار الشحن والنولون (Freight Quotation AI) ⚡';
+  @override String get freightExtractorTitle => 'استخراج وقراءة عروض أسعار الشحن والنولون بالذكاء الاصطناعي ⚡';
   @override String get collapseExtractor => 'طي الأداة';
   @override String get expandExtractor => 'توسيع الأداة';
   @override String get pasteQuoteText => 'لصق نص العرض';
@@ -10007,7 +10216,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String avgDaysFromReadiness(int days) => 'خلال $days يوم من الجاهزية';
   // Container count chip
   @override String totalContainersCount(int total, int ft40, int ft20) =>
-      'إجمالي عدد الحاويات المطبقة = $total (40ft: $ft40 | 20ft: $ft20)';
+      'إجمالي عدد الحاويات المطبقة = $total (حاوية 40 قدم: $ft40 | حاوية 20 قدم: $ft20)';
   // Comparison table
   @override String get excludedFromAvg => 'مستبعد 🚫';
   @override String get includedInAvg => 'محتسب ✅';
@@ -10022,12 +10231,12 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get clearanceFeeSummaryLabel => 'تخليص:';
   // Validation snackbars
   @override String get completeRequiredDataMsg => '⚠️ يرجى التأكد من استكمال كافة البيانات الإلزامية مثل عنوان الدراسة!';
-  @override String shippingLineRequiredMsg(int index) => '⚠️ خيار الشحن #$index: يرجى اختيار الخط الملاحي (Shipping Line)!';
+  @override String shippingLineRequiredMsg(int index) => '⚠️ خيار الشحن #$index: يرجى اختيار الخط الملاحي!';
   @override String datesRequiredMsg(int index, String provider) => '⚠️ خيار الشحن #$index ($provider): يرجى تحديد التواريخ بشكل صحيح!';
   @override String sailingBeforeCrdError(int index, String provider, String sailing, String crd) =>
-      '⚠️ خيار الشحن #$index ($provider): تاريخ الإبحار ($sailing) لا يمكن أن يكون قبل تاريخ جاهزية البضاعة (CRD: $crd)!';
+      '⚠️ خيار الشحن #$index ($provider): تاريخ الإبحار ($sailing) لا يمكن أن يكون قبل تاريخ جاهزية البضاعة ($crd)!';
   @override String etaAfterSailingError(int index, String provider, String eta, String sailing) =>
-      '⚠️ خيار الشحن #$index ($provider): تاريخ الوصول (ETA: $eta) يجب أن يكون بعد تاريخ الإبحار ($sailing)!';
+      '⚠️ خيار الشحن #$index ($provider): تاريخ الوصول ($eta) يجب أن يكون بعد تاريخ الإبحار ($sailing)!';
   @override String negativeDaysError(int index, String provider) =>
       '⚠️ خيار الشحن #$index ($provider): أيام التأخير المتوقعة لا يمكن أن تكون سالبة!';
   @override String duplicateQuoteError(int index, String provider) =>
@@ -10038,7 +10247,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get saveSuccessReportTitle => '🏆 تقرير نتائج دراسة الشحن والعروض المحفوظة';
   @override String get studyCodeLabel => 'رمز دراسة الشحن:';
   @override String get studyTitleDetailLabel => 'عنوان الدراسة:';
-  @override String get crdAndPickupLabel => 'تاريخ الجاهزية (CRD) | مكان الاستلام:';
+  @override String get crdAndPickupLabel => 'تاريخ جاهزية الشحنة | مكان الاستلام:';
   @override String get comparativeReportLabel => '📊 التقرير المقارن للخطوط والرحلات المقيمة:';
   @override String get carrierLineCol => 'الناقل / الخط الملاحي';
   @override String get portArrivalCol => 'الوصول للميناء';
@@ -10365,14 +10574,14 @@ class AppLocalizationsAr extends AppLocalizations {
   // ── Freight RFQ Dialog ───────────────────────────────────────────────────
   @override String get freightRfqRecipient => 'المرسل إليه:';
   @override String get freightRfqSelectLineHint => 'اختر خط ملاحي / وكيل...';
-  @override String get freightRfqTypePersonHint => 'أو اكتب اسم الشخص / الوكيل (مثال: Marian, Raafat)...';
+  @override String get freightRfqTypePersonHint => 'أو اكتب اسم الشخص / الوكيل (مثال: مريم، رأفت)...';
   @override String get freightRfqUpdateTextTooltip => 'تحديث النص';
   @override String get freightRfqUpdateBtn => 'تحديث';
   @override String get freightRfqCopySubjectTooltip => 'نسخ عنوان الإيميل';
   @override String get freightRfqWhatsappFeatures => 'مميزات رسالة الواتساب:';
   @override String get freightRfqWhatsappFeature1 => 'منسقة بالرموز والمحاذاة التامة.';
   @override String get freightRfqWhatsappFeature2 => 'تشمل الحجم الإجمالي والأوزان وعنوان التحميل.';
-  @override String get freightRfqWhatsappFeature3 => 'توضح فترة السماح المطلوبة (21 Days FT).';
+  @override String get freightRfqWhatsappFeature3 => 'توضح فترة السماح المجانية المطلوبة بواقع 21 يوماً.';
   @override String get freightRfqWhatsappFeature4 => 'جاهزة للمشاركة الفورية مع مندوبي ووكلاء الشحن.';
   @override String get freightRfqCopyWhatsappBtn => 'نسخ رسالة الواتساب بالكامل';
   @override String get freightRfqPickupLocation => 'عنوان الاستلام والتحميل:';
@@ -10713,7 +10922,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get noMatchingPosFound => 'لم يتم العثور على أي أوامر شراء مطابقة';
   @override String clonePoSuccess(dynamic code) => 'تم استنساخ أمر الشراء $code بنجاح';
   @override String clonePoError(dynamic error) => 'فشل استنساخ أمر الشراء: $error';
-  @override String get cloneRowItemTooltip => 'تكرار / استنساخ البند (Ctrl + D)';
+  @override String get cloneRowItemTooltip => 'تكرار واستنساخ البند';
   @override String get clonePackingItemTooltip => 'تكرار / استنساخ طرد التعبئة';
   @override String get lineItemClonedSuccess => 'تم تكرار البند بنجاح';
   @override String get packingItemClonedSuccess => 'تم تكرار طرد التعبئة بنجاح';
@@ -10727,7 +10936,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get noMatchingCalcsFound => 'لم يتم العثور على أي دراسات حساب حجم مطابقة';
   @override String cloneCbmSuccess(dynamic code) => 'تم استنساخ دراسة CBM بنجاح كمسودة جديدة باسم [$code]';
   @override String cloneCbmError(dynamic error) => 'فشل استنساخ دراسة CBM: $error';
-  @override String get cloneQuickItemTooltip => 'استنساخ هذا الطرد (Ctrl + D)';
+  @override String get cloneQuickItemTooltip => 'استنساخ هذا الطرد';
   @override String get cargoItemClonedSuccess => 'تم استنساخ الطرد وتحديث الحسابات آلياً';
   @override String get cloneFieldCalcCodeGenerated => 'توليد كود دراسة جديد آلياً';
   @override String get cloneFieldImportFileReset => 'فك الارتباط بملف الاستيراد';
@@ -10742,7 +10951,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get noMatchingStudiesFound => 'لم يتم العثور على أي دراسات شحن مطابقة';
   @override String cloneStudySuccess(dynamic code) => 'تم استنساخ دراسة الشحن [$code] بنجاح كمسودة جديدة';
   @override String cloneStudyError(dynamic error) => 'فشل استنساخ دراسة الشحن: $error';
-  @override String get cloneCarrierOptionTooltip => 'استنساخ خيار الناقل (Ctrl + D)';
+  @override String get cloneCarrierOptionTooltip => 'استنساخ خيار الناقل';
   @override String get carrierOptionClonedSuccess => 'تم استنساخ خيار الناقل وتحديث المقارنة آلياً';
   @override String get cloneFieldStudyCodeGenerated => 'توليد كود دراسة جديد آلياً';
   @override String get cloneFieldSelectionReset => 'إلغاء ترسية وتحديد الناقل للبدء من جديد';
@@ -10756,7 +10965,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get noMatchingConsultationsFound => 'لم يتم العثور على أي استشارة جمركية مطابقة';
   @override String cloneConsultationSuccess(dynamic code) => 'تم استنساخ الاستشارة الجمركية [$code] بنجاح كمسودة جديدة';
   @override String cloneConsultationError(dynamic error) => 'فشل استنساخ الاستشارة الجمركية: $error';
-  @override String get cloneChecklistItemTooltip => 'استنساخ بند المستند الإجرائي (Ctrl + D)';
+  @override String get cloneChecklistItemTooltip => 'استنساخ بند المستند الإجرائي';
   @override String get checklistItemClonedSuccess => 'تم استنساخ بند المستند الإجرائي بنجاح';
   @override String get cloneFieldConsultationCodeGenerated => 'توليد كود استشارة جديد آلياً';
   @override String get cloneFieldChecklistReset => 'إعادة ضبط حالة المستندات الإجرائية إلى قيد الانتظار';
@@ -11074,7 +11283,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get multiPaneDetailsTitle => 'لوحة التفاصيل المعمقة';
 
   // ── PO Balance & Partial Shipments Ledger ──
-  @override String get poBalanceLedgerTitle => 'ميزان أمر الشراء والشحنات الجزئية (PO Balance & Partial Shipments Ledger)';
+  @override String get poBalanceLedgerTitle => 'دفتر أستاذ ميزان أمر الشراء والشحنات الجزئية';
   @override String poBalanceSubTitle(String poCode, String fulfillment) => 'أمر الشراء: $poCode  •  نسبة استيفاء التوريد: $fulfillment%';
   @override String get poBalanceFullyShipped => '✅ تم استيفاء شحن كامل أمر الشراء (100%)';
   @override String get poBalancePartialInProgress => '⏳ جاري استكمال شحن الدفعات الجزئية';
@@ -11083,7 +11292,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poBalanceRemainingQty => 'الرصيد المتبقي للتوريد';
   @override String get poBalanceUnit => 'وحدة';
   @override String poBalanceValue(String val) => 'القيمة: $val';
-  @override String get poBalanceLineItemsTitle => '📋 تفصيل ميزان بنود أمر الشراء (Line Items Balance):';
+  @override String get poBalanceLineItemsTitle => '📋 تفصيل ميزان بنود أمر الشراء:';
   @override String get poBalanceColItemCode => 'كود البند';
   @override String get poBalanceColDescription => 'الوصف';
   @override String get poBalanceColOrderedQty => 'الكمية المطلوبة';
@@ -11123,10 +11332,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get invoiceBlMatchTabHistory => '📋 سجل جلسات المطابقة السابقة';
   @override String get invoiceBlMatchNewSessionBtn => 'بدء جلسة فحص ومطابقة جديدة';
   @override String get cooSaveDraftSessionBtn => 'حفظ مسودة مؤقتة للجلسة';
-  @override String get cooChinaRecommendationAlert => 'بلد المنشأ جمهورية الصين الشعبية — تم اختيار شهادة منشأ الصين (CCPIT) تلقائياً.';
+  @override String get cooChinaRecommendationAlert => 'بلد المنشأ جمهورية الصين الشعبية — تم اختيار شهادة المنشأ الصينية الرسمية تلقائياً.';
   @override String get cooChinaGeneralExemptionNote => 'المنشأ: China - تخضع الشحنة لضريبة الوارد العامة المقررة بجدول التعريفة الجمركية المصرية وضريبة القيمة المضافة 14%.';
   @override String get cooEuRecommendationAlert => 'بلد المنشأ ضمن دول الاتحاد الأوروبي (27 دولة) — تم اختيار شهادة الحركة EUR.1 تلقائياً للاستفادة من الإعفاء الجمركي التفضيلى الكامل.';
-  @override String get cooAgadirGaftaRecommendationAlert => 'بلد المنشأ عضو في اتفاقية أغادير ومنطقة التجارة الحرة العربية (GAFTA) معاً — لا يتم الاختيار تلقائياً، يرجى اختيار نوع الشهادة يدوياً وقت الاستيراد.';
+  @override String get cooAgadirGaftaRecommendationAlert => 'بلد المنشأ عضو في اتفاقية أغادير ومنطقة التجارة الحرة العربية معاً — لا يتم الاختيار تلقائياً، يرجى اختيار نوع الشهادة يدوياً وقت الاستيراد.';
 
   // ── Backend startup (local backend.exe launch) ──
   @override String get backendStartupStarting => 'جاري تشغيل النظام…';
@@ -11151,7 +11360,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get updateFailed => 'فشل التحديث';
   @override String get updateRollback => 'التراجع إلى الإصدار السابق';
   @override String updateRollbackWarning(String backupTime) => 'سيتم استرجاع قاعدة البيانات من النسخة الاحتياطية المأخوذة في $backupTime. كل البيانات التي تم إدخالها بعد هذا التوقيت ستُفقد نهائياً.';
-  @override String get updateFromFile => 'تحديث من ملف (USB)';
+  @override String get updateFromFile => 'تحديث من وحدة تخزين خارجية';
   @override String updateCheckOffline(String lastChecked) => 'تعذّر الاتصال بخادم التحديثات. آخر فحص ناجح: $lastChecked';
   @override String get updateDevModeDisabled => 'التحديث التلقائي غير متاح في وضع التطوير';
   @override String updateDialogTitle(String version) => 'تحديث النظام إلى الإصدار $version';
@@ -11166,8 +11375,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get updateRollbackConfirmCheck => 'أفهم أن البيانات المُدخلة بعد النسخة الاحتياطية ستُفقد';
   @override String get updateRollbackConfirmBtn => 'تأكيد التراجع';
   @override String get updateRollbackNoBackup => 'لا توجد نسخة احتياطية سابقة للتحديث متاحة للتراجع';
-  @override String get updatePickManifest => 'اختر ملف الإصدار (manifest.json)';
-  @override String get updatePickInstaller => 'اختر ملف التثبيت (.exe)';
+  @override String get updatePickManifest => 'اختر ملف بيان الإصدار';
+  @override String get updatePickInstaller => 'اختر ملف برنامج التثبيت';
   @override String get updateStagedFromFile => 'تم التحقق من ملفات التحديث وهي جاهزة للتثبيت';
   @override String get updateSectionTitle => 'تحديثات البرنامج';
   @override String get updateCheckNow => 'فحص التحديثات';
@@ -11341,26 +11550,26 @@ class AppLocalizationsAr extends AppLocalizations {
     'customs_category.RAW_MATERIALS_METALS': 'مواد خام ومعادن',
     'customs_category.TELECOMMUNICATIONS': 'اتصالات',
     'customs_category.TEXTILES': 'منسوجات',
-    'draft_bl_field.SHIPPER': 'المصدر / الشاحن (Shipper)',
-    'draft_bl_field.CONSIGNEE': 'المستورد / المرسل إليه (Consignee)',
-    'draft_bl_field.NOTIFY_PARTY': 'جهة الإخطار (Notify Party)',
-    'draft_bl_field.VESSEL_NAME': 'اسم الباخرة (Vessel)',
-    'draft_bl_field.VOYAGE_NUMBER': 'رقم الرحلة (Voyage)',
-    'draft_bl_field.POL': 'ميناء الشحن (POL)',
-    'draft_bl_field.POD': 'ميناء التفريغ (POD)',
-    'draft_bl_field.FREIGHT_TERMS': 'شروط النولون (Freight Terms)',
-    'draft_bl_field.PLACE_OF_DELIVERY': 'مكان التسليم (Place of Delivery)',
-    'draft_bl_field.BOOKING_NO': 'رقم الحجز (Booking Number)',
-    'draft_bl_field.ACID_NUMBER': 'رقم القيد الجمركي المبدئي (ACID)',
-    'draft_bl_field.IMPORTER_TAX_ID': 'البطاقة الضريبية للمستورد (Importer Tax ID)',
-    'draft_bl_field.SHIPPER_REG_ID': 'رقم تسجيل المصدر (Shipper Reg ID)',
-    'draft_bl_field.SHIPPING_MODE': 'نمط الشحن (Shipping Mode)',
-    'draft_bl_field.CONTAINER_SUMMARY': 'بيان الحاويات والسيل (Container Summary)',
-    'draft_bl_field.GOODS_DESCRIPTION': 'بيان التعبئة والوصف (Packing Summary)',
-    'draft_bl_field.TOTAL_GROSS_WEIGHT_KG': 'الوزن القائم (Gross Weight)',
-    'draft_bl_field.TOTAL_NET_WEIGHT_KG': 'الوزن الصافي (Net Weight)',
-    'draft_bl_field.CBM': 'الحجم الإجمالي (Measurement CBM)',
-    'draft_bl_field.QTY_PKG': 'عدد الطرود (Number of Packages)',
+    'draft_bl_field.SHIPPER': 'المصدر والشاحن',
+    'draft_bl_field.CONSIGNEE': 'المستورد والمرسل إليه',
+    'draft_bl_field.NOTIFY_PARTY': 'جهة الإخطار الرسمية',
+    'draft_bl_field.VESSEL_NAME': 'اسم السفينة الناقلة',
+    'draft_bl_field.VOYAGE_NUMBER': 'رقم الرحلة البحرية',
+    'draft_bl_field.POL': 'ميناء الشحن',
+    'draft_bl_field.POD': 'ميناء التفريغ',
+    'draft_bl_field.FREIGHT_TERMS': 'شروط نولون الشحن',
+    'draft_bl_field.PLACE_OF_DELIVERY': 'مكان التسليم النهائي',
+    'draft_bl_field.BOOKING_NO': 'رقم حجز الشحن',
+    'draft_bl_field.ACID_NUMBER': 'رقم القيد الجمركي المبدئي',
+    'draft_bl_field.IMPORTER_TAX_ID': 'البطاقة الضريبية للمستورد',
+    'draft_bl_field.SHIPPER_REG_ID': 'رقم تسجيل المصدر الأجنبي',
+    'draft_bl_field.SHIPPING_MODE': 'نمط وسيلة الشحن',
+    'draft_bl_field.CONTAINER_SUMMARY': 'بيان الحاويات والأختام الجمركية',
+    'draft_bl_field.GOODS_DESCRIPTION': 'بيان التعبئة والوصف التجاري',
+    'draft_bl_field.TOTAL_GROSS_WEIGHT_KG': 'الوزن الإجمالي القائم',
+    'draft_bl_field.TOTAL_NET_WEIGHT_KG': 'الوزن الصافي',
+    'draft_bl_field.CBM': 'الحجم الإجمالي بالمتر المكعب',
+    'draft_bl_field.QTY_PKG': 'إجمالي عدد الطرود',
     'value_placeholder.NOT_EXTRACTED': 'لم يتم الاستخراج',
     'value_placeholder.NOT_IN_BL': 'غير موجود بالبوليصة',
     'value_placeholder.NOT_IN_DOCUMENT': 'غير متوفر بالمستند',
@@ -11373,9 +11582,9 @@ class AppLocalizationsAr extends AppLocalizations {
     'measure_unit.KG': 'كجم',
     'measure_unit.PACKAGES': 'طرد',
     'measure_unit.PACKAGES_PALLETS': 'طرد/بالتة',
-    'measure_unit.GRM': 'جرام (GRM)',
-    'measure_unit.SET': 'طقم (SET)',
-    'measure_unit.STN': 'طن قصير (STN)',
+      'measure_unit.GRM': 'جرام',
+      'measure_unit.SET': 'طقم',
+      'measure_unit.STN': 'طن قصير',
     'po_status.DRAFT': 'مسودة',
     'po_status.APPROVED': 'معتمد',
     'po_status.PARTIALLY_SHIPPED': 'مشحون جزئيا',
@@ -11385,12 +11594,12 @@ class AppLocalizationsAr extends AppLocalizations {
     'shipment_mode.AIR': 'شحن جوي',
     'shipment_mode.SEA': 'شحن بحري',
     'shipping_method.AIR': 'شحن جوي',
-    'shipping_method.FCL': 'حاوية كاملة (FCL)',
-    'shipping_method.LCL': 'شحن بحري تجميعي (LCL)',
-    'container_type.C20_ST': "حاوية 20 قدم عادية (20' ST)",
-    'container_type.C40_HC': "حاوية 40 قدم عالية (40' HC)",
-    'container_type.C40_ST': "حاوية 40 قدم عادية (40' ST)",
-    'container_type.LCL': 'حاوية شحن تجميعي (LCL)',
+      'shipping_method.FCL': 'حاوية كاملة',
+      'shipping_method.LCL': 'شحن بحري تجميعي',
+      'container_type.C20_ST': 'حاوية 20 قدم عادية',
+      'container_type.C40_HC': 'حاوية 40 قدم عالية',
+      'container_type.C40_ST': 'حاوية 40 قدم عادية',
+      'container_type.LCL': 'حاوية شحن تجميعي',
     'stage.ARCHIVED_CLOSED': 'تم الإغلاق والأرشفة',
     'stage.ARRIVED_AT_WAREHOUSE': 'وصلت المخزن',
     'stage.CLOSED_EARLY': 'مغلق مبكراً',
@@ -11425,25 +11634,25 @@ class AppLocalizationsAr extends AppLocalizations {
   // ── Phase-1 UI strings: po ──────────────────────────────────────
   @override String get poImportedSuccessfully => 'تم الاستيراد بنجاح';
   @override String get poPOTableCopiedToClipboard => 'تم نسخ بيانات أوامر الشراء بنجاح';
-  @override String get poCopyTableTSV => 'نسخ الجدول (TSV)';
+  @override String get poCopyTableTSV => 'نسخ جدول البيانات';
   @override String get poDownloadTemplate => 'تنزيل نموذج إكسل';
   @override String get poImportExcel => 'استيراد من إكسل';
   @override String get poExportPurchaseOrdersExcel => 'تصدير أوامر الشراء إكسيل';
   @override String get poExportPurchaseOrdersPDF => 'تصدير أوامر الشراء PDF';
   @override String get poDownloadPurchaseOrdersTemplate => 'تنزيل نموذج أوامر الشراء';
-  @override String get poInvoiceDate => 'تاريخ الفاتورة (Invoice Date)';
-  @override String get poQtyUnit => 'وحدة الكمية (Qty Unit)';
-  @override String get poTotalQtyPKG => 'إجمالي الطرود (Total Qty PKG)';
+  @override String get poInvoiceDate => 'تاريخ الفاتورة';
+  @override String get poQtyUnit => 'وحدة كمية البنود';
+  @override String get poTotalQtyPKG => 'إجمالي عدد الطرود';
   @override String get poQtyPKG => 'عدد الطرود';
   @override String get poPackageType => 'نوع التغليف';
   @override String get poNetWt => 'الصافي (كجم)';
   @override String get poGrossWt => 'القائم (كجم)';
-  @override String get poCopyRowForExcelTSV => 'نسخ السطر لإكسيل (TSV)';
-  @override String get poPOLineItemsSummaryByHS => '📊 ملخص بنود أمر التوريد حسب البند الجمركي (PO Line Items Summary By HS Code)';
+  @override String get poCopyRowForExcelTSV => 'نسخ بيانات السطر لإكسيل';
+  @override String get poPOLineItemsSummaryByHS => '📊 ملخص بنود أمر الشراء حسب البند الجمركي';
   @override String get poNetWtKg => 'الصافي (كجم)';
   @override String get poGrossWtKg => 'القائم (كجم)';
   @override String get poDutyVAT => 'نسب الرسوم';
-  @override String get poRegulatoryConditionsTradeAgreementsByHS => '🛡️ بطاقات الامتثال والاتفاقيات الجمركية للبند الجمركي (Regulatory Conditions & Trade Agreements)';
+  @override String get poRegulatoryConditionsTradeAgreementsByHS => '🛡️ بطاقات الامتثال والاتفاقيات الجمركية لبند التعريفة';
   @override String get poInvoicePackingReconciliationDiscrepanciesFound => 'حالة مطابقة الفاتورة والباكينج: يوجد اختلافات في الكميات أو البنود الجمركية';
   @override String get poApprovedJustification => 'المبرر المعتمد:';
   @override String get poPerfectMatchAllProformaInvoiceLine => 'مطابقة تامة: جميع بنود الفاتورة المبدئية متطابقة بالكامل مع بيان التعبئة في الأكواد الجمركية والكميات.';
@@ -11464,12 +11673,12 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poTotalCBM => 'إجمالي الحجم CBM';
   @override String get poGrossNetWeight => 'الوزن القائم / الصافي';
   @override String get poPOLineItemsHSCodes => '--- بنود أمر الشراء والأكواد الجمركية ---';
-  @override String get poPackingListItems => '--- بيان التعبئة (Packing List) ---';
+  @override String get poPackingListItems => '--- بيان التعبئة الرسمي ---';
   @override String get poPODetailsCopiedToClipboard => 'تم نسخ كافة بيانات أمر الشراء للحافظة بنجاح ✅';
   @override String get poCBM => 'الحجم CBM';
   @override String get poQtyPcs => 'الكمية (قطع)';
-  @override String get poPackingListSummaryByHSCode => '📊 ملخص بيان التعبئة حسب البند الجمركي (Packing List Summary By HS Code)';
-  @override String get poPackingListSummaryByPackageType => '📊 ملخص قائمة التعبئة حسب نوع التغليف (Packing List Summary By Package Type)';
+  @override String get poPackingListSummaryByHSCode => '📊 ملخص بيان التعبئة حسب البند الجمركي';
+  @override String get poPackingListSummaryByPackageType => '📊 ملخص قائمة التعبئة حسب نوع التغليف';
   @override String get poPurchaseOrder => 'أمر شراء';
   @override String get poInternalPOCode2 => 'الرقم الداخلي';
   @override String get poTotalCBM2 => 'إجمالي CBM';
@@ -11480,9 +11689,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poPleaseAddPackingListOrPallet => 'يرجى استكمال بنود بيان التعبئة أو البالتات في أمر الشراء لتشغيل مخطط ومحاكاة رص الحاويات 3D';
   @override String get poEditPOAddPackingList => 'تعديل أمر الشراء وإضافة بيان التعبئة';
   @override String get poNoSuitableContainers => 'لا توجد حاويات مناسبة';
-  @override String get poDownloadSimulationViewsPNG => 'تنزيل صور المحاكاة (PNG)';
-  @override String get poDownloadLoadingPlanPDF => 'تنزيل مخطط التحميل (PDF)';
-  @override String get poBothViews => '🖼️ كلاهما (Both Views)';
+  @override String get poDownloadSimulationViewsPNG => 'تنزيل صور المحاكاة';
+  @override String get poDownloadLoadingPlanPDF => 'تنزيل مخطط التحميل';
+  @override String get poBothViews => '🖼️ العرضان معاً';
   @override String poDetailedPlacementCoordinatesPkgs(Object? res) => '📐 تفاصيل الرص الإحداثي ($res طرد)';
   @override String poGroupedItemsItemsTotalPkgs(Object? res, Object? res2) => '📊 الأصناف المرصوصة مجمعة ($res صنف | إجمالي $res2 طرد)';
   @override String get poGroupByItems => 'عرض مجمع حسب الأصناف';
@@ -11495,7 +11704,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poStack => 'الرص';
   @override String get poYes => '📦 نعم';
   @override String get poFloor => '🚫 أرضي';
-  @override String get poDownloadSimulationImagePNG => 'تنزيل صور المحاكاة (PNG)';
+  @override String get poDownloadSimulationImagePNG => 'تنزيل صور المحاكاة';
   @override String get poProject => 'المشروع';
   @override String get poCurrencyIncoterm => 'العملة والشرط';
   @override String get poResetDeliveryAndOrderDates => 'تصفير تواريخ الشحن والاستلام';
@@ -11510,11 +11719,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get poRestoreDraft => 'استعادة المسودة';
   @override String get poDefault => '-- الافتراضي --';
   @override String get poDraftSaved => 'مسودة محفوظة';
-  @override String get poSmartExtractPIPL => '🚀 استخلاص ذكي (PI / PL)';
+  @override String get poSmartExtractPIPL => '🚀 استخلاص ذكي للمستندات';
 
 
   // ── Phase-1 UI strings: po ──────────────────────────────────────
-  @override String get poSummaryByPackageType => 'ملخص نوع التغليف (Summary By Package Type)';
+  @override String get poSummaryByPackageType => 'ملخص نوع التغليف';
   @override String get poUnregistered => '⚠️ غير مسجل';
 
 
@@ -11522,7 +11731,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cbmNoPackageLinesToExport => 'لا توجد طرود للتصدير';
   @override String get cbmStackable => 'قابل للتراص';
   @override String get cbmGrossWtUnitKg => 'الوزن القائم للوحدة (كجم)';
-  @override String get cbmTotalCBM => 'الحجم الإجمالي (CBM)';
+  @override String get cbmTotalCBM => 'الحجم الإجمالي بالمتر المكعب';
   @override String get cbmVolumetricWtKg => 'الوزن الحجمي (كجم)';
   @override String get cbmChargeableWtKg => 'الوزن الخاضع للشحن (كجم)';
   @override String get cbmPackageMeasurements => 'بيان أبعاد وأوزان الطرود';
@@ -11665,7 +11874,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String faFxRateMissing(String currency) => 'لا يوجد سعر صرف مسجل للعملة $currency. أدخل السعر يدويًا قبل الحفظ.';
   @override String get faExchangeRateInvalid => 'أدخل سعر صرف أكبر من صفر';
   @override String get faReviewSyncBudgetLiveCosts => 'مراجعة وتحديث الميزانية بالتكاليف الحية';
-  @override String get faUpstreamVarianceTitle => 'تنبيه عدم تطابق التكاليف مع المراحل السابقة (Live Cost Variance Detected)';
+  @override String get faUpstreamVarianceTitle => 'تنبيه رصد عدم تطابق التكاليف مع المراحل السابقة';
   @override String get faUpstreamVarianceBody => 'تم تعديل تكاليف في المراحل التشغيلية السابقة (دراسة التخليص / النولون / الفاتورة) وتختلف عن أرقام الميزانية الحالية:';
   @override String get faVarianceClearance => 'مصاريف التخليص والنقل الداخلي';
   @override String get faVarianceFreight => 'نولون الشحن التقديري';
@@ -11676,7 +11885,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get faFillLiveCosts => 'ملء الحقول بالتكاليف الحية';
   @override String get faSyncLiveCosts => 'مزامنة التكاليف الحية';
   @override String get faMismatch => 'غير متطابق';
-  @override String get faBeneficiarySwift57a => 'سويفت المستفيد (:57A):';
+  @override String get faBeneficiarySwift57a => 'رمز سويفت بنك المستفيد:';
   @override String get faMatchedSenderBank => 'طابق بنك التحويل';
   @override String faSwiftUpdatedTo(String swift) => 'تم تحديث سويفت طلب السداد إلى $swift بنجاح!';
   @override String faUpdateFailed(String error) => 'فشل التحديث: $error';
@@ -11691,26 +11900,26 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get faAdvancePaymentTitle => 'طلب سداد الدفعة المقدمة للمورد (FN-01)';
   @override String faAdvanceSubtitle(String supplier) => 'المورد الأجنبي: $supplier | المرحلة: STEP_04 (اعتمادات الميزانية وسداد الموردين)';
   @override String get faAdvanceLoadingPo => 'جاري جلب بيانات أمر الشراء وحسابات المورد...';
-  @override String get faPoFobTotal => 'إجمالي أمر الشراء (PO FOB Total):';
+  @override String get faPoFobTotal => 'إجمالي أمر الشراء تسليم ظهر السفينة:';
   @override String get faApprovedExchangeRate => 'سعر صرف العملة المعتمد:';
-  @override String get faAdvancePercentageLabel => 'نسبة الدفعة المقدمة المطلوبة (Advance Percentage):';
+  @override String get faAdvancePercentageLabel => 'نسبة الدفعة المقدمة المطلوبة:';
   @override String get faCommon => 'شائع';
   @override String faCustomPercent(String percent) => 'مخصص ($percent%)';
   @override String faAdvanceAmountLabel(String currency) => 'قيمة الدفعة المقدمة ($currency) *';
   @override String get faEnterPaymentAmount => 'يرجى إدخال قيمة الدفعة';
   @override String get faAmountGreaterThanZero => 'القيمة يجب أن تكون أكبر من الصفر';
-  @override String get faExchangeRateEgpLabel => 'سعر الصرف (EGP) *';
-  @override String get faEquivalentInEgp => 'المعادل بالجنيه المصري (EGP): ';
+  @override String get faExchangeRateEgpLabel => 'سعر الصرف بالجنيه المصري *';
+  @override String get faEquivalentInEgp => 'المعادل بالجنيه المصري: ';
   @override String get faCurrencyEgpShort => 'ج.م';
   @override String get faPaymentTitleLabel => 'عنوان طلب السداد *';
-  @override String get faBeneficiaryBankDetails => 'بيانات الحساب البنكي للمورد المستفيد (Beneficiary Bank):';
+  @override String get faBeneficiaryBankDetails => 'بيانات الحساب البنكي للمورد المستفيد:';
   @override String get faBeneficiaryNameLabel => 'اسم المستفيد *';
   @override String get faBankNameLabel => 'اسم البنك *';
-  @override String get faSwiftBicLabel => 'كود السويفت (SWIFT / BIC) *';
-  @override String get faAccountIbanLabel => 'رقم الحساب أو الآيبان (IBAN) *';
+  @override String get faSwiftBicLabel => 'كود السويفت البنكي *';
+  @override String get faAccountIbanLabel => 'رقم الحساب أو الآيبان *';
   @override String get faRequestedDueDateLabel => 'تاريخ الاستحقاق المطلوب *';
   @override String get faNotesForFinance => 'ملاحظات وتوجيهات إضافية للمالية';
-  @override String get faAdvanceConfirmNote => 'عند التأكيد، سيتم إنشاء طلب السداد بحالة (Pending Approval) وإرسال إشعار فوري لمسؤول المالية (Finance Officer) وتوليد مهمة ذكية (Smart Task)، مع ترقية ملف الشحنة آلياً للمرحلة STEP_04.';
+  @override String get faAdvanceConfirmNote => 'عند التأكيد، سيتم إنشاء طلب السداد بحالة قيد الاعتماد وإرسال إشعار فوري لمسؤول المالية وتوليد مهمة ذكية، مع ترقية ملف الشحنة آلياً للمرحلة STEP_04.';
   @override String get faIssuingNotifying => 'جاري الإصدار والإخطار...';
   @override String get faIssueAndNotify => 'إصدار طلب السداد وإخطار المالية';
   @override String get faSwiftFieldUpdated => 'تم تحديث الحقل بنجاح وتسجيله في سجل التدقيق';
@@ -11726,7 +11935,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get faSwiftPendingReview => 'بانتظار المراجعة والاعتماد';
   @override String get faSwiftMandatoryOnly => 'الإلزامية فقط (5)';
   @override String get faSwiftCopyRaw => 'نسخ المصدر الخام';
-  @override String get faSwiftRawSource => 'المصدر الخام للسويفت (Raw Source OCR)';
+  @override String get faSwiftRawSource => 'النص المستخرج من السويفت';
   @override String faSwiftHighlightedField(String field) => 'تظليل الحقل: $field';
   @override String get faSwiftColField => 'الحقل والرمز البنكي';
   @override String get faSwiftColValue => 'القيمة المستخرجة / التدقيق اليدوي';
@@ -11757,8 +11966,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get faTitleMinLength => 'العنوان يجب ألا يقل عن 3 أحرف';
   @override String get faPaymentTypeAdvance => 'دفعة مقدمة';
   @override String get faPaymentTypeAgainstBl => 'مقابل بوليصة الشحن';
-  @override String get faPaymentTypeLetterOfCredit => 'اعتماد مستندي (L/C)';
-  @override String get faPaymentTypeDocumentaryCollection => 'تحصيل مستندي (CAD)';
+  @override String get faPaymentTypeLetterOfCredit => 'اعتماد مستندي';
+  @override String get faPaymentTypeDocumentaryCollection => 'تحصيل مستندي ضد المستندات';
   @override String get faPaymentTypeFinalSettlement => 'التسوية النهائية';
   // === end review phase02 keys ===
 
@@ -11802,7 +12011,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get idocAAverageMatch => 'متوسط التطابق';
   @override String get idocABLData => 'بيانات البوليصة';
   @override String idocABlNumberCreated(Object? a0, Object? a1) => 'رقم البوليصة: $a0  |  تاريخ الإنشاء: $a1';
-  @override String get idocABillOfLadingBLReview => 'سجل جلسات مراجعة وتدقيق بوالص الشحن (B/L)';
+  @override String get idocABillOfLadingBLReview => 'سجل جلسات مراجعة وتدقيق بوالص الشحن';
   @override String get idocABillOfLadingExtracts => 'مستخرجات بوليصة الشحن';
   @override String get idocABroker => 'المخلص';
   @override String get idocABrokerReviewer => 'المخلص الجمركي';
@@ -11833,10 +12042,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get idocACopyAsTSV => 'نسخ كـ TSV';
   @override String get idocACopyCode => 'نسخ الكود';
   @override String get idocACopyRowDataAsTSV => 'نسخ بيانات السطر كـ TSV';
-  @override String get idocACopySessionMatrixTSV => 'نسخ مصفوفة الجلسة (TSV)';
+  @override String get idocACopySessionMatrixTSV => 'نسخ مصفوفة الجلسة كجدول نصي';
   @override String get idocACopyTSV => 'نسخ TSV';
   @override String get idocACopyTableAsTSV => 'نسخ الجدول كـ TSV';
-  @override String get idocACopyTableTSV => 'نسخ الجدول (TSV)';
+  @override String get idocACopyTableTSV => 'نسخ جدول البيانات';
   @override String get idocACopyTicketsAsTSV => 'نسخ التذاكر كـ TSV';
   @override String get idocACriticalDelay => 'تأخير حرج';
   @override String get idocACustomsDocumentApprovalsReport => 'تقرير ومصفوفة اعتماد المستندات الجمركية';
@@ -11858,7 +12067,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String idocAExistingSessionUpdateBody(Object? a0, Object? a1, Object? a2, Object? a3) => 'هذا الملف الاستيرادي لديه بالفعل جلسة مسجلة ($a0)، آخر تحديث بواسطة $a1 في $a2.\n\nهل ترغب في تحديث الجلسة الحالية ($a3) بالبيانات الجديدة؟';
   @override String get idocAExpected => 'القيمة المتوقعة';
   @override String get idocAExpectedAlt => 'المتوقع';
-  @override String get idocAExportExcel => 'تصدير إكسيل (Excel)';
+  @override String get idocAExportExcel => 'تصدير كملف إكسل';
   @override String get idocAExtractedPackingList => 'كشف التعبئة المستخرج';
   @override String get idocAExtractionFailed => 'تعذر القراءة';
   @override String idocAFailedToLoadTheSessionsRegistry(Object? a0) => 'حدث خطأ أثناء تحميل سجل الجلسات: $a0';
@@ -12003,21 +12212,21 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get idocAValueRecordedInTheSystem => 'القيمة المسجلة بالسيستم';
   @override String get idocAVariance => 'الفارق';
   @override String get idocAViewSessionDetailsAndMatrix => 'عرض تفاصيل ومصفوفة الجلسة';
-  @override String get idocAVolumeCBM => 'الحجم (CBM)';
+  @override String get idocAVolumeCBM => 'الحجم بالمتر المكعب';
   @override String get idocAWarning => 'اقتراب المهلة';
-  @override String get idocAWaybillNumberAWB => 'رقم البوليصة (AWB)';
+  @override String get idocAWaybillNumberAWB => 'رقم بوليصة الشحن الجوي';
   @override String get idocAYouCanOpenAndContinueThe => 'يمكنك فتح ومتابعة الجلسة القائمة وتعديل بنودها مباشرة دون إنشاء جلسة جديدة، أو إلغاء التحديد لاختيار ملف آخر.';
   @override String idocAApprovedCount(Object? a0) => 'معتمدة ($a0)';
   @override String get idocABLValue => 'القيمة بالبوليصة';
-  @override String get idocABookingNumber => 'رقم الحجز (Booking)';
+  @override String get idocABookingNumber => 'رقم حجز الشحن';
   @override String get idocABy => 'بواسطة';
   @override String get idocACheckItem => 'بند الفحص';
-  @override String get idocACloneNoteBlNumber => 'رقم مسودة البوليصة: يتم تصفيره إلى كود مسودة مؤقت (DRAFT-BL-2026-)';
-  @override String get idocACloneNoteBroker => 'اعتماد المخلص الجمركي: يعاد إلى قيد الانتظار (Pending) وتفريغ الملاحظات';
-  @override String get idocACloneNoteBrokerStatus => 'حالة اعتماد المخلص الجمركي: إعادة تعيين إلى قيد الانتظار (Pending)';
-  @override String get idocACloneNoteCommercial => 'حالة الاعتماد التجاري: إعادة تعيين إلى قيد الانتظار (Pending)';
-  @override String get idocACloneNoteImporter => 'اعتماد المستورد: يعاد إلى قيد الانتظار (Pending) وتفريغ الملاحظات';
-  @override String get idocACloneNoteOverall => 'الحالة العامة: إعادة تعيين إلى مسودة قيد التدقيق (Draft)';
+  @override String get idocACloneNoteBlNumber => 'رقم مسودة البوليصة: يتم تصفيره إلى كود مسودة مؤقت';
+  @override String get idocACloneNoteBroker => 'اعتماد المخلص الجمركي: يعاد إلى قيد الانتظار وتفريغ الملاحظات';
+  @override String get idocACloneNoteBrokerStatus => 'حالة اعتماد المخلص الجمركي: إعادة تعيين إلى قيد الانتظار';
+  @override String get idocACloneNoteCommercial => 'حالة الاعتماد التجاري: إعادة تعيين إلى قيد الانتظار';
+  @override String get idocACloneNoteImporter => 'اعتماد المستورد: يعاد إلى قيد الانتظار وتفريغ الملاحظات';
+  @override String get idocACloneNoteOverall => 'الحالة العامة: إعادة تعيين إلى مسودة قيد التدقيق';
   @override String get idocACloneNoteReviewId => 'معرف جلسة المراجعة السابقة: تم فك الارتباط وبدء جلسة جديدة';
   @override String get idocACloneNoteSignature => 'تفريغ توقيع ومعتمد الجلسة وتاريخ الاعتماد لبدء جلسة مستقلة';
   @override String get idocACloneNoteSignatures => 'تفريغ توقيعات وملاحظات المراجعين بالكامل لبدء اعتماد مستقل';
@@ -12034,8 +12243,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get idocADiffSystemPacking => 'سستم ≠ تعبئة';
   @override String idocADiscrepancyCount(Object? a0) => '$a0 فارق';
   @override String get idocADocumentsReviewer => 'مراجع المستندات';
-  @override String get idocADraft3 => 'مسودة (Draft)';
-  @override String get idocADraftBillOfLadingDraftB => 'مسودة بوليصة الشحن (Draft B/L Review)';
+  @override String get idocADraft3 => 'مسودة';
+  @override String get idocADraftBillOfLadingDraftB => 'مراجعة مسودة بوليصة الشحن';
   @override String idocADraftsCount(Object? a0) => '$a0 مسودة';
   @override String get idocAExtractedDataInvoiceBL => 'البيانات المستخرجة (فاتورة / بوليصة)';
   @override String get idocAExtractionFailed3 => 'تعذر القراءة';
@@ -12075,7 +12284,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get idocBMissing => 'غير متوفر';
   @override String get idocBAcidRequired => 'رقم ACID مطلوب';
   @override String get idocBExportBlockedAcid => 'تم إيقاف العملية: ملف الاستيراد لا يحتوي على رقم ACID. أدخل رقم ACID أولاً.';
-  @override String get idocBExportBlockedHsCode => 'تم إيقاف التصدير: بند التعريفة (HS Code) غير موجود في بيانات الشهادة.';
+  @override String get idocBExportBlockedHsCode => 'تم إيقاف التصدير: بند التعريفة الجمركية غير موجود في بيانات الشهادة.';
   @override String get idocBExportBlockedOrigin => 'تم إيقاف التصدير: بلد المنشأ غير موجود في بيانات الشهادة.';
   @override String get idocBMissingTariff => 'نسب التعريفة الجمركية لبند التعريفة';
   @override String get idocBMissingFxRate => 'سعر الصرف الجمركي';
@@ -12095,7 +12304,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get idocBFobEgpLabel => 'قيمة FOB (ج.م)';
   @override String get idocBNotRecorded => 'غير مسجل';
   @override String get idocBNoDeclarations => 'لا توجد إقرارات للعرض. أضف ملف استيراد أو غيّر البحث.';
-  @override String get idocBCloneDecl46Entity => 'إقرار جمركي مبدئي شهادة 46 (Customs Declaration 46)';
+  @override String get idocBCloneDecl46Entity => 'إقرار جمركي مبدئي شهادة 46';
   @override String get idocBCloneFieldImportFile => 'ملف الشحنة';
   @override String get idocBCloneFieldSupplier => 'المورد الأجنبي';
   @override String get idocBCloneFieldCompany => 'الشركة المستوردة';
@@ -12108,7 +12317,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get idocBCloneReset3 => 'حالة الشهادة والإفراج: تعاد إلى قيد الإعداد المبدئي (مسودة)';
   @override String get idocBCloneReset4 => 'أرقام السداد الإلكتروني وإيصالات نافذة: تم فك الارتباط';
   @override String idocBCloneDeclNote(String no) => '(مستنسخ كمسودة من الإقرار $no)';
-  @override String get idocBAcidCloneEntity => 'طلب تسجيل مسبق للشحنات (ACID)';
+  @override String get idocBAcidCloneEntity => 'طلب التسجيل المسبق للشحنات';
   @override String get idocBAcidCloneFieldImporter => 'المستورد';
   @override String get idocBAcidCloneFieldExporter => 'المصدر الأجنبي';
   @override String get idocBAcidCloneFieldCountry => 'بلد التصدير';
@@ -12128,7 +12337,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get idocBAcidReportOverride => 'مبرر التجاوز والاعتماد';
   @override String get idocBAcidRegistryStage => 'سجل أرقام ACID';
   @override String get idocBAcidExpiryStage => 'متتبع صلاحية ACID';
-  @override String idocBLegalCompliantMessage(String eta, String window) => 'جميع المستندات القانونية (ACID، البطاقة الاستيرادية، السجل التجاري، البطاقة الضريبية) سارية وصالحة لما بعد موعد وصول الشحنة ($eta) بـ 30 يوماً على الأقل ($window).';
+  @override String idocBLegalCompliantMessage(String eta, String window) => 'جميع المستندات القانونية (رقم القيد الجمركي المبدئي، البطاقة الاستيرادية، السجل التجاري، البطاقة الضريبية) سارية وصالحة لما بعد موعد وصول الشحنة ($eta) بـ 30 يوماً على الأقل ($window).';
   @override String get idocBLegalCriticalTitle => 'تحذير قانوني وإجرائي حرج (تجاوز هامش الأمان: الوصول + 30 يوماً)';
   @override String idocBLegalEta(String eta) => 'تاريخ الوصول: $eta';
   @override String idocBLegalDocExpires(String doc, String date, String days) => '$doc: تنتهي في $date (متبقي $days يوم)';
@@ -12202,7 +12411,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get idocBBankDocTypeLabel => 'نوع المعاملة / المستند البنكي *';
   @override String get idocBBankDocTypeHint => 'اختر نوع المعاملة';
   @override String get idocBBankTypeForm4 => 'نموذج 4 (مستندات تحصيل / دفعة مقدمة)';
-  @override String get idocBBankTypeLc => 'اعتماد مستندي (L/C)';
+  @override String get idocBBankTypeLc => 'اعتماد مستندي';
   @override String get idocBBankTypeForm9 => 'نموذج 9 (إفراج دون تحويل)';
   @override String get idocBBankRefLabel => 'رقم المرجع البنكي / رقم الاعتماد (إن وجد)';
   @override String get idocBBankRefHint => 'اتركه فارغاً إذا كان قيد الطلب، أو اكتب: F4-2026-009 / LC-9988';
@@ -12242,9 +12451,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get fdaCarrier => 'الخط الملاحي';
   @override String get fdaAgreementDate => 'تاريخ الاتفاقية';
   @override String get fdaSectionFreeDays => 'فترات السماح المتفق عليها بالملحق';
-  @override String get fdaPortDemurrage => 'أرضيات الحاوية بالميناء (Demurrage)';
-  @override String get fdaDetention => 'فترة خروج الحاوية (Detention)';
-  @override String get fdaPortStorage => 'سماح الساحة (Port Storage)';
+  @override String get fdaPortDemurrage => 'أرضيات الحاويات بالميناء';
+  @override String get fdaDetention => 'فترة استخدام الحاوية خارج الميناء';
+  @override String get fdaPortStorage => 'فترة سماح ساحة الميناء';
   @override String fdaDaysCount(int days) => '$days يوم';
   @override String fdaDaysPlus(int days) => '+$days يوم';
   @override String get fdaEnterValidNumber => 'أدخل عدداً صحيحاً';
@@ -12269,10 +12478,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get lgxNo => 'لا';
   @override String get demHeaderFreeDaysBtn => 'فترات السماح (BK-02)';
   @override String get demReturnContainersBtn => 'إرجاع الحاويات (TR-05)';
-  @override String get demReturnedEirBtn => 'تم الإرجاع (EIR)';
+  @override String get demReturnedEirBtn => 'تم إرجاع الحاويات';
   @override String get demDaysSinceDischarge => 'أيام منذ التفريغ';
   @override String get demEnterFxHint => 'أدخل سعر الصرف لتشغيل المحاكاة';
-  @override String get erTitle => 'تأكيد إرجاع الحاويات الفارغة للخط (EIR) — (TR-05)';
+  @override String get erTitle => 'تأكيد إرجاع الحاويات الفارغة للخط الملاحي — (TR-05)';
   @override String get erSubtitle => 'إصدار إيصال استلام الحاوية وإيقاف عدادات غرامات التأخير ونقل الملف للمرحلة الختامية';
   @override String get erSelectFileSnack => 'يرجى اختيار ملف الشحنة المراد إرجاع حاوياتها';
   @override String get erNoImportFiles => 'لا توجد ملفات استيراد مسجلة';
@@ -12284,24 +12493,24 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get erDetailInland => 'حالة النقل الداخلي';
   @override String get erFilesLoadFailed => 'تعذر جلب ملفات الاستيراد';
   @override String get erRadarImpactTitle => 'أثر تسليم الحاوية الفارغة على رادار الغرامات ودورة الحياة:';
-  @override String get erRadarImpactBody => '1. إيقاف احتساب عداد غرامات التأخير (Detention) فورياً.\n2. تحويل حالة الحاوية في رادار الغرامات إلى "RETURNED_SAFE" (تم الإرجاع بسلام).\n3. ترقية نسبة إنجاز الشحنة إلى 98% ونقل الملف رسمياً للمرحلة التاسعة: تكلفة الوصول والتسوية الختامية (CLO-01).';
+  @override String get erRadarImpactBody => '1. إيقاف احتساب عداد غرامات التأخير خارج الميناء فورياً.\n2. تحويل حالة الحاوية في رادار الغرامات إلى "RETURNED_SAFE" (تم الإرجاع بسلام).\n3. ترقية نسبة إنجاز الشحنة إلى 98% ونقل الملف رسمياً للمرحلة التاسعة: تكلفة الوصول والتسوية الختامية (CLO-01).';
   @override String get erSectionHandover => 'بيانات التسليم';
-  @override String get erEirLabel => 'رقم إيصال استلام الحاوية (EIR)';
+  @override String get erEirLabel => 'رقم إيصال استلام الحاوية';
   @override String get erRegenerate => 'توليد جديد';
   @override String get erEirValidation => 'يرجى إدخال رقم إيصال EIR صحيح (3 أحرف على الأقل)';
   @override String get erReturnDate => 'تاريخ الإرجاع الفعلي';
-  @override String get erDepotLabel => 'مستودع وساحة إرجاع الحاوية (Carrier Depot / Terminal)';
+  @override String get erDepotLabel => 'مستودع ومحطة إرجاع الحاويات';
   @override String get erDepotHint => 'اختر ساحة ومستودع الخط الملاحي...';
   @override String get erConditionTitle => 'حالة سلامة الحاوية عند التسليم الفعلي';
-  @override String get erCondSound => 'سليمة ونظيفة (Sound & Clean)';
+  @override String get erCondSound => 'سليمة ونظيفة بالكامل';
   @override String get erCondSoundSub => 'خالية من أي تلفيات أو أضرار';
-  @override String get erCondMinor => 'تلفيات بسيطة (Minor Damage)';
+  @override String get erCondMinor => 'تلفيات طفيفة';
   @override String get erCondMinorSub => 'خدوش أو انحناءات طفيفة';
-  @override String get erCondRepair => 'تتطلب إصلاح (Repair Required)';
+  @override String get erCondRepair => 'تتطلب إصلاحاً';
   @override String get erCondRepairSub => 'تلفيات بالأرضية أو الباب';
   @override String get erDamageNotes => 'ملاحظات وتفاصيل التلفيات بالمعاينة';
   @override String get erDamageNotesHint => 'مثال: انحناء بسيط بالقائم الأيمن والباب';
-  @override String get erDamageFee => 'غرامة الإصلاح (USD)';
+  @override String get erDamageFee => 'غرامة الإصلاح بالدولار';
   @override String get erSectionTransport => 'النقل والملاحظات';
   @override String get erDriver => 'اسم سائق شاحنة الإرجاع (اختياري)';
   @override String get erTruckPlate => 'رقم لوحة الشاحنة (اختياري)';
@@ -12316,13 +12525,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cshCloneEntityType => 'شحنة وتخصيص حاويات';
   @override String get cshCloneFieldShipmentType => 'نوع الشحن';
   @override String get cshCloneFieldContainers => 'تخصيص الحاويات';
-  @override String get cshCloneFieldVgm => 'إجمالي الوزن (VGM)';
-  @override String get cshCloneFieldCfs => 'مستودع التجميع (CFS)';
-  @override String get cshCloneReset1 => 'معرف الشحنة (Shipping ID): يتم تفريغه لتوليد سجل جديد';
-  @override String get cshCloneReset2 => 'كود الشحنة (Shipping Code): يعاد تعيينه كمسودة (DRAFT)';
+  @override String get cshCloneFieldVgm => 'إجمالي الوزن المعتمد';
+  @override String get cshCloneFieldCfs => 'مستودع الشحن التجميعي';
+  @override String get cshCloneReset1 => 'معرف الشحنة: يتم تفريغه لتوليد سجل جديد';
+  @override String get cshCloneReset2 => 'كود الشحنة: يعاد تعيينه كمسودة';
   @override String get cshCloneReset3 => 'ملف الاستيراد: يتطلب إعادة الربط بملف استيراد جديد أو قيد التجهيز';
-  @override String get cshCloneReset4 => 'حالة تتبع الحاويات: تعاد للبدء المبدئي (ASSIGNED / Cargo Ready)';
-  @override String get cshCloneReset5 => 'سجل المهل وتواريخ التحميل (48h SLA): تعاد للتهيئة والتوقيت الجديد';
+  @override String get cshCloneReset4 => 'حالة تتبع الحاويات: تعاد للبدء المبدئي وجاهزية البضاعة';
+  @override String get cshCloneReset5 => 'سجل المهل وتواريخ التحميل خلال 48 ساعة: تعاد للتهيئة والتوقيت الجديد';
   @override String cshWeightKg(String value) => '$value كجم';
   @override String get cshLclConsolidation => 'تجميع LCL';
   @override String get cshStandard40hc => 'حاوية 40HC قياسية';
@@ -12332,9 +12541,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cshColShipType => 'نوع الشحن';
   @override String get cshColContainersSeals => 'الحاويات وأرقام الأقفال';
   @override String get cshColContainers => 'الحاويات المخصصة';
-  @override String get cshColTotalVgm => 'إجمالي الوزن (VGM)';
+  @override String get cshColTotalVgm => 'إجمالي الوزن المعتمد';
   @override String get cshColStatus => 'الحالة';
-  @override String get cshColGateIn => 'دخول الميناء (Gate-In)';
+  @override String get cshColGateIn => 'دخول بوابة الميناء';
   @override String get cshColSla => 'موقف مهلة 48h SLA';
   @override String get cshColOp => 'الحالة التشغيلية';
   @override String get cshColContainersShort => 'الحاويات';
@@ -12349,7 +12558,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get cshPdfMetaFcl => 'شحنات FCL';
   @override String get cshPdfMetaLcl => 'شحنات LCL';
   @override String get cshSmartSimTooltip => 'المحاكاة الذكية: توليد تواريخ ومحطات دورة التحميل والـ VGM ودخول الميناء تلقائياً في النموذج';
-  @override String get cshSmartSimBtn => '⚡ محاكاة ذكية (Smart Simulation) ⚡';
+  @override String get cshSmartSimBtn => '⚡ محاكاة تشغيلية ذكية ⚡';
   @override String get cshSmartSimDone => 'تمت المحاكاة الذكية واستيفاء دورة التحميل ودخول الميناء بنجاح! اضغط على "حفظ واعتماد إنهاء المرحلة" للتأكيد والترحيل.';
   @override String get cshSaveCompleteBtn => 'حفظ واعتماد إنهاء المرحلة (STEP-07)';
   @override String get cshUpdateCompleteBtn => 'تحديث واعتماد إنهاء المرحلة (STEP-07)';
@@ -12392,13 +12601,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get fbkTipUpdateBl => 'تحديث بوليصة الشحن والإبحار (SH-01)';
   @override String get fbkTipReviewDraftBl => 'مراجعة مسودة البوليصة والاعتماد المزدوج (SH-02)';
   @override String get fbkStatusTipConfirmed => 'الحجز مؤكد — انقر لتأكيد الإبحار وبوليصة الشحن (SH-01)';
-  @override String fbkStatusTipSailed(String bl) => 'أبحرت الشحنة (B/L: $bl) — انقر لتحديث البيانات';
+  @override String fbkStatusTipSailed(String bl) => 'أبحرت الشحنة (بوليصة: $bl) — انقر لتحديث البيانات';
   @override String get fbkStatusTipPending => 'انقر لتأكيد الحجز وتثبيت المواعيد (BK-01)';
   @override String get fbkCloneEntityType => 'حجز شحن بحري / جوي';
-  @override String get fbkCloneReset1 => 'رقم تأكيد الحجز (Confirmation No): يتم تفريغه للمسودة الجديدة';
-  @override String get fbkCloneReset2 => 'اسم السفينة ورقم الرحلة (Vessel & Voyage): يتطلب إعادة تأكيد';
-  @override String get fbkCloneReset3 => 'تاريخ المغادرة الفعلي (ATD): غير محدد للمسودة الجديدة';
-  @override String get fbkCloneReset4 => 'حالة الحجز: تعاد إلى مسودة قيد الإعداد (Draft)';
+  @override String get fbkCloneReset1 => 'رقم تأكيد الحجز: يتم تفريغه للمسودة الجديدة';
+  @override String get fbkCloneReset2 => 'اسم السفينة ورقم الرحلة البحرية: يتطلب إعادة تأكيد';
+  @override String get fbkCloneReset3 => 'تاريخ الإبحار الفعلي: غير محدد للمسودة الجديدة';
+  @override String get fbkCloneReset4 => 'حالة الحجز: تعاد إلى مسودة قيد الإعداد';
   @override String get fbkSectionFile => 'الملف ورقم التأكيد';
   @override String get fbkSectionCarrierRoute => 'الناقل والمسار';
   @override String get fbkSectionSchedule => 'مواعيد الإبحار والوصول';
@@ -12422,10 +12631,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get fbkNotesOptional => 'ملاحظات وتوجيهات الحجز (اختياري)';
   @override String get fbkDaysSuffix => 'يوم';
   @override String get fbkConfirmTitle => 'تأكيد حجز الشحن والناقل (BK-01)';
-  @override String get fbkConfirmInfo => 'تأكيد الحجز برقم التأكيد الفعلي (Booking No) ينقل ملف الشحنة تلقائياً إلى STEP_07 ويُغلق مهام BK-01 ويُنشئ مهمة متابعة فترات السماح (BK-02).';
-  @override String get fbkConfirmNoLabel => 'رقم تأكيد الحجز (Booking No / Booking Confirmation) *';
+  @override String get fbkConfirmInfo => 'تأكيد الحجز برقم التأكيد الفعلي ينقل ملف الشحنة تلقائياً إلى STEP_07 ويُغلق مهام BK-01 ويُنشئ مهمة متابعة فترات السماح (BK-02).';
+  @override String get fbkConfirmNoLabel => 'رقم تأكيد الحجز الملاحي *';
   @override String get fbkConfirmNoValidator => 'يرجى إدخال رقم تأكيد الحجز من الخط الملاحي';
-  @override String get fbkConfirmFreeDaysLabel => 'أيام السماح المجانية المتفق عليها (Free Demurrage Days) *';
+  @override String get fbkConfirmFreeDaysLabel => 'أيام السماح المجانية المتفق عليها لتفادي الغرامات *';
   @override String get fbkConfirmFreeDaysRequired => 'يرجى تحديد أيام السماح';
   @override String get fbkConfirmBtn => 'تأكيد الحجز وتثبيته (BK-01)';
   @override String get fbkConfirmSuccess => 'تم تأكيد حجز الشحن بنجاح (BK-01) وترقية المرحلة إلى STEP_07 وتغذية رادار فترات السماح';
@@ -12435,20 +12644,20 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String fbkDepCarrier(String name) => 'الخط الملاحي: $name';
   @override String fbkDepRoute(String pol, String pod) => 'المسار: $pol ➔ $pod';
   @override String fbkDepDelayed(int days) => 'تأخر إبحار: $days يوم';
-  @override String get fbkDepOnSchedule => 'إبحار في الموعد (On Schedule)';
+  @override String get fbkDepOnSchedule => 'إبحار وفق الجدول المحدد';
   @override String get fbkDepSectionBl => 'بوليصة الشحن والمواعيد الفعلية';
-  @override String get fbkDepBolLabel => 'رقم بوليصة الشحن (Bill of Lading No / Master B/L) *';
+  @override String get fbkDepBolLabel => 'رقم بوليصة الشحن الرئيسية *';
   @override String get fbkDepBolRequired => 'يرجى إدخال رقم بوليصة الشحن B/L';
   @override String get fbkDepBolShort => 'رقم البوليصة يجب ألا يقل عن 3 أحرف/أرقام';
-  @override String get fbkDepAtdLabel => 'تاريخ الإبحار الفعلي (ATD) *';
-  @override String get fbkDepRevisedEtaLabel => 'موعد الوصول المحدث (Revised ETA)';
+  @override String get fbkDepAtdLabel => 'تاريخ الإبحار الفعلي *';
+  @override String get fbkDepRevisedEtaLabel => 'موعد الوصول المحدث';
   @override String get fbkDepAuto => 'تلقائي';
-  @override String get fbkDepSobLabel => 'تاريخ الشحن على ظهر السفينة (Shipped On Board Date)';
+  @override String get fbkDepSobLabel => 'تاريخ الشحن على ظهر السفينة';
   @override String fbkDepSobSameAsAtd(String date) => 'نفس تاريخ الإبحار الفعلي ($date)';
   @override String get fbkDepNotesLabel => 'ملاحظات خط الملاحة ومحطات الترانزيت (اختياري)';
   @override String fbkDepNotesHint(int days) => 'مثال: الشحنة أبحرت مباشرة، الترانزيت المتوقع $days يوم بدون تأخير...';
   @override String get fbkDepAutoTitle => 'المعالجة الآلية الفورية عند الحفظ';
-  @override String get fbkDepAutoBody => '• تحويل حالة الشحنة إلى In-Transit / On Water بنسبة إنجاز 60%+\n• تحديث رادار غرامات الحاويات (Demurrage) برقم بوليصة الشحن\n• إغلاق مهام الإبحار وإطلاق مهمة (SH-02): المراجعة المزدوجة لمسودة البوليصة\n• بث إشعار تشغيلي رسمي لغرفة العمليات بموعد الوصول المحدث';
+  @override String get fbkDepAutoBody => '• تحويل حالة الشحنة إلى In-Transit / On Water بنسبة إنجاز 60%+\n• تحديث رادار غرامات أرضيات وتأخير الحاويات برقم بوليصة الشحن\n• إغلاق مهام الإبحار وإطلاق مهمة (SH-02): المراجعة المزدوجة لمسودة البوليصة\n• بث إشعار تشغيلي رسمي لغرفة العمليات بموعد الوصول المحدث';
   @override String get fbkDepBtn => 'تأكيد الإبحار وإصدار البوليصة';
   @override String get fbkDepBtnBusy => 'جاري توثيق الإبحار...';
   @override String fbkDepSuccess(String bl) => 'تم تأكيد الإبحار الفعلي بنجاح وتسجيل بوليصة الشحن رقم ($bl) وانتقال الشحنة لحالة In-Transit';
@@ -12496,13 +12705,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccCloneFieldImportDuty => 'ضريبة الوارد';
   @override String get ccCloneFieldVat => 'ضريبة القيمة المضافة';
   @override String get ccCloneFieldScheduleTax => 'ضريبة الجدول';
-  @override String get ccCloneFieldWht => 'أرباح تجارية (WHT)';
+  @override String get ccCloneFieldWht => 'ضريبة الخصم والإضافة';
   @override String get ccCloneFieldLabFees => 'رسوم الفحص المعملي';
   @override String get ccCloneFieldTotalDuty => 'إجمالي الرسوم الجمركية';
   @override String get ccCloneFieldFreeDays => 'فترة السماح بالميناء';
   @override String ccCloneDaysValue(int days) => '$days يوم';
   @override String get ccCloneReset1 => 'معرف التخليص الجمركي: يتم تفريغه لتوليد سجل بيان جمركي جديد';
-  @override String get ccCloneReset2 => 'كود المعاملة: يعاد تعيينه كمسودة (CLR-DRAFT)';
+  @override String get ccCloneReset2 => 'كود المعاملة: يعاد تعيينه كمسودة مبدئية';
   @override String get ccCloneReset3 => 'رقم 46 ك.م وإذن التسليم: يتم تفريغهم لحين القيد والتسليم الفعلي للبيان الجديد';
   @override String get ccCloneReset4 => 'حالة السداد وإيصال البنك: يعاد ضبطها إلى "غير مسدد" ومسح الإيصالات السابقة';
   @override String get ccCloneReset5 => 'تصريح وتاريخ الإفراج الجمركي: يتم تفريغهما لحين إنهاء إجراءات الإفراج';
@@ -12531,7 +12740,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccDutyAwaitingAssessment => 'في انتظار الاحتساب المالي';
   @override String get ccDutyStageBadge => 'مرحلة السداد المالي (CL-03)';
   @override String get ccDutyPaymentSection => 'بيانات السداد الإلكتروني والبنكي';
-  @override String get ccDutySadadLabel => 'رقم سداد الإلكتروني (Sadad Number)';
+  @override String get ccDutySadadLabel => 'رقم سداد الإلكتروني';
   @override String get ccDutySadadHint => 'مثال: SADAD-2026-0042';
   @override String get ccDutyAutoGenerate => 'توليد تلقائي';
   @override String get ccDutySadadRequired => 'رقم سداد إلزامي';
@@ -12547,7 +12756,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccDutyBankLabel => 'البنك المسدد من خلاله';
   @override String get ccDutyBankRequired => 'يرجى اختيار البنك القائم بالسداد';
   @override String get ccDutyAttachmentsSection => 'المرفقات والملاحظات الرقابية';
-  @override String get ccDutyReceiptFileLabel => 'رابط أو مرجع ملف إيصال السداد الإلكتروني (Receipt File URL)';
+  @override String get ccDutyReceiptFileLabel => 'رابط أو مرجع إيصال السداد الإلكتروني';
   @override String get ccDutyReceiptFileHint => 'مثال: /uploads/receipts/sadad_rec_2026_01.pdf';
   @override String get ccDutyNotesLabel => 'ملاحظات السداد والتحقق المالي';
   @override String get ccDutyNotesHint => 'أي ملاحظات إضافية بخصوص إشعار السداد أو الخصم البنكي...';
@@ -12565,22 +12774,22 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccAssessClaimNoRequired => 'يرجى إدخال رقم المطالبة الجمركية';
   @override String get ccAssessClaimNoTooShort => 'رقم المطالبة يجب ألا يقل عن 3 أحرف';
   @override String get ccAssessClaimDateLabel => 'تاريخ المطالبة الجمركية *';
-  @override String get ccAssessCifLabel => 'القيمة المقبولة جمركياً (CIF Base بالجنيه) *';
+  @override String get ccAssessCifLabel => 'القيمة المقبولة جمركياً (أساس سيف بالجنيه) *';
   @override String get ccAssessCifRequired => 'القيمة الجمركية CIF مطلوبة';
   @override String get ccAssessPositiveValue => 'يرجى إدخال قيمة صحيحة أكبر من 0';
   @override String get ccAssessFxLabel => 'سعر الصرف الجمركي الرسمي *';
   @override String get ccAssessFxRequired => 'سعر الصرف مطلوب';
   @override String get ccAssessFxPositive => 'سعر الصرف يجب أن يكون أكبر من 0';
-  @override String get ccAssessBreakdownSection => 'تفصيل بنود الرسوم والضرائب الجمركية (HS Code Duty Breakdown)';
-  @override String get ccAssessImportDuty => 'ضريبة الوارد الجمركية (Import Duty) *';
+  @override String get ccAssessBreakdownSection => 'تفصيل بنود الرسوم والضرائب الجمركية لبند التعريفة';
+  @override String get ccAssessImportDuty => 'ضريبة الوارد الجمركية *';
   @override String get ccAssessImportDutyRequired => 'ضريبة الوارد مطلوبة';
   @override String get ccAssessInvalidValue => 'قيمة غير صالحة';
-  @override String get ccAssessVat => 'ضريبة القيمة المضافة (VAT) *';
+  @override String get ccAssessVat => 'ضريبة القيمة المضافة *';
   @override String get ccAssessVatRequired => 'ضريبة القيمة المضافة مطلوبة';
-  @override String get ccAssessScheduleTax => 'ضريبة الجدول (Schedule Tax)';
-  @override String get ccAssessDevFee => 'رسم التنمية (Development Fee)';
+  @override String get ccAssessScheduleTax => 'ضريبة الجدول';
+  @override String get ccAssessDevFee => 'رسم التنمية';
   @override String get ccAssessServiceFees => 'رسوم الخدمات الجمركية وأ.ت.ص';
-  @override String get ccAssessWht => 'أرباح تجارية وصناعية (WHT)';
+  @override String get ccAssessWht => 'ضريبة الخصم والإضافة';
   @override String get ccAssessLabFees => 'رسوم التحاليل والمعامل';
   @override String get ccAssessNotesSection => 'ملاحظات وتوجيهات التثمين والاحتساب النهائي';
   @override String get ccAssessNotesHint => 'ملاحظات وتوجيهات مأمور التعريفة أو أي بنود استثنائية...';
@@ -12590,7 +12799,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccAssessConfirm => 'اعتماد واحتساب الرسوم (CL-02)';
   @override String ccAssessSuccess(String claim, String total) => 'تم احتساب واعتماد الرسوم الجمركية بمطالبة #$claim بإجمالي ($total ج.م). تم الانتقال للمرحلة التالية: سداد الرسوم بسداد (CL-03).';
   @override String ccAssessError(String error) => 'حدث خطأ أثناء اعتماد الرسوم الجمركية: $error';
-  @override String get ccAssessVarianceTitle => 'مطابقة الرسوم الفعلية مع التقديرية (Variance Analysis)';
+  @override String get ccAssessVarianceTitle => 'مطابقة الرسوم الفعلية مع التقديرية';
   @override String get ccAssessBadgeInitial => 'تثمين أولي (بدون تقدير سابق)';
   @override String ccAssessBadgeSaving(String pct) => 'وفر بالرسوم (-$pct%)';
   @override String ccAssessBadgeMinor(String pct) => 'انحراف طفيف (+$pct%)';
@@ -12608,7 +12817,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccRelSumSadad => 'رقم سداد الرسوم';
   @override String get ccRelSumPaid => 'الرسوم المسددة';
   @override String get ccRelSumPort => 'ميناء الوصول';
-  @override String get ccRelPermitSection => 'بيانات إذن الإفراج الجمركي الأخضر (MTS Release Permit)';
+  @override String get ccRelPermitSection => 'بيانات إذن الإفراج الجمركي الأخضر';
   @override String get ccRelPermitNoLabel => 'رقم إذن الإفراج الأخضر *';
   @override String get ccRelPermitNoHint => 'مثال: REL-2026-0004';
   @override String get ccRelPermitAuto => 'توليد رقم إذن تلقائي';
@@ -12618,16 +12827,16 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccRelOfficerLabel => 'اسم مأمور الجمرك / المفرج';
   @override String get ccRelOfficerHint => 'اسم المفتش أو مأمور الإفراج';
   @override String get ccRelTypeLabel => 'نوع الإفراج الجمركي';
-  @override String get ccRelGateSection => 'تصريح خروج البوابة وإجراءات النقل الداخلي (Port Gate-Out & Transport)';
-  @override String get ccRelGatePassLabel => 'رقم تصريح الخروج من بوابة الميناء (Gate Pass)';
+  @override String get ccRelGateSection => 'تصريح خروج البوابة وإجراءات النقل الداخلي';
+  @override String get ccRelGatePassLabel => 'رقم تصريح الخروج من بوابة الميناء';
   @override String get ccRelGatePassHint => 'مثال: GP-2026-0004';
   @override String get ccRelGatePassAuto => 'توليد رقم تصريح تلقائي';
   @override String get ccRelGateOutDateLabel => 'تاريخ الخروج من الميناء';
   @override String get ccRelNotSet => 'غير محدد';
   @override String get ccRelDemurrageLabel => 'رسوم الأرضيات وغرامات التأخير إن وجدت (ج.م)';
   @override String get ccRelAmountInvalid => 'أدخل مبلغاً صحيحاً';
-  @override String get ccRelDocUrlLabel => 'رابط ملف إذن الإفراج (PDF / صورة)';
-  @override String get ccRelDispatchTitle => 'تصريح مغادرة ونقل الشحنة (Dispatch Authorization)';
+  @override String get ccRelDocUrlLabel => 'رابط مستند إذن الإفراج أو الصورة';
+  @override String get ccRelDispatchTitle => 'تصريح مغادرة ونقل الشحنة';
   @override String get ccRelDispatchDesc => 'تأكيد جاهزية الحاوية للشحن الداخلي وبدء توجيه أسطول النقل للمستودعات';
   @override String get ccRelTransportLabel => 'تعليمات النقل والتوجيه لمخازن الشركة';
   @override String get ccRelTransportHint => 'تحديد موقع التعتيق، تعليمات السلامة الجمركية، وجهة التسليم...';
@@ -12643,7 +12852,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccInsBadgeDecl => 'رقم الإقرار الجمركي 46';
   @override String get ccInsBadgeDeclFallback => 'مسجل بنموذج 46';
   @override String get ccInsBadgeChannel => 'المسار الجمركي المحدد';
-  @override String get ccInsBadgeChannelValue => 'المسار الأحمر (Red Channel)';
+  @override String get ccInsBadgeChannelValue => 'المسار الأحمر الفعلي';
   @override String get ccInsBadgeDate => 'تاريخ القيد الجمركي';
   @override String get ccInsSection1 => 'أولاً: بيانات الكشف والمعاينة الميدانية بالميناء';
   @override String get ccInsYardLabel => 'ساحة / رصيف المعاينة والكشف بالميناء *';
@@ -12662,15 +12871,15 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccInsInspectorLabel => 'اسم المفتش / رئيس لجنة الفحص الجمركي المشترك';
   @override String get ccInsInspectorHint => 'مثال: م. إبراهيم خليل - رئيس لجنة الفحص المشترك';
   @override String get ccInsResultLabel => 'نتيجة الكشف والمعاينة الميدانية *';
-  @override String get ccInsResConforming => 'مطابقة تامة (Conforming)';
+  @override String get ccInsResConforming => 'مطابقة تامة';
   @override String get ccInsResConformingDesc => 'الأصناف مطابقة للمستندات والوزن والمواصفات القياسية';
-  @override String get ccInsResShortage => 'وجود عجز (Shortage)';
+  @override String get ccInsResShortage => 'وجود عجز';
   @override String get ccInsResShortageDesc => 'كميات أو طرود أقل من المصرح بها بالفاتورة';
-  @override String get ccInsResSurplus => 'وجود زيادة (Surplus)';
+  @override String get ccInsResSurplus => 'وجود زيادة';
   @override String get ccInsResSurplusDesc => 'كميات أو أصناف إضافية غير مدرجة بالفاتورة';
-  @override String get ccInsResDiscrepancy => 'اختلاف في البند/المنشأ (Discrepancy)';
+  @override String get ccInsResDiscrepancy => 'اختلاف في البند أو المنشأ';
   @override String get ccInsResDiscrepancyDesc => 'تباين في المنشأ أو مواصفات الصنف عن الإقرار 46';
-  @override String get ccInsSection2 => 'ثانياً: سحب العينات والرقابة على الصادرات والواردات (GOEIC)';
+  @override String get ccInsSection2 => 'ثانياً: سحب العينات والرقابة على الصادرات والواردات';
   @override String get ccInsSampleSwitchTitle => 'تم سحب عينات للفحص والتحليل المعملي للجهات الرقابية';
   @override String get ccInsSampleSwitchOn => 'سيتم تدوين رقم محضر سحب العينات وتحديد جهات الفحص المعملي ومتابعة تقرير GOEIC';
   @override String get ccInsSampleSwitchOff => 'لم يتم سحب عينات (اكتفاء بالمعاينة الظاهرية ومطابقة المستندات)';
@@ -12680,7 +12889,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccInsSampleRecordRequired => 'رقم محضر سحب العينات مطلوب (3 أحرف على الأقل)';
   @override String get ccInsSampleDateLabel => 'تاريخ سحب العينات *';
   @override String get ccInsBodiesLabel => 'الجهات الرقابية الساحبة للعينات والفاحصة معملياً:';
-  @override String get ccInsGoeicLabel => 'رقم شهادة الفحص / إشعار المعاينة (GOEIC Ref)';
+  @override String get ccInsGoeicLabel => 'رقم شهادة فحص الرقابة على الصادرات والواردات';
   @override String get ccInsGoeicHint => 'مثال: GOEIC-2026-INSP-9922';
   @override String get ccInsLabFeesLabel => 'رسوم ومصاريف التحليل المعملي';
   @override String get ccInsTestStatusLabel => 'حالة فحص العينات المعملية:';
@@ -12707,7 +12916,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccBrkBrokerHint => 'اختر المخلص الجمركي المعتمد...';
   @override String get ccBrkBrokerSearchHint => 'ابحث باسم المخلص أو رقم الرخصة أو الميناء...';
   @override String ccBrkLoadError(String error) => 'خطأ في تحميل قائمة المخلصين: $error';
-  @override String get ccBrkNoLabel => 'رقم التفويض الإلكتروني (Nafeza / MTS Code) *';
+  @override String get ccBrkNoLabel => 'رقم التفويض الإلكتروني عبر منظومة نافذة *';
   @override String get ccBrkNoHint => 'مثال: DEL-2026-ALEX-01 أو MTS-AUTH-...';
   @override String get ccBrkCopyTooltip => 'نسخ رقم التفويض';
   @override String get ccBrkCopied => 'تم نسخ رقم التفويض إلى الحافظة';
@@ -12716,16 +12925,16 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccBrkNoTooShort => 'رقم التفويض يجب ألا يقل عن 3 أحرف';
   @override String get ccBrkDateLabel => 'تاريخ التفويض الإلكتروني';
   @override String get ccBrkOfficeLabel => 'الميناء الجمركي المعني';
-  @override String get ccBrkMandateTitle => 'توليد خطاب تفويض جمركي رسمي (Customs Broker Mandate Letter)';
+  @override String get ccBrkMandateTitle => 'توليد خطاب تفويض جمركي رسمي';
   @override String get ccBrkMandateDesc => 'إنشاء خطاب التوكيل والتفويض تلقائياً باسم مدير عام جمارك الميناء لحفظه في أرشيف الخطابات الرسمية.';
   @override String get ccBrkNotesLabel => 'ملاحظات وتوجيهات للمستخلص (اختياري)';
   @override String get ccBrkNotesHint => 'مثال: سداد إذن التسليم فور الوصول، متابعة لجنة الفحص المشترك GOEIC...';
   @override String get ccBrkConfirm => 'اعتماد وتفويض المخلص (CS-01)';
   @override String get ccBrkConfirming => 'جاري الاعتماد والتفويض...';
-  @override String get ccDoTitle => 'سداد إذن التسليم الملاحي واستلام D/O (CS-02)';
+  @override String get ccDoTitle => 'سداد إذن التسليم الملاحي واستلامه (CS-02)';
   @override String ccDoChipShipment(String code, String company) => 'الشحنة: $code — $company';
   @override String get ccDoStageTitle => 'المرحلة السادسة: الإعداد الجمركي (46)';
-  @override String get ccDoStageDesc => 'تسجيل سداد مصاريف التوكيل واستلام إذن التسليم (D/O) يرفع تقدم الشحنة لـ 83% ويُتيح فتح وقيد الإقرار الجمركي 46 ك.م.';
+  @override String get ccDoStageDesc => 'تسجيل سداد مصاريف التوكيل واستلام إذن التسليم الملاحي يرفع تقدم الشحنة لـ 83% ويُتيح فتح وقيد الإقرار الجمركي 46 ك.م.';
   @override String get ccDoFileNoChip => 'رقم الملف:';
   @override String get ccDoSupplierChip => 'المورد:';
   @override String get ccDoPortChip => 'ميناء الوصول:';
@@ -12736,13 +12945,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccDoAgentLabel => 'التوكيل الملاحي / الخط الناقل *';
   @override String get ccDoAgentHint => 'ابحث واختر التوكيل أو الخط الملاحي...';
   @override String get ccDoAgentSearchHint => 'ابحث باسم التوكيل أو الكود أو الخط...';
-  @override String get ccDoNumberLabel => 'رقم إذن التسليم الملاحي (D/O Number) *';
+  @override String get ccDoNumberLabel => 'رقم إذن التسليم الملاحي *';
   @override String get ccDoNumberHint => 'مثال: DO-MAEU-2026-8819';
   @override String get ccDoNumberRequired => 'يرجى إدخال رقم إذن التسليم الملاحي';
   @override String get ccDoNumberTooShort => 'رقم إذن التسليم يجب ألا يقل عن 3 أحرف/أرقام';
   @override String get ccDoGenerateTooltip => 'توليد رقم إذن تسليم تلقائي';
   @override String get ccDoGenerate => 'توليد';
-  @override String get ccDoFeesLabel => 'مصاريف التوكيل الملاحي (D/O Fees) *';
+  @override String get ccDoFeesLabel => 'مصاريف التوكيل الملاحي *';
   @override String get ccDoFeesRequired => 'يرجى إدخال قيمة مصاريف التوكيل';
   @override String get ccDoFeesInvalid => 'يرجى إدخال مبلغ صحيح';
   @override String get ccDoFeesInvalidSnack => 'يرجى إدخال قيمة صحيحة لرسوم التوكيل الملاحي';
@@ -12788,7 +12997,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccDecOffice6 => 'جمارك الميناء الجاف بمدينة 6 أكتوبر';
   @override String get ccDecOffice7 => 'جمارك الميناء الجاف بمدينة العاشر من رمضان';
   @override String get ccDecOffice8 => 'جمارك ميناء الأدبية بالسويس';
-  @override String get ccDecSection3 => 'المسار الجمركي المعتمد (Customs Channel)';
+  @override String get ccDecSection3 => 'المسار الجمركي المعتمد';
   @override String get ccDecSection3Desc => 'يتم تحديد المسار الجمركي بواسطة خوارزمية إدارة المخاطر بمنظومة نافذة أو مأمور الحركة:';
   @override String get ccDecChRed => 'المسار الأحمر';
   @override String get ccDecChRedDesc => 'كشف ومعاينة فعلية كاملة وسحب عينات';
@@ -12836,19 +13045,19 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccExpDateLabel => 'تاريخ الفاتورة';
   @override String get ccExpCategoryLabel => 'بند المصروف / نوع التكلفة *';
   @override String get ccExpAllocationLabel => 'قاعدة توزيع التكلفة *';
-  @override String get ccExpAllocEqual => 'بالتساوي (Equal)';
-  @override String get ccExpAllocValue => 'حسب القيمة (CIF Value)';
-  @override String get ccExpAllocWeight => 'حسب الوزن (Gross Weight)';
-  @override String get ccExpAllocVolume => 'حسب الحجم (CBM)';
+  @override String get ccExpAllocEqual => 'بالتساوي';
+  @override String get ccExpAllocValue => 'حسب القيمة الإجمالية';
+  @override String get ccExpAllocWeight => 'حسب الوزن القائم';
+  @override String get ccExpAllocVolume => 'حسب الحجم بالمتر المكعب';
   @override String get ccExpAmountLabel => 'مبلغ الفاتورة الأساسي (ج.م) *';
   @override String get ccExpAmountRequired => 'يرجى إدخال مبلغ الفاتورة';
   @override String get ccExpAmountPositive => 'أدخل مبلغاً أكبر من صفر';
-  @override String get ccExpWhtCheckbox => 'خصم ضريبة الأرباح (WHT)';
+  @override String get ccExpWhtCheckbox => 'خصم ضريبة الأرباح التجارية والصناعية';
   @override String get ccExpNotesLabel => 'ملاحظات وتفاصيل إضافية عن الفاتورة';
   @override String get ccExpNotesHint => 'أي تفاصيل عن أتعاب الشحن والتفريغ أو رقم إيصال الميناء...';
   @override String get ccExpSave => 'حفظ الفاتورة';
   @override String get ccExpSaving => 'جاري الحفظ...';
-  @override String ccExpSaved(String category) => 'تم تسجيل فاتورة $category بنجاح وترحيلها لتكلفة البضاعة (Landed Cost)';
+  @override String ccExpSaved(String category) => 'تم تسجيل فاتورة $category بنجاح وترحيلها لتكلفة وصول البضاعة النهائية';
   @override String ccExpSaveFail(String error) => 'فشل تسجيل الفاتورة: $error';
   @override String get ccExpDeleteTitle => 'تأكيد حذف الفاتورة';
   @override String ccExpDeleteContent(String number, String provider) => 'هل أنت متأكد من حذف فاتورة "$number" الخاصة بـ "$provider"؟\nسيتم تحديث إجمالي تكاليف التخليص تلقائياً.';
@@ -12865,7 +13074,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get ccExpInfoAllocation => 'التوزيع';
   @override String get ccExpInfoNotes => 'ملاحظات';
   @override String get ccExpAllocEqualShort => 'بالتساوي';
-  @override String get ccExpFooterNote => 'المصاريف تُرحَّل تلقائياً إلى كشف حساب تكلفة الشحنة (Landed Cost Engine)';
+  @override String get ccExpFooterNote => 'المصاريف تُرحَّل تلقائياً إلى كشف حساب تكلفة وصول الشحنة الإجمالية';
   @override String get ccCloneSearchHint => 'ابحث برقم البيان، 46 ك.م، إذن التسليم، أو الجمرك...';
   @override String get ccCloneChannelLabel => 'المسار: ';
   @override String get ccCloneStatusLabel => 'الحالة: ';
@@ -12927,9 +13136,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get wrFilterQuarantineOnly => 'حجر مخزني فقط';
   @override String get wrQuarantineZoneBadge => 'منطقة حجر';
   @override String wrCloneRecordSummary(int accepted, int shortage, int damaged) => 'أصناف: $accepted مقبول / $shortage عجز / $damaged تالف';
-  @override String get wrPdfRegistryTitle => 'سجل أذون الإضافة والاستلام المخزني (GRN)';
+  @override String get wrPdfRegistryTitle => 'سجل أذون الإضافة والاستلام المخزني';
   @override String get wrPdfRegistrySubtitle => 'سجل أذون الاستلام والفحص المخزني';
-  @override String get wrCloneEntityType => 'إذن إضافة واستلام مخزني (GRN)';
+  @override String get wrCloneEntityType => 'إذن إضافة واستلام مخزني';
   @override String get wrCloneItemCount => 'عدد الأصناف';
   @override String get wrCloneResetReceivingId => 'معرف الاستلام: يتم تفريغه لتوليد إذن استلام جديد';
   @override String get wrCloneResetGrnCode => 'كود الإذن: يصدر الخادم كوداً جديداً';
@@ -12963,7 +13172,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get wrInspNotesRequired => 'يرجى تدوين الملاحظات الفنية';
   @override String get wrInspClaimsHeader => 'إجراءات المطالبات والتعويضات والعزل:';
   @override String get wrInspInsuranceClaim => 'رفع مطالبة تأمين بحري/نقل';
-  @override String get wrInspSupplierCredit => 'طلب إشعار دائن (Credit Note) من المورد';
+  @override String get wrInspSupplierCredit => 'طلب إشعار دائن من المورد';
   @override String get wrInspQuarantine => 'عزل الأصناف التالفة في منطقة الحجر';
   @override String get wrInspInsuranceRef => 'رقم مرجع مطالبة التأمين';
   @override String get wrInspSupplierRef => 'رقم إشعار خصم/مطالبة المورد';
@@ -12982,7 +13191,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get inlandKpiStatus => 'حالة النقل الداخلي';
   @override String get inlandKpiWaybill => 'بوليصة النقل الداخلي';
   @override String get inlandKpiTruckDriver => 'الشاحنة والسائق';
-  @override String get inlandKpiFare => 'نولون النقل (EGP)';
+  @override String get inlandKpiFare => 'نولون النقل بالجنيه المصري';
   @override String get inlandNotSet => 'غير محدد';
   @override String get inlandWaybillPending => 'لم يتم إنشاؤها بعد';
   @override String get inlandCurrencySuffix => 'ج.م';
@@ -13001,10 +13210,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get inlandInfoExpectedArrival => 'الوصول المتوقع:';
   @override String get inlandInfoActualDeparture => 'المغادرة الفعلية:';
   @override String get inlandInfoActualArrival => 'الوصول الفعلي:';
-  @override String get inlandGateOutTitle => 'تأكيد خروج الشاحنة من بوابة الميناء (Port Gate-Out)';
+  @override String get inlandGateOutTitle => 'تأكيد خروج الشاحنة من بوابة الميناء';
   @override String get inlandGateOutDesc => 'تسجيل توقيت المغادرة الفعلي وبدء تتبع الرحلة وتحويل الحالة إلى "في الطريق"';
-  @override String get inlandGateOutBtn => 'تأكيد خروج البوابة (Gate-Out)';
-  @override String get inlandArrivalTitle => 'تأكيد وصول واستلام الشاحنة بالمخزن (Warehouse Arrival)';
+  @override String get inlandGateOutBtn => 'تأكيد خروج البوابة';
+  @override String get inlandArrivalTitle => 'تأكيد وصول واستلام الشاحنة بالمخزن';
   @override String get inlandArrivalDesc => 'تسجيل وصول الشاحنة لرصيف المخزن وإتاحة استلام الأصناف';
   @override String get inlandArrivalBtn => 'تأكيد وصول المخزن';
   @override String get inlandArrivedMsg => 'تم وصول الشاحنة بالمخزن، وتم ربط مهمة الاستلام والفحص (TR-03).';
@@ -13031,17 +13240,17 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get inlandWarehouseLabel => 'المخزن المستلم (الوجهة) *';
   @override String get inlandWarehouseRequired => 'يرجى تحديد المخزن المستلم';
   @override String get inlandContainersLabel => 'أرقام الحاويات المنقولة';
-  @override String get inlandFareLabel => 'نولون النقل (EGP) *';
+  @override String get inlandFareLabel => 'نولون النقل بالجنيه المصري *';
   @override String get inlandFareRequired => 'يرجى إدخال تكلفة النقل';
   @override String get inlandFareInvalid => 'المبلغ يجب أن يكون أكبر من 0';
   @override String get inlandDepartureDate => 'تاريخ المغادرة المخططة';
   @override String get inlandDepartureTime => 'وقت المغادرة المخططة';
-  @override String get inlandEtaDate => 'تاريخ الوصول المتوقع للمخزن (ETA)';
-  @override String get inlandEtaTime => 'وقت الوصول المتوقع للمخزن (ETA)';
+  @override String get inlandEtaDate => 'تاريخ الوصول المتوقع للمخزن';
+  @override String get inlandEtaTime => 'وقت الوصول المتوقع للمخزن';
   @override String get inlandEtaBeforeDeparture => 'يجب أن يكون الوصول المتوقع بعد المغادرة المخططة';
   @override String get inlandSelectCarrierHint => 'اختر شركة النقل / الناقل من دليل الشركاء';
   @override String get inlandSelectPickupLocationHint => 'اختر ميناء أو موقع الاستلام من المواقع المعتمدة';
-  @override String get inlandGatePassNoLabel => 'رقم تصريح البوابة الجمركية (Gate Pass)';
+  @override String get inlandGatePassNoLabel => 'رقم تصريح البوابة الجمركية';
   @override String get inlandGatePassNoHint => 'رقم تصريح خروج الدائرة الجمركية (اختياري)';
   @override String get inlandSealIntactSwitch => 'حالة السيل الجمركي: سليم ومطابق';
   @override String get inlandSealNumberLabel => 'رقم السيل الجمركي *';
@@ -13065,7 +13274,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get closureRetryBtn => 'إعادة المحاولة';
   @override String get closureCannotCloseSnack => 'لا يمكن إتمام الإغلاق الرسمي لوجود متطلبات معلقة!';
   @override String closureOfficialSuccess(String file, String code) => 'تم إغلاق الملف $file رسمياً بموجب الشهادة $code.';
-  @override String get closureExportCertificateBtn => 'تصدير الشهادة (TXT)';
+  @override String get closureExportCertificateBtn => 'تصدير الشهادة كنص رقمي';
   @override String get closureLessonBtn => 'نعم، وثّق درساً مستفاداً';
   @override String get closureLessonPrompt => 'هل واجهتك عقبات تشغيلية، تأخيرات، أو دروس مستفادة ترغب في توثيقها في بنك المعرفة؟';
   @override String get closureDoneBtn => 'تم';
@@ -13073,10 +13282,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get closureWarningsTitle => 'تنبيهات تدقيقية قبل الأرشفة الرقمية:';
   @override String get closurePillarsHeader => 'ركائز التدقيق الختامي المعتمدة (6 ركائز)';
   @override String get closurePillarCustoms => 'الإفراج الجمركي';
-  @override String get closurePillarWarehouse => 'إضافة المخزن (GRN)';
+  @override String get closurePillarWarehouse => 'إذن إضافة المخزن';
   @override String get closurePillarLandedCost => 'تسوية التكلفة الفعلية';
   @override String get closurePillarDossier => 'تصدير الملف الشامل';
-  @override String get closurePillarContainers => 'تسليم الحاويات (EIR)';
+  @override String get closurePillarContainers => 'تسليم الحاويات للخط الملاحي';
   @override String get closurePillarTasks => 'إغلاق المهام';
   @override String get closureCertPreviewLabel => 'معاينة شهادة الإغلاق الرقمية:';
   @override String closureLandedCostLine(String cost, String factor) => 'تكلفة الوصول الفعلية المعتمدة: $cost EGP  |  معامل الوصول: ${factor}x';
@@ -13141,7 +13350,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get settlementClo02Btn => 'التكلفة الفعلية (CLO-02)';
   @override String get settlementSelectShipmentForInvoices => 'يرجى اختيار شحنة أولاً لتجميع فواتيرها';
   @override String get settlementSelectShipmentForActual => 'يرجى اختيار شحنة أولاً لاحتساب تكلفتها الفعلية';
-  @override String get settlementExportOdooBtn => 'تصدير قيد اليومية للنظام المالي (Odoo / ERP)';
+  @override String get settlementExportOdooBtn => 'تصدير قيد اليومية للنظام المالي المحاسبي';
   @override String get settlementSectionExpenses => 'فواتير المصاريف اللوجستية والجمركية المسجلة';
   @override String get settlementSectionItems => 'تكلفة الوصول للوحدة وتوزيع المصاريف على الأصناف';
   @override String get settlementRegistryEmptyAction => 'ابدأ بتسجيل تسوية جديدة';
@@ -13159,7 +13368,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String settlementBreakdownTitle(String code) => 'تقرير تفاصيل تكلفة الوصول وتوزيع المصاريف — $code';
   @override String get settlementBreakdownExpensesSection => 'فواتير المصاريف اللوجستية والجمركية';
   @override String get settlementBreakdownItemsSection => 'جدول تكلفة الوصول للأصناف وتوزيع المصاريف';
-  @override String get settlementClo01Title => 'تجميع وتسوية الفواتير الختامية للملف (CLO-01: Multi-Party Invoices Aggregation)';
+  @override String get settlementClo01Title => 'تجميع وتسوية الفواتير الختامية للملف (CLO-01)';
   @override String settlementClo01Subtitle(String code) => 'المرحلة 9: تكلفة الوصول وإغلاق الملف | الشحنة: $code';
   @override String get settlementClo01Loading => 'جاري المسح والتجميع الآلي لكافة فواتير الشحنة من الـ 8 موديولات...';
   @override String get settlementClo01StatusSettled => 'الفواتير معتمدة ومسواة';
@@ -13171,7 +13380,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get settlementClo01KpiRemaining => 'المتبقي المطلوب سداده';
   @override String get settlementClo01KpiRemainingSubDue => 'مستحقات غير مسددة';
   @override String get settlementClo01KpiRemainingSubNone => 'لا توجد متأخرات';
-  @override String get settlementClo01KpiWht => 'ضريبة الخصم (أ.ت.ص - WHT)';
+  @override String get settlementClo01KpiWht => 'ضريبة الخصم والأرباح التجارية والصناعية';
   @override String get settlementClo01KpiWhtSub => 'نموذج 41 (1%)';
   @override String get settlementClo01KpiReady => 'نسبة مطابقة السداد';
   @override String get settlementClo01KpiReadySub => 'جاهزية التسوية';
@@ -13197,7 +13406,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get settlementClo01PaidFull => 'مسدد بالكامل';
   @override String get settlementClo01PaidPartial => 'سداد جزئي';
   @override String get settlementClo01Unpaid => 'غير مسدد';
-  @override String get settlementClo01SignOffTitle => 'بيانات اعتماد ومطابقة التسوية المالية (Audit Sign-Off):';
+  @override String get settlementClo01SignOffTitle => 'بيانات اعتماد ومطابقة التسوية المالية والتدقيق:';
   @override String get settlementClo01SettledByLabel => 'المحاسب المسؤول / أخصائي التكاليف *';
   @override String get settlementClo01NotesLabel => 'ملاحظات الاعتماد المالي الختامي';
   @override String get settlementClo01Confirm => 'اعتماد تسوية الفواتير وتصعيد الملف (CLO-01)';
@@ -13250,13 +13459,13 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get settlementClo02ApproveRequired => 'يرجى تحديد اسم المسؤول المالي المعتمد للتكلفة الفعلية';
   @override String get settlementClo02Approve => 'اعتماد تكلفة الوصول الفعلية للشحنة (CLO-02)';
   @override String get settlementClo02Approving => 'جاري الاعتماد وحفظ التكاليف...';
-  @override String get settlementEstTitle => 'محاكاة تكلفة الوصول التقديرية للوحدة قبل الشحن (Estimated Landed Cost)';
+  @override String get settlementEstTitle => 'محاكاة تكلفة الوصول التقديرية للوحدة قبل الشحن';
   @override String settlementEstSubtitle(String file, String currency, String fx, String incoterm) => 'الملف: $file | العملة: $currency | الصرف: $fx ج.م | شرط الشحن: $incoterm';
   @override String get settlementEstSubtitleLoading => 'جاري تحميل المعطيات اللوجستية والجمركية...';
   @override String get settlementEstLoading => 'جاري حساب وتوزيع تكلفة الوصول التقديرية بالربط مع محرك الجمارك...';
   @override String settlementEstError(String message) => 'خطأ في عملية المحاكاة: $message';
-  @override String get settlementEstTabItems => 'تحليل بنود البضاعة وتكلفة الوحدة (Items Landed Cost)';
-  @override String get settlementEstTabExpenses => 'قائمة المصاريف والنفقات التقديرية (Expenses Breakdown)';
+  @override String get settlementEstTabItems => 'تحليل بنود البضاعة وتكلفة الوحدة';
+  @override String get settlementEstTabExpenses => 'قائمة المصاريف والنفقات التقديرية';
   @override String get settlementEstKpiFob => 'إجمالي البضاعة FOB';
   @override String get settlementEstKpiFreightIns => 'النولون والتأمين';
   @override String settlementEstKpiFreightSub(String value) => 'نولون: $value';
@@ -13266,19 +13475,19 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get settlementEstKpiPortSub => 'لوجستيات وموانئ';
   @override String get settlementEstKpiLanded => 'تكلفة الوصول الشاملة';
   @override String get settlementEstKpiMarkup => 'معامل الزيادة الإجمالي';
-  @override String get settlementEstOverridesTitle => 'تعديل معايير ومصاريف المحاكاة (Parameters & Cost Overrides)';
+  @override String get settlementEstOverridesTitle => 'تعديل معايير ومصاريف المحاكاة التقديرية';
   @override String get settlementEstOverridesSubtitle => 'يمكنك تعديل أسعار الصرف، نولون الشحن، التأمين، التخليص، وتفضيل التوزيع وإعادة الحساب فورياً';
   @override String get settlementEstFxLabel => 'سعر الصرف ج.م';
   @override String get settlementEstFxHint => 'مثال: 50.5';
-  @override String get settlementEstFreightLabel => 'نولون الشحن (EGP)';
+  @override String get settlementEstFreightLabel => 'نولون الشحن بالجنيه المصري';
   @override String get settlementEstFreightHint => 'تعديل النولون';
-  @override String get settlementEstInsuranceLabel => 'التأمين البحري (EGP)';
+  @override String get settlementEstInsuranceLabel => 'التأمين البحري بالجنيه المصري';
   @override String get settlementEstInsuranceHint => 'تعديل التأمين';
-  @override String get settlementEstClearanceLabel => 'أتعاب التخليص (EGP)';
-  @override String get settlementEstPortLabel => 'مصاريف الموانئ (EGP)';
-  @override String get settlementEstTransportLabel => 'النقل الداخلي (EGP)';
-  @override String get settlementEstBankLabel => 'مصاريف بنكية (EGP)';
-  @override String get settlementEstOtherLabel => 'مصاريف أخرى (EGP)';
+  @override String get settlementEstClearanceLabel => 'أتعاب التخليص بالجنيه المصري';
+  @override String get settlementEstPortLabel => 'مصاريف الموانئ بالجنيه المصري';
+  @override String get settlementEstTransportLabel => 'النقل الداخلي بالجنيه المصري';
+  @override String get settlementEstBankLabel => 'مصاريف بنكية بالجنيه المصري';
+  @override String get settlementEstOtherLabel => 'مصاريف أخرى بالجنيه المصري';
   @override String get settlementEstResetDefaults => 'استعادة القيم الافتراضية';
   @override String get settlementEstRecalculate => 'إعادة الحساب والتوزيع';
   @override String get settlementEstColNo => 'م';
@@ -13298,15 +13507,15 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get settlementEstColMarkupPct => 'نسبة الزيادة';
   @override String get settlementEstColExpCategory => 'فئة المصروف';
   @override String get settlementEstColDescription => 'البيان والوصف';
-  @override String get settlementEstColAmountEgp => 'القيمة بالجنيه (EGP)';
+  @override String get settlementEstColAmountEgp => 'القيمة بالجنيه المصري';
   @override String get settlementEstColAmountFc => 'القيمة بالعملة الأجنبية';
   @override String get settlementEstColSource => 'مصدر الاحتساب';
   @override String get settlementEstColAllocRule => 'طريقة التوزيع على البنود';
   @override String get settlementEstNoItems => 'لا توجد بنود متاحة للمحاكاة';
   @override String get settlementEstNoExpenses => 'لا توجد مصاريف مفصلة';
   @override String get settlementEstExportBtn => 'تصدير تقرير Excel/CSV';
-  @override String get settlementEstCopyTsvBtn => 'نسخ جدول النتائج (TSV)';
-  @override String get settlementEstCopySuccess => 'تم نسخ بيانات التكلفة التقديرية (TSV) للحافظة بنجاح';
+  @override String get settlementEstCopyTsvBtn => 'نسخ جدول النتائج';
+  @override String get settlementEstCopySuccess => 'تم نسخ بيانات التكلفة التقديرية للحافظة بنجاح';
   @override String get settlementEstCsvHeader => 'م,كود الصنف,اسم الصنف,البند الجمركي,الكمية,سعر الوحدة أجنبي,سعر الوحدة ج.م,إجمالي FOB ج.م,ضريبة الوارد ج.م,الضرائب والقيمة المضافة ج.م,النولون ج.م,الموانئ والتخليص ج.م,النقل الداخلي ج.م,إجمالي تكلفة الوصول ج.م,تكلفة الوحدة ج.م,تكلفة الوحدة أجنبي,معامل الزيادة,نسبة الزيادة %';
   @override String settlementOdooTsvTitle(String code) => 'قيود اليومية المحاسبية للنظام المالي — تسوية $code';
   @override String get settlementOdooLblImporter => 'المستورد';
@@ -13352,7 +13561,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get fbkQuoteEquipmentMismatchBoth =>
       'المعدات المخصصة لا تتطابق مع أحجام الحاويات المسعرة (عرض السعر يتضمن 40 و20 قدم، ولكن الحاويات المطابقة غير موجودة). يرجى تعديل المعدات أو إعادة تطبيق عرض السعر.';
   @override String get customsFxRateRequired => 'سعر الصرف الجمركي مطلوب لاحتساب الرسوم والضرائب.';
-  @override String get addPoLinesWithHsToEstimateDuties => 'يرجى إضافة بنود أوامر الشراء مصحوبة بالبنود الجمركية (HS Codes) لاحتساب الرسوم والضرائب بدقة.';
+  @override String get addPoLinesWithHsToEstimateDuties => 'يرجى إضافة بنود أوامر الشراء مصحوبة ببنود التعريفة الجمركية لاحتساب الرسوم والضرائب بدقة.';
   @override String get customsMissingTariffBlockSave => 'تعذر الحفظ: بعض البنود لا تحتوي على تعريفة جمركية. يرجى تعيين التعريفة الجمركية أولاً.';
   @override String get missingTariffLinesWarning => 'بنود بدون تعريفة جمركية';
 
@@ -13378,7 +13587,147 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get fbkActionCancel => 'إلغاء الحجز';
   @override String get fbkPrintPdfTitle => 'وثيقة حجز الشحن';
   @override String get fbkSavePdfBtn => 'حفظ بصيغة PDF';
-  // === end review phase08_10 keys ===
+  
+  // === Master Items & Catalog Integration (MD-ITEM-001) ===
+  @override String get masterItemsCatalog => 'كاتالوج الأصناف والسلع';
+  @override String get masterItemsCatalogSubtitle => 'إدارة وتوحيد الأصناف والسلع الاستيرادية والربط مع الموردين';
+  @override String get itemPriceTrendsRadar => 'رادار اتجاه الأسعار ومقارنة الصفقات';
+  @override String get itemPriceTrendsSubtitle => 'تحليل اتجاهات أسعار الشراء وتكلفة الوصول الفعلية عبر الصفقات';
+  @override String get masterItemSearchHint => 'ابحث بكود الصنف أو الوصف بالعربية أو الإنجليزية...';
+  @override String get masterItemSelectPlaceholder => 'اختر صنفاً من الكاتالوج أو أدخل كود جديد...';
+  @override String get masterItemNoResults => 'لا توجد أصناف مطابقة في الكاتالوج';
+  @override String get masterItemAutoFilled => 'تم ملء بيانات الصنف تلقائياً من الكاتالوج';
+  @override String get masterItemHsCode => 'بند التعريفة الجمركية';
+  @override String get masterItemDefaultUom => 'وحدة القياس الافتراضية';
+  @override String get masterItemCbm => 'الحجم الافتراضي للوحدة';
+  @override String get masterItemGrossWeight => 'الوزن القائم للوحدة';
+  @override String get masterItemNetWeight => 'الوزن الصافي للوحدة';
+  @override String get masterItemLinked => 'صنف مربوط بالكاتالوج';
+  @override String get masterItemCustomManual => 'إدخال يدوي مخصص';
+  @override String get poLineItemDialogTitleAdd => 'إضافة بند جديد لأمر الشراء';
+  @override String get poLineItemDialogTitleEdit => 'تعديل بند أمر الشراء';
+  @override String get poAddFromCatalog => 'إضافة صنف من الكاتالوج';
+  @override String get poEditLineItemWithCatalog => 'تعديل البند من الكاتالوج';
+  @override String get poLineItemCatalogAutoFillHint => 'اختر صنفاً من الكاتالوج لملء كود الجمارك والوزن والحجم تلقائياً';
+
+    // ── Operational Pillars Advanced Widgets ───────────────────────────────────
+  @override String get cargoXPreAcidHeader => 'فحص منصة كارجو إكس قبل القيد الجمركي المسبق';
+  @override String get cargoXPreAcidSubtitle => 'التحقق من حساب المصدر الأجنبي المعتمد على البلوكتشين قبل استخراج رقم نافذة لمنع الرفض الجمركي';
+  @override String get cargoXPlatformIdLabel => 'معرف منصة كارجو إكس';
+  @override String get cargoXExporterStatusLabel => 'حالة اعتماد المصدر الأجنبي';
+  @override String get cargoXStatusVerified => 'معتمد ومطابق للبلوكتشين';
+  @override String get cargoXStatusPending => 'قيد التحقق والمراجعة';
+  @override String get cargoXStatusNotRegistered => 'غير مسجل على المنظومة';
+  @override String get cargoXChecklistBlockchainActive => 'تسجيل المصدر الأجنبي نشط وموثق على البلوكتشين';
+  @override String get cargoXChecklistAccountAuthorized => 'تفويض المستورد وربط الشركة متاح في المنصة';
+  @override String get cargoXChecklistEnvelopeReady => 'جاهزية إرسال المظروف الإلكتروني الرقمي';
+  @override String get cargoXVerifyAccountBtn => 'التحقق الفوري من الحساب';
+  @override String get cargoXCopyIdTooltip => 'نسخ معرف منصة كارجو إكس';
+  @override String get cargoXIdCopiedSuccess => 'تم نسخ معرف منصة كارجو إكس بنجاح';
+  @override String get cargoXUnverifiedWarning => 'تحذير رقابي حاسم: المصدر الأجنبي غير مسجل أو غير مفعل على المنظومة. استخراج رقم نافذة في هذه الحالة سيؤدي إلى رفض المعاملة وتعليق الشحنة في الميناء.';
+
+  @override String get shelfLifeEosHeader => 'فحص الصلاحية والمواصفات القياسية المصرية';
+  @override String get shelfLifeEosSubtitle => 'التحقق المشروط من نسبة الصلاحية المتبقية والمواصفات القياسية المصرية والوسم باللغة العربية';
+  @override String get shelfLifeSubjectCheckbox => 'الصنف خاضع لاشتراطات مدة الصلاحية والمواصفات القياسية المصرية';
+  @override String get shelfLifeEosSpecLabel => 'رقم المواصفة القياسية المصرية';
+  @override String get shelfLifeProductionDateLabel => 'تاريخ الإنتاج';
+  @override String get shelfLifeExpiryDateLabel => 'تاريخ انتهاء الصلاحية';
+  @override String get shelfLifeBatchNumberLabel => 'رقم التشغيلة وتاريخ التعبئة';
+  @override String get shelfLifeRemainingRatioLabel => 'نسبة الصلاحية المتبقية عند الوصول';
+  @override String get shelfLifeCompliantBadge => 'مستوفٍ لنسبة الصلاحية القانونية';
+  @override String get shelfLifeCriticalWarningBadge => 'خطر رقابي: الصلاحية المتبقية أقل من النسبة القانونية';
+  @override String get shelfLifeArabicLabelCheckbox => 'توثيق بطاقة البيان والبيانات الإلزامية باللغة العربية على العبوات';
+  @override String get shelfLifeEosCertStatusLabel => 'حالة مطابقة المواصفة القياسية';
+  @override String get shelfLifeCopyBatchTooltip => 'نسخ رقم التشغيلة';
+  @override String get shelfLifeBatchCopiedSuccess => 'تم نسخ رقم التشغيلة بنجاح';
+  @override String get shelfLifeEtaArrivalHint => 'تاريخ الوصول المتوقع للميناء';
+
+  @override String get testingLabsTrackHeader => 'مسار المعامل والتحاليل الرقابية';
+  @override String get testingLabsTrackSubtitle => 'إدارة وتوثيق سحب العينات ونتائج الفحص المعملي والإفراج تحت التحفظ';
+  @override String get testingLabAssignedLabel => 'المعمل الرقابي المختص';
+  @override String get testingLabSamplingRecordLabel => 'رقم محضر وإيصال سحب العينات';
+  @override String get testingLabSamplingDateLabel => 'تاريخ سحب العينات';
+  @override String get testingLabSamplesCountLabel => 'عدد العينات المسحوبة للتحليل';
+  @override String get testingLabFeesLabel => 'رسوم الفحص والتحاليل المعملية';
+  @override String get testingLabResultStatusLabel => 'نتيجة الفحص والتحليل المعملي';
+  @override String get testingLabResultConforming => 'مطابق للمواصفات القياسية';
+  @override String get testingLabResultPending => 'قيد الفحص والتحليل بالمعامل';
+  @override String get testingLabResultNonConforming => 'غير مطابق للمواصفات القياسية';
+  @override String get testingLabUnderBondReleaseCheck => 'إفراج مؤقت تحت التحفظ ونقل البضاعة لمخزن المستورد لحين صدور النتيجة';
+  @override String get testingLabCertificateNoLabel => 'رقم شهادة الفحص وتقرير المعمل';
+  @override String get testingLabCopyRecordTooltip => 'نسخ رقم محضر سحب العينات';
+  @override String get testingLabRecordCopiedSuccess => 'تم نسخ رقم محضر سحب العينات بنجاح';
+
+  @override String get hazardousMaterialsHeader => 'بيانات المواد الخطرة والتصنيف البحري';
+  @override String get hazardousMaterialsSubtitle => 'الامتثال لاشتراطات المنظمة البحرية الدولية وتصاريح الحماية المدنية والتداول بالميناء';
+  @override String get hazardousSubjectCheckbox => 'الشحنة تحتوي على مواد أو بضائع مصنفة خطرة';
+  @override String get hazardousUnNumberLabel => 'رقم الأمم المتحدة للمواد الخطرة';
+  @override String get hazardousImdgClassLabel => 'فئة الخطورة البحرية';
+  @override String get hazardousPackingGroupLabel => 'مجموعة التعبئة والتغليف';
+  @override String get hazardousFlashPointLabel => 'درجة الوميض المئوية';
+  @override String get hazardousMsdsStatusLabel => 'حالة صحيفة بيانات سلامة المادة';
+  @override String get hazardousCivilProtectionLabel => 'رقم تصريح الحماية المدنية والسلامة';
+  @override String get hazardousPortHandlingLabel => 'نمط التداول والتفريغ بالميناء';
+  @override String get hazardousHandlingDirectDischarge => 'صرف مباشر على السيارات دون تخزين';
+  @override String get hazardousHandlingHazardousYard => 'تخزين بساحة البضائع الخطرة بالميناء';
+  @override String get hazardousEmergencyPhoneLabel => 'رقم طوارئ الاستجابة السريعة على مدار الساعة';
+  @override String get hazardousCopyUnTooltip => 'نسخ رقم الأمم المتحدة';
+  @override String get hazardousUnCopiedSuccess => 'تم نسخ رقم الأمم المتحدة بنجاح';
+  @override String get hazardousHighRiskWarning => 'تنبيه أمني ولوجستي: البضائع الخطرة تتطلب موافقة أمن الموانئ والدفاع المدني قبل وصول السفينة بـ ٤٨ ساعة، وتخضع لغرامات أرضيات مضاعفة في حالة التأخير.';
+
+  // ── Session 4: Governance & Enterprise Registry ────────────────────────────
+  @override String get makerCheckerDialogTitle => 'حوكمة الصلاحيات والاعتماد المزدوج';
+  @override String get makerCheckerDialogSubtitle => 'مراجعة وتقييم متطلبات الاستيراد وتطبيق الاعتماد الرقابي أو الاستثناء التنفيذي';
+  @override String get makerSectionTitle => 'بيانات المُعِدّ ومؤشرات التقييم';
+  @override String get makerAssessedByLabel => 'المُعِدّ المسؤول';
+  @override String get makerRiskLevelLabel => 'مستوى المخاطر التشغيلية';
+  @override String get makerOverallStatusLabel => 'الحالة التشغيلية العامة';
+  @override String get makerDateLabel => 'تاريخ التقييم';
+  @override String get checkerSectionTitle => 'قرار المعتمد والرقابة الإدارية';
+  @override String get checkerReviewerNameLabel => 'اسم المعتمد أو المراقب';
+  @override String get checkerDecisionLabel => 'قرار المراجعة الرقابية';
+  @override String get checkerDecisionApprove => 'اعتماد مطابق ومصرح للشحن';
+  @override String get checkerDecisionOverride => 'استثناء تنفيذي معتمد';
+  @override String get checkerDecisionReject => 'رفض وإعادة للدراسة';
+  @override String get checkerNotesLabel => 'توجيهات وملاحظات المعتمد';
+  @override String get checkerNotesHint => 'أدخل الملاحظات والتوجيهات الرقابية إن وجدت...';
+  @override String get checkerOverrideReasonLabel => 'سند ومبرر الاستثناء التنفيذي الإلزامي';
+  @override String get checkerOverrideReasonHint => 'أدخل السند القانوني أو الموافقة الوزارية الاستثنائية...';
+  @override String get checkerApproveBtn => 'تأكيد وحفظ القرار الرقابي';
+  @override String get checkerCancelBtn => 'إلغاء';
+  @override String get checkerStatusApprovedBadge => 'معتمد رقابياً';
+  @override String get checkerStatusPendingBadge => 'بانتظار الاعتماد';
+  @override String get checkerStatusOverriddenBadge => 'استثناء تنفيذي';
+  @override String get checkerSuccessSnack => 'تم تسجيل وحفظ قرار الاعتماد المزدوج بنجاح';
+  @override String get checkerErrorSnack => 'حدث خطأ أثناء حفظ القرار الرقابي';
+
+  // Enterprise Table Columns
+  @override String get colAssessmentCode => 'كود التقييم';
+  @override String get colHsCodeAndCommodity => 'البند الجمركي والسلعة';
+  @override String get colShipmentValue => 'قيمة الشحنة';
+  @override String get colCompliancePillars => 'الركائز الرقابية';
+  @override String get colRiskLevel => 'المخاطر';
+  @override String get colStatus => 'الحالة';
+  @override String get colGovernance => 'الحوكمة';
+  @override String get colActions => 'الإجراءات';
+  @override String get copyAssessmentCodeTooltip => 'نسخ كود التقييم';
+  @override String get copyAcidNumberTooltip => 'نسخ رقم القيد الجمركي المسبق';
+  @override String get governanceActionTooltip => 'حوكمة الصلاحيات والاعتماد المزدوج';
+  @override String get advancedOperationalPillarsAccordionTitle => 'الركائز التشغيلية المتقدمة (كارجو إكس، الصلاحية والمواصفات، المعامل والفحص، المواد الخطرة)';
+
+  // ── Lifecycle KPI Metrics & Phase Counters ─────────────────────────────────
+  @override String get kpiHealthScore => 'معدل الإنجاز';
+  @override String get kpiFreeTimeBurn => 'استهلاك السماح';
+  @override String get kpiDaysLeft => 'أيام متبقية';
+  @override String get kpiOverdueSteps => 'خطوات متأخرة';
+  @override String get kpiCostVariance => 'انحراف التكلفة';
+  @override String get kpiRiskSafe => 'آمن';
+  @override String get kpiRiskWarning => 'تحذير';
+  @override String get kpiRiskCritical => 'حرج';
+  @override String get phasePendingCount => 'شحنات معلقة';
+  @override String get phaseDelayedCount => 'شحنات متأخرة';
+
+// === end review phase08_10 keys ===
 }
 
 

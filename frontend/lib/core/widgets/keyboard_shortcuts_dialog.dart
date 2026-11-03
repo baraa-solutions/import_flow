@@ -95,8 +95,9 @@ class KeyboardShortcutsDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Container(
-        width: 680,
+      child: SelectionArea(
+        child: Container(
+          width: 680,
         constraints: const BoxConstraints(maxHeight: 620),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1B232E) : Colors.white,
@@ -267,8 +268,9 @@ class KeyboardShortcutsDialog extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildCategorySection(
     BuildContext context, {

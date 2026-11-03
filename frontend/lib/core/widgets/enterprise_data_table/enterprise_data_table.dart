@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../services/file_save_helper.dart';
 import '../../services/table_export_service.dart';
 import '../../theme/app_theme.dart';
 import 'models/enterprise_column.dart';
@@ -54,6 +53,20 @@ class EnterpriseDataTable<T> extends StatefulWidget {
   final double rowHeight;
   final double headerHeight;
   final bool Function(T item, String query)? customFilter;
+  final bool isScrollable;
+  final double? minWidth;
+  final bool showHeaderToolbar;
+  final bool showPagination;
+
+  /// Pins the column header above the vertically scrolling rows (requires [isScrollable]).
+  /// The header and the body are two DataTables sharing the same columns, so every visible
+  /// column needs a fixed [EnterpriseColumn.width]; otherwise the table falls back to the
+  /// normal (non-sticky) layout. Off by default.
+  final bool stickyHeader;
+
+  /// In sticky mode, keeps the vertical scrollbar on the left edge in both languages
+  /// (the import-files table convention). Off by default.
+  final bool verticalScrollbarOnLeft;
 
   const EnterpriseDataTable({
     super.key,
@@ -80,6 +93,12 @@ class EnterpriseDataTable<T> extends StatefulWidget {
     this.rowHeight = 50,
     this.headerHeight = 44,
     this.customFilter,
+    this.isScrollable = false,
+    this.minWidth,
+    this.showHeaderToolbar = true,
+    this.showPagination = true,
+    this.stickyHeader = false,
+    this.verticalScrollbarOnLeft = false,
   });
 
   @override
@@ -96,6 +115,15 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
   int _currentPage = 1;
   late int _pageSize;
   Set<T> _internalSelectedItems = {};
+  final ScrollController _verticalScrollController = ScrollController();
+  final ScrollController _horizontalScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _verticalScrollController.dispose();
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -459,64 +487,97 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
         // Clip children (header band, pagination) to the rounded corners.
         clipBehavior: Clip.antiAlias,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: widget.isScrollable ? MainAxisSize.max : MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 1. Top Header Toolbar
-            EnterpriseTableHeaderToolbar(
-              title: widget.title,
-              titleLeading: widget.titleLeading,
-              totalCount: totalCount,
-              filteredCount: filteredCount,
-              selectedCount: _internalSelectedItems.length,
-              searchQuery: _searchQuery,
-              onSearchChanged: (val) {
-                setState(() {
-                  _searchQuery = val.trim();
-                  _currentPage = 1;
-                });
-              },
-              onClearSearch: () {
-                setState(() {
-                  _searchQuery = '';
-                  _currentPage = 1;
-                });
-              },
-              onOpenColumnPicker: _openColumnPicker,
-              onExportCSV: widget.enableExport ? _exportToCSV : null,
-              onExportExcel: widget.enableExport ? _exportToExcel : null,
-              onExportPDF: widget.enableExport ? _exportToPdf : null,
-              onCopyToClipboard: widget.enableExport ? _copyToClipboard : null,
-              extraActions: widget.extraActions,
-              bulkActions: widget.bulkActions,
-            ),
+            if (widget.showHeaderToolbar)
+              EnterpriseTableHeaderToolbar(
+                title: widget.title,
+                titleLeading: widget.titleLeading,
+                totalCount: totalCount,
+                filteredCount: filteredCount,
+                selectedCount: _internalSelectedItems.length,
+                searchQuery: _searchQuery,
+                onSearchChanged: (val) {
+                  setState(() {
+                    _searchQuery = val.trim();
+                    _currentPage = 1;
+                  });
+                },
+                onClearSearch: () {
+                  setState(() {
+                    _searchQuery = '';
+                    _currentPage = 1;
+                  });
+                },
+                onOpenColumnPicker: _openColumnPicker,
+                onExportCSV: widget.enableExport ? _exportToCSV : null,
+                onExportExcel: widget.enableExport ? _exportToExcel : null,
+                onExportPDF: widget.enableExport ? _exportToPdf : null,
+                onCopyToClipboard: widget.enableExport ? _copyToClipboard : null,
+                extraActions: widget.extraActions,
+                bulkActions: widget.bulkActions,
+              ),
 
             // 2. Table Body / Shimmer / Empty State
             if (widget.isLoading)
-              EnterpriseTableShimmerSkeleton(
-                rowCount: _pageSize > 0 && _pageSize <= 10 ? _pageSize : 6,
-                columnCount: activeCols.length + (widget.enableSelection ? 1 : 0),
-              )
+              widget.isScrollable
+                  ? Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: EnterpriseTableShimmerSkeleton(
+                          rowCount: _pageSize > 0 && _pageSize <= 10 ? _pageSize : 6,
+                          columnCount: activeCols.length + (widget.enableSelection ? 1 : 0),
+                        ),
+                      ),
+                    )
+                  : EnterpriseTableShimmerSkeleton(
+                      rowCount: _pageSize > 0 && _pageSize <= 10 ? _pageSize : 6,
+                      columnCount: activeCols.length + (widget.enableSelection ? 1 : 0),
+                    )
             else if (filteredCount == 0)
-              _buildEmptyState()
+              widget.isScrollable
+                  ? Expanded(child: _buildEmptyState())
+                  : _buildEmptyState()
+            else if (widget.isScrollable && _useStickyHeader(activeCols))
+              Expanded(child: _buildStickyTable(activeCols, pagedData, isAllSelected))
             else
-              _buildTable(activeCols, pagedData, isAllSelected),
+              widget.isScrollable
+                  ? Expanded(
+                      child: ScrollbarTheme(
+                        data: ScrollbarThemeData(
+                          thumbVisibility: WidgetStateProperty.all(true),
+                        ),
+                        child: Scrollbar(
+                          controller: _verticalScrollController,
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            controller: _verticalScrollController,
+                            scrollDirection: Axis.vertical,
+                            child: _buildTable(activeCols, pagedData, isAllSelected),
+                          ),
+                        ),
+                      ),
+                    )
+                  : _buildTable(activeCols, pagedData, isAllSelected),
 
             // 3. Bottom Pagination Bar
-            EnterpriseTablePaginationBar(
-              totalCount: filteredCount,
-              currentPage: _currentPage,
-              pageSize: _pageSize,
-              availablePageSizes: widget.availablePageSizes,
-              onPageChanged: (newPage) => setState(() => _currentPage = newPage),
-              onPageSizeChanged: (newSize) {
-                setState(() {
-                  _pageSize = newSize;
-                  _currentPage = 1;
-                });
-                _savePreferences();
-              },
-            ),
+            if (widget.showPagination)
+              EnterpriseTablePaginationBar(
+                totalCount: filteredCount,
+                currentPage: _currentPage,
+                pageSize: _pageSize,
+                availablePageSizes: widget.availablePageSizes,
+                onPageChanged: (newPage) => setState(() => _currentPage = newPage),
+                onPageSizeChanged: (newSize) {
+                  setState(() {
+                    _pageSize = newSize;
+                    _currentPage = 1;
+                  });
+                  _savePreferences();
+                },
+              ),
           ],
         ),
       ),
@@ -576,20 +637,73 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
     );
   }
 
-  Widget _buildTable(
+  bool _useStickyHeader(List<EnterpriseColumn<T>> activeCols) =>
+      widget.stickyHeader &&
+      activeCols.every((col) => (_columnWidths[col.id] ?? col.width) != null);
+
+  /// Sticky layout: a header-only DataTable pinned above a body DataTable whose heading row is
+  /// 0 px high. Both get the same columns, fixed widths and constraints, so they line up at any
+  /// width and in both directions; one horizontal scroll view moves them together.
+  Widget _buildStickyTable(
     List<EnterpriseColumn<T>> activeCols,
     List<T> pagedData,
     bool isAllSelected,
   ) {
+    final ambientDirection = Directionality.of(context);
+    final scrollbarDirection = widget.verticalScrollbarOnLeft ? TextDirection.rtl : ambientDirection;
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        controller: _horizontalScrollController,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          height: constraints.maxHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: AppTheme.borderOf(context), width: 1.5)),
+                ),
+                child: _buildTable(activeCols, pagedData, isAllSelected, part: _TablePart.header),
+              ),
+              Expanded(
+                // The outer Directionality only picks the scrollbar side; the inner one gives
+                // the rows their ambient direction back.
+                child: Directionality(
+                  textDirection: scrollbarDirection,
+                  child: Scrollbar(
+                    controller: _verticalScrollController,
+                    thumbVisibility: true,
+                    child: Directionality(
+                      textDirection: ambientDirection,
+                      child: SingleChildScrollView(
+                        controller: _verticalScrollController,
+                        child: _buildTable(activeCols, pagedData, isAllSelected, part: _TablePart.body),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTable(
+    List<EnterpriseColumn<T>> activeCols,
+    List<T> pagedData,
+    bool isAllSelected, {
+    _TablePart part = _TablePart.full,
+  }) {
     final isDark = AppTheme.isDark(context);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 800),
+    final table = ConstrainedBox(
+        constraints: BoxConstraints(minWidth: widget.minWidth ?? 800),
         child: DataTable(
-          headingRowHeight: widget.headerHeight,
-          dataRowMinHeight: widget.rowHeight,
-          dataRowMaxHeight: widget.rowHeight + 8,
+          headingRowHeight: part == _TablePart.body ? 0 : widget.headerHeight,
+          dataRowMinHeight: part == _TablePart.header ? 0 : widget.rowHeight,
+          dataRowMaxHeight: part == _TablePart.header ? 0 : widget.rowHeight + 16,
           horizontalMargin: 16,
           columnSpacing: 20,
           dividerThickness: 1,
@@ -603,7 +717,9 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
             isDark ? AppTheme.darkSurface : const Color(0xFFF1F5F9),
           ),
           showCheckboxColumn: false, // handled via our custom checkbox column
-          columns: [
+          columns: part == _TablePart.body
+              ? _bodyPlaceholderColumns(activeCols)
+              : [
             // Optional Selection Checkbox Column
             if (widget.enableSelection)
               DataColumn(
@@ -729,7 +845,9 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
               );
             }),
           ],
-          rows: pagedData.asMap().entries.map((entry) {
+          rows: part == _TablePart.header
+              ? const <DataRow>[]
+              : pagedData.asMap().entries.map((entry) {
             final index = entry.key;
             final item = entry.value;
             final isEven = index.isEven;
@@ -795,7 +913,20 @@ class _EnterpriseDataTableState<T> extends State<EnterpriseDataTable<T>> {
             );
           }).toList(),
         ),
-      ),
+    );
+    if (part != _TablePart.full) return table;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: table,
     );
   }
+
+  /// Invisible heading cells for the sticky body: same widths as the pinned header.
+  List<DataColumn> _bodyPlaceholderColumns(List<EnterpriseColumn<T>> activeCols) => [
+        if (widget.enableSelection) const DataColumn(label: SizedBox(width: 32)),
+        ...activeCols.map((col) => DataColumn(label: SizedBox(width: _columnWidths[col.id] ?? col.width))),
+      ];
 }
+
+/// Which part of the table [_EnterpriseDataTableState._buildTable] renders.
+enum _TablePart { full, header, body }

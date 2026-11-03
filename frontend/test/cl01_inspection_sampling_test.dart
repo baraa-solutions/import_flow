@@ -129,13 +129,13 @@ void main() {
       expect(find.text('تفريغ وكشف كلي 100%'), findsOneWidget);
 
       // Verify Inspection Result Options
-      expect(find.text('مطابقة تامة (Conforming)'), findsOneWidget);
-      expect(find.text('وجود عجز (Shortage)'), findsOneWidget);
-      expect(find.text('وجود زيادة (Surplus)'), findsOneWidget);
+      expect(find.text('مطابقة تامة'), findsOneWidget);
+      expect(find.text('وجود عجز'), findsOneWidget);
+      expect(find.text('وجود زيادة'), findsOneWidget);
 
       // Verify Sampling Section & Regulatory Bodies
       expect(find.text('تم سحب عينات للفحص والتحليل المعملي للجهات الرقابية'), findsOneWidget);
-      expect(find.textContaining('GOEIC'), findsWidgets);
+      expect(find.text('ثانياً: سحب العينات والرقابة على الصادرات والواردات'), findsOneWidget);
       expect(find.textContaining('حفظ واعتماد الكشف وسحب العينات (CL-01)'), findsOneWidget);
     });
 

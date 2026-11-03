@@ -1134,7 +1134,7 @@ def test_be09_t10_demurrage_push_and_create_share_initial_settlement_builder(db)
         is_active = True
         is_superuser = True
 
-    with patch("modules.demurrage_detention.service._recalculate_containers", return_value=(tracking.containers, 60.0, 0.0, 0.0)):
+    with patch("modules.demurrage_detention.demurrage_tracking_service._recalculate_containers", return_value=(tracking.containers, 60.0, 0.0, 0.0)):
         push_res = push_demurrage_to_financial_settlement_service(
             db,
             PushToSettlementRequest(tracking_id=tracking.tracking_id),

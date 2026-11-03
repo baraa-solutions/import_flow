@@ -69,3 +69,9 @@ docs/app-review/screenshots/
 
 # Local release test results (scripts/release/run_release_tests.py)
 .release/
+
+.coverage
+.coverage.*
+
+.venv/
+

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/widgets.dart';
 import '../providers/logistics_invoices_provider.dart';
 import '../repositories/logistics_invoices_repository.dart';
 
@@ -81,15 +81,26 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
       ref.invalidate(clearanceAdvancesListProvider);
 
       if (mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Clearance advance payment recorded successfully!'), backgroundColor: Colors.green),
+          AppTheme.snackBar(
+            context,
+            isArabic
+                ? 'تم تسجيل دفعة العهدة الجمركية بنجاح!'
+                : 'Clearance advance payment recorded successfully!',
+            severity: AppSeverity.success,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          AppTheme.snackBar(
+            context,
+            'Error: $e',
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {
@@ -104,7 +115,8 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 580,
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -207,17 +219,18 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 1,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _currency,
+                    child: SearchableDropdownField<String>(
+                      value: _currency,
+                      labelText: isArabic ? 'العملة' : 'Currency',
                       decoration: InputDecoration(
                         labelText: isArabic ? 'العملة' : 'Currency',
                         isDense: true,
                         border: const OutlineInputBorder(),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'EGP', child: Text('EGP')),
-                        DropdownMenuItem(value: 'USD', child: Text('USD')),
-                        DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                        SearchableDropdownItem<String>(value: 'EGP', label: 'EGP'),
+                        SearchableDropdownItem<String>(value: 'USD', label: 'USD'),
+                        SearchableDropdownItem<String>(value: 'EUR', label: 'EUR'),
                       ],
                       onChanged: (v) => setState(() => _currency = v ?? 'EGP'),
                     ),
@@ -276,6 +289,7 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

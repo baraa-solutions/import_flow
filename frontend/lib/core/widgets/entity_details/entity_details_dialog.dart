@@ -124,7 +124,8 @@ class EntityDetailsDialog<T> extends ConsumerWidget {
       elevation: isWide ? 8 : 16,
       borderRadius: sheetBorderRadius,
       clipBehavior: Clip.antiAlias,
-      child: SizedBox(
+      child: SelectionArea(
+        child: SizedBox(
         width: isWide ? 560.0 : math.min(screenWidth - 32, 720.0),
         height: isWide ? double.infinity : null,
         child: ConstrainedBox(
@@ -150,7 +151,8 @@ class EntityDetailsDialog<T> extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
 
     return Dialog(
       backgroundColor: Colors.transparent,

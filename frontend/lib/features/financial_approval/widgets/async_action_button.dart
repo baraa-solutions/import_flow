@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 
 import '../../../core/network/api_error.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 
 /// A button for a single async backend action (approve, mark paid, ...).
 ///
@@ -37,10 +37,12 @@ class _AsyncActionButtonState extends State<AsyncActionButton> {
     try {
       await widget.onAction();
     } catch (e) {
+      if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(ApiError.message(e)),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          ApiError.message(e),
+          severity: AppSeverity.danger,
         ),
       );
     } finally {

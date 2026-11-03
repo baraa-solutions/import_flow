@@ -494,7 +494,8 @@ class IdocDialogShell extends StatelessWidget {
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusXl)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: dialogWidth,
         constraints: BoxConstraints(maxHeight: screen.height * 0.90),
         child: Column(
@@ -514,6 +515,7 @@ class IdocDialogShell extends StatelessWidget {
             _footer(context, l),
           ],
         ),
+      ),
       ),
     );
   }

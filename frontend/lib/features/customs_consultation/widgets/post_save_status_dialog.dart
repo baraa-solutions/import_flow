@@ -4,8 +4,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import 'consultation_metric_badge.dart';
 import 'consultation_status_badges.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/widgets.dart';
 
 class PostSaveStatusDialog extends StatelessWidget {
   final CustomsConsultationModel saved;
@@ -23,8 +22,9 @@ class PostSaveStatusDialog extends StatelessWidget {
         .where((i) => i.isBlockingShipment && i.status != 'Approved')
         .toList();
 
-    return AlertDialog(
-      title: Row(
+    return SelectionArea(
+      child: AlertDialog(
+        title: Row(
         children: [
           Icon(
             blocking.isNotEmpty
@@ -243,7 +243,8 @@ class PostSaveStatusDialog extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ],
-    );
+    ),
+  );
   }
 }
 

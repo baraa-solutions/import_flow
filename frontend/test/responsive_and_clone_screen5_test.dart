@@ -20,8 +20,8 @@ import 'package:frontend/features/projects/providers/projects_provider.dart';
 import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 import 'package:frontend/features/shipping_scenarios/models/shipping_scenario_model.dart';
 import 'package:frontend/features/shipping_scenarios/providers/shipping_scenarios_provider.dart';
-import 'package:frontend/features/shipping_scenarios/screens/shipping_scenarios_screen.dart';
 import 'package:frontend/features/shipping_scenarios/widgets/saved_scenarios_registry_tab.dart';
+import 'package:frontend/features/shipping_scenarios/widgets/search_and_clone_study_dialog.dart';
 import 'package:frontend/features/transport_locations/models/transport_location_model.dart';
 import 'package:frontend/features/transport_locations/providers/transport_locations_provider.dart';
 

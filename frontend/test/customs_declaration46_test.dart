@@ -515,10 +515,19 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.byKey(const Key('decl46FiguresBanner')), findsOneWidget);
+      // The editable figures panel became the read-only study column (Column A)
+      // of the three-column study / revised / actual panel; the banner moved above it.
+      final banner = find.byKey(const Key('decl46FiguresMissingBanner'));
+      expect(banner, findsOneWidget);
       expect(find.textContaining('Missing:'), findsOneWidget);
-      final cif = tester.widget<TextFormField>(find.byKey(const Key('decl46CifField')));
-      expect(cif.controller!.text, isEmpty, reason: 'no fake CIF/duty number may be shown');
+      expect(find.descendant(of: banner, matching: find.textContaining('Missing:')), findsOneWidget);
+      final cifRow = find
+          .ancestor(of: find.text('CIF Customs Value (EGP)').first, matching: find.byType(Row))
+          .first;
+      expect(find.descendant(of: cifRow, matching: find.text('Missing')), findsOneWidget,
+          reason: 'no fake CIF/duty number may be shown');
+      expect(find.descendant(of: cifRow, matching: find.textContaining(RegExp(r'\d'))), findsNothing,
+          reason: 'no fake CIF/duty number may be shown');
     });
 
     testWidgets('FE06-T01: Selecting file with no form46No leaves field empty; submitting empty triggers required validation and makes no API call', (tester) async {

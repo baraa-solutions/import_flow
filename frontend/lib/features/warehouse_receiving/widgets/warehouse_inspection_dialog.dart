@@ -200,17 +200,21 @@ class _WarehouseInspectionDialogState extends ConsumerState<WarehouseInspectionD
           );
 
       nav.pop();
+      if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(l10n.wrInspSuccess(widget.record.grnCode)),
-          backgroundColor: AppTheme.emerald,
+        AppTheme.snackBar(
+          context,
+          l10n.wrInspSuccess(widget.record.grnCode),
+          severity: AppSeverity.success,
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(ApiErrorText.of(l10n, e)),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          ApiErrorText.of(l10n, e),
+          severity: AppSeverity.danger,
         ),
       );
     } finally {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/logistics_invoice_models.dart';
 import '../providers/logistics_invoices_provider.dart';
@@ -14,7 +15,7 @@ class ThreeWayMatchBadge extends ConsumerWidget {
     final matchAsync = ref.watch(threeWayMatchProvider(invoiceId));
 
     return matchAsync.when(
-      loading: () => const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.5)),
+      loading: () => const AppLoadingState.inline(),
       error: (_, __) => const SizedBox.shrink(),
       data: (data) {
         final isMatched = data.isFullyMatched;

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, text
 from sqlalchemy.orm import relationship
 
 from database.database import Base
@@ -11,6 +11,7 @@ from modules.incoterms.model import Incoterm
 from modules.currencies.model import Currency
 from modules.customs_tariff.model import CustomsTariff
 from modules.import_files.model import ImportFile
+from modules.master_items.model import MasterItem  # noqa: F401
 from modules.common.system_parameters import SystemParameter  # noqa: F401  (registers system_parameters on Base.metadata)
 
 
@@ -63,6 +64,12 @@ class PurchaseOrder(Base):
     payment_terms = Column(String(100), nullable=True, default="LC at Sight")
     status = Column(String(50), nullable=False, default="DRAFT", index=True)  # enum_codes.PO_STATUS code (legacy rows: English label)
     notes = Column(Text, nullable=True)
+
+    # PO Fulfillment & Balance Tracking (EPIC-PO-PART)
+    total_shipped_quantity = Column(Numeric(14, 2), default=0.0, nullable=False, server_default=text("0.0"))
+    total_received_quantity = Column(Numeric(14, 2), default=0.0, nullable=False, server_default=text("0.0"))
+    remaining_balance_quantity = Column(Numeric(14, 2), default=0.0, nullable=False, server_default=text("0.0"))
+    fulfillment_status = Column(String(50), default="OPEN", nullable=False, server_default=text("'OPEN'"), index=True) # OPEN, PARTIALLY_SHIPPED, FULLY_SHIPPED
 
     # Concurrency Control & Audit Trail
     version = Column(Integer, default=1, nullable=False)
@@ -124,6 +131,8 @@ class POLineItem(Base):
 
     purchase_order = relationship("PurchaseOrder", back_populates="line_items")
     tariff = relationship("CustomsTariff", foreign_keys=[tariff_id])
+    master_item_id = Column(Integer, ForeignKey("master_items.item_id"), nullable=True)
+    master_item = relationship("MasterItem", foreign_keys=[master_item_id])
 
 
 class PackingListItem(Base):
@@ -167,6 +176,8 @@ class PackingListItem(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     purchase_order = relationship("PurchaseOrder", back_populates="packing_list_items")
+    master_item_id = Column(Integer, ForeignKey("master_items.item_id"), nullable=True)
+    master_item = relationship("MasterItem", foreign_keys=[master_item_id])
 
 
 # ==================================================
@@ -220,12 +231,16 @@ class POShipmentAllocation(Base):
 
     allocation_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     po_id = Column(Integer, ForeignKey("purchase_orders.po_id"), nullable=False, index=True)
+    po_line_item_id = Column(Integer, ForeignKey("po_line_items.item_id"), nullable=True, index=True)
     po_item_id = Column(Integer, ForeignKey("po_line_items.item_id"), nullable=True, index=True)
     import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True)
 
-    shipment_ref = Column(String(100), nullable=False)  # رقم البوليصة أو كود الشحنة (e.g. B/L # MEDU123456)
-    shipped_quantity = Column(Numeric(12, 2), nullable=False, default=0.0)
-    shipped_amount_fob = Column(Numeric(14, 2), nullable=False, default=0.0)
+    shipment_batch_no = Column(String(100), nullable=True)  # رقم دفعة الشحن
+    shipment_ref = Column(String(100), nullable=True)  # رقم البوليصة أو كود الشحنة (e.g. B/L # MEDU123456)
+    allocated_quantity = Column(Numeric(12, 2), nullable=False, default=0.0, server_default=text("0.0"))
+    shipped_quantity = Column(Numeric(12, 2), nullable=False, default=0.0, server_default=text("0.0"))
+    allocated_fob_amount = Column(Numeric(14, 2), nullable=False, default=0.0, server_default=text("0.0"))
+    shipped_amount_fob = Column(Numeric(14, 2), nullable=False, default=0.0, server_default=text("0.0"))
     shipping_date = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     status = Column(String(50), default="In Transit", nullable=False)  # In Transit, Arrived, Customs Cleared, Received at Warehouse
     notes = Column(Text, nullable=True)
@@ -240,9 +255,26 @@ class POShipmentAllocation(Base):
     )
     updated_by = Column(String(100), nullable=True)
 
+    def __init__(self, **kwargs):
+        if "po_line_item_id" in kwargs and "po_item_id" not in kwargs:
+            kwargs["po_item_id"] = kwargs["po_line_item_id"]
+        elif "po_item_id" in kwargs and "po_line_item_id" not in kwargs:
+            kwargs["po_line_item_id"] = kwargs["po_item_id"]
+        if "allocated_quantity" in kwargs and "shipped_quantity" not in kwargs:
+            kwargs["shipped_quantity"] = kwargs["allocated_quantity"]
+        elif "shipped_quantity" in kwargs and "allocated_quantity" not in kwargs:
+            kwargs["allocated_quantity"] = kwargs["shipped_quantity"]
+        if "allocated_fob_amount" in kwargs and "shipped_amount_fob" not in kwargs:
+            kwargs["shipped_amount_fob"] = kwargs["allocated_fob_amount"]
+        elif "shipped_amount_fob" in kwargs and "allocated_fob_amount" not in kwargs:
+            kwargs["allocated_fob_amount"] = kwargs["shipped_amount_fob"]
+        if "shipment_batch_no" in kwargs and "shipment_ref" not in kwargs:
+            kwargs["shipment_ref"] = kwargs["shipment_batch_no"]
+        elif "shipment_ref" in kwargs and "shipment_batch_no" not in kwargs:
+            kwargs["shipment_batch_no"] = kwargs["shipment_ref"]
+        super().__init__(**kwargs)
+
     purchase_order = relationship("PurchaseOrder", backref="shipment_allocations")
-    po_item = relationship("POLineItem", backref="shipment_allocations")
+    po_item = relationship("POLineItem", foreign_keys=[po_item_id], backref="shipment_allocations")
+    po_line_item = relationship("POLineItem", foreign_keys=[po_line_item_id])
     import_file = relationship("ImportFile", backref="po_allocations")
-
-
-

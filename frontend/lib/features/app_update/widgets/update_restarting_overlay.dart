@@ -46,7 +46,8 @@ class UpdateRestartingOverlay extends StatelessWidget {
     final l = context.l10n;
     return PopScope(
       canPop: false,
-      child: AlertDialog(
+      child: SelectionArea(
+        child: AlertDialog(
         content: Row(
           children: [
             const SizedBox(
@@ -67,6 +68,7 @@ class UpdateRestartingOverlay extends StatelessWidget {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

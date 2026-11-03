@@ -247,16 +247,22 @@ class CooExportService {
     final goodsDesc = sanitizeEnglishOnly((templateData['box_7_description_and_acid'] ?? templateData['box_8_description_packages'] ?? templateData['description'] ?? 'COMMERCIAL CARGO').toString());
     
     final rawWeight = (templateData['box_9_quantity_and_weight'] ?? templateData['box_9_gross_mass'] ?? '').toString().trim();
+    // Box 9 is printed on the certificate: without real quantity, packages and weight it stays blank.
+    final hasQuantityData = templateData['quantity'] != null &&
+        templateData['packages_count'] != null &&
+        templateData['gross_weight_kg'] != null;
     final weight = rawWeight.isNotEmpty
         ? sanitizeEnglishOnly(rawWeight)
-        : formatCooQuantityBox(
-            quantity: templateData['quantity'] ?? 1152,
-            unit: templateData['unit']?.toString() ?? 'PCS',
-            packagesCount: templateData['packages_count'] ?? 144,
-            packageType: templateData['package_type']?.toString(),
-            grossWeightKg: templateData['gross_weight_kg'] ?? 10510.0,
-            isChina: isChina,
-          );
+        : hasQuantityData
+            ? formatCooQuantityBox(
+                quantity: templateData['quantity'],
+                unit: templateData['unit']?.toString() ?? 'PCS',
+                packagesCount: templateData['packages_count'],
+                packageType: templateData['package_type']?.toString(),
+                grossWeightKg: templateData['gross_weight_kg'],
+                isChina: isChina,
+              )
+            : '';
 
     final invoiceData = sanitizeEnglishOnly((templateData['box_10_invoice_number_and_date'] ?? templateData['box_10_invoices_and_acid'] ?? 'INVOICE INFO').toString());
     final remarks = sanitizeEnglishOnly((templateData['box_7_remarks'] ?? (isEur1 ? 'REVISED RULES' : 'N/A')).toString());

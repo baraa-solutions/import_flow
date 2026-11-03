@@ -80,14 +80,14 @@ class ComprehensiveReportExportService {
     final cost = refCard?['cost_summary'] as Map<String, dynamic>?;
 
     sb.writeln('================================================================');
-    sb.writeln('المرجع الذكي المختصر للشحنة (Smart Shipment Reference Card)');
+    sb.writeln('المرجع الذكي المختصر للشحنة');
     sb.writeln('================================================================');
 
     // 1. Product & Quantity
     final primaryHs = prod?['hs_code'] ?? file.hsCode ?? '5602290000';
     final primaryCat = prod?['product_category'] ?? file.productCategory ?? 'PET Acoustic Panels';
-    sb.writeln('1. بيانات الصنف والكمية (Product & Specs):');
-    sb.writeln('   • البند الجمركي (HS Code): $primaryHs');
+    sb.writeln('1. بيانات الصنف والكمية:');
+    sb.writeln('   • البند الجمركي: $primaryHs');
     sb.writeln('   • اسم وتصنيف الصنف: $primaryCat');
     sb.writeln('   • الحجم الإجمالي: ${effCbm.toStringAsFixed(3)} m³');
     sb.writeln('   • الوزن القائم: ${PoPackingMatcher.formatWeight(effGrossWeight)} KG${effNetWeight != null && effNetWeight > 0 ? " (صافي: ${PoPackingMatcher.formatWeight(effNetWeight)} KG)" : ""}');
@@ -98,9 +98,9 @@ class ComprehensiveReportExportService {
     final pol = route?['origin_port'] ?? file.portOfLoading ?? 'Shanghai Port';
     final pod = route?['destination_port'] ?? file.portOfDischarge ?? 'ميناء الإسكندرية / الدخيلة';
     final line = route?['shipping_line'] ?? file.selectedScenario ?? 'خط ملاحي معتمد';
-    sb.writeln('2. مسار الشحن والناقل (Route & Carrier):');
-    sb.writeln('   • ميناء الشحن (POL): $pol');
-    sb.writeln('   • ميناء الوصول (POD): $pod');
+    sb.writeln('2. مسار الشحن والناقل:');
+    sb.writeln('   • ميناء الشحن: $pol');
+    sb.writeln('   • ميناء الوصول: $pod');
     sb.writeln('   • الخط الملاحي / الناقل: $line');
     sb.writeln('   • شرط التعاقد الدولي: ${file.incotermCode}');
     sb.writeln('   • طريقة الشحن المقررة: ${file.shipmentMode}');
@@ -110,9 +110,9 @@ class ComprehensiveReportExportService {
     final freeDays = crit?['target_free_days'] ?? file.targetFreeDays;
     final freeStatus = crit?['free_time_status'] ?? '$freeDays يوماً فترة سماح للحاويات — نطاق آمن';
     final etaStr = crit?['required_eta'] ?? file.requiredEta ?? '—';
-    sb.writeln('3. التواريخ الحرجة وفترات السماح (Critical Dates & Free Days):');
+    sb.writeln('3. التواريخ الحرجة وفترات السماح:');
     sb.writeln('   • تاريخ فتح الملف: ${file.createdAt.split('T').first}');
-    sb.writeln('   • موعد الوصول المستهدف (Target ETA): $etaStr');
+    sb.writeln('   • موعد الوصول المستهدف: $etaStr');
     sb.writeln('   • فترة السماح المستهدفة: $freeDays يوماً للحاويات');
     sb.writeln('   • حالة فترة السماح: $freeStatus');
     sb.writeln();
@@ -120,12 +120,12 @@ class ComprehensiveReportExportService {
     // 4. Customs Docs Readiness
     final attachedDocs = (docs?['attached_documents'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
     final pendingDocs = (docs?['pending_documents'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
-    sb.writeln('4. جاهزية المستندات الجمركية (Customs Documentation Readiness):');
+    sb.writeln('4. جاهزية المستندات الجمركية:');
     sb.writeln('   • المستندات المرفقة: ${attachedDocs.isNotEmpty ? attachedDocs.join(" | ") : (file.form4No != null ? "نموذج 4، ACID، الفواتير" : "قيد الاستكمال")}');
     if (pendingDocs.isNotEmpty) {
       sb.writeln('   • المستندات المعلقة: ${pendingDocs.join(" | ")}');
     }
-    sb.writeln('   • شهادة المنشأ (COO): ${docs?["has_coo_attached"] == true ? "مرفقة ومطابقة" : "مطلوبة إجبارياً"}');
+    sb.writeln('   • شهادة المنشأ: ${docs?["has_coo_attached"] == true ? "مرفقة ومطابقة" : "مطلوبة إجبارياً"}');
     sb.writeln();
 
     // 5. Cost Comparison
@@ -135,7 +135,7 @@ class ComprehensiveReportExportService {
         : file.actualLandedCostTotalEgp;
     final varEgpVal = dossier?.actualLandedCostVarianceEgp ?? file.actualLandedCostVarianceEgp;
     final varPctVal = dossier?.actualLandedCostVariancePct ?? file.actualLandedCostVariancePct;
-    sb.writeln('5. مقارنة التكلفة التقديرية والفعلية (Cost & Landed Cost Variance):');
+    sb.writeln('5. مقارنة التكلفة التقديرية والفعلية:');
     sb.writeln('   • التكلفة التقديرية المعتمدة: ${estCostVal.toStringAsFixed(2)} \$');
     sb.writeln('   • تكلفة الوصول الفعلية: ${actualLandedVal > 0 ? "${actualLandedVal.toStringAsFixed(2)} EGP" : "قيد الاحتساب"}');
     sb.writeln('   • الفارق / الانحراف: ${varEgpVal.toStringAsFixed(2)} EGP (${varPctVal > 0 ? "+" : ""}${varPctVal.toStringAsFixed(2)}%)');
@@ -145,7 +145,7 @@ class ComprehensiveReportExportService {
     // Section: Shipping Scenarios & Smart Recommendation
     final smartRecReason = dossier?.smartRecommendation ??
         ContainerRequirementEngine.recommendShipmentMode(totalCbm: effCbm, totalWeightKg: effGrossWeight).reasonAr;
-    sb.writeln('--- دراسات وسيناريوهات الشحن والتوصية الذكية (Shipping Scenarios & Smart Recommendation) ---');
+    sb.writeln('--- دراسات وسيناريوهات الشحن والتوصية الذكية ---');
     sb.writeln('🚢 $smartRecReason');
     sb.writeln();
 

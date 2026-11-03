@@ -1,6 +1,6 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/localization/app_localizations.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/buttons/app_button.dart';
 import '../../../../core/widgets/copyable_data_helper.dart';
 import '../services/draft_bl_export_service.dart';
@@ -134,7 +134,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.draftBlPrintError(e)), backgroundColor: AppTheme.crimson),
+                              AppTheme.snackBar(context, context.l10n.draftBlPrintError(e), severity: AppSeverity.danger),
                             );
                           }
                         }
@@ -154,13 +154,13 @@ class VisualDraftBLSheet extends StatelessWidget {
                           );
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.draftBlPdfExportSuccess), backgroundColor: AppTheme.emerald),
+                              AppTheme.snackBar(context, context.l10n.draftBlPdfExportSuccess, severity: AppSeverity.success),
                             );
                           }
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.draftBlPdfExportError(e)), backgroundColor: AppTheme.crimson),
+                              AppTheme.snackBar(context, context.l10n.draftBlPdfExportError(e), severity: AppSeverity.danger),
                             );
                           }
                         }
@@ -176,13 +176,13 @@ class VisualDraftBLSheet extends StatelessWidget {
                           );
                           if (context.mounted && res != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.excelExportSuccess(res)), backgroundColor: AppTheme.emerald),
+                              AppTheme.snackBar(context, context.l10n.excelExportSuccess(res), severity: AppSeverity.success),
                             );
                           }
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(context.l10n.excelExportError(e)), backgroundColor: AppTheme.crimson),
+                              AppTheme.snackBar(context, context.l10n.excelExportError(e), severity: AppSeverity.danger),
                             );
                           }
                         }

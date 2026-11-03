@@ -47,6 +47,7 @@ from .validators import (
     validate_deletable,
     validate_documents_editable,
     validate_booking_link,
+    validate_cargo_containers_against_booking,
     containers_or_seals_changed,
 )
 from modules.common.errors import best_effort
@@ -146,6 +147,12 @@ def create_cargo_shipping_service(
     # Validate booking link if provided
     if schema.booking_id is not None:
         validate_booking_link(db, schema.booking_id, schema.import_file_id)
+
+    resolved_booking_id = validate_cargo_containers_against_booking(
+        db, schema.import_file_id, schema.booking_id, schema.shipment_type, schema.containers_loading_data
+    )
+    if resolved_booking_id and not schema.booking_id:
+        schema.booking_id = resolved_booking_id
 
     # 2. Duplicate Prevention / Auto-Upsert
     existing = get_cargo_shipping_by_import_file(db, schema.import_file_id, include_inactive=True)
@@ -554,6 +561,15 @@ def update_cargo_shipping_service(
     processed_containers = None
     if schema.containers_loading_data is not None:
         validate_container_reuse_conflict(db, schema.containers_loading_data, current_record_id=record_id)
+        resolved_booking_id = validate_cargo_containers_against_booking(
+            db,
+            record.import_file_id,
+            schema.booking_id or record.booking_id,
+            schema.shipment_type or record.shipment_type,
+            schema.containers_loading_data,
+        )
+        if resolved_booking_id and not record.booking_id:
+            record.booking_id = resolved_booking_id
         processed_containers = _process_container_items(schema.containers_loading_data)
 
     processed_lcl = None

@@ -1,10 +1,11 @@
 from datetime import datetime, date
-from typing import List, Literal, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, List, Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
 ShipmentType = Literal["Ocean FCL", "Ocean LCL", "Air"]
+TransportMode = Literal["SEA_FCL", "SEA_LCL", "AIR_FREIGHT"]
 FreightTerms = Literal["Prepaid", "Collect"]
 
 
@@ -32,6 +33,32 @@ class BookingChargeItem(BaseModel):
     )
 
 
+class AirPackageItem(BaseModel):
+    length_cm: float = Field(..., gt=0.0, description="الطول بالسنتيمتر")
+    width_cm: float = Field(..., gt=0.0, description="العرض بالسنتيمتر")
+    height_cm: float = Field(..., gt=0.0, description="الارتفاع بالسنتيمتر")
+    gross_weight_kg: float = Field(default=0.0, ge=0.0, description="الوزن الإجمالي بالكيلوغرام")
+    quantity: int = Field(default=1, gt=0, description="عدد الطرود")
+
+
+class AirWeightCalculationRequest(BaseModel):
+    gross_weight_kg: Optional[float] = Field(default=0.0, ge=0.0, description="الوزن الإجمالي بالكيلوغرام")
+    length_cm: Optional[float] = Field(default=None, ge=0.0, description="الطول بالسنتيمتر")
+    width_cm: Optional[float] = Field(default=None, ge=0.0, description="العرض بالسنتيمتر")
+    height_cm: Optional[float] = Field(default=None, ge=0.0, description="الارتفاع بالسنتيمتر")
+    quantity: Optional[int] = Field(default=1, ge=1, description="عدد الطرود")
+    packages: Optional[List[AirPackageItem]] = Field(default=None, description="قائمة الطرود والأبعاد")
+
+
+class AirWeightCalculationResponse(BaseModel):
+    gross_weight_kg: float = Field(..., description="الوزن الإجمالي الفعلي")
+    volumetric_weight_kg: float = Field(..., description="الوزن الحجمي المعتمد دولياً IATA")
+    chargeable_weight_kg: float = Field(..., description="الوزن الخاضع للفوترة")
+    cbm: float = Field(..., description="الحجم الكلي بالمتر المكعب")
+    is_higher_volumetric: bool = Field(..., description="هل الوزن الحجمي أعلى من الوزن الفعلي")
+    details: Optional[List[dict]] = Field(default=None, description="تفاصيل الحساب لكل طرد")
+
+
 class ShipmentBookingBase(BaseModel):
     booking_confirmation_no: Optional[str] = None
     bill_of_lading_no: Optional[str] = None
@@ -45,6 +72,15 @@ class ShipmentBookingBase(BaseModel):
     shipping_line_id: Optional[int] = None
     shipping_line_name: Optional[str] = None
     shipment_type: ShipmentType = "Ocean FCL"
+    transport_mode: Literal["SEA_FCL", "SEA_LCL", "AIR_FREIGHT"] = "SEA_FCL"
+    master_air_waybill: Optional[str] = None
+    house_air_waybill: Optional[str] = None
+    flight_number: Optional[str] = None
+    airline_code: Optional[str] = None
+    airport_terminal_name: Optional[str] = None
+    cfs_terminal_name: Optional[str] = None
+    stripping_fees_egp: Optional[float] = 0.0
+    chargeable_weight_kg: Optional[float] = 0.0
     pol_location_id: Optional[int] = None
     pol_name: Optional[str] = None
     pod_location_id: Optional[int] = None
@@ -76,6 +112,17 @@ class ShipmentBookingBase(BaseModel):
     notes: Optional[str] = None
 
 
+    @field_validator("transport_mode", mode="before")
+    @classmethod
+    def validate_transport_mode(cls, v: Any) -> str:
+        allowed = ("SEA_FCL", "SEA_LCL", "AIR_FREIGHT")
+        if v not in allowed:
+            raise ValueError(
+                f"نمط الشحن غير صالح: '{v}'. الأنماط المعيارية المعتمدة هي: {', '.join(allowed)}"
+            )
+        return v
+
+
 class ShipmentBookingCreate(ShipmentBookingBase):
     pass
 
@@ -93,6 +140,15 @@ class ShipmentBookingUpdate(BaseModel):
     shipping_line_id: Optional[int] = None
     shipping_line_name: Optional[str] = None
     shipment_type: Optional[ShipmentType] = None
+    transport_mode: Optional[Literal["SEA_FCL", "SEA_LCL", "AIR_FREIGHT"]] = None
+    master_air_waybill: Optional[str] = None
+    house_air_waybill: Optional[str] = None
+    flight_number: Optional[str] = None
+    airline_code: Optional[str] = None
+    airport_terminal_name: Optional[str] = None
+    cfs_terminal_name: Optional[str] = None
+    stripping_fees_egp: Optional[float] = None
+    chargeable_weight_kg: Optional[float] = None
     pol_location_id: Optional[int] = None
     pol_name: Optional[str] = None
     pod_location_id: Optional[int] = None
@@ -124,6 +180,19 @@ class ShipmentBookingUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+    @field_validator("transport_mode", mode="before")
+    @classmethod
+    def validate_transport_mode(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        allowed = ("SEA_FCL", "SEA_LCL", "AIR_FREIGHT")
+        if v not in allowed:
+            raise ValueError(
+                f"نمط الشحن غير صالح: '{v}'. الأنماط المعيارية المعتمدة هي: {', '.join(allowed)}"
+            )
+        return v
+
+
 class ShipmentBookingConfirm(BaseModel):
     booking_confirmation_no: str = Field(..., description="Carrier Booking Confirmation Number (e.g. MSC-CN-9900)")
     vessel_name: Optional[str] = Field(None, description="Vessel Name (e.g. MSC OSCAR)")
@@ -141,7 +210,7 @@ class ShipmentDepartureConfirm(BaseModel):
     vessel_name: Optional[str] = Field(None, description="اسم الباخرة")
     voyage_number: Optional[str] = Field(None, description="رقم الرحلة")
     shipped_on_board_date: Optional[date] = Field(None, description="تاريخ الشحن على ظهر السفينة (Shipped On Board Date)")
-    notes: Optional[str] = Field(None, description="ملاحظات الإبحار والرحلة")
+    notes: Optional[str] = None
 
 
 @read_model
@@ -149,6 +218,15 @@ class ShipmentBookingResponse(LegacyRowTolerantModel, ShipmentBookingBase):
     # free_demurrage_days is a nullable column an update may clear (PUT {"free_demurrage_days": null}).
     free_demurrage_days: Optional[int] = None
     shipment_type: Optional[str] = "Ocean FCL"
+    transport_mode: Optional[str] = "SEA_FCL"
+    master_air_waybill: Optional[str] = None
+    house_air_waybill: Optional[str] = None
+    flight_number: Optional[str] = None
+    airline_code: Optional[str] = None
+    airport_terminal_name: Optional[str] = None
+    cfs_terminal_name: Optional[str] = None
+    stripping_fees_egp: Optional[float] = 0.0
+    chargeable_weight_kg: Optional[float] = 0.0
     freight_terms: Optional[str] = "Collect"
     booking_id: int
     booking_code: str
@@ -198,4 +276,3 @@ class ShipmentEtaTrackingLogResponse(BaseModel):
     created_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
-

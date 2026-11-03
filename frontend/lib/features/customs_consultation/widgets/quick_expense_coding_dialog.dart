@@ -393,15 +393,7 @@ class _QuickExpenseCodingDialogState extends ConsumerState<QuickExpenseCodingDia
                                   ref.read(expenseCatalogProvider.notifier).addPattern(item.code, widget.currentExpenseName);
                                   widget.onSelected(item);
                                   Navigator.of(context).pop(item);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(isAr
-                                          ? '✨ تم ربط البند بنجاح بالكود المعتمد: ${item.code}'
-                                          : '✨ Linked item to code: ${item.code}'),
-                                      backgroundColor: AppTheme.emerald,
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, isAr ? 'تم ربط البند بنجاح بالكود المعتمد: ${item.code}' : 'Linked item to code: ${item.code}', severity: AppSeverity.success, duration: const Duration(seconds: 2)));
                                 },
                               ),
                             ],

@@ -152,7 +152,7 @@ void main() {
     expect(find.textContaining('قائمة التعبئة والأوزان'), findsWidgets);
 
     // Verify 1-Click Sample Button
-    final sampleButton = find.textContaining('تحميل نموذج تجريبي حقيقي (G.I. INDUSTRIAL)');
+    final sampleButton = find.byIcon(Icons.dataset_linked);
     expect(sampleButton, findsOneWidget);
 
     // Tap 1-Click Sample Button

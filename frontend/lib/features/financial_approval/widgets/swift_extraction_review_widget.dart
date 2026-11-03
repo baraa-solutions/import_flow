@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
+import 'swift_extraction_review/swift_review_header_banner.dart';
+import 'swift_extraction_review/swift_raw_source_panel.dart';
+import 'swift_extraction_review/swift_field_review_table.dart';
+import 'swift_extraction_review/swift_mandatory_blocking_bar.dart';
 
 class SwiftExtractionReviewWidget extends ConsumerStatefulWidget {
   final SwiftBatchModel initialBatch;
@@ -89,20 +92,20 @@ class _SwiftExtractionReviewWidgetState
           _initControllers();
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.faSwiftFieldUpdated),
-            backgroundColor: AppTheme.emerald,
-            duration: const Duration(seconds: 1),
+          AppTheme.snackBar(
+            context,
+            context.l10n.faSwiftFieldUpdated,
+            severity: AppSeverity.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(context.l10n.faSwiftFieldSaveFailed(ApiError.message(e))),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.faSwiftFieldSaveFailed(ApiError.message(e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -126,20 +129,20 @@ class _SwiftExtractionReviewWidgetState
           _initControllers();
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.faSwiftFieldReExtracted),
-            backgroundColor: AppTheme.cobalt,
-            duration: const Duration(seconds: 1),
+          AppTheme.snackBar(
+            context,
+            context.l10n.faSwiftFieldReExtracted,
+            severity: AppSeverity.info,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(context.l10n.faSwiftReExtractFailed(ApiError.message(e))),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.faSwiftReExtractFailed(ApiError.message(e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -151,11 +154,10 @@ class _SwiftExtractionReviewWidgetState
   Future<void> _confirmReview() async {
     if (!_batch.allMandatoryValid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'لا يمكن الاعتماد: الحقول الإلزامية غير مكتملة (${_batch.missingMandatoryFields.join("، ")})',
-          ),
-          backgroundColor: AppTheme.crimson,
+        AppTheme.snackBar(
+          context,
+          'لا يمكن الاعتماد: الحقول الإلزامية غير مكتملة (${_batch.missingMandatoryFields.join("، ")})',
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -172,9 +174,10 @@ class _SwiftExtractionReviewWidgetState
         if (mounted) {
           setState(() => _batch = confirmedBatch);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.faSwiftConfirmedOpened),
-              backgroundColor: AppTheme.emerald,
+            AppTheme.snackBar(
+              context,
+              context.l10n.faSwiftConfirmedOpened,
+              severity: AppSeverity.success,
             ),
           );
           widget.onBatchConfirmed(confirmedBatch);
@@ -183,10 +186,10 @@ class _SwiftExtractionReviewWidgetState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(context.l10n.faSwiftConfirmFailed(ApiError.message(e))),
-            backgroundColor: AppTheme.crimson,
+          AppTheme.snackBar(
+            context,
+            context.l10n.faSwiftConfirmFailed(ApiError.message(e)),
+            severity: AppSeverity.danger,
           ),
         );
       }
@@ -232,7 +235,7 @@ class _SwiftExtractionReviewWidgetState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHeaderBanner(isConfirmed),
+          SwiftReviewHeaderBanner(batch: _batch, isConfirmed: isConfirmed),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -246,127 +249,43 @@ class _SwiftExtractionReviewWidgetState
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Raw Source Monospace Viewer with Interactive Highlighting
                       Expanded(
                         flex: 5,
-                        child: _buildRawSourcePanel(),
+                        child: SwiftRawSourcePanel(
+                          rawSourceText: _batch.rawSourceText,
+                          highlightedFieldKey: _highlightedFieldKey,
+                          highlightSnippet: _highlightSnippet,
+                        ),
                       ),
                       const SizedBox(width: 16),
-                      // Editable Field Review Table
                       Expanded(
                         flex: 7,
-                        child: _buildFieldReviewTable(isConfirmed),
+                        child: SwiftFieldReviewTable(
+                          fields: _filteredFields,
+                          controllers: _controllers,
+                          highlightedFieldKey: _highlightedFieldKey,
+                          loadingFieldKey: _loadingFieldKey,
+                          isConfirmed: isConfirmed,
+                          onSelectField: (f) {
+                            setState(() {
+                              _highlightedFieldKey = f.fieldKey;
+                              _highlightSnippet = f.rawOcrText ?? f.finalValue;
+                            });
+                          },
+                          onSaveField: _saveField,
+                          onReExtractField: _reExtractField,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildMandatoryBlockingBar(isConfirmed),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderBanner(bool isConfirmed) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isConfirmed
-              ? [AppTheme.wcagEmerald, AppTheme.emerald]
-              : [AppTheme.charcoal, AppTheme.cobalt],
-          begin: AlignmentDirectional.centerEnd,
-          end: AlignmentDirectional.centerStart,
-        ),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isConfirmed ? Icons.verified_user : Icons.fact_check,
-            color: AppTheme.white,
-            size: 22,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      context.l10n.faSwiftReviewTitle,
-                      style: const TextStyle(
-                        color: AppTheme.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        _batch.batchCode,
-                        style: const TextStyle(
-                          color: AppTheme.white,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isConfirmed
-                      ? context.l10n.faSwiftReviewApprovedBanner
-                      : context.l10n.faSwiftHumanReviewRequired,
-                  style: TextStyle(
-                    color: AppTheme.white.withValues(alpha: 0.9),
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: isConfirmed
-                  ? AppTheme.wcagEmerald.withValues(alpha: 0.4)
-                  : AppTheme.wcagOrange.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isConfirmed ? AppTheme.emeraldBorder : AppTheme.orange,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isConfirmed ? Icons.check_circle : Icons.hourglass_top,
-                  size: 13,
-                  color: AppTheme.white,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  isConfirmed
-                      ? context.l10n.faSwiftHumanApproved
-                      : context.l10n.faSwiftPendingReview,
-                  style: const TextStyle(
-                    color: AppTheme.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                  ),
+                SwiftMandatoryBlockingBar(
+                  batch: _batch,
+                  isConfirmed: isConfirmed,
+                  isConfirming: _isConfirming,
+                  onCancel: widget.onCancel,
+                  onConfirmReview: _confirmReview,
                 ),
               ],
             ),
@@ -379,7 +298,6 @@ class _SwiftExtractionReviewWidgetState
   Widget _buildFilterAndBatchInfoRow(bool isConfirmed) {
     return Row(
       children: [
-        // Filter Chips
         Wrap(
           spacing: 6,
           children: [
@@ -436,581 +354,6 @@ class _SwiftExtractionReviewWidgetState
       backgroundColor: AppTheme.charcoalSurface,
       visualDensity: VisualDensity.compact,
       onSelected: (_) => setState(() => _filterMode = mode),
-    );
-  }
-
-  Widget _buildRawSourcePanel() {
-    final text = _batch.rawSourceText;
-    final snippet = _highlightSnippet?.trim();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.darkScaffoldBackground,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.textStrong),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: AppTheme.darkInputBackground,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.code, color: AppTheme.orange, size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  context.l10n.faSwiftRawSource,
-                  style: const TextStyle(
-                    color: AppTheme.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                if (_highlightedFieldKey != null)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.orange.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: AppTheme.orange, width: 0.8),
-                    ),
-                    child: Text(
-                      context.l10n
-                          .faSwiftHighlightedField('$_highlightedFieldKey'),
-                      style: const TextStyle(
-                        color: AppTheme.orange,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(12),
-              child: _buildHighlightedRawText(text, snippet),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHighlightedRawText(String fullText, String? snippet) {
-    if (snippet == null || snippet.isEmpty || !fullText.contains(snippet)) {
-      return SelectableText(
-        fullText,
-        style: const TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 11.5,
-          color: AppTheme.cloudWhite,
-          height: 1.45,
-        ),
-      );
-    }
-
-    // Build highlighted text spans
-    final spans = <TextSpan>[];
-    final parts = fullText.split(snippet);
-    for (int i = 0; i < parts.length; i++) {
-      if (parts[i].isNotEmpty) {
-        spans.add(TextSpan(
-          text: parts[i],
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 11.5,
-            color: AppTheme.cloudWhite,
-            height: 1.45,
-          ),
-        ));
-      }
-      if (i < parts.length - 1) {
-        spans.add(TextSpan(
-          text: snippet,
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 11.5,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.black,
-            backgroundColor: AppTheme.orange,
-            height: 1.45,
-          ),
-        ));
-      }
-    }
-
-    return SelectableText.rich(TextSpan(children: spans));
-  }
-
-  Widget _buildFieldReviewTable(bool isConfirmed) {
-    final fields = _filteredFields;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.cloudWhite),
-      ),
-      child: Column(
-        children: [
-          // Table Column Headers
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: AppTheme.charcoalSurface,
-              borderRadius:
-                  BorderRadius.vertical(top: Radius.circular(7)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                    flex: 4,
-                    child: Text(context.l10n.faSwiftColField,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 11))),
-                Expanded(
-                    flex: 5,
-                    child: Text(context.l10n.faSwiftColValue,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 11))),
-                SizedBox(
-                    width: 80,
-                    child: Text(context.l10n.faSwiftColConfidence,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 11),
-                        textAlign: TextAlign.center)),
-                SizedBox(
-                    width: 70,
-                    child: Text(context.l10n.status,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 11),
-                        textAlign: TextAlign.center)),
-                SizedBox(
-                    width: 45,
-                    child: Text(context.l10n.faSwiftColAction,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 11),
-                        textAlign: TextAlign.center)),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          // Scrollable List of Fields
-          Expanded(
-            child: ListView.separated(
-              itemCount: fields.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final f = fields[index];
-                final isSelected = _highlightedFieldKey == f.fieldKey;
-                final isLoading = _loadingFieldKey == f.fieldKey;
-
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      _highlightedFieldKey = f.fieldKey;
-                      _highlightSnippet = f.rawOcrText ?? f.finalValue;
-                    });
-                  },
-                  child: Container(
-                    color: isSelected
-                        ? AppTheme.orangeLight.withValues(alpha: 0.7)
-                        : (index.isEven
-                            ? AppTheme.white
-                            : AppTheme.charcoalSurface.withValues(alpha: 0.5)),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    child: Row(
-                      children: [
-                        // Column 1: Field Name & Code
-                        Expanded(
-                          flex: 4,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  if (f.swiftFieldCode != null &&
-                                      f.swiftFieldCode!.isNotEmpty)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 4, vertical: 1),
-                                      margin: const EdgeInsetsDirectional.only(
-                                          start: 4),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            AppTheme.cobalt.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(3),
-                                      ),
-                                      child: Text(
-                                        f.swiftFieldCode!,
-                                        style: const TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 9.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.cobalt,
-                                        ),
-                                      ),
-                                    ),
-                                  Expanded(
-                                    child: Text(
-                                      f.fieldLabel,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  if (f.isMandatory)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 4, vertical: 1),
-                                      margin: const EdgeInsetsDirectional.only(
-                                          start: 4),
-                                      decoration: BoxDecoration(
-                                        color: f.isEmpty
-                                            ? AppTheme.crimsonLight
-                                            : AppTheme.emeraldLight,
-                                        borderRadius: BorderRadius.circular(3),
-                                      ),
-                                      child: Text(
-                                        context.l10n.faSwiftMandatoryMark,
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                          color: f.isEmpty
-                                              ? AppTheme.crimson
-                                              : AppTheme.wcagEmerald,
-                                        ),
-                                      ),
-                                    ),
-                                  if (f.isEditedByUser)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 4, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.orangeLight,
-                                        borderRadius: BorderRadius.circular(3),
-                                      ),
-                                      child: Text(
-                                        context.l10n.faSwiftManuallyEdited,
-                                        style: const TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.wcagOrange,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Column 2: Editable Value Field
-                        Expanded(
-                          flex: 5,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: SizedBox(
-                                  height: 34,
-                                  child: TextFormField(
-                                    controller: _controllers[f.fieldKey],
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontFamily: (f.fieldKey
-                                                  .contains('amount') ||
-                                              f.fieldKey.contains('date') ||
-                                              f.fieldKey
-                                                  .contains('reference') ||
-                                              f.fieldKey.contains('swift') ||
-                                              f.fieldKey.contains('iban'))
-                                          ? 'monospace'
-                                          : null,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    decoration: InputDecoration(
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 4),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(4),
-                                        borderSide: BorderSide(
-                                          color: f.isEmpty && f.isMandatory
-                                              ? AppTheme.crimson
-                                              : AppTheme.textMuted,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(4),
-                                        borderSide: const BorderSide(
-                                            color: AppTheme.cobalt, width: 1.5),
-                                      ),
-                                      suffixIcon: isLoading
-                                          ? const Padding(
-                                              padding: EdgeInsets.all(8.0),
-                                              child: SizedBox(
-                                                width: 12,
-                                                height: 12,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                        strokeWidth: 2),
-                                              ),
-                                            )
-                                          : IconButton(
-                                              icon: const Icon(Icons.check,
-                                                  size: 14,
-                                                  color: AppTheme.emerald),
-                                              tooltip:
-                                                  context.l10n.faSwiftSaveEdit,
-                                              onPressed: () {
-                                                final curText =
-                                                    _controllers[f.fieldKey]
-                                                            ?.text ??
-                                                        '';
-                                                _saveField(f.fieldKey, curText);
-                                              },
-                                            ),
-                                    ),
-                                    onFieldSubmitted: (v) =>
-                                        _saveField(f.fieldKey, v),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              IconButton(
-                                icon: const Icon(Icons.copy,
-                                    size: 14, color: AppTheme.textMuted),
-                                tooltip: context.l10n.faSwiftCopyValue,
-                                onPressed: () {
-                                  final val =
-                                      _controllers[f.fieldKey]?.text ?? '';
-                                  CopyHelper.copy(context, val);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Column 3: Confidence Score Progress
-                        SizedBox(
-                          width: 80,
-                          child: Builder(
-                            builder: (context) {
-                              final scoreVal = (f.confidenceScore > 1.0
-                                      ? f.confidenceScore / 100.0
-                                      : f.confidenceScore)
-                                  .clamp(0.0, 1.0);
-                              final pct = (scoreVal * 100).round();
-                              return Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    '$pct%',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: scoreVal >= 0.8
-                                          ? AppTheme.wcagEmerald
-                                          : (scoreVal >= 0.5
-                                              ? AppTheme.wcagOrange
-                                              : AppTheme.crimson),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(3),
-                                    child: LinearProgressIndicator(
-                                      value: scoreVal,
-                                      minHeight: 4,
-                                      backgroundColor: AppTheme.cloudWhite,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        scoreVal >= 0.8
-                                            ? AppTheme.emerald
-                                            : (scoreVal >= 0.5
-                                                ? AppTheme.orange
-                                                : AppTheme.crimson),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-
-                        // Column 4: Status Icon & Badge
-                        SizedBox(
-                          width: 70,
-                          child: Center(
-                            child: _buildFieldStatusBadge(f),
-                          ),
-                        ),
-
-                        // Column 5: Re-extract single field
-                        SizedBox(
-                          width: 45,
-                          child: Center(
-                            child: IconButton(
-                              icon: const Icon(Icons.refresh,
-                                  size: 16, color: AppTheme.cobalt),
-                              tooltip: context.l10n.faSwiftReExtractField,
-                              onPressed: isLoading
-                                  ? null
-                                  : () => _reExtractField(f.fieldKey),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFieldStatusBadge(SwiftFieldModel f) {
-    if (f.isMandatory && f.isEmpty) {
-      return Tooltip(
-        message: context.l10n.faSwiftEmptyMandatoryBlocks,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          decoration: BoxDecoration(
-              color: AppTheme.crimsonLight,
-              borderRadius: BorderRadius.circular(4)),
-          child: Text(context.l10n.faSwiftStatusEmpty,
-              style: const TextStyle(
-                  fontSize: 9.5,
-                  color: AppTheme.crimson,
-                  fontWeight: FontWeight.bold)),
-        ),
-      );
-    } else if (f.confidenceScore >= 0.8 && !f.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        decoration: BoxDecoration(
-            color: AppTheme.emeraldLight,
-            borderRadius: BorderRadius.circular(4)),
-        child: Text(context.l10n.faSwiftStatusTrusted,
-            style: const TextStyle(
-                fontSize: 9.5,
-                color: AppTheme.emerald,
-                fontWeight: FontWeight.bold)),
-      );
-    } else if (!f.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        decoration: BoxDecoration(
-            color: AppTheme.orangeLight,
-            borderRadius: BorderRadius.circular(4)),
-        child: Text(context.l10n.faSwiftStatusReviewed,
-            style: const TextStyle(
-                fontSize: 9.5,
-                color: AppTheme.orange,
-                fontWeight: FontWeight.bold)),
-      );
-    } else {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        decoration: BoxDecoration(
-            color: AppTheme.cloudWhite, borderRadius: BorderRadius.circular(4)),
-        child: Text(context.l10n.faSwiftOptional,
-            style: const TextStyle(
-                fontSize: 9.5,
-                color: AppTheme.textMuted,
-                fontWeight: FontWeight.w600)),
-      );
-    }
-  }
-
-  Widget _buildMandatoryBlockingBar(bool isConfirmed) {
-    final canConfirm = _batch.allMandatoryValid;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: canConfirm ? AppTheme.emeraldLight : AppTheme.crimsonLight,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: canConfirm ? AppTheme.emerald : AppTheme.crimsonBorder,
-          width: 1.5,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            canConfirm ? Icons.check_circle : Icons.warning_amber_rounded,
-            color: canConfirm ? AppTheme.wcagEmerald : AppTheme.crimson,
-            size: 26,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  canConfirm
-                      ? context.l10n.faSwiftAllMandatoryOk
-                      : context.l10n.faSwiftMatchingBlocked,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12.5,
-                    color: canConfirm ? AppTheme.wcagEmerald : AppTheme.crimson,
-                  ),
-                ),
-                if (!canConfirm) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    _batch.missingMandatoryFields.join(' • '),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.crimson,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          AppButton(
-            label: context.l10n.faSwiftCancelReview,
-            variant: AppButtonVariant.secondary,
-            size: AppButtonSize.small,
-            onPressed: widget.onCancel,
-          ),
-          const SizedBox(width: 10),
-          AppButton(
-            label: isConfirmed
-                ? context.l10n.faSwiftApprovedGoMatch
-                : context.l10n.faSwiftConfirmAndMatch,
-            variant: AppButtonVariant.primary,
-            icon: isConfirmed ? Icons.check_circle : Icons.verified,
-            isLoading: _isConfirming,
-            onPressed: (!canConfirm || _isConfirming) ? null : _confirmReview,
-          ),
-        ],
-      ),
     );
   }
 }

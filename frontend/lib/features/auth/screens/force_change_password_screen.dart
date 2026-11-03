@@ -85,31 +85,28 @@ class _ForceChangePasswordScreenState extends ConsumerState<ForceChangePasswordS
       await ref.read(authProvider.notifier).applyUserJson(result.userJson);
       ref.invalidate(rbacProvider);
       ref.invalidate(usersProvider);
-      messenger.showSnackBar(_snackBar(l.forcePwdSuccess, AppTheme.emerald, Icons.check_circle_outline));
+      if (!mounted) return;
+      messenger.showSnackBar(
+        AppTheme.snackBar(context, l.forcePwdSuccess, severity: AppSeverity.success),
+      );
     } on PasswordChangeException catch (e) {
       final msg = e.message ?? l.forcePwdFailed;
-      if (mounted) setState(() => _serverError = msg);
-      messenger.showSnackBar(_snackBar(msg, AppTheme.crimson, Icons.error_outline));
+      if (mounted) {
+        setState(() => _serverError = msg);
+        messenger.showSnackBar(
+          AppTheme.snackBar(context, msg, severity: AppSeverity.danger),
+        );
+      }
     } catch (_) {
-      if (mounted) setState(() => _serverError = l.forcePwdFailed);
-      messenger.showSnackBar(_snackBar(l.forcePwdFailed, AppTheme.crimson, Icons.error_outline));
+      if (mounted) {
+        setState(() => _serverError = l.forcePwdFailed);
+        messenger.showSnackBar(
+          AppTheme.snackBar(context, l.forcePwdFailed, severity: AppSeverity.danger),
+        );
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
-  }
-
-  SnackBar _snackBar(String text, Color color, IconData icon) {
-    return SnackBar(
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: color,
-      content: Row(
-        children: [
-          Icon(icon, color: AppTheme.cloudWhite),
-          const SizedBox(width: 10),
-          Expanded(child: Text(text, style: const TextStyle(color: AppTheme.cloudWhite))),
-        ],
-      ),
-    );
   }
 
   @override

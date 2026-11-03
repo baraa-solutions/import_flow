@@ -19,6 +19,15 @@ from modules.common.validators import not_found, require_active
 from modules.import_files.model import ImportFile
 from modules.import_files.repository import codes_by_ids
 from modules.purchase_orders.model import POLineItem, POShipmentAllocation, PackingListItem, PurchaseOrder
+from modules.purchase_orders.po_allocation_service import POAllocationService
+from modules.purchase_orders.po_fulfillment_engine import (
+    BALANCE_FULL,
+    BALANCE_OVER,
+    BALANCE_PARTIAL,
+    BALANCE_PENDING,
+    POFulfillmentEngine,
+    QTY_EPSILON,
+)
 from modules.purchase_orders.repository import ChildRow, PurchaseOrderRepository
 from modules.purchase_orders.schemas import (
     ClonePurchaseOrderRequest,
@@ -50,7 +59,6 @@ COPY_CODE_SUFFIX = "-COPY"
 PO_NUMBER_ATTEMPTS = 3
 DEFAULT_PALLET_TYPE = "Euro Pallet (120x80)"
 DEFAULT_PALLET_DIMS_CM = (120.0, 80.0, 150.0)
-QTY_EPSILON = 1e-9
 
 # Update payload fields that change the measured totals. Any other field is a header-only change and
 # never recomputes the totals (they may have been set by a CBM calculation through apply_measurements).
@@ -58,12 +66,6 @@ MEASUREMENT_FIELDS = frozenset({
     "items", "packing_list_items", "pallet_plan",
     "pallet_count", "pallet_length_cm", "pallet_width_cm", "pallet_height_cm",
 })
-
-# Balance fulfillment labels (response-only, unchanged contract).
-BALANCE_PENDING = "Pending"
-BALANCE_PARTIAL = "Partially Shipped"
-BALANCE_FULL = "Fully Shipped"
-BALANCE_OVER = "Over-Shipped"
 
 
 def _copy_reference(reference: Optional[str]) -> Optional[str]:
@@ -216,6 +218,10 @@ class PurchaseOrderService:
         self.db = db
         self.repo = PurchaseOrderRepository(db)
         self.validator = PurchaseOrderValidator(db)
+        self.fulfillment_engine = POFulfillmentEngine(db, repo=self.repo)
+        self.allocation_service = POAllocationService(
+            db, repo=self.repo, validator=self.validator, fulfillment_engine=self.fulfillment_engine
+        )
 
     def _get_or_404(self, po_id: int, active_only: bool = False, label_ar: str = "أمر الشراء") -> PurchaseOrder:
         po = self.repo.get_by_id(po_id, active_only=active_only)
@@ -690,6 +696,8 @@ class PurchaseOrderService:
                 logger.info("PO number %s was taken concurrently; retrying (%s/%s)", number, attempt, PO_NUMBER_ATTEMPTS)
                 continue
             self.db.refresh(po)
+            from modules.master_items.service import MasterItemService
+            MasterItemService.sync_po_items(self.db, po)
             return po
         raise AssertionError("unreachable")  # pragma: no cover
 
@@ -871,6 +879,8 @@ class PurchaseOrderService:
         if po.import_file_id:
             self._link_import_file(po)
         self._commit(po)
+        from modules.master_items.service import MasterItemService
+        MasterItemService.sync_po_items(self.db, po)
         return self._to_response(po)
 
     def _measurements_changed(
@@ -990,217 +1000,36 @@ class PurchaseOrderService:
         return self._to_response(po)
 
     # =========================================================================
-    # LOG-PART-004: Partial Shipments & PO Balance Ledger Engine
+    # LOG-PART-004: Partial Shipments & PO Balance Ledger Engine (Delegated)
     # =========================================================================
 
     @staticmethod
     def _shipped_totals(allocations: Sequence[POShipmentAllocation]) -> Tuple[float, float]:
-        """(shipped qty, shipped FOB) over EVERY allocation, item-level or PO-level. Single source of truth
-        for the PO header status and the balance totals."""
-        qty = sum(float(a.shipped_quantity or 0.0) for a in allocations)
-        fob = sum(float(a.shipped_amount_fob or 0.0) for a in allocations)
-        return qty, fob
+        return POFulfillmentEngine.shipped_totals(allocations)
 
     @staticmethod
     def _ordered_qty(po: PurchaseOrder) -> float:
-        return sum(float(it.quantity or 0.0) for it in (po.line_items or []))
+        return POFulfillmentEngine.ordered_qty(po)
 
     @staticmethod
     def _line_progress(
         po: PurchaseOrder, allocations: Sequence[POShipmentAllocation]
     ) -> Tuple[List[Tuple[POLineItem, float, float]], List[POShipmentAllocation]]:
-        """Per line (item, shipped qty, shipped FOB) plus the PO-level allocations no line can take: a PO-level
-        allocation belongs to the line only when the PO has exactly one line. An allocation whose po_item_id is not a
-        current line (rows left by the old delete-and-recreate edits) counts as PO-level."""
-        lines = list(po.line_items or [])
-        line_ids = {it.item_id for it in lines}
-        po_level = [a for a in allocations if a.po_item_id not in line_ids]
-        progress = []
-        unattributed = po_level if len(lines) != 1 else []
-        for it in lines:
-            item_allocs = [a for a in allocations if a.po_item_id == it.item_id]
-            if len(lines) == 1:
-                item_allocs += po_level
-            qty, fob = PurchaseOrderService._shipped_totals(item_allocs)
-            progress.append((it, qty, fob))
-        return progress, unattributed
+        return POFulfillmentEngine.line_progress(po, allocations)
 
     @staticmethod
     def _fulfillment_state(
         progress: Sequence[Tuple[POLineItem, float, float]], unattributed: Sequence[POShipmentAllocation]
     ) -> Optional[str]:
-        """None (nothing shipped / nothing ordered), BALANCE_PARTIAL, BALANCE_FULL or BALANCE_OVER, decided on the
-        raw per-line quantities (never on a rounded percentage). PO-level allocations of a multi-line PO cannot be
-        attributed, so they only count against the PO total."""
-        ordered_total = sum(float(it.quantity or 0.0) for it, _, _ in progress)
-        unattributed_qty, _ = PurchaseOrderService._shipped_totals(unattributed)
-        shipped_total = sum(q for _, q, _ in progress) + unattributed_qty
-        if ordered_total <= 0 or shipped_total <= 0:
-            return None
-        lines_full = all(q >= float(it.quantity or 0.0) - QTY_EPSILON for it, q, _ in progress)
-        any_line_over = any(q > float(it.quantity or 0.0) + QTY_EPSILON for it, q, _ in progress)
-        if shipped_total > ordered_total + QTY_EPSILON or (lines_full and any_line_over):
-            return BALANCE_OVER
-        if lines_full or (unattributed and shipped_total >= ordered_total - QTY_EPSILON):
-            return BALANCE_FULL
-        return BALANCE_PARTIAL
+        return POFulfillmentEngine.fulfillment_state(progress, unattributed)
 
     def _sync_po_fulfillment_status(self, po: PurchaseOrder, allocations: Sequence[POShipmentAllocation]) -> bool:
-        """Set PARTIALLY_SHIPPED / FULLY_SHIPPED from the per-line shipped quantities (same rule as the balance).
-        CLOSED and CANCELLED are final and never overwritten. Returns True when the status changed."""
-        current = _status_code(po.status)
-        if current in FINAL_STATUSES:
-            return False
-        state = self._fulfillment_state(*self._line_progress(po, allocations))
-        if state is None:
-            return False
-        target = "PARTIALLY_SHIPPED" if state == BALANCE_PARTIAL else "FULLY_SHIPPED"
-        if target == current:
-            return False
-        po.status = target
-        return True
+        return self.fulfillment_engine.sync_po_fulfillment_status(po, allocations)
 
     def allocate_shipment(
         self, po_id: int, data: POShipmentAllocationCreate, current_user_name: Optional[str] = None
     ) -> POShipmentAllocationResponse:
-        """Record a (partial) shipment against an active PO and update its fulfillment status in one commit.
-        Over-allocation is allowed; the response then carries an OVER_SHIPPED warning."""
-        po = self._get_or_404(po_id, active_only=True)
-        current_status = _status_code(po.status) or po.status
-        if current_status in FINAL_STATUSES:
-            raise CodedHTTPException(
-                status.HTTP_409_CONFLICT,
-                "PO_NOT_EDITABLE",
-                f"لا يمكن تسجيل شحنات لأمر الشراء في حالة '{current_status}'.",
-                status=current_status,
-            )
-        item = self.validator.validate_allocation(po, data)
-        alloc_status = self.validator.normalize_allocation_status(data.status)
-
-        allocation = POShipmentAllocation(
-            po_id=po.po_id,
-            po_item_id=data.po_item_id,
-            import_file_id=data.import_file_id,
-            shipment_ref=data.shipment_ref.strip(),
-            shipped_quantity=data.shipped_quantity,
-            shipped_amount_fob=data.shipped_amount_fob,
-            shipping_date=data.shipping_date or datetime.now(timezone.utc),
-            status=alloc_status,
-            notes=data.notes,
-            created_by=current_user_name,
-            updated_by=current_user_name,
-        )
-        self.repo.add_allocation(allocation)
-        allocations = self.repo.list_allocations(po.po_id)
-
-        messages: List[SystemMessageItem] = []
-        if item is not None:
-            item_shipped, _ = self._shipped_totals([a for a in allocations if a.po_item_id == item.item_id])
-            item_ordered = float(item.quantity or 0.0)
-            if item_shipped > item_ordered + QTY_EPSILON:
-                messages.append(to_item("OVER_SHIPPED", "warning", shipped_qty=round(item_shipped, 2), ordered_qty=round(item_ordered, 2),
-                                         po_number=po.po_number, item_code=item.item_code))
-        if not messages:
-            ordered = self._ordered_qty(po)
-            shipped, _ = self._shipped_totals(allocations)
-            if ordered > 0 and shipped > ordered + QTY_EPSILON:
-                messages.append(to_item("OVER_SHIPPED", "warning", shipped_qty=round(shipped, 2), ordered_qty=round(ordered, 2),
-                                         po_number=po.po_number, item_code=None))
-
-        if self._sync_po_fulfillment_status(po, allocations):
-            self._touch(po, current_user_name)
-        self._commit(allocation)
-
-        response = POShipmentAllocationResponse.model_validate(allocation)
-        response.messages = messages
-        return response
+        return self.allocation_service.allocate_shipment(po_id, data, current_user_name)
 
     def compute_po_balance(self, po_id: int) -> POBalanceSummaryResponse:
-        """Ordered, shipped and remaining quantities / amounts of a PO.
-
-        Line breakdown: item-level allocations; a PO-level allocation is attributed to the line only when the
-        PO has a single line. Quantity / FOB totals count every allocation (same source as the PO header status).
-        The status is decided on the raw per-line quantities. The overall percentage is value-weighted when the value
-        is fully known (lines may use different units): shipped value / ordered value with value = qty x unit price,
-        PO-level allocations of a multi-line PO counted with their FOB amount. It needs every line priced (> 0) and
-        every PO-level allocation with a FOB amount (> 0). Otherwise: the mean of the line percentages (unit-safe)
-        when every allocation belongs to a line, or the total quantity share (all shipped qty / ordered qty) when
-        PO-level quantity exists that no line can take."""
-        po = self._get_or_404(po_id)
-        allocations = self.repo.list_allocations(po.po_id, newest_first=True)
-        progress, unattributed = self._line_progress(po, allocations)
-        items_balance: List[POLineItemBalanceItem] = []
-        total_ordered_qty = 0.0
-        total_ordered_fob = 0.0
-        ordered_value = 0.0
-        shipped_value = self._shipped_totals(unattributed)[1]
-        value_known = all(float(a.shipped_amount_fob or 0.0) > 0 for a in unattributed)
-        line_percents: List[float] = []
-
-        for it, shipped_q, shipped_fob in progress:
-            ord_q = float(it.quantity or 0.0)
-            u_price = float(it.unit_price or 0.0)
-            ord_fob = float(it.total_price or (ord_q * u_price))
-            ordered_value += ord_q * u_price
-            shipped_value += shipped_q * u_price
-            value_known = value_known and u_price > 0
-            line_percents.append((shipped_q / ord_q * 100.0) if ord_q > 0 else 0.0)
-            items_balance.append(
-                POLineItemBalanceItem(
-                    item_id=it.item_id,
-                    item_code=it.item_code,
-                    description_ar=it.description_ar,
-                    ordered_qty=ord_q,
-                    shipped_qty=shipped_q,
-                    remaining_qty=max(0.0, ord_q - shipped_q),
-                    unit_price=u_price,
-                    ordered_amount_fob=ord_fob,
-                    shipped_amount_fob=shipped_fob,
-                    remaining_amount_fob=max(0.0, ord_fob - shipped_fob),
-                    fulfillment_percent=round((shipped_q / ord_q * 100.0) if ord_q > 0 else 0.0, 1),
-                )
-            )
-            total_ordered_qty += ord_q
-            total_ordered_fob += ord_fob
-
-        total_shipped_qty, total_shipped_fob = self._shipped_totals(allocations)
-        total_rem_qty = max(0.0, total_ordered_qty - total_shipped_qty)
-        total_rem_fob = max(0.0, total_ordered_fob - total_shipped_fob)
-        by_value = bool(progress) and value_known and ordered_value > 0
-        if by_value:
-            overall_raw = shipped_value / ordered_value * 100.0
-            method_ar = "حسب القيمة التعاقدية"
-        elif line_percents and not unattributed:
-            overall_raw = sum(line_percents) / len(line_percents)
-            method_ar = "متوسط نسب البنود"
-        else:
-            overall_raw = (total_shipped_qty / total_ordered_qty * 100.0) if total_ordered_qty > 0 else 0.0
-            method_ar = "حسب إجمالي الكميات"
-        overall_percent = round(overall_raw, 1)
-        fulfillment_status = self._fulfillment_state(progress, unattributed) or BALANCE_PENDING
-
-        curr_code = po.currency.currency_code if po.currency else None
-        curr_label = f" {curr_code}" if curr_code else ""
-        # Deprecated presentation field (PO-15): clients should render from the numeric fields.
-        summary_ar = (
-            f"ميزان أمر الشراء #{po.po_number}: تم شحن {total_shipped_qty:,.0f} من إجمالي {total_ordered_qty:,.0f} وحدة "
-            f"({overall_percent}% إنجاز توريد {method_ar})، والمتبقي للتوريد {total_rem_qty:,.0f} وحدة "
-            f"بقيمة تعاقدية متبقية {total_rem_fob:,.2f}{curr_label} عبر {len(allocations)} شحنات مجزأة."
-        )
-
-        return POBalanceSummaryResponse(
-            po_id=po.po_id,
-            po_number=po.po_number,
-            total_ordered_qty=round(total_ordered_qty, 2),
-            total_shipped_qty=round(total_shipped_qty, 2),
-            total_remaining_qty=round(total_rem_qty, 2),
-            total_ordered_amount_fob=round(total_ordered_fob, 2),
-            total_shipped_amount_fob=round(total_shipped_fob, 2),
-            total_remaining_amount_fob=round(total_rem_fob, 2),
-            currency_code=curr_code,
-            overall_fulfillment_percent=overall_percent,
-            fulfillment_status=fulfillment_status,
-            line_items_balance=items_balance,
-            allocations=[POShipmentAllocationResponse.model_validate(a) for a in allocations],
-            executive_summary_ar=summary_ar,
-        )
+        return self.fulfillment_engine.compute_po_balance(po_id)

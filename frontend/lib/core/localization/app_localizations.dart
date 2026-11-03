@@ -2634,6 +2634,41 @@ abstract class AppLocalizations {
   String get copyRegistryTableSuccess;
   String get cloneFromAssessmentBtn;
 
+  // ── Form 46 Three-Way Comparison & Variance ───────────────────────────────
+  String get form46ThreeColumnComparisonTitle;
+  String get form46ColStudyEstimate;
+  String get form46ColStudyEstimateSub;
+  String get form46ColRevisedEstimate;
+  String get form46ColRevisedEstimateSub;
+  String get form46ColNafezaActual;
+  String get form46ColNafezaActualSub;
+  String get form46VarExchangeRate;
+  String get form46VarApprovedFreight;
+  String get form46VarActualInsurance;
+  String get form46VarDischargeDemurrage;
+  String get form46VarNewFees;
+  String get form46SmartExtractNafezaBtn;
+  String get form46NafezaClaimNo;
+  String get form46NafezaClaimDate;
+  String get form46ActualCif;
+  String get form46ActualDuty;
+  String get form46ActualVat;
+  String get form46ActualOtherFees;
+  String get form46ActualTotalDuties;
+  String get form46VarianceBarTitle;
+  String get form46VarianceBvsA;
+  String get form46VarianceCvsA;
+  String get form46VarianceCvsB;
+  String get form46VarianceStatusCompliant;
+  String get form46VarianceStatusModerate;
+  String get form46VarianceStatusHigh;
+  String get form46VarianceReasonLabel;
+  String get form46VarianceReasonHint;
+  String get form46VarianceReasonRequired;
+  String get customsDeclColVariance;
+  String get customsDeclVariancePending;
+  String get customsDeclVarianceNoDiff;
+
   // ── Screen 24/27: Customs Clearance Management ────────────────────────────────
   String get searchAndCloneCustomsClearanceBtn;
   String get cloneCustomsClearanceDialogTitle;
@@ -3205,6 +3240,11 @@ abstract class AppLocalizations {
   String get cargoShippingNonStackable;
   String cargoShippingAutoRecommendation(int count, String code, String spaceUtil, String weightUtil);
   String get cargoShippingContainersHeader;
+  String cargoShippingBookingMatchRequired(int registered, int expected);
+  String get cargoShippingBookingLimitReached;
+  String cargoShippingBookingStatusBadge(String bookingCode, String summary);
+  String get cargoShippingBookingStatusMatch;
+  String get cargoShippingBookingStatusMismatch;
   String get cargoShippingAddContainerType;
   String get cargoShippingContainerType;
   String get cargoShippingQty;
@@ -5355,6 +5395,27 @@ abstract class AppLocalizations {
   String get radarTsvHeaderTestingStatus;
   String get radarTsvHeaderDocReadiness;
 
+  // ── Screen 48 Canonical KPI Metric Bar & Badges ─────────────────────────────
+  String get kpiHealthScoreTitle;
+  String kpiHealthScoreValue(int percent);
+  String get kpiHealthScoreTooltip;
+  String get kpiFreeTimeBurnTitle;
+  String kpiFreeTimeBurnValue(int percent, int days);
+  String get kpiFreeTimeBurnTooltip;
+  String get kpiBlockersAndOverdueTitle;
+  String kpiOverdueCountBadge(int count);
+  String kpiBlockersCountBadge(int count);
+  String get kpiNoBlockersBadge;
+  String get kpiBlockersTooltip;
+  String get kpiCostVarianceTitle;
+  String kpiCostVarianceValue(String sign, double percent);
+  String get kpiCostVarianceTooltip;
+  String get phasePendingShipmentsTitle;
+  String phasePendingCountBadge(int count);
+  String phaseDelayedCountBadge(int count);
+  String get phaseAllClearBadge;
+  String get phasePendingBadgeTooltip;
+
   // ==========================================
   // Screen 49: Freight Quotations Comparison (FreightQuotationsComparisonScreen)
   // ==========================================
@@ -7083,6 +7144,80 @@ abstract class AppLocalizations {
   String get dynCellDeliveredWarehouse;
   String get dynCellInClearancePort;
   String dynRecordsCount(int count);
+  String get dynCatCourierAir;
+  String get dynCatContainersDemurrage;
+  String get dynCatCustomsReleaseDuties;
+  String get dynCatInlandHaulage;
+  String get dynCatLandedCostSettlement;
+  String get dynCatCargoXDigitalDocs;
+  String get dynCatPartialShipments;
+  String get dynCatHoldsNotes;
+  String get dynColCourierOperator;
+  String get dynColCourierTrackingNo;
+  String get dynColShipmentSubMode;
+  String get dynColChargeableDivisor;
+  String get dynColAcidRequirement;
+  String get dynColAcidExemptionReason;
+  String get dynColBlNumber;
+  String get dynColBookingNo;
+  String get dynColVesselName;
+  String get dynColDeliveryOrderNo;
+  String get dynColDeliveryOrderExpiryDate;
+  String get dynColEmptyContainersReturnedAt;
+  String get dynColEmptyContainersReturnStatus;
+  String get dynColEmptyContainersEirNumbers;
+  String get dynColEmptyContainersDepotName;
+  String get dynColCustomsReleasePermitNo;
+  String get dynColCustomsReleaseType;
+  String get dynColCustomsReleaseOfficer;
+  String get dynColCustomsGatePassNo;
+  String get dynColCustomsDutyPaidAmount;
+  String get dynColCustomsDutyReceiptNo;
+  String get dynColCustomsDutySadadNo;
+  String get dynColCustomsDutyPaymentDate;
+  String get dynColCustomsBrokerDelegationNo;
+  String get dynColInlandTransportStatus;
+  String get dynColInlandCarrierName;
+  String get dynColInlandTruckPlateNo;
+  String get dynColInlandDriverName;
+  String get dynColInlandDriverPhone;
+  String get dynColInlandTransportCostEgp;
+  String get dynColInlandDepartureDate;
+  String get dynColInlandActualArrivalDate;
+  String get dynColTotalClearanceExpensesEgp;
+  String get dynColActualLandedCostTotalEgp;
+  String get dynColActualLandedCostMarkupFactor;
+  String get dynColActualLandedCostVarianceEgp;
+  String get dynColActualLandedCostVariancePct;
+  String get dynColFinancialSettlementStatus;
+  String get dynColCargoxEnvelopeCode;
+  String get dynColCargoxEnvelopeStatus;
+  String get dynColCargoxTransferredAt;
+  String get dynColOriginalDocumentsCourierNo;
+  String get dynColOriginalDocumentsStatus;
+  String get dynColOriginalDocumentsReceivedAt;
+  String get dynColIsPartialShipment;
+  String get dynColParentFileCode;
+  String get dynColHoldReason;
+  String get dynColHoldDate;
+  String get dynColHsCode;
+  String get dynColProductCategory;
+  String get dynFilterReleaseStatusLabel;
+  String get dynFilterReleaseStatusAll;
+  String get dynFilterReleaseStatusReleased;
+  String get dynFilterReleaseStatusPending;
+  String get dynFilterAcidReqLabel;
+  String get dynFilterAcidReqAll;
+  String get dynFilterAcidReqMandatory;
+  String get dynFilterAcidReqExempt;
+  String get dynSaveCustomPresetBtn;
+  String get dynResetColumnsBtn;
+  String get dynPresetSavedToast;
+  String get dynPresetResetToast;
+  String get dynFilterAll;
+  String get dynStatusHeld;
+  String get dynYes;
+  String get dynNo;
 
   // ── Screen 68: Comprehensive Import File Report ───────────────────────────
   String get compReportScreenTitle;
@@ -10647,7 +10782,147 @@ abstract class AppLocalizations {
   String get fbkActionCancel;
   String get fbkPrintPdfTitle;
   String get fbkSavePdfBtn;
-  // === end review phase08_10 keys ===
+  
+  // === Master Items & Catalog Integration (MD-ITEM-001) ===
+  String get masterItemsCatalog;
+  String get masterItemsCatalogSubtitle;
+  String get itemPriceTrendsRadar;
+  String get itemPriceTrendsSubtitle;
+  String get masterItemSearchHint;
+  String get masterItemSelectPlaceholder;
+  String get masterItemNoResults;
+  String get masterItemAutoFilled;
+  String get masterItemHsCode;
+  String get masterItemDefaultUom;
+  String get masterItemCbm;
+  String get masterItemGrossWeight;
+  String get masterItemNetWeight;
+  String get masterItemLinked;
+  String get masterItemCustomManual;
+  String get poLineItemDialogTitleAdd;
+  String get poLineItemDialogTitleEdit;
+  String get poAddFromCatalog;
+  String get poEditLineItemWithCatalog;
+  String get poLineItemCatalogAutoFillHint;
+
+    // ── Operational Pillars Advanced Widgets ───────────────────────────────────
+  String get cargoXPreAcidHeader;
+  String get cargoXPreAcidSubtitle;
+  String get cargoXPlatformIdLabel;
+  String get cargoXExporterStatusLabel;
+  String get cargoXStatusVerified;
+  String get cargoXStatusPending;
+  String get cargoXStatusNotRegistered;
+  String get cargoXChecklistBlockchainActive;
+  String get cargoXChecklistAccountAuthorized;
+  String get cargoXChecklistEnvelopeReady;
+  String get cargoXVerifyAccountBtn;
+  String get cargoXCopyIdTooltip;
+  String get cargoXIdCopiedSuccess;
+  String get cargoXUnverifiedWarning;
+
+  String get shelfLifeEosHeader;
+  String get shelfLifeEosSubtitle;
+  String get shelfLifeSubjectCheckbox;
+  String get shelfLifeEosSpecLabel;
+  String get shelfLifeProductionDateLabel;
+  String get shelfLifeExpiryDateLabel;
+  String get shelfLifeBatchNumberLabel;
+  String get shelfLifeRemainingRatioLabel;
+  String get shelfLifeCompliantBadge;
+  String get shelfLifeCriticalWarningBadge;
+  String get shelfLifeArabicLabelCheckbox;
+  String get shelfLifeEosCertStatusLabel;
+  String get shelfLifeCopyBatchTooltip;
+  String get shelfLifeBatchCopiedSuccess;
+  String get shelfLifeEtaArrivalHint;
+
+  String get testingLabsTrackHeader;
+  String get testingLabsTrackSubtitle;
+  String get testingLabAssignedLabel;
+  String get testingLabSamplingRecordLabel;
+  String get testingLabSamplingDateLabel;
+  String get testingLabSamplesCountLabel;
+  String get testingLabFeesLabel;
+  String get testingLabResultStatusLabel;
+  String get testingLabResultConforming;
+  String get testingLabResultPending;
+  String get testingLabResultNonConforming;
+  String get testingLabUnderBondReleaseCheck;
+  String get testingLabCertificateNoLabel;
+  String get testingLabCopyRecordTooltip;
+  String get testingLabRecordCopiedSuccess;
+
+  String get hazardousMaterialsHeader;
+  String get hazardousMaterialsSubtitle;
+  String get hazardousSubjectCheckbox;
+  String get hazardousUnNumberLabel;
+  String get hazardousImdgClassLabel;
+  String get hazardousPackingGroupLabel;
+  String get hazardousFlashPointLabel;
+  String get hazardousMsdsStatusLabel;
+  String get hazardousCivilProtectionLabel;
+  String get hazardousPortHandlingLabel;
+  String get hazardousHandlingDirectDischarge;
+  String get hazardousHandlingHazardousYard;
+  String get hazardousEmergencyPhoneLabel;
+  String get hazardousCopyUnTooltip;
+  String get hazardousUnCopiedSuccess;
+  String get hazardousHighRiskWarning;
+
+  // ── Session 4: Governance & Enterprise Registry ────────────────────────────
+  String get makerCheckerDialogTitle;
+  String get makerCheckerDialogSubtitle;
+  String get makerSectionTitle;
+  String get makerAssessedByLabel;
+  String get makerRiskLevelLabel;
+  String get makerOverallStatusLabel;
+  String get makerDateLabel;
+  String get checkerSectionTitle;
+  String get checkerReviewerNameLabel;
+  String get checkerDecisionLabel;
+  String get checkerDecisionApprove;
+  String get checkerDecisionOverride;
+  String get checkerDecisionReject;
+  String get checkerNotesLabel;
+  String get checkerNotesHint;
+  String get checkerOverrideReasonLabel;
+  String get checkerOverrideReasonHint;
+  String get checkerApproveBtn;
+  String get checkerCancelBtn;
+  String get checkerStatusApprovedBadge;
+  String get checkerStatusPendingBadge;
+  String get checkerStatusOverriddenBadge;
+  String get checkerSuccessSnack;
+  String get checkerErrorSnack;
+
+  // Enterprise Table Columns
+  String get colAssessmentCode;
+  String get colHsCodeAndCommodity;
+  String get colShipmentValue;
+  String get colCompliancePillars;
+  String get colRiskLevel;
+  String get colStatus;
+  String get colGovernance;
+  String get colActions;
+  String get copyAssessmentCodeTooltip;
+  String get copyAcidNumberTooltip;
+  String get governanceActionTooltip;
+  String get advancedOperationalPillarsAccordionTitle;
+
+  // ── Lifecycle KPI Metrics & Phase Counters ─────────────────────────────────
+  String get kpiHealthScore;
+  String get kpiFreeTimeBurn;
+  String get kpiDaysLeft;
+  String get kpiOverdueSteps;
+  String get kpiCostVariance;
+  String get kpiRiskSafe;
+  String get kpiRiskWarning;
+  String get kpiRiskCritical;
+  String get phasePendingCount;
+  String get phaseDelayedCount;
+
+// === end review phase08_10 keys ===
 }
 
 

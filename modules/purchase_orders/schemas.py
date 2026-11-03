@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from modules.common import enum_codes
 from modules.common.cargo_math import LengthUnit
@@ -275,6 +275,10 @@ class PurchaseOrderResponse(PurchaseOrderBase, LegacyRowTolerantModel):
     currency_code: Optional[str] = None
     items: List[POLineItemResponse] = Field(default_factory=list)
     packing_list_items: List[PackingListItemResponse] = Field(default_factory=list)
+    total_shipped_quantity: Optional[float] = 0.0
+    total_received_quantity: Optional[float] = 0.0
+    remaining_balance_quantity: Optional[float] = 0.0
+    fulfillment_status: Optional[str] = "OPEN"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -305,6 +309,10 @@ class PurchaseOrderListItem(BaseModel):
     created_at: datetime
     updated_at: datetime
     is_active: bool = True
+    total_shipped_quantity: Optional[float] = 0.0
+    total_received_quantity: Optional[float] = 0.0
+    remaining_balance_quantity: Optional[float] = 0.0
+    fulfillment_status: Optional[str] = "OPEN"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -320,18 +328,58 @@ class PaginatedPurchaseOrdersResponse(BaseModel):
 
 
 # =========================================================================
-# LOG-PART-004: PO Balance & Partial Shipment Schemas
+# LOG-PART-004 & EPIC-PO-PART: PO Balance & Partial Shipment Schemas
 # =========================================================================
 
-class POShipmentAllocationCreate(BaseModel):
+class POAllocationCreate(BaseModel):
+    po_id: Optional[int] = None
+    po_line_item_id: Optional[int] = None
     po_item_id: Optional[int] = None
     import_file_id: Optional[int] = None
-    shipment_ref: str = Field(..., min_length=2, description="رقم البوليصة أو كود الشحنة")
-    shipped_quantity: float = Field(..., gt=0)
-    shipped_amount_fob: float = Field(..., ge=0)
+    shipment_batch_no: Optional[str] = None
+    shipment_ref: Optional[str] = None
+    allocated_quantity: Optional[float] = None
+    shipped_quantity: Optional[float] = None
+    allocated_fob_amount: Optional[float] = 0.0
+    shipped_amount_fob: Optional[float] = 0.0
     shipping_date: Optional[datetime] = None
     status: str = "IN_TRANSIT"
     notes: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _sync_aliases(cls, values: Any) -> Any:
+        if not isinstance(values, dict):
+            return values
+        # Item ID alias
+        item_id = values.get("po_line_item_id") or values.get("po_item_id")
+        values["po_line_item_id"] = item_id
+        values["po_item_id"] = item_id
+
+        # Batch / Ref alias
+        ref = values.get("shipment_batch_no") or values.get("shipment_ref") or "BATCH-01"
+        values["shipment_batch_no"] = ref
+        values["shipment_ref"] = ref
+
+        # Quantity alias
+        qty = values.get("allocated_quantity")
+        if qty is None:
+            qty = values.get("shipped_quantity")
+        if qty is None:
+            qty = 0.0
+        values["allocated_quantity"] = float(qty)
+        values["shipped_quantity"] = float(qty)
+
+        # FOB amount alias
+        fob = values.get("allocated_fob_amount")
+        if fob is None:
+            fob = values.get("shipped_amount_fob")
+        if fob is None:
+            fob = 0.0
+        values["allocated_fob_amount"] = float(fob)
+        values["shipped_amount_fob"] = float(fob)
+
+        return values
 
     @field_validator("status", mode="before")
     @classmethod
@@ -342,21 +390,60 @@ class POShipmentAllocationCreate(BaseModel):
         return norm or str(v)
 
 
+POShipmentAllocationCreate = POAllocationCreate
+
+
 @read_model
 class POShipmentAllocationResponse(LegacyRowTolerantModel):
     allocation_id: int
     po_id: int
+    po_line_item_id: Optional[int] = None
     po_item_id: Optional[int] = None
     import_file_id: Optional[int] = None
-    shipment_ref: str
+    shipment_batch_no: Optional[str] = None
+    shipment_ref: Optional[str] = None
+    allocated_quantity: Optional[float] = None
     shipped_quantity: Optional[float] = None
+    allocated_fob_amount: Optional[float] = None
     shipped_amount_fob: Optional[float] = None
-    shipping_date: datetime
-    status: str
+    shipping_date: Optional[datetime] = None
+    status: str = "IN_TRANSIT"
     notes: Optional[str] = None
     created_by: Optional[str] = None
     # Warnings about this allocation, e.g. OVER_SHIPPED (over-allocation is allowed, CTO decision Q4).
     messages: List[SystemMessageItem] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _sync_resp_aliases(cls, values: Any) -> Any:
+        if hasattr(values, "__dict__"):
+            d = values.__dict__
+            line_id = getattr(values, "po_line_item_id", None) or getattr(values, "po_item_id", None)
+            ref = getattr(values, "shipment_batch_no", None) or getattr(values, "shipment_ref", None)
+            qty = getattr(values, "allocated_quantity", None) or getattr(values, "shipped_quantity", None)
+            fob = getattr(values, "allocated_fob_amount", None) or getattr(values, "shipped_amount_fob", None)
+            setattr(values, "po_line_item_id", line_id)
+            setattr(values, "po_item_id", line_id)
+            setattr(values, "shipment_batch_no", ref)
+            setattr(values, "shipment_ref", ref)
+            setattr(values, "allocated_quantity", qty)
+            setattr(values, "shipped_quantity", qty)
+            setattr(values, "allocated_fob_amount", fob)
+            setattr(values, "shipped_amount_fob", fob)
+        elif isinstance(values, dict):
+            line_id = values.get("po_line_item_id") or values.get("po_item_id")
+            ref = values.get("shipment_batch_no") or values.get("shipment_ref")
+            qty = values.get("allocated_quantity") if values.get("allocated_quantity") is not None else values.get("shipped_quantity")
+            fob = values.get("allocated_fob_amount") if values.get("allocated_fob_amount") is not None else values.get("shipped_amount_fob")
+            values["po_line_item_id"] = line_id
+            values["po_item_id"] = line_id
+            values["shipment_batch_no"] = ref
+            values["shipment_ref"] = ref
+            values["allocated_quantity"] = qty
+            values["shipped_quantity"] = qty
+            values["allocated_fob_amount"] = fob
+            values["shipped_amount_fob"] = fob
+        return values
 
     @field_validator("status", mode="before")
     @classmethod
@@ -369,13 +456,18 @@ class POShipmentAllocationResponse(LegacyRowTolerantModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+POAllocationResponse = POShipmentAllocationResponse
+
+
 @read_model
 class POLineItemBalanceItem(LegacyRowTolerantModel):
     item_id: int
     item_code: Optional[str] = None
     description_ar: str
     ordered_qty: Optional[float] = None
+    contracted_qty: Optional[float] = None
     shipped_qty: Optional[float] = None
+    received_qty: Optional[float] = 0.0
     remaining_qty: Optional[float] = None
     unit_price: Optional[float] = None
     ordered_amount_fob: Optional[float] = None
@@ -383,23 +475,47 @@ class POLineItemBalanceItem(LegacyRowTolerantModel):
     remaining_amount_fob: Optional[float] = None
     fulfillment_percent: Optional[float] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _sync_item_contracted(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            if "contracted_qty" not in values or values["contracted_qty"] is None:
+                values["contracted_qty"] = values.get("ordered_qty")
+        elif hasattr(values, "__dict__"):
+            if not getattr(values, "contracted_qty", None):
+                setattr(values, "contracted_qty", getattr(values, "ordered_qty", None))
+        return values
+
 
 @read_model
 class POBalanceSummaryResponse(LegacyRowTolerantModel):
     po_id: int
     po_number: str
     total_ordered_qty: Optional[float] = None
+    total_contracted_qty: Optional[float] = None
     total_shipped_qty: Optional[float] = None
+    total_received_qty: Optional[float] = 0.0
     total_remaining_qty: Optional[float] = None
     total_ordered_amount_fob: Optional[float] = None
     total_shipped_amount_fob: Optional[float] = None
     total_remaining_amount_fob: Optional[float] = None
     currency_code: Optional[str] = None
     overall_fulfillment_percent: Optional[float] = None
-    fulfillment_status: str  # Pending, Partially Shipped, Fully Shipped, Over-Shipped
-    line_items_balance: List[POLineItemBalanceItem]
-    allocations: List[POShipmentAllocationResponse]
-    executive_summary_ar: str
+    fulfillment_status: str = "OPEN"  # OPEN, PARTIALLY_SHIPPED, FULLY_SHIPPED, etc.
+    line_items_balance: List[POLineItemBalanceItem] = Field(default_factory=list)
+    allocations: List[POShipmentAllocationResponse] = Field(default_factory=list)
+    executive_summary_ar: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _sync_summary_contracted(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            if "total_contracted_qty" not in values or values["total_contracted_qty"] is None:
+                values["total_contracted_qty"] = values.get("total_ordered_qty")
+        elif hasattr(values, "__dict__"):
+            if not getattr(values, "total_contracted_qty", None):
+                setattr(values, "total_contracted_qty", getattr(values, "total_ordered_qty", None))
+        return values
 
     model_config = ConfigDict(from_attributes=True)
 

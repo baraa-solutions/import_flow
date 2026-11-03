@@ -113,8 +113,10 @@ class _DraftBLReviewScreenState extends ConsumerState<DraftBLReviewScreen> {
               onPressed: _refreshData,
             ),
           ],
-          body: DraftBLReviewTab(
+          body: SelectionArea(
+            child: DraftBLReviewTab(
             initialImportFileId: _selectedImportFileId,
+            ),
           ),
         ),
       ),

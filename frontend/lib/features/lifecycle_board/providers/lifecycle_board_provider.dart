@@ -19,16 +19,64 @@ String _extractErrorDetail(Object e) {
 }
 
 
+/// Filter state for whether only shipments with pending steps in phase are shown.
+final hasPendingInPhaseFilterProvider = StateProvider<bool>((ref) => false);
+final hasPendingInPhaseProvider = hasPendingInPhaseFilterProvider;
+
+/// Filter state for shipment risk level ('ALL', 'SAFE', 'WARNING', 'CRITICAL', or null).
+final riskLevelFilterProvider = StateProvider<String?>((ref) => null);
+
 final lifecycleBoardSummaryProvider =
     FutureProvider.autoDispose<LifecycleBoardSummaryModel>((ref) async {
   final dio = ref.watch(dioProvider);
+  final hasPendingInPhase = ref.watch(hasPendingInPhaseFilterProvider);
+  final riskLevelFilter = ref.watch(riskLevelFilterProvider);
+
   final cancelToken = CancelToken();
   ref.onDispose(() => cancelToken.cancel('lifecycleBoardSummaryProvider disposed'));
+
+  final queryParams = <String, dynamic>{};
+  if (hasPendingInPhase) {
+    queryParams['has_pending_in_phase'] = true;
+  }
+  if (riskLevelFilter != null &&
+      riskLevelFilter.trim().isNotEmpty &&
+      riskLevelFilter.trim().toUpperCase() != 'ALL') {
+    queryParams['risk_level'] = riskLevelFilter.trim();
+  }
+
   final response = await dio.get(
     '${ApiConstants.baseUrl}/lifecycle-board/summary',
+    queryParameters: queryParams.isNotEmpty ? queryParams : null,
     cancelToken: cancelToken,
   );
-  return LifecycleBoardSummaryModel.fromJson(response.data);
+  final model = LifecycleBoardSummaryModel.fromJson(response.data);
+
+  // In-memory filter fallback
+  var filteredShipments = model.allShipments;
+  if (hasPendingInPhase) {
+    filteredShipments = filteredShipments
+        .where((shipment) => shipment.pendingStepCodes.isNotEmpty)
+        .toList();
+  }
+  if (riskLevelFilter != null &&
+      riskLevelFilter.trim().isNotEmpty &&
+      riskLevelFilter.trim().toUpperCase() != 'ALL') {
+    final targetRisk = riskLevelFilter.trim().toUpperCase();
+    filteredShipments = filteredShipments.where((shipment) {
+      final level = shipment.kpiMetrics?.riskLevel.trim().toUpperCase();
+      return level == targetRisk;
+    }).toList();
+  }
+
+  if (filteredShipments.length != model.allShipments.length) {
+    return model.copyWith(
+      totalActiveFiles: filteredShipments.length,
+      allShipments: filteredShipments,
+    );
+  }
+
+  return model;
 });
 
 final liveLogisticsTrackingProvider =

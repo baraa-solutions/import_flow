@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/helpers/table_copy_helper.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/services/display_name_resolver.dart';
-import '../../../core/services/table_export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/widgets.dart';
@@ -18,7 +15,6 @@ import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
-import '../widgets/clearance_card.dart';
 import '../widgets/clearance_details_dialog.dart';
 import '../widgets/clearance_expenses_dialog.dart';
 import '../widgets/clearance_followup_dialog.dart';
@@ -40,6 +36,7 @@ import '../widgets/under_bond_release_dialog.dart';
 import '../widgets/reexport_protocol_dialog.dart';
 import '../widgets/inspection_appeals_dialog.dart';
 import '../widgets/broker_custody_settlement_dialog.dart';
+import '../widgets/clearance_followup_tab.dart';
 
 class CustomsClearanceScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -56,8 +53,6 @@ class CustomsClearanceScreen extends ConsumerStatefulWidget {
 }
 
 class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  String _selectedStatusFilter = 'All';
   int _selectedTab = 0;
 
   // Local state for discrepancy protocols (Clean Production - 0 records)
@@ -121,12 +116,6 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         );
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   void _showAddEditDialog([CustomsClearanceModel? recordToEdit, bool isCloneDraft = false]) {
@@ -250,115 +239,6 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
             },
           ),
         ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Table copy / export (headers follow the UI language)
-  // ---------------------------------------------------------------------------
-  List<String> _tableHeaders(AppLocalizations l) => [
-        l.customsClearanceColClearanceCode,
-        l.importFile,
-        l.customsClearanceColDecl46,
-        l.customsClearanceOfficeLabel,
-        l.customsClearanceChannelLabel,
-        l.customsClearanceDeliveryOrderLabel,
-        l.customsClearanceColActualDuty,
-        l.customsClearanceColEstimatedDuty,
-        l.customsClearanceColDutyVariance,
-        l.customsClearanceColPaymentStatus,
-        l.status,
-      ];
-
-  List<String> _tableRow(CustomsClearanceModel r, List<ImportFileModel> files, AppLocalizations l) {
-    final rawCode = 'IMP-${r.importFileId}';
-    final shipTitle = DisplayNameResolver.resolveShipmentTitleByCode(rawCode, shipments: files, isArabic: l.isArabic);
-    final actual = CcFormat.fixed(r.effectiveDutyTotal);
-    final est = CcFormat.fixed(r.estimatedDutyTotal);
-    final variance = CcFormat.signedFixed(r.dutyVarianceAmount);
-    return [
-      r.clearanceCode,
-      shipTitle,
-      r.declaration46No ?? '-',
-      r.customsOfficeName,
-      CcUi.channelStyle(l, r.channelType).label,
-      r.deliveryOrderNumber ?? '-',
-      actual,
-      est,
-      variance,
-      CcStatus.isPaid(r) ? l.customsClearanceStatusPaid : l.customsClearanceStatusPendingPayment,
-      CcUi.statusStyle(l, r.status).label,
-    ];
-  }
-
-  void _copyClearanceRowTsv(CustomsClearanceModel record, AppLocalizations l) {
-    final files = ref.read(importFilesProvider).valueOrNull ?? [];
-    TableCopyHelper.copyRow(
-      context,
-      _tableRow(record, files, l),
-      headers: _tableHeaders(l),
-      includeHeaders: true,
-      customMessage: l.copyCustomsClearanceRowSuccess,
-    );
-  }
-
-  void _copyClearanceTableTsv(List<CustomsClearanceModel> records, AppLocalizations l) {
-    if (records.isEmpty) return;
-    final files = ref.read(importFilesProvider).valueOrNull ?? [];
-    TableCopyHelper.copyTable(
-      context,
-      _tableHeaders(l),
-      records.map((r) => _tableRow(r, files, l)).toList(),
-      customMessage: l.copyCustomsClearanceTableSuccess,
-    );
-  }
-
-  Future<void> _exportClearanceExcel(List<CustomsClearanceModel> records, AppLocalizations l) async {
-    final files = ref.read(importFilesProvider).valueOrNull ?? [];
-    await TableExportService.exportTableToExcel(
-      context: context,
-      stageName: 'Customs Clearance',
-      importFileNameOrCode: 'Registry',
-      headers: _tableHeaders(l),
-      rows: records.map((r) => _tableRow(r, files, l)).toList(),
-    );
-  }
-
-  Future<void> _exportClearancePdf(List<CustomsClearanceModel> records, AppLocalizations l) async {
-    final files = ref.read(importFilesProvider).valueOrNull ?? [];
-    final headers = [
-      l.customsClearanceColClearanceCode,
-      l.importFile,
-      l.customsClearanceColDecl46,
-      l.customsClearanceOfficeLabel,
-      l.customsClearanceChannelLabel,
-      l.customsClearanceDeliveryOrderLabel,
-      l.customsClearanceColActualDuty,
-      l.customsClearanceColPaymentStatus,
-      l.status,
-    ];
-
-    final rows = records.map((r) {
-      final row = _tableRow(r, files, l);
-      // PDF keeps the compact column set (no estimated / variance columns).
-      return [...row.sublist(0, 7), row[9], row[10]];
-    }).toList();
-
-    await TableExportService.exportTableToPdf(
-      context: context,
-      stageName: 'Customs Clearance',
-      importFileNameOrCode: 'Registry',
-      headers: headers,
-      rows: rows,
-      headerContext: TableExportHeaderContext(
-        title: l.ccExportRegistryTitle,
-        subtitle: l.ccExportRegistrySubtitle,
-        metadata: {
-          l.ccExportMetaTotal: records.length.toString(),
-          l.ccExportMetaPaid: records.where((r) => CcStatus.isPaid(r)).length.toString(),
-          l.ccExportMetaRelease: records.where((r) => CcStatus.isReleased(r)).length.toString(),
-        },
       ),
     );
   }
@@ -663,235 +543,36 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                 return _buildFinalDutyPaymentView(records, l);
               case 0:
               default:
-                return _buildClearanceFollowUpView(records, l);
+                return ClearanceFollowupTab(
+                  records: records,
+                  onRefresh: _refreshData,
+                  onAddNew: () => _showAddEditDialog(),
+                  onCloneFromList: _openSearchAndCloneClearanceDialog,
+                  onViewDetails: _showClearanceDetails,
+                  onBrokerAuth: (r) => _openRecordStage(r, (f) => CustomsBrokerAuthorizationDialog.show(context, f)),
+                  onDeliveryOrder: (r) => _openRecordStage(r, (f) => DeliveryOrderPaymentDialog.show(context, f)),
+                  onDeclaration46: (r) => _openRecordStage(r, (f) => CustomsDeclaration46Dialog.show(context, f)),
+                  onInspection: (r) => _openRecordStage(r, (f) => CustomsInspectionSamplingDialog.show(context, f, clearanceRecord: r)),
+                  onAssessDuties: (r) => _openRecordStage(r, (f) => FinalDutyAssessmentDialog.show(context, f)),
+                  onEdit: (r) => _showAddEditDialog(r),
+                  onCloneRecord: _onCloneClearance,
+                  onUnderBond: (r) => showUnderBondReleaseDialog(
+                    context,
+                    ref,
+                    clearanceId: r.customsClearanceId,
+                    declarationNo: r.declaration46No ?? r.clearanceCode,
+                    isAlreadyUnderBond: r.isUnderBondRelease,
+                    onDone: _refreshData,
+                  ),
+                  onPayDuty: _showDutyPaymentDialog,
+                  onRelease: _showFinalReleaseDialog,
+                  onExpenses: _showClearanceExpensesDialog,
+                  onFollowups: _showFollowupDialog,
+                );
             }
           },
         ),
       ),
-    );
-  }
-
-  // ===========================================================================
-  // SUB-VIEW 0: CUSTOMS CLEARANCE FOLLOW-UP
-  // ===========================================================================
-
-  /// Counts straight from the loaded records (no extra calls, no new math).
-  List<MetricCardData> _metricsFor(List<CustomsClearanceModel> records, AppLocalizations l) {
-    final assessed = records.where((r) => CcStatus.isAssessed(r)).length;
-    final paid = records.where((r) => CcStatus.isPaid(r)).length;
-    final outstanding = records.where((r) => !CcStatus.isPaid(r)).length;
-    final released = records.where((r) => CcStatus.isReleased(r)).length;
-    return [
-      MetricCardData(
-        title: l.ccMetricAssessed,
-        value: '$assessed',
-        icon: Icons.calculate_outlined,
-        color: AppTheme.cobalt,
-      ),
-      MetricCardData(
-        title: l.ccMetricPaid,
-        value: '$paid',
-        icon: Icons.payments_outlined,
-        color: AppTheme.emerald,
-      ),
-      MetricCardData(
-        title: l.ccMetricOutstanding,
-        value: '$outstanding',
-        icon: Icons.hourglass_bottom_rounded,
-        color: AppTheme.orange,
-      ),
-      MetricCardData(
-        title: l.ccMetricReleased,
-        value: '$released',
-        icon: Icons.verified_outlined,
-        color: AppTheme.charcoal,
-      ),
-    ];
-  }
-
-  Widget _buildToolbar(List<CustomsClearanceModel> records, List<CustomsClearanceModel> filtered, AppLocalizations l) {
-    return Container(
-      margin: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 8),
-      padding: const EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 8),
-      decoration: AppTheme.toolbarDecorationOf(context),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        alignment: WrapAlignment.spaceBetween,
-        children: [
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              AppSearchField(
-                controller: _searchController,
-                width: 260,
-                hint: l.customsClearanceSearchHint,
-                onChanged: (_) => setState(() {}),
-              ),
-              SizedBox(
-                width: 220,
-                child: SearchableDropdownField<String>(
-                  key: const Key('clearanceStatusFilter'),
-                  value: _selectedStatusFilter,
-                  labelText: l.customsClearanceFilterAll,
-                  items: [
-                    SearchableDropdownItem(value: 'All', label: l.customsClearanceFilterAll),
-                    SearchableDropdownItem(value: 'Inspection In Progress', label: l.customsClearanceFilterInspection),
-                    SearchableDropdownItem(value: 'Inspection & Sampling Recorded', label: l.customsClearanceStatusInspectionRecorded),
-                    SearchableDropdownItem(value: 'Duty Requested', label: l.customsClearanceFilterDutyRequested),
-                    SearchableDropdownItem(value: 'Customs Duties Assessed - Ready for Payment', label: l.customsClearanceStatusDutiesAssessed),
-                    SearchableDropdownItem(value: 'Duty Paid', label: l.customsClearanceFilterDutyPaid),
-                    SearchableDropdownItem(value: 'Duty Paid - Ready for Final Release', label: l.customsClearanceStatusDutyPaidReady),
-                    SearchableDropdownItem(value: 'Under Bond Released', label: l.customsClearanceStatusUnderBondReleased),
-                    SearchableDropdownItem(value: 'Lab Non-Conforming - Rejected', label: l.customsClearanceStatusLabRejected),
-                    SearchableDropdownItem(value: 'Final Release Granted', label: l.customsClearanceFilterFinalRelease),
-                    SearchableDropdownItem(value: 'Invoices Logged & Verified', label: l.customsClearanceStatusInvoicesVerified),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedStatusFilter = val);
-                  },
-                ),
-              ),
-            ],
-          ),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              AppButton(
-                key: const Key('createClearanceBtn'),
-                label: l.customsClearanceNewRecordButton,
-                icon: Icons.add,
-                size: AppButtonSize.small,
-                onPressed: () => _showAddEditDialog(),
-              ),
-              AppButton(
-                key: const Key('searchAndCloneClearanceBtn'),
-                label: l.searchAndCloneCustomsClearanceBtn,
-                icon: Icons.difference_outlined,
-                variant: AppButtonVariant.secondary,
-                size: AppButtonSize.small,
-                onPressed: () => _openSearchAndCloneClearanceDialog(records),
-              ),
-              IconButton(
-                key: const Key('copyClearanceTableTsvBtn'),
-                icon: const Icon(Icons.copy_all_outlined, size: 20, color: AppTheme.cobalt),
-                tooltip: l.copyCustomsClearanceTableSuccess,
-                onPressed: () => _copyClearanceTableTsv(filtered, l),
-              ),
-              IconButton(
-                key: const Key('exportClearanceExcelBtn'),
-                icon: const Icon(Icons.table_view_outlined, size: 20, color: AppTheme.emerald),
-                tooltip: l.exportCustomsClearanceExcelTooltip,
-                onPressed: () => _exportClearanceExcel(filtered, l),
-              ),
-              IconButton(
-                key: const Key('exportClearancePdfBtn'),
-                icon: const Icon(Icons.picture_as_pdf_outlined, size: 20, color: AppTheme.crimson),
-                tooltip: l.exportCustomsClearancePdfTooltip,
-                onPressed: () => _exportClearancePdf(filtered, l),
-              ),
-              IconButton(
-                icon: const Icon(Icons.refresh, color: AppTheme.cobalt, size: 20),
-                tooltip: l.customsDeclRefreshTooltip,
-                onPressed: _refreshData,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildClearanceFollowUpView(List<CustomsClearanceModel> records, AppLocalizations l) {
-    final query = _searchController.text.trim().toLowerCase();
-    final filtered = records.where((r) {
-      if (_selectedStatusFilter != 'All' && r.status != _selectedStatusFilter) return false;
-      if (query.isEmpty) return true;
-      return r.clearanceCode.toLowerCase().contains(query) ||
-          (r.declaration46No ?? '').toLowerCase().contains(query) ||
-          (r.deliveryOrderNumber ?? '').toLowerCase().contains(query) ||
-          r.customsOfficeName.toLowerCase().contains(query);
-    }).toList();
-
-    final Widget body;
-    if (records.isEmpty) {
-      body = AppEmptyState(
-        message: l.customsClearanceEmptyRecords,
-        icon: Icons.gavel_rounded,
-        actionLabel: l.customsClearanceNewRecordButton,
-        onAction: () => _showAddEditDialog(),
-      );
-    } else if (filtered.isEmpty) {
-      body = AppEmptyState(
-        message: l.customsClearanceEmptyRecords,
-        icon: Icons.search_off,
-      );
-    } else {
-      body = ListView.builder(
-        padding: const EdgeInsetsDirectional.fromSTEB(16, 4, 16, 16),
-        itemCount: filtered.length,
-        itemBuilder: (context, index) {
-          final record = filtered[index];
-          return ClearanceCard(
-            key: ValueKey('clearanceCard_${record.clearanceCode}'),
-            record: record,
-            actions: ClearanceCardActions(
-              onView: () => _showClearanceDetails(record),
-              onBrokerAuth: () => _openRecordStage(
-                record,
-                (f) => CustomsBrokerAuthorizationDialog.show(context, f),
-              ),
-              onDeliveryOrder: () => _openRecordStage(
-                record,
-                (f) => DeliveryOrderPaymentDialog.show(context, f),
-              ),
-              onDeclaration46: () => _openRecordStage(
-                record,
-                (f) => CustomsDeclaration46Dialog.show(context, f),
-              ),
-              onInspection: () => _openRecordStage(
-                record,
-                (f) => CustomsInspectionSamplingDialog.show(context, f, clearanceRecord: record),
-              ),
-              onAssessDuties: () => _openRecordStage(
-                record,
-                (f) => FinalDutyAssessmentDialog.show(context, f),
-              ),
-              onEdit: () => _showAddEditDialog(record),
-              onCopyRow: () => _copyClearanceRowTsv(record, l),
-              onClone: () => _onCloneClearance(record),
-              onUnderBond: () => showUnderBondReleaseDialog(
-                context,
-                ref,
-                clearanceId: record.customsClearanceId,
-                declarationNo: record.declaration46No ?? record.clearanceCode,
-                isAlreadyUnderBond: record.isUnderBondRelease,
-                onDone: _refreshData,
-              ),
-              onPayDuty: () => _showDutyPaymentDialog(record),
-              onRelease: () => _showFinalReleaseDialog(record),
-              onExpenses: () => _showClearanceExpensesDialog(record),
-              onFollowups: () => _showFollowupDialog(record),
-            ),
-          );
-        },
-      );
-    }
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsetsDirectional.only(top: 8),
-          child: CcUi.metrics(_metricsFor(records, l)),
-        ),
-        _buildToolbar(records, filtered, l),
-        Expanded(child: body),
-      ],
     );
   }
 

@@ -522,7 +522,7 @@ void main() {
 
       // Verify notifier was called and clone completed
       expect(mockNotifier.cloneCallCount, 1);
-      expect(find.textContaining('✨'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
     });
 
     testWidgets('Task E: Checklist Row-Level Clone via Icons.copy_rounded', (tester) async {
@@ -552,7 +552,7 @@ void main() {
       expect(updatedCloneButtons.evaluate().length, initialCount + 1);
 
       // Verify snackbar is displayed
-      expect(find.text('✨ ${lAr.checklistItemClonedSuccess}'), findsOneWidget);
+      expect(find.text(lAr.checklistItemClonedSuccess), findsOneWidget);
     });
   });
 }

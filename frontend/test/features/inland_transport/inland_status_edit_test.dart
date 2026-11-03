@@ -10,10 +10,8 @@ import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
-import 'package:frontend/features/inland_transport/providers/inland_transport_provider.dart';
 import 'package:frontend/features/inland_transport/widgets/inland_transport_dialog.dart';
 
-import '../../helpers/localized_app.dart';
 
 class _Adapter implements HttpClientAdapter {
   final List<RequestOptions> requests = [];
@@ -182,7 +180,7 @@ void main() {
       await openDialog(tester, a);
 
       expect(find.byKey(const Key('inlandEditBookingBtn')), findsNothing);
-      expect(find.text(AppLocalizationsEn().inlandArrivedMsg), findsOneWidget);
+      expect(find.text(const AppLocalizationsEn().inlandArrivedMsg), findsOneWidget);
     });
 
     testWidgets('edit booking toggles edit form and submits PUT to update booking', (tester) async {
@@ -202,7 +200,7 @@ void main() {
       final submitBtn = find.byKey(const Key('inlandSubmitBookingBtn'));
       await tester.scrollUntilVisible(submitBtn, 200, scrollable: find.byType(Scrollable).last);
       await tester.pumpAndSettle();
-      expect(find.descendant(of: submitBtn, matching: find.text(AppLocalizationsEn().inlandSaveChangesBtn)), findsOneWidget);
+      expect(find.descendant(of: submitBtn, matching: find.text(const AppLocalizationsEn().inlandSaveChangesBtn)), findsOneWidget);
 
       // Tap Save Changes
       await tester.tap(find.byKey(const Key('inlandSubmitBookingBtn')));

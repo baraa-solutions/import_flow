@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/display_name_resolver.dart';
 import '../theme/app_theme.dart';
 import 'back_to_dashboard_button.dart';
+import 'unsaved_changes_guard.dart';
 import 'shipment_stage_lifecycle_control.dart';
 import 'stage_notes_card.dart';
 
@@ -35,6 +36,9 @@ class VerticalStageScaffold extends StatelessWidget {
   final bool showStageLifecycleControls;
   final bool showNotesButton;
   final VoidCallback? onShipmentStatusChanged;
+  final bool isDirty;
+  final VoidCallback? onSave;
+  final VoidCallback? onDiscard;
 
   const VerticalStageScaffold({
     super.key,
@@ -53,12 +57,15 @@ class VerticalStageScaffold extends StatelessWidget {
     this.showStageLifecycleControls = true,
     this.showNotesButton = true,
     this.onShipmentStatusChanged,
+    this.isDirty = false,
+    this.onSave,
+    this.onDiscard,
   });
 
   @override
   Widget build(BuildContext context) {
     final selectableBody = SelectionArea(child: body);
-    return Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: Colors.grey.shade100,
       body: Column(
         children: [
@@ -508,5 +515,14 @@ class VerticalStageScaffold extends StatelessWidget {
     ],
   ),
 );
+
+    // Always wrap: toggling the wrapper on the first edit would change the tree
+    // shape and remount the whole body, wiping the form state and scroll offset.
+    return UnsavedChangesGuard(
+      isDirty: isDirty,
+      onSave: onSave,
+      onDiscard: onDiscard,
+      child: scaffold,
+    );
   }
 }

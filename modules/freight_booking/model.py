@@ -30,8 +30,18 @@ class ShipmentBooking(Base):
     shipping_line_id = Column(Integer, ForeignKey("external_service_providers.provider_id"), nullable=True)
     shipping_line_name = Column(String(150), nullable=True)
 
-    # Shipment Specifications
+    # Shipment Specifications & Transport Mode
     shipment_type = Column(String(50), nullable=False, default="Ocean FCL")  # Ocean FCL, Ocean LCL, Air
+    transport_mode = Column(String(50), nullable=False, default="SEA_FCL", server_default=text("'SEA_FCL'"))  # SEA_FCL, SEA_LCL, AIR_FREIGHT
+    master_air_waybill = Column(String(100), nullable=True, index=True)
+    house_air_waybill = Column(String(100), nullable=True, index=True)
+    flight_number = Column(String(50), nullable=True)
+    airline_code = Column(String(50), nullable=True)
+    airport_terminal_name = Column(String(150), nullable=True)
+    cfs_terminal_name = Column(String(150), nullable=True)
+    stripping_fees_egp = Column(Float, nullable=True, default=0.0)
+    chargeable_weight_kg = Column(Float, nullable=True, default=0.0)
+
     pol_location_id = Column(Integer, ForeignKey("transport_locations.location_id"), nullable=True)
     pol_name = Column(String(150), nullable=True)
     pod_location_id = Column(Integer, ForeignKey("transport_locations.location_id"), nullable=True)

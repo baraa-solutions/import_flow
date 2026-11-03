@@ -171,7 +171,8 @@ class _VesselEtaTrackingDialogState extends ConsumerState<VesselEtaTrackingDialo
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       backgroundColor: AppTheme.surfaceOf(context),
-      child: ConstrainedBox(
+      child: SelectionArea(
+        child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 800, maxHeight: 720),
         child: Column(
           children: [
@@ -321,6 +322,7 @@ class _VesselEtaTrackingDialogState extends ConsumerState<VesselEtaTrackingDialo
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -334,11 +336,11 @@ class _VesselEtaTrackingDialogState extends ConsumerState<VesselEtaTrackingDialo
           // Section 1: History List
           Expanded(
             child: logsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const AppLoadingState.section(),
               error: (err, _) => Center(
-                child: Text(
-                  l.isArabic ? 'خطأ في جلب سجلات المسار: $err' : 'Error loading tracking logs: $err',
-                  style: const TextStyle(color: AppTheme.crimson),
+                child: AppErrorState(
+                  error: err,
+                  onRetry: () => ref.invalidate(etaTrackingLogsProvider(widget.booking.bookingId)),
                 ),
               ),
               data: (logs) {

@@ -132,8 +132,12 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Task B: SelectionArea wraps the screen
-      expect(find.byType(SelectionArea), findsOneWidget);
+      // Task B: one screen-level SelectionArea wraps the header (the data table
+      // nests its own SelectionArea for its rows, so scope to the header title).
+      expect(
+        find.ancestor(of: find.text(ar.inqScreenTitle), matching: find.byType(SelectionArea)),
+        findsOneWidget,
+      );
 
       // Task A: Screen Title & Subtitle in Arabic
       expect(find.text(ar.inqScreenTitle), findsOneWidget);
@@ -184,7 +188,10 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(
+        find.ancestor(of: find.text(en.inqScreenTitle), matching: find.byType(SelectionArea)),
+        findsOneWidget,
+      );
       expect(find.text(en.inqScreenTitle), findsOneWidget);
       expect(find.text(en.inqSubtitle), findsOneWidget);
       expect(find.text(en.inqExportPdfBtn), findsOneWidget);

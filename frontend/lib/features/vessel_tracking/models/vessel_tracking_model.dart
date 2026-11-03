@@ -66,6 +66,11 @@ class ShipmentTrackingModel {
   final double? distanceRemainingNm;
   final List<WaypointModel> routeWaypoints;
   final DateTime? lastPolledAt;
+  final int? demurrageTrackingId;
+  final String? demurrageTrackingCode;
+  final String? demurrageStatus;
+  final String? demurrageDischargeDate;
+  final bool demurrageClockStarted;
 
   ShipmentTrackingModel({
     required this.trackingId,
@@ -99,6 +104,11 @@ class ShipmentTrackingModel {
     this.distanceRemainingNm,
     required this.routeWaypoints,
     this.lastPolledAt,
+    this.demurrageTrackingId,
+    this.demurrageTrackingCode,
+    this.demurrageStatus,
+    this.demurrageDischargeDate,
+    this.demurrageClockStarted = false,
   });
 
   factory ShipmentTrackingModel.fromJson(Map<String, dynamic> json) {
@@ -155,6 +165,11 @@ class ShipmentTrackingModel {
       lastPolledAt: json['last_polled_at'] != null
           ? DateTime.tryParse(json['last_polled_at'] as String)
           : null,
+      demurrageTrackingId: json['demurrage_tracking_id'] as int?,
+      demurrageTrackingCode: json['demurrage_tracking_code'] as String?,
+      demurrageStatus: json['demurrage_status'] as String?,
+      demurrageDischargeDate: json['demurrage_discharge_date'] as String?,
+      demurrageClockStarted: json['demurrage_clock_started'] as bool? ?? false,
     );
   }
 }

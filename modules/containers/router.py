@@ -11,10 +11,12 @@ from .schemas import (
     ContainerCreate,
     ContainerUpdate,
     ContainerGateOutRequest,
+    ContainerEirReturnRequest,
     ContainerEmptyReturnRequest,
     ContainerResponse,
     ContainerListResponse,
     ContainerSyncResponse,
+    ContainerLedgerResponse,
 )
 from .service import (
     create_container_service,
@@ -22,7 +24,9 @@ from .service import (
     get_containers_service,
     update_container_service,
     gate_out_container_service,
+    empty_return_eir_service,
     empty_return_container_service,
+    get_container_ledger_service,
     delete_container_service,
     sync_containers_from_file_service,
 )
@@ -117,6 +121,20 @@ def gate_out_container_endpoint(
 
 
 @router.post(
+    "/{container_id}/empty-return-eir",
+    response_model=ContainerResponse,
+    summary="توثيق إيصال إرجاع الحاوية الفارغة EIR وإيقاف احتساب الغرامة",
+)
+def empty_return_eir_endpoint(
+    container_id: int,
+    req: ContainerEirReturnRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("demurrage_detention.manage")),
+):
+    return empty_return_eir_service(db, container_id, req, user=current_user.username)
+
+
+@router.post(
     "/{container_id}/return-empty",
     response_model=ContainerResponse,
     summary="تسجيل إرجاع الحاوية الفارغة للمستودع وإيصال EIR (TR-05)",
@@ -128,6 +146,19 @@ def empty_return_container_endpoint(
     current_user: User = Depends(require_permission("demurrage_detention.manage")),
 ):
     return empty_return_container_service(db, container_id, req, user=current_user.username)
+
+
+@router.get(
+    "/import-file/{file_id}/ledger",
+    response_model=ContainerLedgerResponse,
+    summary="كشف حساب الحاويات وتتبع الغرامات الموقوفة والنشطة لكل حاوية",
+)
+def get_container_ledger_endpoint(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargo_shipping.view")),
+):
+    return get_container_ledger_service(db, import_file_id=file_id)
 
 
 @router.delete(

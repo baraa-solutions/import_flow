@@ -85,6 +85,43 @@ class ImportRequirementAssessment(Base):
     sailing_status = Column(String(50), nullable=True, default="Pre-Sailing")
     sailing_date = Column(String(50), nullable=True)
 
+    # CargoX & Pre-ACID Readiness (الركيزة 1: التسجيل المسبق وجاهزية كارغو إكس)
+    cargox_verified = Column(Boolean, nullable=False, default=False)
+    cargox_status = Column(String(50), nullable=True, default="Not Verified")
+    ready_for_acid = Column(Boolean, nullable=False, default=False)
+    triple_match_status = Column(String(50), nullable=True, default="Pending")
+
+    # Import Card & Commodity Group (الركيزة 2: مطابقة المجموعات السلعية)
+    commodity_group_matched = Column(Boolean, nullable=False, default=True)
+    import_card_group_code = Column(String(100), nullable=True)
+
+    # Adaptive Shelf-Life & Labeling (الركيزة 3: الصلاحية والملصق العربي المشروط)
+    is_shelflife_applicable = Column(Boolean, nullable=False, default=False)
+    shelf_life_total_days = Column(Integer, nullable=True)
+    shelf_life_remaining_percent = Column(Float, nullable=True)
+    artwork_arabic_approved = Column(Boolean, nullable=True)
+    labeling_notes = Column(Text, nullable=True)
+
+    # Testing & Physical Sampling (الركيزة 4: مسار الفحص والمعامل والإفراج تحت التحفظ)
+    sampling_required = Column(Boolean, nullable=False, default=False)
+    lab_type = Column(String(100), nullable=True)
+    detention_allowed = Column(Boolean, nullable=False, default=False)
+    estimated_lab_fees = Column(Float, nullable=False, default=0.0)
+
+    # Special Logistics: Cold Chain & Hazmat (الركيزة 5: النقل المبرد والمواد الخطرة)
+    cold_chain_required = Column(Boolean, nullable=False, default=False)
+    target_temperature = Column(String(50), nullable=True)
+    data_logger_verified = Column(Boolean, nullable=False, default=False)
+    is_hazmat = Column(Boolean, nullable=False, default=False)
+    imo_class = Column(String(50), nullable=True)
+
+    # Governance: Maker-Checker & Overrides (الركيزة 6: حوكمة الصلاحيات والاعتماد المزدوج)
+    checker_user_id = Column(Integer, nullable=True)
+    checker_approved = Column(Boolean, nullable=False, default=False)
+    checker_notes = Column(Text, nullable=True)
+    is_overridden = Column(Boolean, nullable=False, default=False)
+    override_reason = Column(Text, nullable=True)
+
     # Assessment Summary
     overall_status = Column(String(50), nullable=False, default="Draft")  # Draft, In Progress, Complete, Cleared, Confirmed
     risk_level = Column(String(20), nullable=False, default="Low")  # Low, Medium, High
@@ -97,4 +134,3 @@ class ImportRequirementAssessment(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     created_by = Column(String(100), nullable=False, default="System")
     updated_by = Column(String(100), nullable=False, default="System")
-

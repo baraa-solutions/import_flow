@@ -10,6 +10,7 @@ import 'package:frontend/features/incoterms/providers/incoterms_provider.dart';
 import 'package:frontend/features/projects/models/project_model.dart';
 import 'package:frontend/features/projects/providers/projects_provider.dart';
 import 'package:frontend/features/projects/screens/projects_screen.dart';
+import 'package:frontend/features/projects/widgets/project_form_dialog.dart';
 import 'package:frontend/features/suppliers/models/supplier_model.dart';
 import 'package:frontend/features/suppliers/providers/suppliers_provider.dart';
 
@@ -251,7 +252,11 @@ void main() {
       expect(find.text('إنشاء مشروع استيراد جديد'), findsOneWidget);
       expect(find.text('اسم المشروع *'), findsOneWidget);
       expect(find.text('مدير أو مسؤول المشروع *'), findsOneWidget);
-      expect(find.text('الميزانية التقديرية بالدولار'), findsOneWidget);
+      // The projects stats bar behind the dialog also shows this label, so scope to the dialog.
+      expect(
+        find.descendant(of: find.byType(ProjectFormDialog), matching: find.text('الميزانية التقديرية بالدولار')),
+        findsOneWidget,
+      );
       expect(find.text('تاريخ الانتهاء المستهدف'), findsOneWidget);
     });
   });

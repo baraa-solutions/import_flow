@@ -1,0 +1,43 @@
+{
+  "@@locale": "en",
+  "kpiHealthScore": "Completion Rate",
+  "@kpiHealthScore": {
+    "description": "Shipment completion rate"
+  },
+  "kpiFreeTimeBurn": "Free Time Burn",
+  "@kpiFreeTimeBurn": {
+    "description": "Free time consumption percentage"
+  },
+  "kpiDaysLeft": "Days Remaining",
+  "@kpiDaysLeft": {
+    "description": "Remaining free days"
+  },
+  "kpiOverdueSteps": "Overdue Steps",
+  "@kpiOverdueSteps": {
+    "description": "Number of overdue steps"
+  },
+  "kpiCostVariance": "Cost Variance",
+  "@kpiCostVariance": {
+    "description": "Cost variance percentage"
+  },
+  "kpiRiskSafe": "Safe",
+  "@kpiRiskSafe": {
+    "description": "Risk level: Safe"
+  },
+  "kpiRiskWarning": "Warning",
+  "@kpiRiskWarning": {
+    "description": "Risk level: Warning"
+  },
+  "kpiRiskCritical": "Critical",
+  "@kpiRiskCritical": {
+    "description": "Risk level: Critical"
+  },
+  "phasePendingCount": "Pending Shipments",
+  "@phasePendingCount": {
+    "description": "Count of pending shipments in phase"
+  },
+  "phaseDelayedCount": "Delayed Shipments",
+  "@phaseDelayedCount": {
+    "description": "Count of delayed shipments in phase"
+  }
+}

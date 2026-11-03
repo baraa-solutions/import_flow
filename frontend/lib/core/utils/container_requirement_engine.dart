@@ -229,8 +229,51 @@ class ContainerRequirementEngine {
     ContainerSpec(code: '20GP', name: "20' General Purpose Container", internalVolumeCbm: 33.2, maxPayloadKg: 21700.0, internalLength: 589.0, internalWidth: 235.0, internalHeight: 239.0),
     ContainerSpec(code: '40GP', name: "40' General Purpose Container", internalVolumeCbm: 67.7, maxPayloadKg: 26500.0, internalLength: 1203.0, internalWidth: 235.0, internalHeight: 239.0),
     ContainerSpec(code: '40HC', name: "40' High Cube Container", internalVolumeCbm: 76.4, maxPayloadKg: 26500.0, internalLength: 1203.0, internalWidth: 235.0, internalHeight: 269.0),
-    ContainerSpec(code: '45HC', name: "45' High Cube Container", internalVolumeCbm: 86.0, maxPayloadKg: 27700.0, internalLength: 1355.6, internalWidth: 235.2, internalHeight: 269.8),
-  ];
+    ContainerSpec(code: '45HC', name: "45' High Cube Container", internalVolumeCbm: 86.0, maxPayloadKg: 27700.0, internalLength: 1355.6, internalWidth: 235.2, internalHeight: 269.8)];
+
+
+  /// Calculates floor area footprint in square meters (m²).
+  static double calculateFloorAreaM2({
+    required double lengthM,
+    required double widthM,
+    int quantity = 1,
+  }) {
+    return lengthM * widthM * quantity;
+  }
+
+  /// Calculates Road Freight / Trucking Loading Meters (LDM) based on standard trailer width (2.40m).
+  static double calculateLdm({
+    required double floorAreaM2,
+    double trailerWidthM = kStandardTrailerWidthM,
+  }) {
+    if (trailerWidthM <= 0) return 0.0;
+    return floorAreaM2 / trailerWidthM;
+  }
+
+  /// Calculates Ocean LCL Chargeable CBM:
+  /// - If stackable: physical CBM is billed.
+  /// - If non-stackable: floor area multiplied by usable clearance height (default 2.20m).
+  static double calculateLclChargeableCbm({
+    required double physicalCbm,
+    required double floorAreaM2,
+    required bool isStackable,
+    double clearanceHeightM = kDefaultLclClearanceHeightM,
+  }) {
+    if (isStackable) return physicalCbm;
+    final lossOfHeightCbm = floorAreaM2 * clearanceHeightM;
+    return lossOfHeightCbm > physicalCbm ? lossOfHeightCbm : physicalCbm;
+  }
+
+  /// Calculates Ocean Freight Revenue Ton (RT) based on Weight/Measure (W/M) rule:
+  /// 1 CBM = 1,000 kg (1 Metric Ton). RT = max(Chargeable CBM, Weight in Tons).
+  static double calculateOceanRevenueTon({
+    required double chargeableCbm,
+    required double totalGrossWeightKg,
+  }) {
+    final weightTons = totalGrossWeightKg / kOceanRevenueTonKg;
+    return chargeableCbm > weightTons ? chargeableCbm : weightTons;
+  }
+
 
   /// Groups placed cargo items according to the enterprise aggregation protocol:
   /// - Cartons / standard items are aggregated by item code / description.

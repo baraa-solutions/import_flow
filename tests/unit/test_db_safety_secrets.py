@@ -50,10 +50,15 @@ def _legacy_token(plain: str) -> str:
 # ---------------------------------------------------------------- mailbox passwords
 
 def test_password_encrypted_by_old_frozen_build_still_decrypts(monkeypatch):
-    monkeypatch.delenv("SECRET_KEY", raising=False)
-    stored = email_crypto.encrypt_email_password("imap-app-password")  # old frozen first run
+    stored = _legacy_token("imap-app-password")  # old frozen token stored under legacy key
     monkeypatch.setenv("SECRET_KEY", NEW_SECRET)                        # new build: persisted random key
     assert email_crypto.decrypt_email_password(stored) == "imap-app-password"
+
+
+def test_encrypt_without_secret_key_raises_runtime_error(monkeypatch):
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="SECRET_KEY is not configured"):
+        email_crypto.encrypt_email_password("imap-app-password")
 
 
 def test_legacy_password_is_moved_to_current_key_on_save(monkeypatch):

@@ -559,9 +559,9 @@ class TestCLO01InvoicesAggregation:
         assert "unpaid acknowledged" in task_901.notes
 
         # 4. Cairo date verification when UTC time is 23:30 (next Cairo day)
-        from modules.financial_settlement import service as fs_service
+        from modules.financial_settlement import actual_settlement_service
         fake_cairo_date = date(2026, 12, 31)
-        monkeypatch.setattr(fs_service, "cairo_today", lambda: fake_cairo_date)
+        monkeypatch.setattr(actual_settlement_service, "cairo_today", lambda: fake_cairo_date)
 
         imp_late = ImportFile(
             import_file_code="IMP-BE09-T13-LATE",

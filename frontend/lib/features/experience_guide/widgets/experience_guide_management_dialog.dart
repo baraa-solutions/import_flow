@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../models/guide_entry_model.dart';
 import '../providers/experience_guide_provider.dart';
 import 'add_guide_entry_dialog.dart';
+import '../../../core/widgets/widgets.dart';
 
 class ExperienceGuideManagementDialog extends ConsumerStatefulWidget {
   const ExperienceGuideManagementDialog({super.key});
@@ -89,7 +90,8 @@ class _ExperienceGuideManagementDialogState
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ConstrainedBox(
+      child: SelectionArea(
+        child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 880, maxHeight: 750),
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -179,20 +181,21 @@ class _ExperienceGuideManagementDialogState
                   const SizedBox(width: 12),
                   SizedBox(
                     width: 200,
-                    child: DropdownButtonFormField<String?>(
-                      initialValue: _selectedScopeType,
+                    child: SearchableDropdownField<String?>(
+                      value: _selectedScopeType,
+                      labelText: 'تصفية حسب نوع النطاق',
                       decoration: InputDecoration(
                         labelText: 'تصفية حسب نوع النطاق',
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       items: const [
-                        DropdownMenuItem(value: null, child: Text('جميع النطاقات')),
-                        DropdownMenuItem(value: 'hs_code', child: Text('بند التعريفة')),
-                        DropdownMenuItem(value: 'destination_port', child: Text('ميناء الوصول')),
-                        DropdownMenuItem(value: 'product_category', child: Text('تصنيف الصنف')),
-                        DropdownMenuItem(value: 'supplier', child: Text('المورد')),
-                        DropdownMenuItem(value: 'shipping_line', child: Text('الخط الملاحي')),
+                        SearchableDropdownItem<String?>(value: null, label: 'جميع النطاقات'),
+                        SearchableDropdownItem<String?>(value: 'hs_code', label: 'بند التعريفة'),
+                        SearchableDropdownItem<String?>(value: 'destination_port', label: 'ميناء الوصول'),
+                        SearchableDropdownItem<String?>(value: 'product_category', label: 'تصنيف الصنف'),
+                        SearchableDropdownItem<String?>(value: 'supplier', label: 'المورد'),
+                        SearchableDropdownItem<String?>(value: 'shipping_line', label: 'الخط الملاحي'),
                       ],
                       onChanged: (val) {
                         setState(() => _selectedScopeType = val);
@@ -337,6 +340,6 @@ class _ExperienceGuideManagementDialogState
           ),
         ),
       ),
-    );
+    ));
   }
 }

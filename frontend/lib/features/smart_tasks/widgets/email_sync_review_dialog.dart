@@ -1,8 +1,8 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/navigation_provider.dart';
-import '../../../core/theme/app_theme.dart';
 import '../models/email_settings_model.dart';
 import '../providers/email_settings_provider.dart';
 
@@ -97,11 +97,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
       }
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تم توجيه كافة المهام المحددة إلى: $newAssignee'),
-        backgroundColor: AppTheme.cobalt,
-        duration: const Duration(seconds: 2),
-      ),
+      AppTheme.snackBar(context, 'تم توجيه كافة المهام المحددة إلى: $newAssignee'),
     );
   }
 
@@ -109,10 +105,7 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
     final selected = _items.where((i) => i.isSelected).toList();
     if (selected.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('يرجى تحديد مهمة واحدة على الأقل للاعتماد والتوجيه.'),
-          backgroundColor: AppTheme.crimson,
-        ),
+        AppTheme.snackBar(context, 'يرجى تحديد مهمة واحدة على الأقل للاعتماد والتوجيه.', severity: AppSeverity.danger),
       );
       return;
     }
@@ -143,19 +136,12 @@ class _EmailSyncReviewDialogState extends ConsumerState<EmailSyncReviewDialog> {
       setState(() => _isSubmitting = false);
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('تم بنجاح اعتماد وتوجيه ${selected.length} مهمة ذكية وحفظها في النظام!'),
-            backgroundColor: AppTheme.emerald,
-            duration: const Duration(seconds: 3),
-          ),
+          AppTheme.snackBar(context, 'تم بنجاح اعتماد وتوجيه ${selected.length} مهمة ذكية وحفظها في النظام!', severity: AppSeverity.success),
         );
         Navigator.of(context).pop();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('حدث خطأ أثناء اعتماد وتوجيه المهام.'),
-            backgroundColor: AppTheme.crimson,
-          ),
+          AppTheme.snackBar(context, 'حدث خطأ أثناء اعتماد وتوجيه المهام.', severity: AppSeverity.danger),
         );
       }
     }

@@ -147,6 +147,10 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
     'body': 'Import file {import_file_code} officially closed at 100% completion; closure certificate {closure_code} issued and filed at {archive_location}.',
     'note': 'Import file finally closed and archived (code: {closure_code}) by {auditor_name}.',
   },
+  'CLO_FILE_REOPENED': {
+    'title': 'Shipment reopened: {import_file_code}',
+    'body': 'Import file {import_file_code} has been officially reopened by supervisor {reopened_by}. Reason: {justification}',
+  },
   'CLO_TASK_OFFICIAL_CLOSURE': {
     'title': 'Official closure and digital archiving of the file (CLO-04)',
     'body': 'Full dossier of {import_file_code} exported and approved as {export_format}. Complete the final checklist and issue the closure and archiving certificate.',
@@ -1105,6 +1109,12 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'DOC_IBL_ACID_NOT_EXTRACTED': {
     'note': 'ACID number was not extracted from the invoice or the B/L.',
   },
+  'DOC_IBL_ARITHMETIC_MATCH': {
+    'note': 'Line items arithmetic recalculation matches total invoice amount ({total_amount} {currency})',
+  },
+  'DOC_IBL_ARITHMETIC_MISMATCH': {
+    'note': 'Arithmetic discrepancy: calculated line items sum ({calculated_amount}) differs from total ({total_amount})',
+  },
   'DOC_IBL_CONSIGNEE_MATCH': {
     'note': 'Importer name matches',
   },
@@ -1114,17 +1124,38 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'DOC_IBL_CONSIGNEE_NOT_EXTRACTED': {
     'note': 'Could not extract the importer / consignee name.',
   },
+  'DOC_IBL_CURRENCY_MATCH': {
+    'note': 'Currency matches across documents and system ({currency})',
+  },
+  'DOC_IBL_CURRENCY_MISMATCH': {
+    'note': 'Currency mismatch: invoice ({invoice_currency}) vs system ({system_currency})',
+  },
   'DOC_IBL_CONTAINERS_MATCH': {
     'note': 'Container numbers match exactly',
   },
   'DOC_IBL_CONTAINERS_MISMATCH': {
     'note': 'Container numbers in the invoice do not match the B/L.',
   },
+  'DOC_IBL_CONTAINERS_DUMMY': {
+    'note': 'Provisional or dummy container number ({container_no}) detected: final confirmation required',
+  },
+  'DOC_IBL_CONTAINERS_ISO_INVALID': {
+    'note': 'Container number ({container_no}) fails ISO 6346 check digit validation',
+  },
   'DOC_IBL_GROSS_WEIGHT_EXCEEDS': {
     'note': 'Gross weight difference exceeds the customs tolerance.',
   },
   'DOC_IBL_GROSS_WEIGHT_MATCH': {
     'note': 'Gross weight matches within the allowed range (<= {tolerance_pct}%)',
+  },
+  'DOC_IBL_HS_MATCH': {
+    'note': 'Harmonized System (HS) code matches across invoice, B/L and system',
+  },
+  'DOC_IBL_HS_MISMATCH': {
+    'note': 'HS code mismatch: invoice ({invoice_hs}) vs B/L ({bl_hs})',
+  },
+  'DOC_IBL_HS_NOT_EXTRACTED': {
+    'note': 'HS classification code not found in one or more documents',
   },
   'DOC_IBL_INCOTERMS_COHERENT': {
     'note': 'Incoterm {incoterm} is consistent with the freight payment ({freight_terms})',
@@ -1134,6 +1165,18 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'DOC_IBL_NET_WEIGHT_VARIANCE': {
     'note': 'Net weight differs between the invoice and the draft B/L.',
+  },
+  'DOC_IBL_NOTIFY_MATCH': {
+    'note': 'Notify party details match the consignee and shipment document',
+  },
+  'DOC_IBL_NOTIFY_MISMATCH': {
+    'note': 'Notify party differs between the invoice and the B/L',
+  },
+  'DOC_IBL_NOTIFY_NOT_EXTRACTED': {
+    'note': 'Notify party details were not extracted from the B/L',
+  },
+  'DOC_IBL_NOTIFY_PENDING_WARNING': {
+    'note': 'Notify party contains pending annotation (Please Advise / TBA) requiring confirmation',
   },
   'DOC_IBL_PACKAGES_MATCH': {
     'note': 'Package and pallet counts match exactly',
@@ -1174,11 +1217,23 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'DOC_INSPECTION_VALUE_NOT_FOUND': {
     'note': 'Value not found in the uploaded inspection certificate draft',
   },
+  'DOC_TOL_ARITHMETIC': {
+    'note': 'Line-by-line arithmetic precision',
+  },
   'DOC_TOL_CONTAINERS_EXACT': {
     'note': '0% (exact container number match)',
   },
+  'DOC_TOL_CURRENCY': {
+    'note': '0% (exact currency match)',
+  },
   'DOC_TOL_EXACT': {
     'note': '0% (exact match required)',
+  },
+  'DOC_TOL_HS_CODE': {
+    'note': 'HS code classification match',
+  },
+  'DOC_TOL_ISO_CONTAINER': {
+    'note': 'ISO 6346 & provisional check',
   },
   'DOC_TOL_PACKAGES_EXACT': {
     'note': '0% (package count match)',
@@ -1470,6 +1525,30 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'CC_RELEASE_QUARANTINE_LOCKED': {
     'note': 'The final release cannot be issued while {clearance_code} is under the laboratory quarantine lock.',
+  },
+  'CC_REGULATORY_REQUIREMENTS_NOT_MET': {
+    'note': 'Customs release cannot be issued: the regulatory approvals or the goods inspection are not complete (GOEIC / food safety / technical inspection).',
+  },
+  'IF_FILE_ON_HOLD': {
+    'note': 'Import file {import_file_code} is on hold ({hold_reason}); resume it before continuing.',
+  },
+  'IF_FILE_ALREADY_CLOSED': {
+    'note': 'Import file {import_file_code} is already closed.',
+  },
+  'ITEM_CODE_ALREADY_EXISTS': {
+    'note': 'This item code is already registered in the item catalog.',
+  },
+  'ITEM_NOT_FOUND': {
+    'note': 'The item does not exist or has been deleted.',
+  },
+  'ITEM_SUPPLIER_LINK_EXISTS': {
+    'note': 'This item is already linked to this supplier in the price catalog.',
+  },
+  'SUPPLIER_NOT_FOUND': {
+    'note': 'The foreign supplier does not exist in the directory.',
+  },
+  'TARIFF_NOT_FOUND': {
+    'note': 'The customs tariff item does not exist or is inactive.',
   },
   'CC_LAB_RESULT_ALREADY_FINAL': {
     'note': 'The lab result was already recorded and the quarantine lifted, or the shipment is finally released ({clearance_status}).',

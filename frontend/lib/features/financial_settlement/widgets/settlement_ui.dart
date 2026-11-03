@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/ltr_text.dart';
-import '../../../core/widgets/metric_card.dart';
 import '../models/actual_landed_cost_model.dart' show SettlementMessageModel;
 
 /// Neutral tokens derived from the AppTheme palette (no raw hex in widgets).
@@ -213,11 +211,7 @@ class SettlementStateView extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isLoading)
-                const SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: CircularProgressIndicator(strokeWidth: 3),
-                )
+                const AppLoadingState.inline()
               else
                 Icon(icon, size: 48, color: color),
               const SizedBox(height: 14),

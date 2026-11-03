@@ -15,7 +15,6 @@ import 'package:frontend/features/currencies/providers/currencies_provider.dart'
 import 'package:frontend/features/customs_consultation/models/customs_consultation_model.dart';
 import 'package:frontend/features/customs_consultation/providers/customs_consultation_provider.dart';
 import 'package:frontend/features/customs_consultation/screens/customs_consultation_screen.dart';
-import 'package:frontend/features/customs_consultation/widgets/saved_consultations_tab.dart';
 import 'package:frontend/features/customs_tariff/providers/customs_tariff_provider.dart';
 import 'package:frontend/features/external_service_providers/models/partner_model.dart';
 import 'package:frontend/features/external_service_providers/providers/partners_provider.dart';
@@ -477,7 +476,7 @@ void main() {
 
       // Verify notifier was called and clone completed
       expect(mockNotifier.cloneCallCount, 1);
-      expect(find.textContaining('✨'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
     });
 
     testWidgets('Task E: Table Row-Level Clone via RowActionsPill onClone -> Review dialog', (tester) async {
@@ -512,7 +511,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(mockNotifier.cloneCallCount, 1);
-      expect(find.textContaining('✨'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
     });
   });
 }

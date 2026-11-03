@@ -78,16 +78,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _hasAuthError = true;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 10),
-                Expanded(child: Text(err)),
-              ],
-            ),
-            backgroundColor: AppTheme.crimson,
-            behavior: SnackBarBehavior.floating,
+          AppTheme.snackBar(
+            context,
+            err,
+            severity: AppSeverity.danger,
           ),
         );
       } else if (ok && mounted) {
@@ -105,16 +99,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _hasAuthError = true;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 10),
-                Expanded(child: Text(errStr)),
-              ],
-            ),
-            backgroundColor: AppTheme.crimson,
-            behavior: SnackBarBehavior.floating,
+          AppTheme.snackBar(
+            context,
+            errStr,
+            severity: AppSeverity.danger,
           ),
         );
       }

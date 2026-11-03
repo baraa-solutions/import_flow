@@ -105,7 +105,7 @@ enum SupplierCreditNoteStatus {
       case SupplierCreditNoteStatus.requested:
         return 'تمت مطالبة المورد بالخصم';
       case SupplierCreditNoteStatus.received:
-        return 'تم استلام إشعار الخصم (Credit Note)';
+        return 'تم استلام إشعار الخصم الدائن';
       case SupplierCreditNoteStatus.arbitration:
         return 'نزاع وتحكيم تجاري مع المورد';
     }

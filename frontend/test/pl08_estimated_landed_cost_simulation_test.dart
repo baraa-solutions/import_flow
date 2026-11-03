@@ -126,7 +126,7 @@ void main() {
           },
           {
             'category': 'Customs Duties',
-            'description': 'ضريبة الوارد الجمركية (Import Duty)',
+            'description': 'ضريبة الوارد الجمركية',
             'amount_fc': 1600.0,
             'currency': 'EGP',
             'amount_egp': 80000.0,

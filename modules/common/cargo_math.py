@@ -316,3 +316,38 @@ def container_counts_40hc(total_cbm: float) -> Tuple[int, int, int]:
     hybrid = math.ceil(total_cbm / C40_HC_HYBRID_LOAD_CBM) if total_cbm > 0 else 1
     flat = math.ceil(total_cbm / C40_HC_FLAT_LOAD_CBM) if total_cbm > 0 else 1
     return hybrid, flat, max(0, flat - hybrid)
+
+
+# ── Road Freight & Non-Stackable LCL / Revenue Ton Calculations ───────────────────
+TRAILER_WIDTH_M = 2.40
+TRAILER_MAX_LDM = 13.6
+LCL_DEFAULT_CLEARANCE_HEIGHT_M = 2.20
+OCEAN_TON_KG = 1000.0
+
+
+def floor_area_m2(length_m: float, width_m: float, quantity: float = 1.0) -> float:
+    """Floor surface footprint in square meters (m²)."""
+    return round(length_m * width_m * quantity, 4)
+
+
+def ldm(floor_area: float, trailer_width_m: float = TRAILER_WIDTH_M) -> float:
+    """Road Freight / Trucking Loading Meters (LDM) based on standard trailer internal width."""
+    return round(floor_area / trailer_width_m, 2)
+
+
+def lcl_chargeable_cbm(
+    physical_cbm: float,
+    floor_area: float,
+    is_stackable: bool = True,
+    clearance_height_m: float = LCL_DEFAULT_CLEARANCE_HEIGHT_M,
+) -> float:
+    """Ocean LCL Chargeable CBM: applies clearance height factor if cargo is non-stackable."""
+    if is_stackable:
+        return round(physical_cbm, 4)
+    return round(max(physical_cbm, floor_area * clearance_height_m), 4)
+
+
+def ocean_revenue_ton(chargeable_cbm: float, gross_weight_kg: float) -> float:
+    """Ocean Freight Revenue Ton (RT): max(Chargeable CBM, Weight in Metric Tons)."""
+    weight_tons = gross_weight_kg / OCEAN_TON_KG
+    return round(max(chargeable_cbm, weight_tons), 3)

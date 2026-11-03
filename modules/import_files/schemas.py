@@ -40,6 +40,12 @@ class ImportFileBase(BaseModel):
     project_ids: Optional[List[int]] = Field(default_factory=list, description="List of linked Project IDs")
     project_names: Optional[str] = None
     shipment_mode: str = Field("Sea FCL", description="Sea FCL, Sea LCL, Air, Courier, Land, Multimodal")
+    shipment_sub_mode: Optional[str] = Field("General Air Cargo", description="General Air Cargo, Express Courier")
+    courier_operator: Optional[str] = Field(None, description="DHL, FedEx, UPS, Aramex, etc.")
+    chargeable_divisor: Optional[int] = Field(6000, description="5000 or 6000")
+    acid_requirement: Optional[str] = Field("MANDATORY", description="MANDATORY, EXEMPT_POSTAL")
+    acid_exemption_reason: Optional[str] = Field(None, description="Postal parcel under 50kg and $2000 (Article 1, Customs Law 207/2020) or Exceeds threshold")
+    courier_tracking_no: Optional[str] = Field(None, description="Courier tracking number e.g. AWB")
     incoterm_code: str = Field("FOB", description="FOB, CIF, CFR, etc.")
     priority: str = Field("High", description="Low, Medium, High, Critical")
     shipment_category: str = Field("New Purchase", description="New Purchase, Repair, Replacement, Sample")
@@ -191,6 +197,12 @@ class ImportFileUpdate(BaseModel):
     project_ids: Optional[List[int]] = None
     project_names: Optional[str] = None
     shipment_mode: Optional[str] = None
+    shipment_sub_mode: Optional[str] = None
+    courier_operator: Optional[str] = None
+    chargeable_divisor: Optional[int] = None
+    acid_requirement: Optional[str] = None
+    acid_exemption_reason: Optional[str] = None
+    courier_tracking_no: Optional[str] = None
     incoterm_code: Optional[str] = None
     priority: Optional[str] = None
     shipment_category: Optional[str] = None

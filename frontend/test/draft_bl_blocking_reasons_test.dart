@@ -14,8 +14,8 @@ void main() {
     final en = displayBlockingReasons(const AppLocalizationsEn(), stored, coded);
     expect(en, stored.map((s) => s.replaceAll('Consignee', 'Consignee Name, Address & Phone')).toList());
     final ar = displayBlockingReasons(const AppLocalizationsAr(), stored, coded, forExport: true);
-    expect(ar[0], 'حقل حرج فارغ: رقم الحجز (Booking Number)');
-    expect(ar[1], 'اختلاف حرج في المستورد / المرسل إليه (Consignee)');
+    expect(ar[0], 'حقل حرج فارغ: رقم حجز الشحن');
+    expect(ar[1], 'اختلاف حرج في المستورد والمرسل إليه');
   });
 
   test('null coded list falls back to stored text', () {

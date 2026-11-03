@@ -35,6 +35,7 @@ import '../../features/warehouse_receiving/providers/goods_in_transit_provider.d
 import '../../features/lifecycle_board/providers/step_config_provider.dart';
 import '../../features/logistics_invoices/providers/logistics_invoices_provider.dart';
 import '../../features/vessel_tracking/providers/vessel_tracking_provider.dart';
+import '../../features/comprehensive_report/services/comprehensive_dossier_service.dart';
 
 // ============================================================
 // Navigation Index Provider
@@ -108,6 +109,27 @@ const int _totalScreens = 72; // indices 0–71
 
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
 final selectedComprehensiveReportFileIdProvider = StateProvider<int?>((ref) => null);
+final selectedOperationalFileIdProvider = StateProvider<int?>((ref) => null);
+
+/// Navigates to Screen 47 (Comprehensive Report) for the specified import file with synchronized state.
+void openComprehensiveReportForFile(dynamic ref, int importFileId, {String? tabTitle}) {
+  ref.read(selectedComprehensiveReportFileIdProvider.notifier).state = importFileId;
+  selectNavigationIndex(
+    ref,
+    47,
+    tabTitle: tabTitle ?? 'تقرير الشحنة الشامل المدمج',
+  );
+}
+
+/// Navigates to Screen 1 (Import Files / Operations) and signals opening the operational details dialog.
+void openOperationalDetailsForFile(dynamic ref, int importFileId, {String? tabTitle}) {
+  ref.read(selectedOperationalFileIdProvider.notifier).state = importFileId;
+  selectNavigationIndex(
+    ref,
+    1,
+    tabTitle: tabTitle ?? 'ملفات الشحنات',
+  );
+}
 
 class _ScreenTabInfo {
   final String title;
@@ -186,12 +208,12 @@ _ScreenTabInfo _getScreenTabInfo(int index) {
     case 66: return const _ScreenTabInfo('إدارة المستخدمين', Icons.manage_accounts_rounded);
     case 67: return const _ScreenTabInfo('إعدادات تصنيف المراحل', Icons.admin_panel_settings_rounded);
     case 70: return const _ScreenTabInfo('فواتير ومدفوعات الخدمات اللوجستية', Icons.receipt_long_outlined);
-    case 71: return const _ScreenTabInfo('رادار تتبع السفن', Icons.radar_outlined);
+    case 71: return const _ScreenTabInfo('SOON - رادار تتبع السفن', Icons.radar_outlined);
     default: return _ScreenTabInfo('شاشة $index', Icons.tab_outlined);
   }
 }
 
-void selectNavigationIndex(WidgetRef ref, int index, {String? tabTitle, IconData? tabIcon}) {
+void selectNavigationIndex(dynamic ref, int index, {String? tabTitle, IconData? tabIcon}) {
   if (index < 0 || index >= _totalScreens) return;
 
   // 1. Update navigation state
@@ -214,7 +236,7 @@ void selectNavigationIndex(WidgetRef ref, int index, {String? tabTitle, IconData
 }
 
 
-void _liveRefreshScreenData(WidgetRef ref, int index) {
+void _liveRefreshScreenData(dynamic ref, int index) {
   switch (index) {
     // --- Core Operations & Sourcing ---
     case 1:
@@ -339,6 +361,10 @@ void _liveRefreshScreenData(WidgetRef ref, int index) {
       break;
     case 47:
       ref.read(importFilesProvider.notifier).fetchImportFiles();
+      final targetDossierId = ref.read(selectedComprehensiveReportFileIdProvider);
+      if (targetDossierId != null) {
+        ref.invalidate(comprehensiveDossierProvider(targetDossierId));
+      }
       break;
     case 49:
       ref.read(freightQuotationsProvider.notifier).fetchRFQs();

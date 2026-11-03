@@ -1,0 +1,43 @@
+{
+  "@@locale": "ar",
+  "kpiHealthScore": "معدل الإنجاز",
+  "@kpiHealthScore": {
+    "description": "معدل إنجاز الشحنة"
+  },
+  "kpiFreeTimeBurn": "استهلاك السماح",
+  "@kpiFreeTimeBurn": {
+    "description": "نسبة استهلاك فترة السماح"
+  },
+  "kpiDaysLeft": "أيام متبقية",
+  "@kpiDaysLeft": {
+    "description": "الأيام المتبقية من فترة السماح"
+  },
+  "kpiOverdueSteps": "خطوات متأخرة",
+  "@kpiOverdueSteps": {
+    "description": "عدد الخطوات المتأخرة"
+  },
+  "kpiCostVariance": "انحراف التكلفة",
+  "@kpiCostVariance": {
+    "description": "نسبة انحراف التكلفة عن المقدر"
+  },
+  "kpiRiskSafe": "آمن",
+  "@kpiRiskSafe": {
+    "description": "مستوى الخطر: آمن"
+  },
+  "kpiRiskWarning": "تحذير",
+  "@kpiRiskWarning": {
+    "description": "مستوى الخطر: تحذير"
+  },
+  "kpiRiskCritical": "حرج",
+  "@kpiRiskCritical": {
+    "description": "مستوى الخطر: حرج"
+  },
+  "phasePendingCount": "شحنات معلقة",
+  "@phasePendingCount": {
+    "description": "عدد الشحنات المعلقة في المرحلة"
+  },
+  "phaseDelayedCount": "شحنات متأخرة",
+  "@phaseDelayedCount": {
+    "description": "عدد الشحنات المتأخرة في المرحلة"
+  }
+}

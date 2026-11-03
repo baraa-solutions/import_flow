@@ -8,6 +8,8 @@ import '../../customs_clearance/widgets/customs_ui.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../models/cargo_insurance_model.dart';
 import '../services/cargo_insurance_export_service.dart';
+import 'damage_claim_dialog.dart';
+import 'insurance_policy_card.dart';
 
 /// Severity of a certificate status (ISSUED / DRAFT / CANCELLED ...).
 AppSeverity insuranceStatusSeverity(String status) {
@@ -46,6 +48,8 @@ class InsuranceCertificatesTable extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onIssue,
+    this.onViewPolicyCard,
+    this.onFileClaim,
   });
 
   final List<CargoInsuranceModel> certificates;
@@ -55,6 +59,47 @@ class InsuranceCertificatesTable extends StatelessWidget {
   final ValueChanged<CargoInsuranceModel> onEdit;
   final ValueChanged<CargoInsuranceModel> onDelete;
   final ValueChanged<CargoInsuranceModel> onIssue;
+  final ValueChanged<CargoInsuranceModel>? onViewPolicyCard;
+  final ValueChanged<CargoInsuranceModel>? onFileClaim;
+
+  void _showPolicyCardPreview(BuildContext context, CargoInsuranceModel cert) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: InsurancePolicyCard(
+            policy: cert,
+            onViewDetails: () {
+              Navigator.of(ctx).pop();
+              onView(cert);
+            },
+            onFileClaim: () {
+              Navigator.of(ctx).pop();
+              _showDamageClaimDialog(context, cert);
+            },
+            onPrint: () {
+              Navigator.of(ctx).pop();
+              onView(cert);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDamageClaimDialog(BuildContext context, CargoInsuranceModel cert) {
+    showDialog(
+      context: context,
+      builder: (ctx) => DamageClaimDialog(
+        importFileId: cert.importFileId,
+        initialPolicyNumber: cert.policyNumber ?? cert.certificateCode,
+        initialCurrency: cert.currency,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +174,28 @@ class InsuranceCertificatesTable extends StatelessWidget {
                 printTooltip: l.insurancePrintTooltip,
                 deleteTooltip: l.insuranceDeleteTooltip,
               ),
+              IconButton(
+                icon: const Icon(Icons.badge_outlined, size: 16, color: AppTheme.cobalt),
+                tooltip: isArabic ? 'معاينة بطاقة الوثيقة' : 'Preview Policy Card',
+                onPressed: () {
+                  if (onViewPolicyCard != null) {
+                    onViewPolicyCard!(cert);
+                  } else {
+                    _showPolicyCardPreview(context, cert);
+                  }
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.assignment_late_outlined, size: 16, color: AppTheme.crimson),
+                tooltip: isArabic ? 'تسجيل مطالبة هوالك' : 'File Damage Claim',
+                onPressed: () {
+                  if (onFileClaim != null) {
+                    onFileClaim!(cert);
+                  } else {
+                    _showDamageClaimDialog(context, cert);
+                  }
+                },
+              ),
               if (!isIssued && !isCancelled) ...[
                 const SizedBox(width: 4),
                 IconButton(
@@ -149,7 +216,13 @@ class InsuranceCertificatesTable extends StatelessWidget {
           value: cert.certificateCode,
           rowSummary: rowSummary,
           child: InkWell(
-            onTap: () => onView(cert),
+            onTap: () {
+              if (onViewPolicyCard != null) {
+                onViewPolicyCard!(cert);
+              } else {
+                _showPolicyCardPreview(context, cert);
+              }
+            },
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

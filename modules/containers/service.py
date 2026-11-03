@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone, date
 from typing import Optional, List, Tuple
 from fastapi import HTTPException
@@ -15,7 +16,10 @@ from .schemas import (
     ContainerCreate,
     ContainerUpdate,
     ContainerGateOutRequest,
+    ContainerEirReturnRequest,
     ContainerEmptyReturnRequest,
+    ContainerLedgerItemResponse,
+    ContainerLedgerResponse,
 )
 from .validators import (
     normalize_container_number,
@@ -23,6 +27,8 @@ from .validators import (
     validate_unique_container_number,
 )
 from . import repository
+
+logger = logging.getLogger(__name__)
 
 
 def create_container_service(
@@ -161,38 +167,189 @@ def gate_out_container_service(
     """
     container = get_container_by_id_service(db, container_id)
 
+    effective_date = req.gate_out_date
+    effective_ts = req.gate_out_timestamp
+    if not effective_date and effective_ts:
+        effective_date = effective_ts.date()
+    elif not effective_ts and effective_date:
+        effective_ts = datetime.combine(effective_date, datetime.min.time())
+    elif not effective_date and not effective_ts:
+        now_utc = datetime.now(timezone.utc)
+        effective_date = now_utc.date()
+        effective_ts = now_utc
+
     validate_container_dates(
         discharge_date=container.discharge_date,
-        gate_out_date=req.gate_out_date,
+        gate_out_date=effective_date,
         empty_return_date=container.empty_return_date,
     )
 
-    container.gate_out_date = req.gate_out_date
-    container.status = "Gate Out"
-    note_add = f"[Gate Out] Date: {req.gate_out_date}"
+    container.gate_out_date = effective_date
+    container.gate_out_timestamp = effective_ts
     if req.truck_plate_number:
-        note_add += f" | Truck: {req.truck_plate_number}"
+        container.truck_plate_number = req.truck_plate_number.strip()
+    if req.customs_inspection_seal:
+        container.customs_inspection_seal = req.customs_inspection_seal.strip()
+    container.status = "Gate Out"
+
+    note_add = f"[Gate Out] Date: {effective_date}"
+    if effective_ts:
+        note_add += f" {effective_ts.strftime('%H:%M') if hasattr(effective_ts, 'strftime') else ''}"
+    if req.truck_plate_number:
+        note_add += f" | Truck: {req.truck_plate_number.strip()}"
+    if req.customs_inspection_seal:
+        note_add += f" | Customs Seal: {req.customs_inspection_seal.strip()}"
     if req.driver_name:
-        note_add += f" | Driver: {req.driver_name}"
+        note_add += f" | Driver: {req.driver_name.strip()}"
     if req.notes:
-        note_add += f" | {req.notes}"
+        note_add += f" | {req.notes.strip()}"
     container.notes = f"{container.notes or ''}\n{note_add}".strip()
     container.updated_by = user
 
     # Bidirectional sync: update matching container in DemurrageTracking session if linked
+    tracking = None
     if container.demurrage_tracking_id:
         tracking = db.query(DemurrageTracking).filter(
             DemurrageTracking.tracking_id == container.demurrage_tracking_id,
             DemurrageTracking.is_active == True,
         ).first()
-        if tracking and isinstance(tracking.containers, list):
-            modified = False
-            for c in tracking.containers:
-                if str(c.get("container_no", "")).strip().upper() == container.container_number:
-                    c["gate_out_date"] = req.gate_out_date.isoformat()
-                    modified = True
-            if modified:
-                flag_modified(tracking, "containers")
+    elif container.import_file_id:
+        tracking = db.query(DemurrageTracking).filter(
+            DemurrageTracking.import_file_id == container.import_file_id,
+            DemurrageTracking.is_active == True,
+        ).first()
+        if tracking:
+            container.demurrage_tracking_id = tracking.tracking_id
+
+    if tracking and isinstance(tracking.containers, list):
+        modified = False
+        for c in tracking.containers:
+            if str(c.get("container_no", "")).strip().upper() == container.container_number:
+                c["gate_out_date"] = effective_date.isoformat()
+                c["gate_out_timestamp"] = effective_ts.isoformat() if effective_ts else None
+                if req.truck_plate_number:
+                    c["truck_plate_number"] = req.truck_plate_number.strip()
+                if req.customs_inspection_seal:
+                    c["customs_inspection_seal"] = req.customs_inspection_seal.strip()
+                c["status"] = "Gate Out"
+                modified = True
+        if modified:
+            flag_modified(tracking, "containers")
+            try:
+                from modules.demurrage_detention.service import recalculate_and_update_tracking_service
+                recalculate_and_update_tracking_service(db, tracking.tracking_id, user=user)
+            except Exception as exc:
+                logger.exception("Failed to recalculate demurrage tracking %s on container gate-out: %s", tracking.tracking_id, exc)
+
+    updated = repository.update_container(db, container)
+    db.commit()
+    db.refresh(updated)
+    return updated
+
+
+def empty_return_eir_service(
+    db: Session, container_id: int, req: ContainerEirReturnRequest, user: str = "System"
+) -> ShipmentContainer:
+    """
+    Registers container empty return (EIR) milestone, stops demurrage/detention accumulation
+    for this individual container, and synchronizes with demurrage tracking session.
+    """
+    container = get_container_by_id_service(db, container_id)
+
+    effective_date = req.empty_return_date
+    effective_ts = req.eir_timestamp
+    if not effective_date and effective_ts:
+        effective_date = effective_ts.date()
+    elif not effective_ts and effective_date:
+        effective_ts = datetime.combine(effective_date, datetime.min.time())
+    elif not effective_date and not effective_ts:
+        now_utc = datetime.now(timezone.utc)
+        effective_date = now_utc.date()
+        effective_ts = now_utc
+
+    validate_container_dates(
+        discharge_date=container.discharge_date,
+        gate_out_date=container.gate_out_date,
+        empty_return_date=effective_date,
+    )
+
+    clean_eir = req.eir_number.strip()
+    clean_condition = (req.eir_condition_status or req.condition_at_return or "Good").strip()
+
+    container.empty_return_date = effective_date
+    container.eir_timestamp = effective_ts
+    container.eir_number = clean_eir
+    container.eir_condition_status = clean_condition
+    container.condition_at_return = clean_condition
+    if req.depot_name:
+        container.depot_name = req.depot_name.strip()
+    container.status = "Returned Empty"
+
+    note_add = f"[EIR #{clean_eir}] Returned on: {effective_date} (TS: {effective_ts}) | Condition: {clean_condition} | Depot: {container.depot_name or 'N/A'}"
+    if req.notes:
+        note_add += f" | {req.notes.strip()}"
+    container.notes = f"{container.notes or ''}\n{note_add}".strip()
+    container.updated_by = user
+
+    # Sync with DemurrageTracking session
+    tracking = None
+    if container.demurrage_tracking_id:
+        tracking = db.query(DemurrageTracking).filter(
+            DemurrageTracking.tracking_id == container.demurrage_tracking_id,
+            DemurrageTracking.is_active == True,
+        ).first()
+    elif container.import_file_id:
+        tracking = db.query(DemurrageTracking).filter(
+            DemurrageTracking.import_file_id == container.import_file_id,
+            DemurrageTracking.is_active == True,
+        ).first()
+        if tracking:
+            container.demurrage_tracking_id = tracking.tracking_id
+
+    if tracking and isinstance(tracking.containers, list):
+        modified = False
+        for c in tracking.containers:
+            if str(c.get("container_no", "")).strip().upper() == container.container_number:
+                c["empty_return_date"] = effective_date.isoformat()
+                c["eir_timestamp"] = effective_ts.isoformat() if effective_ts else None
+                c["eir_number"] = clean_eir
+                c["eir_condition_status"] = clean_condition
+                c["condition_at_return"] = clean_condition
+                c["status"] = "Returned Empty"
+                if req.depot_name:
+                    c["depot_name"] = req.depot_name.strip()
+                modified = True
+        if modified:
+            flag_modified(tracking, "containers")
+            try:
+                from modules.demurrage_detention.service import recalculate_and_update_tracking_service
+                recalculate_and_update_tracking_service(db, tracking.tracking_id, user=user)
+                for c in (tracking.containers or []):
+                    if str(c.get("container_no", "")).strip().upper() == container.container_number:
+                        container.demurrage_days = int(c.get("demurrage_days") or 0)
+                        container.detention_days = int(c.get("detention_days") or 0)
+                        container.storage_days = int(c.get("storage_days") or 0)
+                        container.demurrage_cost_fx = float(c.get("demurrage_fx") or 0.0)
+                        container.detention_cost_fx = float(c.get("detention_fx") or 0.0)
+                        container.storage_cost_egp = float(c.get("storage_egp") or 0.0)
+                        container.total_cost_egp = float(c.get("total_egp") or 0.0)
+                        container.individual_demurrage_cost = round(
+                            container.demurrage_cost_fx + container.detention_cost_fx, 2
+                        )
+            except Exception as exc:
+                logger.exception("Failed to recalculate demurrage tracking %s on container EIR return: %s", tracking.tracking_id, exc)
+
+    # Synchronize Import File EIR numbers
+    if container.import_file_id:
+        imp_file = db.query(ImportFile).filter(
+            ImportFile.import_file_id == container.import_file_id,
+            ImportFile.is_active == True,
+        ).first()
+        if imp_file:
+            existing_eirs = [e.strip() for e in (imp_file.empty_containers_eir_numbers or "").split(",") if e.strip()]
+            if clean_eir not in existing_eirs:
+                existing_eirs.append(clean_eir)
+                imp_file.empty_containers_eir_numbers = ", ".join(existing_eirs)
 
     updated = repository.update_container(db, container)
     db.commit()
@@ -203,56 +360,110 @@ def gate_out_container_service(
 def empty_return_container_service(
     db: Session, container_id: int, req: ContainerEmptyReturnRequest, user: str = "System"
 ) -> ShipmentContainer:
-    """
-    Registers container empty return (EIR) milestone, stops demurrage accrual, and syncs with demurrage session.
-    """
-    container = get_container_by_id_service(db, container_id)
+    """Wrapper delegating to empty_return_eir_service."""
+    return empty_return_eir_service(db, container_id, req, user=user)
 
-    validate_container_dates(
-        discharge_date=container.discharge_date,
-        gate_out_date=container.gate_out_date,
-        empty_return_date=req.empty_return_date,
+
+def get_container_ledger_service(db: Session, import_file_id: int) -> ContainerLedgerResponse:
+    """
+    Retrieves the container ledger for an import file, reflecting operational milestones,
+    customs gate-out, empty return EIR records, and frozen/active demurrage cost status per container.
+    """
+    import_file = db.query(ImportFile).filter(
+        ImportFile.import_file_id == import_file_id,
+        ImportFile.is_active == True,
+    ).first()
+    if not import_file:
+        raise not_found("الملف الاستيرادي", import_file_id)
+
+    containers, _ = repository.get_containers(db, import_file_id=import_file_id, is_active=True, limit=500)
+    if not containers:
+        try:
+            containers = sync_containers_from_file_service(db, import_file_id)
+        except Exception:
+            containers = []
+
+    items = []
+    total_demurrage_fx = 0.0
+    total_cost_egp = 0.0
+    currency = "USD"
+    totals_by_currency = {}
+
+    for c in containers:
+        c_curr = (c.currency or "USD").upper().strip()
+        currency = c_curr
+        is_stopped = bool(c.eir_timestamp or c.empty_return_date or c.status == "Returned Empty")
+        stop_reason = None
+        if is_stopped:
+            if c.eir_number:
+                stop_reason = f"مُثبت بموجب إيصال EIR #{c.eir_number}"
+            else:
+                stop_reason = "تم تسليم الحاوية الفارغة"
+
+        ind_cost = c.individual_demurrage_cost
+        if ind_cost <= 0.0 and (c.demurrage_cost_fx > 0 or c.detention_cost_fx > 0):
+            ind_cost = round(c.demurrage_cost_fx + c.detention_cost_fx, 2)
+
+        totals_by_currency[c_curr] = round(totals_by_currency.get(c_curr, 0.0) + ind_cost, 2)
+        total_cost_egp += (c.total_cost_egp or 0.0)
+
+        items.append(
+            ContainerLedgerItemResponse(
+                container_id=c.container_id,
+                container_number=c.container_number,
+                container_type=c.container_type,
+                seal_number=c.seal_number,
+                customs_inspection_seal=c.customs_inspection_seal,
+                carrier_name=c.carrier_name,
+                bill_of_lading_no=c.bill_of_lading_no,
+                status=c.status,
+                discharge_date=c.discharge_date,
+                gate_out_date=c.gate_out_date,
+                gate_out_timestamp=c.gate_out_timestamp,
+                truck_plate_number=c.truck_plate_number,
+                empty_return_date=c.empty_return_date,
+                eir_number=c.eir_number,
+                eir_timestamp=c.eir_timestamp,
+                eir_condition_status=c.eir_condition_status or c.condition_at_return,
+                depot_name=c.depot_name,
+                demurrage_days=c.demurrage_days or 0,
+                detention_days=c.detention_days or 0,
+                storage_days=c.storage_days or 0,
+                demurrage_cost_fx=c.demurrage_cost_fx or 0.0,
+                detention_cost_fx=c.detention_cost_fx or 0.0,
+                storage_cost_egp=c.storage_cost_egp or 0.0,
+                total_cost_egp=c.total_cost_egp or 0.0,
+                individual_demurrage_cost=ind_cost,
+                currency=c.currency or "USD",
+                is_demurrage_stopped=is_stopped,
+                stop_reason=stop_reason,
+                notes=c.notes,
+            )
+        )
+
+    # If all containers share one currency, total_demurrage_fx is that total
+    if len(totals_by_currency) == 1:
+        single_curr, single_tot = next(iter(totals_by_currency.items()))
+        total_demurrage_fx = single_tot
+        currency = single_curr
+    elif len(totals_by_currency) > 1:
+        currency = "MIXED"
+        total_demurrage_fx = sum(totals_by_currency.values())
+
+    returned_cnt = sum(1 for it in items if it.is_demurrage_stopped)
+    active_cnt = len(items) - returned_cnt
+
+    return ContainerLedgerResponse(
+        import_file_id=import_file_id,
+        total_containers=len(items),
+        returned_containers=returned_cnt,
+        active_containers=active_cnt,
+        total_demurrage_cost_fx=round(total_demurrage_fx, 2),
+        total_cost_egp=round(total_cost_egp, 2),
+        currency=currency,
+        totals_by_currency=totals_by_currency,
+        items=items,
     )
-
-    container.empty_return_date = req.empty_return_date
-    container.eir_number = req.eir_number.strip()
-    if req.depot_name:
-        container.depot_name = req.depot_name.strip()
-    if req.condition_at_return:
-        container.condition_at_return = req.condition_at_return.strip()
-    container.status = "Returned Empty"
-
-    note_add = f"[EIR #{container.eir_number}] Returned on: {req.empty_return_date} at Depot: {container.depot_name or 'N/A'}"
-    if req.notes:
-        note_add += f" | {req.notes}"
-    container.notes = f"{container.notes or ''}\n{note_add}".strip()
-    container.updated_by = user
-
-    # Bidirectional sync: update matching container in DemurrageTracking session if linked
-    if container.demurrage_tracking_id:
-        tracking = db.query(DemurrageTracking).filter(
-            DemurrageTracking.tracking_id == container.demurrage_tracking_id,
-            DemurrageTracking.is_active == True,
-        ).first()
-        if tracking and isinstance(tracking.containers, list):
-            modified = False
-            for c in tracking.containers:
-                if str(c.get("container_no", "")).strip().upper() == container.container_number:
-                    c["empty_return_date"] = req.empty_return_date.isoformat()
-                    c["eir_number"] = req.eir_number.strip()
-                    c["status"] = "Returned Empty"
-                    if req.depot_name:
-                        c["depot_name"] = req.depot_name.strip()
-                    if req.condition_at_return:
-                        c["condition_at_return"] = req.condition_at_return.strip()
-                    modified = True
-            if modified:
-                flag_modified(tracking, "containers")
-
-    updated = repository.update_container(db, container)
-    db.commit()
-    db.refresh(updated)
-    return updated
 
 
 def delete_container_service(

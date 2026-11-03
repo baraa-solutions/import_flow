@@ -10,39 +10,16 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/extraction_progress_dialog.dart';
-import '../../../core/widgets/ltr_text.dart';
 import '../../customs_consultation/widgets/price_list_form_dialog.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
+import 'extractor/extracted_rate_normalizer.dart';
+import 'extractor/extractor_gap_dialog.dart';
+import 'extractor/extractor_result_panel.dart';
 import 'quotation_sample_texts.dart';
 import 'quotation_validation_banner.dart';
 
-/// Fills missing top-level rate fields from the preferred (40HQ) rate option.
-void normalizeExtractedRateData(Map<String, dynamic> extracted) {
-  if (extracted['rate_options'] is List && (extracted['rate_options'] as List).isNotEmpty) {
-    final opts = extracted['rate_options'] as List;
-    final primaryOpt = opts.firstWhere(
-      (o) => (o as Map)['container_type'] == '40HQ',
-      orElse: () => opts.first,
-    ) as Map<String, dynamic>;
-
-    final currentTotal = (extracted['total_estimated_clearance_cost'] as num?)?.toDouble() ?? 0.0;
-    final currentType = extracted['container_type'] as String?;
-
-    if (currentType == null || currentType.isEmpty || currentTotal < 2000.0) {
-      extracted['container_type'] = primaryOpt['container_type'];
-      extracted['clearance_fee'] = primaryOpt['clearance_fee'];
-      extracted['inland_transport_fee'] = primaryOpt['inland_transport_fee'];
-      extracted['inspection_fee'] = primaryOpt['inspection_fee'];
-      extracted['port_expenses'] = primaryOpt['port_expenses'];
-      extracted['total_estimated_clearance_cost'] = primaryOpt['total_estimated_clearance_cost'];
-      if (primaryOpt['notes'] != null) {
-        extracted['notes'] = primaryOpt['notes'];
-      }
-    }
-  }
-}
+export 'extractor/extracted_rate_normalizer.dart' show normalizeExtractedRateData;
 
 /// Shows the unified Smart AI Clearance Quotation & Estimate Extractor dialog
 /// from any screen / tab.
@@ -198,52 +175,6 @@ class _SmartClearanceExtractorDialogState extends State<_SmartClearanceExtractor
     }
   }
 
-  /// When the backend flags a large gap it asks for an explicit confirmation.
-  Future<bool> _confirmGapIfRequired(AppLocalizations l10n) async {
-    final valReport = _result?['validation_report'] as Map<String, dynamic>?;
-    if (valReport?['requires_modal_confirmation'] != true) return true;
-    final expCount = valReport?['expected_item_count'] ?? valReport?['expected_count'] ?? 0;
-    final extCount = valReport?['extracted_item_count'] ?? valReport?['extracted_count'] ?? 0;
-    final gap = (valReport?['gap_percentage'] as num?)?.toDouble() ?? 0.0;
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (modalCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
-        title: Row(
-          children: [
-            const Icon(Icons.warning_amber_rounded, color: AppTheme.crimson, size: 24),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                l10n.quotationValidationConfirmTitle,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.crimson),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          l10n.quotationValidationConfirmMessage(expCount, extCount, gap.toStringAsFixed(1)),
-          style: const TextStyle(fontSize: 13, height: 1.4),
-        ),
-        actions: [
-          AppButton(
-            label: l10n.quotationValidationReviewBtn,
-            variant: AppButtonVariant.secondary,
-            size: AppButtonSize.small,
-            onPressed: () => Navigator.pop(modalCtx, false),
-          ),
-          AppButton(
-            label: l10n.quotationValidationProceedBtn,
-            variant: AppButtonVariant.danger,
-            size: AppButtonSize.small,
-            onPressed: () => Navigator.pop(modalCtx, true),
-          ),
-        ],
-      ),
-    );
-    return proceed == true;
-  }
-
   void _openPriceListForm() {
     final host = widget.hostContext;
     final partners = widget.hostRef.read(partnersProvider).value ?? [];
@@ -262,7 +193,7 @@ class _SmartClearanceExtractorDialogState extends State<_SmartClearanceExtractor
   }
 
   Future<void> _saveAsPriceList(AppLocalizations l10n) async {
-    if (!await _confirmGapIfRequired(l10n)) return;
+    if (!await ExtractorGapDialog.confirmGapIfRequired(context, l10n, _result)) return;
     if (!mounted) return;
     Navigator.pop(context);
     if (!widget.hostContext.mounted) return;
@@ -270,7 +201,7 @@ class _SmartClearanceExtractorDialogState extends State<_SmartClearanceExtractor
   }
 
   Future<void> _applyQuote(AppLocalizations l10n) async {
-    if (!await _confirmGapIfRequired(l10n)) return;
+    if (!await ExtractorGapDialog.confirmGapIfRequired(context, l10n, _result)) return;
     if (!mounted) return;
     final result = _result!;
     Navigator.pop(context);
@@ -391,7 +322,22 @@ class _SmartClearanceExtractorDialogState extends State<_SmartClearanceExtractor
                     valReport: result['validation_report'] as Map<String, dynamic>?,
                     expensesCatalog: result['expenses_catalog'] as List<dynamic>?,
                   ),
-                  _resultPanel(context, l10n, result),
+                  ExtractorResultPanel(
+                    result: result,
+                    onSaveAsPriceList: () => _saveAsPriceList(l10n),
+                    onApplyQuote: () => _applyQuote(l10n),
+                    onSelectRateOption: (cType, optMap) {
+                      setState(() {
+                        result['container_type'] = cType;
+                        result['clearance_fee'] = optMap['clearance_fee'];
+                        result['inland_transport_fee'] = optMap['inland_transport_fee'];
+                        result['inspection_fee'] = optMap['inspection_fee'];
+                        result['port_expenses'] = optMap['port_expenses'];
+                        result['total_estimated_clearance_cost'] = optMap['total_estimated_clearance_cost'] ?? 0;
+                        result['notes'] = optMap['notes'];
+                      });
+                    },
+                  ),
                 ],
               ],
             ),
@@ -406,320 +352,6 @@ class _SmartClearanceExtractorDialogState extends State<_SmartClearanceExtractor
           onPressed: () => Navigator.pop(context),
         ),
       ],
-    );
-  }
-
-  Widget _resultPanel(BuildContext context, AppLocalizations l10n, Map<String, dynamic> result) {
-    final egp = l10n.egpCurrency;
-    final hasOptions = result['rate_options'] is List && (result['rate_options'] as List).isNotEmpty;
-    final hasCatalog = result['expenses_catalog'] is List && (result['expenses_catalog'] as List).isNotEmpty;
-
-    return Container(
-      padding: const EdgeInsetsDirectional.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.severityBackgroundOf(context, AppSeverity.success),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(color: AppTheme.emerald),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${l10n.clearanceQuotesExtractedBrokerPrefix} ${result['broker_name'] ?? l10n.clearanceQuotesColBroker}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  Text(
-                    '${l10n.clearanceQuotesExtractedPortPrefix} ${result['port_name'] ?? '-'} | ${l10n.clearanceQuotesSelectedContainerLabel}: ${result['container_type'] ?? '-'}',
-                  ),
-                  LtrText(
-                    '${l10n.clearanceQuotesExtractedTotalPrefix} ${result['total_estimated_clearance_cost']} $egp',
-                    style: const TextStyle(
-                        color: AppTheme.successForeground, fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                ],
-              ),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.copy_rounded, size: 18, color: AppTheme.cobalt),
-                    tooltip: l10n.copy,
-                    onPressed: () {
-                      final summary =
-                          '${result['broker_name'] ?? l10n.clearanceQuotesColBroker} - ${result['port_name'] ?? '-'} - ${result['total_estimated_clearance_cost']} $egp';
-                      CopyHelper.copy(context, summary);
-                    },
-                  ),
-                  AppButton(
-                    label: l10n.clearanceQuotesSaveAsPriceListBtn,
-                    icon: Icons.price_change_outlined,
-                    variant: AppButtonVariant.secondary,
-                    size: AppButtonSize.small,
-                    onPressed: () => _saveAsPriceList(l10n),
-                  ),
-                  AppButton(
-                    label: l10n.clearanceQuotesApplyExtractedQuoteBtn,
-                    icon: Icons.check,
-                    variant: AppButtonVariant.success,
-                    size: AppButtonSize.small,
-                    onPressed: () => _applyQuote(l10n),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          if (hasOptions) ...[
-            Divider(height: 16, color: AppTheme.borderOf(context)),
-            Text(l10n.clearanceQuotesRateOptionsTitle,
-                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: (result['rate_options'] as List).map<Widget>((opt) {
-                final optMap = opt as Map<String, dynamic>;
-                final cType = optMap['container_type']?.toString() ?? 'Option';
-                final optTotal = optMap['total_estimated_clearance_cost'] ?? 0;
-                final isSelected = result['container_type'] == cType;
-                return ChoiceChip(
-                  avatar: Icon(
-                    isSelected ? Icons.check_circle : Icons.inventory_2_outlined,
-                    size: 14,
-                    color: isSelected ? AppTheme.white : AppTheme.cobalt,
-                  ),
-                  label: Text(
-                    '$cType : $optTotal $egp',
-                    textDirection: TextDirection.ltr,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? AppTheme.white : AppTheme.textPrimaryOf(context),
-                    ),
-                  ),
-                  selected: isSelected,
-                  selectedColor: AppTheme.cobalt,
-                  backgroundColor: AppTheme.surfaceOf(context),
-                  showCheckmark: false,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        result['container_type'] = cType;
-                        result['clearance_fee'] = optMap['clearance_fee'];
-                        result['inland_transport_fee'] = optMap['inland_transport_fee'];
-                        result['inspection_fee'] = optMap['inspection_fee'];
-                        result['port_expenses'] = optMap['port_expenses'];
-                        result['total_estimated_clearance_cost'] = optTotal;
-                        result['notes'] = optMap['notes'];
-                      });
-                    }
-                  },
-                );
-              }).toList(),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsetsDirectional.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceOf(context),
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              border: Border.all(color: AppTheme.borderOf(context)),
-            ),
-            child: Wrap(
-              alignment: WrapAlignment.spaceAround,
-              spacing: 16,
-              runSpacing: 8,
-              children: [
-                _FeeColumn(l10n.clearanceQuotesBreakdownClearanceFee, '${result['clearance_fee'] ?? 0} $egp'),
-                _FeeColumn(l10n.clearanceQuotesBreakdownInlandFee, '${result['inland_transport_fee'] ?? 0} $egp'),
-                _FeeColumn(l10n.clearanceQuotesBreakdownInspectionFee, '${result['inspection_fee'] ?? 0} $egp'),
-                _FeeColumn(l10n.clearanceQuotesBreakdownPortExpenses, '${result['port_expenses'] ?? 0} $egp'),
-                _FeeColumn(l10n.clearanceQuotesBreakdownEstimatedTotal,
-                    '${result['total_estimated_clearance_cost'] ?? 0} $egp',
-                    isTotal: true),
-              ],
-            ),
-          ),
-          if (hasCatalog) ...[
-            const SizedBox(height: 8),
-            _ExpensesCatalog(items: result['expenses_catalog'] as List, egp: egp),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _FeeColumn extends StatelessWidget {
-  const _FeeColumn(this.label, this.value, {this.isTotal = false});
-
-  final String label;
-  final String value;
-  final bool isTotal;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(label, style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context))),
-        const SizedBox(height: 2),
-        LtrText(
-          value,
-          style: TextStyle(
-            fontSize: isTotal ? 12.5 : 11.5,
-            fontWeight: FontWeight.bold,
-            color: isTotal ? AppTheme.successForeground : AppTheme.textPrimaryOf(context),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ExpensesCatalog extends StatelessWidget {
-  const _ExpensesCatalog({required this.items, required this.egp});
-
-  final List items;
-  final String egp;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        dense: true,
-        leading: const Icon(Icons.receipt_long, size: 18, color: AppTheme.cobalt),
-        title: Text(
-          l10n.clearanceQuotesExpensesCatalogCount(items.length),
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-        ),
-        children: [
-          Container(
-            constraints: const BoxConstraints(maxHeight: 180),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceOf(context),
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              border: Border.all(color: AppTheme.borderOf(context)),
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: items.length,
-              separatorBuilder: (_, __) => Divider(height: 1, color: AppTheme.borderOf(context)),
-              itemBuilder: (ctx, i) => _row(ctx, l10n, items[i] as Map<String, dynamic>),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tag(BuildContext context, String text, AppSeverity severity, String tooltip, {IconData? icon}) {
-    final fg = AppTheme.severityForegroundOf(context, severity);
-    return Tooltip(
-      message: tooltip,
-      child: Container(
-        margin: const EdgeInsetsDirectional.symmetric(horizontal: 4),
-        padding: const EdgeInsetsDirectional.symmetric(horizontal: 4, vertical: 1),
-        decoration: BoxDecoration(
-          color: AppTheme.severityBackgroundOf(context, severity),
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: fg, width: 0.8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 10, color: fg),
-              const SizedBox(width: 1),
-            ],
-            Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: fg)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(BuildContext context, AppLocalizations l10n, Map<String, dynamic> itm) {
-    final isMulti = itm['is_multi_value_split'] == true;
-    final isRange = itm['price_type'] == 'range';
-    final isOutside = itm['source_location'] == 'outside_table';
-
-    Color itemBg = Colors.transparent;
-    if (isMulti) {
-      itemBg = AppTheme.severityBackgroundOf(context, AppSeverity.warning);
-    } else if (isRange) {
-      itemBg = AppTheme.severityBackgroundOf(context, AppSeverity.info);
-    }
-
-    final priceStr = isRange
-        ? '${itm['price_min'] ?? 0} - ${itm['price_max'] ?? 0} $egp'
-        : '${itm['price']} $egp';
-
-    return Container(
-      color: itemBg,
-      padding: const EdgeInsetsDirectional.symmetric(horizontal: 10, vertical: 5),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Text(
-                    itm['item_name']?.toString() ?? '',
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                if (isMulti)
-                  _tag(context, l10n.quotationValidationMultiValueBadge, AppSeverity.warning,
-                      l10n.quotationValidationMultiValueTooltip),
-                if (isRange)
-                  _tag(context, l10n.quotationValidationRangeBadge, AppSeverity.info,
-                      l10n.quotationValidationRangeTooltip(itm['price_min'] ?? '', itm['price_max'] ?? ''),
-                      icon: Icons.bolt),
-                if (isOutside)
-                  _tag(context, l10n.quotationValidationOutsideTableBadge, AppSeverity.info,
-                      l10n.quotationValidationOutsideTableTooltip),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              itm['category']?.toString() ?? '',
-              style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryOf(context)),
-            ),
-          ),
-          LtrText(
-            priceStr,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.bold,
-              color: isRange ? AppTheme.infoForeground : AppTheme.successForeground,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            itm['pricing_unit']?.toString() ?? '',
-            style: TextStyle(fontSize: 11, color: AppTheme.textMutedOf(context)),
-          ),
-        ],
-      ),
     );
   }
 }

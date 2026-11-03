@@ -1,10 +1,10 @@
 {
  "match_invoice_with_bl::all_match_with_pl": {
-  "overall_status": "FULLY_MATCHED",
+  "overall_status": "ACCEPTED_WITH_WARNINGS",
   "is_safe_for_certification": true,
-  "match_score_percentage": 100.0,
+  "match_score_percentage": 92.9,
   "critical_discrepancies_count": 0,
-  "warning_discrepancies_count": 0,
+  "warning_discrepancies_count": 2,
   "comparison_matrix": [
    {
     "item_code": "CHK_ACID",
@@ -83,17 +83,45 @@
     "details_params": {}
    },
    {
+    "item_code": "CHK_NOTIFY_PARTY",
+    "field_name_ar": "الطرف المخطر (Notify Party)",
+    "field_name_en": "Notify Party Details",
+    "system_value": "Archi Brands",
+    "packing_list_value": "Archi PL",
+    "invoice_value": "ARCHI BRANDS FOR CORPET AND FLOOR TRADING",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MISMATCH_MINOR",
+    "severity": "WARNING",
+    "tolerance": "Similarity: 70.0%",
+    "tolerance_code": "DOC_TOL_SIMILARITY",
+    "tolerance_params": {
+     "match_pct": 70.0
+    },
+    "disagreeing_sources": [
+     "Invoice",
+     "B/L"
+    ],
+    "details": "Notify party differs between the invoice and the B/L",
+    "details_code": "DOC_IBL_NOTIFY_MISMATCH",
+    "details_params": {},
+    "structured_values": {
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
     "item_code": "CHK_CONTAINERS",
-    "field_name_ar": "أرقام الحاويات (Container Numbers)",
-    "field_name_en": "Container Number(s)",
+    "field_name_ar": "أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)",
+    "field_name_en": "Container Number(s) & Type",
     "system_value": "BEAU5851356",
     "packing_list_value": "BEAU5851356",
     "invoice_value": "BEAU5851356",
     "bl_value": "BEAU5851356",
     "match_status": "MATCH",
     "severity": "NONE",
-    "tolerance": "0% (exact container number match)",
-    "tolerance_code": "DOC_TOL_CONTAINERS_EXACT",
+    "tolerance": "ISO 6346 & provisional check",
+    "tolerance_code": "DOC_TOL_ISO_CONTAINER",
     "tolerance_params": {},
     "disagreeing_sources": null,
     "details": "Container numbers match exactly",
@@ -254,9 +282,101 @@
      "incoterm": "EXW",
      "freight_terms": "Freight Prepaid"
     }
+   },
+   {
+    "item_code": "CHK_HS_CODE",
+    "field_name_ar": "كود البند الجمركي (HS Code)",
+    "field_name_en": "Harmonized System (HS) Code",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "HS code classification match",
+    "tolerance_code": "DOC_TOL_HS_CODE",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "HS classification code not found in one or more documents",
+    "details_code": "DOC_IBL_HS_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_CURRENCY",
+    "field_name_ar": "توحيد العملة (Declared Currency)",
+    "field_name_en": "Declared Currency",
+    "system_value": "Not set in the system",
+    "packing_list_value": "USD",
+    "invoice_value": "USD",
+    "bl_value": "USD",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "0% (exact currency match)",
+    "tolerance_code": "DOC_TOL_CURRENCY",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Currency matches across documents and system (USD)",
+    "details_code": "DOC_IBL_CURRENCY_MATCH",
+    "details_params": {
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_ARITHMETIC",
+    "field_name_ar": "التدقيق الحسابي للفاتورة (Arithmetic Precision)",
+    "field_name_en": "Invoice Arithmetic Recalculation",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not specified",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "Line-by-line arithmetic precision",
+    "tolerance_code": "DOC_TOL_ARITHMETIC",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Line items arithmetic recalculation matches total invoice amount (0.0 USD)",
+    "details_code": "DOC_IBL_ARITHMETIC_MATCH",
+    "details_params": {
+     "total_amount": 0.0,
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_SPECIFIED"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
    }
   ],
-  "correction_letter": "",
+  "correction_letter": "Dear MSC,\n\nRE: Correction Request for Draft B/L No: MEDURE910647 (Booking Ref: BK-1)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. Notify Party Details (الطرف المخطر (Notify Party)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: ARCHI BRANDS FOR CORPET AND FLOOR TRADING\n   - Reason: Notify party differs between the invoice and the B/L\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
   "invoice_data": {
    "acid_number": "2001830441013710010",
    "importer_tax_id": "200183044",
@@ -301,11 +421,11 @@
   }
  },
  "match_invoice_with_bl::all_match_no_sys_no_pl": {
-  "overall_status": "FULLY_MATCHED",
+  "overall_status": "ACCEPTED_WITH_WARNINGS",
   "is_safe_for_certification": true,
-  "match_score_percentage": 100.0,
+  "match_score_percentage": 92.9,
   "critical_discrepancies_count": 0,
-  "warning_discrepancies_count": 0,
+  "warning_discrepancies_count": 2,
   "comparison_matrix": [
    {
     "item_code": "CHK_ACID",
@@ -404,17 +524,48 @@
     }
    },
    {
+    "item_code": "CHK_NOTIFY_PARTY",
+    "field_name_ar": "الطرف المخطر (Notify Party)",
+    "field_name_en": "Notify Party Details",
+    "system_value": "Not set in the system",
+    "packing_list_value": "ARCHI BRANDS FOR CORPET AND FLOOR TRADING",
+    "invoice_value": "ARCHI BRANDS FOR CORPET AND FLOOR TRADING",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MISMATCH_MINOR",
+    "severity": "WARNING",
+    "tolerance": "Similarity: 70.0%",
+    "tolerance_code": "DOC_TOL_SIMILARITY",
+    "tolerance_params": {
+     "match_pct": 70.0
+    },
+    "disagreeing_sources": [
+     "Invoice",
+     "B/L"
+    ],
+    "details": "Notify party differs between the invoice and the B/L",
+    "details_code": "DOC_IBL_NOTIFY_MISMATCH",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
     "item_code": "CHK_CONTAINERS",
-    "field_name_ar": "أرقام الحاويات (Container Numbers)",
-    "field_name_en": "Container Number(s)",
+    "field_name_ar": "أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)",
+    "field_name_en": "Container Number(s) & Type",
     "system_value": "Not set in the system",
     "packing_list_value": "BEAU5851356",
     "invoice_value": "BEAU5851356",
     "bl_value": "BEAU5851356",
     "match_status": "MATCH",
     "severity": "NONE",
-    "tolerance": "0% (exact container number match)",
-    "tolerance_code": "DOC_TOL_CONTAINERS_EXACT",
+    "tolerance": "ISO 6346 & provisional check",
+    "tolerance_code": "DOC_TOL_ISO_CONTAINER",
     "tolerance_params": {},
     "disagreeing_sources": null,
     "details": "Container numbers match exactly",
@@ -587,9 +738,101 @@
       "placeholder": "NOT_SET"
      }
     }
+   },
+   {
+    "item_code": "CHK_HS_CODE",
+    "field_name_ar": "كود البند الجمركي (HS Code)",
+    "field_name_en": "Harmonized System (HS) Code",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "HS code classification match",
+    "tolerance_code": "DOC_TOL_HS_CODE",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "HS classification code not found in one or more documents",
+    "details_code": "DOC_IBL_HS_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_CURRENCY",
+    "field_name_ar": "توحيد العملة (Declared Currency)",
+    "field_name_en": "Declared Currency",
+    "system_value": "Not set in the system",
+    "packing_list_value": "USD",
+    "invoice_value": "USD",
+    "bl_value": "USD",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "0% (exact currency match)",
+    "tolerance_code": "DOC_TOL_CURRENCY",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Currency matches across documents and system (USD)",
+    "details_code": "DOC_IBL_CURRENCY_MATCH",
+    "details_params": {
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_ARITHMETIC",
+    "field_name_ar": "التدقيق الحسابي للفاتورة (Arithmetic Precision)",
+    "field_name_en": "Invoice Arithmetic Recalculation",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not specified",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "Line-by-line arithmetic precision",
+    "tolerance_code": "DOC_TOL_ARITHMETIC",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Line items arithmetic recalculation matches total invoice amount (0.0 USD)",
+    "details_code": "DOC_IBL_ARITHMETIC_MATCH",
+    "details_params": {
+     "total_amount": 0.0,
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_SPECIFIED"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
    }
   ],
-  "correction_letter": "",
+  "correction_letter": "Dear MSC,\n\nRE: Correction Request for Draft B/L No: MEDURE910647 (Booking Ref: BK-1)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. Notify Party Details (الطرف المخطر (Notify Party)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: ARCHI BRANDS FOR CORPET AND FLOOR TRADING\n   - Reason: Notify party differs between the invoice and the B/L\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
   "invoice_data": {
    "acid_number": "2001830441013710010",
    "importer_tax_id": "200183044",
@@ -629,9 +872,9 @@
  "match_invoice_with_bl::identity_mismatch": {
   "overall_status": "DISCREPANCY_DETECTED",
   "is_safe_for_certification": false,
-  "match_score_percentage": 20.0,
+  "match_score_percentage": 35.7,
   "critical_discrepancies_count": 4,
-  "warning_discrepancies_count": 0,
+  "warning_discrepancies_count": 2,
   "comparison_matrix": [
    {
     "item_code": "CHK_ACID",
@@ -722,17 +965,45 @@
     "details_params": {}
    },
    {
+    "item_code": "CHK_NOTIFY_PARTY",
+    "field_name_ar": "الطرف المخطر (Notify Party)",
+    "field_name_en": "Notify Party Details",
+    "system_value": "Archi Brands",
+    "packing_list_value": "Archi PL",
+    "invoice_value": "Nile Trading Company",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MISMATCH_MINOR",
+    "severity": "WARNING",
+    "tolerance": "Similarity: 70.0%",
+    "tolerance_code": "DOC_TOL_SIMILARITY",
+    "tolerance_params": {
+     "match_pct": 70.0
+    },
+    "disagreeing_sources": [
+     "Invoice",
+     "B/L"
+    ],
+    "details": "Notify party differs between the invoice and the B/L",
+    "details_code": "DOC_IBL_NOTIFY_MISMATCH",
+    "details_params": {},
+    "structured_values": {
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
     "item_code": "CHK_CONTAINERS",
-    "field_name_ar": "أرقام الحاويات (Container Numbers)",
-    "field_name_en": "Container Number(s)",
+    "field_name_ar": "أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)",
+    "field_name_en": "Container Number(s) & Type",
     "system_value": "BEAU5851356",
     "packing_list_value": "BEAU5851356",
     "invoice_value": "BEAU5851356",
     "bl_value": "BEAU5851356",
     "match_status": "MATCH",
     "severity": "NONE",
-    "tolerance": "0% (exact container number match)",
-    "tolerance_code": "DOC_TOL_CONTAINERS_EXACT",
+    "tolerance": "ISO 6346 & provisional check",
+    "tolerance_code": "DOC_TOL_ISO_CONTAINER",
     "tolerance_params": {},
     "disagreeing_sources": null,
     "details": "Container numbers match exactly",
@@ -893,9 +1164,101 @@
      "incoterm": "EXW",
      "freight_terms": "Freight Prepaid"
     }
+   },
+   {
+    "item_code": "CHK_HS_CODE",
+    "field_name_ar": "كود البند الجمركي (HS Code)",
+    "field_name_en": "Harmonized System (HS) Code",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "HS code classification match",
+    "tolerance_code": "DOC_TOL_HS_CODE",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "HS classification code not found in one or more documents",
+    "details_code": "DOC_IBL_HS_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_CURRENCY",
+    "field_name_ar": "توحيد العملة (Declared Currency)",
+    "field_name_en": "Declared Currency",
+    "system_value": "Not set in the system",
+    "packing_list_value": "USD",
+    "invoice_value": "USD",
+    "bl_value": "USD",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "0% (exact currency match)",
+    "tolerance_code": "DOC_TOL_CURRENCY",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Currency matches across documents and system (USD)",
+    "details_code": "DOC_IBL_CURRENCY_MATCH",
+    "details_params": {
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_ARITHMETIC",
+    "field_name_ar": "التدقيق الحسابي للفاتورة (Arithmetic Precision)",
+    "field_name_en": "Invoice Arithmetic Recalculation",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not specified",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "Line-by-line arithmetic precision",
+    "tolerance_code": "DOC_TOL_ARITHMETIC",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Line items arithmetic recalculation matches total invoice amount (0.0 USD)",
+    "details_code": "DOC_IBL_ARITHMETIC_MATCH",
+    "details_params": {
+     "total_amount": 0.0,
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_SPECIFIED"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
    }
   ],
-  "correction_letter": "Dear MSC,\n\nRE: Correction Request for Draft B/L No: MEDURE910647 (Booking Ref: BK-1)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. ACID Number (19 Digits) (رقم القيد الجمركي المسبق (ACID)):\n   - B/L Current Value: 7595528271019210013\n   - Commercial Invoice Required Value: 2001830441013710010\n   - Reason: ACID number mismatch blocks customs release and stops the shipment immediately.\n\n2. Importer Tax ID (9 Digits) (البطاقة الضريبية للمستورد (Tax ID)):\n   - B/L Current Value: 999888777\n   - Commercial Invoice Required Value: 200183044\n   - Reason: Tax ID mismatch blocks the Nafeza and Form 4 matching.\n\n3. Shipper / Exporter Name (اسم وبيانات المصدر الأجنبي (Shipper)):\n   - B/L Current Value: Shaw Europe Limited\n   - Commercial Invoice Required Value: Totally Different Exporter GmbH\n   - Reason: Exporter / shipper name differs between the invoice and the B/L.\n\n4. Consignee / Importer Name (اسم الشركة المستوردة (Consignee)):\n   - B/L Current Value: ARCHI BRANDS FOR CORPET AND FLOOR TRADING\n   - Commercial Invoice Required Value: Nile Trading Company\n   - Reason: Importer name differs between the invoice and the B/L.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
+  "correction_letter": "Dear MSC,\n\nRE: Correction Request for Draft B/L No: MEDURE910647 (Booking Ref: BK-1)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. ACID Number (19 Digits) (رقم القيد الجمركي المسبق (ACID)):\n   - B/L Current Value: 7595528271019210013\n   - Commercial Invoice Required Value: 2001830441013710010\n   - Reason: ACID number mismatch blocks customs release and stops the shipment immediately.\n\n2. Importer Tax ID (9 Digits) (البطاقة الضريبية للمستورد (Tax ID)):\n   - B/L Current Value: 999888777\n   - Commercial Invoice Required Value: 200183044\n   - Reason: Tax ID mismatch blocks the Nafeza and Form 4 matching.\n\n3. Shipper / Exporter Name (اسم وبيانات المصدر الأجنبي (Shipper)):\n   - B/L Current Value: Shaw Europe Limited\n   - Commercial Invoice Required Value: Totally Different Exporter GmbH\n   - Reason: Exporter / shipper name differs between the invoice and the B/L.\n\n4. Consignee / Importer Name (اسم الشركة المستوردة (Consignee)):\n   - B/L Current Value: ARCHI BRANDS FOR CORPET AND FLOOR TRADING\n   - Commercial Invoice Required Value: Nile Trading Company\n   - Reason: Importer name differs between the invoice and the B/L.\n\n5. Notify Party Details (الطرف المخطر (Notify Party)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Nile Trading Company\n   - Reason: Notify party differs between the invoice and the B/L\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
   "invoice_data": {
    "acid_number": "2001830441013710010",
    "importer_tax_id": "200183044",
@@ -942,9 +1305,9 @@
  "match_invoice_with_bl::identity_extraction_failed": {
   "overall_status": "ACCEPTED_WITH_WARNINGS",
   "is_safe_for_certification": true,
-  "match_score_percentage": 90.0,
+  "match_score_percentage": 92.9,
   "critical_discrepancies_count": 0,
-  "warning_discrepancies_count": 6,
+  "warning_discrepancies_count": 8,
   "comparison_matrix": [
    {
     "item_code": "CHK_ACID",
@@ -1055,17 +1418,45 @@
     }
    },
    {
+    "item_code": "CHK_NOTIFY_PARTY",
+    "field_name_ar": "الطرف المخطر (Notify Party)",
+    "field_name_en": "Notify Party Details",
+    "system_value": "Archi Brands",
+    "packing_list_value": "Archi PL",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "Similarity: 70.0%",
+    "tolerance_code": "DOC_TOL_SIMILARITY",
+    "tolerance_params": {
+     "match_pct": 70.0
+    },
+    "disagreeing_sources": null,
+    "details": "Notify party details were not extracted from the B/L",
+    "details_code": "DOC_IBL_NOTIFY_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
     "item_code": "CHK_CONTAINERS",
-    "field_name_ar": "أرقام الحاويات (Container Numbers)",
-    "field_name_en": "Container Number(s)",
+    "field_name_ar": "أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)",
+    "field_name_en": "Container Number(s) & Type",
     "system_value": "BEAU5851356",
     "packing_list_value": "Not included in the packing list",
     "invoice_value": "Not stated in the invoice",
     "bl_value": "Not found in the B/L",
     "match_status": "MISMATCH_MINOR",
     "severity": "WARNING",
-    "tolerance": "0% (exact container number match)",
-    "tolerance_code": "DOC_TOL_CONTAINERS_EXACT",
+    "tolerance": "ISO 6346 & provisional check",
+    "tolerance_code": "DOC_TOL_ISO_CONTAINER",
     "tolerance_params": {},
     "disagreeing_sources": null,
     "details": "Container numbers in the invoice do not match the B/L.",
@@ -1241,9 +1632,101 @@
      "incoterm": "EXW",
      "freight_terms": "Freight Prepaid"
     }
+   },
+   {
+    "item_code": "CHK_HS_CODE",
+    "field_name_ar": "كود البند الجمركي (HS Code)",
+    "field_name_en": "Harmonized System (HS) Code",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "HS code classification match",
+    "tolerance_code": "DOC_TOL_HS_CODE",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "HS classification code not found in one or more documents",
+    "details_code": "DOC_IBL_HS_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_CURRENCY",
+    "field_name_ar": "توحيد العملة (Declared Currency)",
+    "field_name_en": "Declared Currency",
+    "system_value": "Not set in the system",
+    "packing_list_value": "USD",
+    "invoice_value": "USD",
+    "bl_value": "USD",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "0% (exact currency match)",
+    "tolerance_code": "DOC_TOL_CURRENCY",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Currency matches across documents and system (USD)",
+    "details_code": "DOC_IBL_CURRENCY_MATCH",
+    "details_params": {
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_ARITHMETIC",
+    "field_name_ar": "التدقيق الحسابي للفاتورة (Arithmetic Precision)",
+    "field_name_en": "Invoice Arithmetic Recalculation",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not specified",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "Line-by-line arithmetic precision",
+    "tolerance_code": "DOC_TOL_ARITHMETIC",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Line items arithmetic recalculation matches total invoice amount (0.0 USD)",
+    "details_code": "DOC_IBL_ARITHMETIC_MATCH",
+    "details_params": {
+     "total_amount": 0.0,
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_SPECIFIED"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
    }
   ],
-  "correction_letter": "Dear Carrier / Freight Forwarder,\n\nRE: Correction Request for Draft B/L No: DRAFT-BL (Booking Ref: BKG-REF)\nImport File Reference: ACID N/A\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. Container Number(s) (أرقام الحاويات (Container Numbers)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Container numbers in the invoice do not match the B/L.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
+  "correction_letter": "Dear Carrier / Freight Forwarder,\n\nRE: Correction Request for Draft B/L No: DRAFT-BL (Booking Ref: BKG-REF)\nImport File Reference: ACID N/A\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. Container Number(s) & Type (أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Container numbers in the invoice do not match the B/L.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
   "invoice_data": {},
   "bl_data": {},
   "packing_list_data": {
@@ -1258,9 +1741,9 @@
  "match_invoice_with_bl::identity_extraction_failed_all_empty": {
   "overall_status": "ACCEPTED_WITH_WARNINGS",
   "is_safe_for_certification": true,
-  "match_score_percentage": 90.0,
+  "match_score_percentage": 92.9,
   "critical_discrepancies_count": 0,
-  "warning_discrepancies_count": 6,
+  "warning_discrepancies_count": 8,
   "comparison_matrix": [
    {
     "item_code": "CHK_ACID",
@@ -1395,17 +1878,51 @@
     }
    },
    {
+    "item_code": "CHK_NOTIFY_PARTY",
+    "field_name_ar": "الطرف المخطر (Notify Party)",
+    "field_name_en": "Notify Party Details",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "Similarity: 70.0%",
+    "tolerance_code": "DOC_TOL_SIMILARITY",
+    "tolerance_params": {
+     "match_pct": 70.0
+    },
+    "disagreeing_sources": null,
+    "details": "Notify party details were not extracted from the B/L",
+    "details_code": "DOC_IBL_NOTIFY_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
     "item_code": "CHK_CONTAINERS",
-    "field_name_ar": "أرقام الحاويات (Container Numbers)",
-    "field_name_en": "Container Number(s)",
+    "field_name_ar": "أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)",
+    "field_name_en": "Container Number(s) & Type",
     "system_value": "Not set in the system",
     "packing_list_value": "Not included in the packing list",
     "invoice_value": "Not stated in the invoice",
     "bl_value": "Not found in the B/L",
     "match_status": "MISMATCH_MINOR",
     "severity": "WARNING",
-    "tolerance": "0% (exact container number match)",
-    "tolerance_code": "DOC_TOL_CONTAINERS_EXACT",
+    "tolerance": "ISO 6346 & provisional check",
+    "tolerance_code": "DOC_TOL_ISO_CONTAINER",
     "tolerance_params": {},
     "disagreeing_sources": null,
     "details": "Container numbers in the invoice do not match the B/L.",
@@ -1587,9 +2104,101 @@
       "placeholder": "NOT_SET"
      }
     }
+   },
+   {
+    "item_code": "CHK_HS_CODE",
+    "field_name_ar": "كود البند الجمركي (HS Code)",
+    "field_name_en": "Harmonized System (HS) Code",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "HS code classification match",
+    "tolerance_code": "DOC_TOL_HS_CODE",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "HS classification code not found in one or more documents",
+    "details_code": "DOC_IBL_HS_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_CURRENCY",
+    "field_name_ar": "توحيد العملة (Declared Currency)",
+    "field_name_en": "Declared Currency",
+    "system_value": "Not set in the system",
+    "packing_list_value": "USD",
+    "invoice_value": "USD",
+    "bl_value": "USD",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "0% (exact currency match)",
+    "tolerance_code": "DOC_TOL_CURRENCY",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Currency matches across documents and system (USD)",
+    "details_code": "DOC_IBL_CURRENCY_MATCH",
+    "details_params": {
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_ARITHMETIC",
+    "field_name_ar": "التدقيق الحسابي للفاتورة (Arithmetic Precision)",
+    "field_name_en": "Invoice Arithmetic Recalculation",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not specified",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "Line-by-line arithmetic precision",
+    "tolerance_code": "DOC_TOL_ARITHMETIC",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Line items arithmetic recalculation matches total invoice amount (0.0 USD)",
+    "details_code": "DOC_IBL_ARITHMETIC_MATCH",
+    "details_params": {
+     "total_amount": 0.0,
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_SPECIFIED"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
    }
   ],
-  "correction_letter": "Dear Carrier / Freight Forwarder,\n\nRE: Correction Request for Draft B/L No: DRAFT-BL (Booking Ref: BKG-REF)\nImport File Reference: ACID N/A\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. Container Number(s) (أرقام الحاويات (Container Numbers)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Container numbers in the invoice do not match the B/L.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
+  "correction_letter": "Dear Carrier / Freight Forwarder,\n\nRE: Correction Request for Draft B/L No: DRAFT-BL (Booking Ref: BKG-REF)\nImport File Reference: ACID N/A\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. Container Number(s) & Type (أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Container numbers in the invoice do not match the B/L.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
   "invoice_data": {},
   "bl_data": {},
   "packing_list_data": null
@@ -1597,9 +2206,9 @@
  "match_invoice_with_bl::acid_system_override": {
   "overall_status": "DISCREPANCY_DETECTED",
   "is_safe_for_certification": false,
-  "match_score_percentage": 80.0,
+  "match_score_percentage": 78.6,
   "critical_discrepancies_count": 1,
-  "warning_discrepancies_count": 0,
+  "warning_discrepancies_count": 2,
   "comparison_matrix": [
    {
     "item_code": "CHK_ACID",
@@ -1681,17 +2290,45 @@
     "details_params": {}
    },
    {
+    "item_code": "CHK_NOTIFY_PARTY",
+    "field_name_ar": "الطرف المخطر (Notify Party)",
+    "field_name_en": "Notify Party Details",
+    "system_value": "Archi Brands",
+    "packing_list_value": "ARCHI BRANDS FOR CORPET AND FLOOR TRADING",
+    "invoice_value": "ARCHI BRANDS FOR CORPET AND FLOOR TRADING",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MISMATCH_MINOR",
+    "severity": "WARNING",
+    "tolerance": "Similarity: 70.0%",
+    "tolerance_code": "DOC_TOL_SIMILARITY",
+    "tolerance_params": {
+     "match_pct": 70.0
+    },
+    "disagreeing_sources": [
+     "Invoice",
+     "B/L"
+    ],
+    "details": "Notify party differs between the invoice and the B/L",
+    "details_code": "DOC_IBL_NOTIFY_MISMATCH",
+    "details_params": {},
+    "structured_values": {
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
     "item_code": "CHK_CONTAINERS",
-    "field_name_ar": "أرقام الحاويات (Container Numbers)",
-    "field_name_en": "Container Number(s)",
+    "field_name_ar": "أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)",
+    "field_name_en": "Container Number(s) & Type",
     "system_value": "BEAU5851356",
     "packing_list_value": "BEAU5851356",
     "invoice_value": "BEAU5851356",
     "bl_value": "BEAU5851356",
     "match_status": "MATCH",
     "severity": "NONE",
-    "tolerance": "0% (exact container number match)",
-    "tolerance_code": "DOC_TOL_CONTAINERS_EXACT",
+    "tolerance": "ISO 6346 & provisional check",
+    "tolerance_code": "DOC_TOL_ISO_CONTAINER",
     "tolerance_params": {},
     "disagreeing_sources": null,
     "details": "Container numbers match exactly",
@@ -1852,9 +2489,101 @@
      "incoterm": "EXW",
      "freight_terms": "Freight Prepaid"
     }
+   },
+   {
+    "item_code": "CHK_HS_CODE",
+    "field_name_ar": "كود البند الجمركي (HS Code)",
+    "field_name_en": "Harmonized System (HS) Code",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "HS code classification match",
+    "tolerance_code": "DOC_TOL_HS_CODE",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "HS classification code not found in one or more documents",
+    "details_code": "DOC_IBL_HS_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_CURRENCY",
+    "field_name_ar": "توحيد العملة (Declared Currency)",
+    "field_name_en": "Declared Currency",
+    "system_value": "Not set in the system",
+    "packing_list_value": "USD",
+    "invoice_value": "USD",
+    "bl_value": "USD",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "0% (exact currency match)",
+    "tolerance_code": "DOC_TOL_CURRENCY",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Currency matches across documents and system (USD)",
+    "details_code": "DOC_IBL_CURRENCY_MATCH",
+    "details_params": {
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_ARITHMETIC",
+    "field_name_ar": "التدقيق الحسابي للفاتورة (Arithmetic Precision)",
+    "field_name_en": "Invoice Arithmetic Recalculation",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not specified",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "Line-by-line arithmetic precision",
+    "tolerance_code": "DOC_TOL_ARITHMETIC",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Line items arithmetic recalculation matches total invoice amount (0.0 USD)",
+    "details_code": "DOC_IBL_ARITHMETIC_MATCH",
+    "details_params": {
+     "total_amount": 0.0,
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_SPECIFIED"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
    }
   ],
-  "correction_letter": "Dear MSC,\n\nRE: Correction Request for Draft B/L No: MEDURE910647 (Booking Ref: BK-1)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. ACID Number (19 Digits) (رقم القيد الجمركي المسبق (ACID)):\n   - B/L Current Value: 2001830441013710010\n   - Commercial Invoice Required Value: 2001830441013710010\n   - Reason: ACID number mismatch blocks customs release and stops the shipment immediately.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
+  "correction_letter": "Dear MSC,\n\nRE: Correction Request for Draft B/L No: MEDURE910647 (Booking Ref: BK-1)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. ACID Number (19 Digits) (رقم القيد الجمركي المسبق (ACID)):\n   - B/L Current Value: 2001830441013710010\n   - Commercial Invoice Required Value: 2001830441013710010\n   - Reason: ACID number mismatch blocks customs release and stops the shipment immediately.\n\n2. Notify Party Details (الطرف المخطر (Notify Party)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: ARCHI BRANDS FOR CORPET AND FLOOR TRADING\n   - Reason: Notify party differs between the invoice and the B/L\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
   "invoice_data": {
    "acid_number": "2001830441013710010",
    "importer_tax_id": "200183044",
@@ -1894,9 +2623,9 @@
  "match_invoice_with_bl::acid_system_equal_but_bl_differs": {
   "overall_status": "DISCREPANCY_DETECTED",
   "is_safe_for_certification": false,
-  "match_score_percentage": 80.0,
+  "match_score_percentage": 78.6,
   "critical_discrepancies_count": 1,
-  "warning_discrepancies_count": 0,
+  "warning_discrepancies_count": 2,
   "comparison_matrix": [
    {
     "item_code": "CHK_ACID",
@@ -1978,17 +2707,45 @@
     "details_params": {}
    },
    {
+    "item_code": "CHK_NOTIFY_PARTY",
+    "field_name_ar": "الطرف المخطر (Notify Party)",
+    "field_name_en": "Notify Party Details",
+    "system_value": "Archi Brands",
+    "packing_list_value": "ARCHI BRANDS FOR CORPET AND FLOOR TRADING",
+    "invoice_value": "ARCHI BRANDS FOR CORPET AND FLOOR TRADING",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MISMATCH_MINOR",
+    "severity": "WARNING",
+    "tolerance": "Similarity: 70.0%",
+    "tolerance_code": "DOC_TOL_SIMILARITY",
+    "tolerance_params": {
+     "match_pct": 70.0
+    },
+    "disagreeing_sources": [
+     "Invoice",
+     "B/L"
+    ],
+    "details": "Notify party differs between the invoice and the B/L",
+    "details_code": "DOC_IBL_NOTIFY_MISMATCH",
+    "details_params": {},
+    "structured_values": {
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
     "item_code": "CHK_CONTAINERS",
-    "field_name_ar": "أرقام الحاويات (Container Numbers)",
-    "field_name_en": "Container Number(s)",
+    "field_name_ar": "أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)",
+    "field_name_en": "Container Number(s) & Type",
     "system_value": "BEAU5851356",
     "packing_list_value": "BEAU5851356",
     "invoice_value": "BEAU5851356",
     "bl_value": "BEAU5851356",
     "match_status": "MATCH",
     "severity": "NONE",
-    "tolerance": "0% (exact container number match)",
-    "tolerance_code": "DOC_TOL_CONTAINERS_EXACT",
+    "tolerance": "ISO 6346 & provisional check",
+    "tolerance_code": "DOC_TOL_ISO_CONTAINER",
     "tolerance_params": {},
     "disagreeing_sources": null,
     "details": "Container numbers match exactly",
@@ -2149,9 +2906,101 @@
      "incoterm": "EXW",
      "freight_terms": "Freight Prepaid"
     }
+   },
+   {
+    "item_code": "CHK_HS_CODE",
+    "field_name_ar": "كود البند الجمركي (HS Code)",
+    "field_name_en": "Harmonized System (HS) Code",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "HS code classification match",
+    "tolerance_code": "DOC_TOL_HS_CODE",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "HS classification code not found in one or more documents",
+    "details_code": "DOC_IBL_HS_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_CURRENCY",
+    "field_name_ar": "توحيد العملة (Declared Currency)",
+    "field_name_en": "Declared Currency",
+    "system_value": "Not set in the system",
+    "packing_list_value": "USD",
+    "invoice_value": "USD",
+    "bl_value": "USD",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "0% (exact currency match)",
+    "tolerance_code": "DOC_TOL_CURRENCY",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Currency matches across documents and system (USD)",
+    "details_code": "DOC_IBL_CURRENCY_MATCH",
+    "details_params": {
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_ARITHMETIC",
+    "field_name_ar": "التدقيق الحسابي للفاتورة (Arithmetic Precision)",
+    "field_name_en": "Invoice Arithmetic Recalculation",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not specified",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "Line-by-line arithmetic precision",
+    "tolerance_code": "DOC_TOL_ARITHMETIC",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Line items arithmetic recalculation matches total invoice amount (0.0 USD)",
+    "details_code": "DOC_IBL_ARITHMETIC_MATCH",
+    "details_params": {
+     "total_amount": 0.0,
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_SPECIFIED"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
    }
   ],
-  "correction_letter": "Dear MSC,\n\nRE: Correction Request for Draft B/L No: MEDURE910647 (Booking Ref: BK-1)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. ACID Number (19 Digits) (رقم القيد الجمركي المسبق (ACID)):\n   - B/L Current Value: 7595528271019210013\n   - Commercial Invoice Required Value: 2001830441013710010\n   - Reason: ACID number mismatch blocks customs release and stops the shipment immediately.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
+  "correction_letter": "Dear MSC,\n\nRE: Correction Request for Draft B/L No: MEDURE910647 (Booking Ref: BK-1)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. ACID Number (19 Digits) (رقم القيد الجمركي المسبق (ACID)):\n   - B/L Current Value: 7595528271019210013\n   - Commercial Invoice Required Value: 2001830441013710010\n   - Reason: ACID number mismatch blocks customs release and stops the shipment immediately.\n\n2. Notify Party Details (الطرف المخطر (Notify Party)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: ARCHI BRANDS FOR CORPET AND FLOOR TRADING\n   - Reason: Notify party differs between the invoice and the B/L\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
   "invoice_data": {
    "acid_number": "2001830441013710010",
    "importer_tax_id": "200183044",
@@ -2191,9 +3040,9 @@
  "match_invoice_with_bl::one_sided_invoice_only": {
   "overall_status": "DISCREPANCY_DETECTED",
   "is_safe_for_certification": false,
-  "match_score_percentage": 10.0,
+  "match_score_percentage": 28.6,
   "critical_discrepancies_count": 4,
-  "warning_discrepancies_count": 2,
+  "warning_discrepancies_count": 4,
   "comparison_matrix": [
    {
     "item_code": "CHK_ACID",
@@ -2313,17 +3162,48 @@
     }
    },
    {
+    "item_code": "CHK_NOTIFY_PARTY",
+    "field_name_ar": "الطرف المخطر (Notify Party)",
+    "field_name_en": "Notify Party Details",
+    "system_value": "Not set in the system",
+    "packing_list_value": "PL Consignee",
+    "invoice_value": "Archi",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MISMATCH_MINOR",
+    "severity": "WARNING",
+    "tolerance": "Similarity: 70.0%",
+    "tolerance_code": "DOC_TOL_SIMILARITY",
+    "tolerance_params": {
+     "match_pct": 70.0
+    },
+    "disagreeing_sources": [
+     "Invoice",
+     "B/L"
+    ],
+    "details": "Notify party differs between the invoice and the B/L",
+    "details_code": "DOC_IBL_NOTIFY_MISMATCH",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
     "item_code": "CHK_CONTAINERS",
-    "field_name_ar": "أرقام الحاويات (Container Numbers)",
-    "field_name_en": "Container Number(s)",
+    "field_name_ar": "أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)",
+    "field_name_en": "Container Number(s) & Type",
     "system_value": "Not set in the system",
     "packing_list_value": "Not included in the packing list",
     "invoice_value": "Not stated in the invoice",
     "bl_value": "Not found in the B/L",
     "match_status": "MISMATCH_MINOR",
     "severity": "WARNING",
-    "tolerance": "0% (exact container number match)",
-    "tolerance_code": "DOC_TOL_CONTAINERS_EXACT",
+    "tolerance": "ISO 6346 & provisional check",
+    "tolerance_code": "DOC_TOL_ISO_CONTAINER",
     "tolerance_params": {},
     "disagreeing_sources": null,
     "details": "Container numbers in the invoice do not match the B/L.",
@@ -2505,9 +3385,101 @@
       "placeholder": "NOT_SET"
      }
     }
+   },
+   {
+    "item_code": "CHK_HS_CODE",
+    "field_name_ar": "كود البند الجمركي (HS Code)",
+    "field_name_en": "Harmonized System (HS) Code",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "HS code classification match",
+    "tolerance_code": "DOC_TOL_HS_CODE",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "HS classification code not found in one or more documents",
+    "details_code": "DOC_IBL_HS_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_CURRENCY",
+    "field_name_ar": "توحيد العملة (Declared Currency)",
+    "field_name_en": "Declared Currency",
+    "system_value": "Not set in the system",
+    "packing_list_value": "USD",
+    "invoice_value": "USD",
+    "bl_value": "USD",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "0% (exact currency match)",
+    "tolerance_code": "DOC_TOL_CURRENCY",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Currency matches across documents and system (USD)",
+    "details_code": "DOC_IBL_CURRENCY_MATCH",
+    "details_params": {
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_ARITHMETIC",
+    "field_name_ar": "التدقيق الحسابي للفاتورة (Arithmetic Precision)",
+    "field_name_en": "Invoice Arithmetic Recalculation",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not specified",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "Line-by-line arithmetic precision",
+    "tolerance_code": "DOC_TOL_ARITHMETIC",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Line items arithmetic recalculation matches total invoice amount (0.0 USD)",
+    "details_code": "DOC_IBL_ARITHMETIC_MATCH",
+    "details_params": {
+     "total_amount": 0.0,
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_SPECIFIED"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
    }
   ],
-  "correction_letter": "Dear Carrier / Freight Forwarder,\n\nRE: Correction Request for Draft B/L No: DRAFT-BL (Booking Ref: BKG-REF)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. ACID Number (19 Digits) (رقم القيد الجمركي المسبق (ACID)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: 2001830441013710010\n   - Reason: ACID number mismatch blocks customs release and stops the shipment immediately.\n\n2. Importer Tax ID (9 Digits) (البطاقة الضريبية للمستورد (Tax ID)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: 200183044\n   - Reason: Tax ID mismatch blocks the Nafeza and Form 4 matching.\n\n3. Shipper / Exporter Name (اسم وبيانات المصدر الأجنبي (Shipper)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Shaw\n   - Reason: Exporter / shipper name differs between the invoice and the B/L.\n\n4. Consignee / Importer Name (اسم الشركة المستوردة (Consignee)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Archi\n   - Reason: Importer name differs between the invoice and the B/L.\n\n5. Container Number(s) (أرقام الحاويات (Container Numbers)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Container numbers in the invoice do not match the B/L.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
+  "correction_letter": "Dear Carrier / Freight Forwarder,\n\nRE: Correction Request for Draft B/L No: DRAFT-BL (Booking Ref: BKG-REF)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. ACID Number (19 Digits) (رقم القيد الجمركي المسبق (ACID)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: 2001830441013710010\n   - Reason: ACID number mismatch blocks customs release and stops the shipment immediately.\n\n2. Importer Tax ID (9 Digits) (البطاقة الضريبية للمستورد (Tax ID)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: 200183044\n   - Reason: Tax ID mismatch blocks the Nafeza and Form 4 matching.\n\n3. Shipper / Exporter Name (اسم وبيانات المصدر الأجنبي (Shipper)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Shaw\n   - Reason: Exporter / shipper name differs between the invoice and the B/L.\n\n4. Consignee / Importer Name (اسم الشركة المستوردة (Consignee)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Archi\n   - Reason: Importer name differs between the invoice and the B/L.\n\n5. Notify Party Details (الطرف المخطر (Notify Party)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Archi\n   - Reason: Notify party differs between the invoice and the B/L\n\n6. Container Number(s) & Type (أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Container numbers in the invoice do not match the B/L.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
   "invoice_data": {
    "acid_number": "2001830441013710010",
    "importer_tax_id": "200183044",
@@ -2526,9 +3498,9 @@
  "match_invoice_with_bl::one_sided_bl_only_sys_acid": {
   "overall_status": "DISCREPANCY_DETECTED",
   "is_safe_for_certification": false,
-  "match_score_percentage": 10.0,
+  "match_score_percentage": 35.7,
   "critical_discrepancies_count": 4,
-  "warning_discrepancies_count": 2,
+  "warning_discrepancies_count": 4,
   "comparison_matrix": [
    {
     "item_code": "CHK_ACID",
@@ -2654,17 +3626,48 @@
     }
    },
    {
+    "item_code": "CHK_NOTIFY_PARTY",
+    "field_name_ar": "الطرف المخطر (Notify Party)",
+    "field_name_en": "Notify Party Details",
+    "system_value": "Sys Consignee",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "Similarity: 70.0%",
+    "tolerance_code": "DOC_TOL_SIMILARITY",
+    "tolerance_params": {
+     "match_pct": 70.0
+    },
+    "disagreeing_sources": null,
+    "details": "Notify party details were not extracted from the B/L",
+    "details_code": "DOC_IBL_NOTIFY_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
     "item_code": "CHK_CONTAINERS",
-    "field_name_ar": "أرقام الحاويات (Container Numbers)",
-    "field_name_en": "Container Number(s)",
+    "field_name_ar": "أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)",
+    "field_name_en": "Container Number(s) & Type",
     "system_value": "Not set in the system",
     "packing_list_value": "Not included in the packing list",
     "invoice_value": "Not stated in the invoice",
     "bl_value": "Not found in the B/L",
     "match_status": "MISMATCH_MINOR",
     "severity": "WARNING",
-    "tolerance": "0% (exact container number match)",
-    "tolerance_code": "DOC_TOL_CONTAINERS_EXACT",
+    "tolerance": "ISO 6346 & provisional check",
+    "tolerance_code": "DOC_TOL_ISO_CONTAINER",
     "tolerance_params": {},
     "disagreeing_sources": null,
     "details": "Container numbers in the invoice do not match the B/L.",
@@ -2846,9 +3849,101 @@
       "placeholder": "NOT_SET"
      }
     }
+   },
+   {
+    "item_code": "CHK_HS_CODE",
+    "field_name_ar": "كود البند الجمركي (HS Code)",
+    "field_name_en": "Harmonized System (HS) Code",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "HS code classification match",
+    "tolerance_code": "DOC_TOL_HS_CODE",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "HS classification code not found in one or more documents",
+    "details_code": "DOC_IBL_HS_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_CURRENCY",
+    "field_name_ar": "توحيد العملة (Declared Currency)",
+    "field_name_en": "Declared Currency",
+    "system_value": "Not set in the system",
+    "packing_list_value": "USD",
+    "invoice_value": "USD",
+    "bl_value": "USD",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "0% (exact currency match)",
+    "tolerance_code": "DOC_TOL_CURRENCY",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Currency matches across documents and system (USD)",
+    "details_code": "DOC_IBL_CURRENCY_MATCH",
+    "details_params": {
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_ARITHMETIC",
+    "field_name_ar": "التدقيق الحسابي للفاتورة (Arithmetic Precision)",
+    "field_name_en": "Invoice Arithmetic Recalculation",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not specified",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "Line-by-line arithmetic precision",
+    "tolerance_code": "DOC_TOL_ARITHMETIC",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Line items arithmetic recalculation matches total invoice amount (0.0 USD)",
+    "details_code": "DOC_IBL_ARITHMETIC_MATCH",
+    "details_params": {
+     "total_amount": 0.0,
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_SPECIFIED"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
    }
   ],
-  "correction_letter": "Dear Carrier / Freight Forwarder,\n\nRE: Correction Request for Draft B/L No: DRAFT-BL (Booking Ref: BKG-REF)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. ACID Number (19 Digits) (رقم القيد الجمركي المسبق (ACID)):\n   - B/L Current Value: 2001830441013710010\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: ACID number mismatch blocks customs release and stops the shipment immediately.\n\n2. Importer Tax ID (9 Digits) (البطاقة الضريبية للمستورد (Tax ID)):\n   - B/L Current Value: 200183044\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Tax ID mismatch blocks the Nafeza and Form 4 matching.\n\n3. Shipper / Exporter Name (اسم وبيانات المصدر الأجنبي (Shipper)):\n   - B/L Current Value: Shaw\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Exporter / shipper name differs between the invoice and the B/L.\n\n4. Consignee / Importer Name (اسم الشركة المستوردة (Consignee)):\n   - B/L Current Value: Archi\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Importer name differs between the invoice and the B/L.\n\n5. Container Number(s) (أرقام الحاويات (Container Numbers)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Container numbers in the invoice do not match the B/L.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
+  "correction_letter": "Dear Carrier / Freight Forwarder,\n\nRE: Correction Request for Draft B/L No: DRAFT-BL (Booking Ref: BKG-REF)\nImport File Reference: ACID 2001830441013710010\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. ACID Number (19 Digits) (رقم القيد الجمركي المسبق (ACID)):\n   - B/L Current Value: 2001830441013710010\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: ACID number mismatch blocks customs release and stops the shipment immediately.\n\n2. Importer Tax ID (9 Digits) (البطاقة الضريبية للمستورد (Tax ID)):\n   - B/L Current Value: 200183044\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Tax ID mismatch blocks the Nafeza and Form 4 matching.\n\n3. Shipper / Exporter Name (اسم وبيانات المصدر الأجنبي (Shipper)):\n   - B/L Current Value: Shaw\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Exporter / shipper name differs between the invoice and the B/L.\n\n4. Consignee / Importer Name (اسم الشركة المستوردة (Consignee)):\n   - B/L Current Value: Archi\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Importer name differs between the invoice and the B/L.\n\n5. Container Number(s) & Type (أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Container numbers in the invoice do not match the B/L.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
   "invoice_data": {},
   "bl_data": {
    "acid_number": "2001830441013710010",
@@ -2861,9 +3956,9 @@
  "match_invoice_with_bl::fallback_keys_supplier_importer": {
   "overall_status": "ACCEPTED_WITH_WARNINGS",
   "is_safe_for_certification": true,
-  "match_score_percentage": 90.0,
+  "match_score_percentage": 85.7,
   "critical_discrepancies_count": 0,
-  "warning_discrepancies_count": 4,
+  "warning_discrepancies_count": 6,
   "comparison_matrix": [
    {
     "item_code": "CHK_ACID",
@@ -2970,17 +4065,45 @@
     "details_params": {}
    },
    {
+    "item_code": "CHK_NOTIFY_PARTY",
+    "field_name_ar": "الطرف المخطر (Notify Party)",
+    "field_name_en": "Notify Party Details",
+    "system_value": "Sys Archi",
+    "packing_list_value": "PL Archi",
+    "invoice_value": "Archi Brands Trading",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MISMATCH_MINOR",
+    "severity": "WARNING",
+    "tolerance": "Similarity: 70.0%",
+    "tolerance_code": "DOC_TOL_SIMILARITY",
+    "tolerance_params": {
+     "match_pct": 70.0
+    },
+    "disagreeing_sources": [
+     "Invoice",
+     "B/L"
+    ],
+    "details": "Notify party differs between the invoice and the B/L",
+    "details_code": "DOC_IBL_NOTIFY_MISMATCH",
+    "details_params": {},
+    "structured_values": {
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
     "item_code": "CHK_CONTAINERS",
-    "field_name_ar": "أرقام الحاويات (Container Numbers)",
-    "field_name_en": "Container Number(s)",
+    "field_name_ar": "أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)",
+    "field_name_en": "Container Number(s) & Type",
     "system_value": "Not set in the system",
     "packing_list_value": "Not included in the packing list",
     "invoice_value": "Not stated in the invoice",
     "bl_value": "Not found in the B/L",
     "match_status": "MISMATCH_MINOR",
     "severity": "WARNING",
-    "tolerance": "0% (exact container number match)",
-    "tolerance_code": "DOC_TOL_CONTAINERS_EXACT",
+    "tolerance": "ISO 6346 & provisional check",
+    "tolerance_code": "DOC_TOL_ISO_CONTAINER",
     "tolerance_params": {},
     "disagreeing_sources": null,
     "details": "Container numbers in the invoice do not match the B/L.",
@@ -3162,9 +4285,101 @@
       "placeholder": "NOT_SET"
      }
     }
+   },
+   {
+    "item_code": "CHK_HS_CODE",
+    "field_name_ar": "كود البند الجمركي (HS Code)",
+    "field_name_en": "Harmonized System (HS) Code",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not stated in the invoice",
+    "bl_value": "Not found in the B/L",
+    "match_status": "EXTRACTION_FAILED",
+    "severity": "WARNING",
+    "tolerance": "HS code classification match",
+    "tolerance_code": "DOC_TOL_HS_CODE",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "HS classification code not found in one or more documents",
+    "details_code": "DOC_IBL_HS_NOT_EXTRACTED",
+    "details_params": {},
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_IN_INVOICE"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_CURRENCY",
+    "field_name_ar": "توحيد العملة (Declared Currency)",
+    "field_name_en": "Declared Currency",
+    "system_value": "Not set in the system",
+    "packing_list_value": "USD",
+    "invoice_value": "USD",
+    "bl_value": "USD",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "0% (exact currency match)",
+    "tolerance_code": "DOC_TOL_CURRENCY",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Currency matches across documents and system (USD)",
+    "details_code": "DOC_IBL_CURRENCY_MATCH",
+    "details_params": {
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     }
+    }
+   },
+   {
+    "item_code": "CHK_ARITHMETIC",
+    "field_name_ar": "التدقيق الحسابي للفاتورة (Arithmetic Precision)",
+    "field_name_en": "Invoice Arithmetic Recalculation",
+    "system_value": "Not set in the system",
+    "packing_list_value": "Not included in the packing list",
+    "invoice_value": "Not specified",
+    "bl_value": "Not found in the B/L",
+    "match_status": "MATCH",
+    "severity": "NONE",
+    "tolerance": "Line-by-line arithmetic precision",
+    "tolerance_code": "DOC_TOL_ARITHMETIC",
+    "tolerance_params": {},
+    "disagreeing_sources": null,
+    "details": "Line items arithmetic recalculation matches total invoice amount (0.0 USD)",
+    "details_code": "DOC_IBL_ARITHMETIC_MATCH",
+    "details_params": {
+     "total_amount": 0.0,
+     "currency": "USD"
+    },
+    "structured_values": {
+     "system_value": {
+      "placeholder": "NOT_SET"
+     },
+     "packing_list_value": {
+      "placeholder": "NOT_IN_PACKING_LIST"
+     },
+     "invoice_value": {
+      "placeholder": "NOT_SPECIFIED"
+     },
+     "bl_value": {
+      "placeholder": "NOT_IN_BL"
+     }
+    }
    }
   ],
-  "correction_letter": "Dear Carrier / Freight Forwarder,\n\nRE: Correction Request for Draft B/L No: DRAFT-BL (Booking Ref: BKG-REF)\nImport File Reference: ACID N/A\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. Container Number(s) (أرقام الحاويات (Container Numbers)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Container numbers in the invoice do not match the B/L.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
+  "correction_letter": "Dear Carrier / Freight Forwarder,\n\nRE: Correction Request for Draft B/L No: DRAFT-BL (Booking Ref: BKG-REF)\nImport File Reference: ACID N/A\n\nFollowing our formal cross-document reconciliation against the Final Commercial Invoice, please amend the following discrepancies on the final Bill of Lading:\n\n1. Notify Party Details (الطرف المخطر (Notify Party)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Archi Brands Trading\n   - Reason: Notify party differs between the invoice and the B/L\n\n2. Container Number(s) & Type (أرقام الحاويات ونوع الشحنة (Containers FCL/LCL)):\n   - B/L Current Value: Not found in the B/L\n   - Commercial Invoice Required Value: Not stated in the invoice\n   - Reason: Container numbers in the invoice do not match the B/L.\n\nPlease issue the revised Draft B/L promptly to avoid customs clearance delays on the Egyptian Nafeza system.\n\nBest Regards,\nImport Operations & Customs Clearance Department\nSorour Logistics ERP System",
   "invoice_data": {
    "supplier_name": "Shaw Europe Limited",
    "importer_name": "Archi Brands Trading"
@@ -7208,10 +8423,10 @@
   "consignee_name": "Nile Star Trading Company",
   "buyer": "Nile Star Trading Company",
   "customer_name": "Nile Star Trading Company",
+  "hs_code": "84158200",
   "hs_codes": [
    "84158200"
-  ],
-  "hs_code": "84158200"
+  ]
  },
  "extract::invoice_bill_to": {
   "document_type": "Commercial Invoice",

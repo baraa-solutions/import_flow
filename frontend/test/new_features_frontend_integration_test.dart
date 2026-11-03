@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/demurrage_detention/widgets/dual_clock_radar_dialog.dart';
 import 'package:frontend/features/suppliers/widgets/route_intelligence_dialog.dart';
@@ -235,7 +236,8 @@ void main() {
       );
 
       expect(find.byType(POBalanceLedgerDialog), findsOneWidget);
-      expect(find.textContaining('PO Balance & Partial Shipments Ledger'), findsOneWidget);
+      // Title is pure Arabic now (anti-stacking): no English suffix in parentheses.
+      expect(find.text(const AppLocalizationsAr().poBalanceLedgerTitle), findsOneWidget);
       expect(find.textContaining('75.0%'), findsWidgets);
     });
 

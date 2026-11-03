@@ -371,8 +371,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Form validation error should prevent submission and show snackbar notification
+      // (pure Arabic message: the old one stacked the English word 'Incoterm' in Arabic text)
       expect(
-        find.text('الرجاء التأكد من اختيار كافة الحقول الإلزامية (المشروع، الشركة المستوردة، المورد، الـ Incoterm والعملة).'),
+        find.text('الرجاء التأكد من اختيار المشروع والشركة والمورد وشروط الشحن والعملة وطريقة الدفع'),
         findsOneWidget,
       );
     });

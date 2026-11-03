@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/lifecycle_board_model.dart';
 import '../providers/lifecycle_board_provider.dart';
+import 'step_action/step_action_dialog_handlers.dart';
+import 'step_action/step_action_info_pill.dart';
+import 'step_action/step_action_param_fields.dart';
 
 class StepActionDialog extends ConsumerStatefulWidget {
   final ShipmentStageCardModel shipment;
@@ -164,245 +167,18 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
     }
   }
 
-  Future<void> _handleSkipStep() async {
-    final l10n = context.l10n;
-    final reasonController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return AlertDialog(
-          backgroundColor: isDark ? AppTheme.darkSurface : null,
-          title: Row(
-            children: [
-              const Icon(Icons.fast_forward_rounded, color: AppTheme.orange),
-              const SizedBox(width: 8),
-              Text(l10n.skipStepDialogTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-            ],
-          ),
-          content: SelectionArea(
-            child: SizedBox(
-              width: 450,
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.skipStepConfirmText(l10n.lifecycleStepName(widget.shipment.stepCode), widget.shipment.importFileCode),
-                      style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: reasonController,
-                      decoration: InputDecoration(
-                        labelText: l10n.skipReasonLabel,
-                        hintText: l10n.skipReasonHint,
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 16),
-                          tooltip: l10n.copyValue,
-                          onPressed: () => CopyHelper.copy(ctx, reasonController.text),
-                        ),
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? l10n.skipReasonRequired : null,
-                      maxLines: 2,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(ctx, true);
-                }
-              },
-              icon: const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
-              label: Text(l10n.confirmSkipAndAdvanceBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed == true && mounted) {
-      setState(() => _isSaving = true);
-      final notifier = ref.read(lifecycleBoardActionProvider.notifier);
-      final success = await notifier.skipStep(
-        importFileCode: widget.shipment.importFileCode,
-        currentStepCode: widget.shipment.stepCode,
-        skipReason: reasonController.text.trim(),
-        nextStepCodes: _selectedNextSteps,
-      );
-      if (mounted) {
-        setState(() => _isSaving = false);
-        if (success) {
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: AppTheme.orange,
-              content: Text(
-                l10n.stepSkippedSuccessSnack(_selectedNextSteps.join(', '), widget.shipment.importFileCode),
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          );
-        } else {
-          // Surface the backend error (e.g. "blocked" policy, role restriction) to the user.
-          final errorMsg = notifier.lastErrorMessage ?? l10n.stepAdvanceErrorSnack;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: AppTheme.crimson,
-              duration: const Duration(seconds: 6),
-              content: Text(
-                errorMsg,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _handleHoldOrResume() async {
-    final l10n = context.l10n;
-    final isOnHold = widget.shipment.status == 'On-Hold';
-    if (isOnHold) {
-      setState(() => _isSaving = true);
-      final notifier = ref.read(lifecycleBoardActionProvider.notifier);
-      final success = await notifier.setMultiActiveStages(
-        importFileCode: widget.shipment.importFileCode,
-        activeStepCodes: [widget.shipment.stepCode],
-        notes: 'Resumed workflow from active stage',
-      );
-      if (mounted) {
-        setState(() => _isSaving = false);
-        if (success) {
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: AppTheme.emerald,
-              content: Text(l10n.shipmentResumedSuccessSnack),
-            ),
-          );
-        }
-      }
-    } else {
-      final reasonController = TextEditingController();
-      final formKey = GlobalKey<FormState>();
-
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) {
-          final isDark = Theme.of(ctx).brightness == Brightness.dark;
-          return AlertDialog(
-            backgroundColor: isDark ? AppTheme.darkSurface : null,
-            title: Row(
-              children: [
-                const Icon(Icons.pause_circle_outline_rounded, color: AppTheme.crimson),
-                const SizedBox(width: 8),
-                Text(l10n.holdDialogTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)),
-              ],
-            ),
-            content: SelectionArea(
-              child: SizedBox(
-                width: 450,
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.holdConfirmText(widget.shipment.importFileCode, l10n.lifecycleStepName(widget.shipment.stepCode)),
-                        style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: reasonController,
-                        decoration: InputDecoration(
-                          labelText: l10n.holdReasonLabel,
-                          hintText: l10n.holdReasonHint,
-                          border: const OutlineInputBorder(),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.copy_rounded, size: 16),
-                            tooltip: l10n.copyValue,
-                            onPressed: () => CopyHelper.copy(ctx, reasonController.text),
-                          ),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? l10n.holdReasonRequired : null,
-                        maxLines: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
-                onPressed: () {
-                  if (formKey.currentState!.validate()) {
-                    Navigator.pop(ctx, true);
-                  }
-                },
-                icon: const Icon(Icons.pause_circle_filled_rounded, color: Colors.white, size: 18),
-                label: Text(l10n.confirmHoldBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          );
-        },
-      );
-
-      if (confirmed == true && mounted) {
-        setState(() => _isSaving = true);
-        final notifier = ref.read(lifecycleBoardActionProvider.notifier);
-        final success = await notifier.advanceStep(
-          importFileCode: widget.shipment.importFileCode,
-          currentStepCode: widget.shipment.stepCode,
-          nextStepCodes: [widget.shipment.stepCode],
-          notes: 'On-Hold: ${reasonController.text.trim()}',
-        );
-        if (mounted) {
-          setState(() => _isSaving = false);
-          if (success) {
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                backgroundColor: AppTheme.crimson,
-                content: Text(l10n.shipmentHeldSuccessSnack),
-              ),
-            );
-          }
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOnHold = widget.shipment.status == 'On-Hold';
     final localizedStepName = l10n.lifecycleStepName(widget.shipment.stepCode);
 
-    return Dialog(
-      backgroundColor: isDark ? AppTheme.darkSurface : null,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: SelectionArea(
+    return SelectionArea(
+      child: Dialog(
+        backgroundColor: AppTheme.surfaceOf(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
         child: Container(
-          width: 780,
-          constraints: const BoxConstraints(maxHeight: 720),
+          constraints: const BoxConstraints(maxWidth: 780, maxHeight: 720),
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
@@ -416,7 +192,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: AppTheme.cobalt.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                       ),
                       child: const Icon(Icons.tune_outlined, color: AppTheme.cobalt, size: 24),
                     ),
@@ -427,27 +203,33 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                l10n.stepActionCardTitle(localizedStepName),
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                              Flexible(
+                                child: Text(
+                                  l10n.stepActionCardTitle(localizedStepName),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimaryOf(context),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: isOnHold ? AppTheme.crimson : AppTheme.cobalt,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  isOnHold ? '${widget.shipment.stepCode} (${l10n.onHoldStatusTag})' : widget.shipment.stepCode,
-                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
+                              AppStatusBadge(
+                                label: isOnHold
+                                    ? '${widget.shipment.stepCode} (${l10n.onHoldStatusTag})'
+                                    : widget.shipment.stepCode,
+                                severity: isOnHold ? AppSeverity.danger : AppSeverity.info,
+                                size: AppStatusBadgeSize.small,
                               ),
                             ],
                           ),
                           Text(
                             localizedStepName,
-                            style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryOf(context),
+                            ),
                           ),
                         ],
                       ),
@@ -467,143 +249,27 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Shipment Info Pill
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkCardBackground : Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            children: [
-                              _buildInfoCol(l10n.importFileLabel, widget.shipment.importFileCode, isBold: true, color: AppTheme.cobalt),
-                              _buildInfoCol(l10n.importingCompanyLabel, widget.shipment.companyName),
-                              _buildInfoCol(l10n.foreignSupplierLabel, widget.shipment.supplierName),
-                              _buildInfoCol(l10n.purchaseOrderLabel, widget.shipment.poNumber ?? 'N/A'),
-                              _buildInfoCol(l10n.estimatedValueLabel, '${widget.shipment.estimatedCost != null ? widget.shipment.estimatedCost!.toStringAsFixed(0) : "-"} ${widget.shipment.estimatedCostCurrency ?? ""}', isBold: true, color: AppTheme.emerald),
-                            ],
-                          ),
-                        ),
+                        StepActionInfoPill(shipment: widget.shipment),
                         const SizedBox(height: 18),
 
-                        // Step-Specific Parameters Form
-                        Text(
-                          l10n.currentStepRequirementsHeader,
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                        ),
-                        const SizedBox(height: 10),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _param1Controller,
-                                decoration: InputDecoration(
-                                  labelText: l10n.stepParam1Label(widget.shipment.stepCode),
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                  suffixIcon: IconButton(
-                                    icon: const Icon(Icons.copy_rounded, size: 16),
-                                    tooltip: l10n.copyValue,
-                                    onPressed: () => CopyHelper.copy(context, _param1Controller.text),
-                                  ),
-                                ),
-                                validator: (val) => val == null || val.trim().isEmpty ? l10n.requiredFieldValidation : null,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _param2Controller,
-                                decoration: InputDecoration(
-                                  labelText: l10n.stepParam2Label(widget.shipment.stepCode),
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                  suffixIcon: IconButton(
-                                    icon: const Icon(Icons.copy_rounded, size: 16),
-                                    tooltip: l10n.copyValue,
-                                    onPressed: () => CopyHelper.copy(context, _param2Controller.text),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-
-                        TextFormField(
-                          controller: _param3Controller,
-                          decoration: InputDecoration(
-                            labelText: l10n.stepParam3Label(widget.shipment.stepCode),
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.copy_rounded, size: 16),
-                              tooltip: l10n.copyValue,
-                              onPressed: () => CopyHelper.copy(context, _param3Controller.text),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Next Step Multi-Target Picker (Supports Concurrent Multi-Stage)
-                        Text(
-                          l10n.targetNextPhasesHeader,
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                        ),
-                        const SizedBox(height: 8),
-
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _allStepCodes.map((stepCode) {
-                            final isSelected = _selectedNextSteps.contains(stepCode);
-                            return FilterChip(
-                              backgroundColor: isDark ? AppTheme.darkCardBackground : null,
-                              side: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                              label: Text(
-                                '$stepCode: ${l10n.lifecycleStepName(stepCode)}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? Colors.white : (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                                ),
-                              ),
-                              selected: isSelected,
-                              selectedColor: AppTheme.cobalt,
-                              checkmarkColor: Colors.white,
-                              onSelected: (selected) {
-                                setState(() {
-                                  if (selected) {
-                                    _selectedNextSteps.add(stepCode);
-                                  } else {
-                                    _selectedNextSteps.remove(stepCode);
-                                  }
-                                });
-                              },
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Notes & Live Updates
-                        Text(
-                          l10n.stepNotesHeader,
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                        ),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _notesController,
-                          maxLines: 3,
-                          decoration: InputDecoration(
-                            hintText: l10n.stepNotesHint,
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.copy_rounded, size: 16),
-                              tooltip: l10n.copyValue,
-                              onPressed: () => CopyHelper.copy(context, _notesController.text),
-                            ),
-                          ),
+                        // Step-Specific Parameters Form & Next Step Target Picker
+                        StepActionParamFields(
+                          stepCode: widget.shipment.stepCode,
+                          param1Controller: _param1Controller,
+                          param2Controller: _param2Controller,
+                          param3Controller: _param3Controller,
+                          notesController: _notesController,
+                          allStepCodes: _allStepCodes,
+                          selectedNextSteps: _selectedNextSteps,
+                          onToggleNextStep: (sCode, selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedNextSteps.add(sCode);
+                              } else {
+                                _selectedNextSteps.remove(sCode);
+                              }
+                            });
+                          },
                         ),
                       ],
                     ),
@@ -613,17 +279,22 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                 const Divider(height: 24),
 
                 // Action Buttons with Skip and Hold/Resume
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         TextButton.icon(
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.cancel_outlined, size: 16),
                           label: Text(l10n.close),
                         ),
-                        const SizedBox(width: 8),
                         // Skip Step Button
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
@@ -631,11 +302,18 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                             side: const BorderSide(color: AppTheme.orange),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           ),
-                          onPressed: _isSaving ? null : _handleSkipStep,
+                          onPressed: _isSaving
+                              ? null
+                              : () => StepActionDialogHandlers.handleSkipStep(
+                                    context: context,
+                                    ref: ref,
+                                    shipment: widget.shipment,
+                                    selectedNextSteps: _selectedNextSteps,
+                                    setSaving: (val) => setState(() => _isSaving = val),
+                                  ),
                           icon: const Icon(Icons.fast_forward_rounded, size: 16),
                           label: Text(l10n.skipStepBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         ),
-                        const SizedBox(width: 8),
                         // Hold / Resume Button
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
@@ -643,7 +321,14 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                             side: BorderSide(color: isOnHold ? AppTheme.emerald : AppTheme.crimson),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           ),
-                          onPressed: _isSaving ? null : _handleHoldOrResume,
+                          onPressed: _isSaving
+                              ? null
+                              : () => StepActionDialogHandlers.handleHoldOrResume(
+                                    context: context,
+                                    ref: ref,
+                                    shipment: widget.shipment,
+                                    setSaving: (val) => setState(() => _isSaving = val),
+                                  ),
                           icon: Icon(isOnHold ? Icons.play_arrow_rounded : Icons.pause_circle_outline_rounded, size: 16),
                           label: Text(isOnHold ? l10n.resumeShipmentBtn : l10n.holdShipmentBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         ),
@@ -668,45 +353,6 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoCol(String label, String value, {bool isBold = false, Color? color}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Expanded(
-      child: InkWell(
-        onTap: () => CopyHelper.copy(context, value),
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: TextStyle(fontSize: 11.0, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600)),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      value,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-                        color: color ?? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.copy_rounded, size: 11, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade400),
-                ],
-              ),
-            ],
           ),
         ),
       ),

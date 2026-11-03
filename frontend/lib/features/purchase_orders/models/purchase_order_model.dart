@@ -514,6 +514,16 @@ class PurchaseOrderModel {
   List<POLineItemModel> get lineItems => items;
   final List<PackingListItemModel> packingListItems;
   final List<PalletPlanItemModel> palletPlanItems;
+  final double totalShippedQuantity;
+  final double totalReceivedQuantity;
+  final double remainingBalanceQuantity;
+  final String fulfillmentStatus;
+
+  double get effectiveContractedQuantity =>
+      items.isNotEmpty ? items.fold<double>(0.0, (s, it) => s + it.quantity) : (totalShippedQuantity + remainingBalanceQuantity);
+  double get fulfillmentRate => effectiveContractedQuantity > 0
+      ? ((totalShippedQuantity / effectiveContractedQuantity) * 100.0).clamp(0.0, 100.0)
+      : 0.0;
 
   String get displayName => (poReference != null && poReference!.trim().isNotEmpty)
       ? poReference!.trim()
@@ -563,6 +573,10 @@ class PurchaseOrderModel {
     this.items = const [],
     this.packingListItems = const [],
     this.palletPlanItems = const [],
+    this.totalShippedQuantity = 0.0,
+    this.totalReceivedQuantity = 0.0,
+    this.remainingBalanceQuantity = 0.0,
+    this.fulfillmentStatus = 'OPEN',
   });
 
   factory PurchaseOrderModel.fromJson(Map<String, dynamic> json) {
@@ -618,6 +632,10 @@ class PurchaseOrderModel {
       palletPlanItems: json['pallet_plan'] != null && json['pallet_plan'] is List
           ? (json['pallet_plan'] as List).map((i) => PalletPlanItemModel.fromJson(i as Map<String, dynamic>)).toList()
           : [],
+      totalShippedQuantity: _numToDouble(json['total_shipped_quantity']),
+      totalReceivedQuantity: _numToDouble(json['total_received_quantity']),
+      remainingBalanceQuantity: _numToDouble(json['remaining_balance_quantity']),
+      fulfillmentStatus: json['fulfillment_status'] as String? ?? 'OPEN',
     );
   }
 
@@ -651,6 +669,10 @@ class PurchaseOrderModel {
       'items': items.map((i) => i.toJson()).toList(),
       'packing_list_items': packingListItems.map((i) => i.toJson()).toList(),
       'pallet_plan': palletPlanItems.map((i) => i.toJson()).toList(),
+      'total_shipped_quantity': totalShippedQuantity,
+      'total_received_quantity': totalReceivedQuantity,
+      'remaining_balance_quantity': remainingBalanceQuantity,
+      'fulfillment_status': fulfillmentStatus,
     };
   }
 }
@@ -661,4 +683,208 @@ class PurchaseOrderModel {
 extension PurchaseOrderStatusLabel on PurchaseOrderModel {
   String statusLabel(AppLocalizations l10n) =>
       DomainEnums.label(l10n, DomainEnumType.poStatus, status, fallback: '-');
+}
+
+
+// =========================================================================
+// EPIC-PO-PART: PO Shipment Allocations & Fulfillment Balance Models
+// =========================================================================
+
+class POShipmentAllocationModel {
+  final int? allocationId;
+  final int poId;
+  final int? poLineItemId;
+  final int? poItemId;
+  final int? importFileId;
+  final String? shipmentBatchNo;
+  final String shipmentRef;
+  final double allocatedQuantity;
+  final double shippedQuantity;
+  final double allocatedFobAmount;
+  final double shippedAmountFob;
+  final DateTime? shippingDate;
+  final String status;
+  final String? notes;
+  final String? createdBy;
+
+  POShipmentAllocationModel({
+    this.allocationId,
+    required this.poId,
+    this.poLineItemId,
+    this.poItemId,
+    this.importFileId,
+    this.shipmentBatchNo,
+    required this.shipmentRef,
+    this.allocatedQuantity = 0.0,
+    this.shippedQuantity = 0.0,
+    this.allocatedFobAmount = 0.0,
+    this.shippedAmountFob = 0.0,
+    this.shippingDate,
+    this.status = 'IN_TRANSIT',
+    this.notes,
+    this.createdBy,
+  });
+
+  factory POShipmentAllocationModel.fromJson(Map<String, dynamic> json) {
+    final lineId = json['po_line_item_id'] != null
+        ? _numToInt(json['po_line_item_id'])
+        : (json['po_item_id'] != null ? _numToInt(json['po_item_id']) : null);
+    final ref = (json['shipment_batch_no'] ?? json['shipment_ref'] ?? '') as String;
+    final qty = _numToDouble(json['allocated_quantity'] ?? json['shipped_quantity']);
+    final fob = _numToDouble(json['allocated_fob_amount'] ?? json['shipped_amount_fob']);
+
+    return POShipmentAllocationModel(
+      allocationId: json['allocation_id'] != null ? _numToInt(json['allocation_id']) : null,
+      poId: _numToInt(json['po_id']),
+      poLineItemId: lineId,
+      poItemId: lineId,
+      importFileId: json['import_file_id'] != null ? _numToInt(json['import_file_id']) : null,
+      shipmentBatchNo: json['shipment_batch_no'] as String? ?? ref,
+      shipmentRef: ref,
+      allocatedQuantity: qty,
+      shippedQuantity: qty,
+      allocatedFobAmount: fob,
+      shippedAmountFob: fob,
+      shippingDate: json['shipping_date'] != null ? DateTime.tryParse(json['shipping_date']) : null,
+      status: json['status'] as String? ?? 'IN_TRANSIT',
+      notes: json['notes'] as String?,
+      createdBy: json['created_by'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (allocationId != null) 'allocation_id': allocationId,
+      'po_id': poId,
+      if (poLineItemId != null) 'po_line_item_id': poLineItemId,
+      if (poItemId != null) 'po_item_id': poItemId,
+      if (importFileId != null) 'import_file_id': importFileId,
+      'shipment_batch_no': shipmentBatchNo ?? shipmentRef,
+      'shipment_ref': shipmentRef,
+      'allocated_quantity': allocatedQuantity,
+      'shipped_quantity': shippedQuantity,
+      'allocated_fob_amount': allocatedFobAmount,
+      'shipped_amount_fob': shippedAmountFob,
+      if (shippingDate != null) 'shipping_date': shippingDate!.toIso8601String(),
+      'status': status,
+      if (notes != null) 'notes': notes,
+    };
+  }
+}
+
+class POLineItemBalanceModel {
+  final int itemId;
+  final String? itemCode;
+  final String descriptionAr;
+  final double orderedQty;
+  final double contractedQty;
+  final double shippedQty;
+  final double receivedQty;
+  final double remainingQty;
+  final double unitPrice;
+  final double orderedAmountFob;
+  final double shippedAmountFob;
+  final double remainingAmountFob;
+  final double fulfillmentPercent;
+
+  POLineItemBalanceModel({
+    required this.itemId,
+    this.itemCode,
+    required this.descriptionAr,
+    this.orderedQty = 0.0,
+    this.contractedQty = 0.0,
+    this.shippedQty = 0.0,
+    this.receivedQty = 0.0,
+    this.remainingQty = 0.0,
+    this.unitPrice = 0.0,
+    this.orderedAmountFob = 0.0,
+    this.shippedAmountFob = 0.0,
+    this.remainingAmountFob = 0.0,
+    this.fulfillmentPercent = 0.0,
+  });
+
+  factory POLineItemBalanceModel.fromJson(Map<String, dynamic> json) {
+    final ord = _numToDouble(json['ordered_qty'] ?? json['contracted_qty']);
+    return POLineItemBalanceModel(
+      itemId: _numToInt(json['item_id']),
+      itemCode: json['item_code'] as String?,
+      descriptionAr: json['description_ar'] as String? ?? '',
+      orderedQty: ord,
+      contractedQty: _numToDouble(json['contracted_qty'], ord),
+      shippedQty: _numToDouble(json['shipped_qty']),
+      receivedQty: _numToDouble(json['received_qty']),
+      remainingQty: _numToDouble(json['remaining_qty']),
+      unitPrice: _numToDouble(json['unit_price']),
+      orderedAmountFob: _numToDouble(json['ordered_amount_fob']),
+      shippedAmountFob: _numToDouble(json['shipped_amount_fob']),
+      remainingAmountFob: _numToDouble(json['remaining_amount_fob']),
+      fulfillmentPercent: _numToDouble(json['fulfillment_percent']),
+    );
+  }
+}
+
+class POBalanceSummaryModel {
+  final int poId;
+  final String poNumber;
+  final double totalOrderedQty;
+  final double totalContractedQty;
+  final double totalShippedQty;
+  final double totalReceivedQty;
+  final double totalRemainingQty;
+  final double totalOrderedAmountFob;
+  final double totalShippedAmountFob;
+  final double totalRemainingAmountFob;
+  final String? currencyCode;
+  final double overallFulfillmentPercent;
+  final String fulfillmentStatus;
+  final List<POLineItemBalanceModel> lineItemsBalance;
+  final List<POShipmentAllocationModel> allocations;
+  final String executiveSummaryAr;
+
+  POBalanceSummaryModel({
+    required this.poId,
+    required this.poNumber,
+    this.totalOrderedQty = 0.0,
+    this.totalContractedQty = 0.0,
+    this.totalShippedQty = 0.0,
+    this.totalReceivedQty = 0.0,
+    this.totalRemainingQty = 0.0,
+    this.totalOrderedAmountFob = 0.0,
+    this.totalShippedAmountFob = 0.0,
+    this.totalRemainingAmountFob = 0.0,
+    this.currencyCode,
+    this.overallFulfillmentPercent = 0.0,
+    this.fulfillmentStatus = 'OPEN',
+    this.lineItemsBalance = const [],
+    this.allocations = const [],
+    this.executiveSummaryAr = '',
+  });
+
+  factory POBalanceSummaryModel.fromJson(Map<String, dynamic> json) {
+    final ord = _numToDouble(json['total_ordered_qty'] ?? json['total_contracted_qty']);
+    return POBalanceSummaryModel(
+      poId: _numToInt(json['po_id']),
+      poNumber: json['po_number'] as String? ?? '',
+      totalOrderedQty: ord,
+      totalContractedQty: _numToDouble(json['total_contracted_qty'], ord),
+      totalShippedQty: _numToDouble(json['total_shipped_qty']),
+      totalReceivedQty: _numToDouble(json['total_received_qty']),
+      totalRemainingQty: _numToDouble(json['total_remaining_qty']),
+      totalOrderedAmountFob: _numToDouble(json['total_ordered_amount_fob']),
+      totalShippedAmountFob: _numToDouble(json['total_shipped_amount_fob']),
+      totalRemainingAmountFob: _numToDouble(json['total_remaining_amount_fob']),
+      currencyCode: json['currency_code'] as String?,
+      overallFulfillmentPercent: _numToDouble(json['overall_fulfillment_percent']),
+      fulfillmentStatus: json['fulfillment_status'] as String? ?? 'OPEN',
+      lineItemsBalance: (json['line_items_balance'] as List<dynamic>?)
+              ?.map((e) => POLineItemBalanceModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      allocations: (json['allocations'] as List<dynamic>?)
+              ?.map((e) => POShipmentAllocationModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      executiveSummaryAr: json['executive_summary_ar'] as String? ?? '',
+    );
+  }
 }

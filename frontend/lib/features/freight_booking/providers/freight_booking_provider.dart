@@ -256,6 +256,18 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
       rethrow;
     }
   }
+
+  Future<Map<String, dynamic>> calculateAirWeight(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/freight-booking/calculate-air-weight',
+        data: payload,
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 
 final etaTrackingLogsProvider = FutureProvider.family<List<ShipmentEtaTrackingLogModel>, int>((ref, bookingId) async {

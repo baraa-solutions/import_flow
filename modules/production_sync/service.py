@@ -1,3 +1,4 @@
+from modules.production_sync.validators import validate_sql_identifier, validate_table_ddl
 """
 Production Sync Service
 Contains enterprise-grade, non-destructive database synchronization, comparison,
@@ -12,7 +13,7 @@ from typing import Dict, Any, List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from database.database import DB_PATH
+from database.database import DB_PATH, Base
 from utils.db_safety import (
     PRODUCTION_SYNC_PREFIX,
     BackupVerificationError,
@@ -94,7 +95,8 @@ class ProductionSyncService:
             total_records = 0
             for table in tables:
                 try:
-                    cursor.execute(f"SELECT COUNT(*) FROM \"{table}\";")
+                    safe_tbl = validate_sql_identifier(table)
+                    cursor.execute(f'SELECT COUNT(*) FROM "{safe_tbl}";')
                     c = cursor.fetchone()[0]
                     total_records += c
                 except Exception:
@@ -122,7 +124,8 @@ class ProductionSyncService:
             counts = {}
             for table in tables:
                 try:
-                    cursor.execute(f"SELECT COUNT(*) FROM \"{table}\";")
+                    safe_tbl = validate_sql_identifier(table)
+                    cursor.execute(f'SELECT COUNT(*) FROM "{safe_tbl}";')
                     counts[table] = cursor.fetchone()[0]
                 except Exception:
                     counts[table] = 0
@@ -275,7 +278,7 @@ class ProductionSyncService:
         for tbl_name, tbl_sql in src_tables:
             if tbl_name not in tgt_table_names:
                 if tbl_sql:
-                    cur_tgt.execute(tbl_sql)
+                    cur_tgt.execute(validate_table_ddl(tbl_sql))
                     tables_added += 1
                     tgt_table_names.add(tbl_name)
 
@@ -283,15 +286,17 @@ class ProductionSyncService:
         for tbl_name, _ in src_tables:
             if tbl_name in tgt_table_names:
                 try:
-                    cur_src.execute(f'PRAGMA table_info("{tbl_name}");')
+                    safe_tbl = validate_sql_identifier(tbl_name)
+                    cur_src.execute(f'PRAGMA table_info("{safe_tbl}");')
                     src_cols = {row[1]: row[2] for row in cur_src.fetchall()}  # name -> type
 
-                    cur_tgt.execute(f'PRAGMA table_info("{tbl_name}");')
+                    cur_tgt.execute(f'PRAGMA table_info("{safe_tbl}");')
                     tgt_cols = set(row[1] for row in cur_tgt.fetchall())
 
                     for col_name, col_type in src_cols.items():
                         if col_name not in tgt_cols:
-                            cur_tgt.execute(f'ALTER TABLE "{tbl_name}" ADD COLUMN "{col_name}" {col_type};')
+                            safe_col = validate_sql_identifier(col_name)
+                            cur_tgt.execute(f'ALTER TABLE "{safe_tbl}" ADD COLUMN "{safe_col}" {col_type};')
                             columns_added += 1
                 except Exception:
                     pass
@@ -299,20 +304,39 @@ class ProductionSyncService:
         # Step 3: Synchronize and upsert rows
         for tbl_name, _ in src_tables:
             try:
-                cur_src.execute(f'PRAGMA table_info("{tbl_name}");')
+                safe_tbl = validate_sql_identifier(tbl_name)
+                cur_src.execute(f'PRAGMA table_info("{safe_tbl}");')
                 src_cols = [row[1] for row in cur_src.fetchall()]
                 
-                cur_tgt.execute(f'PRAGMA table_info("{tbl_name}");')
+                cur_tgt.execute(f'PRAGMA table_info("{safe_tbl}");')
                 tgt_cols = set(row[1] for row in cur_tgt.fetchall())
                 
                 common_cols = [c for c in src_cols if c in tgt_cols]
                 if not common_cols:
                     continue
 
-                cols_str = ", ".join([f'"{c}"' for c in common_cols])
-                placeholders = ", ".join(["?"] * len(common_cols))
+                # SEC-02: Verify columns against SQLAlchemy Base metadata if registered,
+                # and apply strict identifier validation & quoting to prevent SQL injection.
+                safe_common_cols = []
+                for c in common_cols:
+                    safe_c = validate_sql_identifier(c)
+                    if safe_tbl in Base.metadata.tables:
+                        model_cols = Base.metadata.tables[safe_tbl].columns.keys()
+                        if safe_c not in model_cols:
+                            logger.warning(
+                                "Column %s in table %s is not defined in SQLAlchemy Base metadata",
+                                safe_c,
+                                safe_tbl,
+                            )
+                    safe_common_cols.append(safe_c)
 
-                cur_src.execute(f'SELECT {cols_str} FROM "{tbl_name}";')
+                if not safe_common_cols:
+                    continue
+
+                cols_str = ", ".join([f'"{c}"' for c in safe_common_cols])
+                placeholders = ", ".join(["?"] * len(safe_common_cols))
+
+                cur_src.execute(f'SELECT {cols_str} FROM "{safe_tbl}";')
                 src_rows = cur_src.fetchall()
 
                 is_operational = tbl_name in OPERATIONAL_TABLES
@@ -320,7 +344,7 @@ class ProductionSyncService:
 
                 for row in src_rows:
                     cur_tgt.execute(
-                        f'{insert_verb} INTO "{tbl_name}" ({cols_str}) VALUES ({placeholders});',
+                        f'{insert_verb} INTO "{safe_tbl}" ({cols_str}) VALUES ({placeholders});',
                         tuple(row),
                     )
                     if cur_tgt.rowcount > 0:
@@ -352,8 +376,9 @@ class ProductionSyncService:
             result = {}
             for table in tables:
                 try:
-                    cursor.execute(f'PRAGMA table_info("{table}");')
-                    result[table] = [row[1] for row in cursor.fetchall()]
+                    safe_table = validate_sql_identifier(table)
+                    cursor.execute(f'PRAGMA table_info("{safe_table}");')
+                    result[safe_table] = [row[1] for row in cursor.fetchall()]
                 except Exception:
                     result[table] = []
             conn.close()

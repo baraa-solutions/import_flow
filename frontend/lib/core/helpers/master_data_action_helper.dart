@@ -264,7 +264,7 @@ class MasterDataActionHelper {
             children: [
               const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 16),
               const SizedBox(width: 8),
-              Text(isArabic ? 'نسخ الجدول (TSV)' : 'Copy Table (TSV)', style: const TextStyle(fontSize: 12.5)),
+              Text(isArabic ? 'نسخ جدول البيانات' : 'Copy Table (TSV)', style: const TextStyle(fontSize: 12.5)),
             ],
           ),
         ),

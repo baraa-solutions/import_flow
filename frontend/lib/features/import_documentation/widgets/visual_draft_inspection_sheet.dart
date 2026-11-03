@@ -1,7 +1,7 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../services/inspection_export_service.dart';
@@ -34,7 +34,7 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
   bool _acidBlocked() {
     if (widget.acidNumber.trim().isNotEmpty) return false;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.idocBExportBlockedAcid), backgroundColor: AppTheme.crimson),
+      AppTheme.snackBar(context, context.l10n.idocBExportBlockedAcid, severity: AppSeverity.danger),
     );
     return true;
   }

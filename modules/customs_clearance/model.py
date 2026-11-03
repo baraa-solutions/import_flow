@@ -64,6 +64,13 @@ class CustomsClearanceRecord(Base):
 
     # BP-030 & CL-02 Duty Payment Breakdown & Nafeza Assessment
     cif_base_amount = Column(Float, default=0.0)
+    # EPIC-CUST-VAL: Customs Valuation Uplift & Commercial vs Assessed Customs CIF
+    commercial_cif_base_amount = Column(Float, default=0.0, nullable=True)
+    customs_assessed_cif_egp = Column(Float, default=0.0, nullable=True)
+    customs_assessed_cif_usd = Column(Float, default=0.0, nullable=True)
+    is_valuation_uplifted = Column(Boolean, default=False, nullable=False)
+    valuation_uplift_amount_egp = Column(Float, default=0.0, nullable=True)
+    valuation_uplift_reason = Column(Text, nullable=True)
     customs_exchange_rate = Column(Float, nullable=True)
     import_duty_amount = Column(Float, default=0.0)
     vat_amount = Column(Float, default=0.0)
@@ -84,6 +91,22 @@ class CustomsClearanceRecord(Base):
     nafeza_claim_date = Column(DateTime, nullable=True)
     assessment_status = Column(String(50), default="Assessed") # Assessed, Verified, Discrepancy
     nafeza_assessment_json = Column(JSON, default=dict, nullable=True)
+
+    # Revised Estimate (التقدير المحدّث للرسوم الجمركية قبل/عند قيد الإقرار 46)
+    revised_exchange_rate = Column(Float, nullable=True)
+    revised_freight_egp = Column(Float, nullable=True)
+    revised_insurance_egp = Column(Float, nullable=True)
+    revised_unloading_egp = Column(Float, nullable=True)
+    revised_duty_rate = Column(Float, nullable=True)
+    revised_extra_fees_egp = Column(Float, nullable=True)
+    revised_cif_egp = Column(Float, nullable=True)
+    revised_import_duty_egp = Column(Float, nullable=True)
+    revised_vat_egp = Column(Float, nullable=True)
+    revised_total_duties_egp = Column(Float, nullable=True)
+    revised_has_exemption = Column(Boolean, nullable=True)
+    revised_estimate_date = Column(DateTime, nullable=True)
+    revised_estimate_by = Column(String(100), nullable=True)
+    revised_estimate_notes = Column(Text, nullable=True)
 
     # Port & Delivery Order Tracking (CS-02)
     port_arrival_date = Column(DateTime, nullable=True)

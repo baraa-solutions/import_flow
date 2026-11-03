@@ -208,5 +208,59 @@ void main() {
       expect(fromJson.whiteListVerified, true);
       expect(fromJson.isFullyCompliant, true);
     });
+
+    test('Advanced Operational Pillars serialization and compliance helpers', () {
+      final advancedItem = ImportRequirementHSCodeItemModel(
+        hsCode: '0406.90',
+        commodityDescription: 'Cheddar Cheese',
+        cargoxVerified: true,
+        readyForAcid: true,
+        commodityGroupMatched: true,
+        importCardGroupCode: 'GRP-FOOD-04',
+        isShelflifeApplicable: true,
+        shelfLifeTotalDays: 365,
+        shelfLifeRemainingPercent: 65.0,
+        artworkArabicApproved: true,
+        samplingRequired: true,
+        labType: 'Central Food Safety Lab',
+        detentionAllowed: true,
+        estimatedLabFees: 4500.0,
+        coldChainRequired: true,
+        targetTemperature: '+4C',
+        dataLoggerVerified: true,
+      );
+
+      expect(advancedItem.isReadyForAcidApplication, true);
+      expect(advancedItem.isShelflifeCompliant, true);
+      expect(advancedItem.isSamplingCompliant, true);
+      expect(advancedItem.isLogisticsCompliant, true);
+
+      // Industrial item where shelf-life is not applicable
+      final industrialItem = ImportRequirementHSCodeItemModel(
+        hsCode: '8418.10',
+        commodityDescription: 'Compressor',
+        cargoxVerified: true,
+        commodityGroupMatched: true,
+        isShelflifeApplicable: false,
+      );
+      expect(industrialItem.isShelflifeCompliant, true); // N/A is automatically compliant
+
+      // When shelf-life is below 50% threshold
+      final expiredItem = advancedItem.copyWith(shelfLifeRemainingPercent: 40.0);
+      expect(expiredItem.isShelflifeCompliant, false);
+
+      // JSON round trip
+      final json = advancedItem.toJson();
+      expect(json['cargox_verified'], true);
+      expect(json['is_shelflife_applicable'], true);
+      expect(json['shelf_life_remaining_percent'], 65.0);
+      expect(json['detention_allowed'], true);
+
+      final parsed = ImportRequirementHSCodeItemModel.fromJson(json);
+      expect(parsed.cargoxVerified, true);
+      expect(parsed.shelfLifeRemainingPercent, 65.0);
+      expect(parsed.detentionAllowed, true);
+      expect(parsed.estimatedLabFees, 4500.0);
+    });
   });
 }

@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import 'copyable_data_helper.dart';
 import 'universal_entity_extractor_dialog.dart';
 import 'extraction_progress_dialog.dart';
+import 'searchable_dropdown_field.dart';
 import '../helpers/file_picker_helper.dart';
 import '../../features/customs_tariff/widgets/tariff_form_dialog.dart';
 import '../../features/customs_tariff/widgets/duty_calculator_dialog.dart';
@@ -629,7 +630,8 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
 
     showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
+      builder: (ctx) => SelectionArea(
+        child: StatefulBuilder(
         builder: (ctx, setModalState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
@@ -653,17 +655,13 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
                   style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedPreset,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: isAr ? 'نوع البيان المطلوب إضافته' : 'Field Type',
-                    isDense: true,
-                  ),
+                SearchableDropdownField<String>(
+                  value: selectedPreset,
+                  labelText: isAr ? 'نوع البيان المطلوب إضافته' : 'Field Type',
                   items: presets.entries
-                      .map((e) => DropdownMenuItem(
+                      .map((e) => SearchableDropdownItem<String>(
                             value: e.key,
-                            child: Text(e.value, style: const TextStyle(fontSize: 13)),
+                            label: e.value,
                           ))
                       .toList(),
                   onChanged: (v) {
@@ -724,7 +722,7 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
           ],
         ),
       ),
-    );
+    ));
   }
 
   void _showEditFieldModal(String key, dynamic value) {
@@ -732,7 +730,8 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
     final valCtrl = TextEditingController(text: value?.toString() ?? '');
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => SelectionArea(
+        child: AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
@@ -776,7 +775,7 @@ class _SmartUploadPreviewDialogState extends ConsumerState<SmartUploadPreviewDia
           ),
         ],
       ),
-    );
+    ));
   }
 
   void _copyAllExtractedData(BuildContext context) {

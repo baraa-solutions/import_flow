@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/metric_card.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 
 /// Thin feature-local composition over core tokens: maps a payment / budget
 /// status to an [AppSeverity] chip and offers one empty / error / loading
@@ -179,7 +177,7 @@ class FinancialStateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState();
     }
     final color = _error ? AppTheme.crimson : AppTheme.textMuted;
     return Center(

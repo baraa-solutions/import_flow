@@ -15,6 +15,8 @@ from modules.freight_booking.schemas import (
     ShipmentDepartureConfirm,
     ShipmentEtaTrackingLogCreate,
     ConfirmAtaRequest,
+    AirWeightCalculationRequest,
+    AirWeightCalculationResponse,
 )
 import modules.freight_booking.repository as repo
 import modules.freight_booking.validators as validators
@@ -1076,3 +1078,23 @@ def confirm_ata_service(
 
     return log
 
+
+def calculate_air_weight_service(payload: AirWeightCalculationRequest) -> AirWeightCalculationResponse:
+    from modules.cbm_calculator.air_freight_service import AirFreightService
+    packages_dicts = [p.model_dump() for p in payload.packages] if payload.packages else None
+    res = AirFreightService.calculate_air_packages(
+        packages=packages_dicts,
+        single_length_cm=payload.length_cm,
+        single_width_cm=payload.width_cm,
+        single_height_cm=payload.height_cm,
+        single_gross_weight_kg=payload.gross_weight_kg,
+        single_quantity=payload.quantity or 1,
+    )
+    return AirWeightCalculationResponse(
+        gross_weight_kg=res["gross_weight_kg"],
+        volumetric_weight_kg=res["volumetric_weight_kg"],
+        chargeable_weight_kg=res["chargeable_weight_kg"],
+        cbm=res["cbm"],
+        is_higher_volumetric=res["is_higher_volumetric"],
+        details=res.get("details"),
+    )

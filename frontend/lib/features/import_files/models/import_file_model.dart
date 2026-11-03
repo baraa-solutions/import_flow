@@ -80,6 +80,8 @@ class PackingListItemModel {
   }
 }
 
+typedef ImportFile = ImportFileModel;
+
 class ImportFileModel {
   final int importFileId;
   final String importFileCode;
@@ -98,6 +100,12 @@ class ImportFileModel {
   final List<int> projectIds;
   final String? projectNames;
   final String shipmentMode;
+  final String? shipmentSubMode;
+  final String? courierOperator;
+  final int? chargeableDivisor;
+  final String? acidRequirement;
+  final String? acidExemptionReason;
+  final String? courierTrackingNo;
   final String incotermCode;
   final String priority;
   final String shipmentCategory;
@@ -222,6 +230,15 @@ class ImportFileModel {
   bool get isChildPartial => parentImportFileId != null;
   bool get isParentPartial => isPartialShipment && parentImportFileId == null;
 
+  bool get isCourier =>
+      shipmentSubMode?.toLowerCase().contains('courier') == true ||
+      shipmentMode.toLowerCase().contains('courier') == true ||
+      courierOperator != null;
+
+  bool get isAcidExempt =>
+      acidRequirement == 'EXEMPT_POSTAL' ||
+      (acidRequirement?.toUpperCase() == 'EXEMPT');
+
   String get displayName => (customFileNumber != null && customFileNumber!.trim().isNotEmpty)
       ? customFileNumber!.trim()
       : importFileCode;
@@ -255,6 +272,12 @@ class ImportFileModel {
     this.projectIds = const [],
     this.projectNames,
     this.shipmentMode = 'Sea FCL',
+    this.shipmentSubMode = 'General Air Cargo',
+    this.courierOperator,
+    this.chargeableDivisor = 6000,
+    this.acidRequirement = 'MANDATORY',
+    this.acidExemptionReason,
+    this.courierTrackingNo,
     this.incotermCode = 'FOB',
     this.priority = 'High',
     this.shipmentCategory = 'New Purchase',
@@ -435,6 +458,12 @@ class ImportFileModel {
       projectIds: rawProjects.map((p) => p as int).toList(),
       projectNames: json['project_names'],
       shipmentMode: json['shipment_mode'] ?? 'Sea FCL',
+      shipmentSubMode: json['shipment_sub_mode'] as String? ?? 'General Air Cargo',
+      courierOperator: json['courier_operator'] as String?,
+      chargeableDivisor: _parseInt(json['chargeable_divisor']) ?? 6000,
+      acidRequirement: json['acid_requirement'] as String? ?? 'MANDATORY',
+      acidExemptionReason: json['acid_exemption_reason'] as String?,
+      courierTrackingNo: json['courier_tracking_no'] as String?,
       incotermCode: json['incoterm_code'] ?? 'FOB',
       priority: json['priority'] ?? 'High',
       shipmentCategory: json['shipment_category'] ?? 'New Purchase',
@@ -580,6 +609,12 @@ class ImportFileModel {
       'project_ids': projectIds,
       'project_names': projectNames,
       'shipment_mode': shipmentMode,
+      if (shipmentSubMode != null) 'shipment_sub_mode': shipmentSubMode,
+      if (courierOperator != null) 'courier_operator': courierOperator,
+      if (chargeableDivisor != null) 'chargeable_divisor': chargeableDivisor,
+      if (acidRequirement != null) 'acid_requirement': acidRequirement,
+      if (acidExemptionReason != null) 'acid_exemption_reason': acidExemptionReason,
+      if (courierTrackingNo != null) 'courier_tracking_no': courierTrackingNo,
       'incoterm_code': incotermCode,
       'priority': priority,
       'shipment_category': shipmentCategory,

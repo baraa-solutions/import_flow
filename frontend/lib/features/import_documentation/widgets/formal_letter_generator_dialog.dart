@@ -1,7 +1,7 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -74,10 +74,7 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
   Future<void> _generateLetter() async {
     if (_selectedFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.formalLetterSelectShipmentPrompt),
-          backgroundColor: AppTheme.crimson,
-        ),
+        AppTheme.snackBar(context, context.l10n.formalLetterSelectShipmentPrompt, severity: AppSeverity.danger),
       );
       return;
     }
@@ -162,7 +159,8 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 960,
         height: 720,
         padding: const EdgeInsets.all(24),
@@ -564,6 +562,7 @@ class _FormalLetterGeneratorDialogState extends ConsumerState<FormalLetterGenera
             ),
           ],
         ),
+      ),
       ),
     );
   }

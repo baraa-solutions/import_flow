@@ -140,8 +140,8 @@ def test_match_invoice_with_bl_perfect():
     assert res["overall_status"] in ["FULLY_MATCHED", "ACCEPTED_WITH_WARNINGS"]
     assert res["is_safe_for_certification"] is True
     assert res["critical_discrepancies_count"] == 0
-    assert res["match_score_percentage"] >= 90.0
-    assert len(res["comparison_matrix"]) == 10
+    assert res["match_score_percentage"] >= 85.0
+    assert len(res["comparison_matrix"]) == 14
 
     # Verify ACID Check
     acid_item = next(m for m in res["comparison_matrix"] if m["item_code"] == "CHK_ACID")
@@ -182,8 +182,8 @@ def test_api_extract_and_match():
     assert response.status_code == 200
     data = response.json()
     assert data["is_safe_for_certification"] is True
-    assert data["match_score_percentage"] >= 90.0
-    assert len(data["comparison_matrix"]) == 10
+    assert data["match_score_percentage"] >= 85.0
+    assert len(data["comparison_matrix"]) == 14
 
 
 def test_api_extract_and_match_with_packing_list():

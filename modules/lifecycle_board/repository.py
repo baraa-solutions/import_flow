@@ -124,6 +124,59 @@ def get_completed_activities_for_files(db: Session, import_file_codes: List[str]
     return result
 
 
+def get_all_activities_for_files(db: Session, import_file_codes: List[str]) -> Dict[str, List[ShipmentStageActivity]]:
+    """
+    Batch fetches all activities (Completed, In-Progress, Skipped, Pending, etc.) for a list
+    of import file codes in a single query to eliminate N+1 roundtrips.
+    """
+    if not import_file_codes:
+        return {}
+    activities = (
+        db.query(ShipmentStageActivity)
+        .filter(ShipmentStageActivity.import_file_code.in_(import_file_codes))
+        .order_by(ShipmentStageActivity.id.asc())
+        .all()
+    )
+    result: Dict[str, List[ShipmentStageActivity]] = {}
+    for act in activities:
+        result.setdefault(act.import_file_code, []).append(act)
+    return result
+
+
+def get_timeline_snapshots_for_files(db: Session, import_file_ids: List[int]):
+    """
+    Batch fetches timeline snapshots for given import file IDs in a single query.
+    """
+    from modules.lifecycle_board.model import ShipmentTimelineSnapshot
+    if not import_file_ids:
+        return []
+    return (
+        db.query(ShipmentTimelineSnapshot)
+        .filter(ShipmentTimelineSnapshot.import_file_id.in_(import_file_ids))
+        .all()
+    )
+
+
+def get_demurrage_trackings_for_files(db: Session, import_file_ids: List[int], import_file_codes: List[str]):
+    """
+    Batch fetches active demurrage tracking records for files by ID or code.
+    """
+    from modules.demurrage_detention.model import DemurrageTracking
+    from sqlalchemy import or_
+    if not import_file_ids and not import_file_codes:
+        return []
+    conditions = []
+    if import_file_ids:
+        conditions.append(DemurrageTracking.import_file_id.in_(import_file_ids))
+    if import_file_codes:
+        conditions.append(DemurrageTracking.import_file_code.in_(import_file_codes))
+    return (
+        db.query(DemurrageTracking)
+        .filter(DemurrageTracking.is_active == True, or_(*conditions))
+        .all()
+    )
+
+
 # ─── Configurable Step Risk & Settings Repository (Addendum: Section 10) ───
 
 from modules.lifecycle_board.model import StepConfig, StepConfigAuditLog, PendingReferenceRecord

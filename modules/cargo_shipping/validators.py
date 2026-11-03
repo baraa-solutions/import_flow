@@ -346,6 +346,89 @@ def validate_booking_link(db: Session, booking_id: Optional[int], import_file_id
         )
 
 
+def validate_cargo_containers_against_booking(
+    db: Session,
+    import_file_id: int,
+    booking_id: Optional[int],
+    shipment_type: Optional[str],
+    containers: Optional[List[Any]],
+) -> Optional[int]:
+    """BP-020/BP-021: Validates that container counts and types registered in Cargo Shipping
+    strictly match the active freight booking for the import file."""
+    from collections import Counter
+    from modules.freight_booking.model import ShipmentBooking
+
+    booking = None
+    if booking_id is not None:
+        booking = db.query(ShipmentBooking).filter(
+            ShipmentBooking.booking_id == booking_id,
+            ShipmentBooking.is_active == True,
+        ).first()
+
+    if booking is None and import_file_id:
+        booking = (
+            db.query(ShipmentBooking)
+            .filter(
+                ShipmentBooking.import_file_id == import_file_id,
+                ShipmentBooking.is_active == True,
+            )
+            .order_by(ShipmentBooking.booking_id.desc())
+            .first()
+        )
+
+    if not booking:
+        return booking_id
+
+    # Check if shipment is FCL
+    eff_type = (shipment_type or booking.shipment_type or "FCL").strip().upper()
+    if eff_type not in ("FCL", "OCEAN FCL"):
+        return booking.booking_id
+
+    booking_containers = booking.containers_data or []
+    if not booking_containers:
+        return booking.booking_id
+
+    booking_types = Counter()
+    for b_item in booking_containers:
+        if isinstance(b_item, dict):
+            ctype = (b_item.get("container_type") or "40HC").strip().upper()
+            b_qty = int(float(b_item.get("quantity") or 1))
+            booking_types[ctype] += b_qty
+        elif hasattr(b_item, "container_type"):
+            ctype = (getattr(b_item, "container_type") or "40HC").strip().upper()
+            b_qty = int(float(getattr(b_item, "quantity", 1) or 1))
+            booking_types[ctype] += b_qty
+
+    expected_total = sum(booking_types.values())
+    if expected_total == 0:
+        return booking.booking_id
+
+    shipping_types = Counter()
+    for s_item in (containers or []):
+        s_dict = s_item.model_dump() if hasattr(s_item, "model_dump") else (dict(s_item) if isinstance(s_item, dict) else {})
+        ctype = (s_dict.get("container_type") or "40HC").strip().upper()
+        s_qty = max(int(float(s_dict.get("quantity") or 1)), len(s_dict.get("individual_units") or []))
+        shipping_types[ctype] += s_qty
+
+    actual_total = sum(shipping_types.values())
+
+    if actual_total != expected_total:
+        raise HTTPException(
+            status_code=422,
+            detail=f"عدد الحاويات في شاشة تسجيل الحاويات ({actual_total}) يجب أن يكون مساوياً لعدد الحاويات في البوكينج ({expected_total}).",
+        )
+
+    if shipping_types != booking_types:
+        booking_summary = ", ".join(f"{cnt}x {ct}" for ct, cnt in booking_types.items())
+        shipping_summary = ", ".join(f"{cnt}x {ct}" for ct, cnt in shipping_types.items())
+        raise HTTPException(
+            status_code=422,
+            detail=f"أنواع وأعداد الحاويات المسجلة ({shipping_summary}) غير مطابقة للحاويات المعتمدة في البوكينج ({booking_summary}).",
+        )
+
+    return booking.booking_id
+
+
 def containers_or_seals_changed(
     existing: Optional[List[Any]],
     incoming: Optional[List[Any]],

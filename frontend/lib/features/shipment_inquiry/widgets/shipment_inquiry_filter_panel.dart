@@ -1,7 +1,7 @@
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
@@ -480,11 +480,7 @@ class _ShipmentInquiryFilterPanelState
                           '${l.inqSearchPrefix}$searchVal',
                         );
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(l.inqPresetSaved),
-                        backgroundColor: AppTheme.cobalt,
-                        behavior: SnackBarBehavior.floating,
-                      ),
+                      AppTheme.snackBar(context, l.inqPresetSaved),
                     );
                   },
                 ),

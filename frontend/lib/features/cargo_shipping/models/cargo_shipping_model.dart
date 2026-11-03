@@ -637,10 +637,12 @@ Map<String, dynamic> buildCargoShippingPayload({
   required List<ContainerLoadingModel> containers,
   LclLoadingTrackingModel? lclTracking,
   required bool isEdit,
+  int? bookingId,
 }) {
   return {
     'import_file_id': importFileId,
     'shipment_type': shipmentType,
+    if (bookingId != null) 'booking_id': bookingId,
     'containers_loading_data': containers.map((c) => c.toJson()).toList(),
     'lcl_tracking_data':
         shipmentType == 'LCL' && lclTracking != null ? lclTracking.toJson() : null,

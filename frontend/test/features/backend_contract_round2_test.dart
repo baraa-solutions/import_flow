@@ -40,7 +40,7 @@ void main() {
         'recommended_container_count': 2,
       });
       expect(c.shippingMethodLabel(_en), 'FCL Container');
-      expect(c.shippingMethodLabel(_ar), 'حاوية كاملة (FCL)');
+      expect(c.shippingMethodLabel(_ar), 'حاوية كاملة');
       expect(c.containerTypeLabel(_en), contains('High Cube'));
       expect(c.containerTypeLabel(_ar), contains('40'));
       expect(c.recommendedContainersLabel(_en), '2 x ${c.containerTypeLabel(_en)}');

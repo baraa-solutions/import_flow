@@ -94,6 +94,7 @@ def _seed_active_file(db, code: str = FILE_CODE, status: str = "Open", is_active
         import_file_code=code,
         company_name="Test Company Egypt",
         supplier_name="Global Supplier",
+        acid_number="5281534391025810014",
         status=status,
         is_active=is_active,
     )

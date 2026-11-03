@@ -61,8 +61,9 @@ class ChangeDiffConfirmationDialog extends StatelessWidget {
       groupedChanges.putIfAbsent(sec, () => []).add(change);
     }
 
-    return AlertDialog(
-      titlePadding: EdgeInsets.zero,
+    return SelectionArea(
+      child: AlertDialog(
+        titlePadding: EdgeInsets.zero,
       title: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: const BoxDecoration(
@@ -339,8 +340,9 @@ class ChangeDiffConfirmationDialog extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(true),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }
 
 /// Helper function to display the confirmation dialog.

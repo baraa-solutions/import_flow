@@ -277,7 +277,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
               onPressed: _refreshData,
             ),
           ],
-          body: _buildCurrentSubTabContent(),
+          body: SelectionArea(child: _buildCurrentSubTabContent()),
         ),
       ),
     );

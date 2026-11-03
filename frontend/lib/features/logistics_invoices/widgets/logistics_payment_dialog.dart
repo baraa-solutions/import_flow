@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/app_button.dart';
 import '../models/logistics_invoice_models.dart';
 import '../providers/logistics_invoices_provider.dart';
 import '../repositories/logistics_invoices_repository.dart';
@@ -103,9 +103,10 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
     if (!_formKey.currentState!.validate()) return;
     if (_voucherAmount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isArabic ? 'يجب أن يكون مبلغ الدفعة أكبر من الصفر!' : 'Payment amount must be greater than zero!'),
-          backgroundColor: Colors.red,
+        AppTheme.snackBar(
+          context,
+          isArabic ? 'يجب أن يكون مبلغ الدفعة أكبر من الصفر!' : 'Payment amount must be greater than zero!',
+          severity: AppSeverity.danger,
         ),
       );
       return;
@@ -144,18 +145,23 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(isArabic
+          AppTheme.snackBar(
+            context,
+            isArabic
                 ? 'تم تسجيل سند الدفع وإقفال الفواتير بنجاح!'
-                : 'Payment voucher & knock-offs processed successfully!'),
-            backgroundColor: Colors.green,
+                : 'Payment voucher & knock-offs processed successfully!',
+            severity: AppSeverity.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          AppTheme.snackBar(
+            context,
+            'Error: $e',
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {
@@ -173,7 +179,8 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
+      child: SelectionArea(
+        child: Container(
         width: 820,
         height: 680,
         padding: const EdgeInsets.all(20),
@@ -252,17 +259,18 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 1,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _currency,
+                    child: SearchableDropdownField<String>(
+                      value: _currency,
+                      labelText: isArabic ? 'العملة' : 'Currency',
                       decoration: InputDecoration(
                         labelText: isArabic ? 'العملة' : 'Currency',
                         isDense: true,
                         border: const OutlineInputBorder(),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'EGP', child: Text('EGP')),
-                        DropdownMenuItem(value: 'USD', child: Text('USD')),
-                        DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                        SearchableDropdownItem<String>(value: 'EGP', label: 'EGP'),
+                        SearchableDropdownItem<String>(value: 'USD', label: 'USD'),
+                        SearchableDropdownItem<String>(value: 'EUR', label: 'EUR'),
                       ],
                       onChanged: (v) => setState(() => _currency = v ?? 'EGP'),
                     ),
@@ -275,17 +283,18 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
                 children: [
                   Expanded(
                     flex: 2,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _paymentMethod,
+                    child: SearchableDropdownField<String>(
+                      value: _paymentMethod,
+                      labelText: isArabic ? 'طريقة الدفع' : 'Payment Method',
                       decoration: InputDecoration(
                         labelText: isArabic ? 'طريقة الدفع' : 'Payment Method',
                         isDense: true,
                         border: const OutlineInputBorder(),
                       ),
                       items: [
-                        DropdownMenuItem(value: 'BANK_TRANSFER', child: Text(isArabic ? 'تحويل بنكي' : 'Bank Transfer')),
-                        DropdownMenuItem(value: 'CHEQUE', child: Text(isArabic ? 'شيك بنكي' : 'Bank Cheque')),
-                        DropdownMenuItem(value: 'CASH', child: Text(isArabic ? 'نقداً' : 'Cash')),
+                        SearchableDropdownItem<String>(value: 'BANK_TRANSFER', label: isArabic ? 'تحويل بنكي' : 'Bank Transfer'),
+                        SearchableDropdownItem<String>(value: 'CHEQUE', label: isArabic ? 'شيك بنكي' : 'Bank Cheque'),
+                        SearchableDropdownItem<String>(value: 'CASH', label: isArabic ? 'نقداً' : 'Cash'),
                       ],
                       onChanged: (v) => setState(() => _paymentMethod = v ?? 'BANK_TRANSFER'),
                     ),
@@ -360,15 +369,16 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
               const SizedBox(height: 6),
               Expanded(
                 child: _isLoadingInvoices
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const AppLoadingState()
                     : openUnpaidInvoices.isEmpty
-                        ? Center(
-                            child: Text(
-                              isArabic
-                                  ? 'لا توجد فواتير مفتوحة غير مسددة لهذا الشريك.'
-                                  : 'No open invoices found for this partner.',
-                              style: TextStyle(color: Colors.grey.shade600),
-                            ),
+                        ? AppEmptyState(
+                            icon: Icons.receipt_long_outlined,
+                            message: isArabic
+                                ? 'لا توجد فواتير مفتوحة غير مسددة'
+                                : 'No open unpaid invoices',
+                            subtitle: isArabic
+                                ? 'لا توجد فواتير مفتوحة غير مسددة لهذا الشريك.'
+                                : 'No open invoices found for this partner.',
                           )
                         : Container(
                             decoration: BoxDecoration(
@@ -517,6 +527,7 @@ class _LogisticsPaymentDialogState extends ConsumerState<LogisticsPaymentDialog>
             ],
           ),
         ),
+      ),
       ),
     );
   }

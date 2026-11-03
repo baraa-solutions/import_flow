@@ -1,3 +1,4 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
@@ -130,18 +131,9 @@ import '../providers/customs_tariff_provider.dart';
                       setDialogState(() => isLoading = false);
                       if (ctx.mounted) {
                         if (error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Text(l10n.agreementAddFailed(error)),
-                                backgroundColor: AppTheme.crimson),
-                          );
+                          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l10n.agreementAddFailed(error), severity: AppSeverity.danger));
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(l10n.agreementAddedSuccess),
-                              backgroundColor: AppTheme.emerald,
-                            ),
-                          );
+                          ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, l10n.agreementAddedSuccess, severity: AppSeverity.success));
                           Navigator.pop(ctx);
                         }
                       }

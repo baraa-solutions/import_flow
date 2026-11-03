@@ -183,8 +183,8 @@ void main() {
       expect(find.text('165,801.50 ج.م'), findsOneWidget);
 
       // Verify Form Section Headers
-      expect(find.text('بيانات إذن الإفراج الجمركي الأخضر (MTS Release Permit)'), findsOneWidget);
-      expect(find.text('تصريح خروج البوابة وإجراءات النقل الداخلي (Port Gate-Out & Transport)'), findsOneWidget);
+      expect(find.text('بيانات إذن الإفراج الجمركي الأخضر'), findsOneWidget);
+      expect(find.text('تصريح خروج البوابة وإجراءات النقل الداخلي'), findsOneWidget);
 
       // Verify Text Fields
       expect(find.byKey(const Key('releasePermitNoField')), findsOneWidget);

@@ -6,6 +6,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../customs_clearance/widgets/cc_dialog_shell.dart';
 import '../../customs_clearance/widgets/customs_ui.dart';
 import '../models/freight_booking_model.dart';
+import '../l10n/air_lcl_l10n.dart';
 import 'freight_booking_ui.dart';
 
 /// Read-only booking details: carrier, route and schedule, containers,
@@ -42,6 +43,14 @@ class FreightBookingViewDialog extends StatelessWidget {
               icon: Icons.alt_route,
               child: _routeFacts(context, l),
             ),
+            if (b.isAirFreight || b.isSeaLcl) ...[
+              const SizedBox(height: 12),
+              CcSectionCard(
+                title: l.airLclCardTitle,
+                icon: b.isAirFreight ? Icons.flight_takeoff : Icons.conveyor_belt,
+                child: _airLclFacts(context, l),
+              ),
+            ],
             CcSectionCard(
               title: l.freightBookingViewContainersSection,
               icon: Icons.inventory_2_outlined,
@@ -89,6 +98,35 @@ class FreightBookingViewDialog extends StatelessWidget {
         text,
         style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: color),
       );
+
+  Widget _airLclFacts(BuildContext context, AppLocalizations l) {
+    final b = booking;
+    return Wrap(
+      spacing: 24,
+      runSpacing: 12,
+      children: [
+        if (b.isAirFreight) ...[
+          if (b.masterAirWaybill != null && b.masterAirWaybill!.isNotEmpty)
+            _fact(l.masterAirWaybillLabel, b.masterAirWaybill!, mono: true),
+          if (b.houseAirWaybill != null && b.houseAirWaybill!.isNotEmpty)
+            _fact(l.houseAirWaybillLabel, b.houseAirWaybill!, mono: true),
+          if (b.flightNumber != null && b.flightNumber!.isNotEmpty)
+            _fact(l.flightNumberLabel, b.flightNumber!, mono: true),
+          if (b.airlineCode != null && b.airlineCode!.isNotEmpty)
+            _fact(l.airlineCodeLabel, b.airlineCode!, mono: true),
+          if (b.airportTerminalName != null && b.airportTerminalName!.isNotEmpty)
+            _fact(l.airportTerminalNameLabel, b.airportTerminalName!),
+          if (b.chargeableWeightKg != null && b.chargeableWeightKg! > 0)
+            _fact(l.chargeableWeightResult, '${b.chargeableWeightKg} ${l.unitKg}', mono: true),
+        ] else if (b.isSeaLcl) ...[
+          if (b.cfsTerminalName != null && b.cfsTerminalName!.isNotEmpty)
+            _fact(l.cfsTerminalNameLabel, b.cfsTerminalName!),
+          if (b.strippingFeesEgp != null && b.strippingFeesEgp! > 0)
+            _fact(l.strippingFeesEgpLabel, '${b.strippingFeesEgp} ${l.unitEgp}', mono: true),
+        ],
+      ],
+    );
+  }
 
   Widget _routeFacts(BuildContext context, AppLocalizations l) {
     final b = booking;

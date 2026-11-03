@@ -184,7 +184,8 @@ class FbkPromptDialog extends StatelessWidget {
       backgroundColor: AppTheme.surfaceOf(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusXl)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: ConstrainedBox(
+      child: SelectionArea(
+        child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: width),
         child: Padding(
           padding: const EdgeInsetsDirectional.all(20),
@@ -227,6 +228,7 @@ class FbkPromptDialog extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

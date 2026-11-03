@@ -7,10 +7,8 @@ import '../../../core/localization/api_error_text.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/file_save_helper.dart';
 import '../../../core/theme/app_theme.dart';
+import 'package:frontend/core/widgets/widgets.dart';
 import '../../../core/theme/density_provider.dart';
-import '../../../core/widgets/buttons/app_button.dart';
-import '../../../core/widgets/copyable_data_helper.dart';
-import '../../../core/widgets/ltr_text.dart';
 import '../widgets/settlement_ui.dart';
 import '../models/financial_settlement_model.dart';
 import '../providers/financial_settlement_provider.dart';
@@ -92,7 +90,11 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiErrorText.of(l10n, e, fallback: l10n.settlementExportFailed)), backgroundColor: AppTheme.crimson),
+          AppTheme.snackBar(
+            context,
+            ApiErrorText.of(l10n, e, fallback: l10n.settlementExportFailed),
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {
@@ -119,7 +121,11 @@ class _OdooJournalEntryDialogState extends ConsumerState<OdooJournalEntryDialog>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiErrorText.of(l10n, e, fallback: l10n.settlementExportFailed)), backgroundColor: AppTheme.crimson),
+          AppTheme.snackBar(
+            context,
+            ApiErrorText.of(l10n, e, fallback: l10n.settlementExportFailed),
+            severity: AppSeverity.danger,
+          ),
         );
       }
     } finally {

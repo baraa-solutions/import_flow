@@ -1,3 +1,4 @@
+import '../../../core/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
@@ -44,9 +45,7 @@ class _NafezaTariffSyncDialogState extends ConsumerState<NafezaTariffSyncDialog>
   Future<void> _syncNafezaText() async {
     final isArabic = Directionality.of(context) == TextDirection.rtl;
     if (_rawTextController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isArabic ? 'يرجى لصق نص صفحة نافذة' : 'Please paste Nafeza raw text')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, isArabic ? 'يرجى لصق نص صفحة نافذة' : 'Please paste Nafeza raw text', severity: AppSeverity.warning));
       return;
     }
 
@@ -69,14 +68,7 @@ class _NafezaTariffSyncDialogState extends ConsumerState<NafezaTariffSyncDialog>
         // Invalidate tariff providers to refresh UI live
         ref.invalidate(customsTariffProvider);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppTheme.emerald,
-            content: Text(isArabic
-                ? 'تم استخراج البيانات ومزامنة جدول التعريفة والاتفاقيات بنجاح ✅'
-                : 'Data extracted and tariff schedule synced successfully ✅'),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(context, isArabic ? 'تم استخراج البيانات ومزامنة جدول التعريفة والاتفاقيات بنجاح' : 'Data extracted and tariff schedule synced successfully', severity: AppSeverity.success));
       }
     } catch (e) {
       if (mounted) {

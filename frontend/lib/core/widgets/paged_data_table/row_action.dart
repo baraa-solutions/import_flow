@@ -23,6 +23,7 @@ enum RowActionKind {
 ///
 /// Supports permission gating, confirmation dialogs, custom icons/labels, and disabled states.
 class RowAction<T> {
+  final Key? key;
   final RowActionKind kind;
   final FutureOr<void> Function(T row) run;
   final String? permission;
@@ -39,6 +40,7 @@ class RowAction<T> {
   final bool showOutcomeSnackBar;
 
   const RowAction({
+    this.key,
     required this.kind,
     required this.run,
     this.permission,
@@ -57,6 +59,7 @@ class RowAction<T> {
 
   /// 👁️ Standard View / Details action.
   factory RowAction.view({
+    Key? key,
     required FutureOr<void> Function(T row) run,
     String? permission,
     String? disabledReason,
@@ -65,6 +68,7 @@ class RowAction<T> {
     String Function(AppLocalizations l)? label,
   }) =>
       RowAction<T>(
+        key: key,
         kind: RowActionKind.view,
         run: run,
         permission: permission,
@@ -78,6 +82,7 @@ class RowAction<T> {
 
   /// ✏️ Standard Edit action.
   factory RowAction.edit({
+    Key? key,
     required FutureOr<void> Function(T row) run,
     String? permission,
     String? disabledReason,
@@ -86,6 +91,7 @@ class RowAction<T> {
     String Function(AppLocalizations l)? label,
   }) =>
       RowAction<T>(
+        key: key,
         kind: RowActionKind.edit,
         run: run,
         permission: permission,
@@ -99,6 +105,7 @@ class RowAction<T> {
 
   /// 📋 Standard Clone / Duplicate action.
   factory RowAction.clone({
+    Key? key,
     required FutureOr<void> Function(T row) run,
     String? permission,
     String? disabledReason,
@@ -107,6 +114,7 @@ class RowAction<T> {
     String Function(AppLocalizations l)? label,
   }) =>
       RowAction<T>(
+        key: key,
         kind: RowActionKind.clone,
         run: run,
         permission: permission,
@@ -120,6 +128,7 @@ class RowAction<T> {
 
   /// 🖨️ Standard Print / Export action.
   factory RowAction.print({
+    Key? key,
     required FutureOr<void> Function(T row) run,
     String? permission,
     String? disabledReason,
@@ -128,6 +137,7 @@ class RowAction<T> {
     String Function(AppLocalizations l)? label,
   }) =>
       RowAction<T>(
+        key: key,
         kind: RowActionKind.print,
         run: run,
         permission: permission,
@@ -140,6 +150,7 @@ class RowAction<T> {
 
   /// 🕒 Standard Activity / History Log action.
   factory RowAction.history({
+    Key? key,
     required FutureOr<void> Function(T row) run,
     String? permission,
     String? disabledReason,
@@ -148,6 +159,7 @@ class RowAction<T> {
     String Function(AppLocalizations l)? label,
   }) =>
       RowAction<T>(
+        key: key,
         kind: RowActionKind.history,
         run: run,
         permission: permission,
@@ -160,6 +172,7 @@ class RowAction<T> {
 
   /// 🗑️ Standard Delete action (defaults to requiring confirmation).
   factory RowAction.delete({
+    Key? key,
     required FutureOr<void> Function(T row) run,
     String? permission,
     String? disabledReason,
@@ -173,6 +186,7 @@ class RowAction<T> {
     bool showOutcomeSnackBar = true,
   }) =>
       RowAction<T>(
+        key: key,
         kind: RowActionKind.delete,
         run: run,
         permission: permission,
@@ -490,23 +504,24 @@ class RowActionsBar<T> extends ConsumerWidget {
       final onTap = isActionEnabled ? () => _handleActionTap(context, action) : null;
       switch (kind) {
         case RowActionKind.view:
-          primaryWidgets.add(ViewActionButton(tooltip: tooltip, onTap: onTap, iconSize: iconSize));
+          primaryWidgets.add(ViewActionButton(key: action.key, tooltip: tooltip, onTap: onTap, iconSize: iconSize));
           break;
         case RowActionKind.edit:
-          primaryWidgets.add(EditActionButton(tooltip: tooltip, onTap: onTap, iconSize: iconSize));
+          primaryWidgets.add(EditActionButton(key: action.key, tooltip: tooltip, onTap: onTap, iconSize: iconSize));
           break;
         case RowActionKind.print:
-          primaryWidgets.add(PrintActionButton(tooltip: tooltip, onTap: onTap, iconSize: iconSize));
+          primaryWidgets.add(PrintActionButton(key: action.key, tooltip: tooltip, onTap: onTap, iconSize: iconSize));
           break;
         case RowActionKind.delete:
-          primaryWidgets.add(DeleteActionButton(tooltip: tooltip, onTap: onTap, iconSize: iconSize));
+          primaryWidgets.add(DeleteActionButton(key: action.key, tooltip: tooltip, onTap: onTap, iconSize: iconSize));
           break;
         case RowActionKind.clone:
-          primaryWidgets.add(CloneActionButton(tooltip: tooltip, onTap: onTap, iconSize: iconSize));
+          primaryWidgets.add(CloneActionButton(key: action.key, tooltip: tooltip, onTap: onTap, iconSize: iconSize));
           break;
         default:
           primaryWidgets.add(
             IconActionButton(
+              key: action.key,
               icon: action.resolveIcon(),
               color: action.resolveColor(context),
               backgroundColor: action.resolveBackgroundColor(context),

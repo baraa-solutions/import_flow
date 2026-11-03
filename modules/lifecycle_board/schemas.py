@@ -89,6 +89,15 @@ class MultiStageSetPayload(BaseModel):
     notes: Optional[str] = None
 
 
+class ShipmentKpiMetrics(BaseModel):
+    health_score_pct: float = Field(..., ge=0.0, le=100.0, description="Overall Health Score (0-100%)")
+    free_time_burn_pct: float = Field(0.0, ge=0.0, le=100.0, description="Demurrage Free Time Burn (0-100%)")
+    free_days_remaining: Optional[int] = Field(None, description="Free days remaining before demurrage charges")
+    overdue_steps_count: int = Field(0, ge=0, description="Count of overdue steps past SLA")
+    cost_variance_pct: Optional[float] = Field(None, description="Actual landed cost variance percentage from import file")
+    risk_level: str = Field("SAFE", description="Risk level: SAFE | WARNING | CRITICAL")
+
+
 class ShipmentStageCard(BaseModel):
     import_file_code: str
     company_name: str
@@ -114,6 +123,9 @@ class ShipmentStageCard(BaseModel):
     msg_code: Optional[str] = None  # system message code of ``notes`` (English render in ``notes``)
     msg_params: Optional[Dict[str, Any]] = None
     completion_type: Optional[str] = None
+    kpi_metrics: Optional[ShipmentKpiMetrics] = None
+    pending_step_codes: List[str] = Field(default_factory=list)
+    skipped_step_codes: List[str] = Field(default_factory=list)
 
 
 class PhaseSummary(BaseModel):
@@ -124,6 +136,8 @@ class PhaseSummary(BaseModel):
     step_codes: List[str]
     total_active_shipments: int
     step_counts: Dict[str, int]
+    pending_shipments_count: int = 0
+    delayed_shipments_count: int = 0
 
 
 class LifecycleBoardSummaryResponse(BaseModel):
