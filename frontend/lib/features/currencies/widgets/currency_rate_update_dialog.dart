@@ -156,8 +156,8 @@ class _CurrencyRateUpdateDialogState
     return SelectionArea(
       child: AlertDialog(
         title: Text(l10n.updateExchangeRatesDialogTitle),
-      content: SelectionArea(
-        child: SizedBox(
+      // The whole dialog is already wrapped in a SelectionArea above.
+      content: SizedBox(
           width: 450,
           child: Form(
             key: _formKey,
@@ -237,7 +237,6 @@ class _CurrencyRateUpdateDialogState
             ),
           ),
         ),
-      ),
       actions: [
         AppButton(
           label: l10n.cancel,

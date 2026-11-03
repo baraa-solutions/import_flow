@@ -97,8 +97,8 @@ class _IncotermEditDialogState extends ConsumerState<IncotermEditDialog> {
     return SelectionArea(
       child: AlertDialog(
         title: Text(isEditing ? l10n.editIncotermDialogTitle : l10n.addIncotermDialogTitle),
-      content: SelectionArea(
-        child: Form(
+      // The whole dialog is already wrapped in a SelectionArea above.
+      content: Form(
           key: _formKey,
           child: SizedBox(
             width: 440,
@@ -195,7 +195,6 @@ class _IncotermEditDialogState extends ConsumerState<IncotermEditDialog> {
             ),
           ),
         ),
-      ),
       actions: [
         AppButton(
           label: l10n.cancel,
