@@ -189,35 +189,6 @@ class _ImportFileFormGeneralTabState extends ConsumerState<ImportFileFormGeneral
                     ),
                   ],
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        dialog.setState(() {
-                          dialog.invoices.add(
-                            InvoiceItemModel(invoiceNo: 'PI-${890 + dialog.invoices.length}', amount: 12000, currency: 'USD'),
-                          );
-                        });
-                        dialog.markDirty();
-                      },
-                      icon: const Icon(Icons.add, size: 16),
-                      label: Text('+ ${l.poInvoiceLabel}'),
-                    ),
-                    TextButton.icon(
-                      onPressed: () {
-                        dialog.setState(() {
-                          dialog.packingLists.add(
-                            PackingListItemModel(plNo: 'PL-${890 + dialog.packingLists.length}', totalPackages: 30, cbm: 20),
-                          );
-                        });
-                        dialog.markDirty();
-                      },
-                      icon: const Icon(Icons.add, size: 16),
-                      label: Text('+ ${l.packingListsUnit}'),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),

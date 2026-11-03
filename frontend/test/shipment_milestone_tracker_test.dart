@@ -5,14 +5,23 @@ import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/widgets/shipment_milestone_tracker.dart';
 
 void main() {
-  Widget createTestWidget({required ImportFileModel importFile, Locale locale = const Locale('ar')}) {
+  Widget createTestWidget({
+    required ImportFileModel importFile,
+    Locale locale = const Locale('ar'),
+    double? totalCbm,
+    double? grossWeightKg,
+  }) {
     return MaterialApp(
       locale: locale,
       home: AppLocalizationsProvider(
         locale: locale,
         child: Scaffold(
           body: SingleChildScrollView(
-            child: ShipmentMilestoneTracker(importFile: importFile),
+            child: ShipmentMilestoneTracker(
+              importFile: importFile,
+              totalCbm: totalCbm,
+              grossWeightKg: grossWeightKg,
+            ),
           ),
         ),
       ),
@@ -116,12 +125,30 @@ void main() {
     testWidgets('Mini Quick-Facts Bar displays volume, gross weight, and carrier correctly', (tester) async {
       final file = createMockImportFile();
 
-      await tester.pumpWidget(createTestWidget(importFile: file, locale: const Locale('ar')));
+      await tester.pumpWidget(createTestWidget(
+        importFile: file,
+        locale: const Locale('ar'),
+        totalCbm: 66.39,
+        grossWeightKg: 10510.0,
+      ));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('66.39 m³'), findsOneWidget);
       expect(find.textContaining('10,510 كجم'), findsOneWidget);
-      expect(find.text('Wan Hai'), findsOneWidget);
+      expect(find.text('Wan Hai Lines Ltd. (WAN HAI 511)'), findsOneWidget);
+    });
+
+    testWidgets('Mini Quick-Facts Bar shows a dash, never placeholder figures, when no data is recorded',
+        (tester) async {
+      final file = createMockImportFile(selectedScenario: null);
+
+      await tester.pumpWidget(createTestWidget(importFile: file, locale: const Locale('ar')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('66.39'), findsNothing);
+      expect(find.textContaining('10,510'), findsNothing);
+      expect(find.textContaining('Wan Hai'), findsNothing);
+      expect(find.text('—'), findsNWidgets(3));
     });
 
     testWidgets('Knowledge Gate alert displays for acoustic cargo and can be acknowledged', (tester) async {

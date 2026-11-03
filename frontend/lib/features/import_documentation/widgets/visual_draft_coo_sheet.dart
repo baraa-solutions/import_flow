@@ -116,16 +116,21 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
     final goodsDesc = CooSheetHelpers.sanitizeEnglishOnly((t['box_7_description_and_acid'] ?? t['box_8_description_packages'] ?? t['description'] ?? 'COMMERCIAL CARGO').toString());
 
     final rawWeight = (t['box_9_quantity_and_weight'] ?? t['box_9_gross_mass'] ?? '').toString().trim();
+    // Box 9 is printed on the certificate: without real quantity, packages and weight it stays blank.
+    final hasQuantityData =
+        t['quantity'] != null && t['packages_count'] != null && t['gross_weight_kg'] != null;
     final weight = rawWeight.isNotEmpty
         ? CooSheetHelpers.sanitizeEnglishOnly(rawWeight)
-        : CooSheetHelpers.formatCooQuantityBox(
-            quantity: t['quantity'] ?? 1152,
-            unit: t['unit']?.toString() ?? 'PCS',
-            packagesCount: t['packages_count'] ?? 144,
-            packageType: t['package_type']?.toString(),
-            grossWeightKg: t['gross_weight_kg'] ?? 10510.0,
-            isChina: isChina,
-          );
+        : hasQuantityData
+            ? CooSheetHelpers.formatCooQuantityBox(
+                quantity: t['quantity'],
+                unit: t['unit']?.toString() ?? 'PCS',
+                packagesCount: t['packages_count'],
+                packageType: t['package_type']?.toString(),
+                grossWeightKg: t['gross_weight_kg'],
+                isChina: isChina,
+              )
+            : '';
 
     final invoiceData = CooSheetHelpers.sanitizeEnglishOnly((t['box_10_invoice_number_and_date'] ?? t['box_10_invoices_and_acid'] ?? 'INVOICE INFO').toString());
     final remarks = CooSheetHelpers.sanitizeEnglishOnly((t['box_7_remarks'] ?? (isEur1 ? 'REVISED RULES' : 'N/A')).toString());

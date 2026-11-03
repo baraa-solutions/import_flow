@@ -134,7 +134,7 @@ void main() {
     // Verify 2.3: Mini Quick-Facts Bar shows volume, weight, and carrier
     expect(find.descendant(of: find.byType(ShipmentMilestoneTracker), matching: find.text('66.39 m³')), findsOneWidget);
     expect(find.descendant(of: find.byType(ShipmentMilestoneTracker), matching: find.text('10,510 كجم')), findsOneWidget);
-    expect(find.descendant(of: find.byType(ShipmentMilestoneTracker), matching: find.text('Wan Hai')), findsOneWidget);
+    expect(find.descendant(of: find.byType(ShipmentMilestoneTracker), matching: find.text('Wan Hai Lines Ltd. (WAN HAI 511)')), findsOneWidget);
 
     // Verify 2.4: Knowledge Gate for acoustic goods renders smoothly
     expect(find.text('بوابة المعرفة والإنذار التشغيلي'), findsOneWidget);
