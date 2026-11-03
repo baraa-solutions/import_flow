@@ -5,19 +5,6 @@ Unit Tests for Wave 4:
 - Pre-Shipment Inspection (PSI) & Vendor Quality Rating
 """
 
-import sys
-try:
-    import database.migration_runner as _mr
-    _orig_stamp = _mr.stamp_head
-    def _tolerant_stamp(engine):
-        try:
-            _orig_stamp(engine)
-        except Exception:
-            pass
-    _mr.stamp_head = _tolerant_stamp
-except Exception:
-    pass
-
 from datetime import date, datetime, timedelta, timezone
 import pytest
 from fastapi import HTTPException
