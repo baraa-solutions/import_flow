@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:frontend/core/providers/navigation_provider.dart';
+import 'package:frontend/core/widgets/page_header.dart';
 import 'package:frontend/features/freight_quotations/screens/freight_quotations_screen.dart';
 import 'package:frontend/features/shipping_scenarios/screens/shipping_scenarios_screen.dart';
 import 'package:frontend/features/external_service_providers/providers/partners_provider.dart';
@@ -161,10 +162,13 @@ void main() {
       expect(find.byType(TabBar), findsNothing);
       expect(find.byType(TabBarView), findsNothing);
 
-      // Verify operational actions exist in AppBar
-      expect(find.byIcon(Icons.folder_open_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.add_circle_outline), findsOneWidget);
-      expect(find.byIcon(Icons.analytics_outlined), findsOneWidget);
+      // Verify operational actions exist in the page header (the metric card
+      // strip also uses Icons.analytics_outlined, so scope to the header).
+      final header = find.byType(PageHeader);
+      expect(header, findsOneWidget);
+      expect(find.descendant(of: header, matching: find.byIcon(Icons.folder_open_outlined)), findsOneWidget);
+      expect(find.descendant(of: header, matching: find.byIcon(Icons.add_circle_outline)), findsOneWidget);
+      expect(find.descendant(of: header, matching: find.byIcon(Icons.analytics_outlined)), findsOneWidget);
 
       // Verify Save RFQ button exists
       expect(find.byIcon(Icons.save), findsOneWidget);

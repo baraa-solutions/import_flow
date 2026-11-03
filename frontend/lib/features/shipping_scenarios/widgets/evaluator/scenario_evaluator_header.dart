@@ -44,7 +44,7 @@ class ScenarioEvaluatorMetrics {
       final totalDays = vesselLeadTime + readyDays + avgForm4Days + avgClearanceDays + item.expectedLineDelayDays;
       final expectedWhDate = cargoReadyDate.add(Duration(days: totalDays)).toString().substring(0, 10);
 
-      return {
+      return <String, dynamic>{
         'index': idx,
         'item': item,
         'vesselLeadTime': vesselLeadTime,
