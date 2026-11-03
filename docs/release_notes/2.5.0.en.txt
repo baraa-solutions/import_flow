@@ -1,0 +1,9 @@
+Master item catalog: one catalog for all items with per-supplier price history, linked automatically to purchase orders and landed cost settlement.
+Dynamic report builder: 40+ new fields (air courier, demurrage, release and duties, inland transport, CargoX, partial shipments), quick filters, and saved report presets.
+Air freight and courier: Customs Law 207/2020 rules exempting postal parcels from ACID, and dual volumetric divisors for air and express.
+ACID gate: a shipment cannot pass the booking stage (STEP_05) without a valid 19-digit ACID number unless it is exempt.
+CargoX: the customs invoice keeps different prices of the same HS code on separate lines, keeps actual purchase order line weights, and never assumes an unrecorded country of origin.
+Document cross-check: 21 checks between the invoice, bill of lading and packing list, with tax code and ACID mismatches blocking.
+Shipment follow-up: shortage and damage, release gate, demurrage and containers, and a 14-point invoice match.
+Data accuracy: no placeholder figures on the shipment card or the certificate of origin, and removed buttons that added fake invoices and packing lists.
+Interface: sticky table header on import files, layout fixes on small screens, and forms no longer lose data on the first edit.
