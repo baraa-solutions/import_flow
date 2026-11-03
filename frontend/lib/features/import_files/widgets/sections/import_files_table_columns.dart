@@ -136,6 +136,7 @@ List<EnterpriseColumn<ImportFileModel>> buildImportFilesTableColumns({
               ),
               const SizedBox(width: 4),
               IconButton(
+                key: Key('openComprehensiveReportBtn_${file.importFileId}'),
                 icon: const Icon(Icons.summarize_outlined, color: AppTheme.cobalt, size: 18),
                 tooltip: 'تقرير الشحنة الشامل المدمج (Screen 47)',
                 splashRadius: 18,

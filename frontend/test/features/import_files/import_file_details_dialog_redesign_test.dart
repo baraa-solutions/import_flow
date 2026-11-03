@@ -137,7 +137,7 @@ void main() {
     expect(find.descendant(of: find.byType(ShipmentMilestoneTracker), matching: find.text('Wan Hai')), findsOneWidget);
 
     // Verify 2.4: Knowledge Gate for acoustic goods renders smoothly
-    expect(find.textContaining('بوابة المعرفة والإنذار التشغيلي (Knowledge Gate)'), findsOneWidget);
+    expect(find.text('بوابة المعرفة والإنذار التشغيلي'), findsOneWidget);
     expect(find.textContaining('ميناء الوصول يجب أن يكون الإسكندرية حصراً'), findsOneWidget);
 
     // Tap models & simulations dropdown

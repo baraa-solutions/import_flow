@@ -158,9 +158,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
       child: DefaultTabController(
         length: 4,
         child: AlertDialog(
-          titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          contentPadding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-          actionsPadding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+          titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 0),
+          contentPadding: const EdgeInsetsDirectional.fromSTEB(20, 10, 20, 0),
+          actionsPadding: const EdgeInsetsDirectional.fromSTEB(20, 10, 20, 14),
           title: FileDetailsHeaderCard(
             file: file,
             dossier: dossier,

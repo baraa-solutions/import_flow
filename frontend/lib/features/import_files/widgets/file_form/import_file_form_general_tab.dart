@@ -172,8 +172,11 @@ class _ImportFileFormGeneralTabState extends ConsumerState<ImportFileFormGeneral
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.blue.shade200),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 8,
+              runSpacing: 4,
               children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,

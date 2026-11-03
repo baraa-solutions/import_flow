@@ -230,9 +230,9 @@ class CourierTrackingActionButton extends StatelessWidget {
       builder: (ctx) {
         return SelectionArea(
           child: AlertDialog(
-            titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            actionsPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 0),
+            contentPadding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 0),
+            actionsPadding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 16),
             title: Row(
               children: [
                 _buildOperatorIcon(isAr: isAr, isDark: isDark),
