@@ -33,7 +33,6 @@ class _StepConfigManagementScreenState
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(rbacProvider.notifier).fetchRbacData();
-      ref.read(stepConfigProvider.notifier).fetchConfigs();
     });
   }
 
@@ -45,11 +44,16 @@ class _StepConfigManagementScreenState
 
   bool _canManageUsers(UserModel? user) {
     if (user == null) return false;
-    final role = user.role.toUpperCase();
-    return role == 'ADMIN' ||
-        role == 'DEVELOPER' ||
-        role == 'GENERAL_MANAGER' ||
-        role == 'OPERATIONS_MANAGER';
+    if (user.isAdmin) return true;
+    final rbacState = ref.watch(rbacProvider);
+    final userRole = rbacState.roles
+        .where((r) => r.roleCode.toUpperCase() == user.role.toUpperCase())
+        .firstOrNull;
+    if (userRole != null) {
+      return userRole.permissions.contains('*') ||
+          userRole.permissions.contains('users.manage');
+    }
+    return false;
   }
 
   void _showEditDialog(BuildContext context, StepConfigModel config) {
@@ -71,12 +75,22 @@ class _StepConfigManagementScreenState
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final user = authState.user;
-    final isAuthorized = _canManageUsers(user);
+    final isAuthorized = user?.canManageStepConfig ?? false;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: SelectionArea(
-        child: isAuthorized
+    // Surface backend load errors (e.g. 403 detail) instead of failing silently.
+    ref.listen<StepConfigState>(stepConfigProvider, (prev, next) {
+      final loadFinished = (prev?.isLoading ?? false) && !next.isLoading;
+      if (loadFinished && next.errorMessage != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.errorMessage!), backgroundColor: AppTheme.crimson),
+        );
+      }
+    });
+
+    return SelectionArea(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        body: isAuthorized
             ? _buildAuthorizedManagementView()
             : const StepConfigAccessDeniedView(),
       ),

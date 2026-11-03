@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/core/widgets/buttons/icon_action_button.dart';
 import 'package:frontend/core/widgets/copyable_data_helper.dart';
 import 'package:frontend/features/auth/models/user_model.dart';
 import 'package:frontend/features/auth/providers/auth_provider.dart';
@@ -158,7 +159,7 @@ void main() {
     expect(find.text('STEP_06'), findsOneWidget);
 
     // But edit buttons are hidden because GM does not have users.manage
-    expect(find.byIcon(Icons.edit_note_rounded), findsNothing);
+    expect(find.byType(EditActionButton), findsNothing);
     // Copy and audit buttons are still available
     expect(find.byIcon(Icons.copy_rounded), findsWidgets);
     expect(find.byIcon(Icons.history_rounded), findsWidgets);
@@ -203,7 +204,7 @@ void main() {
     expect(rowCopyButtons, findsWidgets);
 
     // Tap on edit button for STEP_06
-    final editButtons = find.byIcon(Icons.edit_note_rounded);
+    final editButtons = find.byType(EditActionButton);
     expect(editButtons, findsNWidgets(2));
     await tester.ensureVisible(editButtons.at(1));
     await tester.tap(editButtons.at(1));
@@ -252,7 +253,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Open edit dialog for STEP_06
-    final editButtons = find.byIcon(Icons.edit_note_rounded);
+    final editButtons = find.byType(EditActionButton);
     await tester.ensureVisible(editButtons.at(1));
     await tester.tap(editButtons.at(1));
     await tester.pumpAndSettle();
@@ -304,7 +305,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Open edit dialog for STEP_06
-    final editButtons = find.byIcon(Icons.edit_note_rounded);
+    final editButtons = find.byType(EditActionButton);
     await tester.ensureVisible(editButtons.at(1));
     await tester.tap(editButtons.at(1));
     await tester.pumpAndSettle();
