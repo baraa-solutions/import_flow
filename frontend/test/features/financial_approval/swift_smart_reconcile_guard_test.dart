@@ -355,7 +355,18 @@ void main() {
       );
       expect(file.existsSync(), isTrue, reason: 'swift_reconciliation_screen.dart must exist');
 
-      final content = file.readAsStringSync();
+      // The screen was split: its dialogs and upload flow now live under
+      // widgets/swift_reconciliation/. Scan the screen together with those parts.
+      final partsDir = Directory(
+          file.path.replaceFirst('screens/swift_reconciliation_screen.dart', 'widgets/swift_reconciliation'));
+      expect(partsDir.existsSync(), isTrue, reason: 'widgets/swift_reconciliation/ must exist');
+      final parts = partsDir
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+      final content = [file, ...parts].map((f) => f.readAsStringSync()).join('\n');
 
       // Must not invent SWIFT transaction reference
       expect(content.contains("'SWIFT-\${DateTime.now().millisecondsSinceEpoch}'"), isFalse,

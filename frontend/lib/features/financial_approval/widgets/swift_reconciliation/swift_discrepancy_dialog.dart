@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/localization/app_localizations_ar.dart';
 import '../../../../core/network/api_error.dart';
 import '../../../../core/theme/app_theme.dart';
 import 'package:frontend/core/widgets/widgets.dart';
@@ -33,12 +34,19 @@ class SwiftDiscrepancyDialog extends ConsumerStatefulWidget {
     required PaymentRequestModel pay,
     VoidCallback? onReconciled,
   }) {
+    // The dialog lives on the root navigator: carry the caller's language into it.
+    final locale = AppLocalizations.of(context) is AppLocalizationsAr
+        ? const Locale('ar')
+        : const Locale('en');
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => SwiftDiscrepancyDialog(
-        pay: pay,
-        onReconciled: onReconciled,
+      builder: (ctx) => AppLocalizationsProvider(
+        locale: locale,
+        child: SwiftDiscrepancyDialog(
+          pay: pay,
+          onReconciled: onReconciled,
+        ),
       ),
     );
   }

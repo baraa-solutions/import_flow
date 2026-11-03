@@ -13,7 +13,7 @@ void main() {
       expect(lAr.importBudgetApprovalTab, equals('اعتماد الميزانية الاستيرادية'));
       expect(lAr.savedBudgetsRegistryTab, equals('سجل الميزانيات المعتمدة'));
       expect(lAr.paymentRequestsRegistryTab, equals('سجل طلبات السداد والتحويلات'));
-      expect(lAr.swiftReconciliationTab, equals('استخراج ومطابقة السويفت (MT103)'));
+      expect(lAr.swiftReconciliationTab, equals('استخراج ومطابقة إشعار التحويل البنكي السويفت'));
 
       // Payment Request Form
       expect(lAr.createPaymentRequestTitle, equals('إصدار طلب سداد وتحويل مالي للمورد'));
@@ -57,7 +57,7 @@ void main() {
       expect(lAr.noMatchingBudgets, equals('لا توجد اعتمادات ميزانية مطابقة لمعايير البحث.'));
 
       // SWIFT Extractor & Reconciliation
-      expect(lAr.swiftExtractorTitle, equals('استخراج ومطابقة إشعار التحويل البنكي (SWIFT MT103)'));
+      expect(lAr.swiftExtractorTitle, equals('استخراج ومطابقة إشعار التحويل البنكي السويفت'));
       expect(lAr.swiftUploadDocument, equals('رفع مستند السويفت'));
       expect(lAr.swiftPasteText, equals('لصق نص رسالة السويفت'));
       expect(lAr.swiftMatchedSuccess, equals('تمت المطابقة مع طلب السداد بنجاح'));
@@ -70,6 +70,8 @@ void main() {
       expect(lAr.consolidatedBudgetSummary.contains('Multi-Currency Budget Allocation'), isFalse);
       expect(lAr.totalBudgetEgp.contains('Total Approved Budget'), isFalse);
       expect(lAr.swiftExtractorTitle.contains('Smart AI SWIFT MT103 Extractor'), isFalse);
+      expect(lAr.swiftReconciliationTab.contains('MT103'), isFalse);
+      expect(lAr.swiftExtractorTitle.contains('MT103'), isFalse);
     });
 
     test('English AppLocalizationsEn returns pure English for Financial Approvals', () {
