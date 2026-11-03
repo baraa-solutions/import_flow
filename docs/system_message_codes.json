@@ -358,6 +358,12 @@
       "note"
     ]
   },
+  "CC_REGULATORY_REQUIREMENTS_NOT_MET": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "CC_RELEASE_ISSUED": {
     "params": [
       "import_file_code",
@@ -567,6 +573,17 @@
       "title",
       "body",
       "note"
+    ]
+  },
+  "CLO_FILE_REOPENED": {
+    "params": [
+      "import_file_code",
+      "justification",
+      "reopened_by"
+    ],
+    "parts": [
+      "title",
+      "body"
     ]
   },
   "CLO_TASK_OFFICIAL_CLOSURE": {
@@ -2421,6 +2438,23 @@
       "reason"
     ]
   },
+  "IF_FILE_ALREADY_CLOSED": {
+    "params": [
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "IF_FILE_ON_HOLD": {
+    "params": [
+      "hold_reason",
+      "import_file_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "IF_STATUS_TRANSITION_INVALID": {
     "params": [
       "from",
@@ -2468,6 +2502,24 @@
     "params": [
       "assessment_code"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "ITEM_CODE_ALREADY_EXISTS": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "ITEM_NOT_FOUND": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "ITEM_SUPPLIER_LINK_EXISTS": {
+    "params": [],
     "parts": [
       "note"
     ]
@@ -4220,6 +4272,12 @@
       "note"
     ]
   },
+  "SUPPLIER_NOT_FOUND": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
   "SYSPARAM_INVALID_VALUE": {
     "params": [
       "param_key",
@@ -4233,6 +4291,12 @@
     "params": [
       "param_key"
     ],
+    "parts": [
+      "note"
+    ]
+  },
+  "TARIFF_NOT_FOUND": {
+    "params": [],
     "parts": [
       "note"
     ]

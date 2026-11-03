@@ -147,6 +147,10 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
     'body': 'Import file {import_file_code} officially closed at 100% completion; closure certificate {closure_code} issued and filed at {archive_location}.',
     'note': 'Import file finally closed and archived (code: {closure_code}) by {auditor_name}.',
   },
+  'CLO_FILE_REOPENED': {
+    'title': 'Shipment reopened: {import_file_code}',
+    'body': 'Import file {import_file_code} has been officially reopened by supervisor {reopened_by}. Reason: {justification}',
+  },
   'CLO_TASK_OFFICIAL_CLOSURE': {
     'title': 'Official closure and digital archiving of the file (CLO-04)',
     'body': 'Full dossier of {import_file_code} exported and approved as {export_format}. Complete the final checklist and issue the closure and archiving certificate.',
@@ -1521,6 +1525,30 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   },
   'CC_RELEASE_QUARANTINE_LOCKED': {
     'note': 'The final release cannot be issued while {clearance_code} is under the laboratory quarantine lock.',
+  },
+  'CC_REGULATORY_REQUIREMENTS_NOT_MET': {
+    'note': 'Customs release cannot be issued: the regulatory approvals or the goods inspection are not complete (GOEIC / food safety / technical inspection).',
+  },
+  'IF_FILE_ON_HOLD': {
+    'note': 'Import file {import_file_code} is on hold ({hold_reason}); resume it before continuing.',
+  },
+  'IF_FILE_ALREADY_CLOSED': {
+    'note': 'Import file {import_file_code} is already closed.',
+  },
+  'ITEM_CODE_ALREADY_EXISTS': {
+    'note': 'This item code is already registered in the item catalog.',
+  },
+  'ITEM_NOT_FOUND': {
+    'note': 'The item does not exist or has been deleted.',
+  },
+  'ITEM_SUPPLIER_LINK_EXISTS': {
+    'note': 'This item is already linked to this supplier in the price catalog.',
+  },
+  'SUPPLIER_NOT_FOUND': {
+    'note': 'The foreign supplier does not exist in the directory.',
+  },
+  'TARIFF_NOT_FOUND': {
+    'note': 'The customs tariff item does not exist or is inactive.',
   },
   'CC_LAB_RESULT_ALREADY_FINAL': {
     'note': 'The lab result was already recorded and the quarantine lifted, or the shipment is finally released ({clearance_status}).',

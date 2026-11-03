@@ -147,6 +147,10 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
     'body': 'تم إغلاق الملف الاستيرادي {import_file_code} رسمياً بنجاح بنسبة إنجاز 100%، وتم إصدار شهادة الإغلاق {closure_code} وحفظه في {archive_location}.',
     'note': 'تم الإغلاق النهائي للملف الاستيرادي وأرشفته (الكود: {closure_code}) بواسطة {auditor_name}.',
   },
+  'CLO_FILE_REOPENED': {
+    'title': 'إعادة فتح الشحنة: {import_file_code}',
+    'body': 'تمت إعادة فتح الملف الاستيرادي {import_file_code} رسمياً بواسطة المشرف {reopened_by}. السبب: {justification}',
+  },
   'CLO_TASK_OFFICIAL_CLOSURE': {
     'title': 'الإغلاق الرسمي والأرشفة الرقمية للملف (CLO-04)',
     'body': 'تم تصدير واعتماد الملف الشامل للشحنة {import_file_code} بنجاح بصيغة {export_format}. المطلوب الآن استكمال قائمة التحقق النهائية وإصدار شهادة الإغلاق والأرشفة الرقمية.',
@@ -1521,6 +1525,30 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   },
   'CC_RELEASE_QUARANTINE_LOCKED': {
     'note': 'لا يمكن إصدار الإفراج النهائي طالما {clearance_code} تحت قفل الحجر المعملي.',
+  },
+  'CC_REGULATORY_REQUIREMENTS_NOT_MET': {
+    'note': 'لا يمكن إصدار الإفراج الجمركي: لم تكتمل موافقات الجهات الرقابية أو فحص ومعاينة البضاعة (GOEIC / سلامة الغذاء / الفحص الفني).',
+  },
+  'IF_FILE_ON_HOLD': {
+    'note': 'ملف الشحنة {import_file_code} معلق ({hold_reason})؛ استأنف الملف قبل متابعة الإجراء.',
+  },
+  'IF_FILE_ALREADY_CLOSED': {
+    'note': 'ملف الشحنة {import_file_code} مغلق بالفعل.',
+  },
+  'ITEM_CODE_ALREADY_EXISTS': {
+    'note': 'كود الصنف مسجل بالفعل في دليل الأصناف.',
+  },
+  'ITEM_NOT_FOUND': {
+    'note': 'الصنف غير مسجل أو محذوف.',
+  },
+  'ITEM_SUPPLIER_LINK_EXISTS': {
+    'note': 'هذا الصنف مرتبط بالفعل بهذا المورد في كتالوج الأسعار.',
+  },
+  'SUPPLIER_NOT_FOUND': {
+    'note': 'المورد الأجنبي غير موجود في الدليل.',
+  },
+  'TARIFF_NOT_FOUND': {
+    'note': 'بند التعريفة الجمركية غير موجود أو غير مفعل.',
   },
   'CC_LAB_RESULT_ALREADY_FINAL': {
     'note': 'تم تسجيل نتيجة المعمل ورفع الحجر بالفعل، أو تم الإفراج النهائي عن الشحنة ({clearance_status}).',
