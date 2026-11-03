@@ -32,7 +32,7 @@ class ShipmentBooking(Base):
 
     # Shipment Specifications & Transport Mode
     shipment_type = Column(String(50), nullable=False, default="Ocean FCL")  # Ocean FCL, Ocean LCL, Air
-    transport_mode = Column(String(50), nullable=False, default="SEA_FCL")  # SEA_FCL, SEA_LCL, AIR_FREIGHT
+    transport_mode = Column(String(50), nullable=False, default="SEA_FCL", server_default=text("'SEA_FCL'"))  # SEA_FCL, SEA_LCL, AIR_FREIGHT
     master_air_waybill = Column(String(100), nullable=True, index=True)
     house_air_waybill = Column(String(100), nullable=True, index=True)
     flight_number = Column(String(50), nullable=True)
