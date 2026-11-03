@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone, date
 from typing import Optional, List, Tuple
 from fastapi import HTTPException
@@ -26,6 +27,8 @@ from .validators import (
     validate_unique_container_number,
 )
 from . import repository
+
+logger = logging.getLogger(__name__)
 
 
 def create_container_service(
