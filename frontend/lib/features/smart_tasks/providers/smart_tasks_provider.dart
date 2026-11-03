@@ -3,7 +3,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/widgets/paged_data_table/list_query.dart';
+import '../../../core/widgets/paged_data_table/paged_list_notifier.dart';
 import '../models/smart_task_model.dart';
+
+/// Live Server-Paged provider for SmartTasks virtualization and server pagination
+final smartTasksPagedProvider = StateNotifierProvider.autoDispose<DefaultPagedListNotifier<SmartTaskModel>, PagedListState<SmartTaskModel>>((ref) {
+  final dio = ref.watch(dioProvider);
+  final memoryTasks = ref.watch(smartTasksProvider).tasks;
+
+  final PagedSource<SmartTaskModel> source = memoryTasks.isNotEmpty
+      ? ClientPagedSource<SmartTaskModel>.fromList(
+          memoryTasks,
+          searchMatcher: (task, query) =>
+              task.title.toLowerCase().contains(query.toLowerCase()) ||
+              task.taskCode.toLowerCase().contains(query.toLowerCase()),
+        )
+      : ServerPagedSource<SmartTaskModel>(
+          dio: dio,
+          path: '${ApiConstants.baseUrl}/smart-tasks/paginated',
+          fromJson: SmartTaskModel.fromJson,
+        );
+
+  final notifier = DefaultPagedListNotifier<SmartTaskModel>(
+    source,
+    initialQuery: const ListQuery(page: 1, pageSize: 50, sort: '-created_at'),
+  );
+
+  notifier.load();
+  return notifier;
+});
 
 class SmartTasksState {
   final bool isLoading;

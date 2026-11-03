@@ -119,5 +119,73 @@ class TestMasterDataExportImportHelper(unittest.TestCase):
         self.assertEqual(parsed[1].get("Description"), "Item Two")
 
 
+    def test_execute_atomic_import_success(self):
+        from sqlalchemy import create_engine, Column, Integer, String
+        from sqlalchemy.orm import declarative_base, sessionmaker
+
+        Base = declarative_base()
+
+        class DummyModel(Base):
+            __tablename__ = "dummy_import_test"
+            id = Column(Integer, primary_key=True)
+            name = Column(String)
+
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(engine)
+        Session = sessionmaker(bind=engine)
+        db = Session()
+
+        rows = [{"name": "Item A"}, {"name": "Item B"}, {"name": "Item C"}]
+
+        def row_processor(idx, r):
+            obj = DummyModel(name=r["name"])
+            db.add(obj)
+            db.flush()
+
+        res = MasterDataExportImportHelper.execute_atomic_import(db, rows, row_processor)
+        self.assertEqual(res["imported_count"], 3)
+        self.assertEqual(db.query(DummyModel).count(), 3)
+        db.close()
+
+    def test_execute_atomic_import_rollback_on_error(self):
+        from sqlalchemy import create_engine, Column, Integer, String
+        from sqlalchemy.orm import declarative_base, sessionmaker
+
+        Base = declarative_base()
+
+        class DummyModel(Base):
+            __tablename__ = "dummy_rollback_test"
+            id = Column(Integer, primary_key=True)
+            name = Column(String)
+
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(engine)
+        Session = sessionmaker(bind=engine)
+        db = Session()
+
+        rows = [
+            {"name": "Valid 1"},
+            {"name": "Valid 2"},
+            {"name": "FAIL"},  # Will trigger error
+            {"name": "Valid 3"},
+        ]
+
+        def row_processor(idx, r):
+            if r["name"] == "FAIL":
+                raise ValueError("Corrupt data in row!")
+            obj = DummyModel(name=r["name"])
+            db.add(obj)
+            db.flush()
+
+        with self.assertRaises(HTTPException) as ctx:
+            MasterDataExportImportHelper.execute_atomic_import(db, rows, row_processor)
+
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("Corrupt data in row!", str(ctx.exception.detail))
+        # Critical verification of All-or-Nothing atomicity: 0 items must be persisted
+        self.assertEqual(db.query(DummyModel).count(), 0)
+        db.close()
+
+
 if __name__ == "__main__":
     unittest.main()

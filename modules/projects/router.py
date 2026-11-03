@@ -2,6 +2,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status, UploadFile, File
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -141,44 +142,36 @@ def download_projects_excel_template():
     return MasterDataExportImportHelper.as_excel_response("Projects_CostCenters_Template.xlsx", content)
 
 
-@router.post("/import-excel")
+@router.post("/import-excel", dependencies=[Depends(require_permission("master_data.edit"))])
 async def import_excel_projects(file: UploadFile = File(...), db: Session = Depends(get_db)):
     file_bytes = await file.read()
     cols = ['project_code', 'project_name', 'client_name', 'manager_name', 'budget', 'currency', 'company_id', 'description']
     rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
-
     service = ProjectService(db)
-    imported_count = 0
-    errors = []
 
-    for idx, r in enumerate(rows, start=2):
-        try:
-            p_code = r.get('project_code')
-            p_name = r.get('project_name')
+    def process_row(idx: int, r: dict):
+        p_code = r.get('project_code')
+        p_name = r.get('project_name')
 
-            if not p_code or not p_name:
-                errors.append(f"Row {idx}: Missing required project_code or project_name.")
-                continue
+        if not p_code or not p_name:
+            raise ValueError("Missing required project_code or project_name.")
 
-            comp_id = int(r.get('company_id')) if r.get('company_id') and str(r.get('company_id')).isdigit() else 1
-            bud = float(r.get('budget')) if r.get('budget') and str(r.get('budget')).replace('.', '', 1).isdigit() else 0.0
+        comp_id = int(r.get('company_id')) if r.get('company_id') and str(r.get('company_id')).isdigit() else 1
+        bud = float(r.get('budget')) if r.get('budget') and str(r.get('budget')).replace('.', '', 1).isdigit() else 0.0
 
-            schema = ProjectCreate(
-                project_code=p_code,
-                project_name=p_name,
-                company_id=comp_id,
-                client_name=r.get('client_name'),
-                manager_name=r.get('manager_name'),
-                budget=bud,
-                currency=r.get('currency') or 'USD',
-                description=r.get('description'),
-            )
-            service.create(schema)
-            imported_count += 1
-        except Exception as e:
-            errors.append(f"Row {idx}: {str(e)}")
+        schema = ProjectCreate(
+            project_code=p_code,
+            project_name=p_name,
+            company_id=comp_id,
+            client_name=r.get('client_name'),
+            manager_name=r.get('manager_name'),
+            budget=bud,
+            currency=r.get('currency') or 'USD',
+            description=r.get('description'),
+        )
+        service.create(schema, commit=False)
 
-    return {"message": f"Successfully imported {imported_count} projects & cost centers.", "errors": errors}
+    return MasterDataExportImportHelper.execute_atomic_import(db, rows, process_row)
 
 
 # ==================================================
@@ -203,7 +196,7 @@ def get_project_financial_commitments(
     return service.get_financial_commitments(project_id)
 
 
-@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("master_data.edit"))])
 def create_project(
     data: ProjectCreate,
     db: Session = Depends(get_db),
@@ -212,7 +205,7 @@ def create_project(
     return service.create(data)
 
 
-@router.put("/{project_id}", response_model=ProjectResponse)
+@router.put("/{project_id}", response_model=ProjectResponse, dependencies=[Depends(require_permission("master_data.edit"))])
 def update_project(
     project_id: int,
     data: ProjectUpdate,
@@ -222,7 +215,7 @@ def update_project(
     return service.update(project_id, data)
 
 
-@router.delete("/{project_id}", response_model=ProjectResponse)
+@router.delete("/{project_id}", response_model=ProjectResponse, dependencies=[Depends(require_permission("master_data.edit"))])
 def soft_delete_project(
     project_id: int,
     db: Session = Depends(get_db),
@@ -231,7 +224,7 @@ def soft_delete_project(
     return service.soft_delete(project_id)
 
 
-@router.post("/{project_id}/restore", response_model=ProjectResponse)
+@router.post("/{project_id}/restore", response_model=ProjectResponse, dependencies=[Depends(require_permission("master_data.edit"))])
 def restore_project(
     project_id: int,
     db: Session = Depends(get_db),

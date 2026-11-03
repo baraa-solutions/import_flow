@@ -240,6 +240,13 @@ abstract class PagedListNotifier<T> extends StateNotifier<PagedListState<T>> {
     }
   }
 
+  /// Updates query wholesale (e.g. from table callback) and reloads.
+  void setQuery(ListQuery newQuery) {
+    if (state.query == newQuery) return;
+    state = state.copyWith(query: newQuery);
+    load();
+  }
+
   /// Refreshes the list reusing the current query and page.
   Future<void> refresh() => load();
 

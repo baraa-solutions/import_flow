@@ -2,6 +2,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, Response, status
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -84,44 +85,36 @@ def download_locations_excel_template():
     return MasterDataExportImportHelper.as_excel_response("Transport_Locations_Template.xlsx", content)
 
 
-@router.post("/import-excel")
+@router.post("/import-excel", dependencies=[Depends(require_permission("master_data.edit"))])
 async def import_excel_locations(file: UploadFile = File(...), db: Session = Depends(get_db)):
     file_bytes = await file.read()
     cols = ['location_name', 'un_locode', 'location_type', 'country', 'city']
     rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
-
     service = TransportLocationService(db)
-    imported_count = 0
-    errors = []
 
-    for idx, r in enumerate(rows, start=2):
-        try:
-            name = r.get('location_name')
-            locode = r.get('un_locode')
-            l_type = r.get('location_type') or 'Sea Port'
-            c_country = r.get('country') or 'Egypt'
-            c_city = r.get('city') or 'Alexandria'
+    def process_row(idx: int, r: dict):
+        name = r.get('location_name')
+        locode = r.get('un_locode')
+        l_type = r.get('location_type') or 'Sea Port'
+        c_country = r.get('country') or 'Egypt'
+        c_city = r.get('city') or 'Alexandria'
 
-            if not name or not locode:
-                errors.append(f"Row {idx}: Missing required location_name or un_locode.")
-                continue
+        if not name or not locode:
+            raise ValueError("Missing required location_name or un_locode.")
 
-            schema = TransportLocationCreate(
-                location_name=name,
-                un_locode=locode,
-                location_type=l_type,
-                country=c_country,
-                city=c_city,
-                notes=r.get('notes'),
-            )
-            service.create(schema)
-            imported_count += 1
-        except Exception as e:
-            errors.append(f"Row {idx}: {str(e)}")
+        schema = TransportLocationCreate(
+            location_name=name,
+            un_locode=locode,
+            location_type=l_type,
+            country=c_country,
+            city=c_city,
+            notes=r.get('notes'),
+        )
+        service.create(schema, commit=False)
 
-    if imported_count > 0:
-        memory_cache.clear_prefix("transport_locations:")
-    return {"message": f"Successfully imported {imported_count} transport locations.", "errors": errors}
+    result = MasterDataExportImportHelper.execute_atomic_import(db, rows, process_row)
+    memory_cache.clear_prefix("transport_locations:")
+    return result
 
 
 @router.get("/export-csv")
@@ -210,7 +203,7 @@ def get_location_by_id(
     return service.get_by_id(location_id)
 
 
-@router.post("", response_model=TransportLocationResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=TransportLocationResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("master_data.edit"))])
 def create_location(
     data: TransportLocationCreate,
     db: Session = Depends(get_db),
@@ -221,7 +214,7 @@ def create_location(
     return res
 
 
-@router.put("/{location_id}", response_model=TransportLocationResponse)
+@router.put("/{location_id}", response_model=TransportLocationResponse, dependencies=[Depends(require_permission("master_data.edit"))])
 def update_location(
     location_id: int,
     data: TransportLocationUpdate,
@@ -233,7 +226,7 @@ def update_location(
     return res
 
 
-@router.delete("/{location_id}", response_model=TransportLocationResponse)
+@router.delete("/{location_id}", response_model=TransportLocationResponse, dependencies=[Depends(require_permission("master_data.edit"))])
 def soft_delete_location(
     location_id: int,
     db: Session = Depends(get_db),
@@ -244,7 +237,7 @@ def soft_delete_location(
     return res
 
 
-@router.post("/{location_id}/restore", response_model=TransportLocationResponse)
+@router.post("/{location_id}/restore", response_model=TransportLocationResponse, dependencies=[Depends(require_permission("master_data.edit"))])
 def restore_location(
     location_id: int,
     db: Session = Depends(get_db),

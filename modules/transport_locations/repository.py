@@ -110,7 +110,7 @@ class TransportLocationRepository:
             response=response,
         )
 
-    def create(self, data: TransportLocationCreate) -> TransportLocation:
+    def create(self, data: TransportLocationCreate, commit: bool = True) -> TransportLocation:
         location = TransportLocation(
             un_locode=data.un_locode.upper().strip(),
             location_name=data.location_name.strip(),
@@ -121,8 +121,11 @@ class TransportLocationRepository:
             is_active=True,
         )
         self.db.add(location)
-        self.db.commit()
-        self.db.refresh(location)
+        if commit:
+            self.db.commit()
+            self.db.refresh(location)
+        else:
+            self.db.flush()
         return location
 
     def update(self, location: TransportLocation, data: TransportLocationUpdate) -> TransportLocation:

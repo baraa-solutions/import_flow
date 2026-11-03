@@ -12,9 +12,15 @@ from modules.suppliers.model import Supplier
 from fastapi import HTTPException
 
 
+from sqlalchemy.pool import StaticPool
+
 @pytest.fixture
 def db_session():
-    engine = create_engine("sqlite:///:memory:")
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(engine)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSessionLocal()
@@ -156,3 +162,71 @@ class TestProjectsBackend:
         assert restored.is_active is True
         active_list = service.get_all(include_inactive=False)
         assert len(active_list) == 1
+
+    def test_create_project_rbac_enforcement(self, db_session):
+        """Verify require_permission('master_data.edit') blocks unauthorized project creation (BEX-T06)."""
+        from fastapi.testclient import TestClient
+        from main import app
+        from database.database import get_db
+        from modules.users.model import User, Role, Permission, RolePermission
+        from modules.auth.security import create_access_token, hash_password
+
+        app.dependency_overrides[get_db] = lambda: db_session
+        client = TestClient(app)
+
+        # 1. User without master_data.edit
+        role_op = Role(role_code="OP_PROJ", name_en="Operator", name_ar="مشغل", is_active=True)
+        db_session.add(role_op)
+        db_session.flush()
+
+        user_viewer = User(
+            username="proj_viewer",
+            full_name="Project Viewer",
+            email="pv@ex.com",
+            hashed_password=hash_password("Secret123!"),
+            is_active=True,
+            role="OP_PROJ",
+            role_id=role_op.role_id,
+        )
+        db_session.add(user_viewer)
+        db_session.commit()
+        token_viewer = create_access_token({"sub": str(user_viewer.user_id), "username": user_viewer.username, "role": user_viewer.role})
+
+        payload = {
+            "project_name": "Unauthorized Project",
+            "project_owner": "Eng. Test",
+            "company_id": 1,
+            "supplier_id": 1,
+            "incoterm_id": 1,
+        }
+        res_denied = client.post("/api/v1/projects", json=payload, headers={"Authorization": f"Bearer {token_viewer}"})
+        assert res_denied.status_code == 403
+        assert "permission" in res_denied.text.lower() or "denied" in res_denied.text.lower() or "forbidden" in res_denied.text.lower()
+
+        # 2. User with master_data.edit
+        p_edit = Permission(permission_code="master_data.edit", module_name="master_data", action="edit", name_en="Edit Master Data", name_ar="تعديل البيانات المرجعية")
+        db_session.add(p_edit)
+        db_session.flush()
+
+        role_editor = Role(role_code="PROJ_EDITOR", name_en="Project Editor", name_ar="محرر مشاريع", is_active=True)
+        db_session.add(role_editor)
+        db_session.flush()
+        db_session.add(RolePermission(role_id=role_editor.role_id, permission_id=p_edit.permission_id))
+
+        user_editor = User(
+            username="proj_editor",
+            full_name="Project Editor",
+            email="pe@ex.com",
+            hashed_password=hash_password("Secret123!"),
+            is_active=True,
+            role="PROJ_EDITOR",
+            role_id=role_editor.role_id,
+        )
+        db_session.add(user_editor)
+        db_session.commit()
+        token_editor = create_access_token({"sub": str(user_editor.user_id), "username": user_editor.username, "role": user_editor.role})
+
+        res_allowed = client.post("/api/v1/projects", json=payload, headers={"Authorization": f"Bearer {token_editor}"})
+        assert res_allowed.status_code == 201
+        assert res_allowed.json()["project_name"] == "Unauthorized Project"
+        app.dependency_overrides.clear()

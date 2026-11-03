@@ -71,7 +71,7 @@ class ProjectRepository:
 
         return query.order_by(Project.created_at.desc()).all()
 
-    def create(self, data: ProjectCreate) -> Project:
+    def create(self, data: ProjectCreate, commit: bool = True) -> Project:
         explicit_code = bool(data.project_code and data.project_code.strip())
 
         primary_cid = data.company_id
@@ -105,6 +105,9 @@ class ProjectRepository:
                 is_active=True,
             )
             self.db.add(project)
+            if not commit:
+                self.db.flush()
+                return project
             try:
                 self.db.commit()
                 self.db.refresh(project)
