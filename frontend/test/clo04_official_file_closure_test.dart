@@ -222,10 +222,10 @@ void main() {
 
       // Verify 6 Pillars
       expect(find.text('1. الإفراج الجمركي'), findsOneWidget);
-      expect(find.text('2. إضافة المخزن (GRN)'), findsOneWidget);
+      expect(find.text('2. إذن إضافة المخزن'), findsOneWidget);
       expect(find.text('3. تسوية التكلفة الفعلية'), findsOneWidget);
       expect(find.text('4. تصدير الملف الشامل'), findsOneWidget);
-      expect(find.text('5. تسليم الحاويات (EIR)'), findsOneWidget);
+      expect(find.text('5. تسليم الحاويات للخط الملاحي'), findsOneWidget);
       expect(find.text('6. إغلاق المهام'), findsOneWidget);
 
       // Verify Certificate Preview

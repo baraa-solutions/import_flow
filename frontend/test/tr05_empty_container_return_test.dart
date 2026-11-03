@@ -175,7 +175,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Check header title
-      expect(find.text('تأكيد إرجاع الحاويات الفارغة للخط (EIR) — (TR-05)'), findsOneWidget);
+      expect(find.text('تأكيد إرجاع الحاويات الفارغة للخط الملاحي — (TR-05)'), findsOneWidget);
 
       // Check submit button
       expect(find.byKey(const Key('submitEmptyContainerReturnBtn')), findsOneWidget);
@@ -185,16 +185,16 @@ void main() {
 
       // Check container condition cards
       expect(find.textContaining('سليمة ونظيفة'), findsOneWidget);
-      expect(find.textContaining('تلفيات بسيطة'), findsOneWidget);
+      expect(find.text('تلفيات طفيفة'), findsOneWidget);
       expect(find.textContaining('تتطلب إصلاح'), findsOneWidget);
 
       // Check initial container number badge
       expect(find.textContaining('MSCU1234567'), findsOneWidget);
 
-      // Ensure visible and tap on 'تلفيات بسيطة' condition card
-      await tester.ensureVisible(find.textContaining('تلفيات بسيطة'));
+      // Ensure visible and tap on 'تلفيات طفيفة' condition card
+      await tester.ensureVisible(find.text('تلفيات طفيفة'));
       await tester.pumpAndSettle();
-      await tester.tap(find.textContaining('تلفيات بسيطة'));
+      await tester.tap(find.text('تلفيات طفيفة'));
       await tester.pumpAndSettle();
 
       // Verify that damage description field appears

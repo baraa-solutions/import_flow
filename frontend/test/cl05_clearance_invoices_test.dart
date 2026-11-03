@@ -242,7 +242,7 @@ void main() {
 
       // Verify Footer note
       expect(
-        find.text('المصاريف تُرحَّل تلقائياً إلى كشف حساب تكلفة الشحنة (Landed Cost Engine)'),
+        find.text('المصاريف تُرحَّل تلقائياً إلى كشف حساب تكلفة وصول الشحنة الإجمالية'),
         findsOneWidget,
       );
     });

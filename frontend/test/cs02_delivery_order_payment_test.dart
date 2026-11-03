@@ -153,7 +153,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify Header & Shipment Details
-      expect(find.text('سداد إذن التسليم الملاحي واستلام D/O (CS-02)'), findsOneWidget);
+      expect(find.text('سداد إذن التسليم الملاحي واستلامه (CS-02)'), findsOneWidget);
       expect(find.textContaining('IMP-2026-0077'), findsWidgets);
       expect(find.textContaining('Al-Nour Chemicals Co.'), findsOneWidget);
       expect(find.textContaining('Industrial Polymers'), findsOneWidget);
