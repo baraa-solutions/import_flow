@@ -68,7 +68,7 @@ class TestImportDocumentationBackend:
             pod_name="Alexandria Port, Egypt",
             requested_date=date(2026, 8, 1),
             generated_date=date(2026, 8, 2),
-            expiry_date=date(2026, 11, 2),
+            expiry_date=date.today() + timedelta(days=90),
             verification_notes="Automatic 100% match",
         )
         res = service.create_acid_session_service(db_session, payload)
@@ -94,7 +94,7 @@ class TestImportDocumentationBackend:
                 proforma_invoice_no="PI-001",
                 pol_name="Shanghai",
                 pod_name="Alexandria",
-                expiry_date=date(2026, 11, 2),
+                expiry_date=date.today() + timedelta(days=90),
             )
 
     def test_create_banking_document_service(self, db_session):
@@ -161,7 +161,7 @@ class TestImportDocumentationBackend:
             proforma_invoice_no="PI-001",
             pol_name="Shanghai",
             pod_name="Alexandria",
-            expiry_date=date(2026, 11, 2),
+            expiry_date=date.today() + timedelta(days=90),
         )
         created = service.create_acid_session_service(db_session, payload)
         acid_id = created.acid_id
