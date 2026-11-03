@@ -45,35 +45,53 @@ class NafezaParsedMtsResultCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                hasAcid ? Icons.check_circle : Icons.warning_amber_rounded,
-                color: hasAcid
-                    ? (isDark ? AppTheme.wcagEmerald : AppTheme.cobalt)
-                    : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
-                size: 22,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  hasAcid ? l.parsedMtsSuccessTitle : l.parsedMtsNoAcidTitle,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: hasAcid
-                        ? (isDark ? AppTheme.wcagEmerald : AppTheme.cobalt)
-                        : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              AppButton(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final verifyButton = AppButton(
                 label: l.goToVerificationButton,
                 onPressed: onGoToVerification,
                 icon: Icons.compare_arrows,
-              ),
-            ],
+              );
+              final isNarrow = constraints.maxWidth < 520;
+              final titleRow = Row(
+                children: [
+                  Icon(
+                    hasAcid ? Icons.check_circle : Icons.warning_amber_rounded,
+                    color: hasAcid
+                        ? (isDark ? AppTheme.wcagEmerald : AppTheme.cobalt)
+                        : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
+                    size: 22,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      hasAcid ? l.parsedMtsSuccessTitle : l.parsedMtsNoAcidTitle,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: hasAcid
+                            ? (isDark ? AppTheme.wcagEmerald : AppTheme.cobalt)
+                            : (isDark ? AppTheme.wcagOrange : AppTheme.orange),
+                      ),
+                    ),
+                  ),
+                  if (!isNarrow) ...[
+                    const SizedBox(width: 12),
+                    verifyButton,
+                  ],
+                ],
+              );
+              if (!isNarrow) return titleRow;
+              // Narrow (mobile) widths: the action button drops below the title.
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  titleRow,
+                  const SizedBox(height: 8),
+                  verifyButton,
+                ],
+              );
+            },
           ),
           const Divider(height: 20),
           Wrap(
