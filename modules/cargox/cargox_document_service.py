@@ -8,6 +8,7 @@ import io
 import base64
 import uuid
 import hashlib
+import logging
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from collections import OrderedDict, defaultdict
@@ -38,6 +39,7 @@ from .excel_invoice_service import (
     parse_standard_invoice_excel_bytes,
     compare_standard_invoice_data,
     normalize_cargox_weight_unit,
+    normalize_cargox_country_code,
 )
 from .city_port_resolver import (
     resolve_city_code,
@@ -48,6 +50,9 @@ from ..import_companies.model import ImportCompany
 from ..suppliers.model import Supplier
 from ..purchase_orders.model import PurchaseOrder, POLineItem
 from ..import_documentation.model import POPackingReconciliationSession
+
+
+logger = logging.getLogger(__name__)
 
 
 class CargoXDocumentService:
@@ -309,18 +314,22 @@ class CargoXStandardInvoiceService:
                 "net_weight_kg": total_net or 90.0,
             })
 
-        # 4. Pro-rate Unit Weights
+        # 4. Pro-rate Unit Weights (Fallback only when line weights are missing/zero)
         total_all_qty = sum(r["quantity"] for r in raw_items_source) if raw_items_source else 1.0
         unit_gross_rate = (total_gross / total_all_qty) if (total_gross > 0 and total_all_qty > 0) else 0.0
         unit_net_rate = (total_net / total_all_qty) if (total_net > 0 and total_all_qty > 0) else 0.0
 
-        # 5. Group by HS Code (Consolidation to prevent duplicate HS Code rows)
+        # 5. Group by (HS Code, unit_price) to ensure Egyptian Customs compliance
+        # Distinct unit prices under the same HS code MUST remain on separate lines!
         grouped = OrderedDict()
         for r in raw_items_source:
             hs = r["hs_code"]
-            if hs not in grouped:
-                grouped[hs] = {
+            price = round(r["unit_price"], 4)
+            key = (hs, price)
+            if key not in grouped:
+                grouped[key] = {
                     "hs_code": hs,
+                    "unit_price": price,
                     "item_codes": [],
                     "descriptions": [],
                     "total_qty": 0.0,
@@ -328,29 +337,31 @@ class CargoXStandardInvoiceService:
                     "total_amount": 0.0,
                     "total_gross_weight": 0.0,
                     "total_net_weight": 0.0,
-                    "country_of_origin": r["country_of_origin"],
+                    "country_of_origin": normalize_cargox_country_code(r["country_of_origin"]),
                 }
             qty = r["quantity"]
-            price = r["unit_price"]
             amount = qty * price
-            item_g = (qty * unit_gross_rate) if unit_gross_rate > 0 else r["gross_weight_kg"]
-            item_n = (qty * unit_net_rate) if unit_net_rate > 0 else r["net_weight_kg"]
+            # Preserve actual line item weights if available; only fallback to qty proration if item weight is missing / 0
+            has_actual_gw = (r.get("gross_weight_kg") is not None and float(r["gross_weight_kg"]) > 0)
+            has_actual_nw = (r.get("net_weight_kg") is not None and float(r["net_weight_kg"]) > 0)
+            item_g = float(r["gross_weight_kg"]) if has_actual_gw else ((qty * unit_gross_rate) if unit_gross_rate > 0 else 0.0)
+            item_n = float(r["net_weight_kg"]) if has_actual_nw else ((qty * unit_net_rate) if unit_net_rate > 0 else 0.0)
 
-            if r["item_code"] and r["item_code"] not in grouped[hs]["item_codes"]:
-                grouped[hs]["item_codes"].append(r["item_code"])
-            if r["description"] and r["description"] not in grouped[hs]["descriptions"]:
-                grouped[hs]["descriptions"].append(r["description"])
+            if r.get("item_code") and r["item_code"] not in grouped[key]["item_codes"]:
+                grouped[key]["item_codes"].append(r["item_code"])
+            if r.get("description") and r["description"] not in grouped[key]["descriptions"]:
+                grouped[key]["descriptions"].append(r["description"])
 
-            grouped[hs]["total_qty"] += qty
-            grouped[hs]["total_amount"] += amount
-            grouped[hs]["total_gross_weight"] += item_g
-            grouped[hs]["total_net_weight"] += item_n
+            grouped[key]["total_qty"] += qty
+            grouped[key]["total_amount"] += amount
+            grouped[key]["total_gross_weight"] += item_g
+            grouped[key]["total_net_weight"] += item_n
 
         items: List[StandardInvoiceLineItem] = []
-        for idx, (hs, grp) in enumerate(grouped.items(), start=1):
+        for idx, (key, grp) in enumerate(grouped.items(), start=1):
             tot_qty = grp["total_qty"]
             tot_amt = grp["total_amount"]
-            avg_price = round(tot_amt / tot_qty, 4) if tot_qty > 0 else 0.0
+            unit_price = grp["unit_price"]
             code_str = grp["item_codes"][0] if grp["item_codes"] else f"ITEM-{idx:03d}"
             desc_str = grp["descriptions"][0] if grp["descriptions"] else "Imported Goods"
 
@@ -361,13 +372,13 @@ class CargoXStandardInvoiceService:
                     manufacturer=supplier.company_name if supplier else "Manufacturer",
                     brand_name="Standard",
                     model="Standard",
-                    hs_code=hs,
+                    hs_code=grp["hs_code"],
                     country_of_origin=grp["country_of_origin"],
                     description=desc_str,
                     quantity=round(tot_qty, 2),
                     qty_unit=grp["qty_unit"],
                     expiry_date=None,
-                    unit_price=round(avg_price, 4),
+                    unit_price=round(unit_price, 4),
                     unit_price_basis=grp["qty_unit"],
                     gross_weight_kg=round(grp["total_gross_weight"], 2),
                     net_weight_kg=round(grp["total_net_weight"], 2),
@@ -1090,9 +1101,9 @@ class CargoXExtractionEngine:
                         "quantity": qty,
                         "qty_unit": pi.unit_of_measure or "PCS",
                         "unit_price": float(getattr(pi, "customs_unit_price", None) or pi.unit_price),
-                        "country_of_origin": pi.country_of_origin or country_fallback,
-                        "gross_weight_kg": qty * unit_gross_rate if unit_gross_rate > 0 else float(pi.gross_weight_kg or 0),
-                        "net_weight_kg": qty * unit_net_rate if unit_net_rate > 0 else float(pi.net_weight_kg or 0),
+                        "country_of_origin": normalize_cargox_country_code(pi.country_of_origin or country_fallback),
+                        "gross_weight_kg": float(pi.gross_weight_kg) if (pi.gross_weight_kg and float(pi.gross_weight_kg) > 0) else (qty * unit_gross_rate),
+                        "net_weight_kg": float(pi.net_weight_kg) if (pi.net_weight_kg and float(pi.net_weight_kg) > 0) else (qty * unit_net_rate),
                         "weight_unit": resolved_weight_uom,
                         "invoice_number": inv_no,
                     })
@@ -1135,6 +1146,25 @@ class CargoXExtractionEngine:
         # الـ detailed modes تفرض flat
         if "detailed" in extraction_mode:
             grouping_mode = "flat"
+
+        # CGX-CUSTOMS-WARN: Warning when by_hs_code is explicitly requested with multiple prices.
+        # Egyptian Customs valuation requires each variant declared at its transaction value.
+        if grouping_mode == "by_hs_code":
+            _hs_prices: dict = {}
+            for _r in raw_items:
+                _hs = _r["hs_code"]
+                _p = round(_r["unit_price"], 4)
+                if _hs not in _hs_prices:
+                    _hs_prices[_hs] = set()
+                _hs_prices[_hs].add(_p)
+            _mixed_price_codes = [hs for hs, prices in _hs_prices.items() if len(prices) > 1]
+            if _mixed_price_codes:
+                logger.warning(
+                    "[CGX-CUSTOMS-WARN] Multiple unit prices detected for HS codes %s under 'by_hs_code' grouping. "
+                    "Weighted average price will be computed. Egyptian Customs compliance recommends "
+                    "'by_price_group' to avoid customs valuation discrepancies.",
+                    _mixed_price_codes,
+                )
 
         if grouping_mode == "flat":
             items = []

@@ -6671,7 +6671,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get cargoxModeConsolidatedTitle => '١. ملف واحد مجمع';
   @override
-  String get cargoxModeConsolidatedSubtitle => 'دمج بنود نفس بند التعريفة الجمركية بالسعر المرجح (معتمد للجمارك المصرية)';
+  String get cargoxModeConsolidatedSubtitle => 'دمج البنود حسب بند التعريفة والسعر الفعلي (معتمد ومطابق للجمارك المصرية)';
   @override
   String get cargoxModeDetailedTitle => '٢. ملف واحد مفصل';
   @override
@@ -6679,7 +6679,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get cargoxModePerInvoiceConsolidatedTitle => '٣. ملف مجمع لكل فاتورة داخل أرشيف مضغوط';
   @override
-  String get cargoxModePerInvoiceConsolidatedSubtitle => 'توليد ملف إكسيل مجمع منفصل لكل فاتورة داخل حزمة أرشيف';
+  String get cargoxModePerInvoiceConsolidatedSubtitle => 'توليد ملف إكسيل مجمع بالتعريفة والسعر الفعلي لكل فاتورة داخل حزمة أرشيف';
   @override
   String get cargoxModePerInvoiceDetailedTitle => '٤. ملف مفصل لكل فاتورة داخل أرشيف مضغوط';
   @override

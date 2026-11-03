@@ -421,7 +421,7 @@ class CargoXEnvelopeService:
                     document_acid=target_acid if is_match else f"{target_acid[:-3]}999 (Mismatch)",
                     is_matched=is_match,
                     status="VERIFIED_100_PERCENT_MATCH" if is_match else "CRITICAL_ACID_MISMATCH",
-                    notes="رقم الـ ACID الجمركي مطابق تماماً 100% للشحنة" if is_match else "تنبيه: رقم الـ ACID غير متطابق",
+                    notes="ACID Number verified: 100% match with import file" if is_match else "Warning: ACID Number mismatch",
                 )
             )
 

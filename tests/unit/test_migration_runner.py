@@ -729,3 +729,29 @@ def test_prefix_constants_rebuild_protected_prefixes():
         db_safety.PRE_RESTORE_PREFIX,
     )
     assert db_safety.PROTECTED_BACKUP_PREFIXES == ("pre_install_", "pre_update_", "pre_migration_", "pre_restore_")
+
+
+def test_upgrade_from_legacy_import_files_with_quoted_default(tmp_path):
+    """Regression test: import_files with inland_transport_status DEFAULT "NOT_BOOKED"
+    must upgrade from f6a7b8c9d0e1 to head without batch_alter_table failing on non-constant default."""
+    db_file = _legacy_db(tmp_path / "legacy_quoted.db")
+    conn = sqlite3.connect(db_file)
+    # Recreate import_files to have the exact legacy DDL with double quotes in DEFAULT
+    sql = conn.execute("SELECT sql FROM sqlite_master WHERE name='import_files'").fetchone()[0]
+    sql_quoted = sql.replace("DEFAULT 'NOT_BOOKED'", 'DEFAULT "NOT_BOOKED"')
+    conn.execute("PRAGMA foreign_keys = OFF")
+    conn.execute("DROP TABLE import_files")
+    conn.execute(sql_quoted)
+    conn.commit()
+    conn.close()
+
+    _set_revisions(db_file, "f6a7b8c9d0e1")
+
+    engine = _engine(db_file)
+    try:
+        new_rev = migration_runner.upgrade_to_head(engine)
+    finally:
+        engine.dispose()
+
+    assert new_rev == HEAD_REVISION
+    assert _revisions(db_file) == [HEAD_REVISION]

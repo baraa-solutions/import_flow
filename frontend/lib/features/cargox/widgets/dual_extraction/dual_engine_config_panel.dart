@@ -82,6 +82,34 @@ class DualEngineConfigPanel extends StatelessWidget {
                   onChanged: (v) => onInvoiceConfigChanged(invoiceConfig.copyWith(grouping: v)),
                   activeColor: AppTheme.cobalt,
                 ),
+                // CGX-CUSTOMS-GUARD banner
+                if (invoiceConfig.grouping == InvoiceGroupingMode.byHsCode &&
+                    invoiceConfig.detail == ContentDetailMode.consolidated) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.orange.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.orange),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.shield_outlined, color: AppTheme.orange, size: 15),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            isAr
+                                ? 'حماية جمركية تلقائية: إذا وُجد نفس رمز التعريفة بأسعار مختلفة، يُفعّل التقسيم تلقائياً لضمان صحة الإقرار الجمركي المصري.'
+                                : 'Auto customs guard: if the same HS code has different prices, lines are split automatically for Egyptian Customs compliance.',
+                            style: const TextStyle(fontSize: 10, color: AppTheme.charcoal),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
