@@ -199,7 +199,7 @@ class _AdvancedOperationalPillarsAccordionState extends State<AdvancedOperationa
     final isSelected = _selectedSubTabIndex == index;
 
     return Padding(
-      padding: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsetsDirectional.only(end: 6),
       child: ChoiceChip(
         avatar: Icon(
           icon,

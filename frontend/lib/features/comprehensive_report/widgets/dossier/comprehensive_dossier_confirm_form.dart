@@ -95,7 +95,7 @@ class ComprehensiveDossierConfirmForm extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerEnd,
               child: ElevatedButton.icon(
                 key: const Key('confirmDossierExportBtn'),
                 onPressed: isSubmitting ? null : onConfirmExport,

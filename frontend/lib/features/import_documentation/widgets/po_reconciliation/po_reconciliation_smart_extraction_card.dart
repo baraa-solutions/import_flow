@@ -409,7 +409,7 @@ class _PoReconciliationSmartExtractionCardState extends ConsumerState<PoReconcil
               ),
               const SizedBox(height: 16),
               Align(
-                alignment: Alignment.centerRight,
+                alignment: AlignmentDirectional.centerStart, // right side in Arabic, as before
                 child: IdocUi.fit(AppButton(
                   label: _isExtracting ? l.poRecExtractingProgress : l.poRecExecuteSmartExtractionButton,
                   icon: Icons.compare_arrows_rounded,

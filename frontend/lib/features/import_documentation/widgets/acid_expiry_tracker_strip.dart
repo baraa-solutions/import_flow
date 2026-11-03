@@ -374,7 +374,7 @@ class _AcidExpiryTrackerStripState extends ConsumerState<AcidExpiryTrackerStrip>
         Expanded(child: searchField),
         const SizedBox(width: 8),
         ...actionButtons.map((btn) => Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsetsDirectional.only(start: 8),
               child: btn,
             )),
       ],

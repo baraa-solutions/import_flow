@@ -79,7 +79,7 @@ class RegulatoryAgencySelectorCard extends ConsumerWidget {
               children: _agencies.map((agency) {
                 final isSelected = selectedAgency == agency['code'];
                 return Padding(
-                  padding: const EdgeInsets.only(left: 8.0),
+                  padding: const EdgeInsetsDirectional.only(start: 8.0),
                   child: FilterChip(
                     selected: isSelected,
                     label: Text(agency['name']!),
