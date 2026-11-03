@@ -242,9 +242,7 @@ class POFormHeaderCard extends ConsumerWidget {
                 items: projects
                     .map((p) => SearchableDropdownItem<int?>(
                           value: p.projectId,
-                          label: isArabic
-                              ? '${p.projectCode} - ${p.projectName}'
-                              : '${p.projectCode} - ${p.projectName}',
+                          label: '${p.projectCode} (${p.projectName})',
                         ))
                     .toList(),
                 onChanged: onProjectChanged,
@@ -363,7 +361,7 @@ class POFormHeaderCard extends ConsumerWidget {
                 items: incoterms
                     .map((i) => SearchableDropdownItem<int?>(
                           value: i.incotermId,
-                          label: isArabic ? '${i.incotermCode} - ${i.incotermName}' : '${i.incotermCode} - ${i.incotermName}',
+                          label: '${i.incotermCode} (${i.incotermName})',
                         ))
                     .toList(),
                 onChanged: onIncotermChanged,
@@ -379,7 +377,7 @@ class POFormHeaderCard extends ConsumerWidget {
                 items: currencies
                     .map((c) => SearchableDropdownItem<int?>(
                           value: c.currencyId,
-                          label: isArabic ? '${c.currencyCode} - ${c.currencyName}' : '${c.currencyCode} - ${c.currencyName}',
+                          label: '${c.currencyCode} (${c.currencyName})',
                         ))
                     .toList(),
                 onChanged: onCurrencyChanged,

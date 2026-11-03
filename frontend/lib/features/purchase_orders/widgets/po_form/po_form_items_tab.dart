@@ -261,7 +261,7 @@ class POFormItemsTab extends ConsumerWidget {
                         flex: 2,
                         child: SearchableDropdownField<String?>(
                           value: PoFormExtractor.normalizeCountryName(item.countryOfOrigin ?? selectedCountryOfOrigin),
-                          labelText: isArabic ? 'بلد المنشأ' : 'Country of Origin',
+                          labelText: isArabic ? 'بلد المنشأ للبند' : 'Item Country of Origin',
                           items: cachedCountryItems,
                           onChanged: (v) {
                             onItemUpdated(

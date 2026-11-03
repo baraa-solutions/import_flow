@@ -25,6 +25,7 @@ import 'package:frontend/features/purchase_orders/providers/purchase_orders_prov
 import 'package:frontend/features/purchase_orders/utils/po_row_list.dart';
 import 'package:frontend/features/purchase_orders/widgets/po_decimal_field.dart';
 import 'package:frontend/features/purchase_orders/widgets/po_form_dialog.dart';
+import 'package:frontend/features/purchase_orders/widgets/po_form/po_form_items_tab.dart';
 import 'package:frontend/features/suppliers/models/supplier_model.dart';
 import 'package:frontend/features/suppliers/providers/suppliers_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -222,6 +223,10 @@ Future<void> _typeCharByChar(WidgetTester tester, Finder field, String text) asy
   }
 }
 
+/// The line total inside the items tab (the summary bar repeats the PO total).
+Finder _lineTotal(String text) =>
+    find.descendant(of: find.byType(POFormItemsTab), matching: find.text(text));
+
 String _fieldText(WidgetTester tester, Finder field) => tester.widget<TextField>(field).controller!.text;
 
 bool _fieldHasFocus(WidgetTester tester, Finder field) =>
@@ -242,7 +247,7 @@ Future<void> _selectAllRequired(WidgetTester tester) async {
   await _pick(tester, 'Supplier', 'Siemens Industrial GmbH');
   await _pick(tester, 'Incoterm', 'FOB (Free On Board)');
   await _pick(tester, 'Currency', 'USD (US Dollar)');
-  await _pick(tester, 'Payment Terms', 'Letter of Credit / LC (اعتماد مستندي)');
+  await _pick(tester, 'Payment Terms', 'Letter of Credit');
 }
 
 Future<void> _save(WidgetTester tester) async {
@@ -317,7 +322,7 @@ void main() {
 
   testWidgets('typing "123.45" into Unit Price is continuous (focus kept) and keeps the decimal value', (tester) async {
     await _pumpNewPoDialog(tester);
-    final price = _textField('Unit Price (سعر الوحده)');
+    final price = _textField('Unit Price');
     await tester.ensureVisible(price);
 
     await _typeCharByChar(tester, price, '123.45');
@@ -325,19 +330,19 @@ void main() {
     expect(_fieldText(tester, price), '123.45');
     expect(_fieldHasFocus(tester, price), isTrue, reason: 'the field must not be rebuilt/unfocused while typing');
     // Default line has qty 100: the line total proves the model holds 123.45.
-    expect(find.text('USD 12345.00'), findsOneWidget);
+    expect(_lineTotal('USD 12345.00'), findsOneWidget);
   });
 
   testWidgets('Qty keeps focus while typing several digits', (tester) async {
     await _pumpNewPoDialog(tester);
-    final qty = _textField('Qty (الكمية/العدد)');
+    final qty = _textField('Quantity');
     await tester.ensureVisible(qty);
 
     await _typeCharByChar(tester, qty, '250');
 
     expect(_fieldText(tester, qty), '250');
     expect(_fieldHasFocus(tester, qty), isTrue);
-    expect(find.text('USD 2500.00'), findsOneWidget); // 250 x default price 10
+    expect(_lineTotal('USD 2500.00'), findsOneWidget); // 250 x default price 10
   });
 
   testWidgets('Net Wt / Gross Wt accept 16 decimals and the saved payload keeps the value', (tester) async {
@@ -412,7 +417,7 @@ void main() {
     expect(notifier.state.error, isNull, reason: 'a failed save must not replace the PO list with an error page');
 
     // Still editable and the save button is enabled again (not stuck in loading).
-    final price = _textField('Unit Price (سعر الوحده)');
+    final price = _textField('Unit Price');
     await tester.ensureVisible(price);
     await _typeCharByChar(tester, price, '7.5');
     expect(_fieldText(tester, price), '7.5');
@@ -425,7 +430,7 @@ void main() {
     await _pick(tester, 'Supplier', 'Siemens Industrial GmbH');
     await _pick(tester, 'Incoterm', 'FOB (Free On Board)');
     await _pick(tester, 'Currency', 'EUR (Euro)');
-    await _pick(tester, 'Payment Terms', 'Letter of Credit / LC (اعتماد مستندي)');
+    await _pick(tester, 'Payment Terms', 'Letter of Credit');
 
     // Verify helper text is shown indicating missing exchange rate
     expect(find.textContaining('No exchange rate found for EUR'), findsOneWidget);
